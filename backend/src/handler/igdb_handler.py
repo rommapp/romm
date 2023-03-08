@@ -19,7 +19,7 @@ class IGDBHandler():
         }
         
 
-    def get_twitch_auth(func) -> tuple:
+    def check_twitch_token(func) -> tuple:
         @functools.wraps(func)
         def wrapper(*args):
             args[0].headers['Authorization'] = f'Bearer {args[0].twitch_auth.get_oauth_token()}'
@@ -27,7 +27,7 @@ class IGDBHandler():
         return wrapper
 
     
-    @get_twitch_auth
+    @check_twitch_token
     def get_platform_details(self, slug: str) -> tuple:
         id: str = ""
         name: str = ""
@@ -54,7 +54,7 @@ class IGDBHandler():
         return (res_details['slug'], res_details['name'], res_details['summary'])
 
 
-    @get_twitch_auth
+    @check_twitch_token
     def get_rom_details(self, game: str, platform_id: int) -> dict:
         id: str = ""
         slug: str = ""
