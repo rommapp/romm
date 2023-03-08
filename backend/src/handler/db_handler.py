@@ -29,10 +29,8 @@ class DBHandler:
         self.cur = self.conn.cursor()
 
 
-    def create_platform_table(self, 
-                              igdb_id: str, sgdb_id: str,
-                              slug: str, name: str,
-                              path_logo: str) -> None:
+    def regenerate_platform_table(self, igdb_id: str, sgdb_id: str,
+                                  slug: str, name: str, path_logo: str) -> None:
         try:
             self.cur.execute(f"""
             create table if not exists {self.DATABASE}.{self.PLATFORM_TABLE}
@@ -52,11 +50,8 @@ class DBHandler:
             raise HTTPException(status_code=500, detail=f"Can't truncate platform table. {e}")
 
     
-    def create_rom_table(self, 
-                         igdb_id: str, sgdb_id: str,
-                         platform_igdb_id: str, platform_sgdb_id: str,
-                         filename: str, name: str,
-                         path_cover: str) -> None:
+    def regenerate_rom_table(self, igdb_id: str, sgdb_id: str, platform_igdb_id: str, platform_sgdb_id: str,
+                             filename: str, name: str, path_cover: str) -> None:
         try:
             self.cur.execute(f"""
             create table if not exists {self.DATABASE}.{self.ROM_TABLE}
