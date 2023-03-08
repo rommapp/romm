@@ -1,0 +1,34 @@
+version: "3"
+services:
+  romm:
+    image: romm:latest
+    container_name: romm
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWD=${DB_PASSWD}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - STEAMGRIDDB_API_KEY=${STEAMGRIDDB_API_KEY}
+    volumes:
+      - ${EMULATION_PATH}:/emulation
+    ports:
+      - ${ROMM_PORT_API}:5000
+      - ${ROMM_PORT}:5173
+    restart: "no"
+
+
+  romm_db:
+    image: lscr.io/linuxserver/mariadb:latest
+    container_name: romm_db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWD}
+      - MYSQL_DATABASE=romm
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWD}
+    volumes:
+      - ${DB_CONFIG_PATH}:/config
+    ports:
+      - ${DB_PORT}:3306
+    restart: "no"

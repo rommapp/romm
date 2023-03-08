@@ -1,0 +1,4 @@
+requests==2.28.2
+fastapi==0.92.0
+uvicorn==0.20.0
+mariadb==1.1.6
