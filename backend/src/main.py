@@ -4,7 +4,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from logger.logger import log
-from handler.igdb_handler import IGDBHandler, TwitchAuth
+from handler.igdb_handler import IGDBHandler
 from handler.sgdb_handler import SGDBHandler
 from handler.db_handler import DBHandler
 from config.config import DEFAULT_IMAGE_URL
@@ -14,7 +14,7 @@ from utils import fs, fastapi
 
 app = FastAPI()
 origins = fastapi.allow_cors(app)
-igdbh: IGDBHandler = IGDBHandler(TwitchAuth())
+igdbh: IGDBHandler = IGDBHandler()
 dbh: DBHandler = DBHandler()
 
 

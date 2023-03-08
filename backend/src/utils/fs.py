@@ -16,9 +16,7 @@ def get_platforms() -> list:
     Automatically discards the default directory.
     """
     try:
-        log.debug(EMULATION_BASE_PATH)
         platforms: list = list(os.walk(EMULATION_BASE_PATH))[0][1]
-        log.debug(platforms)
         if 'defaults' in platforms: platforms.remove('defaults')
         log.info(f"filesystem platforms found: {platforms}")
         return platforms

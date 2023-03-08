@@ -1,5 +1,5 @@
-import os
 import sys
+import functools
 from time import time
 
 import requests
@@ -10,12 +10,24 @@ from logger.logger import log
 
 class IGDBHandler():
 
-    def __init__(self, auth) -> None:
-        self.headers: dict = {'Client-ID': auth.client_id,
-                              'Authorization': f'Bearer {auth.get_oauth_token()}',
-                              'Accept': 'application/json'}
+    def __init__(self) -> None:
+        self.twitch_auth: TwitchAuth = TwitchAuth()
+        self.headers = {
+            'Client-ID': self.twitch_auth.client_id,
+            'Authorization': f'Bearer {self.twitch_auth.get_oauth_token()}',
+            'Accept': 'application/json'
+        }
+        
+
+    def get_twitch_auth(func) -> tuple:
+        @functools.wraps(func)
+        def wrapper(*args):
+            args[0].headers['Authorization'] = f'Bearer {args[0].twitch_auth.get_oauth_token()}'
+            return func(*args)
+        return wrapper
 
     
+    @get_twitch_auth
     def get_platform_details(self, slug: str) -> tuple:
         id: str = ""
         name: str = ""
@@ -25,49 +37,59 @@ class IGDBHandler():
                                 data=f"fields id, name, platform_logo; where slug=\"{slug}\";").json()[0]
             id = res_details['id']
             name = res_details['name']
-            logo_id = res_details['platform_logo']
+            id_logo = res_details['platform_logo']
         except IndexError:
             log.warning("platform not found in igdb")
         else:
             try:
                 res_logo: dict = requests.post("https://api.igdb.com/v4/platform_logos", headers=self.headers,
-                                               data=f"fields image_id; where id={logo_id};").json()[0]
+                                               data=f"fields image_id; where id={id_logo};").json()[0]
                 url_logo: str = f"https://images.igdb.com/igdb/image/upload/t_logo_med/{res_logo['image_id']}.png"
             except IndexError:
                 log.warning(f"{slug} logo not found in igdb")
         return (id, name, url_logo)
     
 
-    
-    def get_rom_props(self, game: str, platform_id: int) -> dict:
+    def _parse_rom_details(res_details: dict) -> tuple:
+        return (res_details['slug'], res_details['name'], res_details['summary'])
+
+
+    @get_twitch_auth
+    def get_rom_details(self, game: str, platform_id: int) -> dict:
+        id: str = ""
+        slug: str = ""
+        name: str = ""
+        summary: str = ""
+        url_cover: str = ""
         try:
-            res: dict = requests.post("https://api.igdb.com/v4/games/",
-                                headers=self.headers,
-                                data=f"search \"{game}\";fields name, id, slug, summary, cover; where platforms=[{platform_id}] & category=0;").json()[0]
+            res_details: dict = requests.post("https://api.igdb.com/v4/games/",
+                                              headers=self.headers,
+                                              data=f"search \"{game}\";fields id, slug, name, summary; where platforms=[{platform_id}] & category=0;").json()[0]
+            id, slug, name, summary = self._parse_rom_details(res_details)
         except IndexError:
             try:
-                res: dict = requests.post("https://api.igdb.com/v4/games/",
-                                headers=self.headers,
-                                data=f"search \"{game}\";fields name, id, slug, summary, cover; where platforms=[{platform_id}] & category=10;").json()[0]
+                res_details: dict = requests.post("https://api.igdb.com/v4/games/",
+                                                  headers=self.headers,
+                                                  data=f"search \"{game}\";fields name, id, slug, summary; where platforms=[{platform_id}] & category=10;").json()[0]
+                id, slug, name, summary = self._parse_rom_details(res_details)
             except IndexError:
                 try:
-                    res: dict = requests.post("https://api.igdb.com/v4/games/",
-                                              headers=self.headers,
-                                              data=f"search \"{game}\";fields name, id, slug, summary, cover; where platforms=[{platform_id}];").json()[0]
+                    res_details: dict = requests.post("https://api.igdb.com/v4/games/",
+                                                      headers=self.headers,
+                                                      data=f"search \"{game}\";fields name, id, slug, summary; where platforms=[{platform_id}];").json()[0]
+                    id, slug, name, summary = self._parse_rom_details(res_details)
                 except IndexError:
-                    res: dict = {}
-        return res
-
-
-    def get_rom_cover_url(self, game_id: int) -> str:
-        try:
-            res: dict = requests.post("https://api.igdb.com/v4/covers/",
-                                headers=self.headers,
-                                data=f"fields url; where game={game_id};").json()[0]
-        except IndexError:
-            res: dict = {}
-        return res['url']
-
+                    log.warning("rom not found in igdb")
+        if id:
+            try:
+                res_details: dict = requests.post("https://api.igdb.com/v4/covers/",
+                                                  headers=self.headers,
+                                                  data=f"fields url; where game={id};").json()[0]
+                url_cover: str = res_details['url']
+            except IndexError:
+                log.warning(f"{name} cover not found in igdb")
+        return (id, slug, name, summary, url_cover)
+    
 
 
 class TwitchAuth():
