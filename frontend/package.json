@@ -1,18 +1,34 @@
 {
-  "name": "romm",
+  "name": "vuetify-project",
   "version": "0.0.0",
   "private": true,
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "@mdi/font": "7.0.96",
     "axios": "^1.3.4",
-    "vue": "^3.2.47"
+    "core-js": "^3.8.3",
+    "roboto-fontface": "*",
+    "vue": "^3.2.47",
+    "vue-router": "^4.0.0",
+    "vuetify": "^3.0.0",
+    "webfontloader": "^1.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^4.0.0",
-    "vite": "^4.1.4"
+    "@types/node": "^18.11.9",
+    "@types/webfontloader": "^1.6.35",
+    "@vitejs/plugin-vue": "^3.0.3",
+    "@vue/eslint-config-typescript": "^11.0.0",
+    "eslint": "^8.22.0",
+    "eslint-plugin-vue": "^9.3.0",
+    "sass": "^1.55.0",
+    "typescript": "^4.0.0",
+    "vite": "^3.0.9",
+    "vite-plugin-vuetify": "^1.0.0-alpha.12",
+    "vue-tsc": "^1.0.9"
   }
 }
