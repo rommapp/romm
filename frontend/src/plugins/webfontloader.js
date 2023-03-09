@@ -1,5 +1,5 @@
 /**
- * plugins/webfontloader.ts
+ * plugins/webfontloader.js
  *
  * webfontloader documentation: https://github.com/typekit/webfontloader
  */

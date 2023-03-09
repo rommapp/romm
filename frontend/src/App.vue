@@ -1,7 +1,14 @@
 <template>
-  <router-view />
+  <v-app>
+    <platforms-bar />
+    <v-main>
+      <v-container fluid>
+        <router-view />
+      </v-container>
+    </v-main>
+</v-app>
 </template>
 
-<script lang="ts" setup>
-  //
+<script setup>
+import PlatformsBar from './components/PlatformsBar.vue'
 </script>

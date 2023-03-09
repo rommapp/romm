@@ -27,23 +27,31 @@ export default {
                 console.log(response.data)
                 this.scaning = false
             })
+        },
+        getPlatformsSlug(slug) {
+            console.log(slug+' selected!')
+            this.currentPlatform = slug
         }
     }
 }
 </script>
 
 <template>
-    <v-layout>
-      <v-navigation-drawer thene="dark" class="transparent">
-
+    
+    <v-navigation-drawer theme="dark" width="250" >
         <v-list>
-          <v-list-item prepend-icon="mdi mdi-controller">Rom Manager</v-list-item>
+            <v-list-item prepend-icon="mdi mdi-controller">Rom Manager</v-list-item>
         </v-list>
 
-        <v-divider class="text-black"></v-divider>
+        <vdvider class="text-white"></vdvider>
 
-        <v-list :items="platforms" item-title="name" item-value="slug" density="compact" nav v-if="platformsLoaded" />
-        
-      </v-navigation-drawer>
-    </v-layout>
+        <v-list nav v-if="platformsLoaded">
+            <v-list-item v-for="platform in platforms"
+                :title="platform.name" 
+                :value="platform.slug" 
+                :key="platform.slug" 
+                v-on:click="getPlatformsSlug(platform.slug)"/>
+        </v-list>
+    </v-navigation-drawer>
+
 </template>
