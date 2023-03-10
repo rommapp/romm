@@ -1,7 +1,11 @@
 <script setup>
 import { ref } from 'vue'
+import { useTheme } from "vuetify";
+
 import PlatformsBar from '@/components/PlatformsBar.vue'
-const currentPlatform = ref("")
+
+var currentPlatform = ref("")
+useTheme().global.name.value = localStorage.getItem('theme')
 </script>
 
 <template>
@@ -15,5 +19,5 @@ const currentPlatform = ref("")
       </v-container>
     </v-main>
 
-</v-app>
+  </v-app>
 </template>

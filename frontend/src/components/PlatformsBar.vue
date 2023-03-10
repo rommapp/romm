@@ -27,9 +27,10 @@ const scan = (overwrite) => {
 }
 
 const theme = useTheme();
-const darkMode = ref(true);
+const darkMode = (localStorage.getItem('theme') == 'dark') ? ref(true) : ref(false)
 const toggleTheme = () => {
-  theme.global.name.value = darkMode.value ? "dark" : "light"
+    theme.global.name.value = darkMode.value ? "dark" : "light"
+    darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
 }
 
 </script>

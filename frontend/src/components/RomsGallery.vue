@@ -1,5 +1,6 @@
 <script setup>
 import axios from 'axios'
+
 defineProps({ currentPlatform: { type: String, required: false } })
 
 const mockRoms = {
