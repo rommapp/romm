@@ -1,7 +1,7 @@
 <script setup>
-import RomsGallery from '../components/RomsGallery.vue';
+import RomsGallery from '@/components/RomsGallery.vue';
 </script>
 
 <template>
-    <RomsGallery />
+    <RomsGallery currentPlatform="gba" />
 </template>

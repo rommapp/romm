@@ -1,14 +1,16 @@
+<script setup>
+import { ref } from 'vue'
+import PlatformsBar from '@/components/PlatformsBar.vue'
+const currentPlatform = ref("")
+</script>
+
 <template>
   <v-app>
-    <platforms-bar />
+    <platforms-bar @currentPlatform="(p) => currentPlatform=p"/>
     <v-main>
       <v-container fluid>
-        <router-view />
+        <router-view :currentPlatform="currentPlatform" />
       </v-container>
     </v-main>
 </v-app>
 </template>
-
-<script setup>
-import PlatformsBar from './components/PlatformsBar.vue'
-</script>

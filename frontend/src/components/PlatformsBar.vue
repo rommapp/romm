@@ -3,9 +3,8 @@ import axios from 'axios'
 export default {
     data() {
         return {
-            server: "asgard",
+            server: "localhost",
             port: "5000",
-            currentPlatform: "",
             platformsLoaded: false,
             scaning: false
         };
@@ -27,10 +26,6 @@ export default {
                 console.log(response.data)
                 this.scaning = false
             })
-        },
-        getPlatformsSlug(slug) {
-            console.log(slug+' selected!')
-            this.currentPlatform = slug
         }
     }
 }
@@ -43,14 +38,14 @@ export default {
             <v-list-item prepend-icon="mdi mdi-controller">Rom Manager</v-list-item>
         </v-list>
 
-        <vdvider class="text-white"></vdvider>
+        <v-divider class="text-white"></v-divider>
 
         <v-list nav v-if="platformsLoaded">
             <v-list-item v-for="platform in platforms"
                 :title="platform.name" 
                 :value="platform.slug" 
                 :key="platform.slug" 
-                v-on:click="getPlatformsSlug(platform.slug)"/>
+                @:click="$emit('currentPlatform', platform.slug)"/>
         </v-list>
     </v-navigation-drawer>
 
