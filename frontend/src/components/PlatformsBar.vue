@@ -1,35 +1,37 @@
-<script>
+<script setup>
 import axios from 'axios'
-export default {
-    data() {
-        return {
-            server: "localhost",
-            port: "5000",
-            platforms: [],
-            platformsLoaded: false,
-            scaning: false,
-        }
-    },
-    created() {
-        console.log("Getting platforms...")
-        axios.get('http://'+this.server+':'+this.port+'/platforms').then((response) => {
-            console.log("Platforms loaded!")
-            console.log(response.data)
-            this.platforms = response.data.data
-            this.platformsLoaded = true
-        })
-    },
-    methods: {
-        scan(overwrite) {
-            this.scaning = true
-            axios.get('http://'+this.server+':'+this.port+'/scan?overwrite='+overwrite).then((response) => {
-                console.log("scan completed")
-                console.log(response.data)
-                this.scaning = false
-            })
-        }
-    }
+import { ref } from "vue";
+import { useTheme } from "vuetify";
+
+const server = "localhost"
+const port = "5000"
+var platforms = []
+var platformsLoaded = false
+var scaning = false
+const theme = useTheme();
+const darkMode = ref(true);
+
+console.log("Getting platforms...")
+axios.get('http://'+server+':'+port+'/platforms').then((response) => {
+    console.log("Platforms loaded!")
+    console.log(response.data)
+    platforms = response.data.data
+    platformsLoaded = true
+})
+  
+const scan = (overwrite) => {
+    scaning = true
+    axios.get('http://'+server+':'+port+'/scan?overwrite='+overwrite).then((response) => {
+        console.log("scan completed")
+        console.log(response.data)
+        scaning = false
+    })
 }
+
+const toggleTheme = () => {
+  theme.global.name.value = darkMode.value ? "dark" : "light"
+}
+
 </script>
 
 <template>
@@ -58,7 +60,7 @@ export default {
         <v-divider ></v-divider>
 
         <v-list>
-            <v-switch prepend-icon="mdi mdi-brightness-6" inset class="pl-3"/>
+            <v-switch prepend-icon="mdi mdi-brightness-6" v-model="darkMode" @change="toggleTheme()" inset class="pl-3"/>
         </v-list>
 
     </v-navigation-drawer>
