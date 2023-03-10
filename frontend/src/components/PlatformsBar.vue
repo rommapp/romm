@@ -5,20 +5,18 @@ import { useTheme } from "vuetify";
 
 const server = "localhost"
 const port = "5000"
-var platforms = []
-var platformsLoaded = false
-var scaning = false
-const theme = useTheme();
-const darkMode = ref(true);
 
+const platforms = ref([])
 console.log("Getting platforms...")
-axios.get('http://'+server+':'+port+'/platforms').then((response) => {
-    console.log("Platforms loaded!")
-    console.log(response.data)
-    platforms = response.data.data
-    platformsLoaded = true
-})
-  
+const GetPlatforms = async () => {
+    await axios.get('http://'+server+':'+port+'/platforms').then((response) => {
+        console.log("Platforms loaded!")
+        console.log(response.data.data)
+        platforms.value = response.data.data
+    })
+}
+GetPlatforms()
+
 const scan = (overwrite) => {
     scaning = true
     axios.get('http://'+server+':'+port+'/scan?overwrite='+overwrite).then((response) => {
@@ -28,6 +26,8 @@ const scan = (overwrite) => {
     })
 }
 
+const theme = useTheme();
+const darkMode = ref(true);
 const toggleTheme = () => {
   theme.global.name.value = darkMode.value ? "dark" : "light"
 }
@@ -43,11 +43,11 @@ const toggleTheme = () => {
 
         <v-divider ></v-divider>
 
-        <v-list nav >
-            <v-list-item v-for="platform in platforms"
+        <v-list nav>
+            <v-list-item v-for="platform in platforms" 
                 :title="platform.name" 
-                :value="platform.slug" 
-                :is="platform.slug" 
+                :value="platform.slug"
+                :key="platform"
                 @:click="$emit('currentPlatform', platform.slug)"/>
         </v-list>
 

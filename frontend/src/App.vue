@@ -6,11 +6,14 @@ const currentPlatform = ref("")
 
 <template>
   <v-app>
+    
     <platforms-bar @currentPlatform="(p) => currentPlatform=p"/>
+
     <v-main>
       <v-container fluid>
         <router-view :currentPlatform="currentPlatform" />
       </v-container>
     </v-main>
+
 </v-app>
 </template>
