@@ -5,9 +5,10 @@ export default {
         return {
             server: "localhost",
             port: "5000",
+            platforms: [],
             platformsLoaded: false,
-            scaning: false
-        };
+            scaning: false,
+        }
     },
     created() {
         console.log("Getting platforms...")
@@ -33,20 +34,33 @@ export default {
 
 <template>
     
-    <v-navigation-drawer theme="dark" width="250" >
+    <v-navigation-drawer width="250">
         <v-list>
             <v-list-item prepend-icon="mdi mdi-controller">Rom Manager</v-list-item>
         </v-list>
 
-        <v-divider class="text-white"></v-divider>
+        <v-divider ></v-divider>
 
-        <v-list nav v-if="platformsLoaded">
+        <v-list nav >
             <v-list-item v-for="platform in platforms"
                 :title="platform.name" 
                 :value="platform.slug" 
-                :key="platform.slug" 
+                :is="platform.slug" 
                 @:click="$emit('currentPlatform', platform.slug)"/>
         </v-list>
+
+        <v-divider ></v-divider>
+
+        <v-list>
+            <v-btn color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset class="ml-3">Scan</v-btn>
+        </v-list>
+
+        <v-divider ></v-divider>
+
+        <v-list>
+            <v-switch prepend-icon="mdi mdi-brightness-6" inset class="pl-3"/>
+        </v-list>
+
     </v-navigation-drawer>
 
 </template>
