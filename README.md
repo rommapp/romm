@@ -14,7 +14,7 @@ python3 -m venv backend/venv/romm
 source backend/venv/romm/bin/activate
 ```
 
-### Activate romm virtualenv
+### Install venv dependencies
 
 ```sh
 pip install -r backend/dependencies/requirements.txt
