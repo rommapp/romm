@@ -17,7 +17,7 @@ def get_platforms() -> list:
     """
     try:
         platforms: list = list(os.walk(EMULATION_BASE_PATH))[0][1]
-        if 'defaults' in platforms: platforms.remove('defaults')
+        if 'resources' in platforms: platforms.remove('resources')
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
     except IndexError:
@@ -48,12 +48,12 @@ def platform_logo_exists(slug: str) -> bool:
     Returns
         True if logo exists in filesystem else False
     """
-    logo_path: str = f"{EMULATION_BASE_PATH}/{slug}/resources/logo.png"
+    logo_path: str = f"{EMULATION_BASE_PATH}/resources/{slug}/logo.png"
     return True if os.path.exists(logo_path) else False
 
 
 def get_platform_logo_path(slug: str) -> str:
-    return f"{EMULATION_BASE_PATH}/{slug}/resources/logo.png"
+    return f"{EMULATION_BASE_PATH}/resources/{slug}/logo.png"
 
 
 def store_platform_logo(slug: str, url_logo: str) -> None:
@@ -65,7 +65,7 @@ def store_platform_logo(slug: str, url_logo: str) -> None:
     """
     file_ext: str = url_logo.split('.')[-1]
     logo_file: str = f"logo.{file_ext}"
-    logo_path: str = f"{EMULATION_BASE_PATH}/{slug}/resources"
+    logo_path: str = f"{EMULATION_BASE_PATH}/resources/{slug}"
     res = requests.get(url_logo, stream=True)
     if res.status_code == 200:
         Path(logo_path).mkdir(parents=True, exist_ok=True)

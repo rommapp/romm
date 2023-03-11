@@ -17,12 +17,12 @@ const GetPlatforms = async () => {
 }
 GetPlatforms()
 
-const scan = (overwrite) => {
-    scaning = true
-    axios.get('http://'+server+':'+port+'/scan?overwrite='+overwrite).then((response) => {
+const scanOverwrite = ref(false)
+const scan = async () => {
+    await axios.get('http://'+server+':'+port+'/scan?overwrite='+scanOverwrite.value).then((response) => {
         console.log("scan completed")
         console.log(response.data)
-        scaning = false
+        GetPlatforms()
     })
 }
 
@@ -37,7 +37,7 @@ const toggleTheme = () => {
 
 <template>
     
-    <v-navigation-drawer width="250">
+    <v-navigation-drawer width="250" permanent>
         <v-list>
             <v-list-item prepend-icon="mdi mdi-controller">Rom Manager</v-list-item>
         </v-list>
@@ -55,13 +55,24 @@ const toggleTheme = () => {
         <v-divider ></v-divider>
 
         <v-list>
-            <v-btn color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset class="ml-3">Scan</v-btn>
+            <v-row>
+                <div class="font-weight-bold d-flex align-center justify-center fill-height ml-3">
+                    <v-col>
+                        <v-btn color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset >Scan</v-btn>
+                    </v-col>
+                    <v-col class="font-weight-bold d-flex align-center justify-center ml-3">
+                        <v-checkbox v-model="scanOverwrite" label="Full"></v-checkbox>
+                    </v-col>
+                </div>
+            </v-row>
         </v-list>
 
         <v-divider ></v-divider>
 
         <v-list>
-            <v-switch prepend-icon="mdi mdi-brightness-6" v-model="darkMode" @change="toggleTheme()" inset class="pl-3"/>
+            <div class="font-weight-bold d-flex align-center justify-center fill-height">
+                <v-switch prepend-icon="mdi mdi-brightness-6" v-model="darkMode" @change="toggleTheme()" inset class="ml-3"/>
+            </div>
         </v-list>
 
     </v-navigation-drawer>

@@ -31,10 +31,9 @@ async def scan(overwrite: bool=False):
 
     log.info("scaning...")
 
-    fs.store_platform_logo('defaults', DEFAULT_IMAGE_URL)
+    fs.store_platform_logo('placeholder', DEFAULT_IMAGE_URL)
 
     platforms: list = []
-
     for slug in fs.get_platforms():
         igdb_id, name, url_logo = igdbh.get_platform_details(slug)
         sgdb_id: str = ""

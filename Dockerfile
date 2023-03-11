@@ -13,7 +13,7 @@ EXPOSE 5000
 # Copy frontend and install npm packages
 COPY frontend /frontend
 COPY frontend/package.json /frontend/package.json
-RUN ln -s /emulation /frontend/src/assets/emulation
+RUN ln -s /emulation /frontend/assets/emulation
 WORKDIR  /frontend
 RUN npm install
 EXPOSE 5173
