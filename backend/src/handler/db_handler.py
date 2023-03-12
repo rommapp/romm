@@ -51,14 +51,15 @@ class DBHandler:
 
     
     def regenerate_rom_table(self, igdb_id: str, sgdb_id: str, platform_igdb_id: str, platform_sgdb_id: str,
-                             filename: str, name: str, path_cover: str) -> None:
+                             rom_filename: str, rom_name: str, rom_slug: str, summary: str, platform_slug: str, path_cover_big: str, path_cover_small: str) -> None:
         try:
             self.cur.execute(f"""
             create table if not exists {self.DATABASE}.{self.ROM_TABLE}
                 ({igdb_id} varchar(20), {sgdb_id} varchar(20),
                 {platform_igdb_id} varchar(20), {platform_sgdb_id} varchar(20),
-                {filename} varchar(200), {name} varchar(100),
-                {path_cover} varchar(500))
+                {rom_filename} varchar(200), {rom_name} varchar(100),
+                {rom_slug} varchar(100), {summary} text, {platform_slug} varchar(100),
+                {path_cover_big} varchar(500), {path_cover_small} varchar(500))
             """)
             log.info(f"{self.DATABASE}.{self.ROM_TABLE} table created")
         except Exception as e:
@@ -81,11 +82,22 @@ class DBHandler:
         except Exception as e:
             log.error(f"{self.DATABASE}.{self.PLATFORM_TABLE} can't be populated: {e}")
             raise HTTPException(status_code=500, detail=f"Can't write in platform table. {e}")
+        
+    
+    def write_roms(self, roms: list) -> None:
+        values: list = [{k: str(v) for k, v in asdict(p).items()} for p in roms]
+        try:
+            self.cur.executemany(f"insert into {self.DATABASE}.{self.ROM_TABLE} (igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small) \
+                                 values (%(igdb_id)s, %(sgdb_id)s, %(platform_igdb_id)s, %(platform_sgdb_id)s, %(filename)s, %(name)s, %(slug)s, %(summary)s, %(platform_slug)s, %(path_cover_big)s, %(path_cover_small)s)", values)
+            log.info(f"{self.DATABASE}.{self.ROM_TABLE} table populated")
+        except Exception as e:
+            log.error(f"{self.DATABASE}.{self.ROM_TABLE} can't be populated: {e}")
+            raise HTTPException(status_code=500, detail=f"Can't write in platform table. {e}")
 
 
     def get_platforms(self) -> list:
         try:
-            self.cur.execute(f"select igdb_id, sgdb_id, slug, name, path_logo from {self.DATABASE}.{self.PLATFORM_TABLE}")
+            self.cur.execute(f"select igdb_id, sgdb_id, slug, name, path_logo from {self.DATABASE}.{self.PLATFORM_TABLE} order by name asc")
             log.info(f"platforms details fetch from {self.DATABASE}.{self.PLATFORM_TABLE}")
         except Exception as e:
             log.error(f"platforms details can't be fetch from {self.DATABASE}.{self.PLATFORM_TABLE}")
@@ -93,9 +105,9 @@ class DBHandler:
         return self.cur
 
     
-    def get_roms(self, platform_id: int) -> list:
+    def get_roms(self, platform_slug: str) -> list:
         try:
-            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, path_cover from {self.DATABASE}.{self.ROM_TABLE} where platform_id = {platform_id}")
+            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small from {self.DATABASE}.{self.ROM_TABLE} where platform_slug = '{platform_slug}' order by filename asc")
             log.info(f"platforms details fetch from {self.DATABASE}.{self.ROM_TABLE}")
         except Exception as e:
             log.error(f"platforms details can't be fetch from {self.DATABASE}.{self.ROM_TABLE}")

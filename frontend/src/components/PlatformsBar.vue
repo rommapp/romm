@@ -60,9 +60,9 @@ const toggleTheme = () => {
                     <v-col>
                         <v-btn color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset >Scan</v-btn>
                     </v-col>
-                    <v-col class="font-weight-bold d-flex align-center justify-center ml-3">
-                        <v-checkbox v-model="scanOverwrite" label="Full"></v-checkbox>
-                    </v-col>
+                    <!-- <v-col class="font-weight-bold d-flex align-center justify-center ml-3">
+                        <v-checkbox v-model="scanOverwrite" label="Force"></v-checkbox>
+                    </v-col> -->
                 </div>
             </v-row>
         </v-list>

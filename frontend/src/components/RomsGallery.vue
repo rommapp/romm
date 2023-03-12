@@ -1,139 +1,21 @@
 <script setup>
 import axios from 'axios'
+import { ref } from "vue";
 
-defineProps({ currentPlatform: { type: String, required: false } })
+const propss = defineProps({ currentPlatform: { type: String, required: true } })
+console.log(propss.currentPlatform)
 
-const mockRoms = {
-    gba: [
-        {
-            cover: '/assets/emulation/resources/gba/pokemon fire red.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon fire red_xs.png',
-            name: "Pokemon Fire Red",
-            link: "https://www.igdb.com/games/pokemon-firered"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/castlevania - aria of sorrow.png',
-            cover_lazy: '/assets/emulation/resources/gba/castlevania - aria of sorrow_xs.png',
-            name: "Castlevania - Aria of Sorrow",
-            link: "https://www.igdb.com/games/castlevania-aria-of-sorrow"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/wario land 4.png',
-            cover_lazy: '/assets/emulation/resources/gba/wario land 4_xs.png',
-            name: "Wario Land 4",
-            link: "https://www.igdb.com/games/wario-land-4"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon ruby.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon ruby_xs.png',
-            name: "Pokemon Ruby",
-            link: "https://www.igdb.com/games/pokemon-ruby"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon fire red.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon fire red_xs.png',
-            name: "Pokemon Fire Red",
-            link: "https://www.igdb.com/games/pokemon-firered"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/castlevania - aria of sorrow.png',
-            cover_lazy: '/assets/emulation/resources/gba/castlevania - aria of sorrow_xs.png',
-            name: "Castlevania - Aria of Sorrow",
-            link: "https://www.igdb.com/games/castlevania-aria-of-sorrow"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/wario land 4.png',
-            cover_lazy: '/assets/emulation/resources/gba/wario land 4_xs.png',
-            name: "Wario Land 4",
-            link: "https://www.igdb.com/games/wario-land-4"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon ruby.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon ruby_xs.png',
-            name: "Pokemon Ruby",
-            link: "https://www.igdb.com/games/pokemon-ruby"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon fire red.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon fire red_xs.png',
-            name: "Pokemon Fire Red",
-            link: "https://www.igdb.com/games/pokemon-firered"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/castlevania - aria of sorrow.png',
-            cover_lazy: '/assets/emulation/resources/gba/castlevania - aria of sorrow_xs.png',
-            name: "Castlevania - Aria of Sorrow",
-            link: "https://www.igdb.com/games/castlevania-aria-of-sorrow"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/wario land 4.png',
-            cover_lazy: '/assets/emulation/resources/gba/wario land 4_xs.png',
-            name: "Wario Land 4",
-            link: "https://www.igdb.com/games/wario-land-4"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon ruby.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon ruby_xs.png',
-            name: "Pokemon Ruby",
-            link: "https://www.igdb.com/games/pokemon-ruby"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon fire red.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon fire red_xs.png',
-            name: "Pokemon Fire Red",
-            link: "https://www.igdb.com/games/pokemon-firered"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/castlevania - aria of sorrow.png',
-            cover_lazy: '/assets/emulation/resources/gba/castlevania - aria of sorrow_xs.png',
-            name: "Castlevania - Aria of Sorrow",
-            link: "https://www.igdb.com/games/castlevania-aria-of-sorrow"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/wario land 4.png',
-            cover_lazy: '/assets/emulation/resources/gba/wario land 4_xs.png',
-            name: "Wario Land 4",
-            link: "https://www.igdb.com/games/wario-land-4"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon ruby.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon ruby_xs.png',
-            name: "Pokemon Ruby",
-            link: "https://www.igdb.com/games/pokemon-ruby"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon fire red.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon fire red_xs.png',
-            name: "Pokemon Fire Red",
-            link: "https://www.igdb.com/games/pokemon-firered"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/castlevania - aria of sorrow.png',
-            cover_lazy: '/assets/emulation/resources/gba/castlevania - aria of sorrow_xs.png',
-            name: "Castlevania - Aria of Sorrow",
-            link: "https://www.igdb.com/games/castlevania-aria-of-sorrow"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/wario land 4.png',
-            cover_lazy: '/assets/emulation/resources/gba/wario land 4_xs.png',
-            name: "Wario Land 4",
-            link: "https://www.igdb.com/games/wario-land-4"
-        },
-        {
-            cover: '/assets/emulation/resources/gba/pokemon ruby.png',
-            cover_lazy: '/assets/emulation/resources/gba/pokemon ruby_xs.png',
-            name: "Pokemon Ruby",
-            link: "https://www.igdb.com/games/pokemon-ruby"
-        }
-    ],
-    gb: [
-        {
-            cover: '/assets/emulation/resources/gb/pokemon red.png',
-            cover_lazy: '/assets/emulation/resources/gb/pokemon red_xs.png',
-            name: "Pokemon Red",
-            link: "https://www.igdb.com/games/pokemon-red"
-        }
-    ]
+const server = "localhost"
+const port = "5000"
+
+const roms = ref([])
+console.log("Getting roms...")
+const GetRoms = async () => {
+    await axios.get('http://'+server+':'+port+'/platforms/'+propss.currentPlatform+'/roms').then((response) => {
+        console.log("Roms loaded!")
+        console.log(response.data.data)
+        roms.value = response.data.data
+    })
 }
 
 const downloadRom = (name) => {
@@ -144,17 +26,17 @@ const downloadRom = (name) => {
 <template>
     
     <v-row>
-        <v-col v-for="rom in mockRoms[currentPlatform]" cols="6" sm="4" md="2" lg="2">
+        <v-col v-for="rom in roms" cols="6" sm="4" md="2" lg="2">
             <v-hover v-slot="{ isHovering, props }">
                 <v-card :elevation="isHovering ? 20 : 3" :class="{ 'on-hover': isHovering }" v-bind="props" >
 
-                    <v-img :src="rom.cover" :lazy-src="rom.cover_lazy" cover >
+                    <v-img :src="rom.path_cover_big" :lazy-src="rom.path_cover_small" cover >
                         <template v-slot:placeholder>
                             <div class="d-flex align-center justify-center fill-height">
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
-                        <v-btn class="fill-height" color="transparent" block :href="rom.link"></v-btn>            
+                        <!-- <v-btn class="fill-height" color="transparent" block :href="rom.link"></v-btn>             -->
                     </v-img>
 
                     <v-card-text>

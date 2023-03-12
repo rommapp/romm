@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from config.config import DEFAULT_IMAGE_PATH
+from config.config import DEFAULT_LOGO_PATH, DEFAULT_COVER_PATH_BIG, DEFAULT_COVER_PATH_SMALL
 
 
 @dataclass
@@ -9,7 +9,7 @@ class Platform:
     sgdb_id: str = ""
     slug: str = ""
     name: str = ""
-    path_logo: str = DEFAULT_IMAGE_PATH
+    path_logo: str = DEFAULT_LOGO_PATH
 
 
 @dataclass
@@ -20,4 +20,8 @@ class Rom:
     platform_sgdb_id: str = ""
     filename: str = ""
     name: str = ""
-    path_cover: str = DEFAULT_IMAGE_PATH
+    slug: str = ""
+    summary: str = ""
+    platform_slug: str = ""
+    path_cover_big: str = DEFAULT_COVER_PATH_BIG
+    path_cover_small: str = DEFAULT_COVER_PATH_SMALL

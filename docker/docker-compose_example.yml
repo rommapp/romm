@@ -1,7 +1,7 @@
 version: "3"
 services:
   romm:
-    image: romm:dev-0.1
+    image: romm:dev-0.2
     container_name: romm
     environment:
       - DB_HOST=${DB_HOST}
@@ -14,8 +14,8 @@ services:
     volumes:
       - ${EMULATION_PATH}:/emulation
     ports:
-      - ${ROMM_PORT_API}:5000
-      - ${ROMM_PORT}:5173
+      - ${ROMM_PORT_BACKEND}:5000
+      - ${ROMM_PORT_FRONTEND}:5173
     restart: "no"
 
 
