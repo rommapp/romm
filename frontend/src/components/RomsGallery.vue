@@ -2,25 +2,25 @@
 import axios from 'axios'
 import { ref } from "vue";
 
-const propss = defineProps({ currentPlatform: { type: String, required: true } })
-console.log(propss.currentPlatform)
-
-const server = "localhost"
-const port = "5000"
 
 const roms = ref([])
-console.log("Getting roms...")
-const GetRoms = async () => {
-    await axios.get('http://'+server+':'+port+'/platforms/'+propss.currentPlatform+'/roms').then((response) => {
+
+
+async function getRoms(platform) {
+    console.log("Getting roms...")
+    await axios.get('http://localhost:5000/platforms/'+platform+'/roms').then((response) => {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
-    })
+    }).catch((error) => {console.log(error)})
 }
 
-const downloadRom = (name) => {
+function downloadRom(name) {
     console.log("Downloading "+name)
 }
+
+
+defineExpose({ getRoms })
 </script>
 
 <template>
@@ -36,7 +36,6 @@ const downloadRom = (name) => {
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
-                        <!-- <v-btn class="fill-height" color="transparent" block :href="rom.link"></v-btn>             -->
                     </v-img>
 
                     <v-card-text>
