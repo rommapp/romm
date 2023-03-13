@@ -58,42 +58,52 @@ class IGDBHandler():
         name: str = ""
         summary: str = ""
         url_cover: str = ""
-        try:
-            res_details: dict = requests.post("https://api.igdb.com/v4/games/",
-                                              headers=self.headers,
-                                              data=f"search \"{term}\";fields id, slug, name, summary; where platforms=[{platform_id}] & category=0;").json()[0]
-            igdb_id = res_details['id']
-            slug = res_details['slug']
-            name = res_details['name']
-            summary = res_details['summary']
-        except IndexError:
+        if platform_id:
             try:
                 res_details: dict = requests.post("https://api.igdb.com/v4/games/",
-                                                  headers=self.headers,
-                                                  data=f"search \"{term}\";fields name, id, slug, summary; where platforms=[{platform_id}] & category=10;").json()[0]
+                                                headers=self.headers,
+                                                data=f"search \"{term}\";fields id, slug, name, summary; where platforms=[{platform_id}] & category=0;").json()[0]
                 igdb_id = res_details['id']
                 slug = res_details['slug']
                 name = res_details['name']
-                summary = res_details['summary']
+                try:
+                    summary = res_details['summary']
+                except KeyError:
+                    pass
             except IndexError:
                 try:
                     res_details: dict = requests.post("https://api.igdb.com/v4/games/",
-                                                      headers=self.headers,
-                                                      data=f"search \"{term}\";fields name, id, slug, summary; where platforms=[{platform_id}];").json()[0]
+                                                    headers=self.headers,
+                                                    data=f"search \"{term}\";fields name, id, slug, summary; where platforms=[{platform_id}] & category=10;").json()[0]
                     igdb_id = res_details['id']
                     slug = res_details['slug']
                     name = res_details['name']
-                    summary = res_details['summary']
+                    try:
+                        summary = res_details['summary']
+                    except KeyError:
+                        pass
                 except IndexError:
-                    log.warning(f"{rom_filename} rom not found in igdb")
-        if igdb_id:
-            try:
-                res_details: dict = requests.post("https://api.igdb.com/v4/covers/",
-                                                  headers=self.headers,
-                                                  data=f"fields url; where game={igdb_id};").json()[0]
-                url_cover: str = f"https:{res_details['url']}"
-            except IndexError:
-                log.warning(f"{name} cover not found in igdb")
+                    try:
+                        res_details: dict = requests.post("https://api.igdb.com/v4/games/",
+                                                        headers=self.headers,
+                                                        data=f"search \"{term}\";fields name, id, slug, summary; where platforms=[{platform_id}];").json()[0]
+                        igdb_id = res_details['id']
+                        slug = res_details['slug']
+                        name = res_details['name']
+                        try:
+                            summary = res_details['summary']
+                        except KeyError:
+                            pass
+                    except IndexError:
+                        log.warning(f"{rom_filename} rom not found in igdb")
+            if igdb_id:
+                try:
+                    res_details: dict = requests.post("https://api.igdb.com/v4/covers/",
+                                                    headers=self.headers,
+                                                    data=f"fields url; where game={igdb_id};").json()[0]
+                    url_cover: str = f"https:{res_details['url']}"
+                except IndexError:
+                    log.warning(f"{name} cover not found in igdb")
         return (igdb_id, slug, name, summary, url_cover)
 
 

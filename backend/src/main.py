@@ -56,6 +56,7 @@ async def scan(overwrite: bool=False):
         platforms.append(Platform(*details))
 
         for rom_filename in fs.get_roms(platform_slug):
+            log.info(f"Getting {rom_filename} details")
             rom_igdb_id, rom_slug, rom_name, summary, url_cover = igdbh.get_rom_details(rom_filename, platform_igdb_id)
             rom_sgdb_id: str = ""
             if not rom_name: rom_name = rom_filename
