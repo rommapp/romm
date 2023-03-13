@@ -1,21 +1,34 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted  } from 'vue'
 import { useTheme } from "vuetify";
-
 import PlatformsBar from '@/components/PlatformsBar.vue'
+import RomsGallery from '@/components/RomsGallery.vue'
 
-var currentPlatform = ref("")
+
+const romsGalleryRef = ref(null)
+const currentPlatform = localStorage.getItem('currentPlatform')
 useTheme().global.name.value = localStorage.getItem('theme')
+
+
+function getRoms(platform){
+  localStorage.setItem('currentPlatform', platform)
+  romsGalleryRef.value.getRoms(platform)
+}
+
+
+onMounted(() => {
+  if(currentPlatform){ getRoms(currentPlatform) }
+})
 </script>
 
 <template>
   <v-app>
     
-    <platforms-bar @currentPlatform="(p) => currentPlatform=p"/>
+    <platforms-bar @currentPlatform="(platform) => getRoms(platform)"/>
 
     <v-main>
       <v-container fluid>
-        <router-view :currentPlatform="currentPlatform" />
+        <RomsGallery ref="romsGalleryRef" />
       </v-container>
     </v-main>
 

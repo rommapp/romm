@@ -3,36 +3,38 @@ import axios from 'axios'
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 
-const server = "localhost"
-const port = "5000"
 
 const platforms = ref([])
-console.log("Getting platforms...")
-const GetPlatforms = async () => {
-    await axios.get('http://'+server+':'+port+'/platforms').then((response) => {
+const scanOverwrite = ref(false)
+const theme = useTheme()
+const darkMode = (localStorage.getItem('theme') == 'dark') ? ref(true) : ref(false)
+
+
+async function getPlatforms() {
+    console.log("Getting platforms...")
+    await axios.get('http://localhost:5000/platforms').then((response) => {
         console.log("Platforms loaded!")
         console.log(response.data.data)
         platforms.value = response.data.data
-    })
+    }).catch((error) => {console.log(error)})
 }
-GetPlatforms()
 
-const scanOverwrite = ref(false)
-const scan = async () => {
-    await axios.get('http://'+server+':'+port+'/scan?overwrite='+scanOverwrite.value).then((response) => {
+async function scan() {
+    console.log("scanning...")
+    await axios.get('http://localhost:5000/scan?overwrite='+scanOverwrite.value).then((response) => {
         console.log("scan completed")
         console.log(response.data)
-        GetPlatforms()
-    })
+        getPlatforms()
+    }).catch((error) => {console.log(error)})
 }
 
-const theme = useTheme();
-const darkMode = (localStorage.getItem('theme') == 'dark') ? ref(true) : ref(false)
-const toggleTheme = () => {
+function toggleTheme () {
     theme.global.name.value = darkMode.value ? "dark" : "light"
     darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
 }
 
+
+getPlatforms()
 </script>
 
 <template>
@@ -60,9 +62,9 @@ const toggleTheme = () => {
                     <v-col>
                         <v-btn color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset >Scan</v-btn>
                     </v-col>
-                    <!-- <v-col class="font-weight-bold d-flex align-center justify-center ml-3">
+                    <v-col class="font-weight-bold d-flex align-center justify-center ml-3">
                         <v-checkbox v-model="scanOverwrite" label="Force"></v-checkbox>
-                    </v-col> -->
+                    </v-col>
                 </div>
             </v-row>
         </v-list>
