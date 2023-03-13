@@ -37,9 +37,11 @@ async def scan(overwrite: bool=False):
 
     log.info("scaning...")
 
-    if overwrite:
+    if overwrite or not fs.platform_logo_exists('default'):
         fs.store_platform_logo('default', DEFAULT_LOGO_URL)
+    if overwrite or not fs.rom_cover_exists('default', 'cover', 'big'):
         fs.store_rom_cover('default', 'cover', DEFAULT_COVER_URL_BIG, 'big')
+    if overwrite or not fs.rom_cover_exists('default', 'cover', 'small'):
         fs.store_rom_cover('default', 'cover', DEFAULT_COVER_URL_SMALL, 'small')
 
     platforms: list = []
@@ -48,6 +50,7 @@ async def scan(overwrite: bool=False):
     for platform_slug in fs.get_platforms():
         platform_igdb_id, platform_name, url_logo = igdbh.get_platform_details(platform_slug)
         platform_sgdb_id: str = ""
+        if not platform_name: platform_name = platform_slug
         details: list = [platform_igdb_id, platform_sgdb_id, platform_slug, platform_name]
         if (overwrite or not fs.platform_logo_exists(platform_slug)) and url_logo:
             fs.store_platform_logo(platform_slug, url_logo)
@@ -83,7 +86,6 @@ async def scan(overwrite: bool=False):
     dbh.write_roms(roms)
 
     return {'msg': 'success'}
-
 
 
 if __name__ == '__main__':
