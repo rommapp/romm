@@ -19,6 +19,9 @@ function downloadRom(name) {
     console.log("Downloading "+name)
 }
 
+function downloadSave(name) {
+    console.log("Downloading "+name+" save file")
+}
 
 defineExpose({ getRoms })
 </script>
@@ -26,7 +29,7 @@ defineExpose({ getRoms })
 <template>
     
     <v-row>
-        <v-col v-for="rom in roms" cols="6" sm="4" md="2" lg="2">
+        <v-col v-for="rom in roms" cols="6" xs="6" sm="3" md="3" lg="2">
             <v-hover v-slot="{ isHovering, props }">
                 <v-card :elevation="isHovering ? 20 : 3" :class="{ 'on-hover': isHovering }" v-bind="props" >
 
@@ -36,13 +39,14 @@ defineExpose({ getRoms })
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
-                        <div v-if="isHovering" class="d-flex align-center fill-height pl-5 pr-5" block ><h3>{{ rom.name }}</h3></div>
+                        <!-- <div class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" :class="{ 'on-hover': isHovering }">{{ rom.name }}</div> -->
+                        <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
                     </v-img>
 
                     <v-card-text>
                         <v-row>
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
-                            <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click="" />
+                            <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click=" downloadSave(rom.filename)"/>
                             <v-btn v-if="rom.slug" :href="'https://www.igdb.com/games/'+rom.slug" target="_blank" size="small" variant="flat" icon="mdi-information" />
                         </v-row>
                     </v-card-text>
@@ -55,16 +59,20 @@ defineExpose({ getRoms })
 </template>
 
 <style scoped>
-  .v-card .v-btn{
+.v-card .rom-title{
     transition: opacity .4s ease-in-out;
-  }
-  .v-card.on-hover {
+}
+.rom-title.on-hover {
+    opacity: 0.85;
+}
+.rom-title:not(.on-hover) {
     opacity: 1;
-  }
-  .v-card:not(.on-hover) {
+}
+
+.v-card.on-hover {
     opacity: 1;
-  }
-  .show-title {
-    color: rgba(255, 255, 255, 1) !important;
-  }
+}
+.v-card:not(.on-hover) {
+    opacity: 0.95;
+}
 </style>
