@@ -8,7 +8,7 @@ const roms = ref([])
 
 async function getRoms(platform) {
     console.log("Getting roms...")
-    await axios.get('http://localhost:5000/platforms/'+platform+'/roms').then((response) => {
+    await axios.get('http://'+location.hostname+':5000/platforms/'+platform+'/roms').then((response) => {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
@@ -36,14 +36,14 @@ defineExpose({ getRoms })
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
+                        <div v-if="isHovering" class="d-flex align-center fill-height pl-5 pr-5" block ><h3>{{ rom.name }}</h3></div>
                     </v-img>
 
                     <v-card-text>
                         <v-row>
-                            <div class="text-caption font-weight-bold d-flex align-center">
-                                <v-col>{{ rom.name }}</v-col>
-                                <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
-                            </div>
+                            <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
+                            <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click="" />
+                            <v-btn v-if="rom.slug" :href="'https://www.igdb.com/games/'+rom.slug" target="_blank" size="small" variant="flat" icon="mdi-information" />
                         </v-row>
                     </v-card-text>
 
@@ -53,3 +53,18 @@ defineExpose({ getRoms })
     </v-row>
 
 </template>
+
+<style scoped>
+  .v-card .v-btn{
+    transition: opacity .4s ease-in-out;
+  }
+  .v-card.on-hover {
+    opacity: 1;
+  }
+  .v-card:not(.on-hover) {
+    opacity: 1;
+  }
+  .show-title {
+    color: rgba(255, 255, 255, 1) !important;
+  }
+</style>
