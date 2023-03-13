@@ -7,8 +7,9 @@ import { useTheme } from "vuetify";
 const platforms = ref([])
 const scanOverwrite = ref(false)
 const scanning = ref(false)
+const drawer = ref(null)
 const theme = useTheme()
-const darkMode = (localStorage.getItem('theme') == 'dark') ? ref(true) : ref(false)
+const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
 
 
 async function getPlatforms() {
@@ -41,8 +42,21 @@ getPlatforms()
 </script>
 
 <template>
-    
-    <v-navigation-drawer width="250" permanent>
+    <v-toolbar color="primary">
+        <v-app-bar-nav-icon @click="drawer = !drawer" />
+
+        <v-spacer></v-spacer>
+
+        <v-btn icon>
+        <v-icon>mdi-magnify</v-icon>
+        </v-btn>
+
+        <v-btn icon>
+        <v-icon>mdi-dots-vertical</v-icon>
+        </v-btn>
+    </v-toolbar>
+
+    <v-navigation-drawer width="250" v-model="drawer" >
         <v-list>
             <v-list-item prepend-icon="mdi mdi-controller">Rom Manager</v-list-item>
         </v-list>

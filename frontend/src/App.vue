@@ -7,7 +7,7 @@ import RomsGallery from '@/components/RomsGallery.vue'
 
 const romsGalleryRef = ref(null)
 const currentPlatform = localStorage.getItem('currentPlatform')
-useTheme().global.name.value = localStorage.getItem('theme')
+useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 
 
 function getRoms(platform){
