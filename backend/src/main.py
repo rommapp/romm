@@ -58,6 +58,7 @@ async def scan(overwrite: bool=False):
         for rom_filename in fs.get_roms(platform_slug):
             rom_igdb_id, rom_slug, rom_name, summary, url_cover = igdbh.get_rom_details(rom_filename, platform_igdb_id)
             rom_sgdb_id: str = ""
+            if not rom_name: rom_name = rom_filename
             details: list = [rom_igdb_id, rom_sgdb_id, platform_igdb_id, platform_sgdb_id, rom_filename, rom_name, rom_slug, summary, platform_slug]
 
             if (overwrite or not fs.rom_cover_exists(platform_slug, rom_filename, 'big')) and url_cover:
