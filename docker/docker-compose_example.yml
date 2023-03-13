@@ -1,7 +1,7 @@
 version: "3"
 services:
   romm:
-    image: romm:dev-0.2
+    image: romm:latest
     container_name: romm
     environment:
       - DB_HOST=${DB_HOST}
