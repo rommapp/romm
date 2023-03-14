@@ -6,25 +6,24 @@ import RomsGallery from '@/components/RomsGallery.vue'
 
 
 const romsGalleryRef = ref(null)
-const currentPlatform = localStorage.getItem('currentPlatform')
+const currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 
 
-function getRoms(platform){
-  localStorage.setItem('currentPlatform', platform)
-  romsGalleryRef.value.getRoms(platform)
+function getRoms(platformSlug){
+  romsGalleryRef.value.getRoms(platformSlug)
 }
 
 
 onMounted(() => {
-  if(currentPlatform){ getRoms(currentPlatform) }
+  if(currentPlatformSlug){ getRoms(currentPlatformSlug) }
 })
 </script>
 
 <template>
   <v-app>
     
-    <platforms-bar @currentPlatform="(platform) => getRoms(platform)"/>
+    <platforms-bar @currentPlatformSlug="(platformSlug) => getRoms(platformSlug)"/>
 
     <v-main>
       <v-container fluid>
