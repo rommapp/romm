@@ -1,9 +1,10 @@
 <script setup>
 import axios from 'axios'
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 
 
 const roms = ref([])
+const currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 
 
 async function getRoms(platform) {
@@ -28,6 +29,8 @@ function editCover(rom) {
 }
 
 defineExpose({ getRoms })
+
+onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
 </script>
 
 <template>
@@ -37,7 +40,7 @@ defineExpose({ getRoms })
             <v-hover v-slot="{ isHovering, props }">
                 <v-card :elevation="isHovering ? 20 : 3" :class="{ 'on-hover': isHovering }" v-bind="props" >
 
-                    <v-img :src="rom.path_cover_big" :lazy-src="rom.path_cover_small" cover >
+                    <v-img :src="rom.path_cover_big" :lazy-src="rom.path_cover_smallt" cover >
                         <template v-slot:placeholder>
                             <div class="d-flex align-center justify-center fill-height">
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
@@ -50,7 +53,6 @@ defineExpose({ getRoms })
                         <v-row>
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
                             <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click=" downloadSave(rom.filename)"/>
-                            <v-btn v-if="rom.slug" :href="'https://www.igdb.com/games/'+rom.slug" target="_blank" size="small" variant="flat" icon="mdi-information" />
                             <v-spacer></v-spacer>
                             <v-btn size="small" variant="flat" icon="mdi-image-edit" @click=" editCover(rom)"/>
                         </v-row>
@@ -59,6 +61,9 @@ defineExpose({ getRoms })
                 </v-card>
             </v-hover>
         </v-col>
+    </v-row>
+    <v-row v-if="roms.length == 0" class="d-flex align-center justify-center fill-height">
+        <div class="mt-16 pt-16 text-h6">Feels alone here <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 
 </template>
