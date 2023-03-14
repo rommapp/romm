@@ -46,7 +46,6 @@ function toggleTheme () {
     darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
 }
 
-
 getPlatforms()
 </script>
 

@@ -1,17 +1,24 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTheme } from "vuetify";
 import PlatformsBar from '@/components/PlatformsBar.vue'
 
 
-const romsGalleryRef = ref(null)
+const router = useRouter()
+const viewComponent = ref(null)
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 
 
-function getRoms(platformSlug){
-  romsGalleryRef.value.getRoms(platformSlug)
+async function getRoms(platformSlug){
+  await router.push('/')
+  viewComponent.value.getRoms(platformSlug)
 }
 
+async function getRomDetails(rom) {
+  await router.push('/details')
+  viewComponent.value.getRomDetails(rom)
+}
 </script>
 
 <template>
@@ -21,7 +28,9 @@ function getRoms(platformSlug){
 
     <v-main>
       <v-container fluid>
-        <router-view v-slot="{ Component }"> <component ref="romsGalleryRef" :is="Component" /></router-view>
+        <router-view v-slot="{ Component }">
+          <component ref="viewComponent" :is="Component" @currentRom="(rom) => getRomDetails(rom)"/>
+        </router-view>
       </v-container>
     </v-main>
 
