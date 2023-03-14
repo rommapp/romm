@@ -23,6 +23,10 @@ function downloadSave(name) {
     console.log("Downloading "+name+" save file")
 }
 
+function editCover(rom) {
+    console.log("Editing "+rom.name)
+}
+
 defineExpose({ getRoms })
 </script>
 
@@ -39,7 +43,6 @@ defineExpose({ getRoms })
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
-                        <!-- <div class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" :class="{ 'on-hover': isHovering }">{{ rom.name }}</div> -->
                         <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
                     </v-img>
 
@@ -48,6 +51,8 @@ defineExpose({ getRoms })
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
                             <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click=" downloadSave(rom.filename)"/>
                             <v-btn v-if="rom.slug" :href="'https://www.igdb.com/games/'+rom.slug" target="_blank" size="small" variant="flat" icon="mdi-information" />
+                            <v-spacer></v-spacer>
+                            <v-btn size="small" variant="flat" icon="mdi-image-edit" @click=" editCover(rom)"/>
                         </v-row>
                     </v-card-text>
 

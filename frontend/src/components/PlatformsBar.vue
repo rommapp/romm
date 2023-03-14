@@ -52,7 +52,7 @@ getPlatforms()
 
 <template>
     <v-app-bar color="toolbar" >
-        <v-app-bar-nav-icon icon="mdi mdi-controller" @click="drawer = !drawer" />
+        <v-app-bar-nav-icon icon="mdi-controller" @click="drawer = !drawer" />
 
         <v-toolbar-title>{{ currentPlatformName }}</v-toolbar-title>
 
@@ -64,7 +64,7 @@ getPlatforms()
             </template>
             <v-list>
                 <v-list-item class="d-flex align-center justify-center mb-2">
-                    <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset >
+                    <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset >
                         <p v-if="!scanning">Scan</p>
                         <p v-if="scanning">Scanning</p>
                         <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2"></v-progress-circular>
@@ -72,7 +72,7 @@ getPlatforms()
                 </v-list-item>
                 <v-divider ></v-divider>
                 <v-list-item class="d-flex align-center justify-center">
-                    <v-switch prepend-icon="mdi mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
+                    <v-switch prepend-icon="mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -86,31 +86,6 @@ getPlatforms()
                 :key="platform"
                 @:click="selectPlatform(platform)"/>
         </v-list>
-
-        <!-- <v-divider ></v-divider> -->
-
-        <!-- <v-list>
-            <v-row>
-                <div class="font-weight-bold d-flex align-center justify-center fill-height ml-3">
-                    <v-col>
-                        <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi mdi-magnify-scan" @click="scan()" inset >
-                            <p v-if="!scanning">Scan</p>
-                            <p v-if="scanning">Scanning</p>
-                            <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2"></v-progress-circular>
-                        </v-btn>
-                    </v-col>
-                </div>
-            </v-row>
-        </v-list> -->
-
-        <!-- <v-divider ></v-divider>
-
-        <v-list>
-            <div class="font-weight-bold d-flex align-center justify-center fill-height">
-                <v-switch prepend-icon="mdi mdi-brightness-6" v-model="darkMode" @change="toggleTheme()" inset class="ml-3"/>
-            </div>
-        </v-list> -->
-
     </v-navigation-drawer>
 
 </template>
