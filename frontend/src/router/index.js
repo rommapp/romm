@@ -6,6 +6,10 @@ const routes = [
     path: '/',
     component: () => import('@/components/RomsGallery.vue')
   },
+  {
+    path: '/details',
+    component: () => import('@/components/RomsDetail.vue')
+  }
 ]
 
 const router = createRouter({

@@ -3,6 +3,7 @@ import axios from 'axios'
 import { ref, onMounted } from "vue";
 
 
+const emit = defineEmits(['currentRom'])
 const roms = ref([])
 const currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 
@@ -22,6 +23,11 @@ function downloadRom(name) {
 
 function downloadSave(name) {
     console.log("Downloading "+name+" save file")
+}
+
+function selectRom(rom){    
+    console.log("Selected rom "+rom.name)
+    emit('currentRom', rom)
 }
 
 function editCover(rom) {
@@ -47,6 +53,7 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                             </div>
                         </template>
                         <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
+                        <v-btn class="d-flex align-center justify-center fill-height" color="transparent" @click="selectRom(rom)" block></v-btn>
                     </v-img>
 
                     <v-card-text>
@@ -63,7 +70,7 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
         </v-col>
     </v-row>
     <v-row v-if="roms.length == 0" class="d-flex align-center justify-center fill-height">
-        <div class="mt-16 pt-16 text-h6">Feels alone here <v-icon>mdi-emoticon-sad</v-icon></div>
+        <div class="mt-16 pt-16 text-h6">Feels cold here <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 
 </template>
@@ -78,7 +85,6 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
 .rom-title:not(.on-hover) {
     opacity: 0.85;
 }
-
 .v-card.on-hover {
     opacity: 1;
 }
