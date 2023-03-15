@@ -7,6 +7,7 @@ import { useTheme } from "vuetify";
 const emit = defineEmits(['currentPlatformSlug'])
 defineExpose({ gettingRoms })
 const platforms = ref([])
+const backPort = import.meta.env.VITE_BACK_PORT
 const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
 const scanOverwrite = ref(false)
 const scanning = ref(false)
@@ -19,7 +20,7 @@ const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(t
 
 async function getPlatforms() {
     console.log("Getting platforms...")
-    await axios.get('http://'+location.hostname+':5000/platforms').then((response) => {
+    await axios.get('http://'+location.hostname+':'+backPort+'/platforms').then((response) => {
         console.log("Platforms loaded!")
         console.log(response.data.data)
         platforms.value = response.data.data
@@ -36,7 +37,7 @@ function selectPlatform(platform){
 async function scan() {
     console.log("scanning...")
     scanning.value = true
-    await axios.get('http://'+location.hostname+':5000/scan?overwrite='+scanOverwrite.value).then((response) => {
+    await axios.get('http://'+location.hostname+':'+backPort+'/scan?overwrite='+scanOverwrite.value).then((response) => {
         console.log("scan completed")
         console.log(response.data)
         getPlatforms()

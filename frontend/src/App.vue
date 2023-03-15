@@ -12,7 +12,7 @@ useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 
 
 async function getRoms(platformSlug){
-  await router.push('/')
+  await router.push(import.meta.env.BASE_URL)
   viewComponent.value.getRoms(platformSlug)
 }
 
@@ -21,7 +21,7 @@ async function gettingRoms(flag){
 }
 
 async function getRomDetails(rom) {
-  await router.push('/details')
+  await router.push(import.meta.env.BASE_URL+'details')
   viewComponent.value.getRomDetails(rom)
 }
 </script>
