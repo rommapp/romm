@@ -10,15 +10,17 @@
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
+    "axios": "^1.3.4",
     "core-js": "^3.8.3",
+    "file-saver": "^2.0.5",
     "roboto-fontface": "*",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",
     "vuetify": "^3.0.0",
-    "webfontloader": "^1.0.0",
-    "axios": "^1.3.4"
+    "webfontloader": "^1.0.0"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.5",
     "@vitejs/plugin-vue": "^3.0.3",
     "eslint": "^8.22.0",
     "eslint-plugin-vue": "^9.3.0",

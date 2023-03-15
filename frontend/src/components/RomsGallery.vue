@@ -1,16 +1,18 @@
 <script setup>
 import axios from 'axios'
 import { ref, onMounted } from "vue";
+import { saveAs } from 'file-saver';
 
 
 const emit = defineEmits(['currentRom', 'gettingRoms'])
 defineExpose({ getRoms })
 const roms = ref([])
 const noRoms = ref(false)
-const currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
+var currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 
 
 async function getRoms(platform) {
+    currentPlatformSlug = platform
     console.log("Getting roms...")
     emit('gettingRoms', true)
     await axios.get('http://'+location.hostname+':5000/platforms/'+platform+'/roms').then((response) => {
@@ -21,9 +23,13 @@ async function getRoms(platform) {
     }).catch((error) => {console.log(error)})
     emit('gettingRoms', false)
 }
-
-function downloadRom(name) {
-    console.log("Downloading "+name)
+    
+function downloadRom(filename) {
+    const url = 'http://'+location.host+'/assets/emulation/'+currentPlatformSlug+'/roms/'+filename
+    console.log("Downloading "+filename)
+    axios.get(url, { responseType: 'blob' }).then(response => {
+        saveAs(new Blob([response.data], { type: 'application/file' }), filename)
+    }).catch(console.error)
 }
 
 function downloadSave(name) {
@@ -57,7 +63,7 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
 
                     <v-card-text>
                         <v-row>
-                            <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
+                            <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.filename)" />
                             <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click=" downloadSave(rom.filename)"/>
                         </v-row>
                     </v-card-text>
