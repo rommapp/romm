@@ -7,12 +7,17 @@ import PlatformsBar from '@/components/PlatformsBar.vue'
 
 const router = useRouter()
 const viewComponent = ref(null)
+const platformsBar = ref(null)
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 
 
 async function getRoms(platformSlug){
   await router.push('/')
   viewComponent.value.getRoms(platformSlug)
+}
+
+async function gettingRoms(flag){
+  platformsBar.value.gettingRoms(flag)
 }
 
 async function getRomDetails(rom) {
@@ -24,12 +29,12 @@ async function getRomDetails(rom) {
 <template>
   <v-app>
     
-    <platforms-bar @currentPlatformSlug="(platformSlug) => getRoms(platformSlug)"/>
+    <platforms-bar ref="platformsBar" @currentPlatformSlug="(platformSlug) => getRoms(platformSlug)"/>
 
     <v-main>
       <v-container fluid>
         <router-view v-slot="{ Component }">
-          <component ref="viewComponent" :is="Component" @currentRom="(rom) => getRomDetails(rom)"/>
+          <component ref="viewComponent" :is="Component" @currentRom="(rom) => getRomDetails(rom)" @gettingRoms="(flag) => gettingRoms(flag)"/>
         </router-view>
       </v-container>
     </v-main>
