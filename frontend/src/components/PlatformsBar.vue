@@ -57,7 +57,12 @@ getPlatforms()
 
 <template>
     <v-app-bar color="toolbar" >
-        <v-app-bar-nav-icon icon="mdi-controller" @click="drawer = !drawer" />
+
+        <v-btn icon @click="drawer = !drawer" >
+            <v-avatar>
+                <v-img src="public/favicon256.ico" />
+            </v-avatar>
+        </v-btn>
         
         <v-toolbar-title>{{ currentPlatformName }}</v-toolbar-title>
         
