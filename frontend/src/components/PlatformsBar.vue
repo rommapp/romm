@@ -8,6 +8,7 @@ import { useTheme } from "vuetify";
 const platforms = ref([])
 const backPort = import.meta.env.VITE_BACK_PORT
 const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
+const currentPlatformSlug = ref(localStorage.getItem('currentPlatformSlug') || "")
 const scanOverwrite = ref(false)
 const scanning = ref(false)
 const gettingRomsFlag = ref(false)
@@ -40,6 +41,7 @@ async function selectPlatform(platform){
     localStorage.setItem('currentPlatformName', platform.name)
     emitter.emit('currentPlatform', platform.slug)
     currentPlatformName.value = platform.name
+    currentPlatformSlug.value = platform.slug
 }
 
 async function scan() {
@@ -71,19 +73,20 @@ getPlatforms()
 <template>
     <v-app-bar color="toolbar" density="compact">
 
-        <v-app-bar-nav-icon @click="drawer = !drawer" class="hidden-lg-and-up"/>
+        <v-app-bar-nav-icon @click="drawer = !drawer" class="hidden-lg-and-up fill-height ml-0" rounded="0"/>
 
-        <v-toolbar-title class="d-flex align-center justify-center text-h6">{{ currentPlatformName }}</v-toolbar-title>
+        <v-toolbar-title class="align-center justify-center text-h6 ml-2 d-none d-sm-flex">{{ currentPlatformName }}</v-toolbar-title>
+        <v-toolbar-title class="align-center justify-center text-h6 ml-2 d-sm-none">{{ currentPlatformSlug }}</v-toolbar-title>
 
         <v-text-field hide-details single-line label="search" prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" />
 
         <v-menu :close-on-content-click="false" >
             <template v-slot:activator="{ props }">
-                <v-btn v-bind="props" icon><v-icon>mdi-dots-vertical</v-icon></v-btn>
+                <v-btn v-bind="props" class="fill-height mr-0" rounded="0"><v-icon>mdi-dots-vertical</v-icon></v-btn>
             </template>
-            <v-list>
+            <v-list class="mr-0" rounded="0">
                 <v-list-item class="d-flex align-center justify-center mb-2">
-                    <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset >
+                    <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
                         <p v-if="!scanning">Scan</p>
                         <p v-if="scanning">Scanning</p>
                         <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
@@ -121,7 +124,7 @@ getPlatforms()
         </v-list>
 
         <template v-slot:append>
-            <v-btn block @click="rail = !rail">
+            <v-btn block @click="rail = !rail" rounded="0">
                 <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
                 <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>
             </v-btn>
