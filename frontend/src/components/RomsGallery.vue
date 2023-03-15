@@ -19,6 +19,17 @@ emitter.on('currentPlatform', (platform) => { getRoms(platform) })
 emitter.on('romsFilter', (filter) => { setFilter(filter) })
 
 // Functions
+function normalizeString(s) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,"")
+}
+
+function setFilter(filter) {
+    currentFilter.value = normalizeString(filter)
+    romsFiltered.value = roms.value.filter(rom => {
+        return normalizeString(rom.name).includes(currentFilter.value)
+    })
+}
+
 async function getRoms(platform) {
     currentPlatformSlug = platform
     console.log("Getting roms...")
@@ -27,7 +38,7 @@ async function getRoms(platform) {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
-        romsFiltered.value = response.data.data.filter(rom => { return rom.name.toLowerCase().includes(currentFilter.value.toLowerCase()) })
+        setFilter(currentFilter.value)
         if (roms.value.length == 0){ noRoms.value = true }else{ noRoms.value = false }
     }).catch((error) => {console.log(error)})
     emitter.emit('gettingRoms', false)
@@ -48,13 +59,6 @@ async function selectRom(rom) {
     console.log("Selected rom "+rom.name)
     await router.push(import.meta.env.BASE_URL+'details')
     emitter.emit('currentRom', rom)
-}
-
-function setFilter(filter) {
-    currentFilter.value = filter
-    romsFiltered.value = roms.value.filter(rom => {
-        return rom.name.toLowerCase().includes(filter.toLowerCase())
-    })
 }
 
 onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
