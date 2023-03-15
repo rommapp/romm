@@ -18,6 +18,3 @@ defineExpose({ getRomDetails })
         <h3>{{ currentRom }}</h3>
     </v-row>
 </template>
-
-<style scoped>
-</style>
