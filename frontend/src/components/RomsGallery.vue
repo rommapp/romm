@@ -1,34 +1,40 @@
 <script setup>
 import axios from 'axios'
-import { ref, onMounted } from "vue";
-import { saveAs } from 'file-saver';
+import { ref, inject , onMounted } from "vue"
+import { useRouter } from 'vue-router'
+import { saveAs } from 'file-saver'
 
-
-const emit = defineEmits(['currentRom', 'gettingRoms'])
-defineExpose({ getRoms })
+// Props
 const roms = ref([])
+const romsFiltered = ref([])
 const backPort = import.meta.env.VITE_BACK_PORT
 const noRoms = ref(false)
 var currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
+const router = useRouter()
 
+// Event listeners bus
+const emitter = inject('emitter')
+emitter.on('currentPlatform', (platform) => { getRoms(platform) })
+emitter.on('romsFilter', (filter) => { setFilter(filter) })
 
+// Functions
 async function getRoms(platform) {
     currentPlatformSlug = platform
     console.log("Getting roms...")
-    emit('gettingRoms', true)
+    emitter.emit('gettingRoms', true)
     await axios.get('http://'+location.hostname+':'+backPort+'/platforms/'+platform+'/roms').then((response) => {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
+        romsFiltered.value = response.data.data
         if (roms.value.length == 0){ noRoms.value = true }else{ noRoms.value = false }
     }).catch((error) => {console.log(error)})
-    emit('gettingRoms', false)
+    emitter.emit('gettingRoms', false)
 }
     
 function downloadRom(filename) {
-    const url = 'http://'+location.host+'/assets/emulation/'+currentPlatformSlug+'/roms/'+filename
     console.log("Downloading "+filename)
-    axios.get(url, { responseType: 'blob' }).then(response => {
+    axios.get('http://'+location.host+'/assets/emulation/'+currentPlatformSlug+'/roms/'+filename, { responseType: 'blob' }).then(response => {
         saveAs(new Blob([response.data], { type: 'application/file' }), filename)
     }).catch(console.error)
 }
@@ -37,18 +43,25 @@ function downloadSave(name) {
     console.log("Downloading "+name+" save file")
 }
 
-function selectRom(rom){    
+async function selectRom(rom) {   
     console.log("Selected rom "+rom.name)
-    emit('currentRom', rom)
+    await router.push(import.meta.env.BASE_URL+'details')
+    emitter.emit('currentRom', rom)
+}
+
+function setFilter(filter) {
+    romsFiltered.value = roms.value.filter(rom => {
+        return rom.name.toLowerCase().includes(filter.toLowerCase())
+    })
 }
 
 onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
 </script>
 
 <template>
-    
+
     <v-row>
-        <v-col v-for="rom in roms" cols="6" xs="6" sm="3" md="3" lg="2">
+        <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2" >
             <v-hover v-slot="{ isHovering, props }">
                 <v-card :elevation="isHovering ? 20 : 3" :class="{ 'on-hover': isHovering }" v-bind="props" >
 

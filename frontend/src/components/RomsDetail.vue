@@ -1,16 +1,19 @@
 <script setup>
 import axios from 'axios'
-import { ref } from "vue";
+import { ref, inject } from "vue";
 
-
+// Props
 const currentRom = ref("")
 
+// Event listeners bus
+const emitter = inject('emitter')
+emitter.on('currentRom', (rom) => { getRomDetails(rom) })
 
+// Functions
 function getRomDetails(rom){
     currentRom.value = rom.name
 }
 
-defineExpose({ getRomDetails })
 </script>
 
 <template>
