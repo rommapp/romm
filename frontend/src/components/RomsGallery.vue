@@ -7,6 +7,7 @@ import { saveAs } from 'file-saver';
 const emit = defineEmits(['currentRom', 'gettingRoms'])
 defineExpose({ getRoms })
 const roms = ref([])
+const backPort = import.meta.env.VITE_BACK_PORT
 const noRoms = ref(false)
 var currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 
@@ -15,7 +16,7 @@ async function getRoms(platform) {
     currentPlatformSlug = platform
     console.log("Getting roms...")
     emit('gettingRoms', true)
-    await axios.get('http://'+location.hostname+':5000/platforms/'+platform+'/roms').then((response) => {
+    await axios.get('http://'+location.hostname+':'+backPort+'/platforms/'+platform+'/roms').then((response) => {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
