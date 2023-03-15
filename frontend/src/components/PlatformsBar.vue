@@ -12,6 +12,7 @@ const scanOverwrite = ref(false)
 const scanning = ref(false)
 const gettingRomsFlag = ref(false)
 const drawer = ref(null)
+const rail = ref(false)
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
 
@@ -56,18 +57,14 @@ getPlatforms()
 </script>
 
 <template>
-    <v-app-bar color="toolbar" >
+    <v-app-bar color="toolbar" density="compact">
 
-        <v-btn icon @click="drawer = !drawer" >
-            <v-avatar>
-                <v-img src="public/favicon256.ico" />
-            </v-avatar>
-        </v-btn>
-        
-        <v-toolbar-title>{{ currentPlatformName }}</v-toolbar-title>
-        
+        <v-app-bar-nav-icon @click="drawer = !drawer" class="hidden-lg-and-up"/>
+
+        <v-toolbar-title class="d-flex align-center justify-center text-h6">{{ currentPlatformName }}</v-toolbar-title>
+
         <v-btn icon><v-icon>mdi-magnify</v-icon></v-btn>
-        
+
         <v-menu :close-on-content-click="false" >
             <template v-slot:activator="{ props }">
                 <v-btn v-bind="props" icon><v-icon>mdi-dots-vertical</v-icon></v-btn>
@@ -88,10 +85,20 @@ getPlatforms()
         </v-menu>
     </v-app-bar>
 
-    <v-navigation-drawer width="250" v-model="drawer" >
+    <v-navigation-drawer width="250" rail-width="72" v-model="drawer" :rail="rail">
         <v-list nav>
+
+            <v-list-item class="mt-1">
+                <template v-slot:prepend>
+                    <v-avatar :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
+                </template>
+                <v-list-item-title class="text-subtitle-2">Rom Manager</v-list-item-title>
+            </v-list-item>
+
+            <v-divider class="mt-3 mb-1"></v-divider>
+
             <v-list-item v-for="platform in platforms" 
-                :title="platform.name" 
+                :title="rail ? platform.slug : platform.name" 
                 :value="platform.slug"
                 :key="platform"
                 @:click="selectPlatform(platform)">
@@ -100,6 +107,15 @@ getPlatforms()
                 </template>
             </v-list-item>
         </v-list>
+
+        <template v-slot:append>
+          <!-- <div class="pa-2"> -->
+            <v-btn block @click="rail = !rail">
+                <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
+                <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>
+            </v-btn>
+          <!-- </div> -->
+        </template>
     </v-navigation-drawer>
 
 </template>
