@@ -13,6 +13,7 @@ const scanOverwrite = ref(false)
 const scanning = ref(false)
 const gettingRomsFlag = ref(false)
 const drawer = ref(null)
+const settings = ref(null)
 const filter = ref('')
 const rail = ref(false)
 const theme = useTheme()
@@ -71,35 +72,6 @@ getPlatforms()
 </script>
 
 <template>
-    <v-app-bar color="toolbar" density="compact">
-
-        <v-app-bar-nav-icon @click="drawer = !drawer" class="hidden-lg-and-up fill-height ml-0" rounded="0"/>
-
-        <v-toolbar-title class="align-center justify-center text-h6 ml-2 d-none d-sm-flex">{{ currentPlatformName }}</v-toolbar-title>
-        <v-toolbar-title class="align-center justify-center text-h6 ml-2 d-sm-none">{{ currentPlatformSlug }}</v-toolbar-title>
-
-        <v-text-field hide-details single-line label="search" prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" />
-
-        <v-menu :close-on-content-click="false" >
-            <template v-slot:activator="{ props }">
-                <v-btn v-bind="props" class="fill-height mr-0" rounded="0"><v-icon>mdi-dots-vertical</v-icon></v-btn>
-            </template>
-            <v-list class="mr-0" rounded="0">
-                <v-list-item class="d-flex align-center justify-center mb-2">
-                    <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
-                        <p v-if="!scanning">Scan</p>
-                        <p v-if="scanning">Scanning</p>
-                        <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
-                    </v-btn>
-                </v-list-item>
-                <v-divider ></v-divider>
-                <v-list-item class="d-flex align-center justify-center">
-                    <v-switch prepend-icon="mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
-                </v-list-item>
-            </v-list>
-        </v-menu>
-    </v-app-bar>
-
     <v-navigation-drawer width="250" rail-width="72" v-model="drawer" :rail="rail">
         <v-list nav>
 
@@ -129,6 +101,34 @@ getPlatforms()
                 <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>
             </v-btn>
         </template>
+    </v-navigation-drawer>
+
+    <v-app-bar color="toolbar" density="compact" class="elevation-0">
+
+        <v-app-bar-nav-icon @click="drawer = !drawer" class="hidden-lg-and-up fill-height ml-0" rounded="0"/>
+
+        <v-toolbar-title class="align-center justify-center text-h6 ml-2 d-none d-sm-flex">{{ currentPlatformName }}</v-toolbar-title>
+        <v-toolbar-title class="align-center justify-center text-h6 ml-2 d-sm-none">{{ currentPlatformSlug }}</v-toolbar-title>
+
+        <v-text-field hide-details single-line label="search" prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" />
+
+        <v-app-bar-nav-icon @click="settings = !settings" class="fill-height mr-0" rounded="0"><v-icon>mdi-dots-vertical</v-icon></v-app-bar-nav-icon>
+    </v-app-bar>
+
+    <v-navigation-drawer width="130" v-model="settings" location="right" temporary>
+        <v-list >
+            <v-list-item class="d-flex align-center justify-center mb-2">
+                <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
+                    <p v-if="!scanning">Scan</p>
+                    <p v-if="scanning">Scanning</p>
+                    <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
+                </v-btn>
+            </v-list-item>
+            <v-divider ></v-divider>
+            <v-list-item class="d-flex align-center justify-center">
+                <v-switch prepend-icon="mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
+            </v-list-item>
+        </v-list>
     </v-navigation-drawer>
 
 </template>
