@@ -109,7 +109,7 @@ class DBHandler:
     
     def get_roms(self, platform_slug: str) -> list:
         try:
-            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small from {self.ROM_TABLE} where platform_slug = '{platform_slug}' order by filename asc")
+            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small from {self.ROM_TABLE} where platform_slug = '{platform_slug}' order by name asc")
             log.info(f"platforms details fetch from {self.ROM_TABLE}")
         except Exception as e:
             log.error(f"platforms details can't be fetch from {self.ROM_TABLE}")
