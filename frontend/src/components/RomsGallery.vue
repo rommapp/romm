@@ -3,18 +3,23 @@ import axios from 'axios'
 import { ref, onMounted } from "vue";
 
 
-const emit = defineEmits(['currentRom'])
+const emit = defineEmits(['currentRom', 'gettingRoms'])
+defineExpose({ getRoms })
 const roms = ref([])
+const noRoms = ref(false)
 const currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 
 
 async function getRoms(platform) {
     console.log("Getting roms...")
+    emit('gettingRoms', true)
     await axios.get('http://'+location.hostname+':5000/platforms/'+platform+'/roms').then((response) => {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
+        if (roms.value.length == 0){ noRoms.value = true }else{ noRoms.value = false }
     }).catch((error) => {console.log(error)})
+    emit('gettingRoms', false)
 }
 
 function downloadRom(name) {
@@ -29,12 +34,6 @@ function selectRom(rom){
     console.log("Selected rom "+rom.name)
     emit('currentRom', rom)
 }
-
-function editCover(rom) {
-    console.log("Editing "+rom.name)
-}
-
-defineExpose({ getRoms })
 
 onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
 </script>
@@ -53,15 +52,13 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                             </div>
                         </template>
                         <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
-                        <v-btn class="d-flex align-center justify-center fill-height" color="transparent" @click="selectRom(rom)" block></v-btn>
+                        <v-btn class="d-flex align-center justify-center fill-height" @click="selectRom(rom)" color="transparent" block />
                     </v-img>
 
                     <v-card-text>
                         <v-row>
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.name)" />
                             <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click=" downloadSave(rom.filename)"/>
-                            <v-spacer></v-spacer>
-                            <v-btn size="small" variant="flat" icon="mdi-image-edit" @click=" editCover(rom)"/>
                         </v-row>
                     </v-card-text>
 
@@ -69,8 +66,8 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
             </v-hover>
         </v-col>
     </v-row>
-    <v-row v-if="roms.length == 0" class="d-flex align-center justify-center fill-height">
-        <div class="mt-16 pt-16 text-h6">Feels cold here <v-icon>mdi-emoticon-sad</v-icon></div>
+    <v-row v-if="noRoms" class="d-flex align-center justify-center fill-height">
+        <div class="mt-16 pt-16 text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 
 </template>
