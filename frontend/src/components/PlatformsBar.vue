@@ -119,9 +119,3 @@ getPlatforms()
     </v-navigation-drawer>
 
 </template>
-
-<style scoped>
-/* .dark_switch {
-    overflow: visible !important;
-} */
-</style>
