@@ -11,13 +11,13 @@ emitter.on('currentRom', (rom) => { getRomDetails(rom) })
 
 // Functions
 function getRomDetails(rom){
-    currentRom.value = rom.name
+    currentRom.value = rom
 }
 
 </script>
 
 <template>
     <v-row>
-        <h3>{{ currentRom }}</h3>
+        <h3>{{ currentRom.name }} - {{ currentRom.filename }}</h3>
     </v-row>
 </template>
