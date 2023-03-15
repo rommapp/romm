@@ -1,6 +1,7 @@
 <script setup>
 import axios from "axios"
 import { ref, inject } from "vue"
+import { useRouter } from 'vue-router'
 import { useTheme } from "vuetify";
 
 // Props
@@ -15,6 +16,7 @@ const filter = ref('')
 const rail = ref(false)
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
+const router = useRouter()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -31,8 +33,9 @@ async function getPlatforms() {
     }).catch((error) => {console.log(error)})
 }
 
-function selectPlatform(platform){    
+async function selectPlatform(platform){    
     // Select the current platform
+    await router.push(import.meta.env.BASE_URL)
     localStorage.setItem('currentPlatformSlug', platform.slug)
     localStorage.setItem('currentPlatformName', platform.name)
     emitter.emit('currentPlatform', platform.slug)
