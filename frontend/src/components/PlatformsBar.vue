@@ -1,11 +1,9 @@
 <script setup>
 import axios from "axios"
-import { ref } from "vue"
+import { ref, inject } from "vue"
 import { useTheme } from "vuetify";
 
-
-const emit = defineEmits(['currentPlatformSlug'])
-defineExpose({ gettingRoms })
+// Props
 const platforms = ref([])
 const backPort = import.meta.env.VITE_BACK_PORT
 const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
@@ -17,8 +15,13 @@ const rail = ref(false)
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
 
+// Event listeners bus
+const emitter = inject('emitter')
+emitter.on('gettingRoms', (flag) => { gettingRomsFlag.value = flag })
 
+// Functions
 async function getPlatforms() {
+    // Get the list of the platforms for the navigation drawer
     console.log("Getting platforms...")
     await axios.get('http://'+location.hostname+':'+backPort+'/platforms').then((response) => {
         console.log("Platforms loaded!")
@@ -28,13 +31,15 @@ async function getPlatforms() {
 }
 
 function selectPlatform(platform){    
+    // Select the current platform
     localStorage.setItem('currentPlatformSlug', platform.slug)
     localStorage.setItem('currentPlatformName', platform.name)
+    emitter.emit('currentPlatform', platform.slug)
     currentPlatformName.value = platform.name
-    emit('currentPlatformSlug', platform.slug)
 }
 
 async function scan() {
+    // Scan and then get the platforms again
     console.log("scanning...")
     scanning.value = true
     await axios.get('http://'+location.hostname+':'+backPort+'/scan?overwrite='+scanOverwrite.value).then((response) => {
@@ -45,13 +50,16 @@ async function scan() {
     scanning.value = false
 }
 
-function toggleTheme() {
-    theme.global.name.value = darkMode.value ? "dark" : "light"
-    darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
+function setFilter(filter) {
+    // Sets the roms filter
+    console.log("Filtering by: "+filter)
+    emitter.emit('romsFilter', filter)
 }
 
-function gettingRoms(flag) {
-    gettingRomsFlag.value = flag
+function toggleTheme() {
+    // Toggle dark/light theme
+    theme.global.name.value = darkMode.value ? "dark" : "light"
+    darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
 }
 
 getPlatforms()
@@ -64,7 +72,7 @@ getPlatforms()
 
         <v-toolbar-title class="d-flex align-center justify-center text-h6">{{ currentPlatformName }}</v-toolbar-title>
 
-        <v-btn icon><v-icon>mdi-magnify</v-icon></v-btn>
+        <v-btn icon @click="setFilter('')"><v-icon>mdi-magnify</v-icon></v-btn>
 
         <v-menu :close-on-content-click="false" >
             <template v-slot:activator="{ props }">
