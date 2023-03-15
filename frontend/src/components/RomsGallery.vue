@@ -7,6 +7,7 @@ import { saveAs } from 'file-saver'
 // Props
 const roms = ref([])
 const romsFiltered = ref([])
+const currentFilter = ref('')
 const backPort = import.meta.env.VITE_BACK_PORT
 const noRoms = ref(false)
 var currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
@@ -26,7 +27,7 @@ async function getRoms(platform) {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
-        romsFiltered.value = response.data.data
+        romsFiltered.value = response.data.data.filter(rom => { return rom.name.toLowerCase().includes(currentFilter.value.toLowerCase()) })
         if (roms.value.length == 0){ noRoms.value = true }else{ noRoms.value = false }
     }).catch((error) => {console.log(error)})
     emitter.emit('gettingRoms', false)
@@ -50,6 +51,7 @@ async function selectRom(rom) {
 }
 
 function setFilter(filter) {
+    currentFilter.value = filter
     romsFiltered.value = roms.value.filter(rom => {
         return rom.name.toLowerCase().includes(filter.toLowerCase())
     })
