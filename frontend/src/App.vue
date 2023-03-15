@@ -1,26 +1,9 @@
 <script setup>
-import { ref } from 'vue'
 import { useTheme } from "vuetify";
 import PlatformsBar from '@/components/PlatformsBar.vue'
 
-
-const platformsBar = ref(null)
+// Props
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
-
-
-async function getRoms(platformSlug){
-  await router.push(import.meta.env.BASE_URL)
-  viewComponent.value.getRoms(platformSlug)
-}
-
-async function gettingRoms(flag){
-  platformsBar.value.gettingRoms(flag)
-}
-
-async function getRomDetails(rom) {
-  
-  viewComponent.value.getRomDetails(rom)
-}
 </script>
 
 <template>

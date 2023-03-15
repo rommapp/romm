@@ -11,6 +11,7 @@ const scanOverwrite = ref(false)
 const scanning = ref(false)
 const gettingRomsFlag = ref(false)
 const drawer = ref(null)
+const filter = ref('')
 const rail = ref(false)
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
@@ -52,7 +53,6 @@ async function scan() {
 
 function setFilter(filter) {
     // Sets the roms filter
-    console.log("Filtering by: "+filter)
     emitter.emit('romsFilter', filter)
 }
 
@@ -72,7 +72,7 @@ getPlatforms()
 
         <v-toolbar-title class="d-flex align-center justify-center text-h6">{{ currentPlatformName }}</v-toolbar-title>
 
-        <v-btn icon @click="setFilter('')"><v-icon>mdi-magnify</v-icon></v-btn>
+        <v-text-field hide-details single-line label="search" prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" />
 
         <v-menu :close-on-content-click="false" >
             <template v-slot:activator="{ props }">
@@ -118,12 +118,10 @@ getPlatforms()
         </v-list>
 
         <template v-slot:append>
-          <!-- <div class="pa-2"> -->
             <v-btn block @click="rail = !rail">
                 <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
                 <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>
             </v-btn>
-          <!-- </div> -->
         </template>
     </v-navigation-drawer>
 
