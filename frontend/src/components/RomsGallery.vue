@@ -57,6 +57,7 @@ function downloadSave(name) {
 
 async function selectRom(rom) {   
     console.log("Selected rom "+rom.name)
+    localStorage.setItem('currentRom', JSON.stringify(rom))
     await router.push(import.meta.env.BASE_URL+'details')
     emitter.emit('currentRom', rom)
 }
@@ -84,7 +85,7 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                     <v-card-text>
                         <v-row>
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.filename)" />
-                            <v-btn size="small" variant="flat" icon="mdi-content-save-all-outline" @click=" downloadSave(rom.filename)"/>
+                            <v-btn size="small" variant="flat" icon="mdi-content-save-all" @click=" downloadSave(rom.filename)"/>
                         </v-row>
                     </v-card-text>
 
