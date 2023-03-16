@@ -112,10 +112,10 @@ getPlatforms()
 
         <v-text-field hide-details single-line label="search" prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" />
 
-        <v-app-bar-nav-icon @click="settings = !settings" class="fill-height mr-0" rounded="0"><v-icon>mdi-dots-vertical</v-icon></v-app-bar-nav-icon>
+        <v-app-bar-nav-icon @click="settings = !settings" class="fill-height mr-0" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
     </v-app-bar>
 
-    <v-navigation-drawer width="130" v-model="settings" location="right" temporary>
+    <v-navigation-drawer width="190" v-model="settings" location="right" temporary>
         <v-list >
             <v-list-item class="d-flex align-center justify-center mb-2">
                 <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
