@@ -1,0 +1,11 @@
+#!/bin/bash
+
+/init_back &
+  
+/init_front &
+  
+# Wait for any process to exit
+wait -n
+  
+# Exit with status of process that exited first
+exit $?

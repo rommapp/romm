@@ -5,10 +5,10 @@ import { useRouter } from 'vue-router'
 import { saveAs } from 'file-saver'
 
 // Props
+const backPort = import.meta.env.VITE_BACK_PORT
 const roms = ref([])
 const romsFiltered = ref([])
 const currentFilter = ref('')
-const backPort = import.meta.env.VITE_BACK_PORT
 const noRoms = ref(false)
 var currentPlatformSlug = localStorage.getItem('currentPlatformSlug') || ""
 const router = useRouter()
@@ -34,7 +34,7 @@ async function getRoms(platform) {
     currentPlatformSlug = platform
     console.log("Getting roms...")
     emitter.emit('gettingRoms', true)
-    await axios.get('http://'+location.hostname+':'+backPort+'/platforms/'+platform+'/roms').then((response) => {
+    await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
         console.log("Roms loaded!")
         console.log(response.data.data)
         roms.value = response.data.data
@@ -46,7 +46,7 @@ async function getRoms(platform) {
     
 function downloadRom(filename) {
     console.log("Downloading "+filename)
-    axios.get('http://'+location.host+'/assets/emulation/'+currentPlatformSlug+'/roms/'+filename, { responseType: 'blob' }).then(response => {
+    axios.get('/assets/emulation/'+currentPlatformSlug+'/roms/'+filename, { responseType: 'blob' }).then(response => {
         saveAs(new Blob([response.data], { type: 'application/file' }), filename)
     }).catch(console.error)
 }
