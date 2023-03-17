@@ -2,7 +2,7 @@ name: build romm image
 
 on:
   push:
-    branches: master
+    branches:  [ master ]
 
 jobs:
   build:
@@ -22,4 +22,4 @@ jobs:
           VERSION=dev-0.13
           docker buildx build --push\
             --tag zurdi15/romm:latest --tag zurdi15/romm:${VERSION}\
-            --platform linux/amd64,linux/arm/v7,linux/arm64 . --file ./docker/Dockerfile
+            --platform linux/arm64,linux/amd64 . --file ./docker/Dockerfile
