@@ -19,19 +19,19 @@ igdbh: IGDBHandler = IGDBHandler()
 dbh: DBHandler = DBHandler()
 
 
-@app.get("/platforms/{slug}/roms")
+@app.get("/api/platforms/{slug}/roms")
 async def platforms(slug):
     """Returns roms data of the desired platform"""
     return {'data': [Rom(*r) for r in dbh.get_roms(slug)]}
 
 
-@app.get("/platforms")
+@app.get("/api/platforms")
 async def platforms():
     """Returns platforms data"""
     return {'data': [Platform(*p) for p in dbh.get_platforms()]}
 
 
-@app.get("/scan")
+@app.get("/api/scan")
 async def scan(overwrite: bool=False):
     """Scan platforms and roms and write them in database."""
 
