@@ -1,6 +1,10 @@
 # romm
 
-## Project Setup
+## Docker image
+
+[romm](https://hub.docker.com/r/zurdi15/romm)
+
+## Project Setup for development
 
 ### Create python virtualenv
 
@@ -33,7 +37,7 @@ CLIENT_SECRET=""
 STEAMGRIDDB_API_KEY=""
 
 # Platforms system path
-PLATFORMS_SYSTEM_BASE_PATH="mock/emulation"
+PLATFORMS_SYSTEM_BASE_PATH="emulation"
 
 # DB related config
 ROMM_DB_HOST=""
@@ -41,7 +45,7 @@ ROMM_DB_PORT=
 ROMM_DB_ROOT_PASSWD=""
 ROMM_DB_USER=""
 ROMM_DB_PASSWD=""
-ROMM_DB_CONFIG_PATH="../../backend/database/mariadb/config"
+ROMM_DB_CONFIG_PATH=""
 ```
 
 ### Export environment variables
@@ -53,7 +57,7 @@ export $(cat backend/envs.env | xargs)
 ### Create mariadb docker container
 
 ```sh
-docker-compose -f backend/database/docker-compose.yml up -d
+docker-compose up -d (to your docker-compose file for run mariadb)
 ```
 
 ### Install node.js dependencies
