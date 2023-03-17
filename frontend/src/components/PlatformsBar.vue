@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router'
 import { useTheme } from "vuetify";
 
 // Props
-const backPort = import.meta.env.VITE_BACK_PORT
 const platforms = ref([])
 const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
 const currentPlatformSlug = ref(localStorage.getItem('currentPlatformSlug') || "")

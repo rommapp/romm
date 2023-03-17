@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router'
 import { saveAs } from 'file-saver'
 
 // Props
-const backPort = import.meta.env.VITE_BACK_PORT
 const roms = ref([])
 const romsFiltered = ref([])
 const currentFilter = ref('')
