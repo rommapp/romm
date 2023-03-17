@@ -1,8 +1,20 @@
 name: build romm image
 
 on:
-  push:
-    branches:  [ master ]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - pro
+      version:
+        description: 'romm version'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -18,8 +30,12 @@ jobs:
       - name: login to docker hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
       - name: build the image
+        shell: bash
         run: |
-          VERSION=dev-0.13
+          if [[ $ENV -eq 'dev' ]]; then VERSION=$ENV-$VERSION; fi
           docker buildx build --push\
             --tag zurdi15/romm:latest --tag zurdi15/romm:${VERSION}\
             --platform linux/arm64,linux/amd64 . --file ./docker/Dockerfile
+        env:
+          ENV: ${{ inputs.env }}
+          VERSION: ${{ inputs.version }}
