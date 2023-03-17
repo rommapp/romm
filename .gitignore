@@ -38,6 +38,3 @@ envs.env
 
 # database
 mariadb
-
-# mock data
-emulation
