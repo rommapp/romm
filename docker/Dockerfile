@@ -24,10 +24,10 @@ RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
 COPY ./backend/src ./
 
 # setup init script and config files
-COPY ./docker/init_back /init_back
-COPY ./docker/init_front /init_front
-COPY ./docker/init /init
-COPY ./nginx/default.conf /etc/nginx/nginx.conf
+COPY ./docker/init_scripts/init_back /init_back
+COPY ./docker/init_scripts/init_front /init_front
+COPY ./docker/init_scripts/init /init
+COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
 
