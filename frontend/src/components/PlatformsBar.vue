@@ -5,8 +5,8 @@ import { useRouter } from 'vue-router'
 import { useTheme } from "vuetify";
 
 // Props
-const platforms = ref([])
 const backPort = import.meta.env.VITE_BACK_PORT
+const platforms = ref([])
 const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
 const currentPlatformSlug = ref(localStorage.getItem('currentPlatformSlug') || "")
 const scanOverwrite = ref(false)
@@ -28,7 +28,7 @@ emitter.on('gettingRoms', (flag) => { gettingRomsFlag.value = flag })
 async function getPlatforms() {
     // Get the list of the platforms for the navigation drawer
     console.log("Getting platforms...")
-    await axios.get('http://'+location.hostname+':'+backPort+'/platforms').then((response) => {
+    await axios.get('/api/platforms').then((response) => {
         console.log("Platforms loaded!")
         console.log(response.data.data)
         platforms.value = response.data.data
@@ -49,7 +49,7 @@ async function scan() {
     // Scan and then get the platforms again
     console.log("scanning...")
     scanning.value = true
-    await axios.get('http://'+location.hostname+':'+backPort+'/scan?overwrite='+scanOverwrite.value).then((response) => {
+    await axios.get('/api/scan?overwrite='+scanOverwrite.value).then((response) => {
         console.log("scan completed")
         console.log(response.data)
         getPlatforms()

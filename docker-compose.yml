@@ -1,7 +1,7 @@
-version: "3"
+version: '3'
 services:
   romm:
-    image: romm:latest
+    image: 'zurdi15/romm:latest'
     container_name: romm
     environment:
       - DB_HOST=${DB_HOST}
@@ -10,14 +10,12 @@ services:
       - DB_PASSWD=${DB_PASSWD}
       - CLIENT_ID=${CLIENT_ID}
       - CLIENT_SECRET=${CLIENT_SECRET}
-      - STEAMGRIDDB_API_KEY=${STEAMGRIDDB_API_KEY}
+      - STEAMGRIDDB_API_KEY=WIP
     volumes:
-      - ${EMULATION_PATH}:/emulation
+      - ${EMULATION_PATH}:/emulation'
     ports:
-      - ${ROMM_PORT_BACKEND}:5000
-      - ${ROMM_PORT_FRONTEND}:5173
+      - '${ROMM_PORT}:80'
     restart: "no"
-
 
   romm_db:
     image: lscr.io/linuxserver/mariadb:latest

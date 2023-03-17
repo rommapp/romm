@@ -1,6 +1,6 @@
 {
-  "name": "vuetify-project",
-  "version": "0.0.0",
+  "name": "romm",
+  "version": "0.12",
   "private": true,
   "scripts": {
     "dev": "vite --host",
