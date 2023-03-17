@@ -1,6 +1,6 @@
 {
   "name": "romm",
-  "version": "0.12",
+  "version": "0.13",
   "private": true,
   "scripts": {
     "dev": "vite --host",
