@@ -113,8 +113,8 @@ getPlatforms()
         <v-app-bar-nav-icon @click="drawer = !drawer" rounded="0" class="hidden-lg-and-up ml-1"/>
         <!-- App bar - Platform title - desktop -->
         <v-toolbar-title class="align-center justify-center text-h6 ml-4 d-none d-sm-flex">
-            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
-            {{ currentPlatformName }}
+            <!-- <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
+            {{ currentPlatformName }} -->
         </v-toolbar-title>
         <!-- App bar - Platform title - mobile -->
         <v-toolbar-title class="align-center text-h6 ml-2 d-sm-none">

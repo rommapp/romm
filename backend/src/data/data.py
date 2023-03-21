@@ -18,6 +18,7 @@ class Rom:
     sgdb_id: str = ""
     platform_igdb_id: str = ""
     platform_sgdb_id: str = ""
+    filename_no_ext: str = ""
     filename: str = ""
     name: str = ""
     slug: str = ""
