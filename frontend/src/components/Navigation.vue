@@ -78,18 +78,57 @@ getPlatforms()
 </script>
 
 <template>
-    <!-- Platforms navigation drawer -->
-    <v-navigation-drawer width="250" rail-width="72" v-model="drawer" :rail="rail">
-        <v-list-item class="mt-3">
-            <template v-slot:prepend>
-                <v-avatar :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
-            </template>
-            <v-list-item-title class="text-subtitle-2">Rom Manager</v-list-item-title>
+    <!-- Settings drawer -->
+    <v-navigation-drawer width="190" v-model="settings" location="right" temporary floating>
+        <!-- Settings drawer - title -->
+        <v-list-item id="settings-title" class="text-h5 d-flex align-center justify-center pt-4 pb-4 pl-7 font-weight-bold bg-primary">
+            Settings<v-btn icon="mdi-close-box" class="ml-1" rounded="0" variant="plain" @click="settings = !settings"/>
         </v-list-item>
+        <v-divider class="border-opacity-100" :thickness="2"></v-divider>
+        <v-list>
+            <!-- Settings drawer - scan button -->
+            <v-list-item class="d-flex align-center justify-center mb-2">
+                <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
+                    <p v-if="!scanning">Scan</p>
+                    <p v-if="scanning">Scanning</p>
+                    <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
+                </v-btn>
+            </v-list-item>
+            <v-divider class="border-opacity-25"></v-divider>
+            <!-- Settings drawer - theme toggle -->
+            <v-list-item class="d-flex align-center justify-center">
+                <v-switch prepend-icon="mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
+            </v-list-item>
+            <v-divider class="border-opacity-25"></v-divider>
+        </v-list>
+    </v-navigation-drawer>
 
-        <v-divider class="mt-3 mb-1"></v-divider>
+    <!-- App bar -->
+    <v-app-bar color="toolbar" class="elevation-3" >
+        <!-- App bar - RomM avatar -->
+        <v-avatar class="ml-4" :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
+        <!-- App bar - RomM title -->
+        <v-list-item-title class="text-h6 ml-5 hidden-md-and-down font-weight-black">ROM MANAGER</v-list-item-title>
+        <!-- App bar - Platforms drawer toggle -->
+        <v-app-bar-nav-icon @click="drawer = !drawer" rounded="0" class="hidden-lg-and-up ml-1"/>
+        <!-- App bar - Platform title - desktop -->
+        <v-toolbar-title class="align-center justify-center text-h6 ml-4 d-none d-sm-flex">
+            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
+            {{ currentPlatformName }}
+        </v-toolbar-title>
+        <!-- App bar - Platform title - mobile -->
+        <v-toolbar-title class="align-center text-h6 ml-2 d-sm-none">
+            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
+        </v-toolbar-title>
+        <!-- App bar - Search bar -->
+        <v-text-field hide-details label="search" variant="outlined" density="compact" class="ml-5 mr-3" clearable prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" @click:clear="setFilter('')"/>
+        <v-app-bar-nav-icon @click="settings = !settings" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
+    </v-app-bar>
 
+    <!-- Platforms drawer -->
+    <v-navigation-drawer width="250" rail-width="72" v-model="drawer" :rail="rail">
         <v-list nav>
+            <!-- Platforms drawer - Platforms list -->
             <v-list-item v-for="platform in platforms"
                 class="mt-3"
                 :title="rail ? '' : platform.name" 
@@ -104,42 +143,13 @@ getPlatforms()
                 </template>
             </v-list-item>
         </v-list>
-
+        <!-- Platforms drawer - Platforms list - rail toggle -->
         <template v-slot:append>
             <v-btn block @click="toggleRail()" rounded="0">
                 <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
                 <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>
             </v-btn>
         </template>
-    </v-navigation-drawer>
-
-    <v-app-bar color="toolbar" class="elevation-0" >
-        <v-app-bar-nav-icon @click="drawer = !drawer" class="hidden-lg-and-up" rounded="0"/>
-        <v-toolbar-title class="align-center text-h6 ml-4 d-none d-sm-flex">
-            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
-            {{ currentPlatformName }}
-        </v-toolbar-title>
-        <v-toolbar-title class="align-center text-h6 ml-4 d-sm-none">
-            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
-        </v-toolbar-title>
-        <v-text-field hide-details label="search" variant="outlined" density="compact" clearable prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" @click:clear="setFilter('')"/>
-        <v-app-bar-nav-icon @click="settings = !settings" class="mr-2 ml-2" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
-    </v-app-bar>
-
-    <v-navigation-drawer width="190" v-model="settings" location="right" temporary>
-        <v-list >
-            <v-list-item class="d-flex align-center justify-center mb-2">
-                <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
-                    <p v-if="!scanning">Scan</p>
-                    <p v-if="scanning">Scanning</p>
-                    <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
-                </v-btn>
-            </v-list-item>
-            <v-divider ></v-divider>
-            <v-list-item class="d-flex align-center justify-center">
-                <v-switch prepend-icon="mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
-            </v-list-item>
-        </v-list>
     </v-navigation-drawer>
 
 </template>
