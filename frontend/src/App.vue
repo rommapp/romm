@@ -25,21 +25,23 @@ useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 /* Firefox */
 * {
   scrollbar-width: none;
+  /* scrollbar-width: thin; */
   scrollbar-color: #808080 #ffffff;
 }
 
 /* Chrome, Edge, and Safari */
 *::-webkit-scrollbar {
   width: 0px;
+  /* width: 3px; */
 }
 
 *::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: rgba(0, 0, 0, 0);
 }
 
 *::-webkit-scrollbar-thumb {
   background-color: #808080;
-  border-radius: 10px;
-  border: 3px solid #ffffff;
+  border-radius: 5px;
+  /* border: 3px solid #ffffff; */
 }
 </style>
