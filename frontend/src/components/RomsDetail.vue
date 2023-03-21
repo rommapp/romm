@@ -16,8 +16,8 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 </script>
 
 <template>
-    <v-row>
-        <v-col cols="2">
+    <v-row class="text-body-1 justify-center">
+        <v-col cols="8" xs="8" sm="4" md="3" lg="2">
             <v-card >
                 <v-img :src="rom.path_cover_big" :lazy-src="rom.path_cover_smallt" cover >
                     <template v-slot:placeholder>
@@ -25,32 +25,24 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
                             <v-progress-circular color="grey-lighten-4" indeterminate />
                         </div>
                     </template>
-                    <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
+                    <div v-if="!rom.slug" class="d-flex align-center pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
                 </v-img>
             </v-card>
+            <div>
+                <v-btn class="mt-2" prepend-icon="mdi-download" @click="downloadRom()">Rom</v-btn>
+                <v-btn class="mt-2 ml-2" prepend-icon="mdi-content-save-all" @click="downloadSaves()">Saves</v-btn>
+            </div>
         </v-col>
-        <v-col class="mt-2">
-            <v-row><div class="text-h6 justify-center">IGDB id: {{ rom.igdb_id }}</div></v-row>
-            <v-row><div class="text-h6 justify-center">Name: {{ rom.name }}</div></v-row>
-            <v-row><div class="text-h6 justify-center">File: {{ rom.filename }}</div></v-row>
-            <v-row><div class="text-h6 justify-center">Slug: {{ rom.slug }}</div></v-row>
-            <v-row><div class="text-h6 justify-center">Platform: {{ rom.platform_slug }}</div></v-row>
-            <v-row><div class="text-h6 justify-center">Cover: {{ rom.path_cover_big }}</div></v-row>
-            <v-divider class="mt-8"></v-divider>
-            <v-row class="mt-3" max-width="200">
-                <v-col cols="2"><v-btn block prepend-icon="mdi mdi-download">Download</v-btn></v-col>
-                <v-col cols="3"><v-btn block prepend-icon="mdi mdi-content-save-all">Download save files</v-btn></v-col>
-            </v-row>
-            <v-row>
-                <v-col cols="2">
-                    <v-btn block prepend-icon="mdi mdi-square-edit-outline">Edit</v-btn>
-                </v-col>
-            </v-row>
+        <v-col class="mt-2 ml-3">
+            <v-row>IGDB id: {{ rom.igdb_id }}</v-row>
+            <v-row>Name: {{ rom.name }}</v-row>
+            <v-row>File: {{ rom.filename }}</v-row>
+            <v-row>Slug: {{ rom.slug }}</v-row>
+            <v-row>Platform: {{ rom.platform_slug }}</v-row>
+            <v-row>Cover: {{ rom.path_cover_big }}</v-row>
+            <v-divider class="mt-8 mb-8"></v-divider>
+            <v-row class="pr-10">{{ rom.summary }}</v-row>
         </v-col>
     </v-row>
-    <v-row>
-        <v-col>
-            <p class="text-h6 justify-center">{{ rom.summary }}</p>
-        </v-col>
-    </v-row>
+    <v-divider class="mt-10 mb-10 border-opacity-75"></v-divider>
 </template>
