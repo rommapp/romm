@@ -68,10 +68,10 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
 
     <v-row>
         <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2" >
-            <v-hover v-slot="{ isHovering, props }">
-                <v-card :elevation="isHovering ? 20 : 3" :class="{ 'on-hover': isHovering }" v-bind="props" >
-
-                    <v-img :src="rom.path_cover_big" :lazy-src="rom.path_cover_smallt" cover >
+            <v-hover v-slot="{isHovering, props}">
+                <v-card :elevation="isHovering ? 20 : 3" :class="{'on-hover': isHovering}" v-bind="props" >
+                    <v-img
+                        :src="rom.path_cover_big" :lazy-src="rom.path_cover_small" cover>
                         <template v-slot:placeholder>
                             <div class="d-flex align-center justify-center fill-height">
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
@@ -80,7 +80,6 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                         <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
                         <v-btn class="d-flex align-center justify-center fill-height" @click="selectRom(rom)" color="transparent" block />
                     </v-img>
-
                     <v-card-text>
                         <v-row>
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.filename)" />

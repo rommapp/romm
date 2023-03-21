@@ -52,14 +52,14 @@ class DBHandler:
             raise HTTPException(status_code=500, detail=f"Can't truncate platform table. {e}")
 
     
-    def regenerate_rom_table(self, igdb_id: str, sgdb_id: str, platform_igdb_id: str, platform_sgdb_id: str,
+    def regenerate_rom_table(self, igdb_id: str, sgdb_id: str, platform_igdb_id: str, platform_sgdb_id: str, rom_filename_no_ext: str,
                              rom_filename: str, rom_name: str, rom_slug: str, summary: str, platform_slug: str, path_cover_big: str, path_cover_small: str) -> None:
         try:
             self.cur.execute(f"""
             create table if not exists {self.ROM_TABLE}
                 ({igdb_id} varchar(20), {sgdb_id} varchar(20),
                 {platform_igdb_id} varchar(20), {platform_sgdb_id} varchar(20),
-                {rom_filename} varchar(200), {rom_name} varchar(100),
+                {rom_filename_no_ext} varchar(200), {rom_filename} varchar(200), {rom_name} varchar(100),
                 {rom_slug} varchar(100), {summary} text, {platform_slug} varchar(100),
                 {path_cover_big} varchar(500), {path_cover_small} varchar(500))
             """)
@@ -89,8 +89,8 @@ class DBHandler:
     def write_roms(self, roms: list) -> None:
         values: list = [{k: str(v) for k, v in asdict(p).items()} for p in roms]
         try:
-            self.cur.executemany(f"insert into {self.ROM_TABLE} (igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small) \
-                                 values (%(igdb_id)s, %(sgdb_id)s, %(platform_igdb_id)s, %(platform_sgdb_id)s, %(filename)s, %(name)s, %(slug)s, %(summary)s, %(platform_slug)s, %(path_cover_big)s, %(path_cover_small)s)", values)
+            self.cur.executemany(f"insert into {self.ROM_TABLE} (igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename_no_ext, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small) \
+                                 values (%(igdb_id)s, %(sgdb_id)s, %(platform_igdb_id)s, %(platform_sgdb_id)s, %(filename_no_ext)s, %(filename)s, %(name)s, %(slug)s, %(summary)s, %(platform_slug)s, %(path_cover_big)s, %(path_cover_small)s)", values)
             log.info(f"{self.ROM_TABLE} table populated")
         except Exception as e:
             log.error(f"{self.ROM_TABLE} can't be populated: {e}")
@@ -109,7 +109,7 @@ class DBHandler:
     
     def get_roms(self, platform_slug: str) -> list:
         try:
-            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small from {self.ROM_TABLE} where platform_slug = '{platform_slug}' order by name asc")
+            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename_no_ext, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small from {self.ROM_TABLE} where platform_slug = '{platform_slug}' order by name asc")
             log.info(f"platforms details fetch from {self.ROM_TABLE}")
         except Exception as e:
             log.error(f"platforms details can't be fetch from {self.ROM_TABLE}")
