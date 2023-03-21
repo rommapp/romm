@@ -80,7 +80,7 @@ getPlatforms()
 <template>
     <!-- Platforms navigation drawer -->
     <v-navigation-drawer width="250" rail-width="72" v-model="drawer" :rail="rail">
-        <v-list-item class="mt-3" fixed>
+        <v-list-item class="mt-3">
             <template v-slot:prepend>
                 <v-avatar :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
             </template>
