@@ -1,6 +1,6 @@
 <script setup>
 import { useTheme } from "vuetify";
-import PlatformsBar from '@/components/PlatformsBar.vue'
+import Navigation from '@/components/Navigation.vue'
 
 // Props
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
@@ -9,7 +9,7 @@ useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
 <template>
   <v-app>
     
-    <platforms-bar/>
+    <navigation/>
 
     <v-main>
       <v-container fluid>
