@@ -70,8 +70,8 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
         <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2" >
             <v-hover v-slot="{isHovering, props}">
                 <v-card :elevation="isHovering ? 20 : 3" :class="{'on-hover': isHovering}" v-bind="props" >
-                    <v-img
-                        :src="rom.path_cover_l" :lazy-src="rom.path_cover_s" cover>
+                    <v-img :src="rom.path_cover_l" :lazy-src="rom.path_cover_s" cover>
+                        <v-tooltip activator="parent" location="top" open-delay="500">{{ rom.filename }}</v-tooltip>
                         <template v-slot:placeholder>
                             <div class="d-flex align-center justify-center fill-height">
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
@@ -86,7 +86,6 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                             <v-btn size="small" variant="flat" icon="mdi-content-save-all" @click=" downloadSave(rom.filename)"/>
                         </v-row>
                     </v-card-text>
-
                 </v-card>
             </v-hover>
         </v-col>
