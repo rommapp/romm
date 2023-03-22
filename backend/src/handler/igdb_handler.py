@@ -105,7 +105,7 @@ class IGDBHandler():
                     url_cover: str = f"https:{res_details['url']}"
                 except IndexError:
                     log.warning(f"{name} cover not found in igdb")
-        if not name: name = filename
+        if not name: name = filename_no_ext
         return (igdb_id, filename_no_ext, slug, name, summary, url_cover)
 
 

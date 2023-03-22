@@ -77,7 +77,7 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
-                        <div v-if="!rom.has_cover" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
+                        <div v-if="!rom.has_cover" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.filename }}</div>
                         <v-btn class="d-flex align-center justify-center fill-height" @click="selectRom(rom)" color="transparent" block />
                     </v-img>
                     <v-card-text>
