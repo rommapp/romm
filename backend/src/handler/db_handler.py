@@ -12,20 +12,28 @@ class DBHandler:
         self.session = Session()
 
     
-    def add_platform(self, **kargs):
+    def add_platform(self, **kargs) -> None:
         self.session.merge(Platform(**kargs))
 
     
-    def get_platforms(self):
+    def get_platforms(self) -> list[Platform]:
         return self.session.query(Platform).all()
 
 
-    def add_rom(self, **kargs):
+    def add_rom(self, **kargs) -> None:
         self.session.merge(Rom(**kargs))
 
 
-    def get_roms(self, p_slug):
+    def get_roms(self, p_slug: str) -> list[Rom]:
         return self.session.query(Rom).filter(Rom.p_slug == p_slug).all()
+    
+
+    def update_rom(self, p_slug: str, filename: str, data: dict) -> None:
+        self.session.query(Rom).filter(Rom.p_slug==p_slug, Rom.filename==filename).update(data, synchronize_session='evaluate')
+
+
+    def delete_rom(self, p_slug: str, filename: str) -> None:
+        self.session.query(Rom).filter(Rom.p_slug==p_slug, Rom.filename==filename).delete(synchronize_session='evaluate')
 
 
     def commit(self):

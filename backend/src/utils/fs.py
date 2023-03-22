@@ -161,3 +161,15 @@ def get_roms(p_slug) -> list:
         log.warning(f"roms not found for {p_slug}")
         pass
     return roms
+
+
+def rename_rom(p_slug: str, filename: str, data: dict) -> None:
+    os.rename(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}",
+              f"{EMULATION_BASE_PATH}/{p_slug}/roms/{data['filename']}")
+    
+
+def delete_rom(p_slug: str, filename: str) -> None:
+    try:
+        os.remove(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}")
+    except FileNotFoundError:
+        log.warning(f"Rom not found in filesystem: {p_slug}/{filename}")

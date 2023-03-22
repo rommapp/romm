@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import uvicorn
 
 from logger.logger import log
@@ -17,16 +17,29 @@ sgdbh: SGDBHandler = SGDBHandler()
 dbh: DBHandler = DBHandler()
 
 
-@app.patch("/platforms/{p_slug}/roms/{filename}")
-async def editRom(p_slug: str, filename: str):
-    """Edits rom details"""
-    return {'msg': 'WIP'}
-
-
 @app.get("/platforms/{p_slug}/roms")
-async def platforms(p_slug: str):
+async def roms(p_slug: str):
     """Returns roms data of the desired platform"""
     return {'data':  dbh.get_roms(p_slug)}
+
+
+@app.patch("/platforms/{p_slug}/roms/{filename}")
+async def updateRom(req: Request, p_slug: str, filename: str):
+    """Updates rom details"""
+    data: dict = await req.json()
+    if 'filename' in data: fs.rename_rom(p_slug, filename, data)
+    dbh.update_rom(p_slug, filename, data)
+    dbh.commit()
+    return {'msg': 'success'}
+
+
+@app.delete("/platforms/{p_slug}/roms/{filename}")
+async def delete_rom(p_slug: str, filename: str):
+    log.info("deleting rom...")
+    fs.delete_rom(p_slug, filename)
+    dbh.delete_rom(p_slug, filename)
+    dbh.commit()
+    return {'msg': 'success'}
 
 
 @app.get("/platforms")
@@ -35,51 +48,40 @@ async def platforms():
     return {'data': dbh.get_platforms()}
 
 
+@app.get("/scan/rom")
+async def scan_rom(req: Request, overwrite: bool=False):
+    """Scan single rom and write it in database."""
+
+    log.info("scaning rom...")
+    data: dict = await req.json()
+    fastapi.scan_rom(overwrite, data['filename'], data['p_igdb_id'], data['p_slug'], igdbh, dbh)
+    dbh.commit()
+    return {'msg': 'success'}
+
+
+@app.get("/scan/platform")
+async def scan_platform(req: Request, overwrite: bool=False):
+    """Scan single platform and write it in database."""
+
+    log.info("scaning platform roms...")
+    data: dict = await req.json()
+    for filename in fs.get_roms(data['p_slug']):
+        fastapi.scan_rom(overwrite, filename, data['p_igdb_id'], data['p_slug'], igdbh, dbh)
+    dbh.commit()
+    return {'msg': 'success'}
+
+
 @app.get("/scan")
 async def scan(overwrite: bool=False):
     """Scan platforms and roms and write them in database."""
 
-    log.info("scaning...")
-
+    log.info("complete scaning...")
     fs.store_default_resources(overwrite)
-
     for p_slug in fs.get_platforms():
-        platform: dict  = {}
-        log.info(f"Getting {p_slug} details")
-        p_igdb_id, p_name, url_logo = igdbh.get_platform_details(p_slug)
-        platform['slug'] = p_slug
-        platform['igdb_id'] = p_igdb_id
-        platform['name'] = p_name
-        
-        #TODO: refactor logo details logic
-        if (overwrite or not fs.p_logo_exists(p_slug)) and url_logo:
-            fs.store_p_logo(p_slug, url_logo)
-        if fs.p_logo_exists(p_slug):
-            platform['path_logo']: str = fs.get_p_path_logo(p_slug)
-
-        dbh.add_platform(**platform)
-
+        p_igdb_id: str = fastapi.scan_platform(overwrite, p_slug, igdbh, dbh)
         for filename in fs.get_roms(p_slug):
-            rom: dict = {}
-            log.info(f"Getting {filename} details")
-            r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, p_igdb_id)
-            path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, p_slug, filename_no_ext, url_cover)
-            rom['filename'] = filename
-            rom['filename_no_ext'] = filename_no_ext
-            rom['r_igdb_id'] = r_igdb_id
-            rom['p_igdb_id'] = p_igdb_id
-            rom['name'] = r_name
-            rom['r_slug'] = r_slug
-            rom['p_slug'] = p_slug
-            rom['summary'] = summary
-            rom['path_cover_s'] = path_cover_s
-            rom['path_cover_l'] = path_cover_l
-            rom['has_cover'] = has_cover
-
-            dbh.add_rom(**rom)
-    
+            fastapi.scan_rom(overwrite, filename, p_igdb_id, p_slug, igdbh, dbh)
     dbh.commit()
-
     return {'msg': 'success'}
 
 
