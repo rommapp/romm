@@ -18,14 +18,15 @@ DEFAULT_PATH_COVER_S: str = f"/assets/emulation/resources/default/cover_s.png"
 
 
 # IGDB
-CLIENT_ID=os.getenv('CLIENT_ID')
-CLIENT_SECRET=os.getenv('CLIENT_SECRET')
+CLIENT_ID: str = os.getenv('CLIENT_ID')
+CLIENT_SECRET: str = os.getenv('CLIENT_SECRET')
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY=os.getenv('STEAMGRIDDB_API_KEY')
+STEAMGRIDDB_API_KEY: str = os.getenv('STEAMGRIDDB_API_KEY')
 
 # DB
-DB_HOST=os.getenv('DB_HOST')
-DB_PORT=int(os.getenv('DB_PORT'))
-DB_ROOT_PASSWD=os.getenv('DB_ROOT_PASSWD')
-DB_USER=os.getenv('DB_USER')
-DB_PASSWD=os.getenv('DB_PASSWD')
+DB_HOST: str = os.getenv('DB_HOST')
+DB_PORT: int = int(os.getenv('DB_PORT'))
+DB_ROOT_PASSWD: str = os.getenv('DB_ROOT_PASSWD')
+DB_USER: str = os.getenv('DB_USER')
+DB_PASSWD: str = os.getenv('DB_PASSWD')
+DB_NAME: str = 'romm'
