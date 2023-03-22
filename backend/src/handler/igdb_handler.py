@@ -47,22 +47,23 @@ class IGDBHandler():
                 url_logo: str = f"https://images.igdb.com/igdb/image/upload/t_logo_med/{res_logo['image_id']}.png"
             except IndexError:
                 log.warning(f"{slug} logo not found in igdb")
-        return (igdb_id, name, url_logo)
+        if not name: name = slug
+        return igdb_id, name, url_logo
 
 
     @check_twitch_token
-    def get_rom_details(self, rom_filename: str, platform_id: int) -> dict:
-        rom_filename_no_ext: str = rom_filename.split('.')[0]
+    def get_rom_details(self, filename: str, p_igdb_id: int) -> dict:
+        filename_no_ext: str = filename.split('.')[0]
         igdb_id: str = ""
         slug: str = ""
         name: str = ""
         summary: str = ""
         url_cover: str = ""
-        if platform_id:
+        if p_igdb_id:
             try:
                 res_details: dict = requests.post("https://api.igdb.com/v4/games/",
                                                 headers=self.headers,
-                                                data=f"search \"{rom_filename_no_ext}\";fields id, slug, name, summary; where platforms=[{platform_id}] & category=0;").json()[0]
+                                                data=f"search \"{filename_no_ext}\";fields id, slug, name, summary; where platforms=[{p_igdb_id}] & category=0;").json()[0]
                 igdb_id = res_details['id']
                 slug = res_details['slug']
                 name = res_details['name']
@@ -74,7 +75,7 @@ class IGDBHandler():
                 try:
                     res_details: dict = requests.post("https://api.igdb.com/v4/games/",
                                                     headers=self.headers,
-                                                    data=f"search \"{rom_filename_no_ext}\";fields name, id, slug, summary; where platforms=[{platform_id}] & category=10;").json()[0]
+                                                    data=f"search \"{filename_no_ext}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}] & category=10;").json()[0]
                     igdb_id = res_details['id']
                     slug = res_details['slug']
                     name = res_details['name']
@@ -86,7 +87,7 @@ class IGDBHandler():
                     try:
                         res_details: dict = requests.post("https://api.igdb.com/v4/games/",
                                                         headers=self.headers,
-                                                        data=f"search \"{rom_filename_no_ext}\";fields name, id, slug, summary; where platforms=[{platform_id}];").json()[0]
+                                                        data=f"search \"{filename_no_ext}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()[0]
                         igdb_id = res_details['id']
                         slug = res_details['slug']
                         name = res_details['name']
@@ -95,7 +96,7 @@ class IGDBHandler():
                         except KeyError:
                             pass
                     except IndexError:
-                        log.warning(f"{rom_filename} rom not found in igdb")
+                        log.warning(f"{filename} rom not found in igdb")
             if igdb_id:
                 try:
                     res_details: dict = requests.post("https://api.igdb.com/v4/covers/",
@@ -104,7 +105,8 @@ class IGDBHandler():
                     url_cover: str = f"https:{res_details['url']}"
                 except IndexError:
                     log.warning(f"{name} cover not found in igdb")
-        return (igdb_id, rom_filename_no_ext, slug, name, summary, url_cover)
+        if not name: name = filename
+        return (igdb_id, filename_no_ext, slug, name, summary, url_cover)
 
 
 
