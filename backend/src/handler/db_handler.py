@@ -31,8 +31,7 @@ class DBHandler:
         self.cur = self.conn.cursor()
 
 
-    def regenerate_platform_table(self, igdb_id: str, sgdb_id: str,
-                                  slug: str, name: str, path_logo: str) -> None:
+    def regenerate_platform_table(self, igdb_id: str, sgdb_id: str, slug: str, name: str, path_logo: str) -> None:
         try:
             self.cur.execute(f"""
             create table if not exists {self.PLATFORM_TABLE}
@@ -51,29 +50,6 @@ class DBHandler:
             log.error(f"{self.PLATFORM_TABLE} table can't be truncated: {e}")
             raise HTTPException(status_code=500, detail=f"Can't truncate platform table. {e}")
 
-    
-    def regenerate_rom_table(self, igdb_id: str, sgdb_id: str, platform_igdb_id: str, platform_sgdb_id: str, rom_filename_no_ext: str,
-                             rom_filename: str, rom_name: str, rom_slug: str, summary: str, platform_slug: str, path_cover_big: str, path_cover_small: str) -> None:
-        try:
-            self.cur.execute(f"""
-            create table if not exists {self.ROM_TABLE}
-                ({igdb_id} varchar(20), {sgdb_id} varchar(20),
-                {platform_igdb_id} varchar(20), {platform_sgdb_id} varchar(20),
-                {rom_filename_no_ext} varchar(200), {rom_filename} varchar(200), {rom_name} varchar(100),
-                {rom_slug} varchar(100), {summary} text, {platform_slug} varchar(100),
-                {path_cover_big} varchar(500), {path_cover_small} varchar(500))
-            """)
-            log.info(f"{self.ROM_TABLE} table created")
-        except Exception as e:
-            log.error(f"{self.ROM_TABLE} table can't be created: {e}")
-            raise HTTPException(status_code=500, detail=f"Can't create rom table. {e}")
-        try:
-            self.cur.execute(f"truncate {self.ROM_TABLE}")
-            log.info(f"{self.ROM_TABLE} table truncated")
-        except Exception as e:
-            log.error(f"{self.ROM_TABLE} table can't be truncated: {e}")
-            raise HTTPException(status_code=500, detail=f"Can't truncate rom table. {e}")
-
 
     def write_platforms(self, platforms: list) -> None:
         values: list = [{k: str(v) for k, v in asdict(p).items()} for p in platforms]
@@ -83,17 +59,6 @@ class DBHandler:
             log.info(f"{self.PLATFORM_TABLE} table populated")
         except Exception as e:
             log.error(f"{self.PLATFORM_TABLE} can't be populated: {e}")
-            raise HTTPException(status_code=500, detail=f"Can't write in platform table. {e}")
-        
-    
-    def write_roms(self, roms: list) -> None:
-        values: list = [{k: str(v) for k, v in asdict(p).items()} for p in roms]
-        try:
-            self.cur.executemany(f"insert into {self.ROM_TABLE} (igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename_no_ext, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small) \
-                                 values (%(igdb_id)s, %(sgdb_id)s, %(platform_igdb_id)s, %(platform_sgdb_id)s, %(filename_no_ext)s, %(filename)s, %(name)s, %(slug)s, %(summary)s, %(platform_slug)s, %(path_cover_big)s, %(path_cover_small)s)", values)
-            log.info(f"{self.ROM_TABLE} table populated")
-        except Exception as e:
-            log.error(f"{self.ROM_TABLE} can't be populated: {e}")
             raise HTTPException(status_code=500, detail=f"Can't write in platform table. {e}")
 
 
@@ -106,10 +71,46 @@ class DBHandler:
             raise HTTPException(status_code=500, detail=f"Can't read platform table. {e}")
         return self.cur
 
-    
-    def get_roms(self, platform_slug: str) -> list:
+
+    def regenerate_rom_table(self, r_igdb_id: str, r_sgdb_id: str, p_igdb_id: str, p_sgdb_id: str, filename_no_ext: str,
+                             filename: str, name: str, r_slug: str, summary: str, p_slug: str, path_cover_s: str, path_cover_l: str, has_cover: bool) -> None:
         try:
-            self.cur.execute(f"select igdb_id, sgdb_id, platform_igdb_id, platform_sgdb_id, filename_no_ext, filename, name, slug, summary, platform_slug, path_cover_big, path_cover_small from {self.ROM_TABLE} where platform_slug = '{platform_slug}' order by name asc")
+            self.cur.execute(f"""
+            create table if not exists {self.ROM_TABLE}
+                ({r_igdb_id} varchar(20), {r_sgdb_id} varchar(20),
+                {p_igdb_id} varchar(20), {p_sgdb_id} varchar(20),
+                {filename_no_ext} varchar(200), {filename} varchar(200), {name} varchar(100),
+                {r_slug} varchar(100), {summary} text, {p_slug} varchar(100),
+                {path_cover_s} varchar(500), {path_cover_l} varchar(500), {has_cover} BOOLEAN)
+            """)
+            log.info(f"{self.ROM_TABLE} table created")
+        except Exception as e:
+            log.error(f"{self.ROM_TABLE} table can't be created: {e}")
+            raise HTTPException(status_code=500, detail=f"Can't create rom table. {e}")
+        try:
+            self.cur.execute(f"truncate {self.ROM_TABLE}")
+            log.info(f"{self.ROM_TABLE} table truncated")
+        except Exception as e:
+            log.error(f"{self.ROM_TABLE} table can't be truncated: {e}")
+            raise HTTPException(status_code=500, detail=f"Can't truncate rom table. {e}")
+        
+
+    def write_roms(self, roms: list) -> None:
+        values: list = [{k: str(v) for k, v in asdict(p).items()} for p in roms]
+        try:
+            self.cur.executemany(
+                f"insert into {self.ROM_TABLE} \
+                (r_igdb_id, r_sgdb_id, p_igdb_id, p_sgdb_id, filename_no_ext, filename, name, r_slug, summary, p_slug, path_cover_s, path_cover_l, has_cover) \
+                values (%(r_igdb_id)s, %(r_sgdb_id)s, %(p_igdb_id)s, %(p_sgdb_id)s, %(filename_no_ext)s, %(filename)s, %(name)s, %(r_slug)s, %(summary)s, %(p_slug)s, %(path_cover_s)s, %(path_cover_l)s, %(has_cover)s)", values)
+            log.info(f"{self.ROM_TABLE} table populated")
+        except Exception as e:
+            log.error(f"{self.ROM_TABLE} can't be populated: {e}")
+            raise HTTPException(status_code=500, detail=f"Can't write in platform table. {e}")
+
+    
+    def get_roms(self, p_slug: str) -> list:
+        try:
+            self.cur.execute(f"select r_igdb_id, r_sgdb_id, p_igdb_id, p_sgdb_id, filename_no_ext, filename, name, r_slug, summary, p_slug, path_cover_s, path_cover_l, has_cover from {self.ROM_TABLE} where p_slug = '{p_slug}' order by name asc")
             log.info(f"platforms details fetch from {self.ROM_TABLE}")
         except Exception as e:
             log.error(f"platforms details can't be fetch from {self.ROM_TABLE}")

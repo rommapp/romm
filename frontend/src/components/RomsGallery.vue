@@ -71,13 +71,13 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
             <v-hover v-slot="{isHovering, props}">
                 <v-card :elevation="isHovering ? 20 : 3" :class="{'on-hover': isHovering}" v-bind="props" >
                     <v-img
-                        :src="rom.path_cover_big" :lazy-src="rom.path_cover_small" cover>
+                        :src="rom.path_cover_l" :lazy-src="rom.path_cover_s" cover>
                         <template v-slot:placeholder>
                             <div class="d-flex align-center justify-center fill-height">
                                 <v-progress-circular color="grey-lighten-4" indeterminate />
                             </div>
                         </template>
-                        <div v-if="!rom.slug" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
+                        <div v-if="!rom.has_cover" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.name }}</div>
                         <v-btn class="d-flex align-center justify-center fill-height" @click="selectRom(rom)" color="transparent" block />
                     </v-img>
                     <v-card-text>
