@@ -32,6 +32,10 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
                 <v-btn class="mt-2" prepend-icon="mdi-download" @click="downloadRom()">Rom</v-btn>
                 <v-btn class="mt-2 ml-2" prepend-icon="mdi-content-save-all" @click="downloadSaves()">Saves</v-btn>
             </div>
+            <div>
+                <v-btn class="mt-2" prepend-icon="mdi-pencil-box" @click="editRom(rom)">Edit</v-btn>
+                <v-btn class="mt-2  ml-2" prepend-icon="mdi-magnify-scan" @click="scanRom(rom)">Scan</v-btn>
+            </div>
         </v-col>
         <v-col class="mt-2 ml-3">
             <v-row>IGDB id: {{ rom.r_igdb_id }}</v-row>
