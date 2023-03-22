@@ -37,7 +37,7 @@ def p_logo_exists(slug: str) -> bool:
     return True if os.path.exists(logo_path) else False
 
 
-def get_p_logo_path(slug: str) -> str:
+def get_p_path_logo(slug: str) -> str:
     """Returns platform logo filesystem path
     
     Args:
@@ -72,7 +72,7 @@ def get_platforms() -> list:
     Automatically discards the default directory.
     """
     try:
-        platforms: list = list(os.walk(EMULATION_BASE_PATH))[0][1]
+        platforms: list[str] = list(os.walk(EMULATION_BASE_PATH))[0][1]
         if 'resources' in platforms: platforms.remove('resources')
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
@@ -154,7 +154,7 @@ def get_roms(p_slug) -> list:
     Automatically discards the default directory.
     """
     try:
-        roms: list = []
+        roms: list[str] = []
         roms = list(os.walk(f"{EMULATION_BASE_PATH}/{p_slug}/roms/"))[0][2]
         log.info(f"filesystem roms found for {p_slug}: {roms}")
     except IndexError:

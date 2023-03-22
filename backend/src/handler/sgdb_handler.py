@@ -1,5 +1,3 @@
-import os
-
 import requests
 
 from config.config import STEAMGRIDDB_API_KEY
