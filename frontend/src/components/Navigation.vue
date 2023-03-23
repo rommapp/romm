@@ -28,7 +28,7 @@ emitter.on('gettingRoms', (flag) => { gettingRomsFlag.value = flag })
 async function getPlatforms() {
     // Get the list of the platforms for the navigation drawer
     console.log("Getting platforms...")
-    await axios.get('/api/platforms').then((response) => {
+    axios.get('/api/platforms').then((response) => {
         console.log("Platforms loaded!")
         console.log(response.data.data)
         platforms.value = response.data.data
@@ -55,11 +55,12 @@ function toggleRail(){
 async function scan() {
     // Complete scan of by platform
     console.log("scanning...")
+    scanning.value = true
+    console.log(scanning)
     const platforms = []
     toRaw(platformsToScan)._rawValue.forEach(p => {
         platforms.push(toRaw(p))
     })
-    scanning.value = true
     console.log(platforms)
     if (!platforms.length){
         console.log("scanning all platforms")
@@ -67,20 +68,21 @@ async function scan() {
             console.log("scan completed")
             console.log(response.data)
         }).catch((error) => {console.log(error)})
+        router.go()
     }
     else{
         platforms.forEach(async p => {
-            console.log("scanning: "+p)
+            console.log("scanning: "+p.name)
             await axios.put('/api/scan/platform?overwrite='+scanOverwrite.value, {
                 p_slug: p.slug,
                 p_igdb_id: p.igdb_id
             }).then((response) => {
-                console.log("scan "+p+" completed")
+                console.log("scan "+p.name+" completed")
                 console.log(response.data)
             }).catch((error) => {console.log(error)})
+            router.go()
         });
     }
-    scanning.value = false
 }
 
 function setFilter(filter) {
@@ -107,7 +109,7 @@ getPlatforms()
         <v-divider class="border-opacity-100" :thickness="2"></v-divider>
         <v-list>
             <!-- Settings drawer - scan button -->
-            <v-list-item class="d-flex align-center justify-center mb-2">
+            <v-list-item class="d-flex align-center justify-center mb-2">                    
                 <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
                     <p v-if="!scanning">Scan</p>
                     <p v-if="scanning">Scanning</p>
@@ -133,10 +135,7 @@ getPlatforms()
         <!-- App bar - Platforms drawer toggle -->
         <v-app-bar-nav-icon @click="drawer = !drawer" rounded="0" class="hidden-lg-and-up ml-1"/>
         <!-- App bar - Platform title - desktop -->
-        <v-toolbar-title class="align-center justify-center text-h6 ml-4 d-none d-sm-flex">
-            <!-- <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
-            {{ currentPlatformName }} -->
-        </v-toolbar-title>
+        <v-toolbar-title class="align-center justify-center text-h6 ml-4 d-none d-sm-flex"></v-toolbar-title>
         <!-- App bar - Platform title - mobile -->
         <v-toolbar-title class="align-center text-h6 ml-2 d-sm-none">
             <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>

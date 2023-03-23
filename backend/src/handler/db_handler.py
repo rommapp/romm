@@ -31,6 +31,11 @@ class DBHandler:
     def get_roms(self, p_slug: str) -> list[Rom]:
         with Session.begin() as session:
             return session.scalars(select(Rom).filter_by(p_slug=p_slug)).all()
+        
+    
+    def get_rom(self, p_slug: str, filename: str) -> Rom:
+        with Session.begin() as session:
+            return session.scalars(select(Rom).filter_by(p_slug=p_slug, filename=filename)).first()
     
 
     def update_rom(self, p_slug: str, filename: str, data: dict) -> None:

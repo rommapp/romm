@@ -32,10 +32,10 @@ def scan_platform(overwrite: bool, p_slug: str, igdbh, dbh) -> str:
     return p_igdb_id
 
 
-def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh, dbh) -> None:
+def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh, dbh, r_igbd_id: str = '') -> None:
     rom: dict = {}
     log.info(f"Getting {filename} details")
-    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, p_igdb_id)
+    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, p_igdb_id, r_igbd_id)
     path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, p_slug, filename_no_ext, url_cover)
     rom['filename'] = filename
     rom['filename_no_ext'] = filename_no_ext
