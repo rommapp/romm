@@ -49,3 +49,7 @@ def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh,
     rom['path_cover_l'] = path_cover_l
     rom['has_cover'] = has_cover
     dbh.add_rom(**rom)
+
+
+def scan_rom_igdb(filename: str, p_igdb_id: str, igdbh) -> list:
+    pass    

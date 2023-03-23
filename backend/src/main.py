@@ -17,15 +17,10 @@ sgdbh: SGDBHandler = SGDBHandler()
 dbh: DBHandler = DBHandler()
 
 
-@app.get("/platforms/{p_slug}/roms")
-async def roms(p_slug: str):
-    """Returns roms data of the desired platform"""
-    return {'data':  dbh.get_roms(p_slug)}
-
-
 @app.patch("/platforms/{p_slug}/roms/{filename}")
 async def updateRom(req: Request, p_slug: str, filename: str):
     """Updates rom details"""
+
     data: dict = await req.json()
     if 'filename' in data: fs.rename_rom(p_slug, filename, data)
     dbh.update_rom(p_slug, filename, data)
@@ -34,10 +29,19 @@ async def updateRom(req: Request, p_slug: str, filename: str):
 
 @app.delete("/platforms/{p_slug}/roms/{filename}")
 async def delete_rom(p_slug: str, filename: str):
+    """Detele rom from filesystem and database"""
+
     log.info("deleting rom...")
     fs.delete_rom(p_slug, filename)
     dbh.delete_rom(p_slug, filename)
     return {'msg': 'success'}
+
+
+@app.get("/platforms/{p_slug}/roms")
+async def roms(p_slug: str):
+    """Returns roms data of the desired platform"""
+
+    return {'data':  dbh.get_roms(p_slug)}
 
 
 @app.get("/platforms")
@@ -46,7 +50,17 @@ async def platforms():
     return {'data': dbh.get_platforms()}
 
 
-@app.get("/scan/rom")
+@app.get("/search/roms/igdb")
+async def rom_igdb(req: Request):
+    """Get all the roms matched from igdb."""
+
+    data: dict = await req.json()
+    log.info(f"getting {data['filename']} roms from igdb...")
+    fastapi.scan_rom_igdb(data['filename'], data['p_igdb_id'], igdbh)
+    return {'msg': 'success'}
+
+
+@app.put("/scan/rom")
 async def scan_rom(req: Request, overwrite: bool=False):
     """Scan single rom and write it in database."""
 
