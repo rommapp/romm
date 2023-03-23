@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 
+from sqlalchemy import select
 from models.base import Session, engine, BaseModel
 from models.platform import Platform
 from models.rom import Rom
@@ -13,28 +14,34 @@ class DBHandler:
 
     
     def add_platform(self, **kargs) -> None:
-        self.session.merge(Platform(**kargs))
+        with Session.begin() as session:
+            session.merge(Platform(**kargs))
 
     
     def get_platforms(self) -> list[Platform]:
-        return self.session.query(Platform).all()
+        with Session.begin() as session:
+            return session.scalars(select(Platform)).all()
 
 
     def add_rom(self, **kargs) -> None:
-        self.session.merge(Rom(**kargs))
+        with Session.begin() as session:
+            session.merge(Rom(**kargs))
 
 
     def get_roms(self, p_slug: str) -> list[Rom]:
-        return self.session.query(Rom).filter(Rom.p_slug == p_slug).all()
+        with Session.begin() as session:
+            return session.scalars(select(Rom).filter_by(p_slug=p_slug)).all()
     
 
     def update_rom(self, p_slug: str, filename: str, data: dict) -> None:
-        self.session.query(Rom).filter(Rom.p_slug==p_slug, Rom.filename==filename).update(data, synchronize_session='evaluate')
+        with Session.begin() as session:
+            session.query(Rom) \
+                .filter(Rom.p_slug==p_slug, Rom.filename==filename) \
+                .update(data, synchronize_session='evaluate')
 
 
     def delete_rom(self, p_slug: str, filename: str) -> None:
-        self.session.query(Rom).filter(Rom.p_slug==p_slug, Rom.filename==filename).delete(synchronize_session='evaluate')
-
-
-    def commit(self):
-        self.session.commit()
+        with Session.begin() as session:
+            session.query(Rom) \
+                .filter(Rom.p_slug==p_slug, Rom.filename==filename) \
+                .delete(synchronize_session='evaluate')

@@ -29,7 +29,6 @@ async def updateRom(req: Request, p_slug: str, filename: str):
     data: dict = await req.json()
     if 'filename' in data: fs.rename_rom(p_slug, filename, data)
     dbh.update_rom(p_slug, filename, data)
-    dbh.commit()
     return {'msg': 'success'}
 
 
@@ -38,7 +37,6 @@ async def delete_rom(p_slug: str, filename: str):
     log.info("deleting rom...")
     fs.delete_rom(p_slug, filename)
     dbh.delete_rom(p_slug, filename)
-    dbh.commit()
     return {'msg': 'success'}
 
 
@@ -55,7 +53,6 @@ async def scan_rom(req: Request, overwrite: bool=False):
     data: dict = await req.json()
     log.info(f"scaning {data['filename']} rom...")
     fastapi.scan_rom(overwrite, data['filename'], data['p_igdb_id'], data['p_slug'], igdbh, dbh)
-    dbh.commit()
     return {'msg': 'success'}
 
 
@@ -67,7 +64,6 @@ async def scan_platform(req: Request, overwrite: bool=False):
     log.info(f"scaning {data['p_slug']} roms...")
     for filename in fs.get_roms(data['p_slug']):
         fastapi.scan_rom(overwrite, filename, data['p_igdb_id'], data['p_slug'], igdbh, dbh)
-    dbh.commit()
     return {'msg': 'success'}
 
 
@@ -81,7 +77,6 @@ async def scan(overwrite: bool=False):
         p_igdb_id: str = fastapi.scan_platform(overwrite, p_slug, igdbh, dbh)
         for filename in fs.get_roms(p_slug):
             fastapi.scan_rom(overwrite, filename, p_igdb_id, p_slug, igdbh, dbh)
-    dbh.commit()
     return {'msg': 'success'}
 
 
