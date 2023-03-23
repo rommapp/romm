@@ -23,6 +23,17 @@ async def updateRom(req: Request, p_slug: str, filename: str):
 
     data: dict = await req.json()
     if 'filename' in data: fs.rename_rom(p_slug, filename, data)
+    if 'r_igdb_id' in data:
+        r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, data['p_igdb_id'], data['r_igdb_id'])
+        path_cover_s, path_cover_l, has_cover = fs.get_cover_details(True, p_slug, filename_no_ext, url_cover)
+        data['r_igdb_id'] = r_igdb_id
+        data['filename_no_ext'] = filename_no_ext
+        data['r_slug'] = r_slug
+        data['name'] = r_name
+        data['summary'] = summary
+        data['path_cover_s'] = path_cover_s
+        data['path_cover_l'] = path_cover_l
+        data['has_cover'] = has_cover
     dbh.update_rom(p_slug, filename, data)
     return {'msg': 'success'}
 
@@ -37,6 +48,13 @@ async def delete_rom(p_slug: str, filename: str):
     return {'msg': 'success'}
 
 
+@app.get("/platforms/{p_slug}/roms/{filename}")
+async def roms(p_slug: str, filename: str):
+    """Returns rom data of the desired platform"""
+
+    return {'data':  dbh.get_rom(p_slug, filename)}
+
+
 @app.get("/platforms/{p_slug}/roms")
 async def roms(p_slug: str):
     """Returns roms data of the desired platform"""
@@ -49,15 +67,6 @@ async def platforms():
     """Returns platforms data"""
 
     return {'data': dbh.get_platforms()}
-
-
-@app.put("/search/roms/igdb")
-async def rom_igdb(req: Request):
-    """Get all the roms matched from igdb."""
-
-    data: dict = await req.json()
-    log.info(f"getting {data['filename']} roms from {data['p_igdb_id']} igdb ...")
-    return {'data': igdbh.get_matched_roms(data['filename'], data['p_igdb_id'])}
 
 
 @app.put("/scan/rom")
@@ -92,6 +101,15 @@ async def scan(overwrite: bool=False):
         for filename in fs.get_roms(p_slug):
             fastapi.scan_rom(overwrite, filename, p_igdb_id, p_slug, igdbh, dbh)
     return {'msg': 'success'}
+
+
+@app.put("/search/roms/igdb")
+async def rom_igdb(req: Request):
+    """Get all the roms matched from igdb."""
+
+    data: dict = await req.json()
+    log.info(f"getting {data['filename']} roms from {data['p_igdb_id']} igdb ...")
+    return {'data': igdbh.get_matched_roms(data['filename'], data['p_igdb_id'])}
 
 
 if __name__ == '__main__':

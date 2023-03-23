@@ -1,6 +1,7 @@
 <script setup>
 import axios from 'axios'
-import { ref, inject } from "vue";
+import { ref, inject, toRaw } from "vue";
+import { useRouter } from 'vue-router'
 
 // Props
 const rom = ref("")
@@ -8,24 +9,16 @@ const scanOverwrite = ref(false)
 rom.value = JSON.parse(localStorage.getItem('currentRom')) || ''
 const matchedRoms = ref([])
 const searching = ref(false)
+const changing = ref(false)
+const romFilename = ref(rom.value.filename)
+const submitted = ref(false)
+const router = useRouter()
 
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 
 // Functions
-async function scanRom() {
-    console.log("scanning rom... "+rom.value.filename)
-    await axios.put('/api/scan/rom?overwrite='+scanOverwrite.value, {
-        filename: rom.value.filename,
-        p_slug: rom.value.p_slug,
-        p_igdb_id: rom.value.p_igdb_id
-    }).then((response) => {
-        console.log("scan "+rom.value.filename+" completed")
-        console.log(response.data)
-    }).catch((error) => {console.log(error)})
-}
-
 async function searchRomIGDB() {
     searching.value = true
     console.log("searching for rom... "+rom.value.filename)
@@ -46,6 +39,48 @@ async function searchRomIGDB() {
     searching.value = false
 }
 
+async function changeRom(newRomRaw) {
+    changing.value = true
+    const newRom = toRaw(newRomRaw)
+    newRom.filename = rom.value.filename
+    console.log(newRom)
+    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename, {
+        filename: rom.value.filename,
+        r_igdb_id: newRom.id,
+        p_igdb_id: rom.value.p_igdb_id
+    }).then((response) => {
+        console.log("update "+rom.value.filename+" completed")
+        console.log(response.data)
+        router.go()
+    }).catch((error) => {console.log(error)})
+    changing.value = false
+}
+
+async function submitEdit() {
+    submitted.value = true
+    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename, {
+        filename: romFilename.value
+    }).then((response) => {
+        console.log("update "+rom.value.filename+" to "+romFilename.value)
+        console.log(response.data)
+        rom.value.filename = romFilename.value
+    }).catch((error) => {console.log(error)})
+}
+
+async function scanRom() {
+    changing.value = true
+    console.log("scanning rom... "+rom.value.filename)
+    await axios.put('/api/scan/rom?overwrite='+scanOverwrite.value, {
+        filename: rom.value.filename,
+        p_slug: rom.value.p_slug,
+        p_igdb_id: rom.value.p_igdb_id
+    }).then((response) => {
+        console.log("scan "+rom.value.filename+" completed")
+        console.log(response.data)
+        router.go()
+    }).catch((error) => {console.log(error)})
+    changing.value = false
+}
 </script>
 
 <template>
@@ -77,7 +112,10 @@ async function searchRomIGDB() {
                             <v-col class="pa-1">
                                 <v-menu location="bottom">
                                     <template v-slot:activator="{ props }">
-                                        <v-btn rounded="0" block v-bind="props"><v-icon size="large" icon="mdi-dots-vertical"/></v-btn>
+                                        <v-btn rounded="0" block v-bind="props">
+                                            <v-icon size="large" v-show="!changing" icon="mdi-dots-vertical"/>
+                                            <v-progress-circular v-show="changing" indeterminate color="primary" :width="2" :size="20" class="ml-2"/>
+                                        </v-btn>
                                     </template>
                                     <v-list rounded="0">
                                         <v-menu location="end">
@@ -91,22 +129,33 @@ async function searchRomIGDB() {
                                             </template>
                                             <v-list rounded="0">
                                                 <v-list-item v-for="rom in matchedRoms" :key="rom" :value="rom">
-                                                    <v-list-item-title class="d-flex">{{ rom.name }}</v-list-item-title>
+                                                    <v-list-item-title class="d-flex" @click="changeRom(rom)">{{ rom.name }}</v-list-item-title>
                                                 </v-list-item>
                                             </v-list>
                                         </v-menu>
                                         <v-divider class="mb-2 mt-2"></v-divider>
-                                        <v-list-item key="edit" value="edit">
-                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
-                                        </v-list-item>
-                                        <v-list-item key="scan" value="scan">
+                                        <v-menu location="end" :close-on-content-click="false" min-width="290px">
+                                            <template v-slot:activator="{ props }">
+                                                <v-list-item key="edit" value="edit" v-bind="props">
+                                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
+                                                </v-list-item>
+                                            </template>
+                                            <v-list rounded="0">
+                                                <v-form @submit.prevent class="ma-4">
+                                                    <v-text-field v-model="romFilename" label="File name" variant="outlined" required @keyup.enter="submitEdit()"/>
+                                                    <v-file-input prepend-icon="mdi-image" label="Cover L" variant="outlined"/>
+                                                    <v-file-input prepend-icon="mdi-image" label="Cover S" variant="outlined"/>
+                                                    <v-btn type="submit" class="mt-2" @click="submitEdit()" block>Submit<v-icon v-if="submitted" icon="mdi-check-bold" color="green" class="ml-2"/></v-btn>
+                                                </v-form>
+                                            </v-list>
+                                        </v-menu>
+                                        <!-- <v-list-item key="scan" value="scan">
                                             <v-list-item-title class="d-flex" @click="scanRom()"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Scan</v-list-item-title>
-                                        </v-list-item>
+                                        </v-list-item> -->
                                         <v-divider class="mb-4 mt-2"></v-divider>
                                         <v-list-item key="delete" value="delete" class="bg-red mb-2">
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                         </v-list-item>
-                                        
                                     </v-list>
                                 </v-menu>
                             </v-col>
