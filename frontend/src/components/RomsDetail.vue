@@ -17,7 +17,7 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 
 <template>
     <v-row class="text-body-1 justify-center">
-        <v-col cols="8" xs="8" sm="6" md="3" lg="2">
+        <v-col cols="8" xs="8" sm="4" md="3" lg="2">
             <v-container fluid class="pa-0">
                 <v-row>
                     <v-col>
@@ -42,34 +42,24 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
                                 <v-btn rounded="0" @click="downloadSaves()" block><v-icon size="large" icon="mdi-content-save-all"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
-
-                            <v-menu location="bottom">
-                                <template v-slot:activator="{ props }">
-                                    <v-btn rounded="0" block v-bind="props"><v-icon size="large" icon="mdi-dots-vertical"/></v-btn>
-                                </template>
-                                <v-list rounded="0">
-                                    <v-list-item key="edit" value="edit">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
-                                    </v-list-item>
-                                    <v-list-item key="scan" value="scan">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Scan</v-list-item-title>
-                                    </v-list-item>
-                                    <v-list-item key="delete" value="delete">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
-                                    </v-list-item>
-                                </v-list>
-                            </v-menu>
-
+                                <v-menu location="bottom">
+                                    <template v-slot:activator="{ props }">
+                                        <v-btn rounded="0" block v-bind="props"><v-icon size="large" icon="mdi-dots-vertical"/></v-btn>
+                                    </template>
+                                    <v-list rounded="0">
+                                        <v-list-item key="edit" value="edit">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
+                                        </v-list-item>
+                                        <v-list-item key="scan" value="scan">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Scan</v-list-item-title>
+                                        </v-list-item>
+                                        <v-list-item key="delete" value="delete">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
                             </v-col>
                         </v-row>
-                        <!-- <v-row>
-                            <v-col class="pa-1">
-                                <v-btn prepend-icon="mdi-pencil-box" @click="editRom(rom)" block>Edit</v-btn>
-                            </v-col>
-                            <v-col class="pa-1">
-                                <v-btn prepend-icon="mdi-magnify-scan" @click="scanRom(rom)" block>Scan</v-btn>
-                            </v-col>
-                        </v-row> -->
                     </v-container>
                 </v-row>
             </v-container>
