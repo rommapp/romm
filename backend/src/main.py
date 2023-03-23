@@ -47,17 +47,17 @@ async def roms(p_slug: str):
 @app.get("/platforms")
 async def platforms():
     """Returns platforms data"""
+
     return {'data': dbh.get_platforms()}
 
 
-@app.get("/search/roms/igdb")
+@app.put("/search/roms/igdb")
 async def rom_igdb(req: Request):
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
-    log.info(f"getting {data['filename']} roms from igdb...")
-    fastapi.scan_rom_igdb(data['filename'], data['p_igdb_id'], igdbh)
-    return {'msg': 'success'}
+    log.info(f"getting {data['filename']} roms from {data['p_igdb_id']} igdb ...")
+    return {'data': igdbh.get_matched_roms(data['filename'], data['p_igdb_id'])}
 
 
 @app.put("/scan/rom")
