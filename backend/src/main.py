@@ -34,8 +34,9 @@ async def updateRom(req: Request, p_slug: str, filename: str):
         data['path_cover_s'] = path_cover_s
         data['path_cover_l'] = path_cover_l
         data['has_cover'] = has_cover
+        data['p_slug'] = p_slug
     dbh.update_rom(p_slug, filename, data)
-    return {'msg': 'success'}
+    return {'data': data}
 
 
 @app.delete("/platforms/{p_slug}/roms/{filename}")
