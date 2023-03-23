@@ -108,6 +108,13 @@ class IGDBHandler():
         if not name: name = filename_no_ext
         return (igdb_id, filename_no_ext, slug, name, summary, url_cover)
 
+    
+    @check_twitch_token
+    def get_matched_roms(self, filename: str, p_igdb_id: int) -> list:
+        return requests.post("https://api.igdb.com/v4/games/",
+                             headers=self.headers,
+                             data=f"search \"{filename.split('.')[0]}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
+
 
 
 class TwitchAuth():

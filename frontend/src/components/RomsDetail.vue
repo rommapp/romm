@@ -6,6 +6,8 @@ import { ref, inject } from "vue";
 const rom = ref("")
 const scanOverwrite = ref(false)
 rom.value = JSON.parse(localStorage.getItem('currentRom')) || ''
+const matchedRoms = ref([])
+const searching = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -22,6 +24,26 @@ async function scanRom() {
         console.log("scan "+rom.value.filename+" completed")
         console.log(response.data)
     }).catch((error) => {console.log(error)})
+}
+
+async function searchRomIGDB() {
+    searching.value = true
+    console.log("searching for rom... "+rom.value.filename)
+    if(matchedRoms.value.length == 0){
+        await axios.put('/api/search/roms/igdb', {
+            filename: rom.value.filename,
+            p_igdb_id: rom.value.p_igdb_id
+        }).then((response) => {
+            console.log("scan "+rom.value.filename+" completed")
+            console.log(response.data.data)
+            if (response.data.data.length != 0){
+                matchedRoms.value = response.data.data
+            }else{
+                matchedRoms.value = [{'name': 'No games found'}]
+            }
+        }).catch((error) => {console.log(error)})
+    }
+    searching.value = false
 }
 
 </script>
@@ -58,9 +80,21 @@ async function scanRom() {
                                         <v-btn rounded="0" block v-bind="props"><v-icon size="large" icon="mdi-dots-vertical"/></v-btn>
                                     </template>
                                     <v-list rounded="0">
-                                        <v-list-item key="search_igdb" value="search_igdb" class="mr-1">
-                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
-                                        </v-list-item>
+                                        <v-menu location="end">
+                                            <template v-slot:activator="{ props }">
+                                                <v-list-item key="search_igdb" value="search_igdb" @click="searchRomIGDB()" v-bind="props">
+                                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>
+                                                        Search IGDB
+                                                        <v-progress-circular v-show="searching" indeterminate color="primary" :width="2" :size="20" class="ml-2"/>
+                                                    </v-list-item-title>
+                                                </v-list-item>
+                                            </template>
+                                            <v-list rounded="0">
+                                                <v-list-item v-for="rom in matchedRoms" :key="rom" :value="rom">
+                                                    <v-list-item-title class="d-flex">{{ rom.name }}</v-list-item-title>
+                                                </v-list-item>
+                                            </v-list>
+                                        </v-menu>
                                         <v-divider class="mb-2 mt-2"></v-divider>
                                         <v-list-item key="edit" value="edit">
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
