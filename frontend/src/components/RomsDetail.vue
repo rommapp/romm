@@ -32,24 +32,44 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
                         </v-card>
                     </v-col>
                 </v-row>
-                <v-row class="pt-1 pb-1 pl-1 pr-1 mt-0">
+                <v-row class="pt-1 pb-1 pl-2 pr-2 mt-0">
                     <v-container>
                         <v-row>
                             <v-col class="pa-1">
-                                <v-btn prepend-icon="mdi-download" @click="downloadRom()" block>Rom</v-btn>
+                                <v-btn rounded="0" @click="downloadRom()" block><v-icon size="large" icon="mdi-download"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
-                                <v-btn prepend-icon="mdi-content-save-all" @click="downloadSaves()" block>Saves</v-btn>
+                                <v-btn rounded="0" @click="downloadSaves()" block><v-icon size="large" icon="mdi-content-save-all"/></v-btn>
+                            </v-col>
+                            <v-col class="pa-1">
+
+                            <v-menu location="bottom">
+                                <template v-slot:activator="{ props }">
+                                    <v-btn rounded="0" block v-bind="props"><v-icon size="large" icon="mdi-dots-vertical"/></v-btn>
+                                </template>
+                                <v-list rounded="0">
+                                    <v-list-item key="edit" value="edit">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
+                                    </v-list-item>
+                                    <v-list-item key="scan" value="scan">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Scan</v-list-item-title>
+                                    </v-list-item>
+                                    <v-list-item key="delete" value="delete">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+
                             </v-col>
                         </v-row>
-                        <v-row>
+                        <!-- <v-row>
                             <v-col class="pa-1">
                                 <v-btn prepend-icon="mdi-pencil-box" @click="editRom(rom)" block>Edit</v-btn>
                             </v-col>
                             <v-col class="pa-1">
                                 <v-btn prepend-icon="mdi-magnify-scan" @click="scanRom(rom)" block>Scan</v-btn>
                             </v-col>
-                        </v-row>
+                        </v-row> -->
                     </v-container>
                 </v-row>
             </v-container>

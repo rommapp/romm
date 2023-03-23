@@ -80,12 +80,12 @@ onMounted(() => { if(currentPlatformSlug){ getRoms(currentPlatformSlug) } })
                         <div v-if="!rom.has_cover" class="d-flex align-center text-body-1 pt-2 pr-5 pb-2 pl-5 bg-secondary rom-title" >{{ rom.filename }}</div>
                         <v-btn class="d-flex align-center justify-center fill-height" @click="selectRom(rom)" color="transparent" block />
                     </v-img>
-                    <v-card-text>
+                    <!-- <v-card-text>
                         <v-row>
                             <v-btn size="small" variant="flat" icon="mdi-download" @click="downloadRom(rom.filename)" />
                             <v-btn size="small" variant="flat" icon="mdi-content-save-all" @click=" downloadSave(rom.filename)"/>
                         </v-row>
-                    </v-card-text>
+                    </v-card-text> -->
                 </v-card>
             </v-hover>
         </v-col>
