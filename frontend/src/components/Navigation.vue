@@ -53,7 +53,7 @@ function toggleRail(){
 }
 
 async function scan() {
-    // Scan and then get the platforms again
+    // Complete scan of by platform
     console.log("scanning...")
     const platforms = []
     toRaw(platformsToScan)._rawValue.forEach(p => {
@@ -80,7 +80,6 @@ async function scan() {
             }).catch((error) => {console.log(error)})
         });
     }
-    // getPlatforms()
     scanning.value = false
 }
 
