@@ -1,7 +1,6 @@
 <script setup>
 import axios from 'axios'
 import { ref, inject, toRaw } from "vue";
-import { useRouter } from 'vue-router'
 
 // Props
 const rom = ref("")
@@ -12,7 +11,6 @@ const searching = ref(false)
 const changing = ref(false)
 const romFilename = ref(rom.value.filename)
 const submitted = ref(false)
-const router = useRouter()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -27,7 +25,6 @@ async function searchRomIGDB() {
             filename: rom.value.filename,
             p_igdb_id: rom.value.p_igdb_id
         }).then((response) => {
-            console.log("scan "+rom.value.filename+" completed")
             console.log(response.data.data)
             if (response.data.data.length != 0){
                 matchedRoms.value = response.data.data
@@ -50,8 +47,8 @@ async function changeRom(newRomRaw) {
         p_igdb_id: rom.value.p_igdb_id
     }).then((response) => {
         console.log("update "+rom.value.filename+" completed")
-        console.log(response.data)
-        router.go()
+        localStorage.setItem('currentRom', JSON.stringify(response.data.data))
+        rom.value = response.data.data
     }).catch((error) => {console.log(error)})
     changing.value = false
 }
@@ -62,24 +59,8 @@ async function submitEdit() {
         filename: romFilename.value
     }).then((response) => {
         console.log("update "+rom.value.filename+" to "+romFilename.value)
-        console.log(response.data)
         rom.value.filename = romFilename.value
     }).catch((error) => {console.log(error)})
-}
-
-async function scanRom() {
-    changing.value = true
-    console.log("scanning rom... "+rom.value.filename)
-    await axios.put('/api/scan/rom?overwrite='+scanOverwrite.value, {
-        filename: rom.value.filename,
-        p_slug: rom.value.p_slug,
-        p_igdb_id: rom.value.p_igdb_id
-    }).then((response) => {
-        console.log("scan "+rom.value.filename+" completed")
-        console.log(response.data)
-        router.go()
-    }).catch((error) => {console.log(error)})
-    changing.value = false
 }
 </script>
 
@@ -90,7 +71,7 @@ async function scanRom() {
                 <v-row>
                     <v-col>
                         <v-card >
-                            <v-img :src="rom.path_cover_l" :lazy-src="rom.path_cover_s" cover >
+                            <v-img :src="rom.path_cover_l+'?reload='+Date.now()" :lazy-src="rom.path_cover_s+'?reload='+Date.now()" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular color="grey-lighten-4" indeterminate />
@@ -149,9 +130,6 @@ async function scanRom() {
                                                 </v-form>
                                             </v-list>
                                         </v-menu>
-                                        <!-- <v-list-item key="scan" value="scan">
-                                            <v-list-item-title class="d-flex" @click="scanRom()"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Scan</v-list-item-title>
-                                        </v-list-item> -->
                                         <v-divider class="mb-4 mt-2"></v-divider>
                                         <v-list-item key="delete" value="delete" class="bg-red mb-2">
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
