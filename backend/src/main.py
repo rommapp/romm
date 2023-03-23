@@ -52,19 +52,19 @@ async def platforms():
 async def scan_rom(req: Request, overwrite: bool=False):
     """Scan single rom and write it in database."""
 
-    log.info("scaning rom...")
     data: dict = await req.json()
+    log.info(f"scaning {data['filename']} rom...")
     fastapi.scan_rom(overwrite, data['filename'], data['p_igdb_id'], data['p_slug'], igdbh, dbh)
     dbh.commit()
     return {'msg': 'success'}
 
 
-@app.get("/scan/platform")
+@app.put("/scan/platform")
 async def scan_platform(req: Request, overwrite: bool=False):
     """Scan single platform and write it in database."""
 
-    log.info("scaning platform roms...")
     data: dict = await req.json()
+    log.info(f"scaning {data['p_slug']} roms...")
     for filename in fs.get_roms(data['p_slug']):
         fastapi.scan_rom(overwrite, filename, data['p_igdb_id'], data['p_slug'], igdbh, dbh)
     dbh.commit()

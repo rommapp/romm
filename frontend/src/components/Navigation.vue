@@ -1,6 +1,6 @@
 <script setup>
 import axios from "axios"
-import { ref, inject } from "vue"
+import { ref, inject, toRaw } from "vue"
 import { useRouter } from 'vue-router'
 import { useTheme } from "vuetify";
 
@@ -8,6 +8,7 @@ import { useTheme } from "vuetify";
 const platforms = ref([])
 const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
 const currentPlatformSlug = ref(localStorage.getItem('currentPlatformSlug') || "")
+const platformsToScan = ref([])
 const scanOverwrite = ref(false)
 const scanning = ref(false)
 const gettingRomsFlag = ref(false)
@@ -54,12 +55,32 @@ function toggleRail(){
 async function scan() {
     // Scan and then get the platforms again
     console.log("scanning...")
+    const platforms = []
+    toRaw(platformsToScan)._rawValue.forEach(p => {
+        platforms.push(toRaw(p))
+    })
     scanning.value = true
-    await axios.get('/api/scan?overwrite='+scanOverwrite.value).then((response) => {
-        console.log("scan completed")
-        console.log(response.data)
-        getPlatforms()
-    }).catch((error) => {console.log(error)})
+    console.log(platforms)
+    if (!platforms.length){
+        console.log("scanning all platforms")
+        await axios.get('/api/scan?overwrite='+scanOverwrite.value).then((response) => {
+            console.log("scan completed")
+            console.log(response.data)
+        }).catch((error) => {console.log(error)})
+    }
+    else{
+        platforms.forEach(async p => {
+            console.log("scanning: "+p)
+            await axios.put('/api/scan/platform?overwrite='+scanOverwrite.value, {
+                p_slug: p.slug,
+                p_igdb_id: p.igdb_id
+            }).then((response) => {
+                console.log("scan "+p+" completed")
+                console.log(response.data)
+            }).catch((error) => {console.log(error)})
+        });
+    }
+    // getPlatforms()
     scanning.value = false
 }
 
@@ -79,7 +100,7 @@ getPlatforms()
 
 <template>
     <!-- Settings drawer -->
-    <v-navigation-drawer width="190" v-model="settings" location="right" temporary floating>
+    <v-navigation-drawer width="250" v-model="settings" location="right" temporary floating>
         <!-- Settings drawer - title -->
         <v-list-item id="settings-title" class="text-h5 d-flex align-center justify-center pt-4 pb-4 pl-7 font-weight-bold bg-primary">
             Settings<v-btn icon="mdi-close-box" class="ml-1" rounded="0" variant="plain" @click="settings = !settings"/>
@@ -94,10 +115,11 @@ getPlatforms()
                     <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
                 </v-btn>
             </v-list-item>
+            <v-select class="pl-2 pr-2" v-model="platformsToScan" :items="platforms" item-title="name" label="Platforms" multiple return-object clearable density="comfortable" variant="outlined" />
             <v-divider class="border-opacity-25"></v-divider>
             <!-- Settings drawer - theme toggle -->
             <v-list-item class="d-flex align-center justify-center">
-                <v-switch prepend-icon="mdi-brightness-6" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
+                <v-switch prepend-icon="mdi-theme-light-dark" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
             </v-list-item>
             <v-divider class="border-opacity-25"></v-divider>
         </v-list>
