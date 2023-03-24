@@ -5,7 +5,7 @@ from logger.logger import log
 from handler.igdb_handler import IGDBHandler
 from handler.sgdb_handler import SGDBHandler
 from handler.db_handler import DBHandler
-from config.config import PORT, HOST
+from config.config import DEV_PORT, DEV_HOST
 from utils import fs, fastapi
 
 
@@ -50,15 +50,15 @@ async def delete_rom(p_slug: str, filename: str):
 
 
 @app.get("/platforms/{p_slug}/roms/{filename}")
-async def roms(p_slug: str, filename: str):
-    """Returns rom data of the desired platform"""
+async def rom(p_slug: str, filename: str):
+    """Returns one rom data of the desired platform"""
 
     return {'data':  dbh.get_rom(p_slug, filename)}
 
 
 @app.get("/platforms/{p_slug}/roms")
 async def roms(p_slug: str):
-    """Returns roms data of the desired platform"""
+    """Returns all roms of the desired platform"""
 
     return {'data':  dbh.get_roms(p_slug)}
 
@@ -107,7 +107,7 @@ async def scan(overwrite: bool=False):
 
 
 @app.put("/search/roms/igdb")
-async def rom_igdb(req: Request):
+async def search_rom_igdb(req: Request):
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
@@ -116,4 +116,4 @@ async def rom_igdb(req: Request):
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
