@@ -50,3 +50,17 @@ class DBHandler:
             session.query(Rom) \
                 .filter(Rom.p_slug==p_slug, Rom.filename==filename) \
                 .delete(synchronize_session='evaluate')
+
+
+    def purge_platforms(self, platforms: list) -> None:
+        with Session.begin() as session:
+            session.query(Platform) \
+                .filter(Platform.slug.not_in(platforms)) \
+                .delete(synchronize_session='evaluate')
+
+
+    def purge_roms(self, p_slug: str, roms: list) -> None:
+        with Session.begin() as session:
+            session.query(Rom) \
+                .filter(Rom.p_slug==p_slug, Rom.filename.not_in(roms)) \
+                .delete(synchronize_session='evaluate')

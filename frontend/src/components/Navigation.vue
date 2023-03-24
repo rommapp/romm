@@ -109,7 +109,7 @@ getPlatforms()
         <v-divider class="border-opacity-100" :thickness="2"></v-divider>
         <v-list>
             <!-- Settings drawer - scan button -->
-            <v-list-item class="d-flex align-center justify-center mb-2">                    
+            <v-list-item class="d-flex align-center justify-center mb-2">
                 <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
                     <p v-if="!scanning">Scan</p>
                     <p v-if="scanning">Scanning</p>
@@ -142,7 +142,11 @@ getPlatforms()
         </v-toolbar-title>
         <!-- App bar - Search bar -->
         <v-text-field hide-details label="search" variant="outlined" density="compact" class="ml-5 mr-3" clearable prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" @click:clear="setFilter('')"/>
-        <v-app-bar-nav-icon @click="settings = !settings" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
+        <!-- App bar - Settings -->
+        <v-app-bar-nav-icon @click="settings = !settings" rounded="0">
+            <v-icon v-if="!scanning" >mdi-cog</v-icon>
+            <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2 mr-4" />
+        </v-app-bar-nav-icon>
     </v-app-bar>
 
     <!-- Platforms drawer -->

@@ -49,3 +49,18 @@ def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh,
     rom['path_cover_l'] = path_cover_l
     rom['has_cover'] = has_cover
     dbh.add_rom(**rom)
+
+
+def purge(dbh, p_slug: str = None) -> None:
+    """Clean the database from non existent platforms or roms"""
+    if p_slug:
+        # Purge only roms in platform
+        roms: list = fs.get_roms(p_slug)
+        dbh.purge_roms(p_slug, roms)
+    else:
+        # Purge all platforms / delete non existent platforms and non existen roms
+        platforms: list = fs.get_platforms()
+        dbh.purge_platforms(platforms)
+        for p_slug in platforms:
+            roms: list = fs.get_roms(p_slug)
+            dbh.purge_roms(p_slug, roms)
