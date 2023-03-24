@@ -31,7 +31,6 @@ async function getPlatforms() {
         console.log("Platforms loaded!")
         console.log(response.data.data)
         platforms.value = response.data.data
-        localStorage.setItem('platforms', JSON.stringify(response.data.data))
     }).catch((error) => {console.log(error)})
 }
 
