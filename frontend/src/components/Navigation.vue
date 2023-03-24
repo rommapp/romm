@@ -2,7 +2,7 @@
 import axios from "axios"
 import { ref, inject, toRaw } from "vue"
 import { useRouter } from 'vue-router'
-import { useTheme } from "vuetify";
+import { useTheme } from "vuetify"
 
 // Props
 const platforms = ref([])
@@ -54,45 +54,25 @@ function toggleRail(){
 }
 
 async function scan() {
-    // Complete scan of by platform
+    // Complete scan or by platform
     console.log("scanning...")
     scanning.value = true
     const platforms = []
-    toRaw(platformsToScan)._rawValue.forEach(p => {
-        platforms.push(toRaw(p))
-    })
+    toRaw(platformsToScan)._rawValue.forEach(p => {platforms.push(toRaw(p.slug))})
     console.log(platforms)
-    if (!platforms.length){
-        console.log("scanning all platforms")
-        await axios.get('/api/scan?overwrite='+scanOverwrite.value).then((response) => {
-            console.log("scan completed")
-            console.log(response.data)
-            emitter.emit('snackbarScan', {'msg': 'Scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
-        }).catch((error) => {
-            console.log(error)
-            emitter.emit('snackbarScan', {'msg': "Couldn't complete scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
-        })
-        scanning.value = false
-        emitter.emit('refresh')
-    }
-    else{
-        platforms.forEach(async p => {
-            console.log("scanning: "+p.name)
-            await axios.put('/api/scan/platform?overwrite='+scanOverwrite.value, {
-                p_slug: p.slug,
-                p_igdb_id: p.igdb_id
-            }).then((response) => {
-                console.log("scan "+p.name+" completed")
-                console.log(response.data)
-                emitter.emit('snackbarScan', {'msg': p.name+' scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
-            }).catch((error) => {
-                console.log(error)
-                emitter.emit('snackbarScan', {'msg': "Couldn't complete "+p.name+" scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
-            })
-            scanning.value = false
-            emitter.emit('refreshRoms')
-        });
-    }
+
+    await axios.put('/api/scan?overwrite='+scanOverwrite.value,{
+        platforms: platforms
+    }).then((response) => {
+        console.log("scan completed")
+        console.log(response.data)
+        emitter.emit('snackbarScan', {'msg': 'Scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
+    }).catch((error) => {
+        console.log(error)
+        emitter.emit('snackbarScan', {'msg': "Couldn't complete scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+    })
+    scanning.value = false
+    if (!platforms.length){emitter.emit('refresh')}else{emitter.emit('refreshRoms')}
 }
 
 function toggleTheme() {
