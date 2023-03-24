@@ -128,7 +128,7 @@ def store_r_cover(p_slug: str, filename_no_ext: str, url_cover: str, size: str) 
         log.warning(f"{filename_no_ext} {sizes[size]} cover couldn't be downloaded")
 
 
-def get_cover_details(overwrite, p_slug, filename_no_ext, url_cover) -> tuple:
+def get_cover_details(overwrite: bool, p_slug: str, filename_no_ext: str, url_cover: str) -> tuple:
     path_cover_s: str = DEFAULT_PATH_COVER_S
     path_cover_l: str = DEFAULT_PATH_COVER_L
     has_cover: int = 0
@@ -145,7 +145,7 @@ def get_cover_details(overwrite, p_slug, filename_no_ext, url_cover) -> tuple:
     return path_cover_s, path_cover_l, has_cover
 
 
-def get_roms(p_slug) -> list:
+def get_roms(p_slug: str) -> list:
     """Gets all filesystem roms for a platform
 
     Args:

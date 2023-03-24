@@ -2,8 +2,8 @@ import os
 import pathlib
 
 # Uvicorn
-PORT: int = 5000
-HOST: str = "0.0.0.0"
+DEV_PORT: int = 5000
+DEV_HOST: str = "0.0.0.0"
 
 # PATHS
 EMULATION_BASE_PATH: str = f"{pathlib.Path(__file__).parent.parent.parent.parent.resolve()}/emulation"

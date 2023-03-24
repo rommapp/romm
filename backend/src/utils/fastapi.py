@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from handler.db_handler import DBHandler
+from handler.igdb_handler import IGDBHandler
 from utils import fs
 from logger.logger import log
 
@@ -16,7 +18,7 @@ def allow_cors(app: FastAPI) -> None:
     log.info("CORS enabled")
 
 
-def scan_platform(overwrite: bool, p_slug: str, igdbh, dbh) -> str:
+def scan_platform(overwrite: bool, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler) -> str:
     platform: dict  = {}
     log.info(f"Getting {p_slug} details")
     p_igdb_id, p_name, url_logo = igdbh.get_platform_details(p_slug)
@@ -32,7 +34,7 @@ def scan_platform(overwrite: bool, p_slug: str, igdbh, dbh) -> str:
     return p_igdb_id
 
 
-def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh, dbh, r_igbd_id: str = '') -> None:
+def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler, r_igbd_id: str = '') -> None:
     rom: dict = {}
     log.info(f"Getting {filename} details")
     r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, p_igdb_id, r_igbd_id)
@@ -51,7 +53,7 @@ def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh,
     dbh.add_rom(**rom)
 
 
-def purge(dbh, p_slug: str = None) -> None:
+def purge(dbh: DBHandler, p_slug: str = '') -> None:
     """Clean the database from non existent platforms or roms"""
     if p_slug:
         # Purge only roms in platform
