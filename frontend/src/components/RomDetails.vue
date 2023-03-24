@@ -192,7 +192,7 @@ async function deleteRom() {
               <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
             </v-card-text>
             <v-card-actions class="justify-center pb-3">
-                <v-btn @click="deleteRom()" class="bg-red">Confirm</v-btn>
+                <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Close</v-btn>
             </v-card-actions>
         </v-card>
