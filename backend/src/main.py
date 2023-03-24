@@ -22,7 +22,6 @@ async def updateRom(req: Request, p_slug: str, filename: str):
     """Updates rom details"""
 
     data: dict = await req.json()
-    if 'filename' in data: fs.rename_rom(p_slug, filename, data)
     if 'r_igdb_id' in data:
         r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, data['p_igdb_id'], data['r_igdb_id'])
         path_cover_s, path_cover_l, has_cover = fs.get_cover_details(True, p_slug, filename_no_ext, url_cover)
@@ -35,6 +34,9 @@ async def updateRom(req: Request, p_slug: str, filename: str):
         data['path_cover_l'] = path_cover_l
         data['has_cover'] = has_cover
         data['p_slug'] = p_slug
+    else:
+        fs.rename_rom(p_slug, filename, data)
+        data['filename_no_ext'] = data['filename'].split('.')[0]
     dbh.update_rom(p_slug, filename, data)
     return {'data': data}
 

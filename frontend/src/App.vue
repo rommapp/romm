@@ -25,19 +25,20 @@ emitter.on('snackbarScan', (snackbar) => {
     
     <navigation :key="refresh"/>
     
-    <v-main>
-      <v-container fluid>
-        <router-view :key="refreshRoms"/>
-      </v-container>
-    </v-main>
-
-    <v-snackbar v-model="snackbarShow" :timeout="3000">
+    <v-snackbar v-model="snackbarShow" :timeout="4000" location="top" class="mt-4">
         <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
         {{ snackbarStatus.msg }}
         <template v-slot:actions>
             <v-btn variant="text" @click="snackbarShow = false"><v-icon icon="mdi-close"/></v-btn>
         </template>
     </v-snackbar>
+    
+    <v-main>
+      <v-container fluid>
+        <router-view :key="refreshRoms"/>
+      </v-container>
+    </v-main>
+
 
   </v-app>
 </template>

@@ -86,7 +86,7 @@ getPlatforms()
 
 <template>
     <!-- Settings drawer -->
-    <v-navigation-drawer v-model="settings" location="right" width="250" temporary floating>
+    <v-navigation-drawer v-model="settings" location="right" width="270" temporary floating>
         <!-- Settings drawer - title -->
         <v-list-item class="text-h5 d-flex align-center justify-center font-weight-bold bg-primary pt-4 pb-4 pl-7">
             Settings
@@ -95,14 +95,14 @@ getPlatforms()
         <v-divider class="border-opacity-100" :thickness="2"/>
         <v-list>
             <!-- Settings drawer - scan button -->
-            <v-list-item class="d-flex align-center justify-center mb-2">
+            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2" density="comfortable" variant="outlined" multiple return-object clearable/>
+            <v-list-item class="d-flex align-center justify-center mb-2 pt-0">
                 <v-btn title="scan" @click="scan()" :disabled="scanning" prepend-icon="mdi-magnify-scan" color="secondary" rounded="0" inset>
                     <p v-if="!scanning">Scan</p>
                     <p v-if="scanning">Scanning</p>
                     <v-progress-circular v-show="scanning" class="ml-2" color="primary" :width="2" :size="20" indeterminate/>
                 </v-btn>
             </v-list-item>
-            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-2 pr-2" density="comfortable" variant="outlined" multiple return-object clearable/>
             <v-divider class="border-opacity-25"/>
             <!-- Settings drawer - theme toggle -->
             <v-list-item class="d-flex align-center justify-center">
