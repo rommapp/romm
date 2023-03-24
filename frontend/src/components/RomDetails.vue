@@ -9,6 +9,8 @@ const matchedRoms = ref([])
 const changing = ref(false)
 const romNewName = ref(rom.value.filename)
 const submitted = ref(false)
+const snackbarOK = ref(false)
+const snackbarKO = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -47,18 +49,26 @@ async function changeRom(newRomRaw) {
         console.log("update "+rom.value.filename+" completed")
         localStorage.setItem('currentRom', JSON.stringify(response.data.data))
         rom.value = response.data.data
-    }).catch((error) => {console.log(error)})
+        snackbarOK.value = true
+    }).catch((error) => {
+        console.log(error)
+        snackbarKO.value = true
+    })
     changing.value = false
 }
 
-async function submitEdit() {
+async function editRom() {
     submitted.value = true
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename, {
         filename: romNewName.value
     }).then((response) => {
         console.log("update "+rom.value.filename+" to "+romNewName.value)
         rom.value.filename = romNewName.value
-    }).catch((error) => {console.log(error)})
+        snackbarOK.value = true
+    }).catch((error) => {
+        console.log(error)
+        snackbarKO.value = true
+    })
 }
 </script>
 
@@ -121,10 +131,10 @@ async function submitEdit() {
                                             </template>
                                             <v-list rounded="0">
                                                 <v-form @submit.prevent class="ma-4">
-                                                    <v-text-field @keyup.enter="submitEdit()" v-model="romNewName" label="File name" variant="outlined"  required/>
-                                                    <v-file-input label="Cover L" prepend-icon="mdi-image" variant="outlined"/>
-                                                    <v-file-input label="Cover S" prepend-icon="mdi-image" variant="outlined"/>
-                                                    <v-btn type="submit" @click="submitEdit()" class="mt-2" block>Submit<v-icon v-if="submitted" icon="mdi-check-bold" color="green" class="ml-2"/></v-btn>
+                                                    <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined"  required/>
+                                                    <v-file-input @keyup.enter="editRom()" label="Cover" prepend-icon="mdi-image" variant="outlined"/>
+                                                    <!-- <v-file-input @keyup.enter="editRom()" label="Cover S" prepend-icon="mdi-image" variant="outlined"/> -->
+                                                    <v-btn type="submit" @click="editRom()" class="mt-2" block>Apply</v-btn>
                                                 </v-form>
                                             </v-list>
                                         </v-menu>
@@ -154,4 +164,18 @@ async function submitEdit() {
         </v-col>
     </v-row>
     <v-divider class="mt-10 mb-10 border-opacity-75"/>
+    <v-snackbar v-model="snackbarOK" :timeout="3000">
+        <v-icon v-if="submitted" icon="mdi-check-bold" color="green" class="ml-2 mr-2"/>
+        {{ rom.filename }} edited successfully!
+        <template v-slot:actions>
+            <v-btn variant="text" @click="snackbarOK = false"><v-icon icon="mdi-close"/></v-btn>
+        </template>
+    </v-snackbar>
+    <v-snackbar v-model="snackbarKO" :timeout="3000">
+        <v-icon v-if="submitted" icon="mdi-close-circle" color="red" class="ml-2 mr-2"/>
+        Couldn't edit {{ rom.filename }}. Something went wrong...
+        <template v-slot:actions>
+            <v-btn variant="text" @click="snackbarKO = false"><v-icon icon="mdi-close"/></v-btn>
+        </template>
+    </v-snackbar>
 </template>
