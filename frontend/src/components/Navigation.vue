@@ -6,15 +6,14 @@ import { useTheme } from "vuetify";
 
 // Props
 const platforms = ref([])
-const currentPlatformName = ref(localStorage.getItem('currentPlatformName') || "")
-const currentPlatformSlug = ref(localStorage.getItem('currentPlatformSlug') || "")
+const currentPlatform = ref(JSON.parse(localStorage.getItem('currentPlatform')) || "")
 const platformsToScan = ref([])
-const scanOverwrite = ref(false)
 const scanning = ref(false)
+const scanOverwrite = ref(false)
 const gettingRomsFlag = ref(false)
+const filter = ref('')
 const drawer = ref(null)
 const settings = ref(null)
-const filter = ref('')
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
@@ -36,14 +35,17 @@ async function getPlatforms() {
     }).catch((error) => {console.log(error)})
 }
 
+function setFilter(filter) {
+    // Sets the roms filter
+    emitter.emit('romsFilter', filter)
+}
+
 async function selectPlatform(platform){    
     // Select the current platform
     await router.push(import.meta.env.BASE_URL)
-    localStorage.setItem('currentPlatformSlug', platform.slug)
-    localStorage.setItem('currentPlatformName', platform.name)
-    emitter.emit('currentPlatform', platform.slug)
-    currentPlatformName.value = platform.name
-    currentPlatformSlug.value = platform.slug
+    localStorage.setItem('currentPlatform', JSON.stringify(platform))
+    emitter.emit('currentPlatform', platform)
+    currentPlatform.value = platform
 }
 
 function toggleRail(){
@@ -56,7 +58,6 @@ async function scan() {
     // Complete scan of by platform
     console.log("scanning...")
     scanning.value = true
-    emitter.emit('scanning', true)
     const platforms = []
     toRaw(platformsToScan)._rawValue.forEach(p => {
         platforms.push(toRaw(p))
@@ -69,8 +70,7 @@ async function scan() {
             console.log(response.data)
         }).catch((error) => {console.log(error)})
         scanning.value = false
-        emitter.emit('scanning', false)
-        // router.go()
+        emitter.emit('scanning')
     }
     else{
         platforms.forEach(async p => {
@@ -83,15 +83,9 @@ async function scan() {
                 console.log(response.data)
             }).catch((error) => {console.log(error)})
             scanning.value = false
-            emitter.emit('scanning', false)
-            // router.go()
+            emitter.emit('scanning')
         });
     }
-}
-
-function setFilter(filter) {
-    // Sets the roms filter
-    emitter.emit('romsFilter', filter)
 }
 
 function toggleTheme() {
@@ -105,74 +99,75 @@ getPlatforms()
 
 <template>
     <!-- Settings drawer -->
-    <v-navigation-drawer width="250" v-model="settings" location="right" temporary floating>
+    <v-navigation-drawer v-model="settings" location="right" width="250" temporary floating>
         <!-- Settings drawer - title -->
-        <v-list-item id="settings-title" class="text-h5 d-flex align-center justify-center pt-4 pb-4 pl-7 font-weight-bold bg-primary">
-            Settings<v-btn icon="mdi-close-box" class="ml-1" rounded="0" variant="plain" @click="settings = !settings"/>
+        <v-list-item class="text-h5 d-flex align-center justify-center font-weight-bold bg-primary pt-4 pb-4 pl-7">
+            Settings
+            <v-btn title="close settings" @click="settings = !settings" class="ml-1" icon="mdi-close-box" rounded="0" variant="plain"/>
         </v-list-item>
-        <v-divider class="border-opacity-100" :thickness="2"></v-divider>
+        <v-divider class="border-opacity-100" :thickness="2"/>
         <v-list>
             <!-- Settings drawer - scan button -->
             <v-list-item class="d-flex align-center justify-center mb-2">
-                <v-btn :disabled="scanning" color="secondary" prepend-icon="mdi-magnify-scan" @click="scan()" inset rounded="0">
+                <v-btn title="scan" @click="scan()" :disabled="scanning" prepend-icon="mdi-magnify-scan" color="secondary" rounded="0" inset>
                     <p v-if="!scanning">Scan</p>
                     <p v-if="scanning">Scanning</p>
-                    <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
+                    <v-progress-circular v-show="scanning" class="ml-2" color="primary" :width="2" :size="20" indeterminate/>
                 </v-btn>
             </v-list-item>
-            <v-select class="pl-2 pr-2" v-model="platformsToScan" :items="platforms" item-title="name" label="Platforms" multiple return-object clearable density="comfortable" variant="outlined" />
-            <v-divider class="border-opacity-25"></v-divider>
+            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-2 pr-2" density="comfortable" variant="outlined" multiple return-object clearable/>
+            <v-divider class="border-opacity-25"/>
             <!-- Settings drawer - theme toggle -->
             <v-list-item class="d-flex align-center justify-center">
-                <v-switch prepend-icon="mdi-theme-light-dark" class="pr-2 pl-2" v-model="darkMode" @change="toggleTheme()" hide-details="true" inset/>
+                <v-switch @change="toggleTheme()" v-model="darkMode" class="pr-2 pl-2" hide-details="true" prepend-icon="mdi-theme-light-dark" inset/>
             </v-list-item>
-            <v-divider class="border-opacity-25"></v-divider>
+            <v-divider class="border-opacity-25"/>
         </v-list>
     </v-navigation-drawer>
 
     <!-- App bar -->
-    <v-app-bar color="toolbar" class="elevation-3" >
+    <v-app-bar color="toolbar" class="elevation-3">
         <!-- App bar - RomM avatar -->
         <v-avatar class="ml-4" :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
         <!-- App bar - RomM title -->
-        <v-list-item-title class="text-h6 ml-5 hidden-md-and-down font-weight-black">ROM MANAGER</v-list-item-title>
+        <v-list-item-title class="text-h6 hidden-md-and-down font-weight-black ml-5">ROM MANAGER</v-list-item-title>
         <!-- App bar - Platforms drawer toggle -->
-        <v-app-bar-nav-icon @click="drawer = !drawer" rounded="0" class="hidden-lg-and-up ml-1"/>
+        <v-app-bar-nav-icon title="toggle platforms drawer" @click="drawer = !drawer" class="hidden-lg-and-up ml-1" rounded="0"/>
         <!-- App bar - Platform title - desktop -->
-        <v-toolbar-title class="align-center justify-center text-h6 ml-4 d-none d-sm-flex"></v-toolbar-title>
+        <v-toolbar-title class="text-h6 align-center justify-center d-none d-sm-flex ml-4"/>
         <!-- App bar - Platform title - mobile -->
-        <v-toolbar-title class="align-center text-h6 ml-2 d-sm-none">
-            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
+        <v-toolbar-title class="text-h6 align-center d-sm-none ml-2">
+            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
         </v-toolbar-title>
         <!-- App bar - Scan progress bar -->
-        <v-progress-linear absolute bottom :active="scanning" :indeterminate="true" id="scan-progress"/>
+        <v-progress-linear :active="scanning" :indeterminate="true" absolute/>
         <!-- App bar - Search bar -->
-        <v-text-field hide-details label="search" variant="outlined" density="compact" class="ml-5 mr-3" clearable prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" @click:clear="setFilter('')"/>
+        <v-text-field @click:clear="setFilter('')" @keyup="setFilter(filter)" v-model="filter" label="search" class="ml-5 mr-3" prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details clearable/>
         <!-- App bar - Settings -->
-        <v-app-bar-nav-icon @click="settings = !settings" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
+        <v-app-bar-nav-icon title="settings" @click="settings = !settings" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
     </v-app-bar>
 
     <!-- Platforms drawer -->
-    <v-navigation-drawer width="250" rail-width="72" v-model="drawer" :rail="rail">
+    <v-navigation-drawer v-model="drawer" :rail="rail" width="250" rail-width="72">
         <v-list nav>
             <!-- Platforms drawer - Platforms list -->
             <v-list-item v-for="platform in platforms"
-                class="mt-3"
                 :title="rail ? '' : platform.name" 
                 :value="platform.slug"
                 :key="platform"
-                @:click="selectPlatform(platform)">
+                @:click="selectPlatform(platform)"
+                class="mt-3">
                 <template v-slot:prepend>
                     <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.png'"></v-img></v-avatar>
                 </template>
                 <template v-slot:append>
-                    <v-progress-circular v-show="gettingRomsFlag && currentPlatformName == platform.name" indeterminate color="primary" :width="2" :size="20" class="ml-2" />
+                    <v-progress-circular v-show="gettingRomsFlag && currentPlatform.name == platform.name" class="ml-2" :width="2" :size="20" indeterminate/>
                 </template>
             </v-list-item>
         </v-list>
         <!-- Platforms drawer - Platforms list - rail toggle -->
         <template v-slot:append>
-            <v-btn block @click="toggleRail()" rounded="0">
+            <v-btn title="toggle rail platforms drawer" @click="toggleRail()" rounded="0" block>
                 <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
                 <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>
             </v-btn>
