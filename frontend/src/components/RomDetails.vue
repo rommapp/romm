@@ -1,10 +1,12 @@
 <script setup>
 import axios from 'axios'
-import { ref, inject, toRaw } from "vue"
+import { ref, inject, toRaw } from 'vue'
 import { useRouter } from 'vue-router'
+import { downloadRom, downloadSave } from '@/utils/utils.js'
 
 // Props
 const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
+const saveFiles = ref(false)
 const searching = ref(false)
 const matchedRoms = ref([])
 const changing = ref(false)
@@ -111,10 +113,10 @@ async function deleteRom() {
                     <v-container>
                         <v-row>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadRom()" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                                <v-btn @click="downloadRom(rom)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadSaves()" rounded="0" block><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
+                                <v-btn @click="downloadSave()" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
                                 <v-menu location="bottom">
@@ -150,7 +152,7 @@ async function deleteRom() {
                                             <v-list rounded="0">
                                                 <v-form @submit.prevent class="ma-4">
                                                     <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined"  required/>
-                                                    <v-file-input @keyup.enter="editRom()" label="Cover" prepend-icon="mdi-image" variant="outlined"/>
+                                                    <v-file-input @keyup.enter="editRom()" label="Custom cover" prepend-icon="mdi-image" variant="outlined" disabled/>
                                                     <v-btn type="submit" @click="editRom()" class="mt-2" block>Apply</v-btn>
                                                 </v-form>
                                             </v-list>

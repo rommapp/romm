@@ -1,8 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { ref, inject , onMounted } from "vue"
+import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { saveAs } from 'file-saver'
+import { downloadRom, downloadSave } from '@/utils/utils.js'
 
 // Props
 const roms = ref([])
@@ -10,6 +10,7 @@ const romsFiltered = ref([])
 const currentFilter = ref('')
 const router = useRouter()
 const forceImgReload = Date.now()
+const saveFiles = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -46,17 +47,6 @@ function setFilter(filter) {
         return normalizeString(rom.name).includes(currentFilter.value)
     })
 }
-    
-function downloadRom(rom) {
-    console.log("Downloading "+rom.filename)
-    axios.get('/assets/emulation/'+rom.p_slug+'/roms/'+rom.filename, { responseType: 'blob' }).then(response => {
-        saveAs(new Blob([response.data], { type: 'application/file' }), rom.filename)
-    }).catch(console.error)
-}
-
-function downloadSave(rom) {
-    console.log("Downloading "+rom.filename+" save file")
-}
 
 onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.parse(localStorage.getItem('currentPlatform')).slug) } })
 </script>
@@ -79,8 +69,8 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                     </v-img>
                     <v-card-text>
                         <v-row>
-                            <v-btn @click="downloadRom(rom)" icon="mdi-download" size="small" variant="flat"/>
-                            <v-btn @click=" downloadSave(rom)" icon="mdi-content-save-all" size="small" variant="flat"/>
+                            <v-btn @click="downloadRom(rom)" icon="mdi-download" size="small" variant="text"/>
+                            <v-btn @click="downloadSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
                         </v-row>
                     </v-card-text>
                 </v-card>
