@@ -56,7 +56,7 @@ async function scan() {
     // Complete scan of by platform
     console.log("scanning...")
     scanning.value = true
-    console.log(scanning)
+    emitter.emit('scanning', true)
     const platforms = []
     toRaw(platformsToScan)._rawValue.forEach(p => {
         platforms.push(toRaw(p))
@@ -68,7 +68,9 @@ async function scan() {
             console.log("scan completed")
             console.log(response.data)
         }).catch((error) => {console.log(error)})
-        router.go()
+        scanning.value = false
+        emitter.emit('scanning', false)
+        // router.go()
     }
     else{
         platforms.forEach(async p => {
@@ -80,7 +82,9 @@ async function scan() {
                 console.log("scan "+p.name+" completed")
                 console.log(response.data)
             }).catch((error) => {console.log(error)})
-            router.go()
+            scanning.value = false
+            emitter.emit('scanning', false)
+            // router.go()
         });
     }
 }
@@ -140,13 +144,12 @@ getPlatforms()
         <v-toolbar-title class="align-center text-h6 ml-2 d-sm-none">
             <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatformSlug+'.png'"></v-img></v-avatar>
         </v-toolbar-title>
+        <!-- App bar - Scan progress bar -->
+        <v-progress-linear absolute bottom :active="scanning" :indeterminate="true" id="scan-progress"/>
         <!-- App bar - Search bar -->
         <v-text-field hide-details label="search" variant="outlined" density="compact" class="ml-5 mr-3" clearable prepend-inner-icon="mdi-magnify" v-model="filter" @keyup="setFilter(filter)" @click:clear="setFilter('')"/>
         <!-- App bar - Settings -->
-        <v-app-bar-nav-icon @click="settings = !settings" rounded="0">
-            <v-icon v-if="!scanning" >mdi-cog</v-icon>
-            <v-progress-circular v-show="scanning" indeterminate color="primary" :width="2" :size="20" class="ml-2 mr-4" />
-        </v-app-bar-nav-icon>
+        <v-app-bar-nav-icon @click="settings = !settings" rounded="0"><v-icon>mdi-cog</v-icon></v-app-bar-nav-icon>
     </v-app-bar>
 
     <!-- Platforms drawer -->
