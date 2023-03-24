@@ -6,6 +6,7 @@ import { downloadRom, downloadSave } from '@/utils/utils.js'
 
 // Props
 const roms = ref([])
+const noRoms = ref(false)
 const romsFiltered = ref([])
 const currentFilter = ref('')
 const router = useRouter()
@@ -19,6 +20,7 @@ emitter.on('romsFilter', (filter) => { setFilter(filter) })
 
 // Functions
 async function getRoms(platform) {
+    noRoms.value = false
     console.log("Getting roms...")
     emitter.emit('gettingRoms', true)
     await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
@@ -28,6 +30,7 @@ async function getRoms(platform) {
         setFilter(currentFilter.value)
     }).catch((error) => {console.log(error)})
     emitter.emit('gettingRoms', false)
+    if(roms.value.length==0){noRoms.value = true}
 }
 
 async function selectRom(rom) {   
@@ -77,7 +80,7 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
             </v-hover>
         </v-col>
     </v-row>
-    <v-row v-if="roms.length==0" class="d-flex align-center justify-center fill-height">
+    <v-row v-if="noRoms" class="d-flex align-center justify-center fill-height">
         <div class="text-h6 mt-16 pt-16">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 

@@ -103,13 +103,14 @@ getPlatforms()
                     <v-progress-circular v-show="scanning" class="ml-2" color="primary" :width="2" :size="20" indeterminate/>
                 </v-btn>
             </v-list-item>
+        </v-list>
+        <!-- Settings drawer - theme toggle -->
+        <template v-slot:append>
             <v-divider class="border-opacity-25"/>
-            <!-- Settings drawer - theme toggle -->
             <v-list-item class="d-flex align-center justify-center">
                 <v-switch @change="toggleTheme()" v-model="darkMode" class="pr-2 pl-2" hide-details="true" prepend-icon="mdi-theme-light-dark" inset/>
             </v-list-item>
-            <v-divider class="border-opacity-25"/>
-        </v-list>
+        </template>
     </v-navigation-drawer>
 
     <!-- App bar -->
@@ -135,20 +136,16 @@ getPlatforms()
     </v-app-bar>
 
     <!-- Platforms drawer -->
-    <v-navigation-drawer v-model="drawer" :rail="rail" width="250" rail-width="72">
-        <v-list nav>
+    <v-navigation-drawer v-model="drawer" :rail="rail" width="260" rail-width="72">
+        <v-list>
             <!-- Platforms drawer - Platforms list -->
             <v-list-item v-for="platform in platforms"
-                :title="rail ? '' : platform.name" 
                 :value="platform.slug"
                 :key="platform"
-                @:click="selectPlatform(platform)"
-                class="mt-3">
+                @:click="selectPlatform(platform)" class="pt-4 pb-4">
+                <v-list-title class="text-subtitle-2">{{ rail ? '' : platform.name }}</v-list-title>
                 <template v-slot:prepend>
                     <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.png'"></v-img></v-avatar>
-                </template>
-                <template v-slot:append>
-                    <v-progress-circular v-show="gettingRomsFlag && currentPlatform.name == platform.name" class="ml-2" :width="2" :size="20" indeterminate/>
                 </template>
             </v-list-item>
         </v-list>
