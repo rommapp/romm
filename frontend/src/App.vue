@@ -1,6 +1,6 @@
 <script setup>
-import { ref, inject, toRaw } from "vue"
-import { useTheme } from "vuetify";
+import { ref, inject } from "vue"
+import { useTheme } from "vuetify"
 import Navigation from '@/components/Navigation.vue'
 
 // Props

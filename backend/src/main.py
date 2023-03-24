@@ -70,38 +70,19 @@ async def platforms():
     return {'data': dbh.get_platforms()}
 
 
-@app.put("/scan/rom")
-async def scan_rom(req: Request, overwrite: bool=False):
-    """Scan single rom and write it in database."""
-
-    data: dict = await req.json()
-    log.info(f"scaning {data['filename']} rom...")
-    fastapi.scan_rom(overwrite, data['filename'], data['p_igdb_id'], data['p_slug'], igdbh, dbh)
-    return {'msg': 'success'}
-
-
-@app.put("/scan/platform")
-async def scan_platform(req: Request, overwrite: bool=False):
-    """Scan single platform and write it in database."""
-
-    data: dict = await req.json()
-    log.info(f"scaning {data['p_slug']} roms...")
-    for filename in fs.get_roms(data['p_slug']):
-        fastapi.scan_rom(overwrite, filename, data['p_igdb_id'], data['p_slug'], igdbh, dbh)
-    fastapi.purge(dbh, p_slug=data['p_slug'])
-    return {'msg': 'success'}
-
-
-@app.get("/scan")
-async def scan(overwrite: bool=False):
+@app.put("/scan")
+async def scan(req: Request, overwrite: bool=False):
     """Scan platforms and roms and write them in database."""
 
     log.info("complete scaning...")
     fs.store_default_resources(overwrite)
-    for p_slug in fs.get_platforms():
+    data: dict = await req.json()
+    platforms = data['platforms'] if data['platforms'] else fs.get_platforms()
+    for p_slug in platforms:
         p_igdb_id: str = fastapi.scan_platform(overwrite, p_slug, igdbh, dbh)
         for filename in fs.get_roms(p_slug):
             fastapi.scan_rom(overwrite, filename, p_igdb_id, p_slug, igdbh, dbh)
+        fastapi.purge(dbh, p_slug=p_slug)
     fastapi.purge(dbh)
     return {'msg': 'success'}
 
