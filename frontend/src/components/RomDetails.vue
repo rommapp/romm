@@ -1,6 +1,7 @@
 <script setup>
 import axios from 'axios'
-import { ref, inject, toRaw } from "vue";
+import { ref, inject, toRaw } from "vue"
+import { useRouter } from 'vue-router'
 
 // Props
 const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
@@ -10,6 +11,8 @@ const changing = ref(false)
 const romNewName = ref(rom.value.filename)
 const snackbarShow = ref(false)
 const snackbarStatus = ref({})
+const dialogDeleteRom = ref(false)
+const router = useRouter()
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
@@ -60,6 +63,7 @@ async function editRom() {
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename, {
         filename: romNewName.value
     }).then((response) => {
+        console.log(response)
         console.log("update "+rom.value.filename+" to "+romNewName.value)
         rom.value.filename = romNewName.value
         snackbarStatus.value = {'msg': romNewName.value+" edited successfully!", 'icon': 'mdi-check-bold', 'color': 'green'}
@@ -68,6 +72,21 @@ async function editRom() {
         snackbarStatus.value = {'msg': "Couldn't edit "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'}
     })
     snackbarShow.value = true
+}
+
+async function deleteRom() {
+    console.log('deleting rom '+ rom.value.filename)
+    dialogDeleteRom.value = false
+    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename)
+    .then((response) => {
+        console.log(response)
+        emitter.emit('snackbarScan', {'msg': rom.value.filename+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        router.push(import.meta.env.BASE_URL)
+    }).catch((error) => {
+        console.log(error)
+        snackbarStatus.value = {'msg': "Couldn't delete "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'}
+        snackbarShow.value = true
+    })
 }
 </script>
 
@@ -132,14 +151,13 @@ async function editRom() {
                                                 <v-form @submit.prevent class="ma-4">
                                                     <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined"  required/>
                                                     <v-file-input @keyup.enter="editRom()" label="Cover" prepend-icon="mdi-image" variant="outlined"/>
-                                                    <!-- <v-file-input @keyup.enter="editRom()" label="Cover S" prepend-icon="mdi-image" variant="outlined"/> -->
                                                     <v-btn type="submit" @click="editRom()" class="mt-2" block>Apply</v-btn>
                                                 </v-form>
                                             </v-list>
                                         </v-menu>
                                         <v-divider class="mb-4 mt-2"/>
                                         <v-list-item key="delete" value="delete" class="bg-red mb-2">
-                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                            <v-list-item-title @click="dialogDeleteRom=true" class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                         </v-list-item>
                                     </v-list>
                                 </v-menu>
@@ -164,6 +182,19 @@ async function editRom() {
     </v-row>
     
     <v-divider class="mt-10 mb-10 border-opacity-75"/>
+
+    <v-dialog v-model="dialogDeleteRom" transition="dialog-bottom-transition" width="auto">
+        <v-card>
+            <v-toolbar :title="'Deleting '+rom.filename" class="pa-2" color="red"/>
+            <v-card-text class="pt-5">
+              <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
+            </v-card-text>
+            <v-card-actions class="justify-center pb-3">
+                <v-btn @click="deleteRom()" class="bg-red">Confirm</v-btn>
+                <v-btn @click="dialogDeleteRom=false" variant="tonal">Close</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 
     <v-snackbar v-model="snackbarShow" :timeout="3000">
         <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
