@@ -8,10 +8,8 @@ const searching = ref(false)
 const matchedRoms = ref([])
 const changing = ref(false)
 const romNewName = ref(rom.value.filename)
-const submitted = ref(false)
-const snackbarOK = ref(false)
-const snackbarKO = ref(false)
-
+const snackbarShow = ref(false)
+const snackbarStatus = ref({})
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
@@ -48,27 +46,28 @@ async function changeRom(newRomRaw) {
     }).then((response) => {
         console.log("update "+rom.value.filename+" completed")
         localStorage.setItem('currentRom', JSON.stringify(response.data.data))
+        snackbarStatus.value = {'msg': rom.value.filename+" changed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'}
         rom.value = response.data.data
-        snackbarOK.value = true
     }).catch((error) => {
         console.log(error)
-        snackbarKO.value = true
+        snackbarStatus.value = {'msg': "Couldn't change "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'}
     })
+    snackbarShow.value = true
     changing.value = false
 }
 
 async function editRom() {
-    submitted.value = true
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename, {
         filename: romNewName.value
     }).then((response) => {
         console.log("update "+rom.value.filename+" to "+romNewName.value)
         rom.value.filename = romNewName.value
-        snackbarOK.value = true
+        snackbarStatus.value = {'msg': romNewName.value+" edited successfully!", 'icon': 'mdi-check-bold', 'color': 'green'}
     }).catch((error) => {
         console.log(error)
-        snackbarKO.value = true
+        snackbarStatus.value = {'msg': "Couldn't edit "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'}
     })
+    snackbarShow.value = true
 }
 </script>
 
@@ -163,19 +162,15 @@ async function editRom() {
             </v-container>
         </v-col>
     </v-row>
+    
     <v-divider class="mt-10 mb-10 border-opacity-75"/>
-    <v-snackbar v-model="snackbarOK" :timeout="3000">
-        <v-icon v-if="submitted" icon="mdi-check-bold" color="green" class="ml-2 mr-2"/>
-        {{ rom.filename }} edited successfully!
+
+    <v-snackbar v-model="snackbarShow" :timeout="3000">
+        <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
+        {{ snackbarStatus.msg }}
         <template v-slot:actions>
-            <v-btn variant="text" @click="snackbarOK = false"><v-icon icon="mdi-close"/></v-btn>
+            <v-btn variant="text" @click="snackbarShow = false"><v-icon icon="mdi-close"/></v-btn>
         </template>
     </v-snackbar>
-    <v-snackbar v-model="snackbarKO" :timeout="3000">
-        <v-icon v-if="submitted" icon="mdi-close-circle" color="red" class="ml-2 mr-2"/>
-        Couldn't edit {{ rom.filename }}. Something went wrong...
-        <template v-slot:actions>
-            <v-btn variant="text" @click="snackbarKO = false"><v-icon icon="mdi-close"/></v-btn>
-        </template>
-    </v-snackbar>
+
 </template>

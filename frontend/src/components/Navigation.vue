@@ -67,9 +67,13 @@ async function scan() {
         await axios.get('/api/scan?overwrite='+scanOverwrite.value).then((response) => {
             console.log("scan completed")
             console.log(response.data)
-        }).catch((error) => {console.log(error)})
+            emitter.emit('snackbarScan', {'msg': 'Scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
+        }).catch((error) => {
+            console.log(error)
+            emitter.emit('snackbarScan', {'msg': "Couldn't complete scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+        })
         scanning.value = false
-        emitter.emit('scanning')
+        emitter.emit('refresh')
     }
     else{
         platforms.forEach(async p => {
@@ -80,9 +84,13 @@ async function scan() {
             }).then((response) => {
                 console.log("scan "+p.name+" completed")
                 console.log(response.data)
-            }).catch((error) => {console.log(error)})
+                emitter.emit('snackbarScan', {'msg': p.name+' scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
+            }).catch((error) => {
+                console.log(error)
+                emitter.emit('snackbarScan', {'msg': "Couldn't complete "+p.name+" scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+            })
             scanning.value = false
-            emitter.emit('scanning')
+            emitter.emit('refreshRoms')
         });
     }
 }
