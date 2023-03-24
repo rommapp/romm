@@ -193,7 +193,7 @@ async function deleteRom() {
             </v-card-text>
             <v-card-actions class="justify-center pb-3">
                 <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
-                <v-btn @click="dialogDeleteRom=false" variant="tonal">Close</v-btn>
+                <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>
