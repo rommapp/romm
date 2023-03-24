@@ -13,6 +13,8 @@ const changing = ref(false)
 const romNewName = ref(rom.value.filename)
 const snackbarShow = ref(false)
 const snackbarStatus = ref({})
+const dialogSearchRom = ref(false)
+const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const router = useRouter()
 // Event listeners bus
@@ -22,25 +24,25 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 // Functions
 async function searchRomIGDB() {
     searching.value = true
+    dialogSearchRom.value = true
     console.log("searching for rom... "+rom.value.filename)
-    if(matchedRoms.value.length == 0){
-        await axios.put('/api/search/roms/igdb', {
-            filename: rom.value.filename,
-            p_igdb_id: rom.value.p_igdb_id
-        }).then((response) => {
-            console.log(response.data.data)
-            if (response.data.data.length != 0){
-                matchedRoms.value = response.data.data
-            }else{
-                matchedRoms.value = [{'name': 'No games found'}]
-            }
-        }).catch((error) => {console.log(error)})
-    }
+    await axios.put('/api/search/roms/igdb', {
+        filename: rom.value.filename,
+        p_igdb_id: rom.value.p_igdb_id
+    }).then((response) => {
+        console.log(response.data.data)
+        if (response.data.data.length != 0){
+            matchedRoms.value = response.data.data
+        }else{
+            matchedRoms.value = [{'name': 'No games found'}]
+        }
+    }).catch((error) => {console.log(error)})
     searching.value = false
 }
 
 async function changeRom(newRomRaw) {
     changing.value = true
+    dialogSearchRom.value = false
     const newRom = toRaw(newRomRaw)
     newRom.filename = rom.value.filename
     console.log(newRom)
@@ -69,16 +71,16 @@ async function editRom() {
         console.log("update "+rom.value.filename+" to "+romNewName.value)
         rom.value.filename = romNewName.value
         snackbarStatus.value = {'msg': romNewName.value+" edited successfully!", 'icon': 'mdi-check-bold', 'color': 'green'}
+        dialogEditRom.value = false
     }).catch((error) => {
         console.log(error)
-        snackbarStatus.value = {'msg': "Couldn't edit "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'}
+        snackbarStatus.value = {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'}
     })
     snackbarShow.value = true
 }
 
 async function deleteRom() {
     console.log('deleting rom '+ rom.value.filename)
-    dialogDeleteRom.value = false
     await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename)
     .then((response) => {
         console.log(response)
@@ -127,36 +129,14 @@ async function deleteRom() {
                                         </v-btn>
                                     </template>
                                     <v-list rounded="0">
-                                        <v-menu location="end">
-                                            <template v-slot:activator="{ props }">
-                                                <v-list-item @click="searchRomIGDB()" v-bind="props">
-                                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>
-                                                        Search IGDB
-                                                        <v-progress-circular v-show="searching" :width="2" :size="20" class="ml-2" indeterminate/>
-                                                    </v-list-item-title>
-                                                </v-list-item>
-                                            </template>
-                                            <v-list rounded="0">
-                                                <v-list-item v-for="rom in matchedRoms" :key="rom" :value="rom">
-                                                    <v-list-item-title @click="changeRom(rom)" class="d-flex">{{ rom.name }}</v-list-item-title>
-                                                </v-list-item>
-                                            </v-list>
-                                        </v-menu>
+                                        <v-list-item @click="searchRomIGDB()">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
+                                        </v-list-item>
                                         <v-divider class="mb-2 mt-2"/>
-                                        <v-menu :close-on-content-click="false" location="end" min-width="290px">
-                                            <template v-slot:activator="{ props }">
-                                                <v-list-item key="edit" value="edit" v-bind="props">
-                                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
-                                                </v-list-item>
-                                            </template>
-                                            <v-list rounded="0">
-                                                <v-form @submit.prevent class="ma-4">
-                                                    <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined"  required/>
-                                                    <v-file-input @keyup.enter="editRom()" label="Custom cover" prepend-icon="mdi-image" variant="outlined" disabled/>
-                                                    <v-btn type="submit" @click="editRom()" class="mt-2" block>Apply</v-btn>
-                                                </v-form>
-                                            </v-list>
-                                        </v-menu>
+                                        <v-list-item @click="dialogEditRom=true" key="edit" value="edit">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
+                                        </v-list-item>
+                                        
                                         <v-divider class="mb-4 mt-2"/>
                                         <v-list-item key="delete" value="delete" class="bg-red mb-2">
                                             <v-list-item-title @click="dialogDeleteRom=true" class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
@@ -185,20 +165,51 @@ async function deleteRom() {
     
     <v-divider class="mt-10 mb-10 border-opacity-75"/>
 
-    <v-dialog v-model="dialogDeleteRom" transition="dialog-bottom-transition" width="auto">
-        <v-card>
-            <v-toolbar :title="'Deleting '+rom.filename" class="pa-2" color="red"/>
-            <v-card-text class="pt-5">
-              <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
+    <v-dialog v-model="dialogSearchRom" width="auto" :scrim="false">
+        <v-card width="550">
+            <v-toolbar :title="'Results found for '+rom.filename" class="pt-2 pb-2 pl-4 pr-8"/>
+            <v-card-text class="pt-5 justify-center">
+                <v-list rounded="0">
+                    <v-list-item v-show="searching">
+                        <v-progress-circular :width="2" :size="20" class="pa-2" indeterminate/>
+                    </v-list-item>
+                    <v-list-item v-for="rom in matchedRoms" v-show="!searching"  :key="rom" :value="rom">
+                        <v-list-item-title @click="changeRom(rom)" class="d-flex">{{ rom.name }}</v-list-item-title>
+                    </v-list-item>
+                </v-list>
             </v-card-text>
-            <v-card-actions class="justify-center pb-3">
-                <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
-                <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
-            </v-card-actions>
         </v-card>
     </v-dialog>
 
-    <v-snackbar v-model="snackbarShow" :timeout="3000">
+    <v-dialog v-model="dialogEditRom" width="auto" :scrim="false">
+        <v-card width="550">
+            <v-toolbar :title="'Editing '+rom.filename" class="pt-2 pb-2 pl-4 pr-8"/>
+            <v-card-text class="pt-5">
+                <v-form @submit.prevent class="ma-4">
+                    <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined"  required/>
+                    <v-file-input @keyup.enter="editRom()" label="Custom cover" prepend-icon="mdi-image" variant="outlined" disabled/>
+                    <v-btn type="submit" @click="editRom()" class="mt-2" block>Apply</v-btn>
+                </v-form>
+            </v-card-text>
+        </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="dialogDeleteRom" width="auto">
+        <v-expand-transition>
+            <v-card>
+                <v-toolbar :title="'Deleting '+rom.filename" class="pa-2" color="red"/>
+                <v-card-text class="pt-5 pr-10 pl-10">
+                <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
+                </v-card-text>
+                <v-card-actions class="justify-center pb-6 pt-3 pr-3 pl-3">
+                    <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
+                    <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-expand-transition>
+    </v-dialog>
+
+    <v-snackbar v-model="snackbarShow" :timeout="4000" location="top" class="mt-4">
         <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
         {{ snackbarStatus.msg }}
         <template v-slot:actions>

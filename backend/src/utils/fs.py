@@ -163,7 +163,22 @@ def get_roms(p_slug: str) -> list:
     return roms
 
 
+def r_exists(p_slug: str, filename: str) -> bool:
+    """Check if rom exists in filesystem
+    
+    Args:
+        p_slug: short name of the platform
+        filename: rom filename
+    Returns
+        True if rom exists in filesystem else False
+    """
+    rom_path: str = f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}"
+    exists: bool = True if os.path.exists(rom_path) else False
+    return exists
+
+
 def rename_rom(p_slug: str, filename: str, data: dict) -> None:
+    if r_exists(p_slug, data['filename']): raise HTTPException(status_code=500, detail=f"Can't rename: {data['filename']} already exists.")
     os.rename(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}",
               f"{EMULATION_BASE_PATH}/{p_slug}/roms/{data['filename']}")
     
