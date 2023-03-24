@@ -1,19 +1,21 @@
 <script setup>
+import { ref, inject } from "vue";
 import { useTheme } from "vuetify";
 import Navigation from '@/components/Navigation.vue'
 
 // Props
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
+const scanning = ref(false)
 </script>
 
 <template>
   <v-app>
     
     <navigation/>
-
+    
     <v-main>
       <v-container fluid>
-        <router-view />
+        <router-view/>
       </v-container>
     </v-main>
 
