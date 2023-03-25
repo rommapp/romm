@@ -63,7 +63,7 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
         <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2">
             <v-hover v-slot="{isHovering, props}">
                 <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
-                    <v-hover v-slot="{ isHovering, props }" open-delay="1000">
+                    <v-hover v-slot="{ isHovering, props }" open-delay="800">
                         <v-img v-bind="props" :src="rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="rom.path_cover_s+'?reload='+forceImgReload" cover>
                             <template v-slot:placeholder>
                                 <div class="d-flex align-center justify-center fill-height">
