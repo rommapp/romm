@@ -161,15 +161,22 @@ async function deleteRom() {
 
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
-            <v-toolbar title="Results found in IGDB:" class="pl-2 pr-8"/>
+            <v-toolbar title="IGDB results:" class="pr-4"/>
             <v-list rounded="0" class="pa-0">
-                <div clasS="d-flex justify-center"><v-progress-circular v-show="searching" :width="2" :size="20" class="pa-3 ma-3" indeterminate/></div>
-                <div v-for="rom in matchedRoms">
-                        <v-list-item v-show="!searching" :key="rom" :value="rom" class="pt-4 pb-4 pl-4 pr-4">
-                            <v-list-item-title @click="changeRom(rom)" class="d-flex">{{ rom.name }}</v-list-item-title>
-                        </v-list-item>
-                    </div>
-                </v-list>
+                <div class="d-flex justify-center"><v-progress-circular v-show="searching" :width="2" :size="20" class="pa-3 ma-3" indeterminate/></div>
+                <v-row v-show="!searching" class="pa-4">
+                    <v-col v-for="rom in matchedRoms">
+                        <v-hover v-slot="{isHovering, props}">
+                            <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
+                                <v-img v-bind="props" src="https://images.igdb.com/igdb/image/upload/t_cover_big/co68ag.png" cover/>
+                                <v-card-text>
+                                    <v-row class="pa-2">{{ rom.name }}</v-row>
+                                </v-card-text>
+                            </v-card>
+                        </v-hover>
+                    </v-col>
+                </v-row>
+            </v-list>
         </v-card>
     </v-dialog>
 
