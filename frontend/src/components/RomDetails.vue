@@ -161,9 +161,11 @@ async function deleteRom() {
 
     <v-dialog v-model="dialogSearchRom" :elevation="0" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
-            <v-list rounded="0" class="pa-0">
+            <v-toolbar v-show="searching" title="Searching..." class="pl-2 pr-8"/>
+            <v-toolbar v-show="!searching" title="Results found:" class="pl-2 pr-8"/>
+            <v-list rounded="0" class="pa-3">
                 <div class="d-flex justify-center">
-                    <v-progress-circular v-show="searching" :width="2" :size="20" class="pa-3 ma-3" indeterminate/>
+                    <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
                 </div>
                 <v-row v-show="!searching" class="pa-4">
                     <v-col v-for="rom in matchedRoms">
