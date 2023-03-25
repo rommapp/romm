@@ -9,6 +9,7 @@ RUN npm run build
 # setup frontend
 FROM ubuntu/nginx:1.18-22.04_edge as production-stage
 COPY --from=front-build-stage /front/dist /var/www/html
+COPY ./frontend/assets/platforms /var/www/html/assets/platforms
 RUN ln -s /emulation /var/www/html/assets/emulation
 
 # setup backend
