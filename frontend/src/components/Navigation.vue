@@ -143,7 +143,7 @@ getPlatforms()
                 :value="platform.slug"
                 :key="platform"
                 @:click="selectPlatform(platform)" class="pt-4 pb-4">
-                <v-list-title class="text-subtitle-2">{{ rail ? '' : platform.name }}</v-list-title>
+                <v-list class="text-subtitle-2">{{ rail ? '' : platform.name }}</v-list>
                 <template v-slot:prepend>
                     <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.png'"></v-img></v-avatar>
                 </template>
