@@ -8,7 +8,7 @@ const routes = [
   },
   {
     path: '/details',
-    component: () => import('@/components/RomsDetail.vue')
+    component: () => import('@/components/RomDetails.vue')
   }
 ]
 
