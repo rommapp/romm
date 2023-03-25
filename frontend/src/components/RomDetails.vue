@@ -52,11 +52,11 @@ async function changeRom(newRomRaw) {
     }).then((response) => {
         console.log("update "+rom.value.filename+" completed")
         localStorage.setItem('currentRom', JSON.stringify(response.data.data))
-        emitter.emit('snackbarScan', {'msg': rom.value.filename+" changed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        emitter.emit('snackbarScan', {'msg': rom.value.filename+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
     }).catch((error) => {
         console.log(error)
-        emitter.emit('snackbarScan', {'msg': "Couldn't change "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
     changing.value = false
 }
@@ -120,8 +120,7 @@ async function deleteRom() {
                                 <v-menu location="bottom">
                                     <template v-slot:activator="{ props }">
                                         <v-btn v-bind="props" rounded="0" block>
-                                            <v-icon v-show="!changing" icon="mdi-dots-vertical" size="large"/>
-                                            <v-progress-circular v-show="changing" :width="2" :size="20" indeterminate/>
+                                            <v-icon icon="mdi-dots-vertical" size="large"/>
                                         </v-btn>
                                     </template>
                                     <v-list rounded="0" class="pa-0">
@@ -200,6 +199,10 @@ async function deleteRom() {
                 </v-card-actions>
             </v-card>
         </v-expand-transition>
+    </v-dialog>
+
+    <v-dialog v-model="changing" scroll-strategy="none" width="auto">
+        <v-progress-circular :width="3" :size="70" indeterminate/>
     </v-dialog>
 
 </template>
