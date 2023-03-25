@@ -159,16 +159,17 @@ async function deleteRom() {
     
     <v-divider class="mt-10 mb-10 border-opacity-75"/>
 
-    <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
+    <v-dialog v-model="dialogSearchRom" :elevation="0" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
-            <v-toolbar title="IGDB results:" class="pr-4"/>
             <v-list rounded="0" class="pa-0">
-                <div class="d-flex justify-center"><v-progress-circular v-show="searching" :width="2" :size="20" class="pa-3 ma-3" indeterminate/></div>
+                <div class="d-flex justify-center">
+                    <v-progress-circular v-show="searching" :width="2" :size="20" class="pa-3 ma-3" indeterminate/>
+                </div>
                 <v-row v-show="!searching" class="pa-4">
                     <v-col v-for="rom in matchedRoms">
                         <v-hover v-slot="{isHovering, props}">
-                            <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
-                                <v-img v-bind="props" src="https://images.igdb.com/igdb/image/upload/t_cover_big/co68ag.png" cover/>
+                            <v-card @click="changeRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
+                                <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">{{ rom.name }}</v-row>
                                 </v-card-text>
@@ -181,11 +182,11 @@ async function deleteRom() {
     </v-dialog>
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false">
-        <v-card max-width="600">
+        <v-card max-width="600" min-width="340">
             <v-toolbar :title="'Editing '+rom.filename" class="pl-2 pr-8"/>
             <v-card-text class="pt-5">
                 <v-form @submit.prevent class="ma-4">
-                    <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined"  required/>
+                    <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined" required/>
                     <v-file-input @keyup.enter="editRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
                     <v-btn type="submit" @click="editRom()" class="mt-2" block>Apply</v-btn>
                 </v-form>

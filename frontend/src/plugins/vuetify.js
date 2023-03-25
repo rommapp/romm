@@ -28,6 +28,7 @@ export default createVuetify({
           primary: '#212121',
           secondary: '#BDBDBD',
           toolbar: '#212121',
+          background: '#212121'
         }
       }
     }

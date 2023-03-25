@@ -62,7 +62,7 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
     <v-row>
         <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2">
             <v-hover v-slot="{isHovering, props}">
-                <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
+                <v-card @click="selectRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                     <v-hover v-slot="{ isHovering, props }" open-delay="800">
                         <v-img v-bind="props" :src="rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="rom.path_cover_s+'?reload='+forceImgReload" cover>
                             <template v-slot:placeholder>
@@ -75,7 +75,6 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                                 <v-list-item>{{ rom.filename }}</v-list-item>
                                 </div>
                             </v-expand-transition>
-                            <v-btn @click="selectRom(rom)" class="d-flex align-center justify-center fill-height" color="transparent" block/>
                         </v-img>
                         <v-card-text>
                             <v-row>
@@ -88,9 +87,15 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
             </v-hover>
         </v-col>
     </v-row>
-
-    <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false">
-        <v-progress-circular :width="3" :size="70" indeterminate/>
+        
+    <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false">        
+        <v-card>
+            <v-list class="pa-0">
+                <div class="d-flex justify-center">
+                    <v-progress-circular :width="3" :size="30" class="pa-3 ma-3" indeterminate/>
+                </div>
+            </v-list>
+        </v-card>                               
     </v-dialog>
 
     <v-dialog v-model="noRoms" scroll-strategy="none" width="auto" :scrim="false">
