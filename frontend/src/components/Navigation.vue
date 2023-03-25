@@ -122,9 +122,9 @@ getPlatforms()
         <!-- App bar - Platforms drawer toggle -->
         <v-app-bar-nav-icon title="toggle platforms drawer" @click="drawer = !drawer" class="hidden-lg-and-up ml-1" rounded="0"/>
         <!-- App bar - Platform title - desktop -->
-        <v-toolbar-title class="text-h6 align-center justify-center d-none d-sm-flex ml-4"/>
+        <v-toolbar-title class="text-h6 align-center justify-center d-none d-lg-flex ml-4"/>
         <!-- App bar - Platform title - mobile -->
-        <v-toolbar-title class="text-h6 align-center d-sm-none ml-2">
+        <v-toolbar-title class="text-h6 align-center d-lg-none ml-2">
             <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
         </v-toolbar-title>
         <!-- App bar - Scan progress bar -->
