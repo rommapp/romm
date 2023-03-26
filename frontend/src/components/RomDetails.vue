@@ -39,7 +39,7 @@ async function searchRomIGDB() {
     searching.value = false
 }
 
-async function changeRom(newRomRaw) {
+async function updateRom(newRomRaw) {
     changing.value = true
     dialogSearchRom.value = false
     const newRom = toRaw(newRomRaw)
@@ -128,12 +128,12 @@ async function deleteRom() {
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
                                         </v-list-item>
                                         <v-divider class="border-opacity-25"/>
-                                        <v-list-item @click="dialogEditRom=true" key="edit" value="edit" class="pt-4 pb-4 pr-5">
+                                        <v-list-item @click="dialogEditRom=true" class="pt-4 pb-4 pr-5">
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
                                         </v-list-item>
                                         <v-divider class="border-opacity-25"/>
-                                        <v-list-item key="delete" value="delete" class="pt-4 pb-4 pr-5 bg-red">
-                                            <v-list-item-title @click="dialogDeleteRom=true" class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                        <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                         </v-list-item>
                                     </v-list>
                                 </v-menu>
@@ -148,6 +148,7 @@ async function deleteRom() {
                 <v-row>IGDB id: {{ rom.r_igdb_id }}</v-row>
                 <v-row>Name: {{ rom.name }}</v-row>
                 <v-row>File: {{ rom.filename }}</v-row>
+                <v-row>Size: {{ rom.size }}mb</v-row>
                 <v-row>Slug: {{ rom.r_slug }}</v-row>
                 <v-row>Platform: {{ rom.p_slug }}</v-row>
                 <v-row>Cover: {{ rom.path_cover_l }}</v-row>
@@ -158,8 +159,8 @@ async function deleteRom() {
     </v-row>
     
     <v-divider class="mt-10 mb-10 border-opacity-75"/>
-
-    <v-dialog v-model="dialogSearchRom" :elevation="0" scroll-strategy="none" width="auto" :scrim="false">
+    
+    <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
             <v-toolbar v-show="searching" title="Searching..." class="pl-2 pr-8"/>
             <v-toolbar v-show="!searching" title="Results found:" class="pl-2 pr-8"/>
@@ -170,7 +171,7 @@ async function deleteRom() {
                 <v-row v-show="!searching" class="pa-4">
                     <v-col v-for="rom in matchedRoms">
                         <v-hover v-slot="{isHovering, props}">
-                            <v-card @click="changeRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
+                            <v-card @click="updateRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">{{ rom.name }}</v-row>

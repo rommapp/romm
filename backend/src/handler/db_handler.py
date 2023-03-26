@@ -88,5 +88,5 @@ class DBHandler:
     def purge_roms(self, p_slug: str, roms: list) -> None:
         with Session.begin() as session:
             session.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.filename.not_in(roms)) \
+                .filter(Rom.p_slug==p_slug, Rom.filename.not_in([rom['filename'] for rom in roms])) \
                 .delete(synchronize_session='evaluate')
