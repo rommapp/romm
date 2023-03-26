@@ -125,12 +125,10 @@ getPlatforms()
         <v-list-item-title class="text-h6 hidden-md-and-down font-weight-black ml-5">ROM MANAGER</v-list-item-title>
         <!-- App bar - Platforms drawer toggle -->
         <v-app-bar-nav-icon title="toggle platforms drawer" @click="drawer = !drawer" class="hidden-lg-and-up ml-1" rounded="0"/>
-        <!-- App bar - Platform title - desktop -->
-        <v-toolbar-title class="text-h6 d-flex align-center justify-center d-none d-lg-flex ml-4"/>
         <!-- App bar - Platform title - mobile -->
-        <v-toolbar-title class="text-h6 d-flex align-center justify-center d-lg-none ml-2">
-            <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
-        </v-toolbar-title>
+        <v-avatar class="ml-3 mr-3 d-lg-none" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
+        <!-- App bar - Platform title - desktop -->
+        <v-toolbar-title class="text-h6 hidden-sm-and-down ml-4"/>
         <!-- App bar - Scan progress bar -->
         <v-progress-linear :active="scanning" :indeterminate="true" absolute/>
         <!-- App bar - Upload -->
