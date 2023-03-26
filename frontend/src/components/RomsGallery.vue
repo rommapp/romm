@@ -62,7 +62,7 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
     <v-row>
         <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2">
             <v-hover v-slot="{isHovering, props}">
-                <v-card @click="selectRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
+                <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                     <v-hover v-slot="{ isHovering, props }" open-delay="800">
                         <v-img v-bind="props" :src="rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="rom.path_cover_s+'?reload='+forceImgReload" cover>
                             <template v-slot:placeholder>
@@ -72,9 +72,10 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                             </template>
                             <v-expand-transition>
                                 <div v-if="isHovering || !rom.has_cover" class="rom-title d-flex transition-fast-in-fast-out bg-secondary text-caption-1">
-                                <v-list-item>{{ rom.filename }}</v-list-item>
+                                    <v-list-item>{{ rom.filename }}</v-list-item>
                                 </div>
                             </v-expand-transition>
+                            <v-btn @click="selectRom(rom)" class="fill-height bg-transparent" rounded="0" block/>
                         </v-img>
                         <v-card-text>
                             <v-row>
