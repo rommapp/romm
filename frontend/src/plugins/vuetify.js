@@ -13,6 +13,11 @@ import { createVuetify } from 'vuetify'
 
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
+  defaults: {
+    vSelect: { variant: 'outlined' },
+    vTextField: { variant: 'outlined' },
+    vFileInput: { variant: 'outlined' }
+  },
   theme: {
     defaultTheme: 'dark',
     themes: {

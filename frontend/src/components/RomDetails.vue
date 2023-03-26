@@ -162,9 +162,15 @@ async function deleteRom() {
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
-            <v-toolbar v-show="searching" title="Searching..." class="pl-2 pr-8"/>
-            <v-toolbar v-show="!searching" title="Results found:" class="pl-2 pr-8"/>
-            <v-list rounded="0" class="pa-3">
+            <v-toolbar v-show="searching">
+                <v-toolbar-title>Searching...</v-toolbar-title>
+                <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
+            <v-toolbar v-show="!searching">
+                <v-toolbar-title>Results found</v-toolbar-title>
+                <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
+            <v-card-text rounded="0" class="pa-3">
                 <div class="d-flex justify-center">
                     <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
                 </div>
@@ -180,13 +186,16 @@ async function deleteRom() {
                         </v-hover>
                     </v-col>
                 </v-row>
-            </v-list>
+            </v-card-text>
         </v-card>
     </v-dialog>
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600" min-width="340">
-            <v-toolbar :title="'Editing '+rom.filename" class="pl-2 pr-8"/>
+            <v-toolbar>
+                <v-toolbar-title>Editing {{ rom.filename }}</v-toolbar-title>
+                <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
             <v-card-text class="pt-5">
                 <v-form @submit.prevent class="ma-4">
                     <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined" required/>
@@ -198,21 +207,22 @@ async function deleteRom() {
     </v-dialog>
 
     <v-dialog v-model="dialogDeleteRom" width="auto">
-        <v-expand-transition>
-            <v-card max-width="600">
-                <v-toolbar :title="'Deleting '+rom.filename" class="pl-2 pr-8" color="red"/>
-                <v-card-text class="pt-5 pr-10 pl-10">
+        <v-card max-width="600">
+            <v-toolbar class="bg-red">
+                <v-toolbar-title>Deleting {{ rom.filename }}</v-toolbar-title>
+                <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
+            <v-card-text class="pt-5 pr-10 pl-10">
                 <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
-                </v-card-text>
-                <v-card-actions class="justify-center pb-6 pt-3 pr-3 pl-3">
-                    <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
-                    <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-expand-transition>
+            </v-card-text>
+            <v-card-actions class="justify-center pb-6 pt-3 pr-3 pl-3">
+                <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
+                <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
+            </v-card-actions>
+        </v-card>
     </v-dialog>
 
-    <v-dialog v-model="changing" scroll-strategy="none" width="auto">
+    <v-dialog v-model="changing" scroll-strategy="none" width="auto" persistent>
         <v-progress-circular :width="3" :size="70" indeterminate/>
     </v-dialog>
 
