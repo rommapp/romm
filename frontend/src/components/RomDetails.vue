@@ -30,11 +30,7 @@ async function searchRomIGDB() {
         p_igdb_id: rom.value.p_igdb_id
     }).then((response) => {
         console.log(response.data.data)
-        if (response.data.data.length != 0){
-            matchedRoms.value = response.data.data
-        }else{
-            matchedRoms.value = [{'name': 'No games found'}]
-        }
+        matchedRoms.value = response.data.data
     }).catch((error) => {console.log(error)})
     searching.value = false
 }
@@ -175,6 +171,7 @@ async function deleteRom() {
                     <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
                 </div>
                 <v-row v-show="!searching" class="pa-4">
+                    <p v-show="matchedRoms.length==0">No results found</p>
                     <v-col v-for="rom in matchedRoms">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
