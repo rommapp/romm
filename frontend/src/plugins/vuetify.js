@@ -20,13 +20,14 @@ export default createVuetify({
         colors: {
           primary: '#FFFFFF',
           secondary: '#BDBDBD',
-          toolbar: '#FFFFFF'
+          toolbar: '#FFFFFF',
+          background: '#FFFFFF'
         }
       },
       dark: {
         colors: {
           primary: '#212121',
-          secondary: '#BDBDBD',
+          secondary: '#424242',
           toolbar: '#212121',
           background: '#212121'
         }

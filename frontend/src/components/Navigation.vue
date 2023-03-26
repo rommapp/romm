@@ -81,6 +81,10 @@ function toggleTheme() {
     darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
 }
 
+function uploadRom() {
+    console.log("uploading rom")
+}
+
 getPlatforms()
 </script>
 
@@ -116,19 +120,21 @@ getPlatforms()
     <!-- App bar -->
     <v-app-bar color="toolbar" class="elevation-3">
         <!-- App bar - RomM avatar -->
-        <v-avatar class="ml-4" :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
+        <v-avatar class="hidden-md-and-down ml-4" :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
         <!-- App bar - RomM title -->
         <v-list-item-title class="text-h6 hidden-md-and-down font-weight-black ml-5">ROM MANAGER</v-list-item-title>
         <!-- App bar - Platforms drawer toggle -->
         <v-app-bar-nav-icon title="toggle platforms drawer" @click="drawer = !drawer" class="hidden-lg-and-up ml-1" rounded="0"/>
         <!-- App bar - Platform title - desktop -->
-        <v-toolbar-title class="text-h6 align-center justify-center d-none d-lg-flex ml-4"/>
+        <v-toolbar-title class="text-h6 d-flex align-center justify-center d-none d-lg-flex ml-4"/>
         <!-- App bar - Platform title - mobile -->
-        <v-toolbar-title class="text-h6 align-center d-lg-none ml-2">
+        <v-toolbar-title class="text-h6 d-flex align-center justify-center d-lg-none ml-2">
             <v-avatar class="mr-3" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
         </v-toolbar-title>
         <!-- App bar - Scan progress bar -->
         <v-progress-linear :active="scanning" :indeterminate="true" absolute/>
+        <!-- App bar - Upload -->
+        <v-app-bar-nav-icon title="settings" @click="uploadRom()" rounded="0"><v-icon>mdi-upload</v-icon></v-app-bar-nav-icon>
         <!-- App bar - Search bar -->
         <v-text-field @click:clear="setFilter('')" @keyup="setFilter(filter)" v-model="filter" label="search" class="ml-5 mr-3" prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details clearable/>
         <!-- App bar - Settings -->
@@ -136,7 +142,7 @@ getPlatforms()
     </v-app-bar>
 
     <!-- Platforms drawer -->
-    <v-navigation-drawer v-model="drawer" :rail="rail" width="260" rail-width="72">
+    <v-navigation-drawer v-model="drawer" :rail="rail" width="300" rail-width="72">
         <v-list>
             <!-- Platforms drawer - Platforms list -->
             <v-list-item v-for="platform in platforms"
@@ -146,6 +152,9 @@ getPlatforms()
                 <v-list class="text-subtitle-2">{{ rail ? '' : platform.name }}</v-list>
                 <template v-slot:prepend>
                     <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.png'"></v-img></v-avatar>
+                </template>
+                <template v-slot:append>
+                    <v-chip class="ml-4" size="small">250</v-chip>
                 </template>
             </v-list-item>
         </v-list>
