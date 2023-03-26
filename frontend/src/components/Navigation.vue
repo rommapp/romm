@@ -140,7 +140,7 @@ getPlatforms()
         <v-spacer class="hidden-xs-and-down"></v-spacer>
 
         <!-- Upload -->
-        <v-app-bar-nav-icon @click="uploadRom()" class="ma-2" rounded="0"><v-icon>mdi-upload</v-icon></v-app-bar-nav-icon>
+        <v-app-bar-nav-icon @click="uploadRom()" class="ma-2" rounded="0" disabled><v-icon>mdi-upload</v-icon></v-app-bar-nav-icon>
         <!-- Search bar -->
         <v-text-field @click:clear="setFilter('')" @keyup="setFilter(filter)" v-model="filter" label="search" class="ml-2 mr-2 shrink" style="max-width:450px"  prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details clearable/>
         <template v-slot:append>
