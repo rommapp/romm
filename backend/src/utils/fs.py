@@ -154,8 +154,11 @@ def get_roms(p_slug: str) -> list:
     Automatically discards the default directory.
     """
     try:
-        roms: list[str] = []
-        roms = list(os.walk(f"{EMULATION_BASE_PATH}/{p_slug}/roms/"))[0][2]
+        roms_filename = list(os.walk(f"{EMULATION_BASE_PATH}/{p_slug}/roms/"))[0][2]
+        roms: list[dict] = [
+            {'filename': rom,
+             'size': str(os.stat(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{rom}").st_size / (1024 * 1024))}
+            for rom in roms_filename]
         log.info(f"filesystem roms found for {p_slug}: {roms}")
     except IndexError:
         log.warning(f"roms not found for {p_slug}")

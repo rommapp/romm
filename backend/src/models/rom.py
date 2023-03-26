@@ -19,3 +19,4 @@ class Rom(BaseModel):
     path_cover_s = Column(String(length=500), default=DEFAULT_PATH_COVER_S)
     path_cover_l = Column(String(length=500), default=DEFAULT_PATH_COVER_L)
     has_cover = Column(Boolean, default=False)
+    size = Column(String(length=20), default="")
