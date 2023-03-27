@@ -6,7 +6,7 @@
 
 # Overview
 
-Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [Gameyfin](https://github.com/grimsi/gameyfin) project is not supported for arm64 architectures (since my own homelab is only made by 3 rpis) and it is a general game library manager, I decided to develop my own game library solution, focused on retro gaming.
+Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [Gameyfin](https://github.com/grimsi/gameyfin) project is not supported for arm64 architectures and it is a general game library manager, I decided to develop my own game library solution, focused on retro gaming.
 
 For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm64)
 
@@ -64,6 +64,9 @@ Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags)
 Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example
 
 Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
+
+## Tested supported slug platforms
+
 
 
 
