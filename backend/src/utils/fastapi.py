@@ -53,10 +53,12 @@ def purge(dbh: DBHandler, p_slug: str = '') -> None:
     """Clean the database from non existent platforms or roms"""
     if p_slug:
         # Purge only roms in platform
+        log.info(f"Purge {p_slug}")
         dbh.purge_roms(p_slug, fs.get_roms(p_slug))
     else:
         # Purge all platforms / delete non existent platforms and non existen roms
         platforms: list = fs.get_platforms()
         dbh.purge_platforms(platforms)
         for p_slug in platforms:
+            log.info(f"Purge {p_slug}")
             dbh.purge_roms(p_slug, fs.get_roms(p_slug))
