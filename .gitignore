@@ -38,3 +38,6 @@ envs.env
 
 # database
 mariadb
+
+# data test
+emulation

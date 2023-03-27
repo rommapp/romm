@@ -162,7 +162,7 @@ def get_roms(p_slug: str) -> list:
         log.info(f"filesystem roms found for {p_slug}: {roms}")
     except IndexError:
         log.warning(f"roms not found for {p_slug}")
-        pass
+        roms: list[dict] = []
     return roms
 
 
