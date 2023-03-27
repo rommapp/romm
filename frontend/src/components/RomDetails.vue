@@ -9,7 +9,7 @@ const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
 const saveFiles = ref(false)
 const searching = ref(false)
 const matchedRoms = ref([])
-const changing = ref(false)
+const updating = ref(false)
 const romNewName = ref(rom.value.filename)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
@@ -30,17 +30,13 @@ async function searchRomIGDB() {
         p_igdb_id: rom.value.p_igdb_id
     }).then((response) => {
         console.log(response.data.data)
-        if (response.data.data.length != 0){
-            matchedRoms.value = response.data.data
-        }else{
-            matchedRoms.value = [{'name': 'No games found'}]
-        }
+        matchedRoms.value = response.data.data
     }).catch((error) => {console.log(error)})
     searching.value = false
 }
 
-async function changeRom(newRomRaw) {
-    changing.value = true
+async function updateRom(newRomRaw) {
+    updating.value = true
     dialogSearchRom.value = false
     const newRom = toRaw(newRomRaw)
     newRom.filename = rom.value.filename
@@ -58,7 +54,7 @@ async function changeRom(newRomRaw) {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
-    changing.value = false
+    updating.value = false
 }
 
 async function editRom() {
@@ -128,12 +124,12 @@ async function deleteRom() {
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
                                         </v-list-item>
                                         <v-divider class="border-opacity-25"/>
-                                        <v-list-item @click="dialogEditRom=true" key="edit" value="edit" class="pt-4 pb-4 pr-5">
+                                        <v-list-item @click="dialogEditRom=true" class="pt-4 pb-4 pr-5">
                                             <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
                                         </v-list-item>
                                         <v-divider class="border-opacity-25"/>
-                                        <v-list-item key="delete" value="delete" class="pt-4 pb-4 pr-5 bg-red">
-                                            <v-list-item-title @click="dialogDeleteRom=true" class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                        <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
+                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                         </v-list-item>
                                     </v-list>
                                 </v-menu>
@@ -144,31 +140,66 @@ async function deleteRom() {
             </v-container>
         </v-col>
         <v-col cols="15" xs="15" sm="12" md="6" lg="10">
-            <v-container>
-                <v-row>IGDB id: {{ rom.r_igdb_id }}</v-row>
-                <v-row>Name: {{ rom.name }}</v-row>
-                <v-row>File: {{ rom.filename }}</v-row>
-                <v-row>Slug: {{ rom.r_slug }}</v-row>
-                <v-row>Platform: {{ rom.p_slug }}</v-row>
-                <v-row>Cover: {{ rom.path_cover_l }}</v-row>
-                <v-divider v-if="rom.summary != ''" class="mt-8 mb-8"/>
-                <v-row>{{ rom.summary }}</v-row>
-            </v-container>
+            <v-table density="comfortable">
+                <tbody>
+                    <tr>
+                        <td>IGDB id</td>
+                        <td><a :href="'https://www.igdb.com/games/'+rom.r_slug">{{ rom.r_igdb_id }}</a></td>
+                    </tr>
+                    <tr>
+                        <td>Name</td>
+                        <td>{{ rom.name }}</td>
+                    </tr>
+                    <tr>
+                        <td>File</td>
+                        <td>{{ rom.filename }}</td>
+                    </tr>
+                    <tr>
+                        <td>Size</td>
+                        <td>{{ rom.size }}mb</td>
+                    </tr>
+                    <tr>
+                        <td>Slug</td>
+                        <td>{{ rom.r_slug }}</td>
+                    </tr>
+                    <tr>
+                        <td>Platform</td>
+                        <td>{{ rom.p_slug }}</td>
+                    </tr>
+                    <tr>
+                        <td>Cover</td>
+                        <td>{{ rom.path_cover_l }}</td>
+                    </tr>
+                    <tr>
+                        <td>Summary</td>
+                        <td class="pt-3">{{ rom.summary }}</td>
+                    </tr>
+                </tbody>
+            </v-table>
         </v-col>
     </v-row>
     
-    <v-divider class="mt-10 mb-10 border-opacity-75"/>
-
-    <v-dialog v-model="dialogSearchRom" :elevation="0" scroll-strategy="none" width="auto" :scrim="false">
+    <!-- <v-divider class="mt-10 mb-10 border-opacity-75"/> -->
+    
+    <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
-            <v-list rounded="0" class="pa-0">
+            <v-toolbar v-show="searching">
+                <v-toolbar-title>Searching...</v-toolbar-title>
+                <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
+            <v-toolbar v-show="!searching">
+                <v-toolbar-title>Results found</v-toolbar-title>
+                <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
+            <v-card-text rounded="0" class="pa-3">
                 <div class="d-flex justify-center">
-                    <v-progress-circular v-show="searching" :width="2" :size="20" class="pa-3 ma-3" indeterminate/>
+                    <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
                 </div>
                 <v-row v-show="!searching" class="pa-4">
+                    <p v-show="matchedRoms.length==0">No results found</p>
                     <v-col v-for="rom in matchedRoms">
                         <v-hover v-slot="{isHovering, props}">
-                            <v-card @click="changeRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
+                            <v-card @click="updateRom(rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">{{ rom.name }}</v-row>
@@ -177,13 +208,20 @@ async function deleteRom() {
                         </v-hover>
                     </v-col>
                 </v-row>
-            </v-list>
+            </v-card-text>
         </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="updating" scroll-strategy="none" width="auto" persistent>
+        <v-progress-circular :width="3" :size="70" indeterminate/>
     </v-dialog>
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600" min-width="340">
-            <v-toolbar :title="'Editing '+rom.filename" class="pl-2 pr-8"/>
+            <v-toolbar>
+                <v-toolbar-title>Editing {{ rom.filename }}</v-toolbar-title>
+                <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
             <v-card-text class="pt-5">
                 <v-form @submit.prevent class="ma-4">
                     <v-text-field @keyup.enter="editRom()" v-model="romNewName" label="File name" variant="outlined" required/>
@@ -195,22 +233,19 @@ async function deleteRom() {
     </v-dialog>
 
     <v-dialog v-model="dialogDeleteRom" width="auto">
-        <v-expand-transition>
-            <v-card max-width="600">
-                <v-toolbar :title="'Deleting '+rom.filename" class="pl-2 pr-8" color="red"/>
-                <v-card-text class="pt-5 pr-10 pl-10">
+        <v-card max-width="600">
+            <v-toolbar class="bg-red">
+                <v-toolbar-title>Deleting {{ rom.filename }}</v-toolbar-title>
+                <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+            </v-toolbar>
+            <v-card-text class="pt-5 pr-10 pl-10">
                 <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
-                </v-card-text>
-                <v-card-actions class="justify-center pb-6 pt-3 pr-3 pl-3">
-                    <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
-                    <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-expand-transition>
-    </v-dialog>
-
-    <v-dialog v-model="changing" scroll-strategy="none" width="auto">
-        <v-progress-circular :width="3" :size="70" indeterminate/>
+            </v-card-text>
+            <v-card-actions class="justify-center pb-6 pt-3 pr-3 pl-3">
+                <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
+                <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
+            </v-card-actions>
+        </v-card>
     </v-dialog>
 
 </template>
