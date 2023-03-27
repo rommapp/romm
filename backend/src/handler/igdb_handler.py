@@ -37,7 +37,7 @@ class IGDBHandler():
                                               data=f"fields id, name, platform_logo; where slug=\"{slug}\";").json()[0]
             igdb_id = res_details['id']
             name = res_details['name']
-            id_logo = res_details['platform_logo']
+            id_logo = 0
         except IndexError:
             log.warning("platform not found in igdb")
         else:
@@ -46,7 +46,7 @@ class IGDBHandler():
                                                data=f"fields image_id; where id={id_logo};").json()[0]
                 url_logo: str = f"https://images.igdb.com/igdb/image/upload/t_logo_med/{res_logo['image_id']}.png"
             except IndexError:
-                log.warning(f"{slug} logo not found in igdb")
+                pass
         if not name: name = slug
         return igdb_id, name, url_logo
 
