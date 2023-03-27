@@ -1,3 +1,5 @@
+import functools
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
@@ -12,6 +14,13 @@ class DBHandler:
     def __init__(self) -> None:
         BaseModel.metadata.create_all(engine)
         self.session = Session()
+
+
+    def retry(func) -> tuple:
+        @functools.wraps(func)
+        def wrapper(*args):
+            return func(*args)
+        return wrapper
 
     
     def add_platform(self, **kargs) -> None:
@@ -79,5 +88,5 @@ class DBHandler:
     def purge_roms(self, p_slug: str, roms: list) -> None:
         with Session.begin() as session:
             session.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.filename.not_in(roms)) \
+                .filter(Rom.p_slug==p_slug, Rom.filename.not_in([rom['filename'] for rom in roms])) \
                 .delete(synchronize_session='evaluate')

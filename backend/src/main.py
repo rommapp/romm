@@ -82,8 +82,8 @@ async def scan(req: Request, overwrite: bool=False):
     platforms = data['platforms'] if data['platforms'] else fs.get_platforms()
     for p_slug in platforms:
         p_igdb_id: str = fastapi.scan_platform(overwrite, p_slug, igdbh, dbh)
-        for filename in fs.get_roms(p_slug):
-            fastapi.scan_rom(overwrite, filename, p_igdb_id, p_slug, igdbh, dbh)
+        for rom in fs.get_roms(p_slug):
+            fastapi.scan_rom(overwrite, rom, p_igdb_id, p_slug, igdbh, dbh)
         fastapi.purge(dbh, p_slug=p_slug)
     fastapi.purge(dbh)
     return {'msg': 'success'}

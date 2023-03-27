@@ -29,27 +29,23 @@ def scan_platform(overwrite: bool, p_slug: str, igdbh: IGDBHandler, dbh: DBHandl
     if (overwrite or not fs.p_logo_exists(p_slug)) and url_logo:
         fs.store_p_logo(p_slug, url_logo)
     if fs.p_logo_exists(p_slug):
-        platform['path_logo']: str = fs.get_p_path_logo(p_slug)
+        platform['path_logo'] = fs.get_p_path_logo(p_slug)
+    platform['n_roms'] = len(fs.get_roms(p_slug))
     dbh.add_platform(**platform)
     return p_igdb_id
 
 
-def scan_rom(overwrite: bool, filename: str, p_igdb_id: str, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler, r_igbd_id: str = '') -> None:
-    rom: dict = {}
-    log.info(f"Getting {filename} details")
-    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(filename, p_igdb_id, r_igbd_id)
+def scan_rom(overwrite: bool, rom, p_igdb_id: str, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler, r_igbd_id: str = '') -> None:
+    log.info(f"Getting {rom['filename']} details")
+    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(rom['filename'], p_igdb_id, r_igbd_id)
     path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, p_slug, filename_no_ext, url_cover)
-    rom['filename'] = filename
-    rom['filename_no_ext'] = filename_no_ext
-    rom['r_igdb_id'] = r_igdb_id
-    rom['p_igdb_id'] = p_igdb_id
-    rom['name'] = r_name
-    rom['r_slug'] = r_slug
-    rom['p_slug'] = p_slug
-    rom['summary'] = summary
-    rom['path_cover_s'] = path_cover_s
-    rom['path_cover_l'] = path_cover_l
-    rom['has_cover'] = has_cover
+    rom: dict = {
+        'filename': rom['filename'], 'filename_no_ext': filename_no_ext, 'size': rom['size'],
+        'r_igdb_id': r_igdb_id, 'p_igdb_id': p_igdb_id,
+        'name': r_name, 'r_slug': r_slug, 'p_slug': p_slug,
+        'summary': summary,
+        'path_cover_s': path_cover_s, 'path_cover_l': path_cover_l, 'has_cover': has_cover
+    }
     dbh.add_rom(**rom)
 
 
@@ -57,12 +53,10 @@ def purge(dbh: DBHandler, p_slug: str = '') -> None:
     """Clean the database from non existent platforms or roms"""
     if p_slug:
         # Purge only roms in platform
-        roms: list = fs.get_roms(p_slug)
-        dbh.purge_roms(p_slug, roms)
+        dbh.purge_roms(p_slug, fs.get_roms(p_slug))
     else:
         # Purge all platforms / delete non existent platforms and non existen roms
         platforms: list = fs.get_platforms()
         dbh.purge_platforms(platforms)
         for p_slug in platforms:
-            roms: list = fs.get_roms(p_slug)
-            dbh.purge_roms(p_slug, roms)
+            dbh.purge_roms(p_slug, fs.get_roms(p_slug))
