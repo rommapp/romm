@@ -1,93 +1,68 @@
-# romm
+<div align="center">
+  <img src="romm.svg" height="128px" width="auto" alt="Gameyfin Logo">
+  <h1 style="padding:20px;">RomM (Rom Manager)</h1>
+  <br/><br/>
+</div>
 
-## Docker image
+# Overview
 
-[romm](https://hub.docker.com/r/zurdi15/romm)
+Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [Gameyfin](https://github.com/grimsi/gameyfin) project is not supported for arm64 architectures (since my own homelab is only made by 3 rpis) and it is a general game library manager, I decided to develop my own game library solution, focused on retro gaming.
 
-## Project Setup for development
+For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm64)
 
-### Create python virtualenv
+## Features
 
-```sh
-python3 -m venv backend/venv/romm
+* Scans your game library (all at once or by platform) and enriches it with IGDB metadata
+* Access your library via your web-browser
+* Possibility to select one of the matching IGDB results if the scan doesn't get the right one
+* Download games directly from your web-browser
+* Edit your game files directly from your web-browser
+* Set a custom cover for each game [WIP]
+* Upload games directly from your web-browser [WIP]
+* Manage save files directly from your web-browser [WIP]
+* Responsive design
+* Light and dark theme
+
+# Prerequisites
+
+To allow RomM scan your retro games library, it should follow the following structure:
+
+```
+library/
+├─ gbc/
+│  ├─ roms/
+│  │  ├─ rom_1.gbc
+│  │  ├─ rom_2.gbc
+|
+├─ gba/
+│  ├─ roms/
+│  │  ├─ rom_1.gba
+│  │  ├─ rom_2.gba
+|
+├─ gb/
+│  ├─ roms/
+│  │  ├─ rom_1.gb
+│  │  ├─ rom_1.gb
 ```
 
-### Activate romm virtualenv
+# Preview
 
-```sh
-source backend/venv/romm/bin/activate
-```
+## Desktop
 
-### Install venv dependencies
 
-```sh
-pip install -r backend/dependencies/requirements.txt
-```
 
-### Create environment variables file with the following variables
+## Mobile
 
-```sh
-touch backend/envs.env
+[WIP]
 
-# IGDB auth
-CLIENT_ID=""
-CLIENT_SECRET=""
+# Docker image
 
-# STEAMGRIDDB API KEY
-STEAMGRIDDB_API_KEY=""
+Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags)
 
-# Platforms system path
-PLATFORMS_SYSTEM_BASE_PATH="emulation"
+## Installation
 
-# DB related config
-ROMM_DB_HOST=""
-ROMM_DB_PORT=
-ROMM_DB_ROOT_PASSWD=""
-ROMM_DB_USER=""
-ROMM_DB_PASSWD=""
-ROMM_DB_CONFIG_PATH=""
-```
+Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example
 
-### Export environment variables
+## Troubleshoot
 
-```sh
-export $(cat backend/envs.env | xargs)
-```
-
-### Create mariadb docker container
-
-```sh
-docker-compose up -d (to your docker-compose file for run mariadb)
-```
-
-### Install node.js dependencies
-
-```sh
-npm install
-```
-
-## Project Testing
-
-### Activate romm virtualenv
-
-```sh
-source backend/venv/romm/bin/activate
-```
-
-### Export environment variables
-
-```sh
-export $(cat backend/envs.env | xargs)
-```
-
-### Start backend API
-
-```sh
-python3 backend/src/main.py
-```
-
-### Start frontend (compile and hot-reload)
-
-```sh
-npm run dev
-```
+After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
