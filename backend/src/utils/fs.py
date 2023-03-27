@@ -181,9 +181,10 @@ def r_exists(p_slug: str, filename: str) -> bool:
 
 
 def rename_rom(p_slug: str, filename: str, data: dict) -> None:
-    if r_exists(p_slug, data['filename']): raise HTTPException(status_code=500, detail=f"Can't rename: {data['filename']} already exists.")
-    os.rename(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}",
-              f"{EMULATION_BASE_PATH}/{p_slug}/roms/{data['filename']}")
+    if data['filename'] != filename:
+        if r_exists(p_slug, data['filename']): raise HTTPException(status_code=500, detail=f"Can't rename: {data['filename']} already exists.")
+        os.rename(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}",
+                  f"{EMULATION_BASE_PATH}/{p_slug}/roms/{data['filename']}")
     
 
 def delete_rom(p_slug: str, filename: str) -> None:
