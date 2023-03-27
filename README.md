@@ -31,18 +31,18 @@ To allow RomM scan your retro games library, it should follow the following stru
 library/
 ├─ gbc/
 │  ├─ roms/
-│  │  ├─ rom_1.gbc
-│  │  ├─ rom_2.gbc
+│     ├─ rom_1.gbc
+│     ├─ rom_2.gbc
 |
 ├─ gba/
 │  ├─ roms/
-│  │  ├─ rom_1.gba
-│  │  ├─ rom_2.gba
+│     ├─ rom_1.gba
+│     ├─ rom_2.gba
 |
 ├─ gb/
 │  ├─ roms/
-│  │  ├─ rom_1.gb
-│  │  ├─ rom_1.gb
+│     ├─ rom_1.gb
+│     ├─ rom_1.gb
 ```
 
 # Preview
