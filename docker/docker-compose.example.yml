@@ -4,29 +4,31 @@ services:
     image: 'zurdi15/romm:latest'
     container_name: romm
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASSWD=${DB_PASSWD}
-      - CLIENT_ID=${CLIENT_ID}
-      - CLIENT_SECRET=${CLIENT_SECRET}
+      - DB_HOST=romm_db
+      - DB_PORT=3306
+      - DB_USER=romm-user
+      - DB_PASSWD=change-me
+      - CLIENT_ID=<IGDB client id>
+      - CLIENT_SECRET=<IGDB client secret>
       - STEAMGRIDDB_API_KEY=WIP
     volumes:
-      - ${LIBRARY_PATH}:/library'
+      - '/path/to/library:/library'
     ports:
-      - '${ROMM_PORT}:80'
-    restart: "no"
+      - '80:80'
+    depends_on:
+      - romm_db
+    restart: "unless-stopped"
 
   romm_db:
     image: lscr.io/linuxserver/mariadb:latest
     container_name: romm_db
     environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWD}
+      - MYSQL_ROOT_PASSWORD=RootPasswordChangeMe
       - MYSQL_DATABASE=romm
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWD}
+      - MYSQL_USER=romm-user
+      - MYSQL_PASSWORD=change-me
     volumes:
-      - ${DB_CONFIG_PATH}:/config
+      - ./config:/config
     ports:
-      - ${DB_PORT}:3306
-    restart: "no"
+      - 3306:3306
+    restart: "unless-stopped"
