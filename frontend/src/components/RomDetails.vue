@@ -156,7 +156,7 @@ async function deleteRom() {
                     </tr>
                     <tr>
                         <td>Size</td>
-                        <td>{{ rom.size }}mb</td>
+                        <td>{{ rom.size }} MB</td>
                     </tr>
                     <tr>
                         <td>Slug</td>
