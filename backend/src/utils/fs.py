@@ -5,7 +5,7 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config.config import EMULATION_BASE_PATH, DEFAULT_URL_LOGO, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config.config import LIBRARY_BASE_PATH, DEFAULT_URL_LOGO, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from logger.logger import log
 
 
@@ -33,7 +33,7 @@ def p_logo_exists(slug: str) -> bool:
     Returns
         True if logo exists in filesystem else False
     """
-    logo_path: str = f"{EMULATION_BASE_PATH}/resources/{slug}/logo.png"
+    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{slug}/logo.png"
     return True if os.path.exists(logo_path) else False
 
 
@@ -43,7 +43,7 @@ def get_p_path_logo(slug: str) -> str:
     Args:
         slug: shor name of the platform
     """
-    return f"/assets/emulation/resources/{slug}/logo.png"
+    return f"/assets/library/resources/{slug}/logo.png"
 
 
 def store_p_logo(slug: str, url_logo: str) -> None:
@@ -54,7 +54,7 @@ def store_p_logo(slug: str, url_logo: str) -> None:
         url_logo: url to get logo
     """
     logo_file: str = f"logo.png"
-    logo_path: str = f"{EMULATION_BASE_PATH}/resources/{slug}"
+    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{slug}"
     res = requests.get(url_logo, stream=True)
     if res.status_code == 200:
         Path(logo_path).mkdir(parents=True, exist_ok=True)
@@ -68,11 +68,11 @@ def store_p_logo(slug: str, url_logo: str) -> None:
 def get_platforms() -> list:
     """Gets all filesystem platforms
     
-    Returns list with all the filesystem platforms found in the EMULATION_BASE_PATH.
+    Returns list with all the filesystem platforms found in the LIBRARY_BASE_PATH.
     Automatically discards the default directory.
     """
     try:
-        platforms: list[str] = list(os.walk(EMULATION_BASE_PATH))[0][1]
+        platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
         if 'resources' in platforms: platforms.remove('resources')
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
@@ -91,7 +91,7 @@ def r_cover_exists(p_slug: str, filename_no_ext: str, size: str) -> bool:
     Returns
         True if cover exists in filesystem else False
     """
-    logo_path: str = f"{EMULATION_BASE_PATH}/resources/{p_slug}/{filename_no_ext}_{size}.png"
+    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{p_slug}/{filename_no_ext}_{size}.png"
     return True if os.path.exists(logo_path) else False
 
 
@@ -103,7 +103,7 @@ def get_r_cover_path(p_slug: str, filename_no_ext: str, size: str) -> str:
         filename_no_ext: name of rom file without extension
         size: size of the cover -> big as 'l' | small as 's'
     """
-    return f"/assets/emulation/resources/{p_slug}/{filename_no_ext}_{size}.png"
+    return f"/assets/library/resources/{p_slug}/{filename_no_ext}_{size}.png"
 
 
 def store_r_cover(p_slug: str, filename_no_ext: str, url_cover: str, size: str) -> None:
@@ -116,7 +116,7 @@ def store_r_cover(p_slug: str, filename_no_ext: str, url_cover: str, size: str) 
         size: size of the cover -> big as 'l' | small as 's'
     """
     cover_file: str = f"{filename_no_ext}_{size}.png"
-    cover_path: str = f"{EMULATION_BASE_PATH}/resources/{p_slug}/"
+    cover_path: str = f"{LIBRARY_BASE_PATH}/resources/{p_slug}/"
     sizes: dict = {'l': 'big', 's': 'small'}
     res = requests.get(url_cover.replace('t_thumb', f't_cover_{sizes[size]}'), stream=True)
     if res.status_code == 200:
@@ -150,14 +150,14 @@ def get_roms(p_slug: str) -> list:
 
     Args:
         p_slug: short name of the platform
-    Returns: list with all the filesystem roms for a platform found in the EMULATION_BASE_PATH.
+    Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH.
     Automatically discards the default directory.
     """
     try:
-        roms_filename = list(os.walk(f"{EMULATION_BASE_PATH}/{p_slug}/roms/"))[0][2]
+        roms_filename = list(os.walk(f"{LIBRARY_BASE_PATH}/{p_slug}/roms/"))[0][2]
         roms: list[dict] = [
             {'filename': rom,
-             'size': str(round(os.stat(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{rom}").st_size / (1024 * 1024), 2))}
+             'size': str(round(os.stat(f"{LIBRARY_BASE_PATH}/{p_slug}/roms/{rom}").st_size / (1024 * 1024), 2))}
             for rom in roms_filename]
         log.info(f"filesystem roms found for {p_slug}: {roms}")
     except IndexError:
@@ -175,7 +175,7 @@ def r_exists(p_slug: str, filename: str) -> bool:
     Returns
         True if rom exists in filesystem else False
     """
-    rom_path: str = f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}"
+    rom_path: str = f"{LIBRARY_BASE_PATH}/{p_slug}/roms/{filename}"
     exists: bool = True if os.path.exists(rom_path) else False
     return exists
 
@@ -183,12 +183,12 @@ def r_exists(p_slug: str, filename: str) -> bool:
 def rename_rom(p_slug: str, filename: str, data: dict) -> None:
     if data['filename'] != filename:
         if r_exists(p_slug, data['filename']): raise HTTPException(status_code=500, detail=f"Can't rename: {data['filename']} already exists.")
-        os.rename(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}",
-                  f"{EMULATION_BASE_PATH}/{p_slug}/roms/{data['filename']}")
+        os.rename(f"{LIBRARY_BASE_PATH}/{p_slug}/roms/{filename}",
+                  f"{LIBRARY_BASE_PATH}/{p_slug}/roms/{data['filename']}")
     
 
 def delete_rom(p_slug: str, filename: str) -> None:
     try:
-        os.remove(f"{EMULATION_BASE_PATH}/{p_slug}/roms/{filename}")
+        os.remove(f"{LIBRARY_BASE_PATH}/{p_slug}/roms/{filename}")
     except FileNotFoundError:
         log.warning(f"Rom not found in filesystem: {p_slug}/{filename}")

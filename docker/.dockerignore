@@ -7,5 +7,5 @@ venv/
 **/__pycache__
 __pycache__/
 
-**/assets/emulation
-../frontend/assets/emulation/
+**/assets/library
+../frontend/assets/library/
