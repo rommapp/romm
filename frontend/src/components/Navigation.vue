@@ -74,7 +74,8 @@ async function scan() {
         emitter.emit('snackbarScan', {'msg': "Couldn't complete scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
     scanning.value = false
-    if (!platforms.length){emitter.emit('refresh')}else{emitter.emit('refreshRoms')}
+    // if (!platforms.length){emitter.emit('refresh')}else{emitter.emit('refresh')}
+    emitter.emit('refresh')
 }
 
 function toggleTheme() {
