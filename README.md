@@ -63,6 +63,10 @@ Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags)
 
 Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example
 
+Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
+
+
+
 ## Troubleshoot
 
 After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
