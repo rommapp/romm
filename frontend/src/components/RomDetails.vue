@@ -9,7 +9,7 @@ const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
 const saveFiles = ref(false)
 const searching = ref(false)
 const matchedRoms = ref([])
-const changing = ref(false)
+const updating = ref(false)
 const romNewName = ref(rom.value.filename)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
@@ -36,7 +36,7 @@ async function searchRomIGDB() {
 }
 
 async function updateRom(newRomRaw) {
-    changing.value = true
+    updating.value = true
     dialogSearchRom.value = false
     const newRom = toRaw(newRomRaw)
     newRom.filename = rom.value.filename
@@ -54,7 +54,7 @@ async function updateRom(newRomRaw) {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.filename+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
-    changing.value = false
+    updating.value = false
 }
 
 async function editRom() {
@@ -140,21 +140,46 @@ async function deleteRom() {
             </v-container>
         </v-col>
         <v-col cols="15" xs="15" sm="12" md="6" lg="10">
-            <v-container>
-                <v-row>IGDB id: {{ rom.r_igdb_id }}</v-row>
-                <v-row>Name: {{ rom.name }}</v-row>
-                <v-row>File: {{ rom.filename }}</v-row>
-                <v-row>Size: {{ rom.size }}mb</v-row>
-                <v-row>Slug: {{ rom.r_slug }}</v-row>
-                <v-row>Platform: {{ rom.p_slug }}</v-row>
-                <v-row>Cover: {{ rom.path_cover_l }}</v-row>
-                <v-divider v-if="rom.summary != ''" class="mt-8 mb-8"/>
-                <v-row>{{ rom.summary }}</v-row>
-            </v-container>
+            <v-table density="comfortable">
+                <tbody>
+                    <tr>
+                        <td>IGDB id</td>
+                        <td><a :href="'https://www.igdb.com/games/'+rom.r_slug">{{ rom.r_igdb_id }}</a></td>
+                    </tr>
+                    <tr>
+                        <td>Name</td>
+                        <td>{{ rom.name }}</td>
+                    </tr>
+                    <tr>
+                        <td>File</td>
+                        <td>{{ rom.filename }}</td>
+                    </tr>
+                    <tr>
+                        <td>Size</td>
+                        <td>{{ rom.size }}mb</td>
+                    </tr>
+                    <tr>
+                        <td>Slug</td>
+                        <td>{{ rom.r_slug }}</td>
+                    </tr>
+                    <tr>
+                        <td>Platform</td>
+                        <td>{{ rom.p_slug }}</td>
+                    </tr>
+                    <tr>
+                        <td>Cover</td>
+                        <td>{{ rom.path_cover_l }}</td>
+                    </tr>
+                    <tr>
+                        <td>Summary</td>
+                        <td class="pt-3">{{ rom.summary }}</td>
+                    </tr>
+                </tbody>
+            </v-table>
         </v-col>
     </v-row>
     
-    <v-divider class="mt-10 mb-10 border-opacity-75"/>
+    <!-- <v-divider class="mt-10 mb-10 border-opacity-75"/> -->
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
@@ -187,6 +212,10 @@ async function deleteRom() {
         </v-card>
     </v-dialog>
 
+    <v-dialog v-model="updating" scroll-strategy="none" width="auto" persistent>
+        <v-progress-circular :width="3" :size="70" indeterminate/>
+    </v-dialog>
+
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600" min-width="340">
             <v-toolbar>
@@ -217,10 +246,6 @@ async function deleteRom() {
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
         </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="changing" scroll-strategy="none" width="auto" persistent>
-        <v-progress-circular :width="3" :size="70" indeterminate/>
     </v-dialog>
 
 </template>
