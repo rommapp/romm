@@ -6,7 +6,7 @@ import { downloadRom, downloadSave } from '@/utils/utils.js'
 
 // Props
 const roms = ref([])
-const gettingRoms = ref(true)
+const gettingRoms = ref(false)
 const noRoms = ref(false)
 const romsFiltered = ref([])
 const currentFilter = ref('')

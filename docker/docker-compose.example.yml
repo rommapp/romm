@@ -12,7 +12,7 @@ services:
       - CLIENT_SECRET=${CLIENT_SECRET}
       - STEAMGRIDDB_API_KEY=WIP
     volumes:
-      - ${EMULATION_PATH}:/emulation'
+      - ${LIBRARY_PATH}:/library'
     ports:
       - '${ROMM_PORT}:80'
     restart: "no"
