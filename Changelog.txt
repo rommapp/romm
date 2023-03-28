@@ -3,6 +3,7 @@ RomM v1.2
  - SQLite support added
  - SQLite is now the database by default if ROMM_DB_DRIVER is not set
  - Dreamcast support added (https://github.com/zurdi15/romm#platforms-support)
+ - Platforms and games are now shown by alphabetical order
 
 RomM v1.1
 -----------------------
