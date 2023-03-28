@@ -1,10 +1,13 @@
 # v1.3 (_28-03-2023_)
 
 ## Added
- - Visual feedback when downloading a game
+ - Notification added when downloading a game
 
 ## Changed
  - Database name when using mariadb now can be changed with the new variable DB_NAME. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml)
+
+## Fixed
+ - Potential password error when using mariadb if the password have special characters
 
 # v1.2 (_28-03-2023_)
 
