@@ -17,6 +17,7 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
 * Download games directly from your web-browser
 * Edit your game files directly from your web-browser
+* Works with SQLite or MaridDB (SQLite by default)
 * Responsive design
 * Light and dark theme
 
@@ -25,7 +26,6 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Set a custom cover for each game
 * Upload games directly from your web-browser
 * Manage save files directly from your web-browser
-* SQLite compatible as default database if mariadb is not set
 
 # Prerequisites
 
@@ -130,3 +130,7 @@ The following table shows how to name your platforms folders in order to get the
 ## Troubleshoot
 
 After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
+
+## References
+
+Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
