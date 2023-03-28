@@ -1,14 +1,25 @@
-RomM v1.2
------------------------
- - SQLite support added
+# v1.2 (_28-03-2023_)
+
+## Added
+ - SQLite support
+ - Dreamcast support (https://github.com/zurdi15/romm#platforms-support)
+
+## Changed
  - SQLite is now the database by default if ROMM_DB_DRIVER is not set
- - Dreamcast support added (https://github.com/zurdi15/romm#platforms-support)
  - Platforms and games are now shown by alphabetical order
 
-RomM v1.1
------------------------
+<br>
+
+# v1.1 (_27-03-2023_)
+
+## Added
+
  - Game names parentheses are now omitted when searching game in IGDB, allowing game names to have tags.
 
-RomM v1.0 
------------------------
- - Birth of RomM
+<br>
+ 
+# v1.0 (_27-03-2023_)
+ 
+## Added
+   
+- Birth of RomM
