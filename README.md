@@ -86,6 +86,7 @@ The following table shows how to name your platforms folders in order to get the
 | cps2          | cps2                                | N              |
 | cps3          | cps3                                | N              |
 | daphne        | daphne                              | N              |
+| dc            | Dreamcast                           | Y              |
 | dos           | DOS                                 | Y              |
 | fairchild     | fairchild                           | N              |
 | fba2012       | fba2012                             | N              |
