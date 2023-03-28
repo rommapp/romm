@@ -10,7 +10,7 @@ Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [
 
 For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm64)
 
-## Features ⚡
+## ⚡ Features
 
 * Scans your game library (all at once or by platform) and enriches it with IGDB metadata
 * Access your library via your web-browser
@@ -21,7 +21,7 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Responsive design
 * Light and dark theme
 
-## Roadmap 🛠
+## 🛠 Roadmap
 
 * Set a custom cover for each game
 * Upload games directly from your web-browser
@@ -29,7 +29,7 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 
 # Prerequisites
 
-## Folder structure ⚠️
+## ⚠️ Folder structure
 
 To allow RomM scan your retro games library, it should follow the following structure:
 
@@ -53,11 +53,11 @@ library/
 
 # Preview
 
-## Desktop 🖥
+## 🖥 Desktop
 
 https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-ae32-b3ba78db6798.mp4
 
-## Mobile 📱
+## 📱 Mobile
 
 https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4
 
@@ -65,7 +65,7 @@ https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-
 
 Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags)
 
-## Installation 🐳
+## 🐳 Installation
 
 Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example
 
@@ -73,69 +73,69 @@ Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and 
 
 # Platforms support 
 
-## Naming convention 🎮
+## 🎮 Naming convention
 
 If the RomM folders structure is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
 This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
 
 | slug          | name                                | games metadata |
 |---------------|-------------------------------------|----------------|
-| 3ds           | Nintendo 3DS                        | Y              |
-| amiga         | Amiga                               | Y              |
-| arcade        | Arcade                              | Y              |
-| atari         | atari                               | N              |
-| coleco        | coleco                              | N              |
-| commodore     | commodore                           | N              |
-| cpc           | cpc                                 | N              |
-| cps1          | cps1                                | N              |
-| cps2          | cps2                                | N              |
-| cps3          | cps3                                | N              |
-| daphne        | daphne                              | N              |
-| dc            | Dreamcast                           | Y              |
-| dos           | DOS                                 | Y              |
-| fairchild     | fairchild                           | N              |
-| fba2012       | fba2012                             | N              |
-| fbneo         | fbneo                               | N              |
-| fds           | Family Computer Disk System         | Y              |
-| gb            | Game Boy                            | Y              |
-| gba           | Game Boy Advance                    | Y              |
-| gbc           | Game Boy Color                      | Y              |
-| gg            | gg                                  | N              |
-| gw            | gw                                  | N              |
-| intellivision | Intellivision                       | Y              |
-| jaguar        | Atari Jaguar                        | Y              |
-| lynx          | Atari Lynx                          | Y              |
-| md            | md                                  | N              |
-| megaduck      | megaduck                            | N              |
-| ms            | ms                                  | N              |
-| msx           | MSX                                 | Y              |
-| n64           | Nintendo 64                         | Y              |
-| nds           | Nintendo DS                         | Y              |
-| neocd         | neocd                               | N              |
-| neogeo        | neogeo                              | N              |
-| nes           | Nintendo Entertainment System       | Y              |
-| ngp           | ngp                                 | N              |
-| odyssey       | odyssey                             | N              |
-| pce           | pce                                 | N              |
-| pcecd         | pcecd                               | N              |
-| pico          | pico                                | N              |
-| poke          | poke                                | N              |
-| ps            | PlayStation                         | Y              |
-| ps2           | PlayStation 2                       | Y              |
-| psp           | PlayStation Portable                | Y              |
-| scummvm       | scummvm                             | N              |
-| segacd        | Sega CD                             | Y              |
-| segasgone     | segasgone                           | N              |
-| sgb           | sgb                                 | N              |
-| sgfx          | sgfx                                | N              |
-| snes          | Super Nintendo Entertainment System | Y              |
-| supervision   | supervision                         | N              |
-| switch        | Nintendo Switch                     | Y              |
+| 3ds           | Nintendo 3DS                        | ✅             |
+| amiga         | Amiga                               | ✅             |
+| arcade        | Arcade                              | ✅             |
+| atari         | atari                               | ❌             |
+| coleco        | coleco                              | ❌             |
+| commodore     | commodore                           | ❌             |
+| cpc           | cpc                                 | ❌             |
+| cps1          | cps1                                | ❌             |
+| cps2          | cps2                                | ❌             |
+| cps3          | cps3                                | ❌             |
+| daphne        | daphne                              | ❌             |
+| dc            | Dreamcast                           | ✅             |
+| dos           | DOS                                 | ✅             |
+| fairchild     | fairchild                           | ❌             |
+| fba2012       | fba2012                             | ❌             |
+| fbneo         | fbneo                               | ❌             |
+| fds           | Family Computer Disk System         | ✅             |
+| gb            | Game Boy                            | ✅             |
+| gba           | Game Boy Advance                    | ✅             |
+| gbc           | Game Boy Color                      | ✅             |
+| gg            | gg                                  | ❌             |
+| gw            | gw                                  | ❌             |
+| intellivision | Intellivision                       | ✅             |
+| jaguar        | Atari Jaguar                        | ✅             |
+| lynx          | Atari Lynx                          | ✅             |
+| md            | md                                  | ❌             |
+| megaduck      | megaduck                            | ❌             |
+| ms            | ms                                  | ❌             |
+| msx           | MSX                                 | ✅             |
+| n64           | Nintendo 64                         | ✅             |
+| nds           | Nintendo DS                         | ✅             |
+| neocd         | neocd                               | ❌             |
+| neogeo        | neogeo                              | ❌             |
+| nes           | Nintendo Entertainment System       | ✅             |
+| ngp           | ngp                                 | ❌             |
+| odyssey       | odyssey                             | ❌             |
+| pce           | pce                                 | ❌             |
+| pcecd         | pcecd                               | ❌             |
+| pico          | pico                                | ❌             |
+| poke          | poke                                | ❌             |
+| ps            | PlayStation                         | ✅             |
+| ps2           | PlayStation 2                       | ✅             |
+| psp           | PlayStation Portable                | ✅             |
+| scummvm       | scummvm                             | ❌             |
+| segacd        | Sega CD                             | ✅             |
+| segasgone     | segasgone                           | ❌             |
+| sgb           | sgb                                 | ❌             |
+| sgfx          | sgfx                                | ❌             |
+| snes          | Super Nintendo Entertainment System | ✅             |
+| supervision   | supervision                         | ❌             |
+| switch        | Nintendo Switch                     | ✅             |
 
-## Troubleshoot ⛏
+## ⛏ Troubleshoot
 
 * After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
 
-## References 🧾
+## 🧾 References
 
 * Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
