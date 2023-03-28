@@ -1,9 +1,9 @@
 ---
 name: Custom issue template
 about: Describe this issue template's purpose here.
-title: ''
-labels: ''
-assignees: ''
+title: "[Other] Custom issue title"
+labels: other
+assignees: zurdi15
 
 ---
 
