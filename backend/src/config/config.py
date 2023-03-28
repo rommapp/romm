@@ -2,6 +2,7 @@ import os
 import sys
 import pathlib
 
+from urllib.parse import quote_plus
 from logger.logger import log
 
 # Uvicorn
@@ -48,7 +49,7 @@ def get_db_engine():
             DB_PASSWD: str = os.getenv('DB_PASSWD')
             DB_NAME: str = 'romm'
         
-            return f"mariadb+mariadbconnector://{DB_USER}:{DB_PASSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+            return f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}" % quote_plus(DB_PASSWD)
 
         elif ROMM_DB_DRIVER == 'sqlite':
             SQLITE_PATH: str = f"{LIBRARY_BASE_PATH}/database"
