@@ -1,5 +1,6 @@
 import sys
 import functools
+import re
 from time import time
 
 import requests
@@ -65,9 +66,11 @@ class IGDBHandler():
         
         else:
             if p_igdb_id:
+                search_term: str = re.sub('[\(\[].*?[\)\]]', '', filename_no_ext)
                 try:
+
                     res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                                      data=f"search \"{filename_no_ext}\";fields id, slug, name, summary; where platforms=[{p_igdb_id}] & category=0;").json()[0]
+                                                      data=f"search \"{search_term}\";fields id, slug, name, summary; where platforms=[{p_igdb_id}] & category=0;").json()[0]
                     igdb_id = res_details['id']
                     slug = res_details['slug']
                     name = res_details['name']
@@ -78,7 +81,7 @@ class IGDBHandler():
                 except IndexError:
                     try:
                         res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                                          data=f"search \"{filename_no_ext}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}] & category=10;").json()[0]
+                                                          data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}] & category=10;").json()[0]
                         igdb_id = res_details['id']
                         slug = res_details['slug']
                         name = res_details['name']
@@ -89,7 +92,7 @@ class IGDBHandler():
                     except IndexError:
                         try:
                             res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                                              data=f"search \"{filename_no_ext}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()[0]
+                                                              data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()[0]
                             igdb_id = res_details['id']
                             slug = res_details['slug']
                             name = res_details['name']
@@ -112,8 +115,9 @@ class IGDBHandler():
     
     @check_twitch_token
     def get_matched_roms(self, filename: str, p_igdb_id: int) -> list:
+        search_term: str = re.sub('[\(\[].*?[\)\]]', '', filename.split('.')[0])
         matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                           data=f"search \"{filename.split('.')[0]}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
+                                           data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
         for rom in matched_roms:
             res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
                                               data=f"fields url; where game={rom['id']};").json()[0]
