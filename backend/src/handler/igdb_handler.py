@@ -5,7 +5,7 @@ from time import time
 
 import requests
 
-from config.config import CLIENT_ID, CLIENT_SECRET
+from config.config import CLIENT_ID, CLIENT_SECRET, DEFAULT_URL_COVER_L
 from logger.logger import log
 
 
@@ -120,9 +120,12 @@ class IGDBHandler():
                                            data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
         log.info(f"Matched roms for {filename}: {matched_roms}")
         for rom in matched_roms:
-            res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
-                                              data=f"fields url; where game={rom['id']};").json()[0]
-            rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
+            try:
+                res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
+                                                  data=f"fields url; where game={rom['id']};").json()[0]
+                rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
+            except IndexError:
+                rom['url_cover'] = DEFAULT_URL_COVER_L
         return matched_roms
 
 
