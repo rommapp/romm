@@ -10,7 +10,7 @@ Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [
 
 For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm64)
 
-## Features
+## Features ⚡
 
 * Scans your game library (all at once or by platform) and enriches it with IGDB metadata
 * Access your library via your web-browser
@@ -21,13 +21,15 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Responsive design
 * Light and dark theme
 
-## Roadmap
+## Roadmap 🛠
 
 * Set a custom cover for each game
 * Upload games directly from your web-browser
 * Manage save files directly from your web-browser
 
 # Prerequisites
+
+## Folder structure ⚠️
 
 To allow RomM scan your retro games library, it should follow the following structure:
 
@@ -51,11 +53,11 @@ library/
 
 # Preview
 
-## Desktop
+## Desktop 🖥
 
 https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-ae32-b3ba78db6798.mp4
 
-## Mobile
+## Mobile 📱
 
 https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4
 
@@ -63,13 +65,15 @@ https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-
 
 Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags)
 
-## Installation
+## Installation 🐳
 
 Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example
 
 Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
 
-# Platforms support
+# Platforms support 
+
+## Naming convention 🎮
 
 If the RomM folders structure is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
 This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
@@ -128,10 +132,10 @@ This will change over the time, adding games metadata for more platforms. Make s
 | supervision   | supervision                         | N              |
 | switch        | Nintendo Switch                     | Y              |
 
-## Troubleshoot
+## Troubleshoot ⛏
 
-After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
+* After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
 
-## References
+## References 🧾
 
-Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
+* Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
