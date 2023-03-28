@@ -1,3 +1,11 @@
+# v1.3 (_28-03-2023_)
+
+## Added
+ - Visual feedback when downloading a game
+
+## Changed
+ - Database name when using mariadb now can be changed with the new variable 
+
 # v1.2 (_28-03-2023_)
 
 ## Added
