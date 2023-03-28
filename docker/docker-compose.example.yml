@@ -4,10 +4,11 @@ services:
     image: 'zurdi15/romm:latest'
     container_name: romm
     environment:
-      - DB_HOST=romm_db
-      - DB_PORT=3306
-      - DB_USER=romm-user
-      - DB_PASSWD=change-me
+      - ROMM_DB_DRIVER="mariadb" # This variable can be set as: mariadb | sqlite. If it is not defined, sqlite will be the database by default
+      - DB_HOST=romm_db # Only if ROMM_DB_DRIVER='mariadb'
+      - DB_PORT=3306 # Only if ROMM_DB_DRIVER='mariadb'
+      - DB_USER=romm-user # Only if ROMM_DB_DRIVER='mariadb'
+      - DB_PASSWD=change-me # Only if ROMM_DB_DRIVER='mariadb'
       - CLIENT_ID=<IGDB client id>
       - CLIENT_SECRET=<IGDB client secret>
       - STEAMGRIDDB_API_KEY=WIP
@@ -19,6 +20,7 @@ services:
       - romm_db
     restart: "unless-stopped"
 
+  # Only if ROMM_DB_DRIVER='mariadb'
   romm_db:
     image: lscr.io/linuxserver/mariadb:latest
     container_name: romm_db
