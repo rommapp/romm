@@ -1,5 +1,8 @@
 import os
+import sys
 import pathlib
+
+from logger.logger import log
 
 # Uvicorn
 DEV_PORT: int = 5000
@@ -22,21 +25,36 @@ CLIENT_SECRET: str = os.getenv('CLIENT_SECRET')
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: str = os.getenv('STEAMGRIDDB_API_KEY')
 
-# DB
-DB_HOST: str = os.getenv('DB_HOST')
-DB_PORT: int = int(os.getenv('DB_PORT'))
-DB_ROOT_PASSWD: str = os.getenv('DB_ROOT_PASSWD')
-DB_USER: str = os.getenv('DB_USER')
-DB_PASSWD: str = os.getenv('DB_PASSWD')
-DB_NAME: str = 'romm'
-
-# DB DRIVERS
-SQLITE_PATH: str = f"{LIBRARY_BASE_PATH}/database"
-if not os.path.exists(SQLITE_PATH): os.makedirs(SQLITE_PATH)
-ROMM_DB_DRIVER: str = os.getenv('ROMM_DB_DRIVER', 'sqlite')
-DB_DRIVERS: dict = {
-    'mariadb': f"mariadb+mariadbconnector://{DB_USER}:{DB_PASSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
-    'sqlite': f"sqlite:////{SQLITE_PATH}/romm.db"
-}
 
 RESERVED_FOLDERS: list = ['resources', 'database']
+
+
+# DB DRIVERS
+SUPPORTED_DB_DRIVERS: list = ['sqlite', 'mariadb']
+ROMM_DB_DRIVER: str = os.getenv('ROMM_DB_DRIVER', 'sqlite')
+
+
+def get_db_engine():
+    if ROMM_DB_DRIVER in SUPPORTED_DB_DRIVERS:
+
+        if ROMM_DB_DRIVER == 'mariadb':
+            DB_HOST: str = os.getenv('DB_HOST')
+            try:
+                DB_PORT: int = int(os.getenv('DB_PORT'))
+            except TypeError:
+                log.critical(f"DB_PORT variable not set properly")
+                sys.exit(3)
+            DB_USER: str = os.getenv('DB_USER')
+            DB_PASSWD: str = os.getenv('DB_PASSWD')
+            DB_NAME: str = 'romm'
+        
+            return f"mariadb+mariadbconnector://{DB_USER}:{DB_PASSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+        elif ROMM_DB_DRIVER == 'sqlite':
+            SQLITE_PATH: str = f"{LIBRARY_BASE_PATH}/database"
+            if not os.path.exists(SQLITE_PATH): os.makedirs(SQLITE_PATH)
+            return f"sqlite:////{SQLITE_PATH}/romm.db"
+
+    else:
+        log.critical(f"Not supported {ROMM_DB_DRIVER} database")
+        sys.exit(3)
