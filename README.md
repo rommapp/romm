@@ -17,11 +17,15 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
 * Download games directly from your web-browser
 * Edit your game files directly from your web-browser
-* Set a custom cover for each game [WIP]
-* Upload games directly from your web-browser [WIP]
-* Manage save files directly from your web-browser [WIP]
 * Responsive design
 * Light and dark theme
+
+## Roadmap
+
+* Set a custom cover for each game
+* Upload games directly from your web-browser
+* Manage save files directly from your web-browser
+* SQLite compatible as default database if mariadb is not set
 
 # Prerequisites
 
