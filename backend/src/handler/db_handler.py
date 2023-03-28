@@ -36,7 +36,7 @@ class DBHandler:
     def get_platforms(self) -> list[Platform]:
         try:
             with Session.begin() as session:
-                return session.scalars(select(Platform)).all()
+                return session.scalars(select(Platform).order_by(Platform.slug.asc())).all()
         except ProgrammingError as e:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
         
@@ -51,7 +51,7 @@ class DBHandler:
 
     def get_roms(self, p_slug: str) -> list[Rom]:
         with Session.begin() as session:
-            return session.scalars(select(Rom).filter_by(p_slug=p_slug)).all()
+            return session.scalars(select(Rom).filter_by(p_slug=p_slug).order_by(Rom.filename.asc())).all()
 
 
     def get_rom(self, p_slug: str, filename: str) -> Rom:

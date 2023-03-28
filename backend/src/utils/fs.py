@@ -5,7 +5,7 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config.config import LIBRARY_BASE_PATH, DEFAULT_URL_LOGO, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config.config import LIBRARY_BASE_PATH, RESERVED_FOLDERS, DEFAULT_URL_LOGO, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from logger.logger import log
 
 
@@ -73,7 +73,7 @@ def get_platforms() -> list:
     """
     try:
         platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
-        if 'resources' in platforms: platforms.remove('resources')
+        [platforms.remove(reserved) for reserved in RESERVED_FOLDERS]
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
     except IndexError:
