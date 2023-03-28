@@ -2,10 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from config.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWD, DB_NAME
-
+from config.config import ROMM_DB_DRIVER, DB_DRIVERS
 
 BaseModel = declarative_base()
 
-engine = create_engine(f"mariadb+mariadbconnector://{DB_USER}:{DB_PASSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}", pool_pre_ping=True)
+engine = create_engine(DB_DRIVERS[ROMM_DB_DRIVER], pool_pre_ping=True)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
