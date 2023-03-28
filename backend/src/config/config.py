@@ -47,7 +47,7 @@ def get_db_engine():
                 sys.exit(3)
             DB_USER: str = os.getenv('DB_USER')
             DB_PASSWD: str = os.getenv('DB_PASSWD')
-            DB_NAME: str = 'romm'
+            DB_NAME: str = os.getenv('DB_NAME', 'romm')
         
             return f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}" % quote_plus(DB_PASSWD)
 
