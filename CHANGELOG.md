@@ -5,7 +5,7 @@
  - Dreamcast support (https://github.com/zurdi15/romm#platforms-support)
 
 ## Changed
- - SQLite is now the database by default if ROMM_DB_DRIVER is not set
+ - SQLite is now the database by default if ROMM_DB_DRIVER is not set. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml)
  - Platforms and games are now shown by alphabetical order
 
 <br>
