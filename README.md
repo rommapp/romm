@@ -71,7 +71,8 @@ Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and 
 
 # Platforms support
 
-The following table shows how to name your platforms folders in order to get the games metadata. This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
+If the RomM folders structure is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
+This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
 
 | slug          | name                                | games metadata |
 |---------------|-------------------------------------|----------------|
