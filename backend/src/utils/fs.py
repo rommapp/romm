@@ -73,7 +73,7 @@ def get_platforms() -> list:
     """
     try:
         platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
-        [platforms.remove(reserved) for reserved in RESERVED_FOLDERS]
+        [platforms.remove(reserved) for reserved in RESERVED_FOLDERS if reserved in platforms]
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
     except IndexError:

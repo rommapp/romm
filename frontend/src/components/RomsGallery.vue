@@ -53,6 +53,15 @@ function setFilter(filter) {
         return normalizeString(rom.name).includes(currentFilter.value)
     })
 }
+function downloadingRom(rom) {
+    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.filename, 'icon': 'mdi-download', 'color': 'green'})
+    downloadRom(rom)
+}
+
+function downloadingSave() {
+    // emitter.emit('snackbarScan', {'msg': "Downloading "+rom.filename+" savefile", 'icon': 'mdi-download', 'color': 'green'})
+    downloadSave()
+}
 
 onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.parse(localStorage.getItem('currentPlatform')).slug) } })
 </script>
@@ -79,8 +88,8 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                         </v-img>
                         <v-card-text>
                             <v-row>
-                                <v-btn @click="downloadRom(rom)" icon="mdi-download" size="small" variant="text"/>
-                                <v-btn @click="downloadSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
+                                <v-btn @click="downloadingRom(rom)" icon="mdi-download" size="small" variant="text"/>
+                                <v-btn @click="downloadingSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
                             </v-row>
                         </v-card-text>
                     </v-hover>

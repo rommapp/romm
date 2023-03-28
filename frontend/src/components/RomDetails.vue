@@ -21,6 +21,16 @@ const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 
 // Functions
+function downloadingRom(rom) {
+    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.filename, 'icon': 'mdi-download', 'color': 'green'})
+    downloadRom(rom)
+}
+
+function downloadingSave() {
+    // emitter.emit('snackbarScan', {'msg': "Downloading "+rom.filename+" savefile", 'icon': 'mdi-download', 'color': 'green'})
+    downloadSave()
+}
+
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
@@ -107,10 +117,10 @@ async function deleteRom() {
                     <v-container>
                         <v-row>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadRom(rom)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                                <v-btn @click="downloadingRom(rom)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadSave()" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
+                                <v-btn @click="downloadingSave()" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
                                 <v-menu location="bottom">
