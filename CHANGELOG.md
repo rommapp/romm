@@ -1,4 +1,4 @@
-# v1.3 (_28-03-2023_)
+# v1.2.2 (_28-03-2023_)
 
 ## Added
  - Notification added when downloading a game
@@ -8,6 +8,7 @@
 
 ## Fixed
  - Potential password error when using mariadb if the password have special characters
+ - Some other bugs
 
 # v1.2 (_28-03-2023_)
 
