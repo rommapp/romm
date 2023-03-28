@@ -65,10 +65,62 @@ Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docke
 
 Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
 
-## Tested supported slug platforms
+# Platforms support
 
+The following table shows how to name your platforms folders in order to get the games metadata. This will change over the time, adding games metadata for more platforms.
 
-
+| slug          | name                                | games metadata |
+|---------------|-------------------------------------|----------------|
+| 3ds           | Nintendo 3DS                        | Y              |
+| amiga         | Amiga                               | Y              |
+| arcade        | Arcade                              | Y              |
+| atari         | atari                               | N              |
+| coleco        | coleco                              | N              |
+| commodore     | commodore                           | N              |
+| cpc           | cpc                                 | N              |
+| cps1          | cps1                                | N              |
+| cps2          | cps2                                | N              |
+| cps3          | cps3                                | N              |
+| daphne        | daphne                              | N              |
+| dos           | DOS                                 | Y              |
+| fairchild     | fairchild                           | N              |
+| fba2012       | fba2012                             | N              |
+| fbneo         | fbneo                               | N              |
+| fds           | Family Computer Disk System         | Y              |
+| gb            | Game Boy                            | Y              |
+| gba           | Game Boy Advance                    | Y              |
+| gbc           | Game Boy Color                      | Y              |
+| gg            | gg                                  | N              |
+| gw            | gw                                  | N              |
+| intellivision | Intellivision                       | Y              |
+| jaguar        | Atari Jaguar                        | Y              |
+| lynx          | Atari Lynx                          | Y              |
+| md            | md                                  | N              |
+| megaduck      | megaduck                            | N              |
+| ms            | ms                                  | N              |
+| msx           | MSX                                 | Y              |
+| n64           | Nintendo 64                         | Y              |
+| nds           | Nintendo DS                         | Y              |
+| neocd         | neocd                               | N              |
+| neogeo        | neogeo                              | N              |
+| nes           | Nintendo Entertainment System       | Y              |
+| ngp           | ngp                                 | N              |
+| odyssey       | odyssey                             | N              |
+| pce           | pce                                 | N              |
+| pcecd         | pcecd                               | N              |
+| pico          | pico                                | N              |
+| poke          | poke                                | N              |
+| ps            | PlayStation                         | Y              |
+| ps2           | PlayStation 2                       | Y              |
+| psp           | PlayStation Portable                | Y              |
+| scummvm       | scummvm                             | N              |
+| segacd        | Sega CD                             | Y              |
+| segasgone     | segasgone                           | N              |
+| sgb           | sgb                                 | N              |
+| sgfx          | sgfx                                | N              |
+| snes          | Super Nintendo Entertainment System | Y              |
+| supervision   | supervision                         | N              |
+| switch        | Nintendo Switch                     | Y              |
 
 ## Troubleshoot
 
