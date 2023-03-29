@@ -1,7 +1,6 @@
 <div align="center">
   <img src="romm.svg" height="128px" width="auto" alt="Gameyfin Logo">
   <h1 style="padding:20px;">RomM (Rom Manager)</h1>
-  <br/><br/>
 </div>
 
 # Overview
@@ -164,3 +163,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 ## 🎖 Credits
 
 * Pc icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
+
+# Support RomM
+
+<a href="https://www.buymeacoff.ee/zurdi15" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" target="_blank"></a>

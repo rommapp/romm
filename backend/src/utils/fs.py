@@ -36,7 +36,7 @@ def get_platforms() -> list[str]:
             platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
         [platforms.remove(reserved) for reserved in RESERVED_FOLDERS if reserved in platforms]
         try:
-            excluded_folders: list = user_config['exclude']['platforms']
+            excluded_folders: list = user_config['exclude']['folders']
             try:
                 [platforms.remove(excluded) for excluded in excluded_folders if excluded in platforms]
             except TypeError:
@@ -132,7 +132,7 @@ def get_roms(p_slug: str, only_amount: bool = False) -> list[dict]:
             roms_filename = list(os.walk(f"{LIBRARY_BASE_PATH}/{p_slug}/roms"))[0][2]
         try:
             try:
-                excluded_files: list = user_config['exclude']['rom_files']
+                excluded_files: list = user_config['exclude']['files']
                 filtered_files: list = []
                 for filename in roms_filename:
                     if filename.split('.')[-1] in excluded_files:

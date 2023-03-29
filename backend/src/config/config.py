@@ -34,8 +34,6 @@ CLIENT_SECRET: str = os.getenv('CLIENT_SECRET')
 STEAMGRIDDB_API_KEY: str = os.getenv('STEAMGRIDDB_API_KEY')
 
 
-
-
 # DB DRIVERS
 SUPPORTED_DB_DRIVERS: list = ['sqlite', 'mariadb']
 ROMM_DB_DRIVER: str = os.getenv('ROMM_DB_DRIVER', 'sqlite')
