@@ -1,6 +1,11 @@
 # v1.4 (_29-03-2023_)
 
 ## Added
+ - Now you can use your games tags (like (USA) or (rev-1)) to filter in the gallery
+
+# v1.4 (_29-03-2023_)
+
+## Added
  - Gamecube support [platforms support](https://github.com/zurdi15/romm#platforms-support)
  - PC support added (only for single file games like zip, iso, etc) [platforms support](https://github.com/zurdi15/romm#platforms-support)
 
