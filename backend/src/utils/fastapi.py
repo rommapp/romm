@@ -32,6 +32,7 @@ def scan_platform(p_slug: str) -> Platform:
     platform_attrs['slug'] = p_slug
     platform_attrs['path_logo'] = ''
     platform_attrs['n_roms'] = fs.get_roms(p_slug, only_amount=True)
+    log.info(f"Platform n_roms: {platform_attrs['n_roms']}")
     platform = Platform(**platform_attrs)
     dbh.add_platform(platform)
     return platform
