@@ -5,7 +5,7 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config.config import LIBRARY_BASE_PATH, RESERVED_FOLDERS, DEFAULT_URL_LOGO, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config.config import user_config, LIBRARY_BASE_PATH, RESERVED_FOLDERS, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from logger.logger import log
 
 
@@ -16,8 +16,6 @@ def store_default_resources(overwrite: bool) -> None:
     Args:
         overwrite: flag to overwrite or not default resources
     """
-    if overwrite or not p_logo_exists('default'):
-        store_p_logo('default', DEFAULT_URL_LOGO)
     if overwrite or not r_cover_exists('default', 'cover', 'l'):
         store_r_cover('default', 'cover', DEFAULT_URL_COVER_L, 'l')
     if overwrite or not r_cover_exists('default', 'cover', 's'):
@@ -25,37 +23,6 @@ def store_default_resources(overwrite: bool) -> None:
 
 
 # ========= Platforms utils =========
-def p_logo_exists(slug: str) -> bool:
-    """Check if platform logo exists in filesystem
-    
-    Args:
-        slug: shor name of the platform
-    Returns
-        True if logo exists in filesystem else False
-    """
-    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{slug}/logo.png"
-    return True if os.path.exists(logo_path) else False
-
-
-def store_p_logo(slug: str, url_logo: str) -> None:
-    """Store platform resources in filesystem
-    
-    Args:
-        slug: shor name of the platform
-        url_logo: url to get logo
-    """
-    logo_file: str = f"logo.png"
-    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{slug}"
-    res = requests.get(url_logo, stream=True)
-    if res.status_code == 200:
-        Path(logo_path).mkdir(parents=True, exist_ok=True)
-        with open(f"{logo_path}/{logo_file}", 'wb') as f:
-            shutil.copyfileobj(res.raw, f)
-        log.info(f"{slug} logo downloaded successfully!")
-    else:
-        log.warning(f"{slug} logo couldn't be downloaded")
-
-
 def get_platforms() -> list[str]:
     """Gets all filesystem platforms
     
@@ -68,6 +35,14 @@ def get_platforms() -> list[str]:
         else:
             platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
         [platforms.remove(reserved) for reserved in RESERVED_FOLDERS if reserved in platforms]
+        try:
+            excluded_folders: list = user_config['exclude']['platforms']
+            try:
+                [platforms.remove(excluded) for excluded in excluded_folders if excluded in platforms]
+            except TypeError:
+                pass
+        except KeyError:
+            pass
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
     except IndexError:
@@ -155,6 +130,18 @@ def get_roms(p_slug: str, only_amount: bool = False) -> list[dict]:
         else:
             roms_path: str = f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
             roms_filename = list(os.walk(f"{LIBRARY_BASE_PATH}/{p_slug}/roms"))[0][2]
+        try:
+            try:
+                excluded_files: list = user_config['exclude']['rom_files']
+                filtered_files: list = []
+                for filename in roms_filename:
+                    if filename.split('.')[-1] in excluded_files:
+                        filtered_files.append(filename)
+                roms_filename = [f for f in roms_filename if f not in filtered_files]
+            except TypeError:
+                pass
+        except KeyError:
+            pass
         if only_amount: return len(roms_filename)
         [roms.append({'filename': rom, 'size': str(round(os.stat(f"{roms_path}/{rom}").st_size / (1024 * 1024), 2))}) for rom in roms_filename]
         log.info(f"filesystem roms found for {p_slug}: {roms}")
