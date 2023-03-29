@@ -37,15 +37,6 @@ def p_logo_exists(slug: str) -> bool:
     return True if os.path.exists(logo_path) else False
 
 
-def get_p_path_logo(slug: str) -> str:
-    """Returns platform logo filesystem path
-    
-    Args:
-        slug: shor name of the platform
-    """
-    return f"/assets/library/resources/{slug}/logo.png"
-
-
 def store_p_logo(slug: str, url_logo: str) -> None:
     """Store platform resources in filesystem
     
@@ -65,14 +56,17 @@ def store_p_logo(slug: str, url_logo: str) -> None:
         log.warning(f"{slug} logo couldn't be downloaded")
 
 
-def get_platforms() -> list:
+def get_platforms() -> list[str]:
     """Gets all filesystem platforms
     
     Returns list with all the filesystem platforms found in the LIBRARY_BASE_PATH.
     Automatically discards the reserved directories such resources or database directory.
     """
     try:
-        platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
+        if os.path.exists(f"{LIBRARY_BASE_PATH}/roms"):
+            platforms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/roms"))[0][1]
+        else:
+            platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
         [platforms.remove(reserved) for reserved in RESERVED_FOLDERS if reserved in platforms]
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
@@ -145,24 +139,27 @@ def get_cover_details(overwrite: bool, p_slug: str, filename_no_ext: str, url_co
     return path_cover_s, path_cover_l, has_cover
 
 
-def get_roms(p_slug: str) -> list:
+def get_roms(p_slug: str, only_amount: bool = False) -> list[dict]:
     """Gets all filesystem roms for a platform
 
     Args:
         p_slug: short name of the platform
-    Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH.
-    Automatically discards the default directory.
+        only_amount: flag to return only amount of roms instead of all info
+    Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
     """
     try:
-        roms_filename = list(os.walk(f"{LIBRARY_BASE_PATH}/{p_slug}/roms/"))[0][2]
-        roms: list[dict] = [
-            {'filename': rom,
-             'size': str(round(os.stat(f"{LIBRARY_BASE_PATH}/{p_slug}/roms/{rom}").st_size / (1024 * 1024), 2))}
-            for rom in roms_filename]
+        roms: list[dict] = []
+        if os.path.exists(f"{LIBRARY_BASE_PATH}/roms"):
+            roms_path: str = f"{LIBRARY_BASE_PATH}/roms/{p_slug}"
+            roms_filename = list(os.walk(f"{LIBRARY_BASE_PATH}/roms/{p_slug}"))[0][2]
+        else:
+            roms_path: str = f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
+            roms_filename = list(os.walk(f"{LIBRARY_BASE_PATH}/{p_slug}/roms"))[0][2]
+        if only_amount: return len(roms_filename)
+        [roms.append({'filename': rom, 'size': str(round(os.stat(f"{roms_path}/{rom}").st_size / (1024 * 1024), 2))}) for rom in roms_filename]
         log.info(f"filesystem roms found for {p_slug}: {roms}")
     except IndexError:
         log.warning(f"roms not found for {p_slug}")
-        roms: list[dict] = []
     return roms
 
 
