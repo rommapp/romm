@@ -6,15 +6,15 @@ from models.base import BaseModel
 
 class Rom(BaseModel):
     __tablename__ = 'roms'
-    filename = Column(String(length=500), primary_key=True)
-    filename_no_ext = Column(String(length=500), default="")
     r_igdb_id = Column(String(length=50), default="")
     p_igdb_id = Column(String(length=50), default="")
     r_sgdb_id = Column(String(length=50), default="")
     p_sgdb_id = Column(String(length=50), default="")
-    name = Column(String(length=500), default="")
-    r_slug = Column(String(length=500), default="")
-    p_slug = Column(String(length=500), primary_key=True)
+    filename = Column(String(length=350), primary_key=True)
+    p_slug = Column(String(length=100), primary_key=True)
+    filename_no_ext = Column(String(length=350), default="")
+    name = Column(String(length=350), default="")
+    r_slug = Column(String(length=100), default="")
     summary = Column(Text, default="")
     path_cover_s = Column(Text, default=DEFAULT_PATH_COVER_S)
     path_cover_l = Column(Text, default=DEFAULT_PATH_COVER_L)

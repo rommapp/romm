@@ -1,5 +1,10 @@
 # v1.5 (_29-03-2023_)
 
+**`Breaking change`**
+In order to make the new folder structure to work, it is mandatory this time to drop all the database. This will only make you need to rescan, but you won't lose the cover changes or filechanges you made. 
+
+I apologize for the inconveniences this may cause, as this is a new software, it may change a little bit the first weeks, at least until I can develop a proper way to migrate between versions. I hope you can understand these  initial wipes in order to make a better tool.
+
 ## Added
  - Now RomM folder structure is more flexible to match two different patrons by priority:
     - Structure 1 (priority high) - roms folder at root of library folder:
