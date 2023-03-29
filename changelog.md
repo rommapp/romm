@@ -42,7 +42,7 @@ I apologize for the inconveniences this may cause, as this is a new software, it
     │     ├─ rom_1.gb
     ```
 
- - Config file support to exclude folders and specific extension files to be scanned. To reload config file RomM reload is needed. Check config section.
+ - Added config file support to exclude folders and specific extension files to be scanned. To reload config file RomM reload is needed. Check config section.
 
 # v1.4.1 (_29-03-2023_)
 
