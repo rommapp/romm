@@ -1,7 +1,8 @@
 # v1.4 (_29-03-2023_)
 
 ## Added
- - Gamecube support (https://github.com/zurdi15/romm#platforms-support) 
+ - Gamecube support [platforms support](https://github.com/zurdi15/romm#platforms-support)
+ - PC support added (only for single file games like zip, iso, etc) [platforms support](https://github.com/zurdi15/romm#platforms-support)
 
 ## Changed
  - Now delete game only deletes it from RomM gallery. To delete it from the filesystem too you need to allow it with the checkbox.
