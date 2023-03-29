@@ -42,11 +42,11 @@ async def updateRom(req: Request, p_slug: str, filename: str):
 
 
 @app.delete("/platforms/{p_slug}/roms/{filename}")
-async def delete_rom(p_slug: str, filename: str):
+async def delete_rom(p_slug: str, filename: str, filesystem: bool=False):
     """Detele rom from filesystem and database"""
 
     log.info("deleting rom...")
-    fs.delete_rom(p_slug, filename)
+    if filesystem: fs.delete_rom(p_slug, filename)
     dbh.delete_rom(p_slug, filename)
     return {'msg': 'success'}
 
