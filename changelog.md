@@ -1,4 +1,4 @@
-# v1.4 (_29-03-2023_)
+# v1.4.1 (_29-03-2023_)
 
 ## Added
  - Now you can use your games tags (like (USA) or (rev-1)) to filter in the gallery
