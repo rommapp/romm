@@ -6,7 +6,7 @@ In order to make the new folder structure to work, it is mandatory this time to 
 I apologize for the inconveniences this may cause, as this is a new software, it may change a little bit the first weeks, at least until I can develop a proper way to migrate between versions. I hope you can understand these  initial wipes in order to make a better tool.
 
 ## Added
- - Now RomM folder structure is more flexible to match two different patrons by priority:
+ - Now RomM folder structure is more flexible to match two different patrons by priority. This change makes RomM Emudeck compatible at least with single file games platforms:
     - Structure 1 (priority high) - roms folder at root of library folder:
     ```
     library/
@@ -41,6 +41,8 @@ I apologize for the inconveniences this may cause, as this is a new software, it
     │     ├─ rom_1.gb
     │     ├─ rom_1.gb
     ```
+
+ - Config file support to exclude folders and specific extension files to be scanned. To reload config file RomM reload is needed. Check config section.
 
 # v1.4.1 (_29-03-2023_)
 

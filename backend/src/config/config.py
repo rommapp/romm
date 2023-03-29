@@ -1,8 +1,10 @@
 import os
 import sys
 import pathlib
-
+import yaml
+from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
+
 from logger.logger import log
 
 # Uvicorn
@@ -11,9 +13,14 @@ DEV_HOST: str = "0.0.0.0"
 
 # PATHS
 LIBRARY_BASE_PATH: str = f"{pathlib.Path(__file__).parent.parent.parent.parent.resolve()}/library"
+ROMM_USER_CONFIG_PATH: str = f"{pathlib.Path(__file__).parent.parent.parent.parent.resolve()}/romm/config.yml"
+try:
+    with open(ROMM_USER_CONFIG_PATH) as config: config = yaml.load(config, Loader=SafeLoader)
+except FileNotFoundError:
+    config = None
+user_config: dict = {} if not config else config
 
-DEFAULT_URL_LOGO: str = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
-DEFAULT_PATH_LOGO: str = f"/assets/library/resources/default/logo_l.png"
+RESERVED_FOLDERS: list = ['resources', 'database']
 
 DEFAULT_URL_COVER_L: str = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
 DEFAULT_PATH_COVER_L: str = f"/assets/library/resources/default/cover_l.png"
@@ -27,7 +34,6 @@ CLIENT_SECRET: str = os.getenv('CLIENT_SECRET')
 STEAMGRIDDB_API_KEY: str = os.getenv('STEAMGRIDDB_API_KEY')
 
 
-RESERVED_FOLDERS: list = ['resources', 'database']
 
 
 # DB DRIVERS
