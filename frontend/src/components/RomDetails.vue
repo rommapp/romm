@@ -14,6 +14,7 @@ const romNewName = ref(rom.value.filename)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
+const deleteFromFs = ref(false)
 const router = useRouter()
 
 // Event listeners bus
@@ -84,7 +85,7 @@ async function editRom() {
 
 async function deleteRom() {
     console.log('deleting rom '+ rom.value.filename)
-    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename)
+    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.filename+'?filesystem='+deleteFromFs.value)
     .then((response) => {
         console.log(response)
         emitter.emit('snackbarScan', {'msg': rom.value.filename+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
@@ -189,8 +190,6 @@ async function deleteRom() {
         </v-col>
     </v-row>
     
-    <!-- <v-divider class="mt-10 mb-10 border-opacity-75"/> -->
-    
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
             <v-toolbar v-show="searching">
@@ -249,12 +248,15 @@ async function deleteRom() {
                 <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
             <v-card-text class="pt-5 pr-10 pl-10">
-                <div class="text-body-1">This action can't be reversed. Do you confirm?</div>
+                <div class="text-body-1">Deleting from RomM. Do you confirm?</div>
             </v-card-text>
-            <v-card-actions class="justify-center pb-6 pt-3 pr-3 pl-3">
+            <v-card-actions class="justify-center pt-3 pr-3 pl-3">
                 <v-btn @click="deleteRom()" class="bg-red mr-5">Confirm</v-btn>
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
+            <div class="pl-8">
+                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem"></v-checkbox>
+            </div>
         </v-card>
     </v-dialog>
 

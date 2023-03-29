@@ -114,6 +114,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 | neocd         | neocd                               | ❌             |
 | neogeo        | neogeo                              | ❌             |
 | nes           | Nintendo Entertainment System       | ✅             |
+| ngc           | Nintendo GameCube                   | ✅             |
 | ngp           | ngp                                 | ❌             |
 | odyssey       | odyssey                             | ❌             |
 | pce           | pce                                 | ❌             |
@@ -139,3 +140,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 ## 🧾 References
 
 * Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
+
+## Credits
+
+* Pc icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>

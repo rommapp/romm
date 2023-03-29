@@ -1,3 +1,11 @@
+# v1.4 (_29-03-2023_)
+
+## Added
+ - Gamecube support (https://github.com/zurdi15/romm#platforms-support) 
+
+## Changed
+ - Now delete game only deletes it from RomM gallery. To delete it from the filesystem too you need to allow it with the checkbox.
+
 # v1.3 (_29-03-2023_)
 
 ## Fixed
