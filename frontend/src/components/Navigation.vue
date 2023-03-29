@@ -25,36 +25,6 @@ const emitter = inject('emitter')
 emitter.on('gettingRoms', (flag) => { gettingRomsFlag.value = flag })
 
 // Functions
-async function getPlatforms() {
-    // Get the list of the platforms for the navigation drawer
-    console.log("Getting platforms...")
-    axios.get('/api/platforms').then((response) => {
-        console.log("Platforms loaded!")
-        console.log(response.data.data)
-        platforms.value = response.data.data
-    }).catch((error) => {console.log(error)})
-}
-
-function setFilter(filter) {
-    // Sets the roms filter
-    emitter.emit('romsFilter', filter)
-}
-
-async function selectPlatform(platform){    
-    // Select the current platform
-    if(mobile.value){drawer.value = false}
-    await router.push(import.meta.env.BASE_URL)
-    localStorage.setItem('currentPlatform', JSON.stringify(platform))
-    emitter.emit('currentPlatform', platform)
-    currentPlatform.value = platform
-}
-
-function toggleRail(){
-    // Toggle collapsed/expand platform navigation drawer
-    rail.value = !rail.value
-    localStorage.setItem('rail', rail.value)
-}
-
 async function scan() {
     // Complete scan or by platform
     console.log("scanning...")
@@ -74,18 +44,47 @@ async function scan() {
         emitter.emit('snackbarScan', {'msg': "Couldn't complete scan. Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
     scanning.value = false
-    // if (!platforms.length){emitter.emit('refresh')}else{emitter.emit('refresh')}
     emitter.emit('refresh')
+}
+
+async function getPlatforms() {
+    // Get the list of the platforms for the navigation drawer
+    console.log("Getting platforms...")
+    axios.get('/api/platforms').then((response) => {
+        console.log("Platforms loaded!")
+        console.log(response.data.data)
+        platforms.value = response.data.data
+    }).catch((error) => {console.log(error)})
+}
+
+async function selectPlatform(platform){    
+    // Select the current platform
+    if(mobile.value){drawer.value = false}
+    await router.push(import.meta.env.BASE_URL)
+    localStorage.setItem('currentPlatform', JSON.stringify(platform))
+    emitter.emit('currentPlatform', platform)
+    currentPlatform.value = platform
+}
+
+function uploadRom() {
+    console.log("uploading rom")
+}
+
+function setFilter(filter) {
+    // Sets the roms filter
+    emitter.emit('romsFilter', filter)
+}
+
+function toggleRail(){
+    // Toggle collapsed/expand platform navigation drawer
+    rail.value = !rail.value
+    localStorage.setItem('rail', rail.value)
 }
 
 function toggleTheme() {
     // Toggle dark/light theme
     theme.global.name.value = darkMode.value ? "dark" : "light"
     darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
-}
-
-function uploadRom() {
-    console.log("uploading rom")
 }
 
 getPlatforms()

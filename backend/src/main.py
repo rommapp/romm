@@ -2,23 +2,18 @@ from fastapi import FastAPI, Request
 import uvicorn
 
 from logger.logger import log
-from handler.igdb_handler import IGDBHandler
-from handler.sgdb_handler import SGDBHandler
-from handler.db_handler import DBHandler
+from handler import igdbh, dbh
 from config.config import DEV_PORT, DEV_HOST
+from models.platform import Platform
 from utils import fs, fastapi
 
 
 app = FastAPI()
 fastapi.allow_cors(app)
 
-igdbh: IGDBHandler = IGDBHandler()
-sgdbh: SGDBHandler = SGDBHandler()
-dbh: DBHandler = DBHandler()
-
 
 @app.patch("/platforms/{p_slug}/roms/{filename}")
-async def updateRom(req: Request, p_slug: str, filename: str):
+async def updateRom(req: Request, p_slug: str, filename: str) -> dict:
     """Updates rom details"""
 
     data: dict = await req.json()
@@ -42,7 +37,7 @@ async def updateRom(req: Request, p_slug: str, filename: str):
 
 
 @app.delete("/platforms/{p_slug}/roms/{filename}")
-async def delete_rom(p_slug: str, filename: str, filesystem: bool=False):
+async def delete_rom(p_slug: str, filename: str, filesystem: bool=False) -> dict:
     """Detele rom from filesystem and database"""
 
     log.info("deleting rom...")
@@ -52,45 +47,46 @@ async def delete_rom(p_slug: str, filename: str, filesystem: bool=False):
 
 
 @app.get("/platforms/{p_slug}/roms/{filename}")
-async def rom(p_slug: str, filename: str):
+async def rom(p_slug: str, filename: str) -> dict:
     """Returns one rom data of the desired platform"""
 
     return {'data':  dbh.get_rom(p_slug, filename)}
 
 
 @app.get("/platforms/{p_slug}/roms")
-async def roms(p_slug: str):
+async def roms(p_slug: str) -> dict:
     """Returns all roms of the desired platform"""
 
     return {'data':  dbh.get_roms(p_slug)}
 
 
 @app.get("/platforms")
-async def platforms():
+async def platforms() -> dict:
     """Returns platforms data"""
 
     return {'data': dbh.get_platforms()}
 
 
 @app.put("/scan")
-async def scan(req: Request, overwrite: bool=False):
+async def scan(req: Request, overwrite: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info("complete scaning...")
     fs.store_default_resources(overwrite)
     data: dict = await req.json()
-    platforms = data['platforms'] if data['platforms'] else fs.get_platforms()
+    platforms: list[str] = data['platforms'] if data['platforms'] else fs.get_platforms()
     for p_slug in platforms:
-        p_igdb_id: str = fastapi.scan_platform(overwrite, p_slug, igdbh, dbh)
-        for rom in fs.get_roms(p_slug):
-            fastapi.scan_rom(overwrite, rom, p_igdb_id, p_slug, igdbh, dbh)
-        fastapi.purge(dbh, p_slug=p_slug)
-    fastapi.purge(dbh)
+        platform: Platform = fastapi.scan_platform(p_slug)
+        roms: list[dict] = fs.get_roms(p_slug)
+        for rom in roms:
+            fastapi.scan_rom(platform, rom)
+        dbh.purge_roms(p_slug, roms)
+    dbh.purge_platforms(fs.get_platforms())
     return {'msg': 'success'}
 
 
 @app.put("/search/roms/igdb")
-async def search_rom_igdb(req: Request):
+async def search_rom_igdb(req: Request) -> dict:
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
