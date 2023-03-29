@@ -145,6 +145,6 @@ This will change over the time, adding games metadata for more platforms. Make s
 
 * Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
 
-## Credits
+## 🎖 Credits
 
 * Pc icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
