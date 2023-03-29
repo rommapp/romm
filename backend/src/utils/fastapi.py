@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from handler.db_handler import DBHandler
 from handler.igdb_handler import IGDBHandler
 from utils import fs
+from models.platform import Platform
 from logger.logger import log
 
 
@@ -18,21 +19,32 @@ def allow_cors(app: FastAPI) -> None:
     log.info("CORS enabled")
 
 
-def scan_platform(overwrite: bool, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler) -> str:
-    platform: dict  = {}
+def scan_platform(overwrite: bool, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler) -> Platform:
+    """Get platform details from IGDB if possible
+
+    Args:
+        overwrite: flag to overwrite platform logo (deprecated)
+        p_slug: short name of the platform
+        igdbh: igdb hanlder
+        dbh: database handler
+    Returns
+        Platform object
+    """
+    platform_attrs: dict  = {}
     log.info(f"Getting {p_slug} details")
     p_igdb_id, p_name, url_logo = igdbh.get_platform_details(p_slug)
-    platform['slug'] = p_slug
-    platform['igdb_id'] = p_igdb_id
-    platform['name'] = p_name
+    platform_attrs['slug'] = p_slug
+    platform_attrs['igdb_id'] = p_igdb_id
+    platform_attrs['name'] = p_name
     #TODO: refactor logo details logic
     if (overwrite or not fs.p_logo_exists(p_slug)) and url_logo:
         fs.store_p_logo(p_slug, url_logo)
     if fs.p_logo_exists(p_slug):
-        platform['path_logo'] = fs.get_p_path_logo(p_slug)
-    platform['n_roms'] = len(fs.get_roms(p_slug))
-    dbh.add_platform(**platform)
-    return p_igdb_id
+        platform_attrs['path_logo'] = fs.get_p_path_logo(p_slug)
+    platform_attrs['n_roms'] = len(fs.get_roms(p_slug))
+    platform = Platform(**platform_attrs)
+    dbh.add_platform(platform)
+    return platform
 
 
 def scan_rom(overwrite: bool, rom, p_igdb_id: str, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler, r_igbd_id: str = '') -> None:

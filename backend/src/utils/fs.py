@@ -69,7 +69,7 @@ def get_platforms() -> list:
     """Gets all filesystem platforms
     
     Returns list with all the filesystem platforms found in the LIBRARY_BASE_PATH.
-    Automatically discards the default directory.
+    Automatically discards the reserved directories such resources or database directory.
     """
     try:
         platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
