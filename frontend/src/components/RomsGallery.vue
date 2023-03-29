@@ -50,7 +50,7 @@ function normalizeString(s) {
 function setFilter(filter) {
     currentFilter.value = normalizeString(filter)
     romsFiltered.value = roms.value.filter(rom => {
-        return normalizeString(rom.name).includes(currentFilter.value)
+        return normalizeString(rom.filename).includes(currentFilter.value)
     })
 }
 function downloadingRom(rom) {
