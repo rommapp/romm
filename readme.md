@@ -132,6 +132,8 @@ This will change over the time, adding games metadata for more platforms. Make s
 | snes          | Super Nintendo Entertainment System | ✅             |
 | supervision   | supervision                         | ❌             |
 | switch        | Nintendo Switch                     | ✅             |
+| wii           | Wii                                 | ✅             |
+| win           | PC (Microsoft Windows)              | ✅             |
 
 ## ⛏ Troubleshoot
 
