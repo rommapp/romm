@@ -23,9 +23,11 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 
 ## 🛠 Roadmap
 
-* Set a custom cover for each game
-* Upload games directly from your web-browser
-* Manage save files directly from your web-browser
+* Upload games directly from your web-browser - [issue #54](https://github.com/zurdi15/romm/issues/54)
+* Manage save files directly from your web-browser - [issue #55](https://github.com/zurdi15/romm/issues/55)
+* Set a custom cover for each game - [issue #53](https://github.com/zurdi15/romm/issues/53)
+* EmuDeck folder structure compatibility - [issue #52](https://github.com/zurdi15/romm/issues/52)
+* Multiple files games support - [issue #40](https://github.com/zurdi15/romm/issues/40)
 
 # Prerequisites
 
