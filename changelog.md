@@ -1,3 +1,42 @@
+# v1.5 (_29-03-2023_)
+
+## Added
+ - Now RomM folder structure is more flexible to match two different patrons by priority:
+    - Structure 1 (priority high) - roms folder at root of library folder:
+    ```
+    library/
+    ├─ roms/
+    │  ├─ gbc/
+       │  ├─ rom_1.gbc
+       │  ├─ rom_2.gbc
+       │
+       ├─ gba/
+       │  ├─ rom_1.gba
+       │  ├─ rom_2.gba
+       │ 
+       ├─ gb/
+          ├─ rom_1.gb
+          ├─ rom_1.gb
+    ```
+    - Structure 2 (priority low) - roms folder inside each platform folder
+    ```
+    library/
+    ├─ gbc/
+    │  ├─ roms/
+    │     ├─ rom_1.gbc
+    │     ├─ rom_2.gbc
+    |
+    ├─ gba/
+    │  ├─ roms/
+    │     ├─ rom_1.gba
+    │     ├─ rom_2.gba
+    |
+    ├─ gb/
+    │  ├─ roms/
+    │     ├─ rom_1.gb
+    │     ├─ rom_1.gb
+    ```
+
 # v1.4.1 (_29-03-2023_)
 
 ## Added
