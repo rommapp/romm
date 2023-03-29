@@ -14,7 +14,7 @@ class Rom(BaseModel):
     p_sgdb_id = Column(String(length=50), default="")
     name = Column(String(length=500), default="")
     r_slug = Column(String(length=500), default="")
-    p_slug = Column(String(length=500), default="")
+    p_slug = Column(String(length=500), primary_key=True)
     summary = Column(Text, default="")
     path_cover_s = Column(Text, default=DEFAULT_PATH_COVER_S)
     path_cover_l = Column(Text, default=DEFAULT_PATH_COVER_L)
