@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from handler.db_handler import DBHandler
-from handler.igdb_handler import IGDBHandler
+from handler import igdbh, dbh
 from utils import fs
 from models.platform import Platform
+from models.rom import Rom
 from logger.logger import log
 
 
@@ -19,58 +19,41 @@ def allow_cors(app: FastAPI) -> None:
     log.info("CORS enabled")
 
 
-def scan_platform(overwrite: bool, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler) -> Platform:
+def scan_platform(p_slug: str) -> Platform:
     """Get platform details from IGDB if possible
 
     Args:
-        overwrite: flag to overwrite platform logo (deprecated)
         p_slug: short name of the platform
-        igdbh: igdb hanlder
-        dbh: database handler
     Returns
         Platform object
     """
-    platform_attrs: dict  = {}
     log.info(f"Getting {p_slug} details")
-    p_igdb_id, p_name, url_logo = igdbh.get_platform_details(p_slug)
+    platform_attrs: dict = igdbh.get_platform_details(p_slug)
     platform_attrs['slug'] = p_slug
-    platform_attrs['igdb_id'] = p_igdb_id
-    platform_attrs['name'] = p_name
-    #TODO: refactor logo details logic
-    if (overwrite or not fs.p_logo_exists(p_slug)) and url_logo:
-        fs.store_p_logo(p_slug, url_logo)
-    if fs.p_logo_exists(p_slug):
-        platform_attrs['path_logo'] = fs.get_p_path_logo(p_slug)
-    platform_attrs['n_roms'] = len(fs.get_roms(p_slug))
+    platform_attrs['path_logo'] = ''
+    platform_attrs['n_roms'] = fs.get_roms(p_slug, only_amount=True)
     platform = Platform(**platform_attrs)
     dbh.add_platform(platform)
     return platform
 
 
-def scan_rom(overwrite: bool, rom, p_igdb_id: str, p_slug: str, igdbh: IGDBHandler, dbh: DBHandler, r_igbd_id: str = '') -> None:
+def scan_rom(platform: Platform, rom: dict, r_igbd_id_search: str = '', overwrite: bool = False) -> None:
     log.info(f"Getting {rom['filename']} details")
-    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(rom['filename'], p_igdb_id, r_igbd_id)
-    path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, p_slug, filename_no_ext, url_cover)
-    rom: dict = {
-        'filename': rom['filename'], 'filename_no_ext': filename_no_ext, 'size': rom['size'],
-        'r_igdb_id': r_igdb_id, 'p_igdb_id': p_igdb_id,
-        'name': r_name, 'r_slug': r_slug, 'p_slug': p_slug,
+    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(rom['filename'], platform.igdb_id, r_igbd_id_search)
+    path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, platform.slug, filename_no_ext, url_cover)
+    rom_attrs: dict = {
+        'filename': rom['filename'],
+        'filename_no_ext': filename_no_ext,
+        'size': rom['size'],
+        'r_igdb_id': r_igdb_id,
+        'p_igdb_id': platform.igdb_id,
+        'name': r_name,
+        'r_slug': r_slug,
+        'p_slug': platform.slug,
         'summary': summary,
-        'path_cover_s': path_cover_s, 'path_cover_l': path_cover_l, 'has_cover': has_cover
+        'path_cover_s': path_cover_s,
+        'path_cover_l': path_cover_l,
+        'has_cover': has_cover
     }
-    dbh.add_rom(**rom)
-
-
-def purge(dbh: DBHandler, p_slug: str = '') -> None:
-    """Clean the database from non existent platforms or roms"""
-    if p_slug:
-        # Purge only roms in platform
-        log.info(f"Purge {p_slug}")
-        dbh.purge_roms(p_slug, fs.get_roms(p_slug))
-    else:
-        # Purge all platforms / delete non existent platforms and non existen roms
-        platforms: list = fs.get_platforms()
-        dbh.purge_platforms(platforms)
-        for p_slug in platforms:
-            log.info(f"Purge {p_slug}")
-            dbh.purge_roms(p_slug, fs.get_roms(p_slug))
+    rom = Rom(**rom_attrs)
+    dbh.add_rom(rom)

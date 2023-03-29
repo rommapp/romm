@@ -2,19 +2,14 @@ from fastapi import FastAPI, Request
 import uvicorn
 
 from logger.logger import log
-from handler.igdb_handler import IGDBHandler
-from handler.sgdb_handler import SGDBHandler
-from handler.db_handler import DBHandler
+from handler import igdbh, dbh
 from config.config import DEV_PORT, DEV_HOST
+from models.platform import Platform
 from utils import fs, fastapi
 
 
 app = FastAPI()
 fastapi.allow_cors(app)
-
-igdbh: IGDBHandler = IGDBHandler()
-sgdbh: SGDBHandler = SGDBHandler()
-dbh: DBHandler = DBHandler()
 
 
 @app.patch("/platforms/{p_slug}/roms/{filename}")
@@ -79,13 +74,14 @@ async def scan(req: Request, overwrite: bool=False) -> dict:
     log.info("complete scaning...")
     fs.store_default_resources(overwrite)
     data: dict = await req.json()
-    platforms = data['platforms'] if data['platforms'] else fs.get_platforms()
+    platforms: list[str] = data['platforms'] if data['platforms'] else fs.get_platforms()
     for p_slug in platforms:
-        platform: str = fastapi.scan_platform(overwrite, p_slug, igdbh, dbh)
-        for rom in fs.get_roms(p_slug):
-            fastapi.scan_rom(overwrite, rom, platform.igdb_id, p_slug, igdbh, dbh)
-        fastapi.purge(dbh, p_slug=p_slug)
-    fastapi.purge(dbh)
+        platform: Platform = fastapi.scan_platform(p_slug)
+        roms: list[dict] = fs.get_roms(p_slug)
+        for rom in roms:
+            fastapi.scan_rom(platform, rom)
+        dbh.purge_roms(p_slug, roms)
+    dbh.purge_platforms(fs.get_platforms())
     return {'msg': 'success'}
 
 

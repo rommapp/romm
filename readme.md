@@ -33,25 +33,43 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 
 ## ⚠️ Folder structure
 
-To allow RomM scan your retro games library, it should follow the following structure:
+RomM accepts two different folder structure by priority:
+  - Structure 1 (priority high) - roms folder at root of library folder:
+  ```
+  library/
+  ├─ roms/
+  │  ├─ gbc/
+      │  ├─ rom_1.gbc
+      │  ├─ rom_2.gbc
+      │
+      ├─ gba/
+      │  ├─ rom_1.gba
+      │  ├─ rom_2.gba
+      │ 
+      ├─ gb/
+        ├─ rom_1.gb
+        ├─ rom_1.gb
+  ```
+  - Structure 2 (priority low) - roms folder inside each platform folder
+  ```
+  library/
+  ├─ gbc/
+  │  ├─ roms/
+  │     ├─ rom_1.gbc
+  │     ├─ rom_2.gbc
+  |
+  ├─ gba/
+  │  ├─ roms/
+  │     ├─ rom_1.gba
+  │     ├─ rom_2.gba
+  |
+  ├─ gb/
+  │  ├─ roms/
+  │     ├─ rom_1.gb
+  │     ├─ rom_1.gb
+  ```
 
-```
-library/
-├─ gbc/
-│  ├─ roms/
-│     ├─ rom_1.gbc
-│     ├─ rom_2.gbc
-|
-├─ gba/
-│  ├─ roms/
-│     ├─ rom_1.gba
-│     ├─ rom_2.gba
-|
-├─ gb/
-│  ├─ roms/
-│     ├─ rom_1.gb
-│     ├─ rom_1.gb
-```
+RomM will try to find the structure 1. If it doesn't exists, RomM will try to find structure 2.
 
 # Preview
 

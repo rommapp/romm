@@ -37,15 +37,9 @@ class DBHandler:
         except ProgrammingError as e:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
 
-    def purge_platforms(self, platforms: list) -> None:
+    def add_rom(self, rom: Rom) -> None:
         with Session.begin() as session:
-            session.query(Platform) \
-                .filter(Platform.slug.not_in(platforms)) \
-                .delete(synchronize_session='evaluate')
-
-    def add_rom(self, **kargs) -> None:
-        with Session.begin() as session:
-            session.merge(Rom(**kargs))
+            session.merge(rom)
 
     def get_roms(self, p_slug: str) -> list[Rom]:
         with Session.begin() as session:
@@ -67,7 +61,15 @@ class DBHandler:
                 .filter(Rom.p_slug==p_slug, Rom.filename==filename) \
                 .delete(synchronize_session='evaluate')
 
-    def purge_roms(self, p_slug: str, roms: list) -> None:
+    def purge_platforms(self, platforms: list[str]) -> None:
+        log.info("Purging platforms")
+        with Session.begin() as session:
+            session.query(Platform) \
+                .filter(Platform.slug.not_in(platforms)) \
+                .delete(synchronize_session='evaluate')
+
+    def purge_roms(self, p_slug: str, roms: list[dict]) -> None:
+        log.info(f"Purging {p_slug} roms")
         with Session.begin() as session:
             session.query(Rom) \
                 .filter(Rom.p_slug==p_slug, Rom.filename.not_in([rom['filename'] for rom in roms])) \
