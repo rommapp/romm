@@ -20,6 +20,16 @@ async def rom(p_slug: str, file_name: str) -> dict:
     return {'data':  dbh.get_rom(p_slug, file_name)}
 
 
+@app.delete("/platforms/{p_slug}/roms/{file_name}")
+async def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
+    """Detele rom from filesystem and database"""
+
+    log.info("deleting rom...")
+    if filesystem: fs.delete_rom(p_slug, file_name)
+    dbh.delete_rom(p_slug, file_name)
+    return {'msg': 'success'}
+
+
 @app.patch("/platforms/{p_slug}/roms")
 async def updateRom(req: Request, p_slug: str) -> dict:
     """Updates rom details"""
@@ -48,16 +58,6 @@ async def updateRom(req: Request, p_slug: str) -> dict:
     fs.rename_rom(p_slug, rom['file_name'], updatedRom['file_name'])
     dbh.update_rom(p_slug, rom['file_name'], updatedRom)
     return {'data': updatedRom}
-
-
-@app.delete("/platforms/{p_slug}/roms")
-async def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
-    """Detele rom from filesystem and database"""
-
-    log.info("deleting rom...")
-    if filesystem: fs.delete_rom(p_slug, file_name)
-    dbh.delete_rom(p_slug, file_name)
-    return {'msg': 'success'}
 
 
 @app.get("/platforms/{p_slug}/roms")
