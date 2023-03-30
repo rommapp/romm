@@ -7,6 +7,9 @@ assignees: zurdi15
 
 ---
 
+**RomM version**
+Version of RomM you are using
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
