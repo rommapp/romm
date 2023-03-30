@@ -1,41 +1,17 @@
-# v1.5 (_29-03-2023_)
+# v1.5 (_30-03-2023_)
+
+**`Breaking change`**
+
+In order to make the new features structure to work, it is mandatory this time to drop all the database. This will only make you need to re-scan, but you won't lose the cover changes or file changes you made.
+
+I apologize for the inconveniences this may cause, as this is a new software, it may change a little bit the first weeks, at least until I can develop a proper way to migrate between versions. I hope you can understand these initial wipes in order to make a better tool.
 
 ## Added
- - Now RomM folder structure is more flexible to match two different patrons by priority:
-    - Structure 1 (priority high) - roms folder at root of library folder:
-    ```
-    library/
-    ├─ roms/
-    │  ├─ gbc/
-       │  ├─ rom_1.gbc
-       │  ├─ rom_2.gbc
-       │
-       ├─ gba/
-       │  ├─ rom_1.gba
-       │  ├─ rom_2.gba
-       │ 
-       ├─ gb/
-          ├─ rom_1.gb
-          ├─ rom_1.gb
-    ```
-    - Structure 2 (priority low) - roms folder inside each platform folder
-    ```
-    library/
-    ├─ gbc/
-    │  ├─ roms/
-    │     ├─ rom_1.gbc
-    │     ├─ rom_2.gbc
-    |
-    ├─ gba/
-    │  ├─ roms/
-    │     ├─ rom_1.gba
-    │     ├─ rom_2.gba
-    |
-    ├─ gb/
-    │  ├─ roms/
-    │     ├─ rom_1.gb
-    │     ├─ rom_1.gb
-    ```
+ - Now RomM folder structure is more flexible to match two different patrons by priority. This change makes RomM Emudeck compatible at least with single file games platforms. Check [folder structure](readme.md#⚠️-folder-structure)
+
+ - Added config file support to exclude folders and specific extension files to be scanned. To reload config file RomM reload is needed. Check [config](readme.md#configuration).
+
+ - Added tags support for region, revision/version and generic tags. Tags must have the right prefix to allow RomM scan them properly. Check [tags](readme.md#📑-tags-support).
 
 # v1.4.1 (_29-03-2023_)
 
@@ -46,6 +22,7 @@
 
 ## Added
  - Gamecube support [platforms support](https://github.com/zurdi15/romm#platforms-support)
+
  - PC support added (only for single file games like zip, iso, etc) [platforms support](https://github.com/zurdi15/romm#platforms-support)
 
 ## Changed
@@ -56,23 +33,25 @@
 ## Fixed
 **`Breaking change`** - **This breaking change only applies for mariaDB users**:
 
-Some users reported errors when scanning files with large names because filenames are limited to 100 characters in the database. As I want to give as much flexibility as possible I changed some database columns. 
+Some users reported errors when scanning files with large names because file_names are limited to 100 characters in the database. As I want to give as much flexibility as possible I changed some database columns. 
 
 If you didn't make a lot of manual changes you can just get rid of the database and recreate it, scanning your library again. If you did some changes and don't want to lose the progress, you should do this changes manually from the mariadb container (or wherever you have your mariadb database) since there is not any kind of CLI for this migration.
 
 I am so sorry for any inconvenience this can generate.
 
 Columns to modify (examples in case that you set it with database name as romm, in other case just change the database name in the {db_name}.roms part):
- - alter table romm.roms modify column filename varchar(500);
- - alter table romm.roms modify column filename_no_ext varchar(500);
- - alter table romm.roms modify column name varchar(500);
- - alter table romm.roms modify column r_slug varchar(500);
- - alter table romm.roms modify column p_slug varchar(500);
- - alter table romm.roms modify column path_cover_l text;
- - alter table romm.roms modify column path_cover_s text;
- - alter table romm.platforms modify column slug varchar(500);
- - alter table romm.platforms modify column name varchar(500);
- - alter table romm.platforms modify column path_logo text;
+```
+ alter table romm.roms modify column file_name varchar(500);
+ alter table romm.roms modify column file_name_no_ext varchar(500);
+ alter table romm.roms modify column name varchar(500);
+ alter table romm.roms modify column r_slug varchar(500);
+ alter table romm.roms modify column p_slug varchar(500);
+ alter table romm.roms modify column path_cover_l text;
+ alter table romm.roms modify column path_cover_s text;
+ alter table romm.platforms modify column slug varchar(500);
+ alter table romm.platforms modify column name varchar(500);
+ alter table romm.platforms modify column path_logo text;
+```
 
 
 # v1.2.2 (_28-03-2023_)

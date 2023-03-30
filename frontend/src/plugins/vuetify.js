@@ -26,7 +26,9 @@ export default createVuetify({
           primary: '#FFFFFF',
           secondary: '#BDBDBD',
           toolbar: '#FFFFFF',
-          background: '#FFFFFF'
+          background: '#FFFFFF',
+          tag: '#FFFFFF',
+          tagBg: '#212121'
         }
       },
       dark: {
@@ -34,7 +36,9 @@ export default createVuetify({
           primary: '#212121',
           secondary: '#424242',
           toolbar: '#212121',
-          background: '#212121'
+          background: '#212121',
+          tag: '#FFFFFF',
+          tagBg: '#212121'
         }
       }
     }

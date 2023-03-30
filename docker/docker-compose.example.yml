@@ -15,6 +15,7 @@ services:
       - STEAMGRIDDB_API_KEY=WIP
     volumes:
       - '/path/to/library:/library'
+      - '/path/to/config.yml:/romm/config.yml'
     ports:
       - '80:80'
     depends_on:
