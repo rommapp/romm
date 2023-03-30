@@ -1,3 +1,8 @@
+# v1.5.1 (_31-03-2023_)
+
+## Fix
+ - Delete game now works properly
+
 # v1.5 (_30-03-2023_)
 
 **`Breaking change`**
