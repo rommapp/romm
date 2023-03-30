@@ -30,7 +30,7 @@ def scan_platform(p_slug: str) -> Platform:
     log.info(f"Getting {p_slug} details")
     platform_attrs: dict = igdbh.get_platform_details(p_slug)
     platform_attrs['slug'] = p_slug
-    platform_attrs['path_logo'] = ''
+    platform_attrs['logo_path'] = ''
     platform_attrs['n_roms'] = fs.get_roms(p_slug, only_amount=True)
     log.info(f"Platform n_roms: {platform_attrs['n_roms']}")
     platform = Platform(**platform_attrs)
@@ -39,22 +39,18 @@ def scan_platform(p_slug: str) -> Platform:
 
 
 def scan_rom(platform: Platform, rom: dict, r_igbd_id_search: str = '', overwrite: bool = False) -> None:
-    log.info(f"Getting {rom['filename']} details")
-    r_igdb_id, filename_no_ext, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(rom['filename'], platform.igdb_id, r_igbd_id_search)
-    path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, platform.slug, filename_no_ext, url_cover)
-    rom_attrs: dict = {
-        'filename': rom['filename'],
-        'filename_no_ext': filename_no_ext,
-        'size': rom['size'],
-        'r_igdb_id': r_igdb_id,
-        'p_igdb_id': platform.igdb_id,
-        'name': r_name,
-        'r_slug': r_slug,
-        'p_slug': platform.slug,
-        'summary': summary,
-        'path_cover_s': path_cover_s,
-        'path_cover_l': path_cover_l,
-        'has_cover': has_cover
-    }
-    rom = Rom(**rom_attrs)
+    log.info(f"Getting {rom['file_name']} details")
+    r_igdb_id, file_name_no_tags, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(rom['file_name'], platform.igdb_id, r_igbd_id_search)
+    path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, platform.slug, rom['file_name'], url_cover)
+    rom['file_name_no_tags'] = file_name_no_tags
+    rom['r_igdb_id'] = r_igdb_id
+    rom['p_igdb_id'] = platform.igdb_id
+    rom['r_slug'] = r_slug
+    rom['p_slug'] = platform.slug
+    rom['name'] = r_name
+    rom['summary'] = summary
+    rom['path_cover_s'] = path_cover_s
+    rom['path_cover_l'] = path_cover_l
+    rom['has_cover'] = has_cover
+    rom = Rom(**rom)
     dbh.add_rom(rom)
