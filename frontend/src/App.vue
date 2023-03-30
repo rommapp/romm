@@ -5,14 +5,17 @@ import Navigation from '@/components/Navigation.vue'
 
 // Props
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
-const refresh = ref(false)
+const refreshPlatforms = ref(false)
 const refreshRoms = ref(false)
 const snackbarShow = ref(false)
 const snackbarStatus = ref({})
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('refresh', () => { refresh.value = !refresh.value })
+emitter.on('refresh', () => { 
+  refreshPlatforms.value = !refreshPlatforms.value 
+  refreshRoms.value = !refreshRoms.value
+})
 emitter.on('refreshRoms', () => { refreshRoms.value = !refreshRoms.value })
 emitter.on('snackbarScan', (snackbar) => {
   snackbarShow.value = true
@@ -23,7 +26,7 @@ emitter.on('snackbarScan', (snackbar) => {
 <template>
   <v-app>
     
-    <navigation :key="refresh"/>
+    <navigation :key="refreshPlatforms"/>
     
     <v-snackbar v-model="snackbarShow" :timeout="4000" location="top" class="mt-4">
         <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
