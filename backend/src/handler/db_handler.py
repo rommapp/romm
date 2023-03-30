@@ -1,4 +1,5 @@
 import functools
+import json
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -43,22 +44,22 @@ class DBHandler:
 
     def get_roms(self, p_slug: str) -> list[Rom]:
         with Session.begin() as session:
-            return session.scalars(select(Rom).filter_by(p_slug=p_slug).order_by(Rom.filename.asc())).all()
+            return session.scalars(select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())).all()
 
-    def get_rom(self, p_slug: str, filename: str) -> Rom:
+    def get_rom(self, p_slug: str, file_name: str) -> Rom:
         with Session.begin() as session:
-            return session.scalars(select(Rom).filter_by(p_slug=p_slug, filename=filename)).first()
+            return session.scalars(select(Rom).filter_by(p_slug=p_slug, file_name=file_name)).first()
 
-    def update_rom(self, p_slug: str, filename: str, data: dict) -> None:
+    def update_rom(self, p_slug: str, file_name: str, data: dict) -> None:
         with Session.begin() as session:
             session.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.filename==filename) \
+                .filter(Rom.p_slug==p_slug, Rom.file_name==file_name) \
                 .update(data, synchronize_session='evaluate')
 
-    def delete_rom(self, p_slug: str, filename: str) -> None:
+    def delete_rom(self, p_slug: str, file_name: str) -> None:
         with Session.begin() as session:
             session.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.filename==filename) \
+                .filter(Rom.p_slug==p_slug, Rom.file_name==file_name) \
                 .delete(synchronize_session='evaluate')
 
     def purge_platforms(self, platforms: list[str]) -> None:
@@ -72,5 +73,5 @@ class DBHandler:
         log.info(f"Purging {p_slug} roms")
         with Session.begin() as session:
             session.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.filename.not_in([rom['filename'] for rom in roms])) \
+                .filter(Rom.p_slug==p_slug, Rom.file_name.not_in([rom['file_name'] for rom in roms])) \
                 .delete(synchronize_session='evaluate')
