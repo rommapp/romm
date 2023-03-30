@@ -14,6 +14,7 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Scans your game library (all at once or by platform) and enriches it with IGDB metadata
 * Access your library via your web-browser
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
+* EmuDeck folder structure compatibility
 * Download games directly from your web-browser
 * Edit your game files directly from your web-browser
 * Region, revision/version and extra tags support
@@ -26,7 +27,6 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Upload games directly from your web-browser - [issue #54](https://github.com/zurdi15/romm/issues/54)
 * Manage save files directly from your web-browser - [issue #55](https://github.com/zurdi15/romm/issues/55)
 * Set a custom cover for each game - [issue #53](https://github.com/zurdi15/romm/issues/53)
-* EmuDeck folder structure compatibility - [issue #52](https://github.com/zurdi15/romm/issues/52)
 * Multiple files games support - [issue #40](https://github.com/zurdi15/romm/issues/40)
 
 # Prerequisites
