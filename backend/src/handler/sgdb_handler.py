@@ -1,6 +1,6 @@
 import requests
 
-from config.config import STEAMGRIDDB_API_KEY
+from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
 

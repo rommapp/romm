@@ -50,16 +50,16 @@ function normalizeString(s) {
 function setFilter(filter) {
     currentFilter.value = normalizeString(filter)
     romsFiltered.value = roms.value.filter(rom => {
-        return normalizeString(rom.filename).includes(currentFilter.value)
+        return normalizeString(rom.file_name).includes(currentFilter.value)
     })
 }
 function downloadingRom(rom) {
-    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.filename, 'icon': 'mdi-download', 'color': 'green'})
+    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name, 'icon': 'mdi-download', 'color': 'green'})
     downloadRom(rom)
 }
 
 function downloadingSave() {
-    // emitter.emit('snackbarScan', {'msg': "Downloading "+rom.filename+" savefile", 'icon': 'mdi-download', 'color': 'green'})
+    // emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+" savefile", 'icon': 'mdi-download', 'color': 'green'})
     downloadSave()
 }
 
@@ -73,7 +73,7 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
             <v-hover v-slot="{isHovering, props}">
                 <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                     <v-hover v-slot="{ isHovering, props }" open-delay="800">
-                        <v-img v-bind="props" :src="rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="rom.path_cover_s+'?reload='+forceImgReload" cover>
+                        <v-img @click="selectRom(rom)" v-bind="props" :src="rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="rom.path_cover_s+'?reload='+forceImgReload" class="cover" cover>
                             <template v-slot:placeholder>
                                 <div class="d-flex align-center justify-center fill-height">
                                     <v-progress-circular indeterminate/>
@@ -81,15 +81,21 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                             </template>
                             <v-expand-transition>
                                 <div v-if="isHovering || !rom.has_cover" class="rom-title d-flex transition-fast-in-fast-out bg-secondary text-caption-1">
-                                    <v-list-item>{{ rom.filename }}</v-list-item>
+                                    <v-list-item>{{ rom.file_name }}</v-list-item>
                                 </div>
                             </v-expand-transition>
-                            <v-btn @click="selectRom(rom)" class="fill-height bg-transparent" rounded="0" block/>
+                            <div>
+                                <v-chip v-show="rom.region" class="ml-1 mr-1 bg-primary" size="x-small">{{ rom.region }}</v-chip>
+                                <v-chip v-show="rom.revision" class="mr-1 bg-primary" size="x-small">{{ rom.revision }}</v-chip>
+                            </div>
                         </v-img>
                         <v-card-text>
                             <v-row>
-                                <v-btn @click="downloadingRom(rom)" icon="mdi-download" size="small" variant="text"/>
-                                <v-btn @click="downloadingSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
+                                <v-col class="pa-0">
+                                    <v-btn @click="downloadingRom(rom)" icon="mdi-download" size="small" variant="text"/>
+                                    <v-btn @click="downloadingSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
+                                </v-col>
+                                <v-btn @click="" icon="mdi-dots-vertical" size="small" variant="text" :disabled="!saveFiles"/>
                             </v-row>
                         </v-card-text>
                     </v-hover>
@@ -122,6 +128,9 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
     opacity: 1;
 }
 .v-card:not(.on-hover) {
-    opacity: 0.95;
+    opacity: 0.85;
+}
+.cover{
+    cursor: pointer;
 }
 </style>

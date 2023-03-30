@@ -1,7 +1,6 @@
 <div align="center">
   <img src="romm.svg" height="128px" width="auto" alt="Gameyfin Logo">
   <h1 style="padding:20px;">RomM (Rom Manager)</h1>
-  <br/><br/>
 </div>
 
 # Overview
@@ -17,6 +16,7 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
 * Download games directly from your web-browser
 * Edit your game files directly from your web-browser
+* Region, revision/version and extra tags support
 * Works with SQLite or MaridDB (SQLite by default)
 * Responsive design
 * Light and dark theme
@@ -33,25 +33,44 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 
 ## ⚠️ Folder structure
 
-To allow RomM scan your retro games library, it should follow the following structure:
+RomM accepts two different folder structure by priority.
 
-```
-library/
-├─ gbc/
-│  ├─ roms/
-│     ├─ rom_1.gbc
-│     ├─ rom_2.gbc
-|
-├─ gba/
-│  ├─ roms/
-│     ├─ rom_1.gba
-│     ├─ rom_2.gba
-|
-├─ gb/
-│  ├─ roms/
-│     ├─ rom_1.gb
-│     ├─ rom_1.gb
-```
+RomM will try to find the structure 1 and if it doesn't exists, RomM will try to find structure 2.
+
+  - Structure 1 (priority high) - roms folder at root of library folder:
+  ```
+  library/
+  ├─ roms/
+     ├─ gbc/
+     │  ├─ rom_1.gbc
+     │  ├─ rom_2.gbc
+     │
+     ├─ gba/
+     │  ├─ rom_1.gba
+     │  ├─ rom_2.gba
+     │ 
+     ├─ gb/
+        ├─ rom_1.gb
+        ├─ rom_1.gb
+  ```
+  - Structure 2 (priority low) - roms folder inside each platform folder
+  ```
+  library/
+  ├─ gbc/
+  │  ├─ roms/
+  │     ├─ rom_1.gbc
+  │     ├─ rom_2.gbc
+  |
+  ├─ gba/
+  │  ├─ roms/
+  │     ├─ rom_1.gba
+  │     ├─ rom_2.gba
+  |
+  ├─ gb/
+  │  ├─ roms/
+  │     ├─ rom_1.gb
+  │     ├─ rom_1.gb
+  ```
 
 # Preview
 
@@ -63,25 +82,43 @@ https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-
 
 https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4
 
-# Docker image
+# Installation
+
+## 🐳 Docker
 
 Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags)
-
-## 🐳 Installation
 
 Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example
 
 Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
 
-# Platforms support 
+# Configuration
 
-## 🎮 Naming convention
+## ⚙️ Config yml file
 
-If the RomM folders structure is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
+RomM can be configured through a yml file. This is used to exclude folders and files with a certain extension to be scanned. For a configuration change to take effect, RomM must be restarted.
+
+Config file example:
+
+```
+exclude:
+  folders:
+    - 'folder_1_to_exclude'
+    - 'folder_2_to_exclude'
+  files:
+    - 'txt'
+    - 'file_extension_to_exclude'
+```
+
+# Naming convention 
+
+## 🎮 Platforms support
+
+If the RomM [folder structure](#⚠️-folder-structure) is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
 This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
 
 | slug          | name                                | games metadata |
-|---------------|-------------------------------------|----------------|
+|---------------|-------------------------------------|     :----:     |
 | 3ds           | Nintendo 3DS                        | ✅             |
 | amiga         | Amiga                               | ✅             |
 | arcade        | Arcade                              | ✅             |
@@ -137,14 +174,28 @@ This will change over the time, adding games metadata for more platforms. Make s
 | wii           | Wii                                 | ✅             |
 | win           | PC (Microsoft Windows)              | ✅             |
 
-## ⛏ Troubleshoot
+## 📑 Tags support
+
+Games can be tagged with region, revision or other tags using parenthesis in the file name. Region and revision tags must be built with the following reserved words:
+  - Region tags must be prefixed with **"reg-"**: (reg-EUR) / (reg-USA) / (reg-Japan) / (reg-whatever)
+  - Revision tags must be prefixed with **"rev-"**: (rev-1) / (rev-v2) / (rev-whatever)
+  - Any other tag can have any structure
+  - Example: **my_game (reg-EUR)(rev-1)(aditional_tag_1)(aditional_tag_2).gba**
+
+Tags can be used with the search bar to help to filter your library.
+
+# ⛏ Troubleshoot
 
 * After the first installation, sometimes the RomM container can have problems connecting with the database. Restarting the RomM container may solve the problem.
 
-## 🧾 References
+# 🧾 References
 
 * Complete [changelog](https://github.com/zurdi15/romm/blob/master/CHANGELOG.md)
 
-## 🎖 Credits
+# 🎖 Credits
 
 * Pc icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
+
+# ❤️ Support RomM
+
+<a href="https://www.buymeacoff.ee/zurdi15" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" target="_blank"></a>

@@ -3,3 +3,4 @@ fastapi==0.92.0
 uvicorn==0.20.0
 mariadb==1.1.6
 SQLAlchemy==2.0.7
+PyYAML==6.0
