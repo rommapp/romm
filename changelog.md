@@ -1,4 +1,4 @@
-# v1.6 (_XX-04-2023_)
+# v1.6 (_10-04-2023_)
 
 ## Added
  - Smart scan: now RomM will only scan the changes in the filesystem, making the scan process too much faster. Added an option to force a full scan.
