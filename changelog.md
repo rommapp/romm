@@ -1,3 +1,8 @@
+# v1.6 (_XX-04-2023_)
+
+## Added
+ - Now game files can be renamed after the name matched in IGDB, keeping the tags.
+
 # v1.5.1 (_31-03-2023_)
 
 ## Fix
