@@ -11,6 +11,7 @@ const searching = ref(false)
 const matchedRoms = ref([])
 const updating = ref(false)
 const editedRomName = ref(rom.value.file_name)
+const renameAsIGDB = ref(false)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
@@ -49,7 +50,14 @@ async function searchRomIGDB() {
 async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.value.file_name) {
     updating.value = true
     dialogSearchRom.value = false
-    updatedRom.file_name = newName
+    if (renameAsIGDB.value) {
+        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.name)
+        editedRomName.value = updatedRom.file_name
+        renameAsIGDB.value = false
+    }
+    else{
+        updatedRom.file_name = newName
+    }
     console.log(rom.value)
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms', {
         rom: rom.value,
@@ -164,7 +172,7 @@ async function deleteRom() {
                 <v-toolbar-title>Results found</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
-            <v-card-text rounded="0" class="pa-3">
+            <v-card-text rounded="0" class="pa-3 scroll">
                 <div class="d-flex justify-center">
                     <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
                 </div>
@@ -182,6 +190,9 @@ async function deleteRom() {
                     </v-col>
                 </v-row>
             </v-card-text>
+            <v-card-actions v-show="!searching">
+                <v-checkbox v-model="renameAsIGDB" label="Rename file" class="pl-3" hide-details="true"></v-checkbox>
+            </v-card-actions>
         </v-card>
     </v-dialog>
 
@@ -219,9 +230,15 @@ async function deleteRom() {
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
             <div class="pl-8">
-                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem"></v-checkbox>
+                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem" hide-details="true"></v-checkbox>
             </div>
         </v-card>
     </v-dialog>
 
 </template>
+
+<style scoped>
+.scroll {
+   overflow-y: scroll
+}
+</style>
