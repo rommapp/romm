@@ -6,7 +6,10 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config import user_config, LIBRARY_BASE_PATH, RESERVED_FOLDERS, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESERVED_FOLDERS, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from models.platform import Platform
+from models.rom import Rom
+from handler import dbh
 from logger.logger import log
 
 
@@ -52,12 +55,11 @@ def get_platforms() -> list[str]:
 
 # ========= Roms utils =========
 def _check_folder_structure(p_slug) -> tuple:
-    if os.path.exists(f"{LIBRARY_BASE_PATH}/roms"):
-        roms_path: str = f"{LIBRARY_BASE_PATH}/roms/{p_slug}"
-        roms_files = list(os.walk(f"{LIBRARY_BASE_PATH}/roms/{p_slug}"))[0][2]
-    else:
-        roms_path: str = f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
-        roms_files = list(os.walk(f"{LIBRARY_BASE_PATH}/{p_slug}/roms"))[0][2]
+    roms_path: str = f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
+    try:
+        roms_files = list(os.walk(roms_path))[0][2]
+    except IndexError:
+        roms_files = []
     return roms_path, roms_files
     
 
@@ -91,7 +93,7 @@ def parse_tags(file_name: str) -> tuple:
     return reg, rev, other_tags
 
 
-def get_roms(p_slug: str, only_amount: bool = False) -> list[dict]:
+def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[dict]:
     """Gets all filesystem roms for a platform
 
     Args:
@@ -99,22 +101,21 @@ def get_roms(p_slug: str, only_amount: bool = False) -> list[dict]:
         only_amount: flag to return only amount of roms instead of all info
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
     """
-    try:
-        roms: list[dict] = []
-        roms_path, roms_files = _check_folder_structure(p_slug)
-        roms_files = _exclude_files(roms_files)
+    roms: list[dict] = []
+    roms_path, roms_files = _check_folder_structure(p_slug)
+    roms_files = _exclude_files(roms_files)
 
-        if only_amount: return len(roms_files)
+    if only_amount: return len(roms_files)
 
-        for rom in roms_files:
-            file_size: str = str(round(os.stat(f"{roms_path}/{rom}").st_size / (1024 * 1024), 2))
-            file_extension: str = rom.split('.')[-1] if '.' in rom else ""
-            reg, rev, other_tags = parse_tags(rom)
-            roms.append({'file_name': rom, 'file_path': roms_path, 'file_size': file_size, 'file_extension': file_extension,
-                         'region': reg, 'revision': rev, 'tags': other_tags})
-        log.info(f"Roms found for {p_slug}: {roms}")
-    except IndexError:
-        log.warning(f"Roms not found for {p_slug}")
+    excluded_roms: list[str] = [rom.file_name for rom in dbh.get_roms(p_slug)]
+    for rom in roms_files:
+        if rom in excluded_roms and not full_scan: continue
+        file_size: str = str(round(os.stat(f"{roms_path}/{rom}").st_size / (1024 * 1024), 2))
+        file_extension: str = rom.split('.')[-1] if '.' in rom else ""
+        reg, rev, other_tags = parse_tags(rom)
+        roms.append({'file_name': rom, 'file_path': roms_path, 'file_size': file_size, 'file_extension': file_extension,
+                        'region': reg, 'revision': rev, 'tags': other_tags})
+    log.info(f"Roms found for {p_slug}: {roms}")
     if only_amount: return 0
     return roms
 
