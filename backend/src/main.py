@@ -75,7 +75,7 @@ async def platforms() -> dict:
 
 
 @app.put("/scan")
-async def scan(req: Request, overwrite: bool=False) -> dict:
+async def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info("complete scaning...")
@@ -84,10 +84,10 @@ async def scan(req: Request, overwrite: bool=False) -> dict:
     platforms: list[str] = data['platforms'] if data['platforms'] else fs.get_platforms()
     for p_slug in platforms:
         platform: Platform = fastapi.scan_platform(p_slug)
-        roms: list[dict] = fs.get_roms(p_slug)
+        roms: list[dict] = fs.get_roms(p_slug, full_scan)
         for rom in roms:
             fastapi.scan_rom(platform, rom)
-        dbh.purge_roms(p_slug, roms)
+        dbh.purge_roms(p_slug, fs.get_roms(p_slug, True))
     dbh.purge_platforms(fs.get_platforms())
     return {'msg': 'success'}
 

@@ -10,6 +10,7 @@ const currentPlatform = ref(JSON.parse(localStorage.getItem('currentPlatform')) 
 const platformsToScan = ref([])
 const scanning = ref(false)
 const scanOverwrite = ref(false)
+const fullScan = ref(false)
 const gettingRomsFlag = ref(false)
 const filter = ref('')
 const drawer = ref(null)
@@ -33,7 +34,7 @@ async function scan() {
     toRaw(platformsToScan)._rawValue.forEach(p => {platforms.push(toRaw(p.slug))})
     console.log(platforms)
 
-    await axios.put('/api/scan?overwrite='+scanOverwrite.value,{
+    await axios.put('/api/scan?overwrite='+scanOverwrite.value+'&full_scan='+fullScan.value,{
         platforms: platforms
     }).then((response) => {
         console.log("scan completed")
@@ -103,12 +104,18 @@ getPlatforms()
         <v-list>
             <!-- Settings drawer - scan button -->
             <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2" density="comfortable" variant="outlined" multiple return-object clearable/>
-            <v-list-item class="d-flex align-center justify-center mb-2 pt-0">
-                <v-btn title="scan" @click="scan()" :disabled="scanning" prepend-icon="mdi-magnify-scan" color="secondary" rounded="0" inset>
-                    <p v-if="!scanning">Scan</p>
-                    <p v-if="scanning">Scanning</p>
-                    <v-progress-circular v-show="scanning" class="ml-2" :width="2" :size="20" indeterminate/>
-                </v-btn>
+            <v-list-item class="pa-0">
+                <v-row class="align-center">
+                    <v-col class="d-flex justify-center">
+                        <v-btn title="scan" @click="scan()" :disabled="scanning" prepend-icon="mdi-magnify-scan" class="ml-7" color="secondary" rounded="0" inset>
+                            <p v-if="!scanning">Scan</p>
+                            <v-progress-circular v-show="scanning" class="ml-2" :width="2" :size="20" indeterminate/>
+                        </v-btn>
+                    </v-col>
+                    <v-col class="mr-4">
+                        <v-checkbox v-model="fullScan" label="Full scan" hide-details="true"/>
+                    </v-col>
+                </v-row>
             </v-list-item>
         </v-list>
         <!-- Settings drawer - theme toggle -->

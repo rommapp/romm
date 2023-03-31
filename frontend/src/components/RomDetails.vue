@@ -191,7 +191,7 @@ async function deleteRom() {
                 </v-row>
             </v-card-text>
             <v-card-actions v-show="!searching">
-                <v-checkbox v-model="renameAsIGDB" label="Rename file" class="pl-3" hide-details="true"></v-checkbox>
+                <v-checkbox v-model="renameAsIGDB" label="Rename file" class="pl-3" hide-details="true"/>
             </v-card-actions>
         </v-card>
     </v-dialog>
@@ -230,7 +230,7 @@ async function deleteRom() {
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
             <div class="pl-8">
-                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem" hide-details="true"></v-checkbox>
+                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem" hide-details="true"/>
             </div>
         </v-card>
     </v-dialog>
