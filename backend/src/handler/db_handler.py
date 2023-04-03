@@ -1,5 +1,4 @@
 import functools
-import json
 
 from fastapi import HTTPException
 from sqlalchemy import select
