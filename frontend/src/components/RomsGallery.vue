@@ -53,15 +53,6 @@ function setFilter(filter) {
         return normalizeString(rom.file_name).includes(currentFilter.value)
     })
 }
-function downloadingRom(rom) {
-    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name, 'icon': 'mdi-download', 'color': 'green'})
-    downloadRom(rom)
-}
-
-function downloadingSave() {
-    // emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+" savefile", 'icon': 'mdi-download', 'color': 'green'})
-    downloadSave()
-}
 
 onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.parse(localStorage.getItem('currentPlatform')).slug) } })
 </script>
@@ -92,8 +83,8 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                         <v-card-text>
                             <v-row>
                                 <v-col class="pa-0">
-                                    <v-btn @click="downloadingRom(rom)" icon="mdi-download" size="small" variant="text"/>
-                                    <v-btn @click="downloadingSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
+                                    <v-btn @click="downloadRom(rom, emitter)" icon="mdi-download" size="small" variant="text"/>
+                                    <v-btn @click="downloadSave(rom, emitter)" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
                                 </v-col>
                                 <v-btn @click="" icon="mdi-dots-vertical" size="small" variant="text" :disabled="!saveFiles"/>
                             </v-row>
