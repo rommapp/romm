@@ -7,12 +7,13 @@ DEV_PORT: int = 5000
 DEV_HOST: str = "0.0.0.0"
 
 # PATHS
-LIBRARY_BASE_PATH: str = "/library"
-HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
+LIBRARY_BASE_PATH: str = "/romm/library"
 ROMM_USER_CONFIG_PATH: str = f"/romm/config.yml"
+SQLITE_DB_BASE_PATH: str = f"/romm/database"
+HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
 
 # ROMM RESERVED FOLDERS
-RESERVED_FOLDERS: list = ['resources', 'database']
+RESERVED_FOLDERS: list = ['resources']
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: str = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
