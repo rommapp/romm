@@ -1,10 +1,12 @@
-# v1.6.1 (_03-04-2023_)
+# v1.6.1 (_04-04-2023_)
 
 ## Added
- - Now sqlite database location can be customized. Check docker-compose example.
+ - Now sqlite database location can be binded to ``/romm/database``. Check docker-compose example.
  - More platforms support. Check [platforms support](https://github.com/zurdi15/romm#platforms-support)
 ## Fixed
  - Download feature is now fixed for RomM structucture 1
+## Changed
+ - Library path binding changed from ``/library`` to ``/romm/library``
 
 # v1.6 (_01-04-2023_)
 
