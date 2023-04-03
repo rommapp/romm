@@ -139,15 +139,15 @@ getPlatforms()
         
         <!-- Desktop -->
         <!-- RomM avatar -->
-        <v-avatar class="ml-4 mr-2 hidden-md-and-down" :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
+        <v-avatar class="ml-4 mr-2 hidden-md-and-down" :rounded="0"><v-img src="/assets/romm.ico"></v-img></v-avatar>
         <!-- RomM title -->
-        <v-list-item-title class="text-h6 font-weight-black ma-2 hidden-md-and-down">ROM MANAGER</v-list-item-title>
+        <v-list-item-title class="text-h6 font-weight-black ma-2 hidden-md-and-down">RomM</v-list-item-title>
 
         <!-- Mobile -->
         <!-- Platforms drawer toggle -->
         <v-app-bar-nav-icon @click="drawer = !drawer" class="ma-2 hidden-lg-and-up" rounded="0"/>
         <!-- Platform icon -->
-        <v-avatar class="ma-2 hidden-lg-and-up" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
+        <v-avatar class="ma-2 hidden-lg-and-up" :rounded="0" :image="'/assets/platforms/'+currentPlatform.slug+'.ico'"/>
 
         <v-spacer class="hidden-xs-and-down"></v-spacer>
 
@@ -172,7 +172,7 @@ getPlatforms()
                 @:click="selectPlatform(platform)" class="pt-4 pb-4">
                 <v-list class="text-subtitle-2">{{ rail ? '' : platform.name }}</v-list>
                 <template v-slot:prepend>
-                    <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.png'"></v-img></v-avatar>
+                    <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.ico'"></v-img></v-avatar>
                 </template>
                 <template v-slot:append>
                     <v-chip class="ml-4" size="small">{{ platform.n_roms }}</v-chip>
