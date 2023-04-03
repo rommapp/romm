@@ -1,4 +1,11 @@
-# v1.6 (_10-04-2023_)
+# v1.6.1 (_03-04-2023_)
+
+## Added
+ - Now RomM version appears in the bottom of the settings panel
+## Fixed
+ - Download feature is now fixed for RomM structucture 1
+
+# v1.6 (_01-04-2023_)
 
 ## Added
  - Smart scan: now RomM will only scan the changes in the filesystem, making the scan process too much faster. Added an option to force a full scan.
