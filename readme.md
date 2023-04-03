@@ -162,7 +162,10 @@ This will change over the time, adding games metadata for more platforms. Make s
 | poke          | poke                                | ❌             |
 | ps            | PlayStation                         | ✅             |
 | ps2           | PlayStation 2                       | ✅             |
+| ps3           | PlayStation 3                       | ✅             |
+| ps4           | ps4                                 | ❌             |
 | psp           | PlayStation Portable                | ✅             |
+| psvita        | PlayStation Vita                    | ✅             |
 | scummvm       | scummvm                             | ❌             |
 | segacd        | Sega CD                             | ✅             |
 | segasgone     | segasgone                           | ❌             |
@@ -173,6 +176,10 @@ This will change over the time, adding games metadata for more platforms. Make s
 | switch        | Nintendo Switch                     | ✅             |
 | wii           | Wii                                 | ✅             |
 | win           | PC (Microsoft Windows)              | ✅             |
+| wiiu          | Wii U                               | ✅             |
+| xbox          | Xbox                                | ✅             |
+| xbox360       | Xbox 360                            | ✅             |
+| xboxone       | Xbox One                            | ✅             |
 
 ## 📑 Tags support
 
