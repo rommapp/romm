@@ -1,17 +1,15 @@
 import os
-import pathlib
 import yaml
 from yaml.loader import SafeLoader
-
 
 # Uvicorn
 DEV_PORT: int = 5000
 DEV_HOST: str = "0.0.0.0"
 
 # PATHS
-LIBRARY_BASE_PATH: str = f"{pathlib.Path(__file__).parent.parent.parent.parent.resolve()}/library"
+LIBRARY_BASE_PATH: str = "/library"
 HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
-ROMM_USER_CONFIG_PATH: str = f"{pathlib.Path(__file__).parent.parent.parent.parent.resolve()}/romm/config.yml"
+ROMM_USER_CONFIG_PATH: str = f"/romm/config.yml"
 
 # ROMM RESERVED FOLDERS
 RESERVED_FOLDERS: list = ['resources', 'database']

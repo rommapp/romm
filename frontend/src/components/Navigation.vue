@@ -20,6 +20,7 @@ const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
 const router = useRouter()
 const { mobile } = useDisplay()
+const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -122,7 +123,11 @@ getPlatforms()
         <template v-slot:append>
             <v-divider class="border-opacity-25"/>
             <v-list-item class="d-flex align-center justify-center">
-                <v-switch @change="toggleTheme()" v-model="darkMode" class="pr-2 pl-2" hide-details="true" prepend-icon="mdi-theme-light-dark" inset/>
+                <v-switch @change="toggleTheme()" v-model="darkMode" class="pr-2 pl-2" hide-details="false" prepend-icon="mdi-theme-light-dark" inset/>
+            </v-list-item>
+            <v-divider class="border-opacity-25"/>
+            <v-list-item class="d-flex justify-center alignt-center text-body-2">
+                <p>RomM v{{ ROMM_VERSION }}</p>
             </v-list-item>
         </template>
     </v-navigation-drawer>
