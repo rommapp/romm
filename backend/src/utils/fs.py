@@ -114,7 +114,7 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
         file_extension: str = rom.split('.')[-1] if '.' in rom else ""
         reg, rev, other_tags = parse_tags(rom)
         roms.append({'file_name': rom, 'file_path': roms_path, 'file_size': file_size, 'file_extension': file_extension,
-                        'region': reg, 'revision': rev, 'tags': other_tags})
+                     'region': reg, 'revision': rev, 'tags': other_tags})
     log.info(f"Roms found for {p_slug}: {roms}")
     if only_amount: return 0
     return roms
