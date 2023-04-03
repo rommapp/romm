@@ -1,7 +1,8 @@
 # v1.6.1 (_03-04-2023_)
 
 ## Added
- - Now RomM version appears in the bottom of the settings panel
+ - Now sqlite database location can be customized. Check docker-compose example.
+ - More platforms support. Check [platforms support](https://github.com/zurdi15/romm#platforms-support)
 ## Fixed
  - Download feature is now fixed for RomM structucture 1
 
