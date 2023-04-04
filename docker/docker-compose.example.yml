@@ -14,8 +14,10 @@ services:
       - CLIENT_SECRET=<IGDB client secret>
       - STEAMGRIDDB_API_KEY=WIP
     volumes:
-      - '/path/to/library:/library'
+      - '/path/to/library:/romm/library'
+      - '/path/to/resources:/romm/resources'
       - '/path/to/config.yml:/romm/config.yml'
+      - '/path/to/database:/romm/database' # Only if ROMM_DB_DRIVER='sqlite' or ROMM_DB_DRIVER not exists 
     ports:
       - '80:80'
     depends_on:

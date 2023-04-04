@@ -86,7 +86,7 @@ async function deleteRom() {
                 <v-row>
                     <v-col>
                         <v-card >
-                            <v-img :src="rom.path_cover_l+'?reload='+Date.now()" :lazy-src="rom.path_cover_s+'?reload='+Date.now()" cover>
+                            <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular :width="2" :size="20" indeterminate/>

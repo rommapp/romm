@@ -6,9 +6,7 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESERVED_FOLDERS, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
-from models.platform import Platform
-from models.rom import Rom
+from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from handler import dbh
 from logger.logger import log
 
@@ -38,7 +36,6 @@ def get_platforms() -> list[str]:
             platforms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/roms"))[0][1]
         else:
             platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
-        [platforms.remove(reserved) for reserved in RESERVED_FOLDERS if reserved in platforms]
         try:
             excluded_folders: list = user_config['exclude']['folders']
             try:
@@ -159,19 +156,19 @@ def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
     Returns
         True if cover exists in filesystem else False
     """
-    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{p_slug}/{file_name}_{size}.png"
+    logo_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
     return True if os.path.exists(logo_path) else False
 
 
 def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
-    """Returns platform logo filesystem path
+    """Returns rom cover filesystem path adapted to frontend folder structure
     
     Args:
         p_slug: short name of the platform
         file_name: name of rom file
         size: size of the cover -> big as 'l' | small as 's'
     """
-    return f"/assets/library/resources/{p_slug}/{file_name}_{size}.png"
+    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
 
 
 def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None:
@@ -184,7 +181,7 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None
         size: size of the cover -> big as 'l' | small as 's'
     """
     cover_file: str = f"{file_name}_{size}.png"
-    cover_path: str = f"{LIBRARY_BASE_PATH}/resources/{p_slug}/"
+    cover_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/"
     sizes: dict = {'l': 'big', 's': 'small'}
     res = requests.get(url_cover.replace('t_thumb', f't_cover_{sizes[size]}'), stream=True)
     if res.status_code == 200:

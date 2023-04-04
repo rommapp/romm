@@ -7,18 +7,17 @@ DEV_PORT: int = 5000
 DEV_HOST: str = "0.0.0.0"
 
 # PATHS
-LIBRARY_BASE_PATH: str = "/library"
+LIBRARY_BASE_PATH: str = "/romm/library"
+ROMM_USER_CONFIG_PATH: str = "/romm/config.yml"
+SQLITE_DB_BASE_PATH: str = "/romm/database"
 HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
-ROMM_USER_CONFIG_PATH: str = f"/romm/config.yml"
-
-# ROMM RESERVED FOLDERS
-RESERVED_FOLDERS: list = ['resources', 'database']
+RESOURCES_BASE_PATH: str = "/romm/resources"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: str = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
-DEFAULT_PATH_COVER_L: str = f"/assets/library/resources/default/cover_l.png"
+DEFAULT_PATH_COVER_L: str = f"{RESOURCES_BASE_PATH}/default/cover_l.png"
 DEFAULT_URL_COVER_S: str = "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
-DEFAULT_PATH_COVER_S: str = f"/assets/library/resources/default/cover_s.png"
+DEFAULT_PATH_COVER_S: str = f"{RESOURCES_BASE_PATH}/default/cover_s.png"
 
 # IGDB
 CLIENT_ID: str = os.getenv('CLIENT_ID')
