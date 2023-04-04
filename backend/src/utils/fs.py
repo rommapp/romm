@@ -6,9 +6,7 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESERVED_FOLDERS, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
-from models.platform import Platform
-from models.rom import Rom
+from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESERVED_FOLDERS, RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from handler import dbh
 from logger.logger import log
 
@@ -164,14 +162,14 @@ def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
 
 
 def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
-    """Returns platform logo filesystem path
+    """Returns rom cover filesystem path adapted to frontend folder structure
     
     Args:
         p_slug: short name of the platform
         file_name: name of rom file
         size: size of the cover -> big as 'l' | small as 's'
     """
-    return f"/assets/library/resources/{p_slug}/{file_name}_{size}.png"
+    return f"/assets/{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
 
 
 def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None:
