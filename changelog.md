@@ -1,14 +1,14 @@
 # v1.6.1 (_04-04-2023_)
 
 ## Added
- - Now sqlite database location can be binded to ``/romm/database``. Check [docker-compose](docker/docker-compose.example.yml) example.
- - Now resources location (games cover) can be binded to ``/romm/resources``. Check [docker-compose](docker/docker-compose.example.yml) example.
+ - Now sqlite database location needs to be binded to ``/romm/database``. Check [docker-compose](docker/docker-compose.example.yml) example.
+ - Now resources location (games cover) needs to be binded to ``/romm/resources``. Check [docker-compose](docker/docker-compose.example.yml) example.
  - More platforms support. Check [platforms support](https://github.com/zurdi15/romm#platforms-support)
  - Now RomM version appears in the bottom of the settings panel
 ## Fixed
  - Download feature is now fixed for RomM structucture 1
 ## Changed
- - Library path binding changed from ``/library`` to ``/romm/library``
+ - Library path binding changed from ``/library`` to ``/romm/library``. Check [docker-compose](docker/docker-compose.example.yml) 
 
 <br>
 
