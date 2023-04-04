@@ -53,15 +53,6 @@ function setFilter(filter) {
         return normalizeString(rom.file_name).includes(currentFilter.value)
     })
 }
-function downloadingRom(rom) {
-    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name, 'icon': 'mdi-download', 'color': 'green'})
-    downloadRom(rom)
-}
-
-function downloadingSave() {
-    // emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+" savefile", 'icon': 'mdi-download', 'color': 'green'})
-    downloadSave()
-}
 
 onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.parse(localStorage.getItem('currentPlatform')).slug) } })
 </script>
@@ -73,7 +64,7 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
             <v-hover v-slot="{isHovering, props}">
                 <v-card v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                     <v-hover v-slot="{ isHovering, props }" open-delay="800">
-                        <v-img @click="selectRom(rom)" v-bind="props" :src="rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="rom.path_cover_s+'?reload='+forceImgReload" class="cover" cover>
+                        <v-img @click="selectRom(rom)" v-bind="props" :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload" class="cover" cover>
                             <template v-slot:placeholder>
                                 <div class="d-flex align-center justify-center fill-height">
                                     <v-progress-circular indeterminate/>
@@ -92,8 +83,8 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
                         <v-card-text>
                             <v-row>
                                 <v-col class="pa-0">
-                                    <v-btn @click="downloadingRom(rom)" icon="mdi-download" size="small" variant="text"/>
-                                    <v-btn @click="downloadingSave()" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
+                                    <v-btn @click="downloadRom(rom, emitter)" icon="mdi-download" size="small" variant="text"/>
+                                    <v-btn @click="downloadSave(rom, emitter)" icon="mdi-content-save-all" size="small" variant="text" :disabled="!saveFiles"/>
                                 </v-col>
                                 <v-btn @click="" icon="mdi-dots-vertical" size="small" variant="text" :disabled="!saveFiles"/>
                             </v-row>

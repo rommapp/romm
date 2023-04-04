@@ -2,7 +2,7 @@ import os
 import sys
 from urllib.parse import quote_plus
 
-from config import ROMM_DB_DRIVER, SUPPORTED_DB_DRIVERS, LIBRARY_BASE_PATH
+from config import ROMM_DB_DRIVER, SUPPORTED_DB_DRIVERS, SQLITE_DB_BASE_PATH
 from logger.logger import log
 
 
@@ -23,9 +23,8 @@ def get_db_engine():
             return f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}" % quote_plus(DB_PASSWD)
 
         elif ROMM_DB_DRIVER == 'sqlite':
-            SQLITE_PATH: str = f"{LIBRARY_BASE_PATH}/database"
-            if not os.path.exists(SQLITE_PATH): os.makedirs(SQLITE_PATH)
-            return f"sqlite:////{SQLITE_PATH}/romm.db"
+            if not os.path.exists(SQLITE_DB_BASE_PATH): os.makedirs(SQLITE_DB_BASE_PATH)
+            return f"sqlite:////{SQLITE_DB_BASE_PATH}/romm.db"
 
     else:
         log.critical(f"Not supported {ROMM_DB_DRIVER} database")
