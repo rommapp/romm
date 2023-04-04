@@ -1,7 +1,8 @@
 # v1.6.1 (_04-04-2023_)
 
 ## Added
- - Now sqlite database location can be binded to ``/romm/database``. Check docker-compose example.
+ - Now sqlite database location can be binded to ``/romm/database``. Check [docker-compose](docker/docker-compose.example.yml) example.
+ - Now resources location (games cover) can be binded to ``/romm/resources``. Check [docker-compose](docker/docker-compose.example.yml) example.
  - More platforms support. Check [platforms support](https://github.com/zurdi15/romm#platforms-support)
 ## Fixed
  - Download feature is now fixed for RomM structucture 1
@@ -30,7 +31,7 @@ I apologize for the inconveniences this may cause, as this is a new software, it
 ## Added
  - Now RomM folder structure is more flexible to match two different patrons by priority. This change makes RomM **Emudeck** compatible at least with single file games platforms. Check [folder structure](readme.md#⚠️-folder-structure)
 
- - Added config file support to exclude folders and specific extension files to be scanned. To reload config file RomM reload is needed. Check [config](readme.md#configuration).
+ - Added config file support to exclude folders and specific extension files to be scanned. Config file can be binded to ``/romm/config.yml`` .To reload config file RomM reload is needed. Check [config](readme.md#configuration).
 
  - Added tags support for region, revision/version and generic tags. Tags must have the right prefix to allow RomM scan them properly. Check [tags](readme.md#📑-tags-support).
 
