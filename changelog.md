@@ -1,3 +1,12 @@
+# v1.6.2 (_04-04-2023_)
+
+## Added
+ - Support for commodore64
+## Fixed
+ - Searching in IGDB for games in not supported platforms doesn't raise an error anymore
+
+<br>
+
 # v1.6.1 (_04-04-2023_)
 
 ## Added
