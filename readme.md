@@ -124,7 +124,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 | arcade        | Arcade                              | ✅             |
 | atari         | atari                               | ❌             |
 | coleco        | coleco                              | ❌             |
-| commodore     | commodore                           | ❌             |
+| c64           | Commodore C64/128/MAX               | ✅             |
 | cpc           | cpc                                 | ❌             |
 | cps1          | cps1                                | ❌             |
 | cps2          | cps2                                | ❌             |
