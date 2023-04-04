@@ -64,7 +64,7 @@ class IGDBHandler():
             except KeyError:
                 pass            
         
-        else:
+        else: #TODO: improve API calls to make only one
             search_term: str = unidecode.unidecode(file_name_no_tags)
             if p_igdb_id:
                 try:

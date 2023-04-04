@@ -10,6 +10,7 @@ const currentPlatform = ref(JSON.parse(localStorage.getItem('currentPlatform')) 
 const platformsToScan = ref([])
 const scanning = ref(false)
 const scanOverwrite = ref(false)
+const fullScan = ref(false)
 const gettingRomsFlag = ref(false)
 const filter = ref('')
 const drawer = ref(null)
@@ -19,6 +20,7 @@ const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
 const router = useRouter()
 const { mobile } = useDisplay()
+const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -33,7 +35,7 @@ async function scan() {
     toRaw(platformsToScan)._rawValue.forEach(p => {platforms.push(toRaw(p.slug))})
     console.log(platforms)
 
-    await axios.put('/api/scan?overwrite='+scanOverwrite.value,{
+    await axios.put('/api/scan?overwrite='+scanOverwrite.value+'&full_scan='+fullScan.value,{
         platforms: platforms
     }).then((response) => {
         console.log("scan completed")
@@ -103,19 +105,29 @@ getPlatforms()
         <v-list>
             <!-- Settings drawer - scan button -->
             <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2" density="comfortable" variant="outlined" multiple return-object clearable/>
-            <v-list-item class="d-flex align-center justify-center mb-2 pt-0">
-                <v-btn title="scan" @click="scan()" :disabled="scanning" prepend-icon="mdi-magnify-scan" color="secondary" rounded="0" inset>
-                    <p v-if="!scanning">Scan</p>
-                    <p v-if="scanning">Scanning</p>
-                    <v-progress-circular v-show="scanning" class="ml-2" :width="2" :size="20" indeterminate/>
-                </v-btn>
+            <v-list-item class="pa-0">
+                <v-row class="align-center">
+                    <v-col class="d-flex justify-center">
+                        <v-btn title="scan" @click="scan()" :disabled="scanning" prepend-icon="mdi-magnify-scan" class="ml-7" color="secondary" rounded="0" inset>
+                            <p v-if="!scanning">Scan</p>
+                            <v-progress-circular v-show="scanning" class="ml-2" :width="2" :size="20" indeterminate/>
+                        </v-btn>
+                    </v-col>
+                    <v-col class="mr-4">
+                        <v-checkbox v-model="fullScan" label="Full scan" hide-details="true"/>
+                    </v-col>
+                </v-row>
             </v-list-item>
         </v-list>
         <!-- Settings drawer - theme toggle -->
         <template v-slot:append>
             <v-divider class="border-opacity-25"/>
             <v-list-item class="d-flex align-center justify-center">
-                <v-switch @change="toggleTheme()" v-model="darkMode" class="pr-2 pl-2" hide-details="true" prepend-icon="mdi-theme-light-dark" inset/>
+                <v-switch @change="toggleTheme()" v-model="darkMode" class="pr-2 pl-2" hide-details="false" prepend-icon="mdi-theme-light-dark" inset/>
+            </v-list-item>
+            <v-divider class="border-opacity-25"/>
+            <v-list-item class="d-flex justify-center alignt-center text-body-2">
+                <p>RomM v{{ ROMM_VERSION }}</p>
             </v-list-item>
         </template>
     </v-navigation-drawer>
@@ -127,15 +139,15 @@ getPlatforms()
         
         <!-- Desktop -->
         <!-- RomM avatar -->
-        <v-avatar class="ml-4 mr-2 hidden-md-and-down" :rounded="0"><v-img src="/assets/romm.png"></v-img></v-avatar>
+        <v-avatar class="ml-4 mr-2 hidden-md-and-down" :rounded="0"><v-img src="/assets/romm.ico"></v-img></v-avatar>
         <!-- RomM title -->
-        <v-list-item-title class="text-h6 font-weight-black ma-2 hidden-md-and-down">ROM MANAGER</v-list-item-title>
+        <v-list-item-title class="text-h6 font-weight-black ma-2 hidden-md-and-down">RomM</v-list-item-title>
 
         <!-- Mobile -->
         <!-- Platforms drawer toggle -->
         <v-app-bar-nav-icon @click="drawer = !drawer" class="ma-2 hidden-lg-and-up" rounded="0"/>
         <!-- Platform icon -->
-        <v-avatar class="ma-2 hidden-lg-and-up" :rounded="0"><v-img :src="'/assets/platforms/'+currentPlatform.slug+'.png'"></v-img></v-avatar>
+        <v-avatar class="ma-2 hidden-lg-and-up" :rounded="0" :image="'/assets/platforms/'+currentPlatform.slug+'.ico'"/>
 
         <v-spacer class="hidden-xs-and-down"></v-spacer>
 
@@ -160,7 +172,7 @@ getPlatforms()
                 @:click="selectPlatform(platform)" class="pt-4 pb-4">
                 <v-list class="text-subtitle-2">{{ rail ? '' : platform.name }}</v-list>
                 <template v-slot:prepend>
-                    <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.png'"></v-img></v-avatar>
+                    <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.ico'"></v-img></v-avatar>
                 </template>
                 <template v-slot:append>
                     <v-chip class="ml-4" size="small">{{ platform.n_roms }}</v-chip>

@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios'
-import { ref, inject, toRaw } from 'vue'
+import { ref, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { downloadRom, downloadSave } from '@/utils/utils.js'
 
@@ -23,16 +23,6 @@ const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 
 // Functions
-function downloadingRom(rom) {
-    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name, 'icon': 'mdi-download', 'color': 'green'})
-    downloadRom(rom)
-}
-
-function downloadingSave() {
-    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+" savefile", 'icon': 'mdi-download', 'color': 'green'})
-    downloadSave()
-}
-
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
@@ -96,7 +86,7 @@ async function deleteRom() {
                 <v-row>
                     <v-col>
                         <v-card >
-                            <v-img :src="rom.path_cover_l+'?reload='+Date.now()" :lazy-src="rom.path_cover_s+'?reload='+Date.now()" cover>
+                            <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular :width="2" :size="20" indeterminate/>
@@ -110,10 +100,10 @@ async function deleteRom() {
                     <v-container>
                         <v-row>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadingRom(rom)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                                <v-btn @click="downloadRom(rom, emitter)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadingSave()" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
+                                <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
                                 <v-menu location="bottom">
@@ -191,7 +181,7 @@ async function deleteRom() {
                 </v-row>
             </v-card-text>
             <v-card-actions v-show="!searching">
-                <v-checkbox v-model="renameAsIGDB" label="Rename file" class="pl-3" hide-details="true"></v-checkbox>
+                <v-checkbox v-model="renameAsIGDB" label="Rename file" class="pl-3" hide-details="true"/>
             </v-card-actions>
         </v-card>
     </v-dialog>
@@ -230,7 +220,7 @@ async function deleteRom() {
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
             <div class="pl-8">
-                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem" hide-details="true"></v-checkbox>
+                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem" hide-details="true"/>
             </div>
         </v-card>
     </v-dialog>
