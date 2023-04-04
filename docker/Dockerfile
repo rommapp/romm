@@ -10,7 +10,9 @@ RUN npm run build
 FROM ubuntu/nginx:1.18-22.04_edge as production-stage
 COPY --from=front-build-stage /front/dist /var/www/html
 COPY ./frontend/assets/platforms /var/www/html/assets/platforms
-RUN ln -s /romm/library /var/www/html/assets/library
+RUN mkdir -p /var/www/html/assets/romm
+RUN ln -s /romm/library /var/www/html/assets/romm/library
+RUN ln -s /romm/resources /var/www/html/assets/romm/resources
 
 # setup backend
 RUN apt update 
