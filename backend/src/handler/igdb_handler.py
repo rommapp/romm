@@ -114,20 +114,25 @@ class IGDBHandler():
 
     
     @check_twitch_token
-    def get_matched_roms(self, file_name: str, p_igdb_id: int) -> list:
-        search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
-        matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                           data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
-        log.info(f"Matched roms for {file_name}: {matched_roms}")
-        for rom in matched_roms:
-            try:
-                res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
-                                                  data=f"fields url; where game={rom['id']};").json()[0]
-                rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
-            except IndexError:
-                rom['url_cover'] = DEFAULT_URL_COVER_L
-            rom['r_igdb_id'] = rom.pop('id')
-            rom['r_slug'] = rom.pop('slug')
+    def get_matched_roms(self, file_name: str, p_igdb_id: int, p_slug: str) -> list:
+        matched_roms: list[dict] = []
+        if p_igdb_id != '':
+            search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
+            log.debug(search_term)
+            matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
+                                            data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
+            log.info(f"Matched roms for {file_name}: {matched_roms}")
+            for rom in matched_roms:
+                try:
+                    res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
+                                                    data=f"fields url; where game={rom['id']};").json()[0]
+                    rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
+                except IndexError:
+                    rom['url_cover'] = DEFAULT_URL_COVER_L
+                rom['r_igdb_id'] = rom.pop('id')
+                rom['r_slug'] = rom.pop('slug')
+        else:
+            log.warning(f"{p_slug} is not supported!")
         return matched_roms
 
 
