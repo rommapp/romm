@@ -157,7 +157,7 @@ def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
     Returns
         True if cover exists in filesystem else False
     """
-    logo_path: str = f"{LIBRARY_BASE_PATH}/resources/{p_slug}/{file_name}_{size}.png"
+    logo_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
     return True if os.path.exists(logo_path) else False
 
 
@@ -182,7 +182,7 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None
         size: size of the cover -> big as 'l' | small as 's'
     """
     cover_file: str = f"{file_name}_{size}.png"
-    cover_path: str = f"{LIBRARY_BASE_PATH}/resources/{p_slug}/"
+    cover_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/"
     sizes: dict = {'l': 'big', 's': 'small'}
     res = requests.get(url_cover.replace('t_thumb', f't_cover_{sizes[size]}'), stream=True)
     if res.status_code == 200:
