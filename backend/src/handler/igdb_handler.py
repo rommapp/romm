@@ -118,7 +118,6 @@ class IGDBHandler():
         matched_roms: list[dict] = []
         if p_igdb_id != '':
             search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
-            log.debug(search_term)
             matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                             data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
             log.info(f"Matched roms for {file_name}: {matched_roms}")
