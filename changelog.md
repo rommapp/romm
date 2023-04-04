@@ -9,16 +9,22 @@
 ## Changed
  - Library path binding changed from ``/library`` to ``/romm/library``
 
+<br>
+
 # v1.6 (_01-04-2023_)
 
 ## Added
  - Smart scan: now RomM will only scan the changes in the filesystem, making the scan process too much faster. Added an option to force a full scan.
  - Now game files can be renamed after the name matched in IGDB, keeping the tags.
 
+<br>
+
 # v1.5.1 (_31-03-2023_)
 
-## Fix
+## Fixed
  - Delete game now works properly
+
+<br>
 
 # v1.5 (_30-03-2023_)
 
@@ -30,25 +36,27 @@ I apologize for the inconveniences this may cause, as this is a new software, it
 
 ## Added
  - Now RomM folder structure is more flexible to match two different patrons by priority. This change makes RomM **Emudeck** compatible at least with single file games platforms. Check [folder structure](readme.md#⚠️-folder-structure)
-
  - Added config file support to exclude folders and specific extension files to be scanned. Config file can be binded to ``/romm/config.yml`` .To reload config file RomM reload is needed. Check [config](readme.md#configuration).
-
  - Added tags support for region, revision/version and generic tags. Tags must have the right prefix to allow RomM scan them properly. Check [tags](readme.md#📑-tags-support).
+
+<br>
 
 # v1.4.1 (_29-03-2023_)
 
 ## Added
  - Now you can use your games tags (like (USA) or (rev-1)) to filter in the gallery
 
+<br>
+
 # v1.4 (_29-03-2023_)
 
 ## Added
  - Gamecube support [platforms support](https://github.com/zurdi15/romm#platforms-support)
-
  - PC support added (only for single file games like zip, iso, etc) [platforms support](https://github.com/zurdi15/romm#platforms-support)
-
 ## Changed
  - Now delete game only deletes it from RomM gallery. To delete it from the filesystem too you need to allow it with the checkbox.
+
+<br>
 
 # v1.3 (_29-03-2023_)
 
@@ -75,25 +83,25 @@ Columns to modify (examples in case that you set it with database name as romm, 
  alter table romm.platforms modify column path_logo text;
 ```
 
+<br>
 
 # v1.2.2 (_28-03-2023_)
 
 ## Added
  - Notification added when downloading a game
-
 ## Changed
  - Database name when using mariadb now can be changed with the new variable DB_NAME. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml)
-
 ## Fixed
  - Potential password error when using mariadb if the password have special characters
  - Some other bugs
+
+<br>
 
 # v1.2 (_28-03-2023_)
 
 ## Added
  - SQLite support
  - Dreamcast support (https://github.com/zurdi15/romm#platforms-support)
-
 ## Changed
  - SQLite is now the database by default if ROMM_DB_DRIVER is not set. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml)
  - Platforms and games are now shown by alphabetical order
@@ -103,7 +111,6 @@ Columns to modify (examples in case that you set it with database name as romm, 
 # v1.1 (_27-03-2023_)
 
 ## Added
-
  - Game names parentheses are now omitted when searching game in IGDB, allowing game names to have tags.
 
 <br>
@@ -111,5 +118,4 @@ Columns to modify (examples in case that you set it with database name as romm, 
 # v1.0 (_27-03-2023_)
  
 ## Added
-   
 - Birth of RomM
