@@ -28,8 +28,7 @@ async function searchRomIGDB() {
     dialogSearchRom.value = true
     console.log("searching for rom... "+rom.value.file_name)
     await axios.put('/api/search/roms/igdb', {
-        file_name: rom.value.file_name,
-        p_igdb_id: rom.value.p_igdb_id
+        rom: rom.value
     }).then((response) => {
         console.log(response.data.data)
         matchedRoms.value = response.data.data
