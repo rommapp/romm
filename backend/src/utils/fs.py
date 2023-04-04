@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 from fastapi import HTTPException
 
-from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESERVED_FOLDERS, RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from handler import dbh
 from logger.logger import log
 
@@ -36,7 +36,6 @@ def get_platforms() -> list[str]:
             platforms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/roms"))[0][1]
         else:
             platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
-        [platforms.remove(reserved) for reserved in RESERVED_FOLDERS if reserved in platforms]
         try:
             excluded_folders: list = user_config['exclude']['folders']
             try:
