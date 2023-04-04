@@ -169,7 +169,7 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
         file_name: name of rom file
         size: size of the cover -> big as 'l' | small as 's'
     """
-    return f"/assets/{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
+    return f"/assets{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
 
 
 def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None:
