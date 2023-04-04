@@ -97,8 +97,8 @@ async def search_rom_igdb(req: Request) -> dict:
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
-    log.info(f"getting {data['file_name']} roms from {data['p_igdb_id']} igdb ...")
-    return {'data': igdbh.get_matched_roms(data['file_name'], data['p_igdb_id'])}
+    log.info(f"getting {data['rom']['file_name']} roms from {data['rom']['p_slug']} igdb ...")
+    return {'data': igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])}
 
 
 if __name__ == '__main__':
