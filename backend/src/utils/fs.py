@@ -47,7 +47,9 @@ def get_platforms() -> list[str]:
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
     except IndexError:
-        raise HTTPException(status_code=404, detail="Platforms not found.")
+        error: str = "Platforms not found."
+        log.critical(error)
+        raise HTTPException(status_code=404, detail=error)
 
 
 # ========= Roms utils =========
