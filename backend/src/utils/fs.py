@@ -54,12 +54,7 @@ def get_platforms() -> list[str]:
 
 # ========= Roms utils =========
 def _check_folder_structure(p_slug) -> tuple:
-    roms_path: str = f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
-    try:
-        roms_files = list(os.walk(roms_path))[0][2]
-    except IndexError:
-        roms_files = []
-    return roms_path, roms_files
+    return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
     
 
 def _exclude_files(roms_files) -> list[str]:
@@ -101,7 +96,11 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
     """
     roms: list[dict] = []
-    roms_path, roms_files = _check_folder_structure(p_slug)
+    roms_path = _check_folder_structure(p_slug)
+    roms_files: list = list(os.walk(roms_path))[0][2] + list(os.walk(roms_path))[0][1]
+    roms_multi: list = []
+    for rom_folder in list(os.walk(roms_path))[0][1]:
+        roms_multi.append(list(os.walk(f"{roms_path}/{rom_folder}"))[0][2])
     roms_files = _exclude_files(roms_files)
 
     if only_amount: return len(roms_files)
