@@ -17,10 +17,14 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
 
 # setup backend
 RUN apt update && \
-    apt install -y --no-install-recommends software-properties-common gnupg gcc && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt update -y && apt install --no-install-recommends libmariadb3 libmariadb-dev -y && \
-    apt install -y --no-install-recommends python3.10 python3.10-dev python3-pip && \
+    apt install -y --no-install-recommends ca-certificates curl gnupg && \
+      # add deadsnakes ppa for Python versions
+      echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" > /etc/apt/sources.list.d/deadsnakes-ubuntu-ppa-jammy.list && \
+      apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776 && \
+    apt update && \
+    apt install -y --no-install-recommends \
+      libmariadb3 libmariadb-dev gcc \
+      python3.10 python3.10-dev python3-pip && \
     apt autoremove && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 WORKDIR /back
