@@ -134,17 +134,20 @@ async function deleteRom() {
         <v-col cols="15" xs="15" sm="12" md="6" lg="10">
             <v-table density="comfortable">
                 <tbody>
-                    <tr><td>IGDB id</td><td><a :href="'https://www.igdb.com/games/'+rom.r_slug">{{ rom.r_igdb_id }}</a></td></tr>
                     <tr><td>Name</td><td>{{ rom.name }}</td></tr>
-                    <tr><td>File</td><td>{{ rom.file_name }}</td></tr>
-                    <tr><td>Path</td><td>{{ rom.file_path }}</td></tr>
+                    <tr v-show="!rom.multi"><td>File</td><td>{{ rom.file_name }}</td></tr>
+                    <tr v-show="rom.multi"><td>Files</td><td>
+                        <v-select item-title="file_name" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" max-width="300" return-object hide-details/>
+                    </td></tr>
+                    <tr><td>Platform</td><td>{{ rom.p_slug }}</td></tr>
+                    <tr><td>Size</td><td>{{ rom.file_size }} MB</td></tr>
+                    <!-- <tr><td>Path</td><td>{{ rom.file_path }}</td></tr> -->
+                    <tr><td>IGDB id</td><td><a :href="'https://www.igdb.com/games/'+rom.r_slug">{{ rom.r_igdb_id }}</a></td></tr>
                     <tr v-show="rom.region"><td>Region</td><td>{{ rom.region }}</td></tr>
                     <tr v-show="rom.revision"><td>Revision</td><td>{{ rom.revision }}</td></tr>
                     <tr v-show="rom.tags.length>0"><td>Tags</td><td><v-chip-group><v-chip v-for="tag in rom.tags" label>{{ tag }}</v-chip></v-chip-group></td></tr>
-                    <tr><td>Size</td><td>{{ rom.file_size }} MB</td></tr>
-                    <tr><td>Slug</td><td>{{ rom.r_slug }}</td></tr>
-                    <tr><td>Platform</td><td>{{ rom.p_slug }}</td></tr>
-                    <tr><td>Cover</td><td>{{ rom.path_cover_l }}</td></tr>
+                    <!-- <tr><td>Slug</td><td>{{ rom.r_slug }}</td></tr> -->
+                    <!-- <tr><td>Cover</td><td>{{ rom.path_cover_l }}</td></tr> -->
                     <tr><td>Summary</td><td class="pt-3">{{ rom.summary }}</td></tr>
                 </tbody>
             </v-table>

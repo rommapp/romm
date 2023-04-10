@@ -95,26 +95,31 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
         only_amount: flag to return only amount of roms instead of all info
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
     """
-    roms: list[dict] = []
     roms_path = _check_folder_structure(p_slug)
-    roms_files: list = list(os.walk(roms_path))[0][2] + list(os.walk(roms_path))[0][1]
-    roms_multi: list = []
-    for rom_folder in list(os.walk(roms_path))[0][1]:
-        roms_multi.append(list(os.walk(f"{roms_path}/{rom_folder}"))[0][2])
-    roms_files = _exclude_files(roms_files)
+    roms: list[dict] = []
 
-    if only_amount: return len(roms_files)
+    roms_files: list = _exclude_files(list(os.walk(roms_path))[0][2])
+    roms_files_multi: list = list(os.walk(roms_path))[0][1]
 
-    excluded_roms: list[str] = [rom.file_name for rom in dbh.get_roms(p_slug)]
+    if only_amount: return len(roms_files) + len(roms_files_multi)
+
+    not_new_roms: list[str] = [rom.file_name for rom in dbh.get_roms(p_slug)]
+
     for rom in roms_files:
-        if rom in excluded_roms and not full_scan: continue
+        if rom in not_new_roms and not full_scan: continue
         file_size: str = str(round(os.stat(f"{roms_path}/{rom}").st_size / (1024 * 1024), 2))
         file_extension: str = rom.split('.')[-1] if '.' in rom else ""
         reg, rev, other_tags = parse_tags(rom)
         roms.append({'file_name': rom, 'file_path': roms_path, 'file_size': file_size, 'file_extension': file_extension,
                      'region': reg, 'revision': rev, 'tags': other_tags})
+    
+    for rom_multi in roms_files_multi:
+        if rom_multi in not_new_roms and not full_scan: continue
+        reg, rev, other_tags = parse_tags(rom_multi)
+        roms.append({'file_name': rom_multi, 'file_path': roms_path, 'multi': True, 'files': list(os.walk(f"{roms_path}/{rom_multi}"))[0][2],
+                     'region': reg, 'revision': rev, 'tags': other_tags, 'multi': True})
+
     log.info(f"Roms found for {p_slug}: {roms}")
-    if only_amount: return 0
     return roms
 
 
@@ -209,4 +214,3 @@ def get_cover_details(overwrite: bool, p_slug: str, file_name: str, url_cover: s
         path_cover_l = _get_cover_path(p_slug, file_name, 'l')
         has_cover = 1
     return path_cover_s, path_cover_l, has_cover
-

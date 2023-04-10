@@ -1,3 +1,4 @@
+import sys
 import subprocess
 from subprocess import CalledProcessError
 from fastapi import FastAPI, Request
@@ -22,6 +23,7 @@ async def startup() -> None:
         subprocess.run(['alembic', 'upgrade', 'head'], check=True)
     except CalledProcessError as e:
         log.critical(f"Could not apply migrations: {e}")
+        sys.exit(4)
 
 
 @app.put("/scan")
