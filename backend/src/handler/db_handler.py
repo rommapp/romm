@@ -15,8 +15,8 @@ from logger.logger import log
 class DBHandler:
 
     def __init__(self) -> None:
-        engine = create_engine(get_db_engine(), pool_pre_ping=True)
-        self.session = sessionmaker(bind=engine, expire_on_commit=False)
+        self.engine = create_engine(get_db_engine(), pool_pre_ping=True)
+        self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
 
     def retry(func) -> tuple:

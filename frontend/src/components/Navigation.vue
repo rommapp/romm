@@ -35,9 +35,7 @@ async function scan() {
     toRaw(platformsToScan)._rawValue.forEach(p => {platforms.push(toRaw(p.slug))})
     console.log(platforms)
 
-    await axios.put('/api/scan?overwrite='+scanOverwrite.value+'&full_scan='+fullScan.value,{
-        platforms: platforms
-    }).then((response) => {
+    await axios.get('/api/scan?platforms='+JSON.stringify(platforms)+'&overwrite='+scanOverwrite.value+'&full_scan='+fullScan.value).then((response) => {
         console.log("scan completed")
         console.log(response.data)
         emitter.emit('snackbarScan', {'msg': 'Scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
