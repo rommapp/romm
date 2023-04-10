@@ -1,11 +1,10 @@
-import axios from 'axios'
 import JSZip from "jszip"
 import { saveAs } from 'file-saver'
 
 
 export async function downloadRom(rom, emitter) {
     console.log("Downloading "+rom.file_name)
-    emitter.emit('snackbarScan', {'msg': "Gathering "+rom.file_name+"...", 'icon': 'mdi-download', 'color': 'green'})
+    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+"...", 'icon': 'mdi-download', 'color': 'green'})
     if(rom.multi){
         var zipFilename = rom.file_name+".zip"
         const zip = new JSZip()

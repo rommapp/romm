@@ -1,37 +1,43 @@
 # build frontend
 FROM node:lts-alpine as front-build-stage
 WORKDIR /front
-COPY ./frontend/package*.json ./
+COPY ./frontend/package*.json .
 RUN npm install
-COPY ./frontend ./
+COPY ./frontend .
 RUN npm run build
 
 # setup frontend
 FROM ubuntu/nginx:1.18-22.04_edge as production-stage
-COPY --from=front-build-stage /front/dist /var/www/html
-COPY ./frontend/assets/platforms /var/www/html/assets/platforms
-RUN mkdir -p /var/www/html/assets/romm
-RUN ln -s /romm/library /var/www/html/assets/romm/library
-RUN ln -s /romm/resources /var/www/html/assets/romm/resources
+ARG WEBSERVER_FOLDER=/var/www/html
+COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
+COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
+RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
+    ln -s /romm/library ${WEBSERVER_FOLDER}/assets/romm/library && \
+    ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 
 # setup backend
-RUN apt update 
-RUN apt install -y software-properties-common gcc 
-RUN add-apt-repository -y ppa:deadsnakes/ppa
-RUN apt update -y && apt install libmariadb3 libmariadb-dev -y
-RUN apt install -y python3.10 python3-pip
+RUN apt update && \
+    apt install -y --no-install-recommends ca-certificates curl gnupg && \
+      # add deadsnakes ppa for Python versions
+      echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" > /etc/apt/sources.list.d/deadsnakes-ubuntu-ppa-jammy.list && \
+      apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776 && \
+    apt update && \
+    apt install -y --no-install-recommends \
+      libmariadb3 libmariadb-dev gcc \
+      python3.10 python3.10-dev python3-pip && \
+    apt autoremove && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 WORKDIR /back
 COPY ./backend/requirements.txt ./requirements.txt
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
-COPY ./backend/src ./
+RUN pip install --no-cache --upgrade pip && \
+    pip install --no-cache --upgrade -r requirements.txt
+COPY ./backend/src .
 
 # setup init script and config files
-COPY ./docker/init_scripts/init_back /init_back
-COPY ./docker/init_scripts/init_front /init_front
-COPY ./docker/init_scripts/init /init
+COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
 
+WORKDIR /romm
 CMD ["/init"]
