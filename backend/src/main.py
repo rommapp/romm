@@ -16,7 +16,7 @@ fastapi.allow_cors(app)
 
 
 @app.on_event("startup")
-async def startup() -> None:
+def startup() -> None:
     """Startup application."""
     log.info("Applying migrations...")
     try:
@@ -27,7 +27,7 @@ async def startup() -> None:
 
 
 @app.put("/scan")
-async def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
+def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info("complete scaning...")
