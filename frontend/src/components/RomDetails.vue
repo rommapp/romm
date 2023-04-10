@@ -137,7 +137,7 @@ async function deleteRom() {
                     <tr><td>Name</td><td>{{ rom.name }}</td></tr>
                     <tr v-show="!rom.multi"><td>File</td><td>{{ rom.file_name }}</td></tr>
                     <tr v-show="rom.multi"><td>Files</td><td>
-                        <v-select item-title="file_name" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" max-width="300" return-object hide-details/>
+                        <v-select :label="rom.file_name" item-title="file_name" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" max-width="300" return-object multiple hide-details clearable/>
                     </td></tr>
                     <tr><td>Platform</td><td>{{ rom.p_slug }}</td></tr>
                     <tr><td>Size</td><td>{{ rom.file_size }} MB</td></tr>
