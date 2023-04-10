@@ -3,6 +3,7 @@ import subprocess
 from subprocess import CalledProcessError
 from fastapi import FastAPI, Request
 import uvicorn
+import json
 
 from logger.logger import log
 from handler import igdbh, dbh
@@ -21,14 +22,13 @@ def startup() -> None:
     pass    
 
 
-@app.put("/scan")
-async def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
+@app.get("/scan")
+def scan(platforms: str, full_scan: bool=False, overwrite: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info("complete scaning...")
     fs.store_default_resources(overwrite)
-    data: dict = await req.json()
-    platforms: list[str] = data['platforms'] if data['platforms'] else fs.get_platforms()
+    platforms: list[str] = json.loads(platforms) if len(json.loads(platforms)) > 0 else fs.get_platforms()
     for p_slug in platforms:
         platform: Platform = fastapi.scan_platform(p_slug)
         roms: list[dict] = fs.get_roms(p_slug, full_scan)
