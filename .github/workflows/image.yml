@@ -1,6 +1,12 @@
 name: build romm image
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'romm version'
+        required: true
+        type: string
 
 jobs:
   build:
