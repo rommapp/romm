@@ -53,7 +53,7 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def _check_folder_structure(p_slug) -> tuple:
+def _get_folder_structure(p_slug) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
     
 
@@ -95,7 +95,7 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
         only_amount: flag to return only amount of roms instead of all info
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
     """
-    roms_path = _check_folder_structure(p_slug)
+    roms_path = _get_folder_structure(p_slug)
     roms: list[dict] = []
 
     roms_files: list = _exclude_files(list(os.walk(roms_path))[0][2])
@@ -132,21 +132,21 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
     Returns
         True if rom exists in filesystem else False
     """
-    rom_path, _ = _check_folder_structure(p_slug)
+    rom_path = _get_folder_structure(p_slug)
     exists: bool = True if os.path.exists(f"{rom_path}/{file_name}") else False
     return exists
 
 
 def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
     if new_name != old_name:
-        rom_path, _ = _check_folder_structure(p_slug)
+        rom_path = _get_folder_structure(p_slug)
         if _rom_exists(p_slug, new_name): raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
         os.rename(f"{rom_path}/{old_name}", f"{rom_path}/{new_name}")
     
 
 def delete_rom(p_slug: str, file_name: str) -> None:
     try:
-        rom_path, _ = _check_folder_structure(p_slug)
+        rom_path = _get_folder_structure(p_slug)
         os.remove(f"{rom_path}/{file_name}")
     except FileNotFoundError:
         log.warning(f"Rom not found in filesystem: {rom_path}/{file_name}")
