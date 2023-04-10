@@ -27,7 +27,7 @@ def startup() -> None:
 
 
 @app.put("/scan")
-def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
+async def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info("complete scaning...")
