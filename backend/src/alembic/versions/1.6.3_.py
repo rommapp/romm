@@ -1,7 +1,8 @@
-"""
+"""add multifile games
+
 Revision ID: 1.6.3
-Revises:
-Create Date: 2023-04-10 16:21:34.680282
+Revises: 1.6.2
+Create Date: 2023-04-10 23:13:43.591414
 
 """
 from alembic import op
@@ -10,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '1.6.3'
-down_revision = None
+down_revision = '1.6.2'
 branch_labels = None
 depends_on = None
 

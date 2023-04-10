@@ -19,7 +19,7 @@ fastapi.allow_cors(app)
 @app.on_event("startup")
 def startup() -> None:
     """Startup application."""
-    pass    
+    pass
 
 
 @app.get("/scan")
@@ -110,10 +110,4 @@ async def search_rom_igdb(req: Request) -> dict:
 
 
 if __name__ == '__main__':
-    log.info("Applying migrations...")
-    try:
-        subprocess.run(['alembic', 'upgrade', 'head'], check=True)
-    except CalledProcessError as e:
-        log.critical(f"Could not apply migrations: {e}")
-        sys.exit(4)
-    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False, workers=4)
+    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
