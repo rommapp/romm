@@ -116,7 +116,11 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
     for rom_multi in roms_files_multi:
         if rom_multi in not_new_roms and not full_scan: continue
         reg, rev, other_tags = parse_tags(rom_multi)
-        roms.append({'file_name': rom_multi, 'file_path': roms_path, 'multi': True, 'files': list(os.walk(f"{roms_path}/{rom_multi}"))[0][2],
+        parts: list = _exclude_files(list(os.walk(f"{roms_path}/{rom_multi}"))[0][2])
+        file_size: float = 0.0
+        for part in parts:
+            file_size += round(os.stat(f"{roms_path}/{rom_multi}/{part}").st_size / (1024 * 1024), 2)
+        roms.append({'file_name': rom_multi, 'file_path': roms_path, 'multi': True, 'files': parts, 'file_size': str(file_size),
                      'region': reg, 'revision': rev, 'tags': other_tags, 'multi': True})
 
     log.info(f"Roms found for {p_slug}: {roms}")
