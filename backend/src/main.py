@@ -1,4 +1,5 @@
-import os
+import subprocess
+from subprocess import CalledProcessError
 from fastapi import FastAPI, Request
 import uvicorn
 
@@ -13,6 +14,41 @@ app = FastAPI()
 fastapi.allow_cors(app)
 
 
+@app.on_event("startup")
+async def startup() -> None:
+    """Startup application."""
+    log.info("Applying migrations...")
+    try:
+        subprocess.run(['alembic', 'upgrade', 'head'], check=True)
+    except CalledProcessError as e:
+        log.critical(f"Could not apply migrations: {e}")
+
+
+@app.put("/scan")
+async def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
+    """Scan platforms and roms and write them in database."""
+
+    log.info("complete scaning...")
+    fs.store_default_resources(overwrite)
+    data: dict = await req.json()
+    platforms: list[str] = data['platforms'] if data['platforms'] else fs.get_platforms()
+    for p_slug in platforms:
+        platform: Platform = fastapi.scan_platform(p_slug)
+        roms: list[dict] = fs.get_roms(p_slug, full_scan)
+        for rom in roms:
+            fastapi.scan_rom(platform, rom)
+        dbh.purge_roms(p_slug, fs.get_roms(p_slug, True))
+    dbh.purge_platforms(fs.get_platforms())
+    return {'msg': 'success'}
+
+
+@app.get("/platforms")
+async def platforms() -> dict:
+    """Returns platforms data"""
+
+    return {'data': dbh.get_platforms()}
+
+
 @app.get("/platforms/{p_slug}/roms/{file_name}")
 async def rom(p_slug: str, file_name: str) -> dict:
     """Returns one rom data of the desired platform"""
@@ -20,14 +56,11 @@ async def rom(p_slug: str, file_name: str) -> dict:
     return {'data':  dbh.get_rom(p_slug, file_name)}
 
 
-@app.delete("/platforms/{p_slug}/roms/{file_name}")
-async def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
-    """Detele rom from filesystem and database"""
+@app.get("/platforms/{p_slug}/roms")
+async def roms(p_slug: str) -> dict:
+    """Returns all roms of the desired platform"""
 
-    log.info("deleting rom...")
-    if filesystem: fs.delete_rom(p_slug, file_name)
-    dbh.delete_rom(p_slug, file_name)
-    return {'msg': 'success'}
+    return {'data':  dbh.get_roms(p_slug)}
 
 
 @app.patch("/platforms/{p_slug}/roms")
@@ -60,35 +93,13 @@ async def updateRom(req: Request, p_slug: str) -> dict:
     return {'data': updatedRom}
 
 
-@app.get("/platforms/{p_slug}/roms")
-async def roms(p_slug: str) -> dict:
-    """Returns all roms of the desired platform"""
+@app.delete("/platforms/{p_slug}/roms/{file_name}")
+async def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
+    """Detele rom from filesystem and database"""
 
-    return {'data':  dbh.get_roms(p_slug)}
-
-
-@app.get("/platforms")
-async def platforms() -> dict:
-    """Returns platforms data"""
-
-    return {'data': dbh.get_platforms()}
-
-
-@app.put("/scan")
-async def scan(req: Request, full_scan: bool=False, overwrite: bool=False) -> dict:
-    """Scan platforms and roms and write them in database."""
-
-    log.info("complete scaning...")
-    fs.store_default_resources(overwrite)
-    data: dict = await req.json()
-    platforms: list[str] = data['platforms'] if data['platforms'] else fs.get_platforms()
-    for p_slug in platforms:
-        platform: Platform = fastapi.scan_platform(p_slug)
-        roms: list[dict] = fs.get_roms(p_slug, full_scan)
-        for rom in roms:
-            fastapi.scan_rom(platform, rom)
-        dbh.purge_roms(p_slug, fs.get_roms(p_slug, True))
-    dbh.purge_platforms(fs.get_platforms())
+    log.info("deleting rom...")
+    if filesystem: fs.delete_rom(p_slug, file_name)
+    dbh.delete_rom(p_slug, file_name)
     return {'msg': 'success'}
 
 
