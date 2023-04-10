@@ -44,10 +44,9 @@ jobs:
             name=ghcr.io/zurdi15/romm
           flavor: |
             # latest on master branch, prefix dev on other branches
-            latest=${{ github.ref == format('refs/heads/{0}', 'master') }}
-            prefix=${{ github.ref != format('refs/heads/{0}', 'master') && 'dev-' || '' }}
+            latest=true
+            prefix=${{ github.ref != format('refs/heads/{0}', 'master') && 'dev-' || '' }},onlatest=true
           tags: |
-            type=raw,value=latest
             type=raw,value=${{ inputs.version }}
           labels: |
             org.opencontainers.image.version=${{ inputs.version }}
