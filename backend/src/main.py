@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 import uvicorn
 import json
 
-from logger.logger import log
+from logger.logger import log, COLORS
 from handler import igdbh, dbh
 from config import DEV_PORT, DEV_HOST
 from models.platform import Platform
@@ -26,17 +26,26 @@ def startup() -> None:
 def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
-    log.info("scaning...")
+    log.info("Scaning...")
     fs.store_default_resources()
     fs_platforms: list[str] = fs.get_platforms()
+    log.info(f"Platforms found: {', '.join(fs_platforms)}")
     platforms: list[str] = json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
     for p_slug in platforms:
+        log.info(f"{COLORS['pink']}== {p_slug} =={COLORS['reset']}")
         platform: Platform = fastapi.scan_platform(p_slug)
+        log.info(f"{p_slug} identified as {COLORS['blue']}{platform}{COLORS['reset']}")
         dbh.add_platform(platform)
+        log.info(f"Searching new roms...")
         roms: list[dict] = fs.get_roms(p_slug, full_scan)
         for rom in roms:
-            fastapi.scan_rom(platform, rom)
+            log.info(f"Getting {COLORS['orange']}{rom['file_name']}{COLORS['reset']} details")
+            if rom['multi']: [log.info(f"\t - {COLORS['orange']}{file}{COLORS['reset']}") for file in rom['files']]
+            rom = fastapi.scan_rom(platform, rom)
+            dbh.add_rom(rom)
+        log.info(f"Purging {platform} roms")
         dbh.purge_roms(p_slug, fs.get_roms(p_slug, True))
+    log.info("Purging platforms")
     dbh.purge_platforms(fs_platforms)
     return {'msg': 'success'}
 

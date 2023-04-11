@@ -9,7 +9,6 @@ from sqlalchemy.exc import ProgrammingError
 from config.config_loader import get_db_engine
 from models.platform import Platform
 from models.rom import Rom
-from logger.logger import log
 
 
 class DBHandler:
@@ -42,7 +41,6 @@ class DBHandler:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
         
     def purge_platforms(self, platforms: list[str]) -> None:
-        log.info("Purging platforms")
         with self.session.begin() as s:
             s.query(Platform) \
                 .filter(Platform.slug.not_in(platforms)) \
@@ -74,7 +72,6 @@ class DBHandler:
                 .delete(synchronize_session='evaluate')
 
     def purge_roms(self, p_slug: str, roms: list[dict]) -> None:
-        log.info(f"Purging {p_slug} roms")
         with self.session.begin() as s:
             s.query(Rom) \
                 .filter(Rom.p_slug==p_slug, Rom.file_name.not_in([rom['file_name'] for rom in roms])) \

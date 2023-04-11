@@ -17,9 +17,4 @@ class Platform(BaseModel):
     n_roms = Column(Integer, default=0)
 
     def __repr__(self) -> str:
-        return (
-            f"igdb_id: {self.igdb_id},"
-            f"slug: {self.slug},"
-            f"name: {self.name},"
-            f"n_roms: {self.n_roms},"
-        )
+        return self.name

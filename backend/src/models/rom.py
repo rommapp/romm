@@ -40,13 +40,4 @@ class Rom(BaseModel):
         return f"{self.file_path}/{self.file_name}"
 
     def __repr__(self) -> str:
-        return (
-            f"r_igdb_id: {self.r_igdb_id},"
-            f"p_igdb_id: {self.p_igdb_id},"
-            f"r_slug: {self.r_slug},"
-            f"p_slug: {self.p_slug},"
-            f"file_name: {self.file_name},"
-            f"file_path: {self.file_path},"
-            f"multi: {self.multi},"
-            f"files: {self.files}"
-        )
+        return self.file_name
