@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text
+from sqlalchemy import Column, String, Integer
 
 from config import DEFAULT_PATH_COVER_S
 from models.base import BaseModel
@@ -15,3 +15,6 @@ class Platform(BaseModel):
     logo_path = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
     
     n_roms = Column(Integer, default=0)
+
+    def __repr__(self) -> str:
+        return self.name
