@@ -1,3 +1,11 @@
+# v1.6.3 (_12-04-2023_)
+
+## Added
+ - Support for multi file games: Now RomM can scan a folder with the game name and all of its files inside the folder. No need to match the folder with the files inside. Download feature can download a zip with the entire game and all of the files or just the desired ones.
+ - Some UI tweaks
+
+<br>
+
 # v1.6.2 (_04-04-2023_)
 
 ## Added
