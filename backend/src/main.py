@@ -1,9 +1,7 @@
-import sys
-import subprocess
-from subprocess import CalledProcessError
 from fastapi import FastAPI, Request
 import uvicorn
 import json
+import emoji
 
 from logger.logger import log, COLORS
 from handler import igdbh, dbh
@@ -26,46 +24,45 @@ def startup() -> None:
 def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
-    log.info("Scaning...")
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
     fs_platforms: list[str] = fs.get_platforms()
-    log.info(f"Platforms found: {', '.join(fs_platforms)}")
+    log.info(f"Platforms detected: {', '.join(fs_platforms)}")
     platforms: list[str] = json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
     for p_slug in platforms:
-        log.info(f"{COLORS['pink']}== {p_slug} =={COLORS['reset']}")
+        log.info(emoji.emojize(f":video_game: {p_slug} {COLORS['reset']}"))
         platform: Platform = fastapi.scan_platform(p_slug)
-        log.info(f"{p_slug} identified as {COLORS['blue']}{platform}{COLORS['reset']}")
+        if p_slug != str(platform): log.info(f"Identified as {COLORS['blue']}{platform}{COLORS['reset']}")
         dbh.add_platform(platform)
-        log.info(f"Searching new roms...")
+        log.info(f"Searching new roms")
         roms: list[dict] = fs.get_roms(p_slug, full_scan)
         for rom in roms:
             log.info(f"Getting {COLORS['orange']}{rom['file_name']}{COLORS['reset']} details")
-            if rom['multi']: [log.info(f"\t - {COLORS['orange']}{file}{COLORS['reset']}") for file in rom['files']]
+            if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             rom = fastapi.scan_rom(platform, rom)
-            dbh.add_rom(rom)
-        log.info(f"Purging {platform} roms")
-        dbh.purge_roms(p_slug, fs.get_roms(p_slug, True))
-    log.info("Purging platforms")
+            dbh.add_rom(rom)    
+    log.info(emoji.emojize(":wastebasket:  Purging database"))
+    [dbh.purge_roms(p_slug, fs.get_roms(p_slug, True)) for p_slug in platforms]
     dbh.purge_platforms(fs_platforms)
     return {'msg': 'success'}
 
 
 @app.get("/platforms")
-async def platforms() -> dict:
+def platforms() -> dict:
     """Returns platforms data"""
 
     return {'data': dbh.get_platforms()}
 
 
 @app.get("/platforms/{p_slug}/roms/{file_name}")
-async def rom(p_slug: str, file_name: str) -> dict:
+def rom(p_slug: str, file_name: str) -> dict:
     """Returns one rom data of the desired platform"""
 
     return {'data':  dbh.get_rom(p_slug, file_name)}
 
 
 @app.get("/platforms/{p_slug}/roms")
-async def roms(p_slug: str) -> dict:
+def roms(p_slug: str) -> dict:
     """Returns all roms of the desired platform"""
 
     return {'data':  dbh.get_roms(p_slug)}
@@ -102,10 +99,10 @@ async def updateRom(req: Request, p_slug: str) -> dict:
 
 
 @app.delete("/platforms/{p_slug}/roms/{file_name}")
-async def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
+def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
     """Detele rom from filesystem and database"""
 
-    log.info("deleting rom...")
+    log.info(f"Deleting {file_name}")
     if filesystem: fs.delete_rom(p_slug, file_name)
     dbh.delete_rom(p_slug, file_name)
     return {'msg': 'success'}
@@ -116,8 +113,12 @@ async def search_rom_igdb(req: Request) -> dict:
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
-    log.info(f"getting {data['rom']['file_name']} roms from {data['rom']['p_slug']} igdb ...")
-    return {'data': igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])}
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
+    log.info(emoji.emojize(f":video_game: {data['rom']['p_slug']}: {COLORS['orange']}{data['rom']['file_name']}{COLORS['reset']}"))
+    matched_roms = igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])
+    log.info("Results:")
+    [log.info(f"\t - {COLORS['blue']}{rom['name']}{COLORS['reset']}") for rom in matched_roms]
+    return {'data': matched_roms}
 
 
 if __name__ == '__main__':
