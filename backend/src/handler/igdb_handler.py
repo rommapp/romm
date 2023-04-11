@@ -41,7 +41,7 @@ class IGDBHandler():
         except IndexError:
             log.warning("platform not found in igdb")
         if not name: name = slug
-        return {'igdb_id': igdb_id, 'name': name}
+        return {'igdb_id': igdb_id, 'name': name, 'slug': slug, 'logo_path': ''}
 
 
     @check_twitch_token
