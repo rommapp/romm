@@ -12,16 +12,12 @@ from logger.logger import log
 
 
 # ========= Defaults utils =========
-def store_default_resources(overwrite: bool) -> None:
-    """Store default no_cover resources in the filesystem
-    
-    Args:
-        overwrite: flag to overwrite or not default resources
-    """
-    if overwrite or not _cover_exists('default', 'cover', 'l'):
-        _store_cover('default', 'cover', DEFAULT_URL_COVER_L, 'l')
-    if overwrite or not _cover_exists('default', 'cover', 's'):
-        _store_cover('default', 'cover', DEFAULT_URL_COVER_S, 's')
+def store_default_resources() -> None:
+    """Store default cover resources in the filesystem"""
+    defaul_covers: dict = [{'url': DEFAULT_URL_COVER_L, 'size': 'l'}, {'url': DEFAULT_URL_COVER_S, 'size': 's'}]
+    for cover in defaul_covers:
+        if not _cover_exists('default', 'cover', cover['size']):
+            _store_cover('default', 'cover', cover['url'], cover['size'])
 
 
 # ========= Platforms utils =========
@@ -29,20 +25,13 @@ def get_platforms() -> list[str]:
     """Gets all filesystem platforms
     
     Returns list with all the filesystem platforms found in the LIBRARY_BASE_PATH.
-    Automatically discards the reserved directories such resources or database directory.
+    Automatically exclude folders defined in user config.
     """
     try:
-        if os.path.exists(f"{LIBRARY_BASE_PATH}/roms"):
-            platforms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/roms"))[0][1]
-        else:
-            platforms: list[str] = list(os.walk(LIBRARY_BASE_PATH))[0][1]
+        platforms: list[str] = list(os.walk(HIGH_PRIO_STRUCTURE_PATH))[0][1] if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else list(os.walk(LIBRARY_BASE_PATH))[0][1]
         try:
-            excluded_folders: list = user_config['exclude']['folders']
-            try:
-                [platforms.remove(excluded) for excluded in excluded_folders if excluded in platforms]
-            except TypeError:
-                pass
-        except KeyError:
+            [platforms.remove(excluded) for excluded in user_config['exclude']['folders'] if excluded in platforms]
+        except (KeyError, TypeError):
             pass
         log.info(f"filesystem platforms found: {platforms}")
         return platforms
@@ -53,9 +42,9 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def _get_folder_structure(p_slug) -> tuple:
+def _get_roms_structure(p_slug) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
-    
+
 
 def _exclude_files(roms_files) -> list[str]:
     try:
@@ -71,20 +60,36 @@ def _exclude_files(roms_files) -> list[str]:
 
 
 def parse_tags(file_name: str) -> tuple:
-    reg=''
-    rev=''
-    other_tags=[]
-    tags = re.findall('\(([^)]+)', file_name)
-    for t in tags:
-        if t.split('-')[0].lower() == 'reg':
-            try: reg=t.split('-', 1)[1]
+    reg: str = ''
+    rev: str = ''
+    other_tags: list = []
+    tags: list = re.findall('\(([^)]+)', file_name)
+    for tag in tags:
+        if tag.split('-')[0].lower() == 'reg':
+            try: reg = tag.split('-', 1)[1]
             except IndexError: pass
-        elif t.split('-')[0].lower() == 'rev':
-            try: rev=t.split('-', 1)[1]
+        elif tag.split('-')[0].lower() == 'rev':
+            try: rev = tag.split('-', 1)[1]
             except IndexError: pass
         else:
-            other_tags.append(t)
+            other_tags.append(tag)
     return reg, rev, other_tags
+
+
+def _get_file_extension(file: str) -> str:
+    return file.split('.')[-1] if '.' in file else ''
+
+
+def _get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
+    return [] if not multi else _exclude_files(list(os.walk(f"{roms_path}/{rom}"))[0][2])
+
+
+def _get_file_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
+    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
+    total_size: float = 0.0
+    for file in files:
+        total_size += round(os.stat(file).st_size / (1024 * 1024), 2)
+    return str(total_size)
 
 
 def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[dict]:
@@ -92,36 +97,26 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
 
     Args:
         p_slug: short name of the platform
+        full_scan: flag to get all roms in fs or only new ones
         only_amount: flag to return only amount of roms instead of all info
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
     """
-    roms_path = _get_folder_structure(p_slug)
+    roms_path = _get_roms_structure(p_slug)
     roms: list[dict] = []
+    db_roms: list[str] = [rom.file_name for rom in dbh.get_roms(p_slug)]
+    fs_roms: list[dict] = [{'multi': False, 'file': rom} for rom in _exclude_files(list(os.walk(roms_path))[0][2])] + \
+                          [{'multi': True, 'file': rom} for rom in list(os.walk(roms_path))[0][1]]
 
-    roms_files: list = _exclude_files(list(os.walk(roms_path))[0][2])
-    roms_files_multi: list = list(os.walk(roms_path))[0][1]
+    if only_amount: return len(db_roms)
 
-    if only_amount: return len(roms_files) + len(roms_files_multi)
-
-    not_new_roms: list[str] = [rom.file_name for rom in dbh.get_roms(p_slug)]
-
-    for rom in roms_files:
-        if rom in not_new_roms and not full_scan: continue
-        file_size: str = str(round(os.stat(f"{roms_path}/{rom}").st_size / (1024 * 1024), 2))
-        file_extension: str = rom.split('.')[-1] if '.' in rom else ""
-        reg, rev, other_tags = parse_tags(rom)
-        roms.append({'file_name': rom, 'file_path': roms_path, 'file_size': file_size, 'file_extension': file_extension,
+    for rom in fs_roms:
+        if rom in db_roms and not full_scan: continue
+        reg, rev, other_tags = parse_tags(rom['file'])
+        file_extension: str = _get_file_extension(rom['file'])
+        files: list = _get_rom_files(rom['multi'], rom['file'], roms_path)
+        file_size: str = _get_file_size(rom['multi'], rom['file'], files, roms_path)
+        roms.append({'file_name': rom['file'], 'file_path': roms_path, 'multi': rom['multi'], 'files': files, 'file_size': file_size, 'file_extension': file_extension,
                      'region': reg, 'revision': rev, 'tags': other_tags})
-    
-    for rom_multi in roms_files_multi:
-        if rom_multi in not_new_roms and not full_scan: continue
-        reg, rev, other_tags = parse_tags(rom_multi)
-        parts: list = _exclude_files(list(os.walk(f"{roms_path}/{rom_multi}"))[0][2])
-        file_size: float = 0.0
-        for part in parts:
-            file_size += round(os.stat(f"{roms_path}/{rom_multi}/{part}").st_size / (1024 * 1024), 2)
-        roms.append({'file_name': rom_multi, 'file_path': roms_path, 'multi': True, 'files': parts, 'file_size': str(file_size),
-                     'region': reg, 'revision': rev, 'tags': other_tags, 'multi': True})
 
     log.info(f"Roms found for {p_slug}: {roms}")
     return roms
@@ -136,22 +131,25 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
     Returns
         True if rom exists in filesystem else False
     """
-    rom_path = _get_folder_structure(p_slug)
+    rom_path = _get_roms_structure(p_slug)
     exists: bool = True if os.path.exists(f"{rom_path}/{file_name}") else False
     return exists
 
 
 def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
     if new_name != old_name:
-        rom_path = _get_folder_structure(p_slug)
+        rom_path = _get_roms_structure(p_slug)
         if _rom_exists(p_slug, new_name): raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
         os.rename(f"{rom_path}/{old_name}", f"{rom_path}/{new_name}")
     
 
 def delete_rom(p_slug: str, file_name: str) -> None:
+    rom_path = _get_roms_structure(p_slug)
     try:
-        rom_path = _get_folder_structure(p_slug)
-        os.remove(f"{rom_path}/{file_name}")
+        try:
+            os.remove(f"{rom_path}/{file_name}")
+        except IsADirectoryError:
+            shutil.rmtree(f"{rom_path}/{file_name}")
     except FileNotFoundError:
         log.warning(f"Rom not found in filesystem: {rom_path}/{file_name}")
 
@@ -168,17 +166,6 @@ def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
     """
     logo_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
     return True if os.path.exists(logo_path) else False
-
-
-def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
-    """Returns rom cover filesystem path adapted to frontend folder structure
-    
-    Args:
-        p_slug: short name of the platform
-        file_name: name of rom file
-        size: size of the cover -> big as 'l' | small as 's'
-    """
-    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
 
 
 def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None:
@@ -201,6 +188,17 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None
         log.info(f"{file_name} {sizes[size]} cover downloaded successfully!")
     else:
         log.warning(f"{file_name} {sizes[size]} cover couldn't be downloaded")
+
+
+def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
+    """Returns rom cover filesystem path adapted to frontend folder structure
+    
+    Args:
+        p_slug: short name of the platform
+        file_name: name of rom file
+        size: size of the cover -> big as 'l' | small as 's'
+    """
+    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
 
 
 def get_cover_details(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
