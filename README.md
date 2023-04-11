@@ -15,6 +15,7 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Access your library via your web-browser
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
 * EmuDeck folder structure compatibility
+* Multiple files games support
 * Download games directly from your web-browser
 * Edit your game files directly from your web-browser
 * Region, revision/version and extra tags support
@@ -27,7 +28,6 @@ For now, it is only available as a docker [image](https://hub.docker.com/r/zurdi
 * Upload games directly from your web-browser - [issue #54](https://github.com/zurdi15/romm/issues/54)
 * Manage save files directly from your web-browser - [issue #55](https://github.com/zurdi15/romm/issues/55)
 * Set a custom cover for each game - [issue #53](https://github.com/zurdi15/romm/issues/53)
-* Multiple files games support - [issue #40](https://github.com/zurdi15/romm/issues/40)
 
 # Prerequisites
 
@@ -49,9 +49,12 @@ RomM will try to find the structure 1 and if it doesn't exists, RomM will try to
      │  ├─ rom_1.gba
      │  ├─ rom_2.gba
      │ 
-     ├─ gb/
-        ├─ rom_1.gb
-        ├─ rom_1.gb
+     ├─ ps/
+        ├─ my_multifile_game/
+        │   ├─ my_game_cd1.iso
+        │   ├─ my_game_cd2.iso
+        │
+        ├─ rom_1.iso
   ```
   - Structure 2 (priority low) - roms folder inside each platform folder
   ```
@@ -66,10 +69,13 @@ RomM will try to find the structure 1 and if it doesn't exists, RomM will try to
   │     ├─ rom_1.gba
   │     ├─ rom_2.gba
   |
-  ├─ gb/
+  ├─ ps/
   │  ├─ roms/
-  │     ├─ rom_1.gb
-  │     ├─ rom_1.gb
+  │     ├─ my_multifile_game/
+  │     │  ├─ my_game_cd1.iso
+  │     │  ├─ my_game_cd2.iso
+  │     │
+  │     ├─ rom_1.iso
   ```
 
 # Preview
