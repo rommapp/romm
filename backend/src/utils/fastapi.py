@@ -29,12 +29,9 @@ def scan_platform(p_slug: str) -> Platform:
     """
     log.info(f"Getting {p_slug} details")
     platform_attrs: dict = igdbh.get_platform_details(p_slug)
-    platform_attrs['slug'] = p_slug
-    platform_attrs['logo_path'] = ''
     platform_attrs['n_roms'] = fs.get_roms(p_slug, True, only_amount=True)
-    log.info(f"Platform n_roms: {platform_attrs['n_roms']}")
+    log.info(f"Roms found for {platform_attrs['name']}: {platform_attrs['n_roms']}")
     platform = Platform(**platform_attrs)
-    dbh.add_platform(platform)
     return platform
 
 
