@@ -102,7 +102,7 @@ getPlatforms()
         <v-divider class="border-opacity-100" :thickness="2"/>
         <v-list>
             <!-- Settings drawer - scan button -->
-            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2 mb-1" density="comfortable" variant="outlined" multiple return-object clearable hide-details/>
+            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2 mb-1" density="comfortable" variant="outlined" multiple return-object clearable hide-details chips/>
             <v-list-item class="pa-0">
                 <v-row class="align-center">
                     <v-col class="d-flex justify-center">
