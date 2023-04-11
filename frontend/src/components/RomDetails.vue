@@ -223,7 +223,7 @@ async function deleteRom() {
                 <v-btn @click="dialogDeleteRom=false" variant="tonal">Cancel</v-btn>
             </v-card-actions>
             <div class="pl-8">
-                <v-checkbox v-model="deleteFromFs" label="Delete from filesystem" hide-details="true"/>
+                <v-checkbox v-model="deleteFromFs" label="Remove from filesystem" hide-details="true"/>
             </div>
         </v-card>
     </v-dialog>
