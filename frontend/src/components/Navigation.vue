@@ -9,7 +9,6 @@ const platforms = ref([])
 const currentPlatform = ref(JSON.parse(localStorage.getItem('currentPlatform')) || "")
 const platformsToScan = ref([])
 const scanning = ref(false)
-const scanOverwrite = ref(false)
 const fullScan = ref(false)
 const gettingRomsFlag = ref(false)
 const filter = ref('')
@@ -35,9 +34,7 @@ async function scan() {
     toRaw(platformsToScan)._rawValue.forEach(p => {platforms.push(toRaw(p.slug))})
     console.log(platforms)
 
-    await axios.put('/api/scan?overwrite='+scanOverwrite.value+'&full_scan='+fullScan.value,{
-        platforms: platforms
-    }).then((response) => {
+    await axios.get('/api/scan?platforms_to_scan='+JSON.stringify(platforms)+'&full_scan='+fullScan.value).then((response) => {
         console.log("scan completed")
         console.log(response.data)
         emitter.emit('snackbarScan', {'msg': 'Scan completed successfully!', 'icon': 'mdi-check-bold', 'color': 'green'})
@@ -104,7 +101,7 @@ getPlatforms()
         <v-divider class="border-opacity-100" :thickness="2"/>
         <v-list>
             <!-- Settings drawer - scan button -->
-            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2" density="comfortable" variant="outlined" multiple return-object clearable/>
+            <v-select label="Platforms" item-title="name" v-model="platformsToScan" :items="platforms" class="pl-5 pr-5 mt-2 mb-1" density="comfortable" variant="outlined" multiple return-object clearable hide-details chips/>
             <v-list-item class="pa-0">
                 <v-row class="align-center">
                     <v-col class="d-flex justify-center">
@@ -145,9 +142,13 @@ getPlatforms()
 
         <!-- Mobile -->
         <!-- Platforms drawer toggle -->
-        <v-app-bar-nav-icon @click="drawer = !drawer" class="ma-2 hidden-lg-and-up" rounded="0"/>
+        <!-- <v-app-bar-nav-icon @click="drawer = !drawer" class="ma-2 hidden-lg-and-up" rounded="0"/> -->
         <!-- Platform icon -->
-        <v-avatar class="ma-2 hidden-lg-and-up" :rounded="0" :image="'/assets/platforms/'+currentPlatform.slug+'.ico'"/>
+        <v-btn @click="drawer = !drawer" class="ma-4 hidden-lg-and-up" rounded="0" icon>
+            <v-avatar rounded="0">
+                <v-img :src="'/assets/platforms/'+currentPlatform.slug+'.ico'"/>
+            </v-avatar>
+        </v-btn>
 
         <v-spacer class="hidden-xs-and-down"></v-spacer>
 
