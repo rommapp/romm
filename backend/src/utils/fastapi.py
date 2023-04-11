@@ -16,7 +16,6 @@ def allow_cors(app: FastAPI) -> None:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    log.info("CORS enabled")
 
 
 def scan_platform(p_slug: str) -> Platform:

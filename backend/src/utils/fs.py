@@ -35,7 +35,7 @@ def get_platforms() -> list[str]:
             pass
         return platforms
     except IndexError:
-        error: str = "Platforms not found."
+        error: str = "Platforms not found"
         log.critical(error)
         raise HTTPException(status_code=404, detail=error)
 
@@ -148,7 +148,7 @@ def delete_rom(p_slug: str, file_name: str) -> None:
         except IsADirectoryError:
             shutil.rmtree(f"{rom_path}/{file_name}")
     except FileNotFoundError:
-        log.warning(f"Rom not found in filesystem: {rom_path}/{file_name}")
+        log.error(f"{rom_path}/{file_name} not found in filesystem")
 
 
 def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
@@ -184,7 +184,7 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None
             shutil.copyfileobj(res.raw, f)
         log.info(f"{file_name} {sizes[size]} cover downloaded successfully!")
     else:
-        log.warning(f"{file_name} {sizes[size]} cover couldn't be downloaded")
+        log.error(f"{file_name} {sizes[size]} cover couldn't be downloaded")
 
 
 def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
