@@ -39,9 +39,9 @@ class IGDBHandler():
             igdb_id = res_details['id']
             name = res_details['name']
         except IndexError:
-            log.warning("platform not found in igdb")
+            log.warning(f"{slug} not found in IGDB")
         if not name: name = slug
-        return {'igdb_id': igdb_id, 'name': name}
+        return {'igdb_id': igdb_id, 'name': name, 'slug': slug, 'logo_path': ''}
 
 
     @check_twitch_token
@@ -101,33 +101,36 @@ class IGDBHandler():
                             except KeyError:
                                 pass
                         except IndexError:
-                            log.warning(f"{file_name} rom not found in igdb")
+                            log.warning(f"{file_name} not found in IGDB")
         if r_igdb_id:
             try:
                 res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
                                                   data=f"fields url; where game={r_igdb_id};").json()[0]
                 url_cover: str = f"https:{res_details['url']}"
             except IndexError:
-                log.warning(f"{name} cover not found in igdb")
+                log.warning(f"{name} cover not found in IGDB")
         if not name: name = file_name_no_tags
         return (r_igdb_id, file_name_no_tags, slug, name, summary, url_cover)
 
     
     @check_twitch_token
-    def get_matched_roms(self, file_name: str, p_igdb_id: int) -> list:
-        search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
-        matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                           data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
-        log.info(f"Matched roms for {file_name}: {matched_roms}")
-        for rom in matched_roms:
-            try:
-                res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
-                                                  data=f"fields url; where game={rom['id']};").json()[0]
-                rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
-            except IndexError:
-                rom['url_cover'] = DEFAULT_URL_COVER_L
-            rom['r_igdb_id'] = rom.pop('id')
-            rom['r_slug'] = rom.pop('slug')
+    def get_matched_roms(self, file_name: str, p_igdb_id: int, p_slug: str) -> list:
+        matched_roms: list[dict] = []
+        if p_igdb_id != '':
+            search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
+            matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
+                                               data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
+            for rom in matched_roms:
+                try:
+                    res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
+                                                    data=f"fields url; where game={rom['id']};").json()[0]
+                    rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
+                except IndexError:
+                    rom['url_cover'] = DEFAULT_URL_COVER_L
+                rom['r_igdb_id'] = rom.pop('id')
+                rom['r_slug'] = rom.pop('slug')
+        else:
+            log.warning(f"{p_slug} is not supported!")
         return matched_roms
 
 
@@ -158,14 +161,14 @@ class TwitchAuth():
         try:
             self.token_valid_seconds = res['expires_in']
             self.token = res['access_token']
-            log.info("twitch token fetched!")
+            log.info("Twitch token fetched!")
         except KeyError:
-            log.error("could not get twitch auth token: check client_id and client_secret")
+            log.error("Could not get twitch auth token: check client_id and client_secret")
             sys.exit(2)
 
 
     def get_oauth_token(self) -> str:
         if not self._is_token_valid():
-            log.warning("twitch token invalid: fetching a new one")
+            log.warning("Twitch token invalid: fetching a new one")
             self._update_twitch_token()
         return self.token

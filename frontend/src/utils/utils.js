@@ -1,22 +1,41 @@
-import axios from 'axios'
+import JSZip from "jszip"
+import { toRaw } from "vue"
 import { saveAs } from 'file-saver'
 
 
-export function downloadRom(rom, emitter) {
+export async function downloadRom(rom, emitter, filesToDownload=[]) {
     console.log("Downloading "+rom.file_name)
-    emitter.emit('snackbarScan', {'msg': "Gathering "+rom.file_name+"...", 'icon': 'mdi-download', 'color': 'green'})
-    emitter.emit('downloadingRom', true)
-    axios.get('/assets'+rom.file_path+'/'+rom.file_name, { responseType: 'blob' }).then(response => {
-        emitter.emit('downloadingRom', false, rom.file_name)
-        emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name, 'icon': 'mdi-download', 'color': 'green'})
-        saveAs(new Blob([response.data], { type: 'application/file' }), rom.file_name)
-    }).catch((error) => {
-        emitter.emit('downloadingRom', false)
-        console.log(error)
-        emitter.emit('snackbarScan', {'msg': "Couldn't download "+rom.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
-    })
+    emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+"...", 'icon': 'mdi-download', 'color': 'green'})
+    if(rom.multi){
+        var files = []
+        toRaw(filesToDownload).forEach(f => {files.push(toRaw(f))})
+        var zipFilename = rom.file_name+".zip"
+        const zip = new JSZip()
+        var count = 0
+        if (files.length == 0){ files = rom.files }
+        files.forEach(async function (file_part) {
+            var file_full_path = "/assets"+rom.file_path+"/"+rom.file_name+"/"+file_part
+            console.log("downloading part: "+file_full_path)
+            var file = await fetch(file_full_path)
+            var fileBlob = await file.blob()
+            var f = zip.folder(rom.file_name);
+            f.file(file_part, fileBlob, { binary: true });
+            count ++
+            if (count == files.length) {
+                zip.generateAsync({ type: 'blob' }).then(function (content) {
+                    saveAs(content, zipFilename);
+                });
+            }
+        })
+    }
+    else{
+        var file_full_path = "/assets"+rom.file_path+"/"+rom.file_name
+        var file = await fetch(file_full_path)
+        var fileBlob = await file.blob()
+        saveAs(fileBlob, rom.file_name)
+    }
 }
 
-export function downloadSave(rom, emitter) {
+export async function downloadSave(rom, emitter) {
     console.log("Downloading "+rom.file_name+" save file")
 }
