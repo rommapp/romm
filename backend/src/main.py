@@ -51,21 +51,21 @@ def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
 
 
 @app.get("/platforms")
-async def platforms() -> dict:
+def platforms() -> dict:
     """Returns platforms data"""
 
     return {'data': dbh.get_platforms()}
 
 
 @app.get("/platforms/{p_slug}/roms/{file_name}")
-async def rom(p_slug: str, file_name: str) -> dict:
+def rom(p_slug: str, file_name: str) -> dict:
     """Returns one rom data of the desired platform"""
 
     return {'data':  dbh.get_rom(p_slug, file_name)}
 
 
 @app.get("/platforms/{p_slug}/roms")
-async def roms(p_slug: str) -> dict:
+def roms(p_slug: str) -> dict:
     """Returns all roms of the desired platform"""
 
     return {'data':  dbh.get_roms(p_slug)}
@@ -102,7 +102,7 @@ async def updateRom(req: Request, p_slug: str) -> dict:
 
 
 @app.delete("/platforms/{p_slug}/roms/{file_name}")
-async def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
+def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
     """Detele rom from filesystem and database"""
 
     log.info("deleting rom...")
@@ -121,4 +121,4 @@ async def search_rom_igdb(req: Request) -> dict:
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
+    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False)
