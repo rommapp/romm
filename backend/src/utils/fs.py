@@ -136,7 +136,9 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
 def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
     if new_name != old_name:
         rom_path = _get_roms_structure(p_slug)
-        if _rom_exists(p_slug, new_name): raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
+        if _rom_exists(p_slug, new_name):
+            log.info(f"Can't rename {old_name} to {new_name}. {new_name} already exists")
+            raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
         os.rename(f"{rom_path}/{old_name}", f"{rom_path}/{new_name}")
     
 
