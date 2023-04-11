@@ -27,5 +27,5 @@ def get_db_engine():
             return f"sqlite:////{SQLITE_DB_BASE_PATH}/romm.db"
 
     else:
-        log.critical(f"Not supported {ROMM_DB_DRIVER} database")
+        log.critical(f"{ROMM_DB_DRIVER} database not supported")
         sys.exit(3)

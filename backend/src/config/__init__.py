@@ -10,8 +10,8 @@ DEV_HOST: str = "0.0.0.0"
 LIBRARY_BASE_PATH: str = "/romm/library"
 ROMM_USER_CONFIG_PATH: str = "/romm/config.yml"
 SQLITE_DB_BASE_PATH: str = "/romm/database"
-HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
 RESOURCES_BASE_PATH: str = "/romm/resources"
+HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: str = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"

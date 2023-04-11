@@ -94,13 +94,13 @@ onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.pars
             </v-hover>
         </v-col>
     </v-row>
+    
+    <v-row v-if="noRoms" class="d-flex justify-center align-center mt-16">
+        <div class="text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
+    </v-row>
 
     <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
         <v-progress-circular :width="3" :size="70" indeterminate/>
-    </v-dialog>
-
-    <v-dialog v-model="noRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
-        <div class="text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-dialog>
 
 </template>
