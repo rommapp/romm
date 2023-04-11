@@ -27,8 +27,8 @@ def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
     fs_platforms: list[str] = fs.get_platforms()
-    log.info(f"Platforms detected: {', '.join(fs_platforms)}")
     platforms: list[str] = json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
+    log.info(f"Platforms detected: {', '.join(platforms)}")
     for p_slug in platforms:
         log.info(emoji.emojize(f":video_game: {p_slug} {COLORS['reset']}"))
         platform: Platform = fastapi.scan_platform(p_slug)
@@ -38,7 +38,7 @@ def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
         roms: list[dict] = fs.get_roms(p_slug, full_scan)
         for rom in roms:
             log.info(f"Getting {COLORS['orange']}{rom['file_name']}{COLORS['reset']} details")
-            if rom['multi']: [log.info(f"\t - {COLORS['orange']}{file}{COLORS['reset']}") for file in rom['files']]
+            if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             rom = fastapi.scan_rom(platform, rom)
             dbh.add_rom(rom)    
     log.info(emoji.emojize(":wastebasket:  Purging database"))
@@ -75,6 +75,7 @@ async def updateRom(req: Request, p_slug: str) -> dict:
     data: dict = await req.json()
     rom: dict = data['rom']
     updatedRom: dict = data['updatedRom']
+    log.info(f"Updating {COLORS['orange']}{updatedRom['file_name']}{COLORS['reset']} details")
     r_igdb_id, file_name_no_tags, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(updatedRom['file_name'], rom['p_igdb_id'], updatedRom['r_igdb_id'])
     path_cover_s, path_cover_l, has_cover = fs.get_cover_details(True, p_slug, updatedRom['file_name'], url_cover)
     updatedRom['file_name_no_tags'] = file_name_no_tags
@@ -99,12 +100,14 @@ async def updateRom(req: Request, p_slug: str) -> dict:
 
 
 @app.delete("/platforms/{p_slug}/roms/{file_name}")
-def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
+def remove_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
     """Detele rom from filesystem and database"""
 
-    log.info("deleting rom...")
-    if filesystem: fs.delete_rom(p_slug, file_name)
+    log.info(f"Deleting {file_name} from database")
     dbh.delete_rom(p_slug, file_name)
+    if filesystem:
+        log.info(f"Removing {file_name} from filesystem")
+        fs.remove_rom(p_slug, file_name)
     return {'msg': 'success'}
 
 
@@ -113,8 +116,12 @@ async def search_rom_igdb(req: Request) -> dict:
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
-    log.info(f"getting {data['rom']['file_name']} roms from {data['rom']['p_slug']} igdb ...")
-    return {'data': igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])}
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
+    log.info(emoji.emojize(f":video_game: {data['rom']['p_slug']}: {COLORS['orange']}{data['rom']['file_name']}{COLORS['reset']}"))
+    matched_roms = igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])
+    log.info("Results:")
+    [log.info(f"\t - {COLORS['blue']}{rom['name']}{COLORS['reset']}") for rom in matched_roms]
+    return {'data': matched_roms}
 
 
 if __name__ == '__main__':

@@ -35,7 +35,7 @@ def get_platforms() -> list[str]:
             pass
         return platforms
     except IndexError:
-        error: str = "Platforms not found."
+        error: str = "Platforms not found"
         log.critical(error)
         raise HTTPException(status_code=404, detail=error)
 
@@ -136,11 +136,13 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
 def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
     if new_name != old_name:
         rom_path = _get_roms_structure(p_slug)
-        if _rom_exists(p_slug, new_name): raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
+        if _rom_exists(p_slug, new_name):
+            log.info(f"Can't rename {old_name} to {new_name}. {new_name} already exists")
+            raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
         os.rename(f"{rom_path}/{old_name}", f"{rom_path}/{new_name}")
     
 
-def delete_rom(p_slug: str, file_name: str) -> None:
+def remove_rom(p_slug: str, file_name: str) -> None:
     rom_path = _get_roms_structure(p_slug)
     try:
         try:
@@ -148,7 +150,7 @@ def delete_rom(p_slug: str, file_name: str) -> None:
         except IsADirectoryError:
             shutil.rmtree(f"{rom_path}/{file_name}")
     except FileNotFoundError:
-        log.warning(f"Rom not found in filesystem: {rom_path}/{file_name}")
+        log.error(f"{rom_path}/{file_name} not found in filesystem")
 
 
 def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
@@ -184,7 +186,7 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None
             shutil.copyfileobj(res.raw, f)
         log.info(f"{file_name} {sizes[size]} cover downloaded successfully!")
     else:
-        log.warning(f"{file_name} {sizes[size]} cover couldn't be downloaded")
+        log.error(f"{file_name} {sizes[size]} cover couldn't be downloaded")
 
 
 def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
