@@ -118,4 +118,4 @@ async def search_rom_igdb(req: Request) -> dict:
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False)
+    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
