@@ -27,8 +27,8 @@ def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
     fs_platforms: list[str] = fs.get_platforms()
-    log.info(f"Platforms detected: {', '.join(fs_platforms)}")
     platforms: list[str] = json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
+    log.info(f"Platforms detected: {', '.join(platforms)}")
     for p_slug in platforms:
         log.info(emoji.emojize(f":video_game: {p_slug} {COLORS['reset']}"))
         platform: Platform = fastapi.scan_platform(p_slug)
@@ -100,12 +100,14 @@ async def updateRom(req: Request, p_slug: str) -> dict:
 
 
 @app.delete("/platforms/{p_slug}/roms/{file_name}")
-def delete_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
+def remove_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
     """Detele rom from filesystem and database"""
 
-    log.info(f"Deleting {file_name}")
-    if filesystem: fs.delete_rom(p_slug, file_name)
+    log.info(f"Deleting {file_name} from database")
     dbh.delete_rom(p_slug, file_name)
+    if filesystem:
+        log.info(f"Removing {file_name} from filesystem")
+        fs.remove_rom(p_slug, file_name)
     return {'msg': 'success'}
 
 

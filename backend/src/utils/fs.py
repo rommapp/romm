@@ -142,7 +142,7 @@ def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
         os.rename(f"{rom_path}/{old_name}", f"{rom_path}/{new_name}")
     
 
-def delete_rom(p_slug: str, file_name: str) -> None:
+def remove_rom(p_slug: str, file_name: str) -> None:
     rom_path = _get_roms_structure(p_slug)
     try:
         try:
