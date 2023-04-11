@@ -142,9 +142,13 @@ getPlatforms()
 
         <!-- Mobile -->
         <!-- Platforms drawer toggle -->
-        <v-app-bar-nav-icon @click="drawer = !drawer" class="ma-2 hidden-lg-and-up" rounded="0"/>
+        <!-- <v-app-bar-nav-icon @click="drawer = !drawer" class="ma-2 hidden-lg-and-up" rounded="0"/> -->
         <!-- Platform icon -->
-        <v-avatar class="ma-2 hidden-lg-and-up" :rounded="0" :image="'/assets/platforms/'+currentPlatform.slug+'.ico'"/>
+        <v-btn @click="drawer = !drawer" class="ma-4 hidden-lg-and-up" rounded="0" icon>
+            <v-avatar rounded="0">
+                <v-img :src="'/assets/platforms/'+currentPlatform.slug+'.ico'"/>
+            </v-avatar>
+        </v-btn>
 
         <v-spacer class="hidden-xs-and-down"></v-spacer>
 

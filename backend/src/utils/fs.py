@@ -33,7 +33,6 @@ def get_platforms() -> list[str]:
             [platforms.remove(excluded) for excluded in user_config['exclude']['folders'] if excluded in platforms]
         except (KeyError, TypeError):
             pass
-        log.info(f"filesystem platforms found: {platforms}")
         return platforms
     except IndexError:
         error: str = "Platforms not found."
@@ -110,15 +109,13 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
     if only_amount: return len(db_roms)
 
     for rom in fs_roms:
-        if rom in db_roms and not full_scan: continue
+        if rom['file'] in db_roms and not full_scan: continue
         reg, rev, other_tags = parse_tags(rom['file'])
         file_extension: str = _get_file_extension(rom['file'])
         files: list = _get_rom_files(rom['multi'], rom['file'], roms_path)
         file_size: str = _get_file_size(rom['multi'], rom['file'], files, roms_path)
         roms.append({'file_name': rom['file'], 'file_path': roms_path, 'multi': rom['multi'], 'files': files, 'file_size': file_size, 'file_extension': file_extension,
                      'region': reg, 'revision': rev, 'tags': other_tags})
-
-    log.info(f"Roms found for {p_slug}: {roms}")
     return roms
 
 
