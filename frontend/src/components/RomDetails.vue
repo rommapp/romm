@@ -17,6 +17,7 @@ const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const router = useRouter()
+const filesToDownload = ref([])
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -99,7 +100,7 @@ async function deleteRom() {
                     <v-container>
                         <v-row>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadRom(rom, emitter)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                                <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
                             </v-col>
                             <v-col class="pa-1">
                                 <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
@@ -137,7 +138,7 @@ async function deleteRom() {
                     <tr><td>Name</td><td>{{ rom.name }}</td></tr>
                     <tr v-show="!rom.multi"><td>File</td><td>{{ rom.file_name }}</td></tr>
                     <tr v-show="rom.multi"><td>Files</td><td>
-                        <v-select :label="rom.file_name" item-title="file_name" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/>
+                        <v-select :label="rom.file_name" item-title="file_name" v-model="filesToDownload" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/>
                     </td></tr>
                     <tr><td>Platform</td><td>{{ rom.p_slug }}</td></tr>
                     <tr><td>Size</td><td>{{ rom.file_size }} MB</td></tr>
