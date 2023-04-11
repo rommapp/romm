@@ -75,6 +75,7 @@ async def updateRom(req: Request, p_slug: str) -> dict:
     data: dict = await req.json()
     rom: dict = data['rom']
     updatedRom: dict = data['updatedRom']
+    log.info(f"Updating {COLORS['orange']}{updatedRom['file_name']}{COLORS['reset']} details")
     r_igdb_id, file_name_no_tags, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(updatedRom['file_name'], rom['p_igdb_id'], updatedRom['r_igdb_id'])
     path_cover_s, path_cover_l, has_cover = fs.get_cover_details(True, p_slug, updatedRom['file_name'], url_cover)
     updatedRom['file_name_no_tags'] = file_name_no_tags
