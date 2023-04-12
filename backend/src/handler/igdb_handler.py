@@ -123,7 +123,7 @@ class IGDBHandler():
             for rom in matched_roms:
                 try:
                     res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
-                                                    data=f"fields url; where game={rom['id']};").json()[0]
+                                                      data=f"fields url; where game={rom['id']};").json()[0]
                     rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
                 except IndexError:
                     rom['url_cover'] = DEFAULT_URL_COVER_L
@@ -131,6 +131,21 @@ class IGDBHandler():
                 rom['r_slug'] = rom.pop('slug')
         else:
             log.warning(f"{p_slug} is not supported!")
+        return matched_roms
+    
+    def get_matched_roms_by_id(self, igdb_id: str) -> list:
+        matched_roms: list[dict] = []
+        matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
+                                            data=f"fields name, id, slug, summary; where id={igdb_id};").json()
+        for rom in matched_roms:
+            try:
+                res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
+                                                  data=f"fields url; where game={rom['id']};").json()[0]
+                rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
+            except IndexError:
+                rom['url_cover'] = DEFAULT_URL_COVER_L
+            rom['r_igdb_id'] = rom.pop('id')
+            rom['r_slug'] = rom.pop('slug')
         return matched_roms
 
 
