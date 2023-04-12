@@ -21,14 +21,14 @@ def startup() -> None:
 
 
 @app.get("/scan")
-def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
+def scan(platforms: str, full_scan: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
     fs_platforms: list[str] = fs.get_platforms()
-    platforms: list[str] = json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
-    log.info(f"Platforms detected: {', '.join(platforms)}")
+    platforms: list[str] = json.loads(platforms) if len(json.loads(platforms)) > 0 else fs_platforms
+    log.info(f"Platforms to be scanned: {', '.join(platforms)}")
     for p_slug in platforms:
         log.info(emoji.emojize(f":video_game: {p_slug} {COLORS['reset']}"))
         platform: Platform = fastapi.scan_platform(p_slug)
