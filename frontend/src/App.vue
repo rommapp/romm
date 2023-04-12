@@ -1,47 +1,36 @@
 <script setup>
 import { ref, inject } from "vue"
 import { useTheme } from "vuetify"
-import Navigation from '@/components/Navigation.vue'
+import AppBar from '@/components/AppBar/Base.vue'
+import PlatformsDrawer from '@/components/PlatformsDrawer.vue'
+import SettingsDrawer from '@/components/SettingsDrawer.vue'
+import Notification from '@/components/Notification.vue'
 
 // Props
 useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
-const refreshPlatforms = ref(false)
-const refreshRoms = ref(false)
-const snackbarShow = ref(false)
-const snackbarStatus = ref({})
+const refresh = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('refresh', () => { 
-  refreshPlatforms.value = !refreshPlatforms.value 
-  refreshRoms.value = !refreshRoms.value
-})
-emitter.on('refreshRoms', () => { refreshRoms.value = !refreshRoms.value })
-emitter.on('snackbarScan', (snackbar) => {
-  snackbarShow.value = true
-  snackbarStatus.value = snackbar
-})
+emitter.on('refresh', () => { refresh.value = !refresh.value })
 </script>
 
 <template>
   <v-app>
-    
-    <navigation :key="refreshPlatforms"/>
-    
-    <v-snackbar v-model="snackbarShow" :timeout="4000" location="top" class="mt-4">
-        <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
-        {{ snackbarStatus.msg }}
-        <template v-slot:actions>
-            <v-btn @click="snackbarShow=false" variant="text"><v-icon icon="mdi-close"/></v-btn>
-        </template>
-    </v-snackbar>
-    
+
+    <settings-drawer/>
+
+    <app-bar/>
+
+    <platforms-drawer :key="refresh"/>
+
     <v-main>
       <v-container fluid>
-        <router-view :key="refreshRoms"/>
+        <router-view :key="refresh"/>
       </v-container>
     </v-main>
 
+    <notification/>
 
   </v-app>
 </template>

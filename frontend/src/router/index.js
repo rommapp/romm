@@ -4,11 +4,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   {
     path: '/',
-    component: () => import('@/components/RomsGallery.vue')
+    component: () => import('@/views/Gallery.vue')
   },
   {
     path: '/details',
-    component: () => import('@/components/RomDetails.vue')
+    component: () => import('@/views/Details.vue')
   }
 ]
 

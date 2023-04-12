@@ -16,18 +16,15 @@ const saveFiles = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('currentPlatform', (platform) => { getRoms(platform.slug) })
-emitter.on('romsFilter', (filter) => { setFilter(filter) })
+emitter.on('selectedPlatform', (platform) => { getRoms(platform.slug) })
+emitter.on('filter', (filter) => { setFilter(filter) })
 
 // Functions
 async function getRoms(platform) {
     noRoms.value = false
-    console.log("Getting roms...")
     emitter.emit('gettingRoms', true)
     gettingRoms.value = true
     await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
-        console.log("Roms loaded!")
-        console.log(response.data.data)
         roms.value = response.data.data
         setFilter(currentFilter.value)
     }).catch((error) => {console.log(error)})
@@ -37,7 +34,6 @@ async function getRoms(platform) {
 }
 
 async function selectRom(rom) {   
-    console.log("Selected rom "+rom.name)
     localStorage.setItem('currentRom', JSON.stringify(rom))
     await router.push(import.meta.env.BASE_URL+'details')
     emitter.emit('currentRom', rom)
@@ -54,7 +50,7 @@ function setFilter(filter) {
     })
 }
 
-onMounted(() => { if(localStorage.getItem('currentPlatform')){ getRoms(JSON.parse(localStorage.getItem('currentPlatform')).slug) } })
+onMounted(() => { if(localStorage.getItem('selectedPlatform')){ getRoms(JSON.parse(localStorage.getItem('selectedPlatform')).slug) } })
 </script>
 
 <template>

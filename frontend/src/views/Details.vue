@@ -27,11 +27,9 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    console.log("searching for rom... "+rom.value.file_name)
     await axios.put('/api/search/roms/igdb', {
         rom: rom.value
     }).then((response) => {
-        console.log(response.data.data)
         matchedRoms.value = response.data.data
     }).catch((error) => {console.log(error)})
     searching.value = false
@@ -48,12 +46,10 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     else{
         updatedRom.file_name = newName
     }
-    console.log(rom.value)
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms', {
         rom: rom.value,
         updatedRom: updatedRom
     }).then((response) => {
-        console.log('updated rom: '+JSON.stringify(rom.value))
         localStorage.setItem('currentRom', JSON.stringify(response.data.data))
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
@@ -66,10 +62,8 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
 }
 
 async function deleteRom() {
-    console.log('deleting rom '+ rom.value.file_name)
     await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.file_name+'?filesystem='+deleteFromFs.value)
     .then((response) => {
-        console.log(response)
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push(import.meta.env.BASE_URL)
     }).catch((error) => {
