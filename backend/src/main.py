@@ -21,14 +21,14 @@ def startup() -> None:
 
 
 @app.get("/scan")
-def scan(platforms_to_scan: str, full_scan: bool=False) -> dict:
+def scan(platforms: str, full_scan: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
     fs_platforms: list[str] = fs.get_platforms()
-    platforms: list[str] = json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
-    log.info(f"Platforms detected: {', '.join(platforms)}")
+    platforms: list[str] = json.loads(platforms) if len(json.loads(platforms)) > 0 else fs_platforms
+    log.info(f"Platforms to be scanned: {', '.join(platforms)}")
     for p_slug in platforms:
         log.info(emoji.emojize(f":video_game: {p_slug} {COLORS['reset']}"))
         platform: Platform = fastapi.scan_platform(p_slug)
@@ -112,13 +112,17 @@ def remove_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
 
 
 @app.put("/search/roms/igdb")
-async def search_rom_igdb(req: Request) -> dict:
+async def search_rom_igdb(req: Request, igdb_id: str=None) -> dict:
     """Get all the roms matched from igdb."""
 
     data: dict = await req.json()
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
-    log.info(emoji.emojize(f":video_game: {data['rom']['p_slug']}: {COLORS['orange']}{data['rom']['file_name']}{COLORS['reset']}"))
-    matched_roms = igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])
+    if igdb_id:
+        log.info(f"Searching by id: {igdb_id}")
+        matched_roms = igdbh.get_matched_roms_by_id(igdb_id)
+    else:
+        log.info(emoji.emojize(f":video_game: {data['rom']['p_slug']}: {COLORS['orange']}{data['rom']['file_name']}{COLORS['reset']}"))
+        matched_roms = igdbh.get_matched_roms(data['rom']['file_name'], data['rom']['p_igdb_id'], data['rom']['p_slug'])
     log.info("Results:")
     [log.info(f"\t - {COLORS['blue']}{rom['name']}{COLORS['reset']}") for rom in matched_roms]
     return {'data': matched_roms}
