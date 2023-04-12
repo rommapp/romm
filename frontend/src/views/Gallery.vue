@@ -1,7 +1,7 @@
 <script setup>
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
-import { normalizeString } from '@/utils/utils.js'
+import { normalizeString, views } from '@/utils/utils.js'
 import GameCard from '@/components/GameCard/Base.vue'
 
 // Props
@@ -10,11 +10,13 @@ const gettingRoms = ref(false)
 const noRoms = ref(false)
 const romsFiltered = ref([])
 const currentFilter = ref('')
+const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
 
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('selectedPlatform', (platform) => { getRoms(platform.slug) })
 emitter.on('filter', (filter) => { setFilter(filter) })
+emitter.on('currentView', (view) => { currentView.value = view })
 
 // Functions
 async function getRoms(platform) {
@@ -47,7 +49,14 @@ onMounted(() => {
 <template>
 
     <v-row>
-        <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2">
+        <v-col v-for="rom in romsFiltered"
+            :cols="views[currentView]['size-cols']"
+            :xs="views[currentView]['size-xs']"
+            :sm="views[currentView]['size-sm']"
+            :md="views[currentView]['size-md']"
+            :lg="views[currentView]['size-lg']"
+            class="pa-1"
+            v-show="currentView != 2">
             <game-card :rom="rom"/>
         </v-col>
     </v-row>

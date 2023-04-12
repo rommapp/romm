@@ -21,15 +21,6 @@ const props = defineProps(['rom'])
 </template>
 
 <style scoped>
-.v-card .rom-title{
-    transition: opacity .4s ease-in-out;
-}
-.rom-title.on-hover {
-    opacity: 1;
-}
-.rom-title:not(.on-hover) {
-    opacity: 0.85;
-}
 .v-card.on-hover {
     opacity: 1;
 }

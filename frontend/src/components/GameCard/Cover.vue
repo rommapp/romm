@@ -3,7 +3,7 @@ import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 
 // Props
-const props = defineProps(['rom', 'isHovering', 'hoverProps'])
+const props = defineProps(['rom', 'isHovering', 'hoverProps', 'size'])
 const forceImgReload = Date.now()
 const router = useRouter()
 
@@ -34,7 +34,7 @@ async function selectRom(rom) {
         <v-expand-transition>
             <div 
                 v-if="isHovering || !rom.has_cover"
-                class="rom-title d-flex transition-fast-in-fast-out bg-secondary text-caption-1">
+                class="rom-title d-flex transition-fast-in-fast-out bg-secondary text-caption">
                 <v-list-item>{{ rom.file_name }}</v-list-item>
             </div>
         </v-expand-transition>
@@ -54,3 +54,15 @@ async function selectRom(rom) {
         </div>
     </v-img>
 </template>
+
+<style scoped>
+.v-card .rom-title{
+    transition: opacity .4s ease-in-out;
+}
+.rom-title.on-hover {
+    opacity: 1;
+}
+.rom-title:not(.on-hover) {
+    opacity: 0.85;
+}
+</style>
