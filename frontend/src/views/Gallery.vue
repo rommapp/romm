@@ -50,7 +50,7 @@ onMounted(() => {
 
 <template>
 
-    <v-row v-show="currentView != 2">
+    <v-row class="pa-5" v-show="currentView != 2">
         <v-col v-for="rom in romsFiltered"
             :cols="views[currentView]['size-cols']"
             :xs="views[currentView]['size-xs']"
