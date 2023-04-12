@@ -17,19 +17,19 @@ const emitter = inject('emitter')
                 <v-btn
                     @click="downloadRom(rom, emitter)"
                     icon="mdi-download"
-                    size="small"
+                    size="x-small"
                     variant="text"/>
                 <v-btn
                     @click="downloadSave(rom, emitter)"
                     icon="mdi-content-save-all"
-                    size="small"
+                    size="x-small"
                     variant="text"
                     :disabled="!saveFiles"/>
             </v-col>
             <v-btn
                 @click=""
                 icon="mdi-dots-vertical"
-                size="small"
+                size="x-small"
                 variant="text"
                 :disabled="!saveFiles"/>
         </v-row>

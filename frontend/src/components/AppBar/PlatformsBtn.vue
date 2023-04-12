@@ -16,7 +16,8 @@ emitter.on('selectedPlatform', (p) => { selectedPlatform.value = p })
         rounded="0"
         icon>
         <v-avatar rounded="0">
-            <v-img :src="'/assets/platforms/'+selectedPlatform.slug+'.ico'"/>
+            <v-img v-show="selectedPlatform != ''" :src="'/assets/platforms/'+selectedPlatform.slug+'.ico'"/>
+            <v-icon v-show="selectedPlatform == ''" icon="mdi-menu"/>
         </v-avatar>
     </v-btn>
 </template>

@@ -1,26 +1,20 @@
 <script setup>
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
+import { selectRom } from '@/utils/utils.js'
 
 // Props
-const props = defineProps(['rom', 'isHovering', 'hoverProps'])
+const props = defineProps(['rom', 'isHovering', 'hoverProps', 'size'])
 const forceImgReload = Date.now()
 const router = useRouter()
 
 // Event listeners bus
 const emitter = inject('emitter')
-
-// Functions
-async function selectRom(rom) {   
-    localStorage.setItem('currentRom', JSON.stringify(rom))
-    await router.push(import.meta.env.BASE_URL+'details')
-    emitter.emit('currentRom', rom)
-}
 </script>
 
 <template>
     <v-img 
-        @click="selectRom(rom)"
+        @click="selectRom(rom, emitter, router)"
         v-bind="hoverProps"
         :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload"
         :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
@@ -34,7 +28,7 @@ async function selectRom(rom) {
         <v-expand-transition>
             <div 
                 v-if="isHovering || !rom.has_cover"
-                class="rom-title d-flex transition-fast-in-fast-out bg-secondary text-caption-1">
+                class="rom-title d-flex transition-fast-in-fast-out bg-secondary text-caption">
                 <v-list-item>{{ rom.file_name }}</v-list-item>
             </div>
         </v-expand-transition>
@@ -54,3 +48,15 @@ async function selectRom(rom) {
         </div>
     </v-img>
 </template>
+
+<style scoped>
+.v-card .rom-title{
+    transition: opacity .4s ease-in-out;
+}
+.rom-title.on-hover {
+    opacity: 1;
+}
+.rom-title:not(.on-hover) {
+    opacity: 0.85;
+}
+</style>
