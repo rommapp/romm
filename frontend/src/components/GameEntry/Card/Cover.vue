@@ -1,6 +1,7 @@
 <script setup>
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
+import { selectRom } from '@/utils/utils.js'
 
 // Props
 const props = defineProps(['rom', 'isHovering', 'hoverProps', 'size'])
@@ -9,18 +10,11 @@ const router = useRouter()
 
 // Event listeners bus
 const emitter = inject('emitter')
-
-// Functions
-async function selectRom(rom) {   
-    localStorage.setItem('currentRom', JSON.stringify(rom))
-    await router.push(import.meta.env.BASE_URL+'details')
-    emitter.emit('currentRom', rom)
-}
 </script>
 
 <template>
     <v-img 
-        @click="selectRom(rom)"
+        @click="selectRom(rom, emitter, router)"
         v-bind="hoverProps"
         :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload"
         :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"

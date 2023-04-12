@@ -1,6 +1,6 @@
 <script setup>
-import ActionBar from '@/components/GameCard/ActionBar.vue'
-import Cover from '@/components/GameCard/Cover.vue'
+import ActionBar from '@/components/GameEntry/Card/ActionBar.vue'
+import Cover from '@/components/GameEntry/Card/Cover.vue'
 
 // Props
 const props = defineProps(['rom'])
