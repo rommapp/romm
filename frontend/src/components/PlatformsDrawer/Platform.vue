@@ -21,10 +21,7 @@ async function selectPlatform(platform){
 </script>
 
 <template>
-    <v-list-item
-        :value="platform.slug"
-        :key="platform"
-        @:click="selectPlatform(platform)" class="pt-4 pb-4">
+    <v-list-item :value="platform.slug" :key="platform" @:click="selectPlatform(platform)" class="pt-4 pb-4">
         <p class="text-subtitle-2 text-truncate">{{ rail ? '' : platform.name }}</p>
         <template v-slot:prepend>
             <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.ico'"></v-img></v-avatar>
