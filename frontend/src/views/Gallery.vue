@@ -1,8 +1,10 @@
 <script setup>
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
-import { normalizeString } from '@/utils/utils.js'
-import GameCard from '@/components/GameCard/Base.vue'
+import { normalizeString, views } from '@/utils/utils.js'
+import GameCard from '@/components/GameEntry/Card/Base.vue'
+import GameListHeader from '@/components/GameEntry/ListItem/Header.vue'
+import GameListItem from '@/components/GameEntry/ListItem/Base.vue'
 
 // Props
 const roms = ref([])
@@ -10,11 +12,13 @@ const gettingRoms = ref(false)
 const noRoms = ref(false)
 const romsFiltered = ref([])
 const currentFilter = ref('')
+const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
 
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('selectedPlatform', (platform) => { getRoms(platform.slug) })
 emitter.on('filter', (filter) => { setFilter(filter) })
+emitter.on('currentView', (view) => { currentView.value = view })
 
 // Functions
 async function getRoms(platform) {
@@ -46,11 +50,23 @@ onMounted(() => {
 
 <template>
 
-    <v-row>
-        <v-col v-for="rom in romsFiltered" cols="6" xs="6" sm="3" md="3" lg="2">
+    <v-row v-show="currentView != 2">
+        <v-col v-for="rom in romsFiltered"
+            :cols="views[currentView]['size-cols']"
+            :xs="views[currentView]['size-xs']"
+            :sm="views[currentView]['size-sm']"
+            :md="views[currentView]['size-md']"
+            :lg="views[currentView]['size-lg']"
+            class="pa-1">
             <game-card :rom="rom"/>
         </v-col>
     </v-row>
+
+    <v-list v-show="currentView == 2">
+        <game-list-header/>
+        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" :thickness="2"/>
+        <game-list-item v-for="rom in romsFiltered" :rom="rom"/>
+    </v-list>
     
     <v-row v-if="noRoms" class="d-flex justify-center align-center mt-16">
         <div class="text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
@@ -61,3 +77,18 @@ onMounted(() => {
     </v-dialog>
 
 </template>
+
+<style scoped>
+.rom{
+    transition: opacity .4s ease-in-out;
+}
+.rom.on-hover {
+    opacity: 1;
+}
+.rom:not(.on-hover) {
+    opacity: 0.85;
+}
+.rom{
+    cursor: pointer;
+}
+</style>

@@ -2,9 +2,10 @@
 import { ref, inject } from "vue"
 import RomMIcon from '@/components/AppBar/RomMIcon.vue'
 import PlatformsBtn from '@/components/AppBar/PlatformsBtn.vue'
-import SearchBar from '@/components/AppBar/SearchBar.vue'
-import SettingsBtn from '@/components/AppBar/SettingsBtn.vue'
 import UploadBtn from '@/components/AppBar/UploadBtn.vue'
+import SearchBar from '@/components/AppBar/SearchBar.vue'
+import GalleryViewBtn from '@/components/AppBar/GalleryViewBtn.vue'
+import SettingsBtn from '@/components/AppBar/SettingsBtn.vue'
 
 // Props
 const scanning = ref(false)
@@ -34,6 +35,7 @@ emitter.on('scanning', (s) => { scanning.value = s })
         <search-bar/>
         
         <template v-slot:append>
+            <gallery-view-btn/>
             <settings-btn/>
         </template>
         
