@@ -27,7 +27,7 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
         <v-divider class="border-opacity-100" :thickness="2"/>
         
         <scan/>
-
+        
         <template v-slot:append>
             <v-divider class="border-opacity-25"/>
             <theme-toggle/>
