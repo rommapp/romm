@@ -20,15 +20,15 @@ const emitter = inject('emitter')
         :key="rom.file_name"
         class="pa-2">
         <v-row class="text-subtitle-2">
-            <v-col><p>{{ rom.name }}</p></v-col>
-            <v-col class="hidden-sm-and-down"><p>{{ rom.file_name }}</p></v-col>
+            <v-col md="3" lg="3"><p>{{ rom.name }}</p></v-col>
+            <v-col md="3" lg="3" class="hidden-sm-and-down"><p>{{ rom.file_name }}</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.p_slug }}</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.file_size }} MB</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.region }}</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.revision }}</p></v-col>
         </v-row>
         <template v-slot:prepend>
-            <v-avatar :rounded="0">
+            <v-avatar :rounded="0" class="ml-3">
                 <v-img
                     :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload"
                     :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
@@ -54,6 +54,7 @@ const emitter = inject('emitter')
                 icon="mdi-dots-vertical"
                 size="x-small"
                 variant="text"
+                class="mr-3"
                 :disabled="!saveFiles"/>
         </template>
     </v-list-item>
