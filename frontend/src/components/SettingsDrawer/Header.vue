@@ -11,7 +11,7 @@ const emitter = inject('emitter')
         Settings
         <v-btn
             title="close settings"
-            @click="emitter.emit('settingsDrawer')"
+            @click="emitter.emit('toggleSettings')"
             class="ml-1"
             icon="mdi-close-box"
             rounded="0"

@@ -10,7 +10,7 @@ const settingsDrawer = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('settingsDrawer', () => { settingsDrawer.value = !settingsDrawer.value })
+emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.value })
 </script>
 
 <template>

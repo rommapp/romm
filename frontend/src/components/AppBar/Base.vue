@@ -7,12 +7,10 @@ import SettingsBtn from '@/components/AppBar/SettingsBtn.vue'
 import UploadBtn from '@/components/AppBar/UploadBtn.vue'
 
 // Props
-const selectedPlatform = ref('')
 const scanning = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('selectedPlatform', (p) => { selectedPlatform.value = p })
 emitter.on('scanning', (s) => { scanning.value = s })
 </script>
 
@@ -27,7 +25,7 @@ emitter.on('scanning', (s) => { scanning.value = s })
         
         <rom-m-icon/>
 
-        <platforms-btn :selectedPlatform="selectedPlatform.slug"/>
+        <platforms-btn/>
 
         <v-spacer class="hidden-xs-and-down"/>
         
