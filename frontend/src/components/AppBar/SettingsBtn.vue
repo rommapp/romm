@@ -8,7 +8,7 @@ const emitter = inject('emitter')
 <template>
     <v-app-bar-nav-icon
         title="settings"
-        @click="emitter.emit('settingsDrawer')"
+        @click="emitter.emit('toggleSettings')"
         class="ml-2"
         rounded="0">
         <v-icon>mdi-cog</v-icon>
