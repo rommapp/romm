@@ -31,3 +31,5 @@ export async function downloadRom(rom, emitter, filesToDownload=[]) {
 }
 
 export async function downloadSave(rom, emitter) { console.log("Downloading "+rom.file_name+" save file") }
+
+export function normalizeString(s) { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,"") }

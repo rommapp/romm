@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject } from "vue"
 import SettingsHeader from '@/components/SettingsDrawer/Header.vue'
-import ScanBtn from '@/components/SettingsDrawer/ScanBtn.vue'
+import Scan from '@/components/SettingsDrawer/Scan.vue'
 import ThemeToggle from '@/components/SettingsDrawer/ThemeToggle.vue'
 import VersionLabel from '@/components/SettingsDrawer/VersionLabel.vue'
 
@@ -26,7 +26,7 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
 
         <v-divider class="border-opacity-100" :thickness="2"/>
         
-        <scan-btn/>
+        <scan/>
 
         <template v-slot:append>
             <v-divider class="border-opacity-25"/>
