@@ -8,6 +8,7 @@ import { downloadRom, downloadSave } from '@/utils/utils.js'
 const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
 const saveFiles = ref(false)
 const searching = ref(false)
+const igdb_id = ref('')
 const matchedRoms = ref([])
 const updating = ref(false)
 const editedRomName = ref(rom.value.file_name)
@@ -27,11 +28,9 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    console.log("searching for rom... "+rom.value.file_name)
-    await axios.put('/api/search/roms/igdb', {
+    await axios.put('/api/search/roms/igdb?igdb_id='+igdb_id.value, {
         rom: rom.value
     }).then((response) => {
-        console.log(response.data.data)
         matchedRoms.value = response.data.data
     }).catch((error) => {console.log(error)})
     searching.value = false
@@ -48,12 +47,10 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     else{
         updatedRom.file_name = newName
     }
-    console.log(rom.value)
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms', {
         rom: rom.value,
         updatedRom: updatedRom
     }).then((response) => {
-        console.log('updated rom: '+JSON.stringify(rom.value))
         localStorage.setItem('currentRom', JSON.stringify(response.data.data))
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
@@ -66,10 +63,8 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
 }
 
 async function deleteRom() {
-    console.log('deleting rom '+ rom.value.file_name)
     await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.file_name+'?filesystem='+deleteFromFs.value)
     .then((response) => {
-        console.log(response)
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push(import.meta.env.BASE_URL)
     }).catch((error) => {
@@ -100,7 +95,14 @@ async function deleteRom() {
                     <v-container>
                         <v-row>
                             <v-col class="pa-1">
-                                <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                                <v-btn
+                                    @click="downloadRom(rom, emitter, filesToDownload)"
+                                    rounded="0"
+                                    block>
+                                    <v-icon
+                                        icon="mdi-download"
+                                        size="large"/>
+                                </v-btn>
                             </v-col>
                             <v-col class="pa-1">
                                 <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
@@ -142,13 +144,10 @@ async function deleteRom() {
                     </td></tr>
                     <tr><td>Platform</td><td>{{ rom.p_slug }}</td></tr>
                     <tr><td>Size</td><td>{{ rom.file_size }} MB</td></tr>
-                    <!-- <tr><td>Path</td><td>{{ rom.file_path }}</td></tr> -->
                     <tr><td>IGDB id</td><td><a :href="'https://www.igdb.com/games/'+rom.r_slug">{{ rom.r_igdb_id }}</a></td></tr>
                     <tr v-show="rom.region"><td>Region</td><td>{{ rom.region }}</td></tr>
                     <tr v-show="rom.revision"><td>Revision</td><td>{{ rom.revision }}</td></tr>
                     <tr v-show="rom.tags.length>0"><td>Tags</td><td><v-chip-group><v-chip v-for="tag in rom.tags" label>{{ tag }}</v-chip></v-chip-group></td></tr>
-                    <!-- <tr><td>Slug</td><td>{{ rom.r_slug }}</td></tr> -->
-                    <!-- <tr><td>Cover</td><td>{{ rom.path_cover_l }}</td></tr> -->
                     <tr><td>Summary</td><td class="pt-3">{{ rom.summary }}</td></tr>
                 </tbody>
             </v-table>
@@ -157,14 +156,30 @@ async function deleteRom() {
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
+
             <v-toolbar v-show="searching">
                 <v-toolbar-title>Searching...</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
+
             <v-toolbar v-show="!searching">
                 <v-toolbar-title>Results found</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
+
+            <v-text-field
+                @keyup.enter="searchRomIGDB()"
+                @click:clear="igdb_id=''"
+                v-show="!searching"
+                v-model="igdb_id"
+                label="search by id"
+                prepend-inner-icon="mdi-search-web"
+                class="ml-5 mt-5 mr-5 mb-5 shrink"
+                variant="outlined"
+                density="compact"
+                hide-details
+                clearable/>
+
             <v-card-text rounded="0" class="pa-3 scroll">
                 <div class="d-flex justify-center">
                     <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
