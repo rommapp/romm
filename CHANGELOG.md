@@ -1,6 +1,7 @@
 # v1.6.4 (_12-04-2023_)
 
 ## Added
+ - Now RomM allows to fix missmatched games by searching by IGDB id manually
  - WonderSwan and WonderSwan Color support added
 
 <br>
