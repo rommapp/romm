@@ -75,7 +75,7 @@ async function deleteRom() {
 </script>
 
 <template>
-    <v-row class="text-body-1 justify-center">
+    <v-row class="text-body-1 justify-center pa-5">
         <v-col cols="8" xs="8" sm="4" md="3" lg="2">
             <v-container class="pa-0" fluid>
                 <v-row>

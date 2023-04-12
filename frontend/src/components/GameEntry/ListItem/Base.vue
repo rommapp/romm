@@ -21,7 +21,7 @@ const emitter = inject('emitter')
         class="pa-2">
         <v-row class="text-subtitle-2">
             <v-col md="3" lg="3"><p>{{ rom.name }}</p></v-col>
-            <v-col md="3" lg="3" class="hidden-sm-and-down"><p>{{ rom.file_name }}</p></v-col>
+            <v-col md="3" lg="4" class="hidden-sm-and-down"><p>{{ rom.file_name }}</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.p_slug }}</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.file_size }} MB</p></v-col>
             <v-col class="hidden-sm-and-down"><p>{{ rom.region }}</p></v-col>
