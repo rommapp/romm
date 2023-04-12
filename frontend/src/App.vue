@@ -2,8 +2,8 @@
 import { ref, inject } from "vue"
 import { useTheme } from "vuetify"
 import AppBar from '@/components/AppBar/Base.vue'
-import PlatformsDrawer from '@/components/PlatformsDrawer.vue'
-import SettingsDrawer from '@/components/SettingsDrawer.vue'
+import PlatformsDrawer from '@/components/PlatformsDrawer/Base.vue'
+import SettingsDrawer from '@/components/SettingsDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 
 // Props
@@ -18,7 +18,7 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
 <template>
   <v-app>
 
-    <settings-drawer/>
+    <settings-drawer />
 
     <app-bar/>
 
