@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from "vue"
-import HomeBtn from '@/components/AppBar/HomeBtn.vue'
+import RomMIcon from '@/components/AppBar/RomMIcon.vue'
 import PlatformsBtn from '@/components/AppBar/PlatformsBtn.vue'
 import SearchBar from '@/components/AppBar/SearchBar.vue'
 import SettingsBtn from '@/components/AppBar/SettingsBtn.vue'
@@ -19,16 +19,17 @@ emitter.on('scanning', (s) => { scanning.value = s })
 <template>
 
     <v-app-bar class="elevation-3">
-        <!-- Scan progress bar -->
-        <v-progress-linear :active="scanning" :indeterminate="true" absolute/>
-        
-        <!-- Desktop -->
-        <home-btn/>
 
-        <!-- Mobile -->
+        <v-progress-linear
+            :active="scanning"
+            :indeterminate="true"
+            absolute/>
+        
+        <rom-m-icon/>
+
         <platforms-btn :selectedPlatform="selectedPlatform.slug"/>
 
-        <v-spacer class="hidden-xs-and-down"></v-spacer>
+        <v-spacer class="hidden-xs-and-down"/>
         
         <upload-btn/>
 
