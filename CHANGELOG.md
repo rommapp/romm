@@ -1,3 +1,12 @@
+# v1.6.5 (_12-04-2023_)
+
+## Added
+ - Multiple games gallery display modes
+## Changed
+ - Some fixes and improvements
+
+<br>
+
 # v1.6.4 (_12-04-2023_)
 
 ## Added
