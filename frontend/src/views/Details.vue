@@ -8,6 +8,7 @@ import { downloadRom, downloadSave } from '@/utils/utils.js'
 const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
 const saveFiles = ref(false)
 const searching = ref(false)
+const igdb_id = ref('')
 const matchedRoms = ref([])
 const updating = ref(false)
 const editedRomName = ref(rom.value.file_name)
@@ -27,7 +28,7 @@ emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    await axios.put('/api/search/roms/igdb', {
+    await axios.put('/api/search/roms/igdb?igdb_id='+igdb_id.value, {
         rom: rom.value
     }).then((response) => {
         matchedRoms.value = response.data.data
@@ -155,14 +156,30 @@ async function deleteRom() {
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
+
             <v-toolbar v-show="searching">
                 <v-toolbar-title>Searching...</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
+
             <v-toolbar v-show="!searching">
                 <v-toolbar-title>Results found</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
+
+            <v-text-field
+                @keyup.enter="searchRomIGDB()"
+                @click:clear="igdb_id=''"
+                v-show="!searching"
+                v-model="igdb_id"
+                label="search by id"
+                prepend-inner-icon="mdi-search-web"
+                class="ml-5 mt-5 mr-5 mb-5 shrink"
+                variant="outlined"
+                density="compact"
+                hide-details
+                clearable/>
+
             <v-card-text rounded="0" class="pa-3 scroll">
                 <div class="d-flex justify-center">
                     <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
