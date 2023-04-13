@@ -20,6 +20,8 @@ const deleteFromFs = ref(false)
 const router = useRouter()
 const filesToDownload = ref([])
 
+const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
+
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
@@ -75,84 +77,102 @@ async function deleteRom() {
 </script>
 
 <template>
-    <v-row class="text-body-1 justify-center pa-5">
-        <v-col cols="8" xs="8" sm="4" md="3" lg="2">
-            <v-container class="pa-0" fluid>
-                <v-row>
-                    <v-col>
-                        <v-card >
-                            <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
-                                <template v-slot:placeholder>
-                                    <div class="d-flex align-center justify-center fill-height">
-                                        <v-progress-circular :width="2" :size="20" indeterminate/>
-                                    </div>
-                                </template>
-                            </v-img>
-                        </v-card>
-                    </v-col>
-                </v-row>
-                <v-row class="pt-1 pb-1 pl-2 pr-2 mt-0">
-                    <v-container>
-                        <v-row>
-                            <v-col class="pa-1">
-                                <v-btn
-                                    @click="downloadRom(rom, emitter, filesToDownload)"
-                                    rounded="0"
-                                    block>
-                                    <v-icon
-                                        icon="mdi-download"
-                                        size="large"/>
-                                </v-btn>
-                            </v-col>
-                            <v-col class="pa-1">
-                                <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
-                            </v-col>
-                            <v-col class="pa-1">
-                                <v-menu location="bottom">
-                                    <template v-slot:activator="{ props }">
-                                        <v-btn v-bind="props" rounded="0" block>
-                                            <v-icon icon="mdi-dots-vertical" size="large"/>
-                                        </v-btn>
+
+    <v-card class="bg" position="absolute" rounded="0" flat><v-img :src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover class="bg-img"/></v-card>
+
+    <div class="content">
+        <v-row class="pt-8 justify-center content">
+            <v-col cols="8" xs="3" sm="2" md="2" lg="2" class="cover">
+                <v-container class="pa-0" fluid>
+                    <v-row>
+                        <v-col>
+                            <v-card elevation="5">
+                                <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
+                                    <template v-slot:placeholder>
+                                        <div class="d-flex align-center justify-center fill-height">
+                                            <v-progress-circular :width="2" :size="20" indeterminate/>
+                                        </div>
                                     </template>
-                                    <v-list rounded="0" class="pa-0">
-                                        <v-list-item @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
-                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
-                                        </v-list-item>
-                                        <v-divider class="border-opacity-25"/>
-                                        <v-list-item @click="dialogEditRom=true" class="pt-4 pb-4 pr-5">
-                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
-                                        </v-list-item>
-                                        <v-divider class="border-opacity-25"/>
-                                        <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
-                                            <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
-                                        </v-list-item>
-                                    </v-list>
-                                </v-menu>
-                            </v-col>
-                        </v-row>
-                    </v-container>
-                </v-row>
-            </v-container>
-        </v-col>
-        <v-col cols="15" xs="15" sm="12" md="6" lg="10">
-            <v-table density="comfortable">
-                <tbody>
-                    <tr><td>Name</td><td>{{ rom.name }}</td></tr>
-                    <tr v-show="!rom.multi"><td>File</td><td>{{ rom.file_name }}</td></tr>
-                    <tr v-show="rom.multi"><td>Files</td><td>
-                        <v-select :label="rom.file_name" item-title="file_name" v-model="filesToDownload" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/>
-                    </td></tr>
-                    <tr><td>Platform</td><td>{{ rom.p_slug }}</td></tr>
-                    <tr><td>Size</td><td>{{ rom.file_size }} MB</td></tr>
-                    <tr><td>IGDB id</td><td><a :href="'https://www.igdb.com/games/'+rom.r_slug">{{ rom.r_igdb_id }}</a></td></tr>
-                    <tr v-show="rom.region"><td>Region</td><td>{{ rom.region }}</td></tr>
-                    <tr v-show="rom.revision"><td>Revision</td><td>{{ rom.revision }}</td></tr>
-                    <tr v-show="rom.tags.length>0"><td>Tags</td><td><v-chip-group><v-chip v-for="tag in rom.tags" label>{{ tag }}</v-chip></v-chip-group></td></tr>
-                    <tr><td>Summary</td><td class="pt-3">{{ rom.summary }}</td></tr>
-                </tbody>
-            </v-table>
-        </v-col>
-    </v-row>
+                                </v-img>
+                            </v-card>
+                        </v-col>
+                    </v-row>
+                    <v-row class="pl-3 pr-3">
+                        <v-col class="pa-0">
+                            <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                        </v-col>
+                        <v-col class="pa-0">
+                            <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
+                        </v-col>
+                        <v-col class="pa-0">
+                            <v-menu location="bottom">
+                                <template v-slot:activator="{ props }">
+                                    <v-btn v-bind="props" rounded="0" block>
+                                        <v-icon icon="mdi-dots-vertical" size="large"/>
+                                    </v-btn>
+                                </template>
+                                <v-list rounded="0" class="pa-0">
+                                    <v-list-item @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
+                                    </v-list-item>
+                                    <v-divider class="border-opacity-25"/>
+                                    <v-list-item @click="dialogEditRom=true" class="pt-4 pb-4 pr-5">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
+                                    </v-list-item>
+                                    <v-divider class="border-opacity-25"/>
+                                    <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+                        </v-col>
+                    </v-row>
+                </v-container>
+            </v-col>
+
+            <v-col cols="10" xs="8" sm="10" md="10" lg="8" class="info mt-16">
+
+                <div class="info-header text-white">
+                    <v-row no-gutters>
+                        <p class="text-h4 font-weight-bold">{{ rom.name }}</p>
+                        <v-chip-group class="ml-3 mt-1">
+                            <v-chip v-show="rom.region" size="x-small" label>{{ rom.region }}</v-chip>
+                            <v-chip v-show="rom.revision" size="x-small" label>{{ rom.revision }}</v-chip>
+                        </v-chip-group>
+                    </v-row>
+                    <p class="font-italic mt-1">{{ selectedPlatform['name'] }}</p>
+                </div>
+                
+                <div class="info-content mb-10">
+                    <v-row v-if="!rom.multi" class="d-flex align-center mt-0">
+                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>File</p></v-col>
+                        <v-col><p>{{ rom.file_name }} MB</p></v-col>
+                    </v-row>
+                    <v-row v-if="rom.multi" class="d-flex align-center mt-0">
+                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Files</p></v-col>
+                        <v-col><v-select :label="rom.file_name" item-title="file_name" v-model="filesToDownload" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/></v-col>
+                    </v-row>
+                    <v-row class="d-flex align-center mt-0">
+                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Size</p></v-col>
+                        <v-col><p>{{ rom.file_size }} MB</p></v-col>
+                    </v-row>
+                    <v-row class="d-flex align-center mt-0">
+                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>IGDB</p></v-col>
+                        <v-col>
+                            <v-chip :href="'https://www.igdb.com/games/'+rom.r_slug" label>{{ rom.r_igdb_id }}</v-chip>
+                        </v-col>
+                    </v-row>
+                    <v-row v-if="rom.tags.length>0" class="d-flex align-center mt-0">
+                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Tags</p></v-col>
+                        <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" variant="outlined" label>{{ tag }}</v-chip></v-chip-group></v-col>
+                    </v-row>
+                    <v-row class="d-flex mt-3">
+                        <v-col class="font-weight-medium text-body-2"><p>{{ rom.summary }}</p></v-col>
+                    </v-row>
+                </div>
+            </v-col>
+        </v-row>
+    </div>    
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
         <v-card max-width="600">
@@ -248,5 +268,24 @@ async function deleteRom() {
 <style scoped>
 .scroll {
    overflow-y: scroll
+}
+.bg {
+    top: 0px;
+    width: 100%;
+    max-height: 330px;
+}
+.bg-img{
+    -webkit-filter: blur(50px);
+    filter: blur(50px);
+}
+.content {
+    position: relative;
+}
+.info-header{
+    text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
+}
+.info-content{
+    margin-top: 105px;
+    max-width: 600px;
 }
 </style>
