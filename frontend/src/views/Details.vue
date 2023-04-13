@@ -24,6 +24,8 @@ const tab = ref('info')
 const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
 const { xs, smAndUp } = useDisplay()
 
+const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
+
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
@@ -140,9 +142,7 @@ async function deleteRom() {
                     </v-row>
                 </v-container>
             </v-col>
-
             <v-col cols="10" xs="6" sm="8" md="9" lg="8" class="info mt-10">
-
                 <div class="info-header text-white">
                     <v-row no-gutters>
                         <p class="text-h4 font-weight-bold">{{ rom.name }}</p>
