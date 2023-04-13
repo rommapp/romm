@@ -35,13 +35,13 @@ const emitter = inject('emitter')
         <div>
             <v-chip
                 v-show="rom.region"
-                class="ml-1 mr-1 bg-primary"
+                class="ma-1 bg-primary"
                 size="x-small">
                 {{ rom.region }}
             </v-chip>
             <v-chip
                 v-show="rom.revision"
-                class="mr-1 bg-primary"
+                class="ma-1 bg-primary"
                 size="x-small">
                 {{ rom.revision }}
             </v-chip>
