@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { ref, inject } from 'vue'
 import { useRouter } from 'vue-router'
+import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/utils/utils.js'
 
 // Props
@@ -19,6 +20,9 @@ const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const router = useRouter()
 const filesToDownload = ref([])
+const tab = ref('info')
+const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
+const { xs, smAndUp } = useDisplay()
 
 const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
 
@@ -78,15 +82,24 @@ async function deleteRom() {
 
 <template>
 
-    <v-card class="bg" position="absolute" rounded="0" flat><v-img :src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover class="bg-img"/></v-card>
+    <v-card class="bg" position="absolute" rounded="0" flat><v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" cover class="bg-img"/></v-card>
 
     <div class="content">
         <v-row class="pt-8 justify-center content">
-            <v-col cols="8" xs="3" sm="2" md="2" lg="2" class="cover">
+            <v-col cols="8" xs="8" sm="4" md="3" lg="2" class="cover">
                 <v-container class="pa-0" fluid>
                     <v-row>
                         <v-col>
-                            <v-card elevation="5">
+                            <v-card class="hidden-md-and-down" elevation="5">
+                                <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
+                                    <template v-slot:placeholder>
+                                        <div class="d-flex align-center justify-center fill-height">
+                                            <v-progress-circular :width="2" :size="20" indeterminate/>
+                                        </div> 
+                                    </template>
+                                </v-img>
+                            </v-card>
+                            <v-card class="hidden-lg-and-up" elevation="5">
                                 <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                     <template v-slot:placeholder>
                                         <div class="d-flex align-center justify-center fill-height">
@@ -129,46 +142,67 @@ async function deleteRom() {
                     </v-row>
                 </v-container>
             </v-col>
-
-            <v-col cols="10" xs="8" sm="10" md="10" lg="8" class="info mt-16">
-
+            <v-col cols="10" xs="6" sm="8" md="9" lg="8" class="info mt-10">
                 <div class="info-header text-white">
                     <v-row no-gutters>
                         <p class="text-h4 font-weight-bold">{{ rom.name }}</p>
-                        <v-chip-group class="ml-3 mt-1">
-                            <v-chip v-show="rom.region" size="x-small" label>{{ rom.region }}</v-chip>
-                            <v-chip v-show="rom.revision" size="x-small" label>{{ rom.revision }}</v-chip>
+                        <v-chip-group class="ml-3 mt-1 hidden-xs">
+                            <v-chip v-show="rom.region" size="x-small" class="bg-primary" label>{{ rom.region }}</v-chip>
+                            <v-chip v-show="rom.revision" size="x-small" class="bg-primary" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
                     </v-row>
-                    <p class="font-italic mt-1">{{ selectedPlatform['name'] }}</p>
+                    <v-row no-gutters class="align-center">
+                        <p class="font-italic mt-1">{{ selectedPlatform['name'] }}</p>
+                        <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
+                            <v-chip v-show="rom.region" size="x-small" class="bg-primary" label>{{ rom.region }}</v-chip>
+                            <v-chip v-show="rom.revision" size="x-small" class="bg-primary" label>{{ rom.revision }}</v-chip>
+                        </v-chip-group>
+                    </v-row>
                 </div>
                 
-                <div class="info-content mb-10">
-                    <v-row v-if="!rom.multi" class="d-flex align-center mt-0">
-                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>File</p></v-col>
-                        <v-col><p>{{ rom.file_name }} MB</p></v-col>
-                    </v-row>
-                    <v-row v-if="rom.multi" class="d-flex align-center mt-0">
-                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Files</p></v-col>
-                        <v-col><v-select :label="rom.file_name" item-title="file_name" v-model="filesToDownload" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/></v-col>
-                    </v-row>
-                    <v-row class="d-flex align-center mt-0">
-                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Size</p></v-col>
-                        <v-col><p>{{ rom.file_size }} MB</p></v-col>
-                    </v-row>
-                    <v-row class="d-flex align-center mt-0">
-                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>IGDB</p></v-col>
-                        <v-col>
-                            <v-chip :href="'https://www.igdb.com/games/'+rom.r_slug" label>{{ rom.r_igdb_id }}</v-chip>
-                        </v-col>
-                    </v-row>
-                    <v-row v-if="rom.tags.length>0" class="d-flex align-center mt-0">
-                        <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Tags</p></v-col>
-                        <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" variant="outlined" label>{{ tag }}</v-chip></v-chip-group></v-col>
-                    </v-row>
-                    <v-row class="d-flex mt-3">
-                        <v-col class="font-weight-medium text-body-2"><p>{{ rom.summary }}</p></v-col>
-                    </v-row>
+                <div class="mb-10" :class="{'info-content': smAndUp, 'info-content-mobile': xs}">
+                    <v-tabs v-model="tab">
+                        <v-tab value="info">Info</v-tab>
+                        <v-tab value="saves" disabled>Saves</v-tab>
+                        <v-tab value="screenshots" disabled>Screenshots</v-tab>
+                    </v-tabs>
+                    <v-window v-model="tab" class="mt-2">
+                        <v-window-item value="info">
+                            <v-row v-if="!rom.multi" class="d-flex align-center text-body-1 mt-0">
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>File</p></v-col>
+                                <v-col class="text-body-1"><p>{{ rom.file_name }}</p></v-col>
+                            </v-row>
+                            <v-row v-if="rom.multi" class="d-flex align-center text-body-1 mt-0">
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Files</p></v-col>
+                                <v-col><v-select :label="rom.file_name" item-title="file_name" v-model="filesToDownload" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/></v-col>
+                            </v-row>
+                            <v-row class="d-flex align-center text-body-1 mt-0">
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Size</p></v-col>
+                                <v-col><p>{{ rom.file_size }} MB</p></v-col>
+                            </v-row>
+                            <v-row class="d-flex align-center text-body-1 mt-0">
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>IGDB</p></v-col>
+                                <v-col>
+                                    <v-chip variant="outlined" :href="'https://www.igdb.com/games/'+rom.r_slug" label>{{ rom.r_igdb_id }}</v-chip>
+                                </v-col>
+                            </v-row>
+                            <v-row v-if="rom.tags.length>0" class="d-flex align-center text-body-1 mt-0">
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Tags</p></v-col>
+                                <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" label>{{ tag }}</v-chip></v-chip-group></v-col>
+                            </v-row>
+                            <v-row class="d-flex mt-3">
+                                <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
+                            </v-row>
+                        </v-window-item>
+                        <v-window-item value="saves">
+                            <v-row class="d-flex mt-2"></v-row>
+                        </v-window-item>
+                        <v-window-item value="screenshots">
+                            <v-row class="d-flex mt-2">
+                                <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
+                            </v-row>
+                        </v-window-item>
+                    </v-window>
                 </div>
             </v-col>
         </v-row>
@@ -271,12 +305,13 @@ async function deleteRom() {
 }
 .bg {
     top: 0px;
+    left: 0px;
     width: 100%;
     max-height: 330px;
 }
 .bg-img{
-    -webkit-filter: blur(50px);
-    filter: blur(50px);
+    -webkit-filter: blur(15px);
+    filter: blur(15px);
 }
 .content {
     position: relative;
@@ -285,7 +320,10 @@ async function deleteRom() {
     text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 .info-content{
-    margin-top: 105px;
-    max-width: 600px;
+    margin-top: 110px;
+    max-width: 700px;
+}
+.info-content-mobile{
+    margin-top: 40px;
 }
 </style>
