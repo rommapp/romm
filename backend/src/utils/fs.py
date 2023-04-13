@@ -106,7 +106,7 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
     fs_roms: list[dict] = [{'multi': False, 'file': rom} for rom in _exclude_files(list(os.walk(roms_path))[0][2])] + \
                           [{'multi': True, 'file': rom} for rom in list(os.walk(roms_path))[0][1]]
 
-    if only_amount: return len(db_roms)
+    if only_amount: return len(fs_roms)
 
     for rom in fs_roms:
         if rom['file'] in db_roms and not full_scan: continue
