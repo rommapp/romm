@@ -24,8 +24,6 @@ const tab = ref('info')
 const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
 const { xs, smAndUp } = useDisplay()
 
-const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
-
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
