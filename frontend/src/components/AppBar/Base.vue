@@ -1,6 +1,5 @@
 <script setup>
 import { ref, inject } from "vue"
-import RomMIcon from '@/components/AppBar/RomMIcon.vue'
 import PlatformsBtn from '@/components/AppBar/PlatformsBtn.vue'
 import UploadBtn from '@/components/AppBar/UploadBtn.vue'
 import SearchBar from '@/components/AppBar/SearchBar.vue'
@@ -23,17 +22,17 @@ emitter.on('scanning', (s) => { scanning.value = s })
             :active="scanning"
             :indeterminate="true"
             absolute/>
-        
-        <rom-m-icon/>
 
+        <v-avatar size="100" class="ml-3"><v-img src="/assets/romm_home.svg"></v-img></v-avatar>
+            
         <platforms-btn/>
-
+        
         <v-spacer class="hidden-xs-and-down"/>
         
         <upload-btn/>
-
-        <search-bar/>
         
+        <search-bar/>
+            
         <template v-slot:append>
             <gallery-view-btn/>
             <settings-btn/>
