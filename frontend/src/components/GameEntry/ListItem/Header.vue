@@ -10,6 +10,7 @@
         </v-row>
         <template v-slot:prepend><v-avatar/></template>
         <template v-slot:append>
+            <!-- TODO: remake this little trick -->
             <v-col class="pa-0 ml-1">
                 <v-btn disabled size="x-small" variant="text"/>
                 <v-btn size="x-small" variant="text" disabled/>

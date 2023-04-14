@@ -22,7 +22,7 @@ const router = useRouter()
 const filesToDownload = ref([])
 const tab = ref('info')
 const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
-const { xs, sm, smAndUp, mdAndUp, smAndDown } = useDisplay()
+const { xs, sm, mdAndUp } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -215,24 +215,25 @@ async function deleteRom() {
                 <v-toolbar-title v-show="!searching">Results found</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
-
-            <v-text-field
-                @keyup.enter="searchRomIGDB()"
-                @click:clear="igdb_id=''"
-                v-show="!searching"
-                v-model="igdb_id"
-                label="search by id"
-                prepend-inner-icon="mdi-search-web"
-                class="ml-5 mt-5 mr-5 mb-5 "
-                variant="outlined"
-                density="compact"
-                hide-details
-                clearable/>
-
+            
             <v-card-text class="pa-3 scroll justify-center align-center">
+                <v-row>
+                    <v-text-field
+                        @keyup.enter="searchRomIGDB()"
+                        @click:clear="igdb_id=''"
+                        v-show="!searching"
+                        v-model="igdb_id"
+                        label="search by id"
+                        prepend-inner-icon="mdi-search-web"
+                        class="ml-5 mt-5 mr-5 mb-5 "
+                        variant="outlined"
+                        density="compact"
+                        hide-details
+                        clearable/>
+                </v-row>
+                <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" indeterminate/></v-row>
+                <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><p>No results found</p></v-row>
                 <v-row class="pl-4 pr-4">
-                    <v-col v-show="searching"><v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/></v-col>
-                    <v-col cols="12" v-show="!searching && matchedRoms.length==0" block><p>No results found</p></v-col>
                     <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
@@ -341,12 +342,22 @@ async function deleteRom() {
 .info-content-mobile{
     margin-top: 40px;
 }
+.loader-searching {
+    margin-top: 200px;
+}
+.no-results-searching {
+    margin-top: 150px;
+}
 .search-content{
     width: 700px;
     height: 540px;
 }
 .search-content-tablet{
     width: 500px;
+    height: 540px;
+}
+.search-content-mobile{
+    width: 310px;
     height: 540px;
 }
 </style>
