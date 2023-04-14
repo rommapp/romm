@@ -54,19 +54,19 @@ def _exclude_single_roms(roms) -> list[str]:
         excluded_extensions: list = []
         excluded_extensions = user_config['exclude']['roms']['single_file']['extensions']
     except (TypeError, KeyError):
-        log.warning(f"Config file for excluding single file extensions malformed")
+        pass
     try:
         excluded_names: list = []
         excluded_names = user_config['exclude']['roms']['single_file']['names']
     except (TypeError, KeyError):
-        log.warning(f"Config file for excluding single file game names malformed")
+        pass
     filtered_files: list = []
     for rom in roms:
         try:
             if rom.split('.')[-1] in excluded_extensions or rom in excluded_names:
                 filtered_files.append(rom)
         except TypeError:
-            log.warning(f"Config file is malformed")
+            pass
     roms = [f for f in roms if f not in filtered_files]
     return roms
 
@@ -76,14 +76,14 @@ def _exclude_multi_roms(roms) -> list[str]:
         excluded_names: list = []
         excluded_names = user_config['exclude']['roms']['multi_file']['names']
     except (TypeError, KeyError):
-        log.warning(f"Config file for excluding multi file game names malformed")
+        pass
     filtered_files: list = []
     for rom in roms:
         try:
             if rom in excluded_names:
                 filtered_files.append(rom)
         except TypeError:
-            log.warning(f"Config file is malformed")
+            pass
     roms = [f for f in roms if f not in filtered_files]
     return roms
 
@@ -93,12 +93,12 @@ def _exclude_multi_roms_parts(parts) -> list[str]:
         excluded_extensions: list = []
         excluded_extensions = user_config['exclude']['roms']['multi_file']['parts']['extensions']
     except (TypeError, KeyError):
-        log.warning(f"Config file for excluding multi file game parts extensions malformed")
+        pass
     try:
         excluded_names: list = []
         excluded_names = user_config['exclude']['roms']['multi_file']['parts']['names']
     except (TypeError, KeyError):
-        log.warning(f"Config file for excluding multi file game parts names malformed")
+        pass
     filtered_files: list = []
     for part in parts:
         try:
