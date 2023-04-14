@@ -127,8 +127,8 @@ def parse_tags(file_name: str) -> tuple:
     return reg, rev, other_tags
 
 
-def _get_file_extension(file: str) -> str:
-    return file.split('.')[-1] if '.' in file else ''
+def _get_file_extension(rom: dict) -> str:
+    return rom['file'].split('.')[-1] if not rom['multi'] else ''
 
 
 def _get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
@@ -167,7 +167,7 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
     for rom in fs_roms:
         if rom['file'] in db_roms and not full_scan and not rom['multi']: continue
         reg, rev, other_tags = parse_tags(rom['file'])
-        file_extension: str = _get_file_extension(rom['file'])
+        file_extension: str = _get_file_extension(rom)
         files: list = _get_rom_files(rom['multi'], rom['file'], roms_path)
         file_size: str = _get_file_size(rom['multi'], rom['file'], files, roms_path)
         roms.append({'file_name': rom['file'], 'file_path': roms_path, 'multi': rom['multi'], 'files': files, 'file_size': file_size, 'file_extension': file_extension,
