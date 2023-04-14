@@ -1,3 +1,11 @@
+# v1.7 (_14-04-2023_)
+
+## Added
+ - More options and flexibility to prevent files/folders to be scanned
+ - Config file example added to docker/config.example.yml
+## Changed
+ - Rom details page revamped
+
 # v1.6.5 (_12-04-2023_)
 
 ## Added
