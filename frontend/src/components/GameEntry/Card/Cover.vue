@@ -32,20 +32,22 @@ const emitter = inject('emitter')
                 <v-list-item>{{ rom.file_name }}</v-list-item>
             </div>
         </v-expand-transition>
-        <div>
+        <v-chip-group class="pl-1 pt-0">
             <v-chip
                 v-show="rom.region"
-                class="ml-1 mr-1 bg-primary"
-                size="x-small">
+                class="bg-primary"
+                size="x-small"
+                label>
                 {{ rom.region }}
             </v-chip>
             <v-chip
                 v-show="rom.revision"
-                class="mr-1 bg-primary"
-                size="x-small">
+                class="bg-primary"
+                size="x-small"
+                label>
                 {{ rom.revision }}
             </v-chip>
-        </div>
+        </v-chip-group>
     </v-img>
 </template>
 

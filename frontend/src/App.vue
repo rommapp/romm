@@ -25,7 +25,7 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
     <platforms-drawer :key="refresh"/>
 
     <v-main>
-      <v-container class="pa-0" fluid>
+      <v-container fluid>
         <router-view :key="refresh"/>
       </v-container>
     </v-main>
