@@ -39,7 +39,8 @@ emitter.emit('selectedPlatform', selectedPlatform.value)
 
         <v-list>
             <v-row @click="goHome()" class="justify-center hidden-md-and-up">
-                <v-img src="/assets/romm.svg" class="home-btn justify-center"></v-img>
+                <v-img v-show="!rail" src="/assets/romm_complete.svg" class="home-btn justify-center"/>
+                <v-img v-show="rail" src="/assets/romm.svg" class="home-btn justify-center"/>
             </v-row>
             <v-divider class="border-opacity-25 hidden-md-and-up"/>
 
@@ -55,7 +56,7 @@ emitter.emit('selectedPlatform', selectedPlatform.value)
 </template>
 
 <style scoped>
-.home-btn {
+.home-btn{
     width: 100px;
     height: 100px;
     cursor: pointer;

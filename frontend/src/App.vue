@@ -7,7 +7,7 @@ import SettingsDrawer from '@/components/SettingsDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 
 // Props
-useTheme().global.name.value = localStorage.getItem('theme') || 'dark'
+useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 const refresh = ref(false)
 
 // Event listeners bus
@@ -16,9 +16,9 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
 </script>
 
 <template>
-  <v-app>
+  <v-app theme="rommDark">
 
-    <settings-drawer />
+    <settings-drawer/>
 
     <app-bar/>
 

@@ -62,9 +62,9 @@ onMounted(() => {
         </v-col>
     </v-row>
 
-    <v-list v-show="currentView == 2">
+    <v-list v-show="currentView == 2" class="bg-background">
         <game-list-header/>
-        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" :thickness="2"/>
+        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="rommAccent" :thickness="1"/>
         <game-list-item v-for="rom in romsFiltered" :rom="rom"/>
     </v-list>
     
@@ -73,7 +73,7 @@ onMounted(() => {
     </v-row>
 
     <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
-        <v-progress-circular :width="3" :size="70" indeterminate/>
+        <v-progress-circular color="rommAccent" :width="3" :size="70" indeterminate/>
     </v-dialog>
 
 </template>

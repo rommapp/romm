@@ -54,14 +54,14 @@ async function scan() {
                         @click="scan()"
                         :disabled="scanning"
                         prepend-icon="mdi-magnify-scan"
-                        class="ml-7"
-                        color="secondary"
+                        class="ml-7 bg-scanBtn"
                         rounded="0" 
                         inset>
                         <p v-if="!scanning">Scan</p>
                         <v-progress-circular
                             v-show="scanning"
                             class="ml-2"
+                            color="rommAccent"
                             :width="2"
                             :size="20"
                             indeterminate/>

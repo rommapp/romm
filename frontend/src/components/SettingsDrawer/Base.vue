@@ -19,10 +19,11 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
         v-model="settingsDrawer"
         location="right"
         width="270"
+        class="bg-background"
         temporary
         floating>
         
-        <settings-header/>
+        <settings-header class="bg-primary"/>
 
         <v-divider class="border-opacity-100" :thickness="2"/>
         
@@ -32,7 +33,7 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
             <v-divider class="border-opacity-25"/>
             <theme-toggle/>
             <v-divider class="border-opacity-25"/>
-            <version-label/>
+            <version-label class="bg-primary"/>
         </template>
 
     </v-navigation-drawer>

@@ -11,36 +11,33 @@ import 'vuetify/styles'
 // Composables
 import { createVuetify } from 'vuetify'
 
-// https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
+const rommDark = {
+  dark: true,
+  colors: {
+    primary: '#161B22',
+    secondary: '#424242',
+    background: '#0D1117',
+    rommAccent: '#A453FF',
+    notification: '#0D1117',
+    surface: '#161B22',
+    tooltip: '#161B22',
+    chip: '#161B22',
+    info: '#2196F3',
+    success: '#4CAF50',
+    warning: '#FB8C00',
+    error: '#B00020',
+    red: '#DA3633'
+  }
+}
+
 export default createVuetify({
-  defaults: {
-    vSelect: { variant: 'outlined' },
-    vTextField: { variant: 'outlined' },
-    vFileInput: { variant: 'outlined' }
+  icons: {
+    iconfont: 'mdi'
   },
   theme: {
-    defaultTheme: 'dark',
+    defaultTheme: 'rommDark',
     themes: {
-      light: {
-        colors: {
-          primary: '#FFFFFF',
-          secondary: '#BDBDBD',
-          toolbar: '#FFFFFF',
-          background: '#FFFFFF',
-          tag: '#FFFFFF',
-          tagBg: '#212121'
-        }
-      },
-      dark: {
-        colors: {
-          primary: '#212121',
-          secondary: '#424242',
-          toolbar: '#212121',
-          background: '#212121',
-          tag: '#FFFFFF',
-          tagBg: '#212121'
-        }
-      }
+      rommDark
     }
   }
 })
