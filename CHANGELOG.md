@@ -1,3 +1,10 @@
+# v1.7.1 (_14-04-2023_)
+
+## Added
+ - New UI feel with the new RomM color palette
+
+<br>
+
 # v1.7 (_14-04-2023_)
 
 ## Added
@@ -6,6 +13,8 @@
 ## Changed
  - Rom details page revamped
  - RomM logo revamped
+
+<br>
 
 # v1.6.5 (_12-04-2023_)
 
