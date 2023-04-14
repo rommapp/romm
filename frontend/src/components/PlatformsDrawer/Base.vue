@@ -29,7 +29,7 @@ emitter.emit('selectedPlatform', selectedPlatform.value)
 
 <template>
 
-    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="72">
+    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="75">
 
         <v-list>
             <platform v-for="platform in platforms" :platform="platform" :rail="rail"/>
