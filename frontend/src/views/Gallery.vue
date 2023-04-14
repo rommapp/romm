@@ -2,9 +2,10 @@
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { normalizeString, views } from '@/utils/utils.js'
-import GameCard from '@/components/GameEntry/Card/Base.vue'
-import GameListHeader from '@/components/GameEntry/ListItem/Header.vue'
-import GameListItem from '@/components/GameEntry/ListItem/Item.vue'
+import GameCard from '@/components/GameGallery/Card/Base.vue'
+import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
+import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
+import NoRoms from '@/components/GameGallery/NoRoms.vue'
 
 // Props
 const roms = ref([])
@@ -64,17 +65,13 @@ onMounted(() => {
 
     <v-list v-show="currentView == 2" class="bg-background">
         <game-list-header/>
-        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="rommAccent" :thickness="1"/>
+        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="secondary" :thickness="1"/>
         <game-list-item v-for="rom in romsFiltered" :rom="rom"/>
     </v-list>
     
-    <v-row v-if="noRoms" class="d-flex justify-center align-center mt-16">
-        <div class="text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
-    </v-row>
+    <no-roms :noRoms="noRoms" />
 
-    <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
-        <v-progress-circular color="rommAccent" :width="3" :size="70" indeterminate/>
-    </v-dialog>
+    <getting-roms-loader :gettingRoms="gettingRoms"/>
 
 </template>
 

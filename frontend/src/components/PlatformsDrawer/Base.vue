@@ -48,6 +48,7 @@ emitter.emit('selectedPlatform', selectedPlatform.value)
         </v-list>
         
         <template v-slot:append>
+            <v-divider class="border-opacity-25" :thickness="1"/>
             <rail-btn :rail="rail"/>
         </template>
 
