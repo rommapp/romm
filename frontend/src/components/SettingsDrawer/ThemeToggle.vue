@@ -3,13 +3,15 @@ import { ref } from "vue"
 import { useTheme } from "vuetify"
 
 // Props
-const theme = useTheme()
-const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
+// const theme = useTheme()
+// const darkMode = (localStorage.getItem('theme') == 'light') ? ref(false) : ref(true)
+const darkMode = ref(true)
 
 // Functions
 function toggleTheme() {
-    theme.global.name.value = darkMode.value ? "dark" : "light"
-    darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
+    console.log("changed theme")
+    // theme.global.name.value = darkMode.value ? "dark" : "light"
+    // darkMode.value ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
 }
 </script>
 

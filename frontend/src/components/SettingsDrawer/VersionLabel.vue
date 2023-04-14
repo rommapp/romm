@@ -4,6 +4,6 @@ const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION
 
 <template>
     <v-list-item class="d-flex justify-center alignt-center text-body-2">
-        <p>RomM v{{ ROMM_VERSION }}</p>
+        <span class="text-rommAccent">RomM</span><span> v{{ ROMM_VERSION }}</span>
     </v-list-item>
 </template>
