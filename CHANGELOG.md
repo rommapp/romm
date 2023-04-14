@@ -5,6 +5,7 @@
  - Config file example added to docker/config.example.yml
 ## Changed
  - Rom details page revamped
+ - RomM logo revamped
 
 # v1.6.5 (_12-04-2023_)
 
