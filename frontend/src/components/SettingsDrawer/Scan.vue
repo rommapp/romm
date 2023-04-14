@@ -61,7 +61,7 @@ async function scan() {
                         <v-progress-circular
                             v-show="scanning"
                             class="ml-2"
-                            color="rommAccent"
+                            color="secondary"
                             :width="2"
                             :size="20"
                             indeterminate/>
