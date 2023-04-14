@@ -111,21 +111,13 @@ RomM will try to find the structure 1 and if it doesn't exists, RomM will try to
 
 ## ⚙️ Config.yml file
 
-RomM can be configured through a yml file. This is used to exclude platform folders and game files with a certain extension to be scanned. For a configuration change to take effect, RomM must be restarted.
+RomM can be configured through a yml file. This is used to exclude platforms and/or roms to be scanned.
 
-Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) to see where to bind it.
+For a configuration change to take effect, RomM must be restarted.
 
-Config file example:
+Check the [config.yml](https://github.com/zurdi15/romm/blob/master/docker/config.example.yml) example.
 
-```
-exclude:
-  folders:
-    - 'folder_1_to_exclude'
-    - 'folder_2_to_exclude'
-  files:
-    - 'txt'
-    - 'file_extension_to_exclude'
-```
+Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example to see how to bind it.
 
 # Naming convention 
 
