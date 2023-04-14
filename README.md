@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 style="padding:20px;"><img src="romm.svg" height="128px" width="auto" alt="RomM Logo"></h1>
+  <h1 style="padding:20px;"><img src="romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm">
   <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?branch=master">
