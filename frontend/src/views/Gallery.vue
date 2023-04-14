@@ -4,7 +4,7 @@ import { ref, inject, onMounted } from 'vue'
 import { normalizeString, views } from '@/utils/utils.js'
 import GameCard from '@/components/GameEntry/Card/Base.vue'
 import GameListHeader from '@/components/GameEntry/ListItem/Header.vue'
-import GameListItem from '@/components/GameEntry/ListItem/Base.vue'
+import GameListItem from '@/components/GameEntry/ListItem/Item.vue'
 
 // Props
 const roms = ref([])
@@ -50,7 +50,7 @@ onMounted(() => {
 
 <template>
 
-    <v-row class="pa-5" v-show="currentView != 2">
+    <v-row v-show="currentView != 2">
         <v-col v-for="rom in romsFiltered"
             :cols="views[currentView]['size-cols']"
             :xs="views[currentView]['size-xs']"

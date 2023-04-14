@@ -1,6 +1,7 @@
 <script setup>
 import axios from "axios"
 import { ref, inject } from "vue"
+import { useRouter } from 'vue-router'
 import RailBtn from '@/components/PlatformsDrawer/RailBtn.vue'
 import Platform from '@/components/PlatformsDrawer/Platform.vue'
 
@@ -9,6 +10,7 @@ const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')
 const platforms = ref([])
 const platformsDrawer = ref(null)
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
+const router = useRouter()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -23,15 +25,24 @@ async function getPlatforms() {
     }).catch((error) => {console.log(error)})
 }
 
+async function goHome(){
+    await router.push(import.meta.env.BASE_URL)
+}
+
 getPlatforms()
 emitter.emit('selectedPlatform', selectedPlatform.value)
 </script>
 
 <template>
 
-    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="72">
+    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="75">
 
         <v-list>
+            <v-row @click="goHome()" class="justify-center hidden-md-and-up">
+                <v-img src="/assets/romm.svg" class="home-btn justify-center"></v-img>
+            </v-row>
+            <v-divider class="border-opacity-25 hidden-md-and-up"/>
+
             <platform v-for="platform in platforms" :platform="platform" :rail="rail"/>
         </v-list>
         
@@ -42,3 +53,11 @@ emitter.emit('selectedPlatform', selectedPlatform.value)
     </v-navigation-drawer>
 
 </template>
+
+<style scoped>
+.home-btn {
+    width: 100px;
+    height: 100px;
+    cursor: pointer;
+}
+</style>
