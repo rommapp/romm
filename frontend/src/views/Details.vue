@@ -22,7 +22,7 @@ const router = useRouter()
 const filesToDownload = ref([])
 const tab = ref('info')
 const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
-const { xs, smAndUp } = useDisplay()
+const { xs, sm, smAndUp, mdAndUp, smAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -82,10 +82,10 @@ async function deleteRom() {
 
     <v-card class="bg" position="absolute" rounded="0" flat><v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" cover class="bg-img"/></v-card>
 
-    <div class="content">
-        <v-row class="pt-8 justify-center content">
-            <v-col cols="8" xs="8" sm="4" md="3" lg="2" class="cover">
-                <v-container class="pa-0" fluid>
+    <div :class="{'content': mdAndUp, 'content-tablet': sm, 'content-mobile': xs}">
+        <v-row class="pt-8 justify-center">
+
+            <v-col :class="{'cover': mdAndUp, 'cover-tablet': sm, 'cover-mobile': xs}">
                     <v-row>
                         <v-col>
                             <v-card class="hidden-md-and-down" elevation="5">
@@ -138,9 +138,9 @@ async function deleteRom() {
                             </v-menu>
                         </v-col>
                     </v-row>
-                </v-container>
             </v-col>
-            <v-col cols="10" xs="6" sm="8" md="9" lg="8" class="info mt-10">
+
+            <v-col class="mt-10" :class="{'info': mdAndUp, 'info-tablet': sm, 'info-mobile': xs}">
                 <div class="info-header text-white">
                     <v-row no-gutters>
                         <p class="text-h4 font-weight-bold">{{ rom.name }}</p>
@@ -158,7 +158,7 @@ async function deleteRom() {
                     </v-row>
                 </div>
                 
-                <div class="mb-10" :class="{'info-content': smAndUp, 'info-content-mobile': xs}">
+                <div class="mb-10" :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
                     <v-tabs v-model="tab">
                         <v-tab value="info">Info</v-tab>
                         <v-tab value="saves" disabled>Saves</v-tab>
@@ -203,19 +203,16 @@ async function deleteRom() {
                     </v-window>
                 </div>
             </v-col>
+
         </v-row>
     </div>    
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
-        <v-card max-width="600">
+        <v-card rounded="0" :class="{'search-content': mdAndUp, 'search-content-tablet': sm, 'search-content-mobile': xs}">
 
-            <v-toolbar v-show="searching">
-                <v-toolbar-title>Searching...</v-toolbar-title>
-                <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
-            </v-toolbar>
-
-            <v-toolbar v-show="!searching">
-                <v-toolbar-title>Results found</v-toolbar-title>
+            <v-toolbar>
+                <v-toolbar-title v-show="searching">Searching...</v-toolbar-title>
+                <v-toolbar-title v-show="!searching">Results found</v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
 
@@ -226,33 +223,35 @@ async function deleteRom() {
                 v-model="igdb_id"
                 label="search by id"
                 prepend-inner-icon="mdi-search-web"
-                class="ml-5 mt-5 mr-5 mb-5 shrink"
+                class="ml-5 mt-5 mr-5 mb-5 "
                 variant="outlined"
                 density="compact"
                 hide-details
                 clearable/>
 
-            <v-card-text rounded="0" class="pa-3 scroll">
-                <div class="d-flex justify-center">
-                    <v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/>
-                </div>
-                <v-row v-show="!searching" class="pa-4">
-                    <p v-show="matchedRoms.length==0">No results found</p>
-                    <v-col v-for="rom in matchedRoms">
+            <v-card-text class="pa-3 scroll justify-center align-center">
+                <v-row class="pl-4 pr-4">
+                    <v-col v-show="searching"><v-progress-circular v-show="searching" :width="2" :size="40" class="pa-3 ma-3" indeterminate/></v-col>
+                    <v-col cols="12" v-show="!searching && matchedRoms.length==0" block><p>No results found</p></v-col>
+                    <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms">
                         <v-hover v-slot="{isHovering, props}">
-                            <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3" min-width="100" max-width="140">
+                            <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
-                                    <v-row class="pa-2">{{ rom.name }}</v-row>
+                                    <v-row class="pa-2">
+                                        <span class="d-inline-block text-truncate">{{ rom.name }}</span>
+                                    </v-row>
                                 </v-card-text>
                             </v-card>
                         </v-hover>
                     </v-col>
                 </v-row>
             </v-card-text>
+
             <v-card-actions v-show="!searching">
                 <v-checkbox v-model="renameAsIGDB" label="Rename file" class="pl-3" hide-details="true"/>
             </v-card-actions>
+
         </v-card>
     </v-dialog>
 
@@ -261,7 +260,7 @@ async function deleteRom() {
     </v-dialog>
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false">
-        <v-card max-width="600" min-width="340">
+        <v-card rounded="0" max-width="600" min-width="340">
             <v-toolbar>
                 <v-toolbar-title>Editing {{ rom.file_name }}</v-toolbar-title>
                 <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
@@ -277,7 +276,7 @@ async function deleteRom() {
     </v-dialog>
 
     <v-dialog v-model="dialogDeleteRom" width="auto">
-        <v-card max-width="600">
+        <v-card rounded="0" max-width="600">
             <v-toolbar class="bg-red">
                 <v-toolbar-title>Deleting {{ rom.file_name }}</v-toolbar-title>
                 <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
@@ -311,8 +310,22 @@ async function deleteRom() {
     -webkit-filter: blur(15px);
     filter: blur(15px);
 }
-.content {
+.content, .content-tablet{
+    margin-left: 100px;
+    margin-right: 100px;
+}
+.content, .content-tablet, .content-mobile {
     position: relative;
+}
+.cover, .cover-tablet, .cover-mobile {
+    min-width: 245px;
+    min-height: 326px;
+    max-width: 245px;
+    max-height: 326px;
+}
+.info, .info-tablet, .info-mobile {
+    padding-left: 25px;
+    padding-right: 25px;
 }
 .info-header{
     text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
@@ -321,7 +334,19 @@ async function deleteRom() {
     margin-top: 110px;
     max-width: 700px;
 }
+.info-content-tablet {
+    margin-top: 70px;
+    max-width: 700px;
+}
 .info-content-mobile{
     margin-top: 40px;
+}
+.search-content{
+    width: 700px;
+    height: 540px;
+}
+.search-content-tablet{
+    width: 500px;
+    height: 540px;
 }
 </style>
