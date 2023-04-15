@@ -7,7 +7,7 @@ const emitter = inject('emitter')
 
 <template>
     <v-list-item
-        class="text-h5 d-flex align-center justify-center font-weight-bold bg-primary pt-4 pb-4 pl-7">
+        class="text-h5 d-flex align-center justify-center font-weight-bold pt-4 pb-4 pl-7">
         Settings
         <v-btn
             title="close settings"
