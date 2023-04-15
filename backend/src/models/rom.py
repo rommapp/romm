@@ -18,6 +18,7 @@ class Rom(BaseModel):
     file_extension = Column(String(length=10), default="")
     file_path = Column(String(length=1000), default="")
     file_size = Column(Float, default=0.0)
+    file_size_units = Column(String(length=10), default="")
     
     name = Column(String(length=350), default="")
     r_slug = Column(String(length=100), default="")

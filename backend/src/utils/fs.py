@@ -135,12 +135,19 @@ def _get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
     return [] if not multi else _exclude_multi_roms_parts(list(os.walk(f"{roms_path}/{rom}"))[0][2])
 
 
+def _convert_size_human_readable(size, decimals=2) -> tuple:
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
+        if size < 1024.0 or unit == 'PB': break
+        size /= 1024.0
+    return round(size, 2), unit
+
+
 def _get_file_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
     files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
-    total_size: float = 0.0
+    total_size: int = 0
     for file in files:
-        total_size += round(os.stat(file).st_size / (1024 * 1024), 2)
-    return str(total_size)
+        total_size += os.stat(file).st_size
+    return _convert_size_human_readable(total_size)
 
 
 def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[dict]:
@@ -169,8 +176,9 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
         reg, rev, other_tags = parse_tags(rom['file'])
         file_extension: str = _get_file_extension(rom)
         files: list = _get_rom_files(rom['multi'], rom['file'], roms_path)
-        file_size: str = _get_file_size(rom['multi'], rom['file'], files, roms_path)
-        roms.append({'file_name': rom['file'], 'file_path': roms_path, 'multi': rom['multi'], 'files': files, 'file_size': file_size, 'file_extension': file_extension,
+        file_size, file_size_units = _get_file_size(rom['multi'], rom['file'], files, roms_path)
+        roms.append({'file_name': rom['file'], 'file_path': roms_path, 'multi': rom['multi'],
+                     'files': files, 'file_size': file_size, 'file_size_units': file_size_units, 'file_extension': file_extension,
                      'region': reg, 'revision': rev, 'tags': other_tags})
     return roms
 

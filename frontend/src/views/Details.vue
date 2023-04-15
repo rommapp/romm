@@ -177,7 +177,7 @@ async function deleteRom() {
                             </v-row>
                             <v-row class="d-flex align-center text-body-1 mt-0">
                                 <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Size</p></v-col>
-                                <v-col><p>{{ rom.file_size }} MB</p></v-col>
+                                <v-col><p>{{ rom.file_size }} {{ rom.file_size_units }}</p></v-col>
                             </v-row>
                             <v-row v-if="rom.r_igdb_id!=''" class="d-flex align-center text-body-1 mt-0">
                                 <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>IGDB</p></v-col>
