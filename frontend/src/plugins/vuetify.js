@@ -11,36 +11,58 @@ import 'vuetify/styles'
 // Composables
 import { createVuetify } from 'vuetify'
 
-// https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
+const rommDark = {
+  dark: true,
+  colors: {
+    primary:      '#161b22',
+    secondary:    '#a452fe',
+    background:   '#0d1117',
+
+    notification: '#0d1117',
+    surface:      '#161b22',
+    tooltip:      '#161b22',
+    chip:         '#161b22',
+    
+    rommAccent1:  '#a452fe',
+    rommAccent2:  '#c400f7',
+    rommAccent2:  '#3808a4',
+    rommWhite:    '#fefdfe',
+    rommBlack:    '#000000',
+    rommRed:      '#da3633',
+    rommGreen:    '#3FB950'
+  }
+}
+const rommLight = {
+  dark: false,
+  colors: {
+    primary:      '#fefdfe',
+    secondary:    '#a452fe',
+    background:   '#fefdfe',
+
+    notification: '#0d1117',
+    surface:      '#fefdfe',
+    tooltip:      '#fefdfe',
+    chip:         '#161b22',
+    
+    rommAccent1:  '#a452fe',
+    rommAccent2:  '#c400f7',
+    rommAccent2:  '#3808a4',
+    rommWhite:    '#fefdfe',
+    rommBlack:    '#000000',
+    rommRed:      '#da3633',
+    rommGreen:    '#3FB950'
+  }
+}
+
 export default createVuetify({
-  defaults: {
-    vSelect: { variant: 'outlined' },
-    vTextField: { variant: 'outlined' },
-    vFileInput: { variant: 'outlined' }
+  icons: {
+    iconfont: 'mdi'
   },
   theme: {
-    defaultTheme: 'dark',
+    defaultTheme: 'rommDark',
     themes: {
-      light: {
-        colors: {
-          primary: '#FFFFFF',
-          secondary: '#BDBDBD',
-          toolbar: '#FFFFFF',
-          background: '#FFFFFF',
-          tag: '#FFFFFF',
-          tagBg: '#212121'
-        }
-      },
-      dark: {
-        colors: {
-          primary: '#212121',
-          secondary: '#424242',
-          toolbar: '#212121',
-          background: '#212121',
-          tag: '#FFFFFF',
-          tagBg: '#212121'
-        }
-      }
+      rommDark,
+      rommLight
     }
   }
 })
