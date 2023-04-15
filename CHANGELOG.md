@@ -1,7 +1,11 @@
-# v1.7.1 (_14-04-2023_)
+# v1.7.1 (_15-04-2023_)
 
 ## Added
  - New UI feel with the new RomM color palette
+## Changed
+ - Roms size is now human readable
+## Fixed
+ - Fixed a bug where multi file roms could break the scan if the rom name have a dot.
 
 <br>
 
