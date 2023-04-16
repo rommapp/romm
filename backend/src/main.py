@@ -63,7 +63,8 @@ async def updateRom(req: Request, p_slug: str) -> dict:
     updatedRom['has_cover'] = has_cover
     updatedRom['file_path'] = rom['file_path']
     updatedRom['file_size'] = rom['file_size']
-    updatedRom['file_extension'] = updatedRom['file_name'].split('.')[-1] if '.' in updatedRom['file_name'] else ""
+    updatedRom['multi'] = rom['multi']
+    updatedRom['file_extension'] = fs.get_file_extension(updatedRom)
     reg, rev, other_tags = fs.parse_tags(updatedRom['file_name'])
     updatedRom.update({'region': reg, 'revision': rev, 'tags': other_tags})
     if 'url_cover' in updatedRom.keys(): del updatedRom['url_cover']
