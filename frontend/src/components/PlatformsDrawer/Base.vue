@@ -6,7 +6,6 @@ import RailBtn from '@/components/PlatformsDrawer/RailBtn.vue'
 import Platform from '@/components/PlatformsDrawer/Platform.vue'
 
 // Props
-const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || "")
 const platforms = ref([])
 const platformsDrawer = ref(null)
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
@@ -30,7 +29,6 @@ async function goHome(){
 }
 
 getPlatforms()
-emitter.emit('selectedPlatform', selectedPlatform.value)
 </script>
 
 <template>
