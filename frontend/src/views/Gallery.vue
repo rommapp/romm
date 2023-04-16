@@ -53,6 +53,7 @@ onMounted(() => {
 
     <v-row v-show="currentView != 2">
         <v-col v-for="rom in romsFiltered"
+            :key="rom.file_name"
             :cols="views[currentView]['size-cols']"
             :xs="views[currentView]['size-xs']"
             :sm="views[currentView]['size-sm']"
@@ -66,7 +67,7 @@ onMounted(() => {
     <v-list v-show="currentView == 2" class="bg-background">
         <game-list-header/>
         <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="secondary" :thickness="1"/>
-        <game-list-item v-for="rom in romsFiltered" :rom="rom"/>
+        <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
     </v-list>
     
     <no-roms :noRoms="noRoms" />

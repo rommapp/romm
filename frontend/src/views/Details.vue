@@ -187,7 +187,7 @@ async function deleteRom() {
                             </v-row>
                             <v-row v-if="rom.tags.length>0" class="d-flex align-center text-body-1 mt-0">
                                 <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Tags</p></v-col>
-                                <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" class="bg-chip" label>{{ tag }}</v-chip></v-chip-group></v-col>
+                                <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" :key="tag" class="bg-chip" label>{{ tag }}</v-chip></v-chip-group></v-col>
                             </v-row>
                             <v-row class="d-flex mt-3">
                                 <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
@@ -237,7 +237,7 @@ async function deleteRom() {
                 <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="secondary" indeterminate/></v-row>
                 <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><p>No results found</p></v-row>
                 <v-row class="pl-4 pr-4">
-                    <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms">
+                    <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>

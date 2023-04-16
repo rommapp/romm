@@ -44,7 +44,7 @@ emitter.emit('selectedPlatform', selectedPlatform.value)
             </v-row>
             <v-divider class="border-opacity-25 hidden-md-and-up"/>
 
-            <platform v-for="platform in platforms" :platform="platform" :rail="rail"/>
+            <platform v-for="platform in platforms" :platform="platform" :rail="rail" :key="platform.slug"/>
         </v-list>
         
         <template v-slot:append>
