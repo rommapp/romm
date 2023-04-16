@@ -1,6 +1,7 @@
 <script setup>
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { normalizeString, views } from '@/utils/utils.js'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
@@ -17,7 +18,6 @@ const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('selectedPlatform', (platform) => { getRoms(platform.slug) })
 emitter.on('filter', (filter) => { setFilter(filter) })
 emitter.on('currentView', (view) => { currentView.value = view })
 
@@ -42,10 +42,14 @@ function setFilter(filter) {
     })
 }
 
-onMounted(() => {
-    if(localStorage.getItem('selectedPlatform')){
-        getRoms(JSON.parse(localStorage.getItem('selectedPlatform')).slug)
-    }
+const route = useRoute()
+
+onMounted(async () => {
+    getRoms(route.params.platform)
+})
+
+onBeforeRouteUpdate(async (to, from) => {
+    getRoms(to.params.platform)
 })
 </script>
 
