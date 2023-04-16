@@ -58,25 +58,4 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
   background-color: #808080;
   border-radius: 5px;
 }
-
-rommDark {
-  primary:      #161b22;
-  secondary:    #a452fe;
-  background:   #0d1117;
-
-  notification: #0d1117;
-  surface:      #161b22;
-  tooltip:      #161b22;
-  chip:         #161b22;
-  
-  rommAccent1:  #a452fe;
-  rommAccent2:  #9a00ea;
-  rommAccent3:  #7b00e1;
-  rommAccent4:  #702bcf;
-  rommAccent5:  #3808a4;
-  rommWhite:    #fefdfe;
-  rommBlack:    #000000;
-  rommRed:      #da3633;
-}
-
 </style>

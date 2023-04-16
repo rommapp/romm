@@ -3,7 +3,6 @@ import { toRaw } from "vue"
 import { saveAs } from 'file-saver'
 
 
-
 export async function selectRom(rom, emitter, router) { 
     localStorage.setItem('currentRom', JSON.stringify(rom))
     await router.push(import.meta.env.BASE_URL+'details')

@@ -22,7 +22,7 @@ const emitter = inject('emitter')
         cover>
         <template v-slot:placeholder>
             <div class="d-flex align-center justify-center fill-height">
-                <v-progress-circular color="secondary" indeterminate/>
+                <v-progress-circular color="rommAccent1" indeterminate/>
             </div>
         </template>
         <v-expand-transition>
