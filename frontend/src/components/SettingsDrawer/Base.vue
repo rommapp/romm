@@ -3,7 +3,7 @@ import { ref, inject } from "vue"
 import SettingsHeader from '@/components/SettingsDrawer/Header.vue'
 import Scan from '@/components/SettingsDrawer/Scan.vue'
 import ThemeToggle from '@/components/SettingsDrawer/ThemeToggle.vue'
-import VersionLabel from '@/components/SettingsDrawer/VersionLabel.vue'
+import SettingsFooter from '@/components/SettingsDrawer/Footer.vue'
 
 // Props
 const settingsDrawer = ref(false)
@@ -19,7 +19,7 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
         v-model="settingsDrawer"
         location="right"
         width="270"
-        class="bg-background"
+        class="bg-secondary"
         temporary
         floating>
         
@@ -33,7 +33,7 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
             <v-divider class="border-opacity-25"/>
             <theme-toggle/>
             <v-divider class="border-opacity-25"/>
-            <version-label class="bg-primary"/>
+            <settings-footer class="bg-primary"/>
         </template>
 
     </v-navigation-drawer>
