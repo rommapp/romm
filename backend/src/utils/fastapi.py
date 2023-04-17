@@ -1,21 +1,7 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from handler import igdbh
 from utils import fs
 from models.platform import Platform
 from models.rom import Rom
-from logger.logger import log
-
-
-def allow_cors(app: FastAPI) -> None:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
 
 def scan_platform(p_slug: str) -> Platform:
