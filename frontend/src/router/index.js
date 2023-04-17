@@ -3,11 +3,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
-    path: '/',
+    path: '/:platform',
     component: () => import('@/views/Gallery.vue')
   },
   {
-    path: '/details',
+    path: '/:platform/roms/:rom',
     component: () => import('@/views/Details.vue')
   }
 ]

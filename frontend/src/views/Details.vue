@@ -1,33 +1,33 @@
 <script setup>
 import axios from 'axios'
-import { ref, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, inject, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/utils/utils.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
 
+const router = useRouter()
+const route = useRoute()
+
 // Props
-const rom = ref(JSON.parse(localStorage.getItem('currentRom')) || '')
+const rom = ref(undefined)
+
 const saveFiles = ref(false)
 const searching = ref(false)
 const igdb_id = ref('')
 const matchedRoms = ref([])
 const updating = ref(false)
-const editedRomName = ref(rom.value.file_name)
+const loading = ref(true)
+const editedRomName = ref(undefined)
 const renameAsIGDB = ref(false)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
-const router = useRouter()
+
 const filesToDownload = ref([])
 const tab = ref('info')
-const selectedPlatform = ref(JSON.parse(localStorage.getItem('selectedPlatform')) || '')
 const { xs, sm, mdAndUp } = useDisplay()
-
-// Event listeners bus
-const emitter = inject('emitter')
-emitter.on('currentRom', (currentRom) => { rom.value = currentRom })
 
 // Functions
 async function searchRomIGDB() {
@@ -56,7 +56,6 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
         rom: rom.value,
         updatedRom: updatedRom
     }).then((response) => {
-        localStorage.setItem('currentRom', JSON.stringify(response.data.data))
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
     }).catch((error) => {
@@ -71,19 +70,29 @@ async function deleteRom() {
     await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.file_name+'?filesystem='+deleteFromFs.value)
     .then((response) => {
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push(import.meta.env.BASE_URL)
+        router.push('/')
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't delete "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
 }
+
+onMounted(() => {
+    axios.get(`/api/platforms/${route.params.platform}/roms/${route.params.rom}`).then(response => {
+        rom.value = response.data.data
+        editedRomName.value = rom.value.file_name
+        loading.value = false
+    }).catch(error => {
+        loading.value = false
+    })
+})
 </script>
 
 <template>
 
-    <background-header :rom="rom"/>
+    <background-header :rom="rom" v-if="rom !== undefined"/>
 
-    <div :class="{'content': mdAndUp, 'content-tablet': sm, 'content-mobile': xs}">
+    <div :class="{'content': mdAndUp, 'content-tablet': sm, 'content-mobile': xs}" v-if="rom !== undefined">
         <v-row class="pt-8 justify-center">
 
             <v-col :class="{'cover': mdAndUp, 'cover-tablet': sm, 'cover-mobile': xs}">
@@ -151,7 +160,7 @@ async function deleteRom() {
                         </v-chip-group>
                     </v-row>
                     <v-row no-gutters class="align-center">
-                        <p class="font-italic mt-1">{{ selectedPlatform['name'] }}</p>
+                        <p class="font-italic mt-1">{{ rom.platform.name }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip text-white" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip text-white" label>{{ rom.revision }}</v-chip>
@@ -187,7 +196,7 @@ async function deleteRom() {
                             </v-row>
                             <v-row v-if="rom.tags.length>0" class="d-flex align-center text-body-1 mt-0">
                                 <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Tags</p></v-col>
-                                <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" class="bg-chip" label>{{ tag }}</v-chip></v-chip-group></v-col>
+                                <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" :key="tag" class="bg-chip" label>{{ tag }}</v-chip></v-chip-group></v-col>
                             </v-row>
                             <v-row class="d-flex mt-3">
                                 <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
@@ -208,7 +217,7 @@ async function deleteRom() {
         </v-row>
     </div>
     
-    <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false">
+    <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card :class="{'search-content': mdAndUp, 'search-content-tablet': sm, 'search-content-mobile': xs}">
 
             <v-toolbar class="bg-primary pl-1 pr-1">
@@ -237,7 +246,7 @@ async function deleteRom() {
                 <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="secondary" indeterminate/></v-row>
                 <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><p>No results found</p></v-row>
                 <v-row class="pl-4 pr-4">
-                    <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms">
+                    <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
@@ -261,7 +270,7 @@ async function deleteRom() {
         </v-card>
     </v-dialog>
 
-    <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false">
+    <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card rounded="0" :class="{'edit-content': mdAndUp, 'edit-content-tablet': sm, 'edit-content-mobile': xs}">
             <v-toolbar class="bg-primary pl-1 pr-1">
                 <v-toolbar-title><span>Editing {{ rom.file_name }}</span></v-toolbar-title>
@@ -280,7 +289,7 @@ async function deleteRom() {
         </v-card>
     </v-dialog>
     
-    <v-dialog v-model="dialogDeleteRom" width="auto">
+    <v-dialog v-model="dialogDeleteRom" width="auto" v-if="rom !== undefined">
         <v-card rounded="0" max-width="600">
             <v-toolbar class="bg-red pl-1 pr-1">
                 <v-toolbar-title><span>Deleting {{ rom.file_name }}</span></v-toolbar-title>
@@ -307,7 +316,7 @@ async function deleteRom() {
         </v-card>
     </v-dialog>
 
-    <v-dialog v-model="updating" scroll-strategy="none" width="auto" persistent>
+    <v-dialog :model-value="updating || loading" scroll-strategy="none" width="auto" :scrim="updating" persistent>
         <v-progress-circular :width="3" :size="70" color="secondary" indeterminate/>
     </v-dialog>
     
