@@ -40,6 +40,13 @@ class DBHandler:
         except ProgrammingError as e:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
         
+    def get_platform(self, slug: str) -> Platform:
+        try:
+            with self.session.begin() as s:
+                return s.scalars(select(Platform).filter_by(slug=slug)).first()
+        except ProgrammingError as e:
+            raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
+        
     def purge_platforms(self, platforms: list[str]) -> None:
         with self.session.begin() as s:
             s.query(Platform) \
