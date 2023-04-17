@@ -24,10 +24,12 @@ const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
-
 const filesToDownload = ref([])
 const tab = ref('info')
 const { xs, sm, mdAndUp } = useDisplay()
+
+// Event listeners bus
+const emitter = inject('emitter')
 
 // Functions
 async function searchRomIGDB() {
@@ -45,7 +47,7 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     updating.value = true
     dialogSearchRom.value = false
     if (renameAsIGDB.value) {
-        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.name)
+        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.r_name)
         editedRomName.value = updatedRom.file_name
         renameAsIGDB.value = false
     }
@@ -58,6 +60,7 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     }).then((response) => {
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
+        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.file_name)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
@@ -153,14 +156,14 @@ onMounted(() => {
             <v-col class="mt-10" :class="{'info': mdAndUp, 'info-tablet': sm, 'info-mobile': xs}">
                 <div class="info-header text-white">
                     <v-row no-gutters>
-                        <p class="text-h4 font-weight-bold rom-name">{{ rom.name }}</p>
+                        <p class="text-h4 font-weight-bold rom-name">{{ rom.r_name }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-xs">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
                     </v-row>
                     <v-row no-gutters class="align-center">
-                        <p class="font-italic mt-1 rom-platform">{{ rom.platform.name }}</p>
+                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
@@ -252,7 +255,7 @@ onMounted(() => {
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">
-                                        <span class="d-inline-block text-truncate">{{ rom.name }}</span>
+                                        <span class="d-inline-block text-truncate">{{ rom.r_name }}</span>
                                     </v-row>
                                 </v-card-text>
                             </v-card>
@@ -320,7 +323,7 @@ onMounted(() => {
     </v-dialog>
 
     <v-dialog :model-value="updating || loading" scroll-strategy="none" width="auto" :scrim="updating" persistent>
-        <v-progress-circular :width="3" :size="70" color="secondary" indeterminate/>
+        <v-progress-circular :width="3" :size="70" color="rommAccent1" indeterminate/>
     </v-dialog>
     
 </template>
