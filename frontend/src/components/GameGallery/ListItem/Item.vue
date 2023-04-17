@@ -1,12 +1,10 @@
 <script setup>
 import { ref, inject } from 'vue'
-import { useRouter } from 'vue-router'
-import { selectRom, downloadRom, downloadSave } from '@/utils/utils.js'
+import { downloadRom, downloadSave } from '@/utils/utils.js'
 
 // Props
 const props = defineProps(['rom'])
 const forceImgReload = Date.now()
-const router = useRouter()
 const saveFiles = ref(false)
 
 // Event listeners bus
@@ -15,7 +13,7 @@ const emitter = inject('emitter')
 
 <template>
     <v-list-item 
-        @:click="selectRom(rom, emitter, router)"
+        :to="`/${$route.params.platform}/roms/${rom.file_name}`"
         :value="rom.file_name"
         :key="rom.file_name"
         class="pa-2">

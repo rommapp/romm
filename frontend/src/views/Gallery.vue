@@ -1,6 +1,7 @@
 <script setup>
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { normalizeString, views } from '@/utils/utils.js'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
@@ -17,7 +18,6 @@ const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('selectedPlatform', (platform) => { getRoms(platform.slug) })
 emitter.on('filter', (filter) => { setFilter(filter) })
 emitter.on('currentView', (view) => { currentView.value = view })
 
@@ -42,10 +42,14 @@ function setFilter(filter) {
     })
 }
 
-onMounted(() => {
-    if(localStorage.getItem('selectedPlatform')){
-        getRoms(JSON.parse(localStorage.getItem('selectedPlatform')).slug)
-    }
+const route = useRoute()
+
+onMounted(async () => {
+    getRoms(route.params.platform)
+})
+
+onBeforeRouteUpdate(async (to, from) => {
+    getRoms(to.params.platform)
 })
 </script>
 
@@ -53,6 +57,7 @@ onMounted(() => {
 
     <v-row v-show="currentView != 2">
         <v-col v-for="rom in romsFiltered"
+            :key="rom.file_name"
             :cols="views[currentView]['size-cols']"
             :xs="views[currentView]['size-xs']"
             :sm="views[currentView]['size-sm']"
@@ -66,10 +71,10 @@ onMounted(() => {
     <v-list v-show="currentView == 2" class="bg-secondary">
         <game-list-header/>
         <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="rommAccent1" :thickness="1"/>
-        <game-list-item v-for="rom in romsFiltered" :rom="rom"/>
+        <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
     </v-list>
     
-    <no-roms :noRoms="noRoms" />
+    <no-roms :noRoms="noRoms"/>
 
     <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
         <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate/>
