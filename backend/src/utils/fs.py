@@ -278,4 +278,4 @@ def get_cover_details(overwrite: bool, p_slug: str, file_name: str, url_cover: s
     if _cover_exists(p_slug, file_name, 'l'):
         path_cover_l = _get_cover_path(p_slug, file_name, 'l')
         has_cover = 1
-    return path_cover_s, path_cover_l, has_cover
+    return {'path_cover_s': path_cover_s, 'path_cover_l': path_cover_l, 'has_cover': has_cover}

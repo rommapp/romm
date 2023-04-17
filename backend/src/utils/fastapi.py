@@ -19,17 +19,10 @@ def scan_platform(p_slug: str) -> Platform:
 
 
 def scan_rom(platform: Platform, rom: dict, r_igbd_id_search: str = '', overwrite: bool = False) -> None:
-    r_igdb_id, file_name_no_tags, r_slug, r_name, summary, url_cover = igdbh.get_rom_details(rom['file_name'], platform.igdb_id, r_igbd_id_search)
-    path_cover_s, path_cover_l, has_cover = fs.get_cover_details(overwrite, platform.slug, rom['file_name'], url_cover)
-    rom['file_name_no_tags'] = file_name_no_tags
-    rom['r_igdb_id'] = r_igdb_id
+    rom.update(igdbh.get_rom_details(rom['file_name'], platform.igdb_id, r_igbd_id_search))
+    rom.update(fs.get_cover_details(overwrite, platform.slug, rom['file_name'], rom['url_cover']))
     rom['p_igdb_id'] = platform.igdb_id
-    rom['r_slug'] = r_slug
     rom['p_slug'] = platform.slug
-    rom['name'] = r_name
-    rom['summary'] = summary
-    rom['path_cover_s'] = path_cover_s
-    rom['path_cover_l'] = path_cover_l
-    rom['has_cover'] = has_cover
+    rom['p_name'] = platform.name
     rom = Rom(**rom)
     return rom
