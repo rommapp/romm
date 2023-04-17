@@ -74,7 +74,7 @@ onBeforeRouteUpdate(async (to, from) => {
         <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
     </v-list>
     
-    <no-roms :noRoms="noRoms" />
+    <no-roms :noRoms="noRoms"/>
 
     <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
         <v-progress-circular color="secondary" :width="3" :size="70" indeterminate/>
