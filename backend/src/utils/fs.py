@@ -49,26 +49,26 @@ def _get_roms_structure(p_slug) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
 
 
-def _exclude_single_roms(roms) -> list[str]:
+def _exclude_files(files, type) -> list[str]:
     try:
         excluded_extensions: list = []
-        excluded_extensions = user_config['exclude']['roms']['single_file']['extensions']
+        excluded_extensions = user_config['exclude']['roms'][f'{type}_file']['extensions']
     except (TypeError, KeyError):
         pass
     try:
         excluded_names: list = []
-        excluded_names = user_config['exclude']['roms']['single_file']['names']
+        excluded_names = user_config['exclude']['roms'][f'{type}_file']['names']
     except (TypeError, KeyError):
         pass
     filtered_files: list = []
-    for rom in roms:
+    for rom in files:
         try:
             if rom.split('.')[-1] in excluded_extensions or rom in excluded_names:
                 filtered_files.append(rom)
         except TypeError:
             pass
-    roms = [f for f in roms if f not in filtered_files]
-    return roms
+    files = [f for f in files if f not in filtered_files]
+    return files
 
 
 def _exclude_multi_roms(roms) -> list[str]:
@@ -86,28 +86,6 @@ def _exclude_multi_roms(roms) -> list[str]:
             pass
     roms = [f for f in roms if f not in filtered_files]
     return roms
-
-
-def _exclude_multi_roms_parts(parts) -> list[str]:
-    try:
-        excluded_extensions: list = []
-        excluded_extensions = user_config['exclude']['roms']['multi_file']['parts']['extensions']
-    except (TypeError, KeyError):
-        pass
-    try:
-        excluded_names: list = []
-        excluded_names = user_config['exclude']['roms']['multi_file']['parts']['names']
-    except (TypeError, KeyError):
-        pass
-    filtered_files: list = []
-    for part in parts:
-        try:
-            if part.split('.')[-1] in excluded_extensions or part in excluded_names:
-                filtered_files.append(part)
-        except TypeError:
-            log.warning(f"Config file is malformed")
-    parts = [f for f in parts if f not in filtered_files]
-    return parts
 
 
 def parse_tags(file_name: str) -> tuple:
@@ -132,7 +110,7 @@ def get_file_extension(rom: dict) -> str:
 
 
 def _get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
-    return [] if not multi else _exclude_multi_roms_parts(list(os.walk(f"{roms_path}/{rom}"))[0][2])
+    return [] if not multi else _exclude_files(list(os.walk(f"{roms_path}/{rom}"))[0][2], 'multi')
 
 
 def _convert_size_human_readable(size, decimals=2) -> tuple:
@@ -166,7 +144,7 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
 
     fs_single_roms: list[str] = list(os.walk(roms_path))[0][2]
     fs_multi_roms: list[str] = list(os.walk(roms_path))[0][1]
-    fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_single_roms(fs_single_roms)] + \
+    fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_files(fs_single_roms, 'single')] + \
                           [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
 
     if only_amount: return len(fs_roms)
