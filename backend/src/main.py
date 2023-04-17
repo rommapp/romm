@@ -58,7 +58,10 @@ def platforms() -> dict:
 def rom(p_slug: str, file_name: str) -> dict:
     """Returns one rom data of the desired platform"""
 
-    return {'data':  dbh.get_rom(p_slug, file_name)}
+    return {'data': {
+        **dbh.get_rom(p_slug, file_name).__dict__,
+        'platform': dbh.get_platform(p_slug)
+    }}
 
 
 @app.get("/platforms/{p_slug}/roms")

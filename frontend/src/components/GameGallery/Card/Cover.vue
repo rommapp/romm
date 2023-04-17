@@ -1,7 +1,6 @@
 <script setup>
 import { inject } from 'vue'
 import { useRouter } from 'vue-router'
-import { selectRom } from '@/utils/utils.js'
 
 // Props
 const props = defineProps(['rom', 'isHovering', 'hoverProps', 'size'])
@@ -14,7 +13,7 @@ const emitter = inject('emitter')
 
 <template>
     <v-img 
-        @click="selectRom(rom, emitter, router)"
+        :to="`/${$route.params.platform}/`"
         v-bind="hoverProps"
         :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload"
         :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
