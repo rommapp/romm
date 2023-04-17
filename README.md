@@ -1,11 +1,11 @@
 <div align="center">
   <h1 style="padding:20px;"><img src="romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
-  <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm">
-  <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm">
-  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?branch=master">
+  <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
+  <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
+  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?style=flat-square&branch=master">
   <a href="https://hub.docker.com/r/zurdi15/romm">
-  <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm">
-  <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm">
+  <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
+  <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm?style=flat-square">
 </div>
 <br>
 <div align="center">

@@ -12,7 +12,7 @@ const props = defineProps(['platform', 'rail'])
             <v-avatar :rounded="0"><v-img :src="'/assets/platforms/'+platform.slug+'.ico'"></v-img></v-avatar>
         </template>
         <template v-slot:append>
-            <v-chip class="ml-4" size="small">{{ platform.n_roms }}</v-chip>
+            <v-chip class="ml-4 bg-chip" size="small">{{ platform.n_roms }}</v-chip>
         </template>
     </v-list-item>
 </template>

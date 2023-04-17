@@ -23,9 +23,9 @@ async function goHome(){
 
 <template>
 
-    <v-app-bar class="elevation-3">
+    <v-app-bar>
 
-        <v-progress-linear color="secondary" :active="scanning" :indeterminate="true" absolute/>
+        <v-progress-linear color="rommAccent1" :active="scanning" :indeterminate="true" absolute/>
 
         <v-avatar size="100" class="ml-3 home-btn hidden-sm-and-down" @click="goHome()"><v-img src="/assets/romm_complete.svg"></v-img></v-avatar>
             

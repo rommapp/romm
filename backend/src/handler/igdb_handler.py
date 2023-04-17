@@ -48,8 +48,8 @@ class IGDBHandler():
     def get_rom_details(self, file_name: str, p_igdb_id: int, r_igdb_id_search: str) -> dict:
         file_name_no_tags: str = re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0])
         r_igdb_id: str = ""
-        slug: str = ""
-        name: str = ""
+        r_slug: str = ""
+        r_name: str = ""
         summary: str = ""
         url_cover: str = ""
 
@@ -57,8 +57,8 @@ class IGDBHandler():
             res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                               data=f"fields id, slug, name, summary; where id={r_igdb_id_search};").json()[0]
             r_igdb_id = res_details['id']
-            slug = res_details['slug']
-            name = res_details['name']
+            r_slug = res_details['slug']
+            r_name = res_details['name']
             try:
                 summary = res_details['summary']
             except KeyError:
@@ -72,8 +72,8 @@ class IGDBHandler():
                     res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                                       data=f"search \"{search_term}\";fields id, slug, name, summary; where platforms=[{p_igdb_id}] & category=0;").json()[0]
                     r_igdb_id = res_details['id']
-                    slug = res_details['slug']
-                    name = res_details['name']
+                    r_slug = res_details['slug']
+                    r_name = res_details['name']
                     try:
                         summary = res_details['summary']
                     except KeyError:
@@ -83,8 +83,8 @@ class IGDBHandler():
                         res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                                           data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}] & category=10;").json()[0]
                         r_igdb_id = res_details['id']
-                        slug = res_details['slug']
-                        name = res_details['name']
+                        r_slug = res_details['slug']
+                        r_name = res_details['name']
                         try:
                             summary = res_details['summary']
                         except KeyError:
@@ -94,8 +94,8 @@ class IGDBHandler():
                             res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                                               data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()[0]
                             r_igdb_id = res_details['id']
-                            slug = res_details['slug']
-                            name = res_details['name']
+                            r_slug = res_details['slug']
+                            r_name = res_details['name']
                             try:
                                 summary = res_details['summary']
                             except KeyError:
@@ -108,9 +108,9 @@ class IGDBHandler():
                                                   data=f"fields url; where game={r_igdb_id};").json()[0]
                 url_cover: str = f"https:{res_details['url']}"
             except IndexError:
-                log.warning(f"{name} cover not found in IGDB")
-        if not name: name = file_name_no_tags
-        return (r_igdb_id, file_name_no_tags, slug, name, summary, url_cover)
+                log.warning(f"{r_name} cover not found in IGDB")
+        if not r_name: r_name = file_name_no_tags
+        return {'r_igdb_id': r_igdb_id, 'file_name_no_tags': file_name_no_tags, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary, 'url_cover': url_cover}
 
     
     @check_twitch_token
@@ -129,23 +129,28 @@ class IGDBHandler():
                     rom['url_cover'] = DEFAULT_URL_COVER_L
                 rom['r_igdb_id'] = rom.pop('id')
                 rom['r_slug'] = rom.pop('slug')
+                rom['r_name'] = rom.pop('name')
         else:
             log.warning(f"{p_slug} is not supported!")
         return matched_roms
     
     def get_matched_roms_by_id(self, igdb_id: str) -> list:
-        matched_roms: list[dict] = []
-        matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
-                                            data=f"fields name, id, slug, summary; where id={igdb_id};").json()
-        for rom in matched_roms:
-            try:
-                res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
-                                                  data=f"fields url; where game={rom['id']};").json()[0]
-                rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
-            except IndexError:
-                rom['url_cover'] = DEFAULT_URL_COVER_L
-            rom['r_igdb_id'] = rom.pop('id')
-            rom['r_slug'] = rom.pop('slug')
+        res: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
+                                            data=f"fields name, id, slug, summary; where id={igdb_id};")
+        if res.status_code == 200:
+            matched_roms = res.json()
+            for rom in matched_roms:
+                try:
+                    res_details: dict = requests.post("https://api.igdb.com/v4/covers/", headers=self.headers,
+                                                    data=f"fields url; where game={rom['id']};").json()[0]
+                    rom['url_cover'] = f"https:{res_details['url']}".replace('t_thumb', f't_cover_big')
+                except IndexError:
+                    rom['url_cover'] = DEFAULT_URL_COVER_L
+                rom['r_igdb_id'] = rom.pop('id')
+                rom['r_slug'] = rom.pop('slug')
+                rom['r_name'] = rom.pop('name')
+        else:
+            matched_roms: list = []
         return matched_roms
 
 

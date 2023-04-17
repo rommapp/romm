@@ -12,6 +12,7 @@ const emitter = inject('emitter')
     <v-btn
         @click="emitter.emit('togglePlatformsRail')"
         rounded="0"
+        color="primary"
         block>
             <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
             <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>

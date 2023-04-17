@@ -127,8 +127,8 @@ def parse_tags(file_name: str) -> tuple:
     return reg, rev, other_tags
 
 
-def _get_file_extension(rom: dict) -> str:
-    return rom['file'].split('.')[-1] if not rom['multi'] else ''
+def get_file_extension(rom: dict) -> str:
+    return rom['file_name'].split('.')[-1] if not rom['multi'] else ''
 
 
 def _get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
@@ -166,18 +166,18 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
 
     fs_single_roms: list[str] = list(os.walk(roms_path))[0][2]
     fs_multi_roms: list[str] = list(os.walk(roms_path))[0][1]
-    fs_roms: list[dict] = [{'multi': False, 'file': rom} for rom in _exclude_single_roms(fs_single_roms)] + \
-                          [{'multi': True, 'file': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
+    fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_single_roms(fs_single_roms)] + \
+                          [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
 
     if only_amount: return len(fs_roms)
 
     for rom in fs_roms:
-        if rom['file'] in db_roms and not full_scan and not rom['multi']: continue
-        reg, rev, other_tags = parse_tags(rom['file'])
-        file_extension: str = _get_file_extension(rom)
-        files: list = _get_rom_files(rom['multi'], rom['file'], roms_path)
-        file_size, file_size_units = _get_file_size(rom['multi'], rom['file'], files, roms_path)
-        roms.append({'file_name': rom['file'], 'file_path': roms_path, 'multi': rom['multi'],
+        if rom['file_name'] in db_roms and not full_scan and not rom['multi']: continue
+        reg, rev, other_tags = parse_tags(rom['file_name'])
+        file_extension: str = get_file_extension(rom)
+        files: list = _get_rom_files(rom['multi'], rom['file_name'], roms_path)
+        file_size, file_size_units = _get_file_size(rom['multi'], rom['file_name'], files, roms_path)
+        roms.append({'file_name': rom['file_name'], 'file_path': roms_path, 'multi': rom['multi'],
                      'files': files, 'file_size': file_size, 'file_size_units': file_size_units, 'file_extension': file_extension,
                      'region': reg, 'revision': rev, 'tags': other_tags})
     return roms
@@ -278,4 +278,4 @@ def get_cover_details(overwrite: bool, p_slug: str, file_name: str, url_cover: s
     if _cover_exists(p_slug, file_name, 'l'):
         path_cover_l = _get_cover_path(p_slug, file_name, 'l')
         has_cover = 1
-    return path_cover_s, path_cover_l, has_cover
+    return {'path_cover_s': path_cover_s, 'path_cover_l': path_cover_l, 'has_cover': has_cover}

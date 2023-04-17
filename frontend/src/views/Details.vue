@@ -24,10 +24,12 @@ const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
-
 const filesToDownload = ref([])
 const tab = ref('info')
 const { xs, sm, mdAndUp } = useDisplay()
+
+// Event listeners bus
+const emitter = inject('emitter')
 
 // Functions
 async function searchRomIGDB() {
@@ -45,7 +47,7 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     updating.value = true
     dialogSearchRom.value = false
     if (renameAsIGDB.value) {
-        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.name)
+        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.r_name)
         editedRomName.value = updatedRom.file_name
         renameAsIGDB.value = false
     }
@@ -58,6 +60,7 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     }).then((response) => {
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
+        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.file_name)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
@@ -102,7 +105,7 @@ onMounted(() => {
                                 <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                     <template v-slot:placeholder>
                                         <div class="d-flex align-center justify-center fill-height">
-                                            <v-progress-circular color="secondary" :width="2" :size="20" indeterminate/>
+                                            <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
                                         </div> 
                                     </template>
                                 </v-img>
@@ -111,7 +114,7 @@ onMounted(() => {
                                 <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                     <template v-slot:placeholder>
                                         <div class="d-flex align-center justify-center fill-height">
-                                            <v-progress-circular color="secondary" :width="2" :size="20" indeterminate/>
+                                            <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
                                         </div>
                                     </template>
                                 </v-img>
@@ -120,7 +123,7 @@ onMounted(() => {
                     </v-row>
                     <v-row class="pl-3 pr-3">
                         <v-col class="pa-0">
-                            <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                            <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" color="primary" block><v-icon icon="mdi-download" size="large"/></v-btn>
                         </v-col>
                         <v-col class="pa-0">
                             <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
@@ -153,23 +156,23 @@ onMounted(() => {
             <v-col class="mt-10" :class="{'info': mdAndUp, 'info-tablet': sm, 'info-mobile': xs}">
                 <div class="info-header text-white">
                     <v-row no-gutters>
-                        <p class="text-h4 font-weight-bold">{{ rom.name }}</p>
+                        <p class="text-h4 font-weight-bold rom-name">{{ rom.r_name }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-xs">
-                            <v-chip v-show="rom.region" size="x-small" class="bg-chip text-white" label>{{ rom.region }}</v-chip>
-                            <v-chip v-show="rom.revision" size="x-small" class="bg-chip text-white" label>{{ rom.revision }}</v-chip>
+                            <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
+                            <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
                     </v-row>
                     <v-row no-gutters class="align-center">
-                        <p class="font-italic mt-1">{{ rom.platform.name }}</p>
+                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
-                            <v-chip v-show="rom.region" size="x-small" class="bg-chip text-white" label>{{ rom.region }}</v-chip>
-                            <v-chip v-show="rom.revision" size="x-small" class="bg-chip text-white" label>{{ rom.revision }}</v-chip>
+                            <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
+                            <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
                     </v-row>
                 </div>
                 
                 <div class="mb-10" :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
-                    <v-tabs v-model="tab" slider-color="secondary">
+                    <v-tabs v-model="tab" slider-color="rommAccent1">
                         <v-tab value="info">Info</v-tab>
                         <v-tab value="saves" disabled>Saves</v-tab>
                         <v-tab value="screenshots" disabled>Screenshots</v-tab>
@@ -228,7 +231,7 @@ onMounted(() => {
 
             <v-divider class="border-opacity-25" :thickness="1"/>
             
-            <v-card-text class="pa-3 scroll justify-center align-center bg-background">
+            <v-card-text class="pa-3 scroll justify-center align-center bg-secondary">
                 <v-row>
                     <v-text-field
                         @keyup.enter="searchRomIGDB()"
@@ -243,7 +246,7 @@ onMounted(() => {
                         hide-details
                         clearable/>
                 </v-row>
-                <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="secondary" indeterminate/></v-row>
+                <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="rommAccent1" indeterminate/></v-row>
                 <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><p>No results found</p></v-row>
                 <v-row class="pl-4 pr-4">
                     <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
@@ -252,7 +255,7 @@ onMounted(() => {
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">
-                                        <span class="d-inline-block text-truncate">{{ rom.name }}</span>
+                                        <span class="d-inline-block text-truncate">{{ rom.r_name }}</span>
                                     </v-row>
                                 </v-card-text>
                             </v-card>
@@ -279,12 +282,15 @@ onMounted(() => {
 
             <v-divider class="border-opacity-25" :thickness="1"/>
 
-            <v-card-text class="pt-5 bg-background">
+            <v-card-text class="pt-5 bg-secondary">
                 <v-form @submit.prevent class="ma-4">
                     <v-text-field @keyup.enter="updateRom()" v-model="editedRomName" label="File name" variant="outlined" required/>
                     <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
-                    <v-btn type="submit" @click="updateRom(undefined, editedRomName)" class="mt-2 bg-rommGreen" block>Apply</v-btn>
                 </v-form>
+                <v-row class="justify-center ma-2 mt-5">
+                    <v-btn type="submit" @click="updateRom(undefined, editedRomName)" class="bg-rommGreen">Apply</v-btn>
+                    <v-btn @click="dialogEditRom=false" class="ml-5" variant="tonal">Cancel</v-btn>
+                </v-row>
             </v-card-text>
         </v-card>
     </v-dialog>
@@ -298,7 +304,7 @@ onMounted(() => {
 
             <v-divider class="border-opacity-25" :thickness="1"/>
 
-            <v-card-text class="bg-background">
+            <v-card-text class="bg-secondary">
                 <v-row class="justify-center ma-2">
                     <span>Deleting from RomM. Do you confirm?</span>
                 </v-row>
@@ -317,7 +323,7 @@ onMounted(() => {
     </v-dialog>
 
     <v-dialog :model-value="updating || loading" scroll-strategy="none" width="auto" :scrim="updating" persistent>
-        <v-progress-circular :width="3" :size="70" color="secondary" indeterminate/>
+        <v-progress-circular :width="3" :size="70" color="rommAccent1" indeterminate/>
     </v-dialog>
     
 </template>
@@ -343,7 +349,7 @@ onMounted(() => {
     padding-left: 25px;
     padding-right: 25px;
 }
-.info-header{
+.rom-name, .rom-platform {
     text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 .info-content{
