@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 
-from config.config_loader import get_db_engine
+from config.config_loader import ConfigLoader
 from models.platform import Platform
 from models.rom import Rom
 
@@ -14,7 +14,8 @@ from models.rom import Rom
 class DBHandler:
 
     def __init__(self) -> None:
-        self.engine = create_engine(get_db_engine(), pool_pre_ping=True)
+        cl = ConfigLoader()
+        self.engine = create_engine(cl.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
 
