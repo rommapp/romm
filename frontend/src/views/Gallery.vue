@@ -68,11 +68,14 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-col>
     </v-row>
 
-    <v-list v-show="currentView == 2" class="bg-secondary">
+
+    <v-table v-show="currentView == 2" class="bg-secondary">
         <game-list-header/>
-        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="rommAccent1" :thickness="1"/>
-        <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
-    </v-list>
+        <v-divider class="border-opacity-100 ml-1 mb-4 mr-1" color="rommAccent1" :thickness="1"/>
+        <tbody>
+            <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
+        </tbody>
+    </v-table>
     
     <no-roms :noRoms="noRoms"/>
 
