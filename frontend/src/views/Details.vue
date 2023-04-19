@@ -223,7 +223,7 @@ onMounted(() => {
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card :class="{'search-content': mdAndUp, 'search-content-tablet': sm, 'search-content-mobile': xs}">
 
-            <v-toolbar class="bg-primary pl-1 pr-1">
+            <v-toolbar class="bg-primary" density="compact">
                 <v-toolbar-title v-show="searching">Searching...</v-toolbar-title>
                 <v-toolbar-title v-show="!searching"><span>Results found</span></v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
@@ -275,19 +275,19 @@ onMounted(() => {
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card rounded="0" :class="{'edit-content': mdAndUp, 'edit-content-tablet': sm, 'edit-content-mobile': xs}">
-            <v-toolbar class="bg-primary pl-1 pr-1">
+            <v-toolbar class="bg-primary" density="compact">
                 <v-toolbar-title><span>Editing {{ rom.file_name }}</span></v-toolbar-title>
                 <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
 
             <v-divider class="border-opacity-25" :thickness="1"/>
 
-            <v-card-text class="pt-5 bg-secondary">
+            <v-card-text class="bg-secondary">
                 <v-form @submit.prevent class="ma-4">
                     <v-text-field @keyup.enter="updateRom()" v-model="editedRomName" label="File name" variant="outlined" required/>
                     <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
                 </v-form>
-                <v-row class="justify-center ma-2 mt-5">
+                <v-row class="justify-center mb-2">
                     <v-btn type="submit" @click="updateRom(undefined, editedRomName)" class="bg-rommGreen">Apply</v-btn>
                     <v-btn @click="dialogEditRom=false" class="ml-5" variant="tonal">Cancel</v-btn>
                 </v-row>
@@ -297,7 +297,7 @@ onMounted(() => {
     
     <v-dialog v-model="dialogDeleteRom" width="auto" v-if="rom !== undefined">
         <v-card rounded="0" max-width="600">
-            <v-toolbar class="bg-red pl-1 pr-1">
+            <v-toolbar class="bg-red" density="compact">
                 <v-toolbar-title><span>Deleting {{ rom.file_name }}</span></v-toolbar-title>
                 <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>

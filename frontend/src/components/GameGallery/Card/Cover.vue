@@ -29,6 +29,12 @@ const forceImgReload = Date.now()
                 </div>
             </v-expand-transition>
             <v-chip-group class="pl-1 pt-0">
+                <v-chip v-show="rom.multi"
+                    size="x-small"
+                    class="bg-chip"
+                    label>
+                    {{ rom.files.length }}
+                </v-chip>
                 <v-chip
                     v-show="rom.region"
                     size="x-small"

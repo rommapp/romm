@@ -17,7 +17,7 @@ const emitter = inject('emitter')
         :value="rom.file_name"
         :key="rom.file_name">
         <v-row class="text-subtitle-2">
-            <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>{{ rom.r_name }}</span></v-col>
+            <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>{{ rom.r_name }}<v-chip v-show="rom.multi" size="x-small" class="ml-2 bg-chip" label>{{ rom.files.length }}</v-chip></span></v-col>
             <v-col md="4" lg="4" class="hidden-sm-and-down"><span>{{ rom.file_name }}</span></v-col>
             <v-col md="1" lg="1" class="hidden-sm-and-down"><span>{{ rom.p_slug }}</span></v-col>
             <v-col xs="2" sm="2" md="2" lg="2" class="hidden-xs"><span>{{ rom.file_size }} {{ rom.file_size_units }}</span></v-col>
