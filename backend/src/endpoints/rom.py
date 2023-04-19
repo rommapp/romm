@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Request
 
-from logger.logger import log, COLORS
-from handler import igdbh, dbh
+from logger.logger import log
+from handler import dbh
 from utils import fs
+from models.rom import Rom
 
 router = APIRouter()
 
@@ -22,12 +23,16 @@ def roms(p_slug: str) -> dict:
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}")
-async def updateRom(req: Request, id: int) -> dict:
+async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
     data: dict = await req.json()
     updated_rom: dict = data['updatedRom']
-    return {'data': updated_rom}
+    updated_rom.update(fs.get_cover_details(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
+    db_rom: Rom = dbh.get_rom(id)
+    dbh.update_rom(id, updated_rom)
+    fs.rename_rom(p_slug, db_rom.file_name, updated_rom['file_name'])
+    return {'data': dbh.get_rom(id)}
 
 
 @router.delete("/platforms/{p_slug}/roms/{id}")
