@@ -72,7 +72,7 @@ def upgrade() -> None:
                                 file_size_units, r_name, r_slug, summary, path_cover_s, path_cover_l, has_cover, \
                                 region, revision, tags, multi, files, url_cover \
                              FROM old_roms")
-            
+            op.drop_table('old_roms')
     # ### end Alembic commands ###
 
 
