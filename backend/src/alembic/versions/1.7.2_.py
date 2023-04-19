@@ -28,6 +28,7 @@ def upgrade() -> None:
         batch_op.alter_column('name', new_column_name='r_name', type_=sa.String(length=150), existing_type=sa.String(length=150))
         batch_op.alter_column('p_slug', existing_type=sa.String(length=50), nullable=False)
         batch_op.alter_column('file_name', existing_type=sa.String(length=450), nullable=False)
+        batch_op.drop_column('file_name_no_tags')
     with op.batch_alter_table("roms") as batch_op:
         if os.getenv('ROMM_DB_DRIVER') == 'mariadb':
             batch_op.execute("ALTER TABLE roms ADD COLUMN id INTEGER UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT")
@@ -42,7 +43,6 @@ def upgrade() -> None:
                 sa.Column('p_slug', sa.String(length=50), nullable=False),
                 sa.Column('p_name', sa.String(length=150), nullable=True),
                 sa.Column('file_name', sa.String(length=450), nullable=False),
-                sa.Column('file_name_no_tags', sa.String(length=450), nullable=True),
                 sa.Column('file_extension', sa.String(length=10), nullable=True),
                 sa.Column('file_path', sa.String(length=1000), nullable=True),
                 sa.Column('file_size', sa.Float(), nullable=True),
@@ -63,12 +63,12 @@ def upgrade() -> None:
             )
             batch_op.execute("INSERT INTO roms(\
                                 r_igdb_id, p_igdb_id, r_sgdb_id, p_sgdb_id, p_slug, p_name, \
-                                file_name, file_name_no_tags, file_extension, file_path, file_size, \
+                                file_name, file_extension, file_path, file_size, \
                                 file_size_units, r_name, r_slug, summary, path_cover_s, path_cover_l, has_cover, \
                                 region, revision, tags, multi, files, url_cover) \
                              SELECT \
                                 r_igdb_id, p_igdb_id, r_sgdb_id, p_sgdb_id, p_slug, p_name, \
-                                file_name, file_name_no_tags, file_extension, file_path, file_size, \
+                                file_name, file_extension, file_path, file_size, \
                                 file_size_units, r_name, r_slug, summary, path_cover_s, path_cover_l, has_cover, \
                                 region, revision, tags, multi, files, url_cover \
                              FROM old_roms")

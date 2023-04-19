@@ -46,9 +46,8 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     dialogSearchRom.value = false
     updating.value = true
     if (renameAsIGDB.value) {
-        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.r_name)
+        updatedRom.file_name = updatedRom.r_name
         editedRomName.value = updatedRom.file_name
-        renameAsIGDB.value = false
     }
     else{ updatedRom.file_name = newName }
 
@@ -56,13 +55,13 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
         updatedRom: updatedRom
     }).then((response) => {
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        // rom.value = response.data.data
-        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.file_name)
+        rom.value = response.data.data
+        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.id)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
-
+    renameAsIGDB.value = false
     updating.value = false
     dialogEditRom.value = false
 }
