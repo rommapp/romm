@@ -11,7 +11,6 @@ const route = useRoute()
 
 // Props
 const rom = ref(undefined)
-
 const saveFiles = ref(false)
 const searching = ref(false)
 const igdb_id = ref('')
@@ -44,33 +43,32 @@ async function searchRomIGDB() {
 }
 
 async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.value.file_name) {
-    updating.value = true
     dialogSearchRom.value = false
+    updating.value = true
     if (renameAsIGDB.value) {
         updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.r_name)
         editedRomName.value = updatedRom.file_name
         renameAsIGDB.value = false
     }
-    else{
-        updatedRom.file_name = newName
-    }
-    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms', {
-        rom: rom.value,
+    else{ updatedRom.file_name = newName }
+
+    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
         updatedRom: updatedRom
     }).then((response) => {
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        rom.value = response.data.data
+        // rom.value = response.data.data
         router.push('/'+rom.value.p_slug+'/roms/'+rom.value.file_name)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
     })
+
     updating.value = false
     dialogEditRom.value = false
 }
 
 async function deleteRom() {
-    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.file_name+'?filesystem='+deleteFromFs.value)
+    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id+'?filesystem='+deleteFromFs.value)
     .then((response) => {
         emitter.emit('snackbarScan', {'msg': rom.value.file_name+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push('/')
@@ -161,9 +159,9 @@ onMounted(() => {
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
-                    </v-row>
+                    </v-row> 
                     <v-row no-gutters class="align-center">
-                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name }}</p>
+                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name || rom.p_slug }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>

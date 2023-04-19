@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Boolean, Float, JSON
+from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON
 
 from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L
 from models.base import BaseModel
@@ -6,7 +6,7 @@ from models.base import BaseModel
 
 class Rom(BaseModel):
     __tablename__ = 'roms'
-    id = Column(String(length=10), primary_key=True, autoincrement=True)
+    id = Column(Integer(), primary_key=True, autoincrement=True)
 
     r_igdb_id = Column(String(length=10), default="")
     p_igdb_id = Column(String(length=10), default="")
