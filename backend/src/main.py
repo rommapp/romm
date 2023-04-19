@@ -24,7 +24,7 @@ app.include_router(rom.router)
 @app.on_event("startup")
 def startup() -> None:
     """Startup application."""
-    pass
+    scan.scan('[]')
 
 
 if __name__ == '__main__':
