@@ -34,6 +34,7 @@ class DBHandler:
         except ProgrammingError as e:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
 
+
     def get_platforms(self) -> list[Platform]:
         try:
             with self.session.begin() as s:
@@ -41,6 +42,7 @@ class DBHandler:
         except ProgrammingError as e:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
         
+
     def get_platform(self, slug: str) -> Platform:
         try:
             with self.session.begin() as s:
@@ -48,39 +50,44 @@ class DBHandler:
         except ProgrammingError as e:
             raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
         
+
     def purge_platforms(self, platforms: list[str]) -> None:
         with self.session.begin() as s:
             s.query(Platform) \
                 .filter(Platform.slug.not_in(platforms)) \
                 .delete(synchronize_session='evaluate')
 
+
     # ========= Roms =========
     def add_rom(self, rom: Rom) -> None:
         with self.session.begin() as s:
             s.merge(rom)
 
+
     def get_roms(self, p_slug: str) -> list[Rom]:
         with self.session.begin() as s:
             return s.scalars(select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())).all()
 
-    def get_rom(self, p_slug: str, file_name: str) -> Rom:
-        with self.session.begin() as s:
-            return s.scalars(select(Rom).filter_by(p_slug=p_slug, file_name=file_name)).first()
 
-    def update_rom(self, p_slug: str, file_name: str, data: dict) -> None:
+    def get_rom(self, id) -> Rom:
+        with self.session.begin() as s:
+            return s.scalars(select(Rom).filter_by(id=id)).first()
+
+
+    def update_rom(self, id: int, data: dict) -> None:
         with self.session.begin() as s:
             s.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.file_name==file_name) \
-                .update(data, synchronize_session='evaluate')
+                .filter(Rom.id==id).update(data, synchronize_session='evaluate')
 
-    def delete_rom(self, p_slug: str, file_name: str) -> None:
+
+    def delete_rom(self, id: int) -> None:
         with self.session.begin() as s:
             s.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.file_name==file_name) \
-                .delete(synchronize_session='evaluate')
+                .filter(Rom.id==id).delete(synchronize_session='evaluate')
 
-    def purge_roms(self, p_slug: str, roms: list[dict]) -> None:
+
+    def purge_roms(self, p_slug: str, roms: list[str]) -> None:
         with self.session.begin() as s:
             s.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.file_name.not_in([rom['file_name'] for rom in roms])) \
+                .filter(Rom.p_slug==p_slug, Rom.file_name.not_in(roms)) \
                 .delete(synchronize_session='evaluate')

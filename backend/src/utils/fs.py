@@ -1,13 +1,11 @@
 import os
 import shutil
-import re
 from pathlib import Path
 
 import requests
 from fastapi import HTTPException
 
 from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
-from handler import dbh
 from logger.logger import log
 
 
@@ -109,8 +107,23 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def _get_roms_structure(p_slug) -> tuple:
+def get_roms_structure(p_slug) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
+
+
+def get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
+    return [] if not multi else _exclude_files(list(os.walk(f"{roms_path}/{rom}"))[0][2], 'multi')
+
+
+def get_file_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
+    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
+    total_size: int = 0
+    for file in files:
+        total_size += os.stat(file).st_size
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
+        if total_size < 1024.0 or unit == 'PB': break
+        total_size /= 1024.0
+    return round(total_size, 2), unit
 
 
 def _exclude_files(files, type) -> list[str]:
@@ -160,73 +173,19 @@ def _exclude_multi_roms(roms) -> list[str]:
     return roms
 
 
-def parse_tags(file_name: str) -> tuple:
-    reg: str = ''
-    rev: str = ''
-    other_tags: list = []
-    tags: list = re.findall('\(([^)]+)', file_name)
-    for tag in tags:
-        if tag.split('-')[0].lower() == 'reg':
-            try: reg = tag.split('-', 1)[1]
-            except IndexError: pass
-        elif tag.split('-')[0].lower() == 'rev':
-            try: rev = tag.split('-', 1)[1]
-            except IndexError: pass
-        else:
-            other_tags.append(tag)
-    return reg, rev, other_tags
-
-
-def get_file_extension(rom: dict) -> str:
-    return rom['file_name'].split('.')[-1] if not rom['multi'] else ''
-
-
-def _get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
-    return [] if not multi else _exclude_files(list(os.walk(f"{roms_path}/{rom}"))[0][2], 'multi')
-
-
-def _get_file_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
-    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
-    total_size: int = 0
-    for file in files:
-        total_size += os.stat(file).st_size
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
-        if total_size < 1024.0 or unit == 'PB': break
-        total_size /= 1024.0
-    return round(total_size, 2), unit
-
-
-def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[dict]:
+def get_roms(p_slug: str) -> list[dict] or int:
     """Gets all filesystem roms for a platform
 
     Args:
         p_slug: short name of the platform
-        full_scan: flag to get all roms in fs or only new ones
-        only_amount: flag to return only amount of roms instead of all info
-    Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH. Just the amount of them if only_amount=True
+    Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH.
     """
-    roms_path = _get_roms_structure(p_slug)
-    roms: list[dict] = []
-
-    db_roms: list[str] = [rom.file_name for rom in dbh.get_roms(p_slug)]
-
+    roms_path = get_roms_structure(p_slug)
     fs_single_roms: list[str] = list(os.walk(roms_path))[0][2]
     fs_multi_roms: list[str] = list(os.walk(roms_path))[0][1]
     fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_files(fs_single_roms, 'single')] + \
                           [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
-
-    if only_amount: return len(fs_roms)
-
-    for rom in fs_roms:
-        if rom['file_name'] in db_roms and not full_scan: continue
-        reg, rev, other_tags = parse_tags(rom['file_name'])
-        file_extension: str = get_file_extension(rom)
-        files: list = _get_rom_files(rom['multi'], rom['file_name'], roms_path)
-        file_size, file_size_units = _get_file_size(rom['multi'], rom['file_name'], files, roms_path)
-        roms.append({'file_name': rom['file_name'], 'file_path': roms_path, 'multi': rom['multi'],
-                     'files': files, 'file_size': file_size, 'file_size_units': file_size_units, 'file_extension': file_extension,
-                     'region': reg, 'revision': rev, 'tags': other_tags})
-    return roms
+    return fs_roms
 
 
 def _rom_exists(p_slug: str, file_name: str) -> bool:
@@ -238,14 +197,14 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
     Returns
         True if rom exists in filesystem else False
     """
-    rom_path = _get_roms_structure(p_slug)
+    rom_path = get_roms_structure(p_slug)
     exists: bool = True if os.path.exists(f"{rom_path}/{file_name}") else False
     return exists
 
 
 def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
     if new_name != old_name:
-        rom_path = _get_roms_structure(p_slug)
+        rom_path = get_roms_structure(p_slug)
         if _rom_exists(p_slug, new_name):
             log.info(f"Can't rename {old_name} to {new_name}. {new_name} already exists")
             raise HTTPException(status_code=500, detail=f"Can't rename: {new_name} already exists.")
@@ -253,7 +212,7 @@ def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
     
 
 def remove_rom(p_slug: str, file_name: str) -> None:
-    rom_path = _get_roms_structure(p_slug)
+    rom_path = get_roms_structure(p_slug)
     try:
         try:
             os.remove(f"{rom_path}/{file_name}")

@@ -13,9 +13,9 @@ const emitter = inject('emitter')
 
 <template>
     <v-list-item 
-        :to="`/${$route.params.platform}/roms/${rom.file_name}`"
-        :value="rom.file_name"
-        :key="rom.file_name">
+        :to="`/${$route.params.platform}/roms/${rom.id}`"
+        :value="rom.id"
+        :key="rom.id">
         <v-row class="text-subtitle-2">
             <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>{{ rom.r_name }}<v-chip v-show="rom.multi" size="x-small" class="ml-2 bg-chip" label>{{ rom.files.length }}</v-chip></span></v-col>
             <v-col md="4" lg="4" class="hidden-sm-and-down"><span>{{ rom.file_name }}</span></v-col>
