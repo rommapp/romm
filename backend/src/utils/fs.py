@@ -218,7 +218,7 @@ def get_roms(p_slug: str, full_scan: bool, only_amount: bool = False) -> list[di
     if only_amount: return len(fs_roms)
 
     for rom in fs_roms:
-        if rom['file_name'] in db_roms and not full_scan and not rom['multi']: continue
+        if rom['file_name'] in db_roms and not full_scan: continue
         reg, rev, other_tags = parse_tags(rom['file_name'])
         file_extension: str = get_file_extension(rom)
         files: list = _get_rom_files(rom['multi'], rom['file_name'], roms_path)
