@@ -34,7 +34,7 @@ def upgrade() -> None:
         elif os.getenv('ROMM_DB_DRIVER') == 'sqlite' or not os.getenv('ROMM_DB_DRIVER'):
             batch_op.execute("ALTER TABLE roms RENAME TO old_roms")
             op.create_table('roms',
-                sa.Column('id', sa.String(length=10), nullable=False, autoincrement=True),
+                sa.Column('id', sa.Integer(), autoincrement=True),
                 sa.Column('r_igdb_id', sa.String(length=10), nullable=True),
                 sa.Column('p_igdb_id', sa.String(length=10), nullable=True),
                 sa.Column('r_sgdb_id', sa.String(length=10), nullable=True),
