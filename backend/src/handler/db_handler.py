@@ -1,11 +1,12 @@
 import functools
 
-from fastapi import HTTPException
+from fastapi import status, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 
+from logger.logger import log
 from config.config_loader import ConfigLoader
 from models.platform import Platform
 from models.rom import Rom
@@ -26,13 +27,20 @@ class DBHandler:
         return wrapper
 
 
+    @staticmethod
+    def raise_error(e: Exception) -> None:
+        error: str = f"{e}"
+        log.critical(error)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+
+
     # ========= Platforms =========
     def add_platform(self, Platform: Platform) -> None:
         try:
             with self.session.begin() as s:
                 s.merge(Platform)
         except ProgrammingError as e:
-            raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
+            self.raise_error(e)
 
 
     def get_platforms(self) -> list[Platform]:
@@ -40,7 +48,7 @@ class DBHandler:
             with self.session.begin() as s:
                 return s.scalars(select(Platform).order_by(Platform.slug.asc())).all()
         except ProgrammingError as e:
-            raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
+            self.raise_error(e)
         
 
     def get_platform(self, slug: str) -> Platform:
@@ -48,46 +56,67 @@ class DBHandler:
             with self.session.begin() as s:
                 return s.scalars(select(Platform).filter_by(slug=slug)).first()
         except ProgrammingError as e:
-            raise HTTPException(status_code=404, detail=f"Platforms table not found: {e}")
+            self.raise_error(e)
         
 
     def purge_platforms(self, platforms: list[str]) -> None:
-        with self.session.begin() as s:
-            s.query(Platform) \
-                .filter(Platform.slug.not_in(platforms)) \
-                .delete(synchronize_session='evaluate')
+        try:
+            with self.session.begin() as s:
+                s.query(Platform) \
+                    .filter(Platform.slug.not_in(platforms)) \
+                    .delete(synchronize_session='evaluate')
+        except ProgrammingError as e:
+            self.raise_error(e)
 
 
     # ========= Roms =========
     def add_rom(self, rom: Rom) -> None:
-        with self.session.begin() as s:
-            s.merge(rom)
+        try:
+            with self.session.begin() as s:
+                s.merge(rom)
+        except ProgrammingError as e:
+            self.raise_error(e)
 
 
     def get_roms(self, p_slug: str) -> list[Rom]:
-        with self.session.begin() as s:
-            return s.scalars(select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())).all()
+        try:
+            with self.session.begin() as s:
+                return s.scalars(select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())).all()
+        except ProgrammingError as e:
+            self.raise_error(e)
 
 
     def get_rom(self, id) -> Rom:
-        with self.session.begin() as s:
-            return s.scalars(select(Rom).filter_by(id=id)).first()
+        try:
+            with self.session.begin() as s:
+                return s.scalars(select(Rom).filter_by(id=id)).first()
+        except ProgrammingError as e:
+            self.raise_error(e)
 
 
     def update_rom(self, id: int, data: dict) -> None:
-        with self.session.begin() as s:
-            s.query(Rom) \
-                .filter(Rom.id==id).update(data, synchronize_session='evaluate')
+        try:
+            with self.session.begin() as s:
+                s.query(Rom) \
+                    .filter(Rom.id==id).update(data, synchronize_session='evaluate')
+        except ProgrammingError as e:
+            self.raise_error(e)
 
 
     def delete_rom(self, id: int) -> None:
-        with self.session.begin() as s:
-            s.query(Rom) \
-                .filter(Rom.id==id).delete(synchronize_session='evaluate')
+        try:
+            with self.session.begin() as s:
+                s.query(Rom) \
+                    .filter(Rom.id==id).delete(synchronize_session='evaluate')
+        except ProgrammingError as e:
+            self.raise_error(e)
 
 
     def purge_roms(self, p_slug: str, roms: list[str]) -> None:
-        with self.session.begin() as s:
-            s.query(Rom) \
-                .filter(Rom.p_slug==p_slug, Rom.file_name.not_in(roms)) \
-                .delete(synchronize_session='evaluate')
+        try:
+            with self.session.begin() as s:
+                s.query(Rom) \
+                    .filter(Rom.p_slug==p_slug, Rom.file_name.not_in(roms)) \
+                    .delete(synchronize_session='evaluate')
+        except ProgrammingError as e:
+            self.raise_error(e)

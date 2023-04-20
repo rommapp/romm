@@ -5,7 +5,7 @@ from handler import dbh
 router = APIRouter()
 
 
-@router.get("/platforms")
+@router.get("/platforms", status_code=200)
 def platforms() -> dict:
     """Returns platforms data"""
 
