@@ -4,7 +4,7 @@ import { ref, inject, onMounted } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { useDisplay } from "vuetify"
 import { normalizeString, views } from '@/utils/utils.js'
-import SearchBar from '@/components/AppBar/SearchBar.vue'
+import FilterBar from '@/components/AppBar/FilterBar.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
@@ -15,12 +15,17 @@ const roms = ref([])
 const gettingRoms = ref(false)
 const noRoms = ref(false)
 const romsFiltered = ref([])
+const isFiltering = ref(false)
 const currentFilter = ref('')
 const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
 const { xs } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
+emitter.on('isFiltering', () => {
+    isFiltering.value = !isFiltering.value
+    if(!isFiltering.value){setFilter('')}
+})
 emitter.on('filter', (filter) => { setFilter(filter) })
 emitter.on('currentView', (view) => { currentView.value = view })
 
@@ -58,9 +63,11 @@ onBeforeRouteUpdate(async (to, from) => {
 
 <template>
 
-    <v-row v-if="xs" class="pa-1">
-        <search-bar/>
-    </v-row>
+    <v-expand-transition>
+        <v-row v-if="xs && isFiltering" class="pa-1">
+            <filter-bar/>
+        </v-row>
+    </v-expand-transition>
 
     <v-row v-show="currentView != 2">
         <v-col v-for="rom in romsFiltered"
