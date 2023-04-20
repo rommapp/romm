@@ -46,7 +46,7 @@ class IGDBHandler():
 
     @check_twitch_token
     def get_rom_details(self, file_name: str, p_igdb_id: int, r_igdb_id_search: str) -> dict:
-        file_name_no_tags: str = re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0])
+        search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
         r_igdb_id: str = ""
         r_slug: str = ""
         r_name: str = ""
@@ -65,7 +65,6 @@ class IGDBHandler():
                 pass            
         
         else: #TODO: improve API calls to make only one
-            search_term: str = unidecode.unidecode(file_name_no_tags)
             if p_igdb_id:
                 try:
 
@@ -109,8 +108,8 @@ class IGDBHandler():
                 url_cover: str = f"https:{res_details['url']}"
             except IndexError:
                 log.warning(f"{r_name} cover not found in IGDB")
-        if not r_name: r_name = file_name_no_tags
-        return {'r_igdb_id': r_igdb_id, 'file_name_no_tags': file_name_no_tags, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary, 'url_cover': url_cover}
+        if not r_name: r_name = search_term
+        return {'r_igdb_id': r_igdb_id, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary, 'url_cover': url_cover}
 
     
     @check_twitch_token

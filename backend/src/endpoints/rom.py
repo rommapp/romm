@@ -1,56 +1,59 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, status, HTTPException
 
-from logger.logger import log, COLORS
-from handler import igdbh, dbh
+from logger.logger import log
+from handler import dbh
 from utils import fs
+from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
+from models.rom import Rom
 
 router = APIRouter()
 
 
-@router.get("/platforms/{p_slug}/roms/{file_name}")
-def rom(p_slug: str, file_name: str) -> dict:
+@router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
+def rom(id: int) -> dict:
     """Returns one rom data of the desired platform"""
 
-    return {'data': dbh.get_rom(p_slug, file_name)}
+    return {'data': dbh.get_rom(id)}
 
 
-@router.get("/platforms/{p_slug}/roms")
+@router.get("/platforms/{p_slug}/roms", status_code=200)
 def roms(p_slug: str) -> dict:
     """Returns all roms of the desired platform"""
 
     return {'data':  dbh.get_roms(p_slug)}
 
 
-@router.patch("/platforms/{p_slug}/roms")
-async def updateRom(req: Request, p_slug: str) -> dict:
+@router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)
+async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
     data: dict = await req.json()
-    rom: dict = data['rom']
-    updatedRom: dict = data['updatedRom']
-    log.info(f"Updating {COLORS['orange']}{updatedRom['file_name']}{COLORS['reset']} details")
-    updatedRom.update(igdbh.get_rom_details(updatedRom['file_name'], rom['p_igdb_id'], updatedRom['r_igdb_id']))
-    updatedRom.update(fs.get_cover_details(True, p_slug, updatedRom['file_name'], updatedRom['url_cover']))
-    updatedRom['p_igdb_id'] = rom['p_igdb_id']
-    updatedRom['p_slug'] = p_slug
-    updatedRom['file_path'] = rom['file_path']
-    updatedRom['file_size'] = rom['file_size']
-    updatedRom['multi'] = rom['multi']
-    updatedRom['file_extension'] = fs.get_file_extension(updatedRom)
-    reg, rev, other_tags = fs.parse_tags(updatedRom['file_name'])
-    updatedRom.update({'region': reg, 'revision': rev, 'tags': other_tags})
-    fs.rename_rom(p_slug, rom['file_name'], updatedRom['file_name'])
-    dbh.update_rom(p_slug, rom['file_name'], updatedRom)
-    return {'data': updatedRom}
+    updated_rom: dict = data['updatedRom']
+    db_rom: Rom = dbh.get_rom(id)
+    try:
+        fs.rename_rom(p_slug, db_rom.file_name, updated_rom['file_name'])
+    except RomAlreadyExistsException as e:
+        error: str = f"{e}"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+    updated_rom.update(fs.get_cover_details(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
+    dbh.update_rom(id, updated_rom)
+    return {'data': dbh.get_rom(id), 'msg': f"{updated_rom['file_name']} updated successfully!"}
 
 
-@router.delete("/platforms/{p_slug}/roms/{file_name}")
-def remove_rom(p_slug: str, file_name: str, filesystem: bool=False) -> dict:
-    """Detele rom from filesystem and database"""
+@router.delete("/platforms/{p_slug}/roms/{id}", status_code=200)
+def delete_rom(p_slug: str, id: int, filesystem: bool=False) -> dict:
+    """Detele rom from database [and filesystem]"""
 
-    log.info(f"Deleting {file_name} from database")
-    dbh.delete_rom(p_slug, file_name)
+    rom: Rom = dbh.get_rom(id)
+    log.info(f"Deleting {rom.file_name} from database")
+    dbh.delete_rom(id)
     if filesystem:
-        log.info(f"Removing {file_name} from filesystem")
-        fs.remove_rom(p_slug, file_name)
-    return {'msg': 'success'}
+        log.info(f"Deleting {rom.file_name} from filesystem")
+        try:
+            fs.remove_rom(p_slug, rom.file_name)
+        except RomNotFoundError as e:
+            error: str = f"{e}. Couldn't delete from filesystem."
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    return {'msg': f'{rom.file_name} deleted successfully!'}

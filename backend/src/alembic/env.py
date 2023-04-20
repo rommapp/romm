@@ -4,7 +4,8 @@ from pathlib import Path
 from logging.config import fileConfig
 
 from sqlalchemy import create_engine
-from config.config_loader import get_db_engine
+from config.config_loader import ConfigLoader
+cl = ConfigLoader()
 
 from alembic import context
 
@@ -45,8 +46,9 @@ def run_migrations_offline() -> None:
     """
 
     context.configure(
-        url=get_db_engine(),
+        url=cl.get_db_engine(),
         target_metadata=target_metadata,
+        render_as_batch=True,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -63,11 +65,13 @@ def run_migrations_online() -> None:
 
     """
 
-    engine = create_engine(get_db_engine())
+    engine = create_engine(cl.get_db_engine())
 
     with engine.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True
         )
 
         with context.begin_transaction():

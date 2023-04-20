@@ -18,7 +18,6 @@ function changeView() {
 <template>
     <v-app-bar-nav-icon
         @click="changeView()"
-        class="ma-2"
         rounded="0">
         <v-icon :icon="views[currentView]['icon']"/>
     </v-app-bar-nav-icon>
