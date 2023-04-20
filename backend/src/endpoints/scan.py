@@ -44,16 +44,13 @@ def scan(platforms: str, full_scan: bool=False) -> dict:
             log.warning(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         for rom in fs_roms:
-            log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
             if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             rom_id: int = rom_exists_db(rom['file_name'], platform)
             if rom_id and not full_scan: continue
+            log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             if rom_id: scanned_rom.id = rom_id
             dbh.add_rom(scanned_rom)
-
-    # Purge database
-    log.info(emoji.emojize(":wastebasket:  Purging database"))
-    [dbh.purge_roms(platform, [rom['file_name'] for rom in fs_roms]) for platform in platforms]
+            dbh.purge_roms(platform, [rom['file_name'] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
     return {'msg': 'Scan completed successfully!'}
