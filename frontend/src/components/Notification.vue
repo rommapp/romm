@@ -14,7 +14,7 @@ emitter.on('snackbarScan', (snackbar) => {
 </script>
 
 <template>
-    <v-snackbar v-model="snackbarShow" :timeout="4000" location="top" class="mt-4" color="notification">
+    <v-snackbar v-model="snackbarShow" :timeout="4000" location="top" color="notification">
         <v-icon :icon="snackbarStatus.icon" :color="snackbarStatus.color" class="ml-2 mr-2"/>
         {{ snackbarStatus.msg }}
         <template v-slot:actions>

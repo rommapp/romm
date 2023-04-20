@@ -24,13 +24,13 @@ emitter.on('scanning', (s) => { scanning.value = s })
             <v-avatar size="100" class="ml-3 home-btn hidden-sm-and-down"><v-img src="/assets/romm_complete.svg"></v-img></v-avatar>
         </router-link>
             
-        <platforms-btn/>
+        <platforms-btn class="ml-2 hidden-lg-and-up"/>
         
         <v-spacer class="hidden-xs-and-down"/>
         
-        <upload-btn/>
+        <!-- <upload-btn/> -->
         
-        <search-bar/>
+        <search-bar class="mr-2 ml-2 hidden-xs"/>
             
         <template v-slot:append>
             <gallery-view-btn/>

@@ -13,7 +13,7 @@ const emitter = inject('emitter')
 
 <template>
     <v-list-item 
-        :to="`/${$route.params.platform}/roms/${rom.id}`"
+        :to="`/platform/${$route.params.platform}/rom/${rom.id}`"
         :value="rom.id"
         :key="rom.id">
         <v-row class="text-subtitle-2">
