@@ -58,7 +58,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
-        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.id)
+        router.push('/platform/'+rom.value.p_slug+'/roms/'+rom.value.id)
     }).catch((error) => {
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
     })
@@ -71,11 +71,11 @@ async function deleteRom() {
     await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id+'?filesystem='+deleteFromFs.value)
     .then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push('/'+rom.value.p_slug)
+        router.push('/platform/'+rom.value.p_slug)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
-        if (error.response.status == 404) { router.push('/'+rom.value.p_slug) }
+        if (error.response.status == 404) { router.push('/platform/'+rom.value.p_slug) }
     })
     dialogDeleteRom.value = false
 }
