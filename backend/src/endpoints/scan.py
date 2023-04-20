@@ -56,4 +56,4 @@ def scan(platforms: str, full_scan: bool=False) -> dict:
     log.info(emoji.emojize(":wastebasket:  Purging database"))
     [dbh.purge_roms(platform, [rom['file_name'] for rom in fs_roms]) for platform in platforms]
     dbh.purge_platforms(fs_platforms)
-    return {'msg': 'success'}
+    return {'msg': 'Scan completed successfully!'}
