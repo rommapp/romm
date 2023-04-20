@@ -1,8 +1,8 @@
 <script setup>
 import { ref, inject } from "vue"
 import PlatformsBtn from '@/components/AppBar/PlatformsBtn.vue'
-import UploadBtn from '@/components/AppBar/UploadBtn.vue'
-import SearchBar from '@/components/AppBar/SearchBar.vue'
+import FilterBar from '@/components/AppBar/FilterBar.vue'
+import FilterBtn from '@/components/AppBar/FilterBtn.vue'
 import GalleryViewBtn from '@/components/AppBar/GalleryViewBtn.vue'
 import SettingsBtn from '@/components/AppBar/SettingsBtn.vue'
 
@@ -28,9 +28,9 @@ emitter.on('scanning', (s) => { scanning.value = s })
         
         <v-spacer class="hidden-xs-and-down"/>
         
-        <!-- <upload-btn/> -->
-        
-        <search-bar class="mr-2 ml-2 hidden-xs"/>
+        <filter-bar class="mr-2 ml-2 hidden-xs"/>
+
+        <filter-btn class="ml-2 hidden-sm-and-up"/>
             
         <template v-slot:append>
             <gallery-view-btn/>
