@@ -22,8 +22,7 @@ const forceImgReload = Date.now()
                 </div>
             </template>
             <v-expand-transition>
-                <div 
-                    v-if="isHovering || !rom.has_cover"
+                <div v-if="isHovering || !rom.has_cover"
                     class="rom-title d-flex transition-fast-in-fast-out bg-tooltip text-caption">
                     <v-list-item>{{ rom.file_name }}</v-list-item>
                 </div>
