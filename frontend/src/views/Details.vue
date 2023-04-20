@@ -46,7 +46,7 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     dialogSearchRom.value = false
     updating.value = true
     if (renameAsIGDB.value) {
-        updatedRom.file_name = updatedRom.r_name
+        updatedRom.file_name = updatedRom.r_name+'.'+rom.value.file_extension
         editedRomName.value = updatedRom.file_name
     }
     else{ updatedRom.file_name = newName }
@@ -54,12 +54,11 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
         updatedRom: updatedRom
     }).then((response) => {
-        emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
         router.push('/'+rom.value.p_slug+'/roms/'+rom.value.id)
     }).catch((error) => {
-        console.log(error)
-        emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
     })
     renameAsIGDB.value = false
     updating.value = false
@@ -69,12 +68,18 @@ async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.val
 async function deleteRom() {
     await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id+'?filesystem='+deleteFromFs.value)
     .then((response) => {
-        emitter.emit('snackbarScan', {'msg': rom.value.file_name+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push('/')
+        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
+        router.push('/'+rom.value.p_slug)
     }).catch((error) => {
         console.log(error)
-        emitter.emit('snackbarScan', {'msg': "Couldn't delete "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
+        if (error.response.status == 404) { router.push('/'+rom.value.p_slug) }
     })
+    dialogDeleteRom.value = false
+}
+
+async function rescan() {
+    console.log("rescan "+rom.value.id)
 }
 
 onMounted(() => {
@@ -118,7 +123,7 @@ onMounted(() => {
                             </v-card>
                         </v-col>
                     </v-row>
-                    <v-row class="pl-3 pr-3">
+                    <v-row class="pl-3 pr-3 action-buttons">
                         <v-col class="pa-0">
                             <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" color="primary" block><v-icon icon="mdi-download" size="large"/></v-btn>
                         </v-col>
@@ -141,6 +146,10 @@ onMounted(() => {
                                         <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
                                     </v-list-item>
                                     <v-divider class="border-opacity-25"/>
+                                    <!-- <v-list-item @click="rescan()" class="pt-4 pb-4 pr-5">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Rescan</v-list-item-title>
+                                    </v-list-item>
+                                    <v-divider class="border-opacity-25"/> -->
                                     <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
                                         <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                     </v-list-item>
@@ -281,7 +290,7 @@ onMounted(() => {
 
             <v-card-text class="bg-secondary">
                 <v-form @submit.prevent class="ma-4">
-                    <v-text-field @keyup.enter="updateRom()" v-model="editedRomName" label="File name" variant="outlined" required/>
+                    <v-text-field @keyup.enter="updateRom(undefined, editedRomName)" v-model="editedRomName" label="File name" variant="outlined" required/>
                     <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
                 </v-form>
                 <v-row class="justify-center mb-2">
