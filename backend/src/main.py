@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from config import DEV_PORT, DEV_HOST
-from utils import fastapi
-
 from endpoints import scan, search, platform, rom
 
 app = FastAPI()
@@ -24,7 +22,7 @@ app.include_router(rom.router)
 @app.on_event("startup")
 def startup() -> None:
     """Startup application."""
-    scan.scan('[]')
+    pass
 
 
 if __name__ == '__main__':
