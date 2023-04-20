@@ -11,14 +11,13 @@ const route = useRoute()
 
 // Props
 const rom = ref(undefined)
-
+const updatedRom = ref(undefined)
 const saveFiles = ref(false)
 const searching = ref(false)
 const igdb_id = ref('')
 const matchedRoms = ref([])
 const updating = ref(false)
 const loading = ref(true)
-const editedRomName = ref(undefined)
 const renameAsIGDB = ref(false)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
@@ -43,47 +42,52 @@ async function searchRomIGDB() {
     searching.value = false
 }
 
-async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.value.file_name) {
-    updating.value = true
+async function updateRom(updatedData={...updatedRom.value}) {
     dialogSearchRom.value = false
+    updating.value = true
+    updatedRom.value.r_igdb_id = updatedData.r_igdb_id
+    updatedRom.value.r_slug = updatedData.r_slug
+    updatedRom.value.summary = updatedData.summary
+    updatedRom.value.url_cover = updatedData.url_cover
     if (renameAsIGDB.value) {
-        updatedRom.file_name = rom.value.file_name.replace(rom.value.file_name_no_tags.trim(), updatedRom.r_name)
-        editedRomName.value = updatedRom.file_name
-        renameAsIGDB.value = false
+        updatedRom.value.file_name = updatedData.r_name+(updatedRom.value.file_extension ? '.'+updatedRom.value.file_extension : '')
     }
-    else{
-        updatedRom.file_name = newName
-    }
-    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms', {
-        rom: rom.value,
-        updatedRom: updatedRom
+    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
+        updatedRom: updatedRom.value
     }).then((response) => {
-        emitter.emit('snackbarScan', {'msg': rom.value.file_name+" updated successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
-        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.file_name)
+        updatedRom.value = {...response.data.data}
+        router.push('/'+rom.value.p_slug+'/roms/'+rom.value.id)
     }).catch((error) => {
-        console.log(error)
-        emitter.emit('snackbarScan', {'msg': "Couldn't updated "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
     })
+    renameAsIGDB.value = false
     updating.value = false
     dialogEditRom.value = false
 }
 
 async function deleteRom() {
-    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.file_name+'?filesystem='+deleteFromFs.value)
+    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id+'?filesystem='+deleteFromFs.value)
     .then((response) => {
-        emitter.emit('snackbarScan', {'msg': rom.value.file_name+" deleted successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push('/')
+        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
+        router.push('/'+rom.value.p_slug)
     }).catch((error) => {
         console.log(error)
-        emitter.emit('snackbarScan', {'msg': "Couldn't delete "+rom.value.file_name+". Something went wrong...", 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
+        if (error.response.status == 404) { router.push('/'+rom.value.p_slug) }
     })
+    dialogDeleteRom.value = false
+}
+
+async function rescan() {
+    console.log("rescan "+rom.value.id)
 }
 
 onMounted(() => {
     axios.get(`/api/platforms/${route.params.platform}/roms/${route.params.rom}`).then(response => {
         rom.value = response.data.data
-        editedRomName.value = rom.value.file_name
+        updatedRom.value = {...response.data.data}
         loading.value = false
     }).catch(error => {
         loading.value = false
@@ -121,7 +125,7 @@ onMounted(() => {
                             </v-card>
                         </v-col>
                     </v-row>
-                    <v-row class="pl-3 pr-3">
+                    <v-row class="pl-3 pr-3 action-buttons">
                         <v-col class="pa-0">
                             <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" color="primary" block><v-icon icon="mdi-download" size="large"/></v-btn>
                         </v-col>
@@ -144,6 +148,10 @@ onMounted(() => {
                                         <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
                                     </v-list-item>
                                     <v-divider class="border-opacity-25"/>
+                                    <!-- <v-list-item @click="rescan()" class="pt-4 pb-4 pr-5">
+                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Rescan</v-list-item-title>
+                                    </v-list-item>
+                                    <v-divider class="border-opacity-25"/> -->
                                     <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
                                         <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                     </v-list-item>
@@ -161,9 +169,9 @@ onMounted(() => {
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
-                    </v-row>
+                    </v-row> 
                     <v-row no-gutters class="align-center">
-                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name }}</p>
+                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name || rom.p_slug }}</p>
                         <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
@@ -223,7 +231,7 @@ onMounted(() => {
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card :class="{'search-content': mdAndUp, 'search-content-tablet': sm, 'search-content-mobile': xs}">
 
-            <v-toolbar class="bg-primary pl-1 pr-1">
+            <v-toolbar class="bg-primary" density="compact">
                 <v-toolbar-title v-show="searching">Searching...</v-toolbar-title>
                 <v-toolbar-title v-show="!searching"><span>Results found</span></v-toolbar-title>
                 <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
@@ -251,7 +259,7 @@ onMounted(() => {
                 <v-row class="pl-4 pr-4">
                     <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
-                            <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
+                            <v-card @click="updateRom(updatedData=rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">
@@ -275,20 +283,20 @@ onMounted(() => {
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card rounded="0" :class="{'edit-content': mdAndUp, 'edit-content-tablet': sm, 'edit-content-mobile': xs}">
-            <v-toolbar class="bg-primary pl-1 pr-1">
-                <v-toolbar-title><span>Editing {{ rom.file_name }}</span></v-toolbar-title>
+            <v-toolbar class="bg-primary" density="compact">
+                <v-toolbar-title><span>Editing</span></v-toolbar-title>
                 <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
 
             <v-divider class="border-opacity-25" :thickness="1"/>
 
-            <v-card-text class="pt-5 bg-secondary">
+            <v-card-text class="bg-secondary">
                 <v-form @submit.prevent class="ma-4">
-                    <v-text-field @keyup.enter="updateRom()" v-model="editedRomName" label="File name" variant="outlined" required/>
+                    <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.file_name" label="File name" variant="outlined" required/>
                     <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
                 </v-form>
-                <v-row class="justify-center ma-2 mt-5">
-                    <v-btn type="submit" @click="updateRom(undefined, editedRomName)" class="bg-rommGreen">Apply</v-btn>
+                <v-row class="justify-center mb-2">
+                    <v-btn type="submit" @click="updateRom()" class="bg-rommGreen">Apply</v-btn>
                     <v-btn @click="dialogEditRom=false" class="ml-5" variant="tonal">Cancel</v-btn>
                 </v-row>
             </v-card-text>
@@ -297,7 +305,7 @@ onMounted(() => {
     
     <v-dialog v-model="dialogDeleteRom" width="auto" v-if="rom !== undefined">
         <v-card rounded="0" max-width="600">
-            <v-toolbar class="bg-red pl-1 pr-1">
+            <v-toolbar class="bg-red" density="compact">
                 <v-toolbar-title><span>Deleting {{ rom.file_name }}</span></v-toolbar-title>
                 <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>

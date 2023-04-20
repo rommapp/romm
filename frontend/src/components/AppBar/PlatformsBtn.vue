@@ -9,7 +9,6 @@ const emitter = inject('emitter')
 <template>
     <v-btn
         @click="emitter.emit('togglePlatforms')"
-        class="ma-4 hidden-lg-and-up"
         rounded="0"
         icon
     >

@@ -2,7 +2,9 @@
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
+import { useDisplay } from "vuetify"
 import { normalizeString, views } from '@/utils/utils.js'
+import SearchBar from '@/components/AppBar/SearchBar.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
@@ -15,6 +17,7 @@ const noRoms = ref(false)
 const romsFiltered = ref([])
 const currentFilter = ref('')
 const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
+const { xs } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -55,6 +58,10 @@ onBeforeRouteUpdate(async (to, from) => {
 
 <template>
 
+    <v-row v-if="xs" class="pa-1">
+        <search-bar/>
+    </v-row>
+
     <v-row v-show="currentView != 2">
         <v-col v-for="rom in romsFiltered"
             :key="rom.file_name"
@@ -68,11 +75,14 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-col>
     </v-row>
 
-    <v-list v-show="currentView == 2" class="bg-secondary">
-        <game-list-header/>
-        <v-divider class="border-opacity-100 ml-3 mb-4 mr-3" color="rommAccent1" :thickness="1"/>
-        <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
-    </v-list>
+
+    <v-table v-show="currentView == 2" class="bg-secondary pt-1">
+        <game-list-header />
+        <v-divider class="border-opacity-100 ml-1 mb-4 mr-1" color="rommAccent1" :thickness="1"/>
+        <tbody>
+            <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
+        </tbody>
+    </v-table>
     
     <no-roms :noRoms="noRoms"/>
 

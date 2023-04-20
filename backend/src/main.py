@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from config import DEV_PORT, DEV_HOST
-from utils import fastapi
-
 from endpoints import scan, search, platform, rom
 
 app = FastAPI()

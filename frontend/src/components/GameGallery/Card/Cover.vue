@@ -7,10 +7,10 @@ const forceImgReload = Date.now()
 <template>
     <router-link
         style="text-decoration: none; color: inherit;"
-        :to="`/${$route.params.platform}/roms/${rom.file_name}`">
+        :to="`/platform/${$route.params.platform}/rom/${rom.id}`">
         <v-img
-            :value="rom.file_name"
-            :key="rom.file_name"
+            :value="rom.id"
+            :key="rom.id"
             v-bind="hoverProps"
             :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload"
             :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
@@ -29,6 +29,12 @@ const forceImgReload = Date.now()
                 </div>
             </v-expand-transition>
             <v-chip-group class="pl-1 pt-0">
+                <v-chip v-show="rom.multi"
+                    size="x-small"
+                    class="bg-chip"
+                    label>
+                    {{ rom.files.length }}
+                </v-chip>
                 <v-chip
                     v-show="rom.region"
                     size="x-small"
