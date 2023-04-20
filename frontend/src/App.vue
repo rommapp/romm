@@ -2,7 +2,7 @@
 import { ref, inject } from "vue"
 import { useTheme } from "vuetify"
 import AppBar from '@/components/AppBar/Base.vue'
-import PlatformsDrawer from '@/components/PlatformsDrawer/Base.vue'
+import MainDrawer from '@/components/MainDrawer/Base.vue'
 import SettingsDrawer from '@/components/SettingsDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 
@@ -22,7 +22,7 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
 
     <app-bar/>
 
-    <platforms-drawer :key="refresh"/>
+    <main-drawer :key="refresh"/>
 
     <v-main>
       <v-container fluid>
@@ -30,7 +30,7 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
       </v-container>
     </v-main>
 
-    <notification/>
+    <notification class="mt-4"/>
 
   </v-app>
 </template>

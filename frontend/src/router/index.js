@@ -7,11 +7,11 @@ const routes = [
     component: () => import('@/views/Home.vue')
   },
   {
-    path: '/:platform',
+    path: '/platform/:platform',
     component: () => import('@/views/Gallery.vue')
   },
   {
-    path: '/:platform/roms/:rom',
+    path: '/platform/:platform/rom/:rom',
     component: () => import('@/views/Details.vue')
   }
 ]

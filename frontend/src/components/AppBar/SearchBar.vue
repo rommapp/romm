@@ -15,7 +15,7 @@ const emitter = inject('emitter')
         v-model="filter"
         label="search"
         prepend-inner-icon="mdi-magnify"
-        class="ml-2 mr-2 shrink"
+        class="shrink"
         variant="outlined"
         density="compact"
         hide-details

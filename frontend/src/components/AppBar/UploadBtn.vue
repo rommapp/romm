@@ -11,7 +11,6 @@ function uploadRom() {console.log("uploading rom")}
 <template>
     <v-app-bar-nav-icon
         @click="uploadRom()"
-        class="ma-2"
         rounded="0"
         disabled>
         <v-icon>mdi-upload</v-icon>
