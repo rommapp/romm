@@ -11,13 +11,13 @@ const route = useRoute()
 
 // Props
 const rom = ref(undefined)
+const updatedRom = ref(undefined)
 const saveFiles = ref(false)
 const searching = ref(false)
 const igdb_id = ref('')
 const matchedRoms = ref([])
 const updating = ref(false)
 const loading = ref(true)
-const editedRomName = ref(undefined)
 const renameAsIGDB = ref(false)
 const dialogSearchRom = ref(false)
 const dialogEditRom = ref(false)
@@ -42,20 +42,22 @@ async function searchRomIGDB() {
     searching.value = false
 }
 
-async function updateRom(updatedRom=Object.assign({},rom.value), newName=rom.value.file_name) {
+async function updateRom(updatedData={...updatedRom.value}) {
     dialogSearchRom.value = false
     updating.value = true
+    updatedRom.value.r_igdb_id = updatedData.r_igdb_id
+    updatedRom.value.r_slug = updatedData.r_slug
+    updatedRom.value.summary = updatedData.summary
+    updatedRom.value.url_cover = updatedData.url_cover
     if (renameAsIGDB.value) {
-        updatedRom.file_name = updatedRom.r_name+'.'+rom.value.file_extension
-        editedRomName.value = updatedRom.file_name
+        updatedRom.value.file_name = updatedData.r_name+(updatedRom.value.file_extension ? '.'+updatedRom.value.file_extension : '')
     }
-    else{ updatedRom.file_name = newName }
-
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
-        updatedRom: updatedRom
+        updatedRom: updatedRom.value
     }).then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
+        updatedRom.value = {...response.data.data}
         router.push('/'+rom.value.p_slug+'/roms/'+rom.value.id)
     }).catch((error) => {
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
@@ -85,7 +87,7 @@ async function rescan() {
 onMounted(() => {
     axios.get(`/api/platforms/${route.params.platform}/roms/${route.params.rom}`).then(response => {
         rom.value = response.data.data
-        editedRomName.value = rom.value.file_name
+        updatedRom.value = {...response.data.data}
         loading.value = false
     }).catch(error => {
         loading.value = false
@@ -257,7 +259,7 @@ onMounted(() => {
                 <v-row class="pl-4 pr-4">
                     <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
-                            <v-card @click="updateRom(rom, undefined)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
+                            <v-card @click="updateRom(updatedData=rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
                                     <v-row class="pa-2">
@@ -282,7 +284,7 @@ onMounted(() => {
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card rounded="0" :class="{'edit-content': mdAndUp, 'edit-content-tablet': sm, 'edit-content-mobile': xs}">
             <v-toolbar class="bg-primary" density="compact">
-                <v-toolbar-title><span>Editing {{ rom.file_name }}</span></v-toolbar-title>
+                <v-toolbar-title><span>Editing</span></v-toolbar-title>
                 <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
 
@@ -290,11 +292,11 @@ onMounted(() => {
 
             <v-card-text class="bg-secondary">
                 <v-form @submit.prevent class="ma-4">
-                    <v-text-field @keyup.enter="updateRom(undefined, editedRomName)" v-model="editedRomName" label="File name" variant="outlined" required/>
+                    <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.file_name" label="File name" variant="outlined" required/>
                     <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
                 </v-form>
                 <v-row class="justify-center mb-2">
-                    <v-btn type="submit" @click="updateRom(undefined, editedRomName)" class="bg-rommGreen">Apply</v-btn>
+                    <v-btn type="submit" @click="updateRom()" class="bg-rommGreen">Apply</v-btn>
                     <v-btn @click="dialogEditRom=false" class="ml-5" variant="tonal">Cancel</v-btn>
                 </v-row>
             </v-card-text>
