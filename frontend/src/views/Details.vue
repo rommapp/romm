@@ -49,15 +49,16 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.r_slug = updatedData.r_slug
     updatedRom.value.summary = updatedData.summary
     updatedRom.value.url_cover = updatedData.url_cover
+    updatedRom.value.r_name = updatedData.r_name
     if (renameAsIGDB.value) {
         updatedRom.value.file_name = updatedData.r_name+(updatedRom.value.file_extension ? '.'+updatedRom.value.file_extension : '')
     }
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
         updatedRom: updatedRom.value
     }).then((response) => {
-        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
+        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push('/platform/'+rom.value.p_slug+'/rom/'+rom.value.id)
     }).catch((error) => {
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
