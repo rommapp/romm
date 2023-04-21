@@ -13,6 +13,14 @@ const routes = [
   {
     path: '/platform/:platform/rom/:rom',
     component: () => import('@/views/Details.vue')
+  },
+  {
+    path: '/library/scan',
+    component: () => import('@/views/library/Scan.vue')
+  },
+  {
+    path: '/settings/control-panel',
+    component: () => import('@/views/settings/ControlPanel.vue')
   }
 ]
 

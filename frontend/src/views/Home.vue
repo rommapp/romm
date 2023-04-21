@@ -4,9 +4,7 @@ import Info from '@/components/Home/Info.vue'
 
 <template>
 
-    <v-row class="justify-content align-center">
-        <info/>
-    </v-row>
+    <info/>
 
 </template>
 

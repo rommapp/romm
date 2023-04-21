@@ -8,7 +8,7 @@ import { storePlatforms } from '@/stores/platforms'
 // Props
 const platforms = storePlatforms()
 const platformsDrawer = ref(undefined)
-const open = ref(['Platforms'])
+const open = ref(['Platforms', 'Library', 'Settings'])
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
 
 // Event listeners bus
@@ -54,16 +54,34 @@ emitter.on('togglePlatformsRail', () => { rail.value = !rail.value; localStorage
                         </template>
                     </v-list-item>
                 </template>
+                <v-list-item class="drawer-item" to="/library/scan">
+                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Scan' }}</p>
+                    <template v-slot:prepend>
+                        <v-avatar :rounded="0" size="40"><v-icon>mdi-magnify-scan</v-icon></v-avatar>
+                    </template>
+                </v-list-item>
                 <v-list-item class="drawer-item" disabled>
-                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Upload roms' }}</p>
+                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Upload' }}</p>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-upload</v-icon></v-avatar>
                     </template>
                 </v-list-item>
-                <v-list-item class="drawer-item" disabled>
-                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Upload saves' }}</p>
+            </v-list-group>
+
+            <v-list-group value="Settings">
+                <template v-slot:activator="{ props }">
+                    <v-list-item
+                        v-bind="props">
+                        <p class="text-body-1 text-truncate">{{ rail ? '' : 'Settings' }}</p>
+                        <template v-slot:prepend>
+                            <v-avatar :rounded="0" size="40"><v-icon>mdi-cog</v-icon></v-avatar>
+                        </template>
+                    </v-list-item>
+                </template>
+                <v-list-item class="drawer-item" to="/settings/control-panel">
+                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Control panel' }}</p>
                     <template v-slot:prepend>
-                        <v-avatar :rounded="0" size="40"><v-icon>mdi-content-save-all</v-icon></v-avatar>
+                        <v-avatar :rounded="0" size="40"><v-icon>mdi-view-dashboard</v-icon></v-avatar>
                     </template>
                 </v-list-item>
             </v-list-group>

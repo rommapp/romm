@@ -3,7 +3,6 @@ import { ref, inject, onMounted } from "vue"
 import { useTheme } from "vuetify"
 import AppBar from '@/components/AppBar/Base.vue'
 import MainDrawer from '@/components/MainDrawer/Base.vue'
-import SettingsDrawer from '@/components/SettingsDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 import { getPlatforms } from '@/services/api.js'
 import { storePlatforms } from '@/stores/platforms'
@@ -27,8 +26,6 @@ onMounted(() => {
 
 <template>
   <v-app>
-
-    <settings-drawer/>
 
     <app-bar/>
 
