@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from 'vue'
-import { downloadRom, downloadSave } from '@/utils/utils.js'
+import { downloadRom, downloadSave } from '@/services/download.js'
 
 // Props
 const props = defineProps(['rom'])
@@ -23,7 +23,6 @@ const emitter = inject('emitter')
             <v-col xs="2" sm="2" md="2" lg="2" class="hidden-xs"><span>{{ rom.file_size }} {{ rom.file_size_units }}</span></v-col>
             <v-col xs="1" sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.region }}</span></v-col>
             <v-col xs="1" sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.revision }}</span></v-col>
-            
         </v-row>
         
         <template v-slot:prepend>

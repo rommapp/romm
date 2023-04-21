@@ -1,12 +1,11 @@
 import sys
 import functools
-import re
 import unidecode
 from time import time
 
 import requests
-
 from config import CLIENT_ID, CLIENT_SECRET, DEFAULT_URL_COVER_L
+from utils import get_file_name_with_no_tags
 from logger.logger import log
 
 
@@ -46,7 +45,7 @@ class IGDBHandler():
 
     @check_twitch_token
     def get_rom_details(self, file_name: str, p_igdb_id: int, r_igdb_id_search: str) -> dict:
-        search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
+        search_term: str = unidecode.unidecode(get_file_name_with_no_tags(file_name))
         r_igdb_id: str = ""
         r_slug: str = ""
         r_name: str = ""
@@ -67,7 +66,6 @@ class IGDBHandler():
         else: #TODO: improve API calls to make only one
             if p_igdb_id:
                 try:
-
                     res_details: dict = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                                       data=f"search \"{search_term}\";fields id, slug, name, summary; where platforms=[{p_igdb_id}] & category=0;").json()[0]
                     r_igdb_id = res_details['id']
@@ -116,7 +114,7 @@ class IGDBHandler():
     def get_matched_roms(self, file_name: str, p_igdb_id: int, p_slug: str) -> list:
         matched_roms: list[dict] = []
         if p_igdb_id != '':
-            search_term: str = unidecode.unidecode(re.sub('[\(\[].*?[\)\]]', '', file_name.split('.')[0]))
+            search_term: str = unidecode.unidecode(get_file_name_with_no_tags(file_name))
             matched_roms: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,
                                                data=f"search \"{search_term}\";fields name, id, slug, summary; where platforms=[{p_igdb_id}];").json()
             for rom in matched_roms:
@@ -132,6 +130,7 @@ class IGDBHandler():
         else:
             log.warning(f"{p_slug} is not supported!")
         return matched_roms
+    
     
     def get_matched_roms_by_id(self, igdb_id: str) -> list:
         res: list = requests.post("https://api.igdb.com/v4/games/", headers=self.headers,

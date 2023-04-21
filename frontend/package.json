@@ -15,6 +15,7 @@
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "mitt": "^3.0.0",
+    "pinia": "^2.0.35",
     "roboto-fontface": "*",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",

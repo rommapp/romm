@@ -16,15 +16,15 @@ emitter.on('scanning', (s) => { scanning.value = s })
 
 <template>
 
-    <v-app-bar>
+    <v-app-bar elevation="1">
 
         <v-progress-linear color="rommAccent1" :active="scanning" :indeterminate="true" absolute/>
 
         <router-link to="/">
-            <v-avatar size="100" class="ml-3 home-btn hidden-sm-and-down"><v-img src="/assets/romm_complete.svg"></v-img></v-avatar>
+            <v-avatar size="100" class="ml-7 home-btn hidden-sm-and-down"><v-img src="/assets/romm_complete.svg"></v-img></v-avatar>
         </router-link>
             
-        <platforms-btn class="ml-2 hidden-lg-and-up"/>
+        <platforms-btn class="ml-5 hidden-lg-and-up"/>
         
         <v-spacer class="hidden-xs-and-down"/>
         
@@ -34,7 +34,6 @@ emitter.on('scanning', (s) => { scanning.value = s })
             
         <template v-slot:append>
             <gallery-view-btn/>
-            <settings-btn/>
         </template>
         
     </v-app-bar>

@@ -3,7 +3,7 @@ import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
-import { downloadRom, downloadSave } from '@/utils/utils.js'
+import { downloadRom, downloadSave } from '@/services/download.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
 
 const router = useRouter()
@@ -49,15 +49,16 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.r_slug = updatedData.r_slug
     updatedRom.value.summary = updatedData.summary
     updatedRom.value.url_cover = updatedData.url_cover
+    updatedRom.value.r_name = updatedData.r_name
     if (renameAsIGDB.value) {
-        updatedRom.value.file_name = updatedData.r_name+(updatedRom.value.file_extension ? '.'+updatedRom.value.file_extension : '')
+        updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name)
     }
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
         updatedRom: updatedRom.value
     }).then((response) => {
-        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
+        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push('/platform/'+rom.value.p_slug+'/rom/'+rom.value.id)
     }).catch((error) => {
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
@@ -148,10 +149,6 @@ onMounted(() => {
                                         <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
                                     </v-list-item>
                                     <v-divider class="border-opacity-25"/>
-                                    <!-- <v-list-item @click="rescan()" class="pt-4 pb-4 pr-5">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-magnify-scan" class="mr-2"/>Rescan</v-list-item-title>
-                                    </v-list-item>
-                                    <v-divider class="border-opacity-25"/> -->
                                     <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
                                         <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
                                     </v-list-item>
