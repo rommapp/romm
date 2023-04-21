@@ -1,8 +1,7 @@
 <script setup>
 import { ref, inject } from "vue"
 import SettingsHeader from '@/components/SettingsDrawer/Header.vue'
-import Scan from '@/components/SettingsDrawer/Scan.vue'
-import ThemeToggle from '@/components/SettingsDrawer/ThemeToggle.vue'
+
 import SettingsFooter from '@/components/SettingsDrawer/Footer.vue'
 
 // Props
@@ -26,8 +25,6 @@ emitter.on('toggleSettings', () => { settingsDrawer.value = !settingsDrawer.valu
         <settings-header class="bg-primary"/>
 
         <v-divider class="border-opacity-100" :thickness="2"/>
-        
-        <scan/>
         
         <template v-slot:append>
             <v-divider class="border-opacity-25"/>

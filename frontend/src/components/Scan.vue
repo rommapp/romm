@@ -1,23 +1,24 @@
 <script setup>
 import axios from "axios"
-import { ref, inject, toRaw } from "vue"
+import { ref, inject } from "vue"
+import { storePlatforms } from '@/stores/platforms'
+
 
 // Props
-const platforms = ref([])
+const platforms = storePlatforms()
 const platformsToScan = ref([])
 const scanning = ref(false)
 const fullScan = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('platforms', (p) => { platforms.value = p })
 
 // Functions
 async function scan() {
     scanning.value = true
     emitter.emit('scanning', true)
     const platforms = []
-    toRaw(platformsToScan)._rawValue.forEach(p => {platforms.push(toRaw(p.slug))})
+    platformsToScan.value.forEach(p => {platforms.push(p.slug)})
     await axios.get('/api/scan?platforms='+JSON.stringify(platforms)+'&full_scan='+fullScan.value).then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
     }).catch((error) => {
@@ -36,7 +37,7 @@ async function scan() {
             label="Platforms"
             item-title="name"
             v-model="platformsToScan"
-            :items="platforms"
+            :items="platforms.value"
             class="pl-5 pr-5 mt-2 mb-1"
             density="comfortable"
             variant="outlined"
@@ -47,32 +48,28 @@ async function scan() {
             chips/>
 
         <v-list-item class="pa-0">
-            <v-row class="align-center">
-                <v-col class="d-flex justify-center">
-                    <v-btn
-                        title="scan"
-                        @click="scan()"
-                        :disabled="scanning"
-                        prepend-icon="mdi-magnify-scan"
-                        class="ml-7"
-                        rounded="0" 
-                        inset>
-                        <p v-if="!scanning">Scan</p>
-                        <v-progress-circular
-                            v-show="scanning"
-                            class="ml-2"
-                            color="rommAccent1"
-                            :width="2"
-                            :size="20"
-                            indeterminate/>
-                    </v-btn>
-                </v-col>
-                <v-col class="mr-4">
-                    <v-checkbox
-                        v-model="fullScan"
-                        label="Full scan"
-                        hide-details/>
-                </v-col>
+            <v-row class="align-center justify-center ml-8">
+                <v-btn
+                    title="scan"
+                    @click="scan()"
+                    :disabled="scanning"
+                    prepend-icon="mdi-magnify-scan"
+                    rounded="0" 
+                    inset>
+                    <p v-if="!scanning">Scan</p>
+                    <v-progress-circular
+                        v-show="scanning"
+                        class="ml-2"
+                        color="rommAccent1"
+                        :width="2"
+                        :size="20"
+                        indeterminate/>
+                </v-btn>
+                <v-checkbox
+                    v-model="fullScan"
+                    label="Full scan"
+                    class="ml-1"
+                    hide-details/>
             </v-row>
         </v-list-item>
 

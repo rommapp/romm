@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, status, HTTPException
+from fastapi import APIRouter, Request
 import emoji
 
 from logger.logger import log, COLORS

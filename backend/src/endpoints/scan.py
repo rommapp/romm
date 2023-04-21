@@ -3,7 +3,6 @@ import emoji
 import json
 
 from logger.logger import log, COLORS
-from utils import rom_exists_db
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
@@ -45,7 +44,7 @@ def scan(platforms: str, full_scan: bool=False) -> dict:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         for rom in fs_roms:
             if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
-            rom_id: int = rom_exists_db(rom['file_name'], platform)
+            rom_id: int = dbh.rom_exists(rom['file_name'], platform)
             if rom_id and not full_scan: continue
             log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
