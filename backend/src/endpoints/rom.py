@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, status, HTTPException
 
 from logger.logger import log
 from handler import dbh
-from utils import fs
+from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
 from models.rom import Rom
 
@@ -36,6 +36,7 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
         error: str = f"{e}"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+    updated_rom['file_name_no_tags'] = get_file_name_with_no_tags(updated_rom['file_name'])
     updated_rom.update(fs.get_cover_details(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
     dbh.update_rom(id, updated_rom)
     return {'data': dbh.get_rom(id), 'msg': f"{updated_rom['file_name']} updated successfully!"}
