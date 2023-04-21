@@ -1,35 +1,25 @@
 <script setup>
-import axios from "axios"
 import { ref, inject } from "vue"
 import RailBtn from '@/components/MainDrawer/RailBtn.vue'
 import Platform from '@/components/MainDrawer/Platform.vue'
+import { storePlatforms } from '@/stores/platforms'
+
 
 // Props
-const platforms = ref([])
-const platformsDrawer = ref(null)
+const platforms = storePlatforms()
+const platformsDrawer = ref(undefined)
 const open = ref(['Platforms'])
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('platforms', (p) => { platforms.value = p })
 emitter.on('togglePlatforms', () => { platformsDrawer.value = !platformsDrawer.value })
 emitter.on('togglePlatformsRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value)})
-
-// Functions
-async function getPlatforms() {
-    axios.get('/api/platforms').then((response) => {
-        platforms.value = response.data.data
-        emitter.emit('platforms', platforms.value)
-    }).catch((error) => {console.log(error)})
-}
-
-getPlatforms()
 </script>
 
 <template>
 
-    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="145">
+    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="145" elevation="0">
 
         <v-list v-model:opened="open">
             <router-link to="/" class="hidden-md-and-up">
@@ -51,7 +41,7 @@ getPlatforms()
                         </template>
                     </v-list-item>
                 </template>
-                <platform class="drawer-item" v-for="platform in platforms" :platform="platform" :rail="rail" :key="platform.slug"/>
+                <platform class="drawer-item" v-for="platform in platforms.value" :platform="platform" :rail="rail" :key="platform.slug"/>
             </v-list-group>
 
             <v-list-group value="Library">

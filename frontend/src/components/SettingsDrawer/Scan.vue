@@ -1,16 +1,17 @@
 <script setup>
 import axios from "axios"
-import { ref, inject, toRaw } from "vue"
+import { ref, inject } from "vue"
+import { storePlatforms } from '@/stores/platforms'
+
 
 // Props
-const platforms = ref([])
+const platforms = storePlatforms()
 const platformsToScan = ref([])
 const scanning = ref(false)
 const fullScan = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('platforms', (p) => { platforms.value = p })
 
 // Functions
 async function scan() {
@@ -36,7 +37,7 @@ async function scan() {
             label="Platforms"
             item-title="name"
             v-model="platformsToScan"
-            :items="platforms"
+            :items="platforms.value"
             class="pl-5 pr-5 mt-2 mb-1"
             density="comfortable"
             variant="outlined"

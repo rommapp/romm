@@ -1,18 +1,28 @@
 <script setup>
-import { ref, inject } from "vue"
+import { ref, inject, onMounted } from "vue"
 import { useTheme } from "vuetify"
 import AppBar from '@/components/AppBar/Base.vue'
 import MainDrawer from '@/components/MainDrawer/Base.vue'
 import SettingsDrawer from '@/components/SettingsDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
+import { getPlatforms } from '@/services/api.js'
+import { storePlatforms } from '@/stores/platforms'
 
 // Props
+const platforms = storePlatforms()
 useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 const refresh = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('refresh', () => { refresh.value = !refresh.value })
+
+
+onMounted(() => {
+    getPlatforms()
+    .then((res) => { platforms.add(res.data.data) })
+    .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
+})
 </script>
 
 <template>

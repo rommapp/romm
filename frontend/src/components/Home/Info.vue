@@ -1,14 +1,21 @@
 <script setup>
-import { ref, inject } from "vue"
+import { ref } from 'vue'
+import { storePlatforms } from '@/stores/platforms'
 
 // Props
-const platforms = ref([])
-const totalRoms = ref(0)
-
-// Event listeners bus
-const emitter = inject('emitter')
-emitter.on('platforms', (p) => { platforms.value = p })
+const platforms = storePlatforms()
+console.log(platforms.value)
+const totalGames = ref(platforms.value.reduce((accumulator, p) => {
+    return accumulator + p.n_roms;
+}, 0))
 </script>
 
 <template>
+
+    <v-row>
+        <v-col>
+            <span>Total games: {{ totalGames }}</span>
+        </v-col>
+    </v-row>
+
 </template>
