@@ -16,7 +16,7 @@ emitter.on('scanning', (s) => { scanning.value = s })
 
 <template>
 
-    <v-app-bar>
+    <v-app-bar elevation="1">
 
         <v-progress-linear color="rommAccent1" :active="scanning" :indeterminate="true" absolute/>
 

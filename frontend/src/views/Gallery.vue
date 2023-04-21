@@ -64,12 +64,12 @@ onBeforeRouteUpdate(async (to, from) => {
 <template>
 
     <v-expand-transition>
-        <v-row v-if="xs && isFiltering" class="pa-1">
+        <v-row v-if="xs && isFiltering" class="d-flex transition-fast-in-fast-out justify-center">
             <filter-bar/>
         </v-row>
     </v-expand-transition>
 
-    <v-row v-show="currentView != 2">
+    <v-row v-if="currentView != 2">
         <v-col v-for="rom in romsFiltered"
             :key="rom.file_name"
             :cols="views[currentView]['size-cols']"
@@ -82,14 +82,17 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-col>
     </v-row>
 
-
-    <v-table v-show="currentView == 2" class="bg-secondary pt-1">
-        <game-list-header />
-        <v-divider class="border-opacity-100 ml-1 mb-4 mr-1" color="rommAccent1" :thickness="1"/>
-        <tbody>
-            <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
-        </tbody>
-    </v-table>
+    <v-row v-if="currentView == 2" class="justify-center">
+        <v-col class="pa-0">
+            <v-table class="bg-secondary">
+                <game-list-header />
+                <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1"/>
+                <tbody>
+                    <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
+                </tbody>
+            </v-table>
+        </v-col>
+    </v-row>
     
     <no-roms :noRoms="noRoms"/>
 

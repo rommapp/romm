@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from 'vue'
-import { downloadRom, downloadSave } from '@/utils/utils.js'
+import { downloadRom, downloadSave } from '@/services/download.js'
 
 // Props
 const props = defineProps(['rom'])
