@@ -28,7 +28,6 @@ def upgrade() -> None:
         batch_op.alter_column('name', new_column_name='r_name', type_=sa.String(length=150), existing_type=sa.String(length=150))
         batch_op.alter_column('p_slug', existing_type=sa.String(length=50), nullable=False)
         batch_op.alter_column('file_name', existing_type=sa.String(length=450), nullable=False)
-        batch_op.drop_column('file_name_no_tags')
     with op.batch_alter_table("roms") as batch_op:
         if os.getenv('ROMM_DB_DRIVER') == 'mariadb':
             batch_op.execute("ALTER TABLE roms ADD COLUMN id INTEGER UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT")
