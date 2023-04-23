@@ -32,46 +32,47 @@ async function scan() {
 </script>
 
 <template>
-    <v-list>
-        <v-select
-            label="Platforms"
-            item-title="name"
-            v-model="platformsToScan"
-            :items="platforms.value"
-            class="pl-5 pr-5 mt-2 mb-1"
-            density="comfortable"
-            variant="outlined"
-            multiple
-            return-object
-            clearable
-            hide-details
-            chips/>
+    <v-select
+        label="Platforms"
+        item-title="name"
+        v-model="platformsToScan"
+        :items="platforms.value"
+        density="comfortable"
+        variant="outlined"
+        multiple
+        return-object
+        clearable
+        class="text-white"
+        hide-details
+        chips/>
 
-        <v-list-item class="pa-0">
-            <v-row class="align-center justify-center ml-8">
-                <v-btn
-                    title="scan"
-                    @click="scan()"
-                    :disabled="scanning"
-                    prepend-icon="mdi-magnify-scan"
-                    rounded="0" 
-                    inset>
-                    <p v-if="!scanning">Scan</p>
-                    <v-progress-circular
-                        v-show="scanning"
-                        class="ml-2"
-                        color="rommAccent1"
-                        :width="2"
-                        :size="20"
-                        indeterminate/>
-                </v-btn>
-                <v-checkbox
-                    v-model="fullScan"
-                    label="Full scan"
-                    class="ml-1"
-                    hide-details/>
-            </v-row>
-        </v-list-item>
+    <v-checkbox
+        v-model="fullScan"
+        label="Complete scan"
+        prepend-icon="mdi-cached"
+        class="text-white"
+        hide-details/>
 
-    </v-list>
+    <div class="ml-10 text-caption font-weight-light font-italic">
+        <span>Re-scan every rom even if it is already scanned</span>
+    </div>
+
+    <v-btn
+        title="scan"
+        @click="scan()"
+        :disabled="scanning"
+        prepend-icon="mdi-magnify-scan"
+        rounded="0"
+        class="mt-5"
+        inset>
+        <p v-if="!scanning">Scan</p>
+        <v-progress-circular
+            v-show="scanning"
+            color="rommAccent1"
+            :width="2"
+            :size="20"
+            indeterminate/>
+    </v-btn>
+            
+
 </template>
