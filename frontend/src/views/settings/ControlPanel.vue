@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from "vue"
 import { useTheme } from "vuetify"
+import AppBar from '@/components/AppBar/Base.vue'
 
 // Props
 const theme = useTheme()
@@ -16,6 +17,8 @@ function toggleTheme() {
 
 </script>
 <template>
+
+    <app-bar/>
 
     <v-tabs v-model="tab" slider-color="rommAccent1">
         <v-tab value="ui">User Interface</v-tab>

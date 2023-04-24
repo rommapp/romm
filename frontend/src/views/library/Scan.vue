@@ -3,6 +3,7 @@ import axios from "axios"
 import { ref, inject } from "vue"
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
+import AppBar from '@/components/AppBar/Base.vue'
 
 // Props
 const platforms = storePlatforms()
@@ -30,6 +31,9 @@ async function scan() {
 </script>
 
 <template>
+
+    <app-bar/>
+
     <v-select
         label="Platforms"
         item-title="name"
@@ -67,6 +71,5 @@ async function scan() {
             :size="20"
             indeterminate/>
     </v-btn>
-            
 
 </template>
