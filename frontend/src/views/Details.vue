@@ -26,7 +26,7 @@ const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const filesToDownload = ref([])
 const tab = ref('info')
-const { xs, sm, mdAndUp } = useDisplay()
+const { xs, sm, mdAndUp, mdAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -91,7 +91,7 @@ onMounted(() => {
 
 <template>
 
-    <app-bar/>
+    <app-bar v-if="mdAndDown"/>
 
     <background-header :rom="rom" v-if="rom !== undefined"/>
 

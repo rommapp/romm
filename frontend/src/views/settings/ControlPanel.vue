@@ -2,12 +2,14 @@
 import { ref } from "vue"
 import { useTheme } from "vuetify"
 import AppBar from '@/components/AppBar/Base.vue'
+import { useDisplay } from "vuetify"
 
 // Props
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'rommLight') ? ref(false) : ref(true)
 const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION
 const tab = ref('ui')
+const { mdAndDown } = useDisplay()
 
 // Functions
 function toggleTheme() {
@@ -18,7 +20,7 @@ function toggleTheme() {
 </script>
 <template>
 
-    <app-bar/>
+    <app-bar v-if="mdAndDown"/>
 
     <v-tabs v-model="tab" slider-color="rommAccent1">
         <v-tab value="ui">User Interface</v-tab>

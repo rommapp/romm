@@ -9,7 +9,8 @@ const galleryView = storeGalleryView()
 <template>
     <v-app-bar-nav-icon
         @click="galleryView.next()"
-        rounded="0">
+        rounded="0"
+        variant="plain">
         <v-icon :icon="views[galleryView.value]['icon']"/>
     </v-app-bar-nav-icon>
 </template>
