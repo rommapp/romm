@@ -50,12 +50,8 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.summary = updatedData.summary
     updatedRom.value.url_cover = updatedData.url_cover
     updatedRom.value.r_name = updatedData.r_name
-    if (renameAsIGDB.value) {
-        updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name)
-    }
-    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, {
-        updatedRom: updatedRom.value
-    }).then((response) => {
+    if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
+    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, { updatedRom: updatedRom.value }).then((response) => {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
@@ -81,18 +77,14 @@ async function deleteRom() {
     dialogDeleteRom.value = false
 }
 
-async function rescan() {
-    console.log("rescan "+rom.value.id)
-}
+async function rescan() { console.log("rescan "+rom.value.id) }
 
 onMounted(() => {
     axios.get(`/api/platforms/${route.params.platform}/roms/${route.params.rom}`).then(response => {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         loading.value = false
-    }).catch(error => {
-        loading.value = false
-    })
+    }).catch((error) => { console.log(error);loading.value = false })
 })
 </script>
 

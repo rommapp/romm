@@ -5,7 +5,7 @@ import AppBar from '@/components/AppBar/Base.vue'
 import MainDrawer from '@/components/MainDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 import { getPlatforms } from '@/services/api.js'
-import { storePlatforms } from '@/stores/platforms'
+import { storePlatforms } from '@/stores/platforms.js'
 
 // Props
 const platforms = storePlatforms()

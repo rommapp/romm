@@ -3,86 +3,71 @@ import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { useDisplay } from "vuetify"
-import { normalizeString, views } from '@/utils/utils.js'
+import { views } from '@/utils/utils.js'
+import { storeFilter } from '@/stores/filter.js'
+import { storeGalleryView } from '@/stores/galleryView.js'
+import { normalizeString } from '@/utils/utils.js'
 import FilterBar from '@/components/AppBar/FilterBar.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
-import NoRoms from '@/components/GameGallery/NoRoms.vue'
+
+const route = useRoute()
 
 // Props
-const roms = ref([])
 const gettingRoms = ref(false)
-const noRoms = ref(false)
+const roms = ref([])
+const filter = storeFilter()
 const romsFiltered = ref([])
-const isFiltering = ref(false)
-const currentFilter = ref('')
-const currentView = ref(JSON.parse(localStorage.getItem('currentView')) || 0)
+const galleryView = storeGalleryView()
 const { xs } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('isFiltering', () => {
-    isFiltering.value = !isFiltering.value
-    if(!isFiltering.value){setFilter('')}
-})
-emitter.on('filter', (filter) => { setFilter(filter) })
-emitter.on('currentView', (view) => { currentView.value = view })
+emitter.on('filter', () => { filterRoms() })
 
 // Functions
-async function getRoms(platform) {
-    noRoms.value = false
-    emitter.emit('gettingRoms', true)
-    gettingRoms.value = true
-    await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
-        roms.value = response.data.data
-        setFilter(currentFilter.value)
-    }).catch((error) => {console.log(error)})
-    emitter.emit('gettingRoms', false)
-    gettingRoms.value = false
-    if(roms.value.length==0){noRoms.value = true}
-}
-
-function setFilter(filter) {
-    currentFilter.value = normalizeString(filter)
+function filterRoms() {
     romsFiltered.value = roms.value.filter(rom => {
-        return normalizeString(rom.file_name).includes(currentFilter.value)
+        return normalizeString(rom.file_name).includes(filter.value)
     })
 }
 
-const route = useRoute()
+async function getRoms(platform) {
+    gettingRoms.value = true
+    await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
+        roms.value = response.data.data
+        filterRoms()
+    }).catch((error) => {console.log(error)})
+    gettingRoms.value = false
+}
 
-onMounted(async () => {
-    getRoms(route.params.platform)
-})
-
-onBeforeRouteUpdate(async (to, from) => {
-    getRoms(to.params.platform)
-})
+onMounted(async () => { getRoms(route.params.platform) })
+onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
 </script>
 
 <template>
 
     <v-expand-transition>
-        <v-row v-if="xs && isFiltering" class="d-flex transition-fast-in-fast-out justify-center">
+        <v-row v-if="xs && filter.hiddenBar" class="d-flex transition-fast-in-fast-out justify-center">
             <filter-bar/>
         </v-row>
     </v-expand-transition>
 
-    <v-row v-if="currentView != 2">
+    <v-row v-if="galleryView.value != 2">
         <v-col v-for="rom in romsFiltered"
             :key="rom.file_name"
-            :cols="views[currentView]['size-cols']"
-            :xs="views[currentView]['size-xs']"
-            :sm="views[currentView]['size-sm']"
-            :md="views[currentView]['size-md']"
-            :lg="views[currentView]['size-lg']"
+            :cols="views[galleryView.value]['size-cols']"
+            :xs="views[galleryView.value]['size-xs']"
+            :sm="views[galleryView.value]['size-sm']"
+            :md="views[galleryView.value]['size-md']"
+            :lg="views[galleryView.value]['size-lg']"
             class="pa-1">
             <game-card :rom="rom"/>
         </v-col>
     </v-row>
 
-    <v-row v-if="currentView == 2" class="justify-center">
+    <v-row v-if="galleryView.value == 2" class="justify-center">
         <v-col class="pa-0">
             <v-table class="bg-secondary">
                 <game-list-header />
@@ -94,7 +79,9 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-col>
     </v-row>
     
-    <no-roms :noRoms="noRoms"/>
+    <v-row v-if="roms.length==0" class="d-flex justify-center align-center mt-16">
+        <div class="text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
+    </v-row>
 
     <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
         <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate/>
