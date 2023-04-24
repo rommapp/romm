@@ -19,7 +19,7 @@ const emitter = inject('emitter')
         prepend-inner-icon="mdi-magnify"
         class="shrink"
         variant="outlined"
-        density="comfortable"
+        density="compact"
         hide-details
         clearable/>
 </template>
