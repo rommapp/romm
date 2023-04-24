@@ -6,7 +6,7 @@ const props = defineProps(['platform', 'rail'])
 </script>
 
 <template>
-    <v-list-item :to="`/platform/${platform.slug}`" :value="platform.slug" :key="platform" class="pt-4 pb-4">
+    <v-list-item :to="`/platform/${platform.slug}`" :value="platform.slug" :key="platform" class="pt-4 pb-4 bg-terciary">
         <p class="text-body-2 text-truncate">{{ rail ? '' : platform.name }}</p>
         <template v-slot:prepend>
             <v-avatar :rounded="0" size="40"><v-img :src="'/assets/platforms/'+platform.slug+'.ico'"></v-img></v-avatar>

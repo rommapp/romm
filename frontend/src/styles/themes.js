@@ -3,6 +3,7 @@ export const rommDark = {
     colors: {
         primary:        '#161b22',
         secondary:      '#0d1117',
+        terciary:       '#202832',
         background:     '#0d1117',
 
         surface:        '#161b22',

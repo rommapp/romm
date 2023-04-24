@@ -36,21 +36,18 @@ async function scan() {
 
     <app-bar v-if="mdAndDown"/>
 
-    <v-row>
-        <v-select
-            label="Platforms"
-            item-title="name"
-            v-model="platformsToScan"
-            :items="platforms.value"
-            density="comfortable"
-            variant="outlined"
-            class="pa-2"
-            multiple
-            return-object
-            clearable
-            hide-details
-            chips/>
-    </v-row>
+    <v-select
+        label="Platforms"
+        item-title="name"
+        v-model="platformsToScan"
+        :items="platforms.value"
+        density="comfortable"
+        variant="outlined"
+        multiple
+        return-object
+        clearable
+        hide-details
+        chips/>
 
     <v-checkbox
         v-model="fullScan"
