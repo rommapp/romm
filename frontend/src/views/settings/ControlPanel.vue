@@ -6,6 +6,7 @@ import { useTheme } from "vuetify"
 const theme = useTheme()
 const darkMode = (localStorage.getItem('theme') == 'rommLight') ? ref(false) : ref(true)
 const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION
+const tab = ref('ui')
 
 // Functions
 function toggleTheme() {
@@ -15,18 +16,31 @@ function toggleTheme() {
 
 </script>
 <template>
-    <div>
-        <v-switch
-            @change="toggleTheme()"
-            v-model="darkMode"
-            prepend-icon="mdi-theme-light-dark"
-            hide-details
-            inset/>
-    </div>
 
-    <v-divider class="border-opacity-25"/>
+    <v-tabs v-model="tab" slider-color="rommAccent1">
+        <v-tab value="ui">User Interface</v-tab>
+        <v-tab value="saves" disabled>General</v-tab>
+    </v-tabs>
+    <v-window v-model="tab" class="mt-2">
+        <v-window-item value="ui">
+            <v-row>
+                <v-col>
+                    <v-switch
+                        @change="toggleTheme()"
+                        v-model="darkMode"
+                        prepend-icon="mdi-theme-light-dark"
+                        hide-details
+                        inset/>
+                </v-col>
+            </v-row>
+        </v-window-item>
+        <v-window-item value="general">
+        </v-window-item>
+    </v-window>
 
-    <div class="mt-4">
+    <v-divider class="border-opacity-25 mt-2"/>
+
+    <div class="mt-4 text-caption">
         <span class="text-rommAccent1">RomM</span><span> v{{ ROMM_VERSION }}</span>
     </div>
 

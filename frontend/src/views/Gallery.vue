@@ -20,7 +20,7 @@ const roms = ref([])
 const filter = storeFilter()
 const romsFiltered = ref([])
 const galleryView = storeGalleryView()
-const { xs } = useDisplay()
+const { mdAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -49,8 +49,8 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
 <template>
 
     <v-expand-transition>
-        <v-row v-if="xs && filter.hiddenBar" class="d-flex transition-fast-in-fast-out justify-center">
-            <filter-bar/>
+        <v-row v-if="mdAndDown && filter.hiddenBar" class="d-flex transition-fast-in-fast-out justify-center">
+            <filter-bar class="pa-2"/>
         </v-row>
     </v-expand-transition>
 

@@ -102,7 +102,7 @@ onMounted(() => {
                                 <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                     <template v-slot:placeholder>
                                         <div class="d-flex align-center justify-center fill-height">
-                                            <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
+                                            <v-progress-circular color="rommAccent1" :width="2" indeterminate/>
                                         </div> 
                                     </template>
                                 </v-img>
