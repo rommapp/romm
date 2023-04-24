@@ -1,7 +1,6 @@
 <script setup>
 import { ref, inject, onMounted } from "vue"
 import { useTheme } from "vuetify"
-import AppBar from '@/components/AppBar/Base.vue'
 import MainDrawer from '@/components/MainDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 import { getPlatforms } from '@/services/api.js'
@@ -27,8 +26,6 @@ onMounted(() => {
 <template>
   <v-app>
 
-    <app-bar/>
-
     <main-drawer :key="refresh"/>
 
     <v-main>
@@ -37,7 +34,7 @@ onMounted(() => {
       </v-container>
     </v-main>
 
-    <notification class="mt-4"/>
+    <notification class="mt-6"/>
 
   </v-app>
 </template>

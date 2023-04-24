@@ -1,34 +1,27 @@
 <script setup>
-import PlatformsBtn from '@/components/AppBar/PlatformsBtn.vue'
-import FilterBar from '@/components/AppBar/FilterBar.vue'
-import FilterBtn from '@/components/AppBar/FilterBtn.vue'
-import GalleryViewBtn from '@/components/AppBar/GalleryViewBtn.vue'
+import MainDrawerToggle from '@/components/AppBar/Gallery/MainDrawerToggle.vue'
 import { storeScanning } from '@/stores/scanning.js'
+import { storeContextBar } from '@/stores/contextBar.js'
 
 // Props
 const scanning = storeScanning()
+const contextBar = storeContextBar()
 </script>
 
 <template>
 
-    <v-app-bar elevation="1">
+    <v-app-bar elevation="1" density="comfortable">
 
         <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
-        <router-link to="/">
-            <v-avatar size="100" class="ml-7 home-btn hidden-sm-and-down"><v-img src="/assets/romm_complete.svg"></v-img></v-avatar>
-        </router-link>
-            
-        <platforms-btn class="ml-5 hidden-lg-and-up"/>
-        
-        <v-spacer class="hidden-xs-and-down"/>
-        
-        <filter-bar class="mr-2 ml-2 hidden-xs"/>
+        <main-drawer-toggle class="ml-5 hidden-lg-and-up"/>
 
-        <filter-btn class="ml-2 hidden-sm-and-up"/>
-            
         <template v-slot:append>
-            <gallery-view-btn/>
+            <v-app-bar-nav-icon
+                @click="contextBar.toggleContextBar()"
+                rounded="0">
+                <v-icon :icon="contextBar.value ? 'mdi-chevron-up' : 'mdi-chevron-down' "/>
+            </v-app-bar-nav-icon>
         </template>
         
     </v-app-bar>

@@ -1,14 +1,17 @@
 <script setup>
 import axios from "axios"
 import { ref, inject } from "vue"
+import { useDisplay } from "vuetify"
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
+import AppBar from '@/components/AppBar/Base.vue'
 
 // Props
 const platforms = storePlatforms()
 const platformsToScan = ref([])
 const scanning = storeScanning()
 const fullScan = ref(false)
+const { mdAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -30,28 +33,31 @@ async function scan() {
 </script>
 
 <template>
-    <v-select
-        label="Platforms"
-        item-title="name"
-        v-model="platformsToScan"
-        :items="platforms.value"
-        density="comfortable"
-        variant="outlined"
-        multiple
-        return-object
-        clearable
-        hide-details
-        chips/>
+
+    <app-bar v-if="mdAndDown"/>
+
+    <v-row>
+        <v-select
+            label="Platforms"
+            item-title="name"
+            v-model="platformsToScan"
+            :items="platforms.value"
+            density="comfortable"
+            variant="outlined"
+            class="pa-2"
+            multiple
+            return-object
+            clearable
+            hide-details
+            chips/>
+    </v-row>
 
     <v-checkbox
         v-model="fullScan"
-        label="Complete scan"
+        label="Complete Rescan"
         prepend-icon="mdi-cached"
-        hide-details/>
-
-    <div class="ml-10 text-caption font-weight-light font-italic">
-        <span>Re-scan every rom even if it is already scanned</span>
-    </div>
+        hint="Rescan every rom, including already scanned roms"
+        persistent-hint/>
 
     <v-btn
         title="scan"
@@ -59,16 +65,16 @@ async function scan() {
         :disabled="scanning.value"
         prepend-icon="mdi-magnify-scan"
         rounded="0"
-        class="mt-5"
+        class="mt-7"
         inset>
         <p v-if="!scanning.value">Scan</p>
         <v-progress-circular
             v-show="scanning.value"
             color="rommAccent1"
+            class="ml-3 mr-2"
             :width="2"
             :size="20"
             indeterminate/>
     </v-btn>
-            
 
 </template>

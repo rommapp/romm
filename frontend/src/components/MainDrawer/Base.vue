@@ -7,29 +7,26 @@ import { storePlatforms } from '@/stores/platforms'
 
 // Props
 const platforms = storePlatforms()
-const platformsDrawer = ref(undefined)
+const mainDrawer = ref(undefined)
 const open = ref(['Platforms', 'Library', 'Settings'])
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('togglePlatforms', () => { platformsDrawer.value = !platformsDrawer.value })
-emitter.on('togglePlatformsRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value)})
+emitter.on('toggleMainDrawer', () => { mainDrawer.value = !mainDrawer.value })
+emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value)})
 </script>
 
 <template>
 
-    <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="145" elevation="0">
+    <v-navigation-drawer v-model="mainDrawer" :rail="rail" width="300" rail-width="145" elevation="0">
 
         <v-list v-model:opened="open">
-            <router-link to="/" class="hidden-md-and-up">
-                <v-row class="justify-center">
-                    <v-img v-show="!rail" src="/assets/romm_complete.svg" class="home-btn justify-center"/>
-                    <v-img v-show="rail" src="/assets/romm.svg" class="home-btn justify-center"/>
-                </v-row>
+            <router-link to="/">
+                <v-list-item class="justify-center">
+                    <v-img src="/assets/isotipo.svg" width="60" class="home-btn"/>
+                </v-list-item>
             </router-link>
-
-            <v-divider class="border-opacity-25 hidden-md-and-up"/>
             
             <v-list-group value="Platforms">
                 <template v-slot:activator="{ props }">
