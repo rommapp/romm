@@ -23,10 +23,9 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
 
         <v-list v-model:opened="open">
             <router-link to="/">
-                <v-row class="justify-center">
-                    <v-img v-show="!rail" src="/assets/romm_complete.svg" class="home-btn justify-center"/>
-                    <v-img v-show="rail" src="/assets/romm.svg" class="home-btn justify-center"/>
-                </v-row>
+                <v-list-item class="justify-center">
+                    <v-img src="/assets/isotipo.svg" width="60" class="home-btn"/>
+                </v-list-item>
             </router-link>
             
             <v-list-group value="Platforms">
