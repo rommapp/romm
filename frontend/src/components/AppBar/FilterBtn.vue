@@ -1,5 +1,9 @@
 <script setup>
-import { inject } from "vue"
+import { storeFilter } from '@/stores/filter'
+import { inject } from 'vue'
+
+// Props
+const filter = storeFilter()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -8,7 +12,7 @@ const emitter = inject('emitter')
 <template>
     <v-app-bar-nav-icon
         rounded="0"
-        @click="emitter.emit('isFiltering')">
+        @click="filter.toggleFilterBar();emitter.emit('filter')">
         <v-icon>mdi-magnify</v-icon>
     </v-app-bar-nav-icon>
 </template>
