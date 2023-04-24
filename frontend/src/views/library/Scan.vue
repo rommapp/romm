@@ -1,6 +1,7 @@
 <script setup>
 import axios from "axios"
 import { ref, inject } from "vue"
+import { useDisplay } from "vuetify"
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
 import AppBar from '@/components/AppBar/Base.vue'
@@ -10,6 +11,7 @@ const platforms = storePlatforms()
 const platformsToScan = ref([])
 const scanning = storeScanning()
 const fullScan = ref(false)
+const { mdAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -32,20 +34,23 @@ async function scan() {
 
 <template>
 
-    <app-bar/>
+    <app-bar v-if="mdAndDown"/>
 
-    <v-select
-        label="Platforms"
-        item-title="name"
-        v-model="platformsToScan"
-        :items="platforms.value"
-        density="comfortable"
-        variant="outlined"
-        multiple
-        return-object
-        clearable
-        hide-details
-        chips/>
+    <v-row>
+        <v-select
+            label="Platforms"
+            item-title="name"
+            v-model="platformsToScan"
+            :items="platforms.value"
+            density="comfortable"
+            variant="outlined"
+            class="pa-2"
+            multiple
+            return-object
+            clearable
+            hide-details
+            chips/>
+    </v-row>
 
     <v-checkbox
         v-model="fullScan"

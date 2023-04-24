@@ -6,8 +6,10 @@ import { useDisplay } from "vuetify"
 import { views } from '@/utils/utils.js'
 import { storeFilter } from '@/stores/filter.js'
 import { storeGalleryView } from '@/stores/galleryView.js'
+import { storeContextBar } from '@/stores/contextBar.js'
 import { normalizeString } from '@/utils/utils.js'
-import AppBar from '@/components/AppBar/Gallery/Base.vue'
+import AppBar from '@/components/AppBar/Base.vue'
+import GalleryViewBtn from '@/components/AppBar/Gallery/GalleryViewBtn.vue'
 import FilterBar from '@/components/AppBar/Gallery/FilterBar.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
@@ -21,7 +23,8 @@ const roms = ref([])
 const filter = storeFilter()
 const romsFiltered = ref([])
 const galleryView = storeGalleryView()
-const { mdAndDown } = useDisplay()
+const contextBar = storeContextBar()
+const { mdAndDown, lgAndUp } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -49,13 +52,15 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
 
 <template>
 
-    <app-bar/>
+    <app-bar v-if="mdAndDown"/>
 
     <v-expand-transition>
-        <v-row v-if="mdAndDown && filter.hiddenBar" class="d-flex transition-fast-in-fast-out justify-center">
+        <v-row v-if="contextBar.value || lgAndUp" class="d-flex transition-fast-in-fast-out justify-center align-center">
             <filter-bar class="pa-2"/>
+            <gallery-view-btn class="bg-secondary mr-1"/>
         </v-row>
     </v-expand-transition>
+
 
     <v-row v-if="galleryView.value != 2 && roms.length>0">
         <v-col v-for="rom in romsFiltered"

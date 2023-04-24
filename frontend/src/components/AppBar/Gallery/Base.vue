@@ -11,7 +11,7 @@ const scanning = storeScanning()
 
 <template>
 
-    <v-app-bar elevation="1">
+    <v-app-bar elevation="0" density="comfortable">
 
         <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
