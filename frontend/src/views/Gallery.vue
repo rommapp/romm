@@ -56,7 +56,7 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
 
     <v-expand-transition>
         <v-row v-if="contextBar.value || lgAndUp" class="d-flex transition-fast-in-fast-out justify-center align-center">
-            <filter-bar class="pa-2"/>
+            <filter-bar class="pa-1"/>
             <gallery-view-btn class="bg-secondary mr-1"/>
         </v-row>
     </v-expand-transition>

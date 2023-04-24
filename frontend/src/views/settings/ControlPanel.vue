@@ -23,12 +23,12 @@ function toggleTheme() {
     <app-bar v-if="mdAndDown"/>
 
     <v-tabs v-model="tab" slider-color="rommAccent1">
-        <v-tab value="ui">User Interface</v-tab>
-        <v-tab value="saves" disabled>General</v-tab>
+        <v-tab value="ui" rounded="0">User Interface</v-tab>
+        <v-tab value="saves" rounded="0" disabled>General</v-tab>
     </v-tabs>
     <v-window v-model="tab" class="mt-2">
         <v-window-item value="ui">
-            <v-row>
+            <v-row class="ml-1">
                 <v-col>
                     <v-switch
                         @change="toggleTheme()"
