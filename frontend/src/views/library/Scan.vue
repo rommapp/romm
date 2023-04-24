@@ -40,7 +40,6 @@ async function scan() {
         multiple
         return-object
         clearable
-        class="text-white"
         hide-details
         chips/>
 
@@ -48,7 +47,6 @@ async function scan() {
         v-model="fullScan"
         label="Complete scan"
         prepend-icon="mdi-cached"
-        class="text-white"
         hide-details/>
 
     <div class="ml-10 text-caption font-weight-light font-italic">
