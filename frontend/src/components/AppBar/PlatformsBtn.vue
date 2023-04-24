@@ -8,10 +8,9 @@ const emitter = inject('emitter')
 
 <template>
     <v-btn
-        @click="emitter.emit('togglePlatforms')"
-        rounded="0"
-        icon
-    >
+    @click="emitter.emit('togglePlatforms')"
+    rounded="0"
+    icon>
         <v-avatar rounded="0">
             <v-img v-if="$route.params.platform !== undefined" :src="'/assets/platforms/'+$route.params.platform+'.ico'"/>
             <v-icon v-else icon="mdi-menu"/>
