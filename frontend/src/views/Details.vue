@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/services/download.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
+import AppBar from '@/components/AppBar/Base.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,7 +26,7 @@ const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const filesToDownload = ref([])
 const tab = ref('info')
-const { xs, sm, mdAndUp } = useDisplay()
+const { xs, sm, mdAndUp, mdAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -90,6 +91,8 @@ onMounted(() => {
 
 <template>
 
+    <app-bar v-if="mdAndDown"/>
+
     <background-header :rom="rom" v-if="rom !== undefined"/>
 
     <div :class="{'content': mdAndUp, 'content-tablet': sm, 'content-mobile': xs}" v-if="rom !== undefined">
@@ -102,7 +105,7 @@ onMounted(() => {
                                 <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                     <template v-slot:placeholder>
                                         <div class="d-flex align-center justify-center fill-height">
-                                            <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
+                                            <v-progress-circular color="rommAccent1" :width="2" indeterminate/>
                                         </div> 
                                     </template>
                                 </v-img>

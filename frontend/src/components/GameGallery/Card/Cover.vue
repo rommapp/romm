@@ -18,7 +18,7 @@ const forceImgReload = Date.now()
             cover>
             <template v-slot:placeholder>
                 <div class="d-flex align-center justify-center fill-height">
-                    <v-progress-circular color="rommAccent1" indeterminate/>
+                    <v-progress-circular color="rommAccent1" :width="2" indeterminate/>
                 </div>
             </template>
             <v-expand-transition>
