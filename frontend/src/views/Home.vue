@@ -1,10 +1,15 @@
 <script setup>
-import Info from '@/components/Home/Info.vue'
+import { ref } from 'vue'
+import { storePlatforms } from '@/stores/platforms'
+
+// Props
+const platforms = storePlatforms()
+const totalGames = ref(platforms.value.reduce((accumulator, p) => { return accumulator + p.n_roms }, 0))
 </script>
 
 <template>
 
-    <info/>
+<span>Total games: {{ totalGames }}</span>
 
 </template>
 
