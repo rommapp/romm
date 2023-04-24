@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/services/download.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
+import AppBar from '@/components/AppBar/Base.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -89,6 +90,8 @@ onMounted(() => {
 </script>
 
 <template>
+
+    <app-bar/>
 
     <background-header :rom="rom" v-if="rom !== undefined"/>
 

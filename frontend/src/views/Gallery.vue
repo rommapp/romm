@@ -7,7 +7,8 @@ import { views } from '@/utils/utils.js'
 import { storeFilter } from '@/stores/filter.js'
 import { storeGalleryView } from '@/stores/galleryView.js'
 import { normalizeString } from '@/utils/utils.js'
-import FilterBar from '@/components/AppBar/FilterBar.vue'
+import AppBar from '@/components/AppBar/Gallery/Base.vue'
+import FilterBar from '@/components/AppBar/Gallery/FilterBar.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
@@ -47,6 +48,8 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
 </script>
 
 <template>
+
+    <app-bar/>
 
     <v-expand-transition>
         <v-row v-if="mdAndDown && filter.hiddenBar" class="d-flex transition-fast-in-fast-out justify-center">

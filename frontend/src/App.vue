@@ -28,8 +28,6 @@ onMounted(() => {
   <v-app>
 
     <main-drawer :key="refresh"/>
-    
-    <app-bar/>
 
     <v-main>
       <v-container fluid>
@@ -37,7 +35,7 @@ onMounted(() => {
       </v-container>
     </v-main>
 
-    <notification class="mt-4"/>
+    <notification class="mt-6"/>
 
   </v-app>
 </template>
