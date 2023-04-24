@@ -2,10 +2,12 @@
 import MainDrawerToggle from '@/components/AppBar/Gallery/MainDrawerToggle.vue'
 import { storeScanning } from '@/stores/scanning.js'
 import { storeContextBar } from '@/stores/contextBar.js'
+import { useRoute } from 'vue-router'
 
 // Props
 const scanning = storeScanning()
 const contextBar = storeContextBar()
+const route = useRoute()
 </script>
 
 <template>
@@ -17,7 +19,7 @@ const contextBar = storeContextBar()
         <main-drawer-toggle class="ml-5 hidden-lg-and-up"/>
 
         <template v-slot:append>
-            <v-app-bar-nav-icon
+            <v-app-bar-nav-icon v-if="route.params.platform != undefined"
                 @click="contextBar.toggleContextBar()"
                 rounded="0">
                 <v-icon :icon="contextBar.value ? 'mdi-chevron-up' : 'mdi-chevron-down' "/>
