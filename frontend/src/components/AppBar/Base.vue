@@ -15,19 +15,16 @@ const scanning = storeScanning()
 
         <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
-        <router-link to="/">
-            <v-avatar size="100" class="ml-7 home-btn hidden-sm-and-down"><v-img src="/assets/romm_complete.svg"></v-img></v-avatar>
-        </router-link>
-            
         <platforms-btn class="ml-5 hidden-lg-and-up"/>
-        
-        <v-spacer class="hidden-xs-and-down"/>
-        
-        <filter-bar class="mr-2 ml-2 hidden-xs"/>
 
-        <filter-btn class="ml-2 hidden-sm-and-up"/>
-            
+        <v-avatar rounded="0" class="ml-5 hidden-lg-and-up">
+            <v-img v-if="$route.params.platform !== undefined" :src="'/assets/platforms/'+$route.params.platform+'.ico'"/>
+        </v-avatar>
+
+        <filter-bar class="mr-2 ml-2 hidden-md-and-down"/>
+        
         <template v-slot:append>
+            <filter-btn class="ml-2 hidden-lg-and-up"/>
             <gallery-view-btn/>
         </template>
         

@@ -22,14 +22,12 @@ emitter.on('togglePlatformsRail', () => { rail.value = !rail.value; localStorage
     <v-navigation-drawer v-model="platformsDrawer" :rail="rail" width="300" rail-width="145" elevation="0">
 
         <v-list v-model:opened="open">
-            <router-link to="/" class="hidden-md-and-up">
+            <router-link to="/">
                 <v-row class="justify-center">
                     <v-img v-show="!rail" src="/assets/romm_complete.svg" class="home-btn justify-center"/>
                     <v-img v-show="rail" src="/assets/romm.svg" class="home-btn justify-center"/>
                 </v-row>
             </router-link>
-
-            <v-divider class="border-opacity-25 hidden-md-and-up"/>
             
             <v-list-group value="Platforms">
                 <template v-slot:activator="{ props }">

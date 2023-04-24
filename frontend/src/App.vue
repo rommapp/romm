@@ -27,9 +27,9 @@ onMounted(() => {
 <template>
   <v-app>
 
-    <app-bar/>
-
     <main-drawer :key="refresh"/>
+    
+    <app-bar/>
 
     <v-main>
       <v-container fluid>

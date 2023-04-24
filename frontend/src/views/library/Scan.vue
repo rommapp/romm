@@ -45,13 +45,10 @@ async function scan() {
 
     <v-checkbox
         v-model="fullScan"
-        label="Complete scan"
+        label="Complete Rescan"
         prepend-icon="mdi-cached"
-        hide-details/>
-
-    <div class="ml-10 text-caption font-weight-light font-italic">
-        <span>Re-scan every rom even if it is already scanned</span>
-    </div>
+        hint="Rescan every rom, including already scanned roms"
+        persistent-hint/>
 
     <v-btn
         title="scan"
@@ -59,12 +56,13 @@ async function scan() {
         :disabled="scanning.value"
         prepend-icon="mdi-magnify-scan"
         rounded="0"
-        class="mt-5"
+        class="mt-7"
         inset>
         <p v-if="!scanning.value">Scan</p>
         <v-progress-circular
             v-show="scanning.value"
             color="rommAccent1"
+            class="ml-3 mr-2"
             :width="2"
             :size="20"
             indeterminate/>
