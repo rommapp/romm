@@ -172,10 +172,10 @@ onMounted(() => {
                 </div>
                 
                 <div class="mb-10" :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
-                    <v-tabs v-model="tab" slider-color="rommAccent1">
-                        <v-tab value="info">Info</v-tab>
-                        <v-tab value="saves" disabled>Saves</v-tab>
-                        <v-tab value="screenshots" disabled>Screenshots</v-tab>
+                    <v-tabs v-model="tab" slider-color="rommAccent1" >
+                        <v-tab value="info" rounded="0">Info</v-tab>
+                        <v-tab value="saves" rounded="0" disabled>Saves</v-tab>
+                        <v-tab value="screenshots" rounded="0" disabled>Screenshots</v-tab>
                     </v-tabs>
                     <v-window v-model="tab" class="mt-2">
                         <v-window-item value="info">
@@ -333,6 +333,7 @@ onMounted(() => {
     overflow-y: scroll
 }
 .content, .content-tablet{
+    margin-top: 64px;
     margin-left: 100px;
     margin-right: 100px;
 }

@@ -23,10 +23,12 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
 
         <v-list v-model:opened="open">
             <router-link to="/">
-                <v-list-item class="justify-center">
-                    <v-img src="/assets/isotipo.svg" width="60" class="home-btn"/>
+                <v-list-item class="justify-center pa-0">
+                    <v-img src="/assets/isotipo.svg" width="70" class="home-btn"/>
                 </v-list-item>
             </router-link>
+
+            <v-divider></v-divider>
             
             <v-list-group value="Platforms">
                 <template v-slot:activator="{ props }">
@@ -51,13 +53,13 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
                         </template>
                     </v-list-item>
                 </template>
-                <v-list-item class="drawer-item" to="/library/scan">
+                <v-list-item class="drawer-item bg-terciary" to="/library/scan">
                     <p class="text-body-2 text-truncate">{{ rail ? '' : 'Scan' }}</p>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-magnify-scan</v-icon></v-avatar>
                     </template>
                 </v-list-item>
-                <v-list-item class="drawer-item" disabled>
+                <v-list-item class="drawer-item bg-terciary" disabled>
                     <p class="text-body-2 text-truncate">{{ rail ? '' : 'Upload' }}</p>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-upload</v-icon></v-avatar>
@@ -75,7 +77,7 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
                         </template>
                     </v-list-item>
                 </template>
-                <v-list-item class="drawer-item" to="/settings/control-panel">
+                <v-list-item class="drawer-item bg-terciary" to="/settings/control-panel">
                     <p class="text-body-2 text-truncate">{{ rail ? '' : 'Control panel' }}</p>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-view-dashboard</v-icon></v-avatar>
