@@ -3,12 +3,10 @@ import axios from "axios"
 import { ref, inject } from "vue"
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
-import { storeRoms } from '@/stores/roms.js'
 
 // Props
 const platforms = storePlatforms()
 const platformsToScan = ref([])
-const roms = storeRoms()
 const scanning = storeScanning()
 const fullScan = ref(false)
 
@@ -20,7 +18,6 @@ async function scan() {
     scanning.set(true)
     const _platforms = []
     platformsToScan.value.forEach(p => { _platforms.push(p.slug) })
-    roms.purge(_platforms)
     await axios.get('/api/scan?platforms='+JSON.stringify(_platforms)+'&full_scan='+fullScan.value).then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refresh')
