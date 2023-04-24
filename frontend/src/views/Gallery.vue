@@ -79,8 +79,8 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
         </v-col>
     </v-row>
     
-    <v-row v-if="roms.length==0" class="d-flex justify-center align-center mt-16">
-        <div class="text-h6">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
+    <v-row v-if="roms.length==0" class="d-flex justify-center align-center">
+        <div class="text-h6 mt-16">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 
     <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
