@@ -54,7 +54,7 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
         </v-row>
     </v-expand-transition>
 
-    <v-row v-if="galleryView.value != 2">
+    <v-row v-if="galleryView.value != 2 && roms.length>0">
         <v-col v-for="rom in romsFiltered"
             :key="rom.file_name"
             :cols="views[galleryView.value]['size-cols']"
@@ -67,7 +67,7 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
         </v-col>
     </v-row>
 
-    <v-row v-if="galleryView.value == 2" class="justify-center">
+    <v-row v-if="galleryView.value == 2 && roms.length>0" class="justify-center">
         <v-col class="pa-0">
             <v-table class="bg-secondary">
                 <game-list-header />
