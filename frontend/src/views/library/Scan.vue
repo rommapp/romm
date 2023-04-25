@@ -64,7 +64,7 @@ async function scan() {
         rounded="0"
         class="mt-7"
         inset>
-        <p v-if="!scanning.value">Scan</p>
+        <span v-if="!scanning.value">Scan</span>
         <v-progress-circular
             v-show="scanning.value"
             color="rommAccent1"

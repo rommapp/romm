@@ -44,11 +44,11 @@ Available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm6
 
 ## 🖥 Desktop
 
-<details><summary>Video preview</summary><p>https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-ae32-b3ba78db6798.mp4</p></details>
+<details><summary>Video preview</summary><span>https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-ae32-b3ba78db6798.mp4</span></details>
 
 ## 📱 Mobile
 
-<details><summary>Video preview</summary><p>https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4</p></details>
+<details><summary>Video preview</summary><span>https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4</span></details>
 
 # Installation
 
@@ -129,7 +129,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 <br>
 <details>
   <summary>Platforms support list</summary>
-  <p>
+  <span>
 
 | slug                    | name                                | games metadata |
 |---------------          |-------------------------------------|     :----:     |
@@ -200,7 +200,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 | xbox360                 | Xbox 360                            | ✅             |
 | xboxone                 | Xbox One                            | ✅             |
 
-  </p>
+  </span>
 </details>
 <br>
 
