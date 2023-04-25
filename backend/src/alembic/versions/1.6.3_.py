@@ -1,4 +1,4 @@
-"""add multifile games
+"""update to 1.6.3
 
 Revision ID: 1.6.3
 Revises: 1.6.2

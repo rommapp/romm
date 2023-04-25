@@ -1,4 +1,4 @@
-"""add size units
+"""update to 1.7.1
 
 Revision ID: 1.7.1
 Revises: 1.6.3
