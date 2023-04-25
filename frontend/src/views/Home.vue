@@ -8,16 +8,28 @@ import { useDisplay } from "vuetify"
 // Props
 const platforms = storePlatforms()
 const totalGames = ref(platforms.value.reduce((accumulator, p) => { return accumulator + p.n_roms }, 0))
-const { mdAndDown } = useDisplay()
+const { mdAndDown, lgAndUp } = useDisplay()
 </script>
 
 <template>
 
     <app-bar v-if="mdAndDown"/>
 
-    <v-card class="mx-auto" max-width="900" variant="outlined">
+    <v-card class="mx-auto mt-10" max-width="1000" variant="text">
 
-        <v-card-text>
+        <v-img
+            v-if="lgAndUp"
+            height="220"
+            src="/assets/romm_complete.svg"
+            cover/>
+
+          <v-img
+            v-if="mdAndDown"
+            height="95"
+            src="/assets/romm_complete.svg"
+            cover/>
+
+        <v-card-text class="d-flex justify-center">
             <span>Total games: {{ totalGames }}</span>
         </v-card-text>
     </v-card>
