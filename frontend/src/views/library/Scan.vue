@@ -20,7 +20,7 @@ const emitter = inject('emitter')
 async function scan() {
     scanning.set(true)
     const _platforms = []
-    platformsToScan.value.forEach(p => { _platforms.push(p.slug) })
+    platformsToScan.value.forEach(p => { _platforms.push(p.fs_slug) })
     await axios.get('/api/scan?platforms='+JSON.stringify(_platforms)+'&full_scan='+fullScan.value).then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refresh')
