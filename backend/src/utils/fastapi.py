@@ -17,9 +17,12 @@ def scan_platform(fs_slug: str) -> Platform:
 
     platform_attrs: dict = {}
     platform_attrs['fs_slug'] = fs_slug
-    if fs_slug in user_config['system']['platforms'].keys():
-        platform_attrs['slug'] = user_config['system']['platforms'][fs_slug]
-    else:
+    try:
+        if fs_slug in user_config['system']['platforms'].keys():
+            platform_attrs['slug'] = user_config['system']['platforms'][fs_slug]
+        else:
+            platform_attrs['slug'] = fs_slug
+    except (KeyError, TypeError, AttributeError):
         platform_attrs['slug'] = fs_slug
     platform_attrs.update(igdbh.get_platform_details(platform_attrs['slug']))
     platform_attrs['n_roms'] = len(fs.get_roms(platform_attrs['fs_slug']))
