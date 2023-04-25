@@ -30,6 +30,7 @@ export async function downloadRom(rom, emitter, filesToDownload=[]) {
         var fileBlob = await file.blob()
         saveAs(fileBlob, rom.file_name)
     }
+    await new Promise(r => setTimeout(r, 10000));
     downloader.remove(rom.file_name)
 }
 

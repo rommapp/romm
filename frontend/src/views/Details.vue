@@ -4,6 +4,7 @@ import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/services/download.js'
+import { storeDownloader } from '@/stores/downloader.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
 import AppBar from '@/components/AppBar/Base.vue'
 
@@ -25,6 +26,7 @@ const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const filesToDownload = ref([])
+const downloader = storeDownloader()
 const tab = ref('info')
 const { xs, sm, mdAndUp, mdAndDown } = useDisplay()
 
@@ -101,21 +103,12 @@ onMounted(() => {
             <v-col :class="{'cover': mdAndUp, 'cover-tablet': sm, 'cover-mobile': xs}">
                     <v-row>
                         <v-col>
-                            <v-card class="hidden-md-and-down" elevation="5">
-                                <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
-                                    <template v-slot:placeholder>
-                                        <div class="d-flex align-center justify-center fill-height">
-                                            <v-progress-circular color="rommAccent1" :width="2" indeterminate/>
-                                        </div> 
-                                    </template>
-                                </v-img>
-                            </v-card>
-                            <v-card class="hidden-lg-and-up" elevation="5">
+                            <v-card elevation="5" :loading="downloader.value.includes(rom.file_name) ? 'rommAccent1': null">
                                 <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                     <template v-slot:placeholder>
                                         <div class="d-flex align-center justify-center fill-height">
                                             <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
-                                        </div>
+                                        </div> 
                                     </template>
                                 </v-img>
                             </v-card>
