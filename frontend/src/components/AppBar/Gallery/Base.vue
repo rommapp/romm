@@ -3,17 +3,11 @@ import MainDrawerToggle from '@/components/AppBar/Gallery/MainDrawerToggle.vue'
 import FilterBar from '@/components/AppBar/Gallery/FilterBar.vue'
 import FilterBtn from '@/components/AppBar/Gallery/FilterBtn.vue'
 import GalleryViewBtn from '@/components/AppBar/Gallery/GalleryViewBtn.vue'
-import { storeScanning } from '@/stores/scanning.js'
-
-// Props
-const scanning = storeScanning()
 </script>
 
 <template>
 
     <v-app-bar elevation="0" density="comfortable">
-
-        <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
         <main-drawer-toggle class="ml-5 hidden-lg-and-up"/>
 

@@ -5,19 +5,26 @@ import MainDrawer from '@/components/MainDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
 import { getPlatforms } from '@/services/api.js'
 import { storePlatforms } from '@/stores/platforms.js'
+import { storeScanning } from '@/stores/scanning.js'
 
 // Props
+const scanning = storeScanning()
 const platforms = storePlatforms()
 useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 const refresh = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('refresh', () => { refresh.value = !refresh.value })
+emitter.on('refresh', () => {
+  getPlatforms()
+    .then((res) => { platforms.add(res.data.data) })
+    .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
+  refresh.value = !refresh.value
+})
 
 
 onMounted(() => {
-    getPlatforms()
+  getPlatforms()
     .then((res) => { platforms.add(res.data.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
 })
@@ -25,6 +32,8 @@ onMounted(() => {
 
 <template>
   <v-app>
+
+    <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
     <main-drawer :key="refresh"/>
 
