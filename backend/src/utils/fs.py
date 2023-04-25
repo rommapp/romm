@@ -109,19 +109,11 @@ def get_roms_structure(p_slug: str) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
 
 
-def get_rom_files(multi: bool, rom: str, roms_path: str) -> list[str]:
-    return [] if not multi else _exclude_files(list(os.walk(f"{roms_path}/{rom}"))[0][2], 'multi')
-
-
-def get_file_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
-    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
-    total_size: int = 0
-    for file in files:
-        total_size += os.stat(file).st_size
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
-        if total_size < 1024.0 or unit == 'PB': break
-        total_size /= 1024.0
-    return round(total_size, 2), unit
+def get_rom_files(rom: str, roms_path: str) -> list[str]:
+    rom_files: list = []
+    for path, _, files in os.walk(f"{roms_path}/{rom}"):
+        [rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi')]
+    return rom_files
 
 
 def _exclude_files(files, type) -> list[str]:
@@ -144,10 +136,10 @@ def _exclude_files(files, type) -> list[str]:
         except (TypeError, KeyError):
             excluded_names: list = []
     filtered_files: list = []
-    for rom in files:
+    for file in files:
         try:
-            if rom.split('.')[-1] in excluded_extensions or rom in excluded_names:
-                filtered_files.append(rom)
+            if file.split('.')[-1] in excluded_extensions or file in excluded_names:
+                filtered_files.append(file)
         except TypeError:
             pass
     files = [f for f in files if f not in filtered_files]
@@ -171,6 +163,17 @@ def _exclude_multi_roms(roms) -> list[str]:
     return roms
 
 
+def get_rom_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
+    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
+    total_size: int = 0
+    for file in files:
+        total_size += os.stat(file).st_size
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
+        if total_size < 1024.0 or unit == 'PB': break
+        total_size /= 1024.0
+    return round(total_size, 2), unit
+
+
 def get_roms(p_slug: str) -> list[dict] or int:
     """Gets all filesystem roms for a platform
 
@@ -189,7 +192,7 @@ def get_roms(p_slug: str) -> list[dict] or int:
         raise RomsNotFoundException(p_slug)
     fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_files(fs_single_roms, 'single')] + \
                           [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
-    [rom.update({'files': get_rom_files(rom['multi'], rom['file_name'], roms_path)}) for rom in fs_roms]
+    [rom.update({'files': get_rom_files(rom['file_name'], roms_path)}) for rom in fs_roms]
     return fs_roms
 
 
