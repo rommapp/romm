@@ -26,6 +26,7 @@ export const rommLight = {
     colors: {
         primary:        '#fefdfe',
         secondary:      '#fefdfe',
+        terciary:       '#fefdfe',
         background:     '#fefdfe',
     
         surface:        '#fefdfe',
