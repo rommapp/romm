@@ -1,6 +1,6 @@
 <script setup>
 import { storeFilter } from '@/stores/filter'
-import { inject, ref } from 'vue'
+import { inject, ref, onMounted } from 'vue'
 
 // Props
 const filter = storeFilter()
@@ -8,6 +8,8 @@ const filterValue = ref('')
 
 // Event listeners bus
 const emitter = inject('emitter')
+
+onMounted(() => { filterValue.value = filter.value })
 </script>
 
 <template>
