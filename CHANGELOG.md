@@ -1,3 +1,20 @@
+# v1.8 (_25-04-2023_)
+
+## Added
+ - Home screen.
+ - Config option to associate custom system folders to platforms (Complete scan needed). Check [config.yml](docker/config.example.yml) example. Solves [#152](https://github.com/zurdi15/romm/issues/152).
+ - Sega Saturn and Master System support added. Check [platforms support](https://github.com/zurdi15/romm#platforms-support). Solves [#194](https://github.com/zurdi15/romm/issues/194).
+ - Progress bar when games are being downloaded.
+## Changed
+ - Routes to different RomM sections and games changed now allow share direct links to platforms and games.
+ - RomM now can scan subdirectories in a multi-part game. Solves [#179](https://github.com/zurdi15/romm/issues/179).
+ - Settings and Scan sections are now in the main drawer menu.
+ - Some UI changes.
+## Fixed
+ - Code base stability and speed improved.
+
+<br>
+
 # v1.7.1 (_15-04-2023_)
 
 ## Added
