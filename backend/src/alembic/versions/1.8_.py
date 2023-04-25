@@ -1,6 +1,6 @@
 """add platform name to rom
 
-Revision ID: 1.7.2
+Revision ID: 1.8
 Revises: 1.7.1
 Create Date: 2023-04-17 12:03:19.163501
 
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import sqlite
 
 
 # revision identifiers, used by Alembic.
-revision = '1.7.2'
+revision = '1.8'
 down_revision = '1.7.1'
 branch_labels = None
 depends_on = None
