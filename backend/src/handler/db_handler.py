@@ -63,7 +63,7 @@ class DBHandler:
         try:
             with self.session.begin() as s:
                 s.query(Platform) \
-                    .filter(Platform.slug.not_in(platforms)) \
+                    .filter(Platform.fs_slug.not_in(platforms)) \
                     .delete(synchronize_session='evaluate')
         except ProgrammingError as e:
             self.raise_error(e)
