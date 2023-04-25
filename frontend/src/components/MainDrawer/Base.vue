@@ -34,7 +34,7 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
                 <template v-slot:activator="{ props }">
                     <v-list-item
                         v-bind="props">
-                        <p class="text-body-1 text-truncate">{{ rail ? '' : 'Platforms' }}</p>
+                        <span class="text-body-1 text-truncate">{{ rail ? '' : 'Platforms' }}</span>
                         <template v-slot:prepend>
                             <v-avatar :rounded="0" size="40"><v-icon>mdi-controller</v-icon></v-avatar>
                         </template>
@@ -47,20 +47,21 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
                 <template v-slot:activator="{ props }">
                     <v-list-item
                         v-bind="props">
-                        <p class="text-body-1 text-truncate">{{ rail ? '' : 'Library' }}</p>
+                        <span class="text-body-1 text-truncate">{{ rail ? '' : 'Library' }}</span>
                         <template v-slot:prepend>
                             <v-avatar :rounded="0" size="40"><v-icon>mdi-animation-outline</v-icon></v-avatar>
                         </template>
                     </v-list-item>
                 </template>
                 <v-list-item class="drawer-item bg-terciary" to="/library/scan">
-                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Scan' }}</p>
+                    <span class="text-body-2 text-truncate">{{ rail ? '' : 'Scan' }}</span>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-magnify-scan</v-icon></v-avatar>
                     </template>
                 </v-list-item>
                 <v-list-item class="drawer-item bg-terciary" disabled>
-                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Upload' }}</p>
+                    <span class="text-body-2 text-truncate">{{ rail ? '' : 'Upload' }}</span>
+                    <span class="text-caption text-truncate ml-1">{{ rail ? '' : '[comming soon]' }}</span>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-upload</v-icon></v-avatar>
                     </template>
@@ -71,14 +72,14 @@ emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorag
                 <template v-slot:activator="{ props }">
                     <v-list-item
                         v-bind="props">
-                        <p class="text-body-1 text-truncate">{{ rail ? '' : 'Settings' }}</p>
+                        <span class="text-body-1 text-truncate">{{ rail ? '' : 'Settings' }}</span>
                         <template v-slot:prepend>
                             <v-avatar :rounded="0" size="40"><v-icon>mdi-cog</v-icon></v-avatar>
                         </template>
                     </v-list-item>
                 </template>
                 <v-list-item class="drawer-item bg-terciary" to="/settings/control-panel">
-                    <p class="text-body-2 text-truncate">{{ rail ? '' : 'Control panel' }}</p>
+                    <span class="text-body-2 text-truncate">{{ rail ? '' : 'Control panel' }}</span>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-view-dashboard</v-icon></v-avatar>
                     </template>
