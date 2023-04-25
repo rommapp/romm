@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { storePlatforms } from '@/stores/platforms'
+import { storePlatforms } from '@/stores/platforms.js'
 import AppBar from '@/components/AppBar/Base.vue'
 import { useDisplay } from "vuetify"
 
