@@ -38,6 +38,7 @@ def upgrade() -> None:
     with op.batch_alter_table("platforms") as batch_op:
         if os.getenv('ROMM_DB_DRIVER') == 'mariadb':
             batch_op.execute("ALTER TABLE platforms ADD COLUMN fs_slug VARCHAR(50) NOT NULL PRIMARY KEY")
+            batch_op.execute("INSERT INTO platforms(fs_slug) SELECT slug from platforms")
         elif os.getenv('ROMM_DB_DRIVER') == 'sqlite' or not os.getenv('ROMM_DB_DRIVER'):
             batch_op.execute("ALTER TABLE platforms RENAME TO old_platforms")
             op.create_table('platforms',
