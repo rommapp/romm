@@ -46,7 +46,7 @@ async function getRoms(platform) {
     gettingRoms.value = false
 }
 
-onMounted(async () => { getRoms(route.params.platform) })
+onMounted(async () => { getRoms(route.params.platform)})
 onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
 </script>
 
