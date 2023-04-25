@@ -15,7 +15,12 @@ const { mdAndDown } = useDisplay()
 
     <app-bar v-if="mdAndDown"/>
 
-    <span>Total games: {{ totalGames }}</span>
+    <v-card class="mx-auto" max-width="900" variant="outlined">
+
+        <v-card-text>
+            <span>Total games: {{ totalGames }}</span>
+        </v-card-text>
+    </v-card>
 
 </template>
 

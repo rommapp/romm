@@ -8,6 +8,8 @@ const props = defineProps(['rom'])
 
 <template>
     <v-hover v-slot="{isHovering, props}">
+        <!-- loader for v-card when downloading -->
+        <!-- loading="rommAccent1" -->
         <v-card 
             v-bind="props"
             :class="{'on-hover': isHovering}"
