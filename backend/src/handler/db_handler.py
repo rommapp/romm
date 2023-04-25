@@ -1,9 +1,8 @@
 import functools
 
 from fastapi import status, HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select, or_
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 
 from logger.logger import log
@@ -63,7 +62,8 @@ class DBHandler:
         try:
             with self.session.begin() as s:
                 s.query(Platform) \
-                    .filter(Platform.fs_slug.not_in(platforms)) \
+                    .filter(or_(Platform.fs_slug.not_in(platforms), 
+                                Platform.fs_slug.is_(None))) \
                     .delete(synchronize_session='evaluate')
         except ProgrammingError as e:
             self.raise_error(e)

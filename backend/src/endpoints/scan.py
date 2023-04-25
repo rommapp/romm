@@ -3,6 +3,7 @@ import emoji
 import json
 
 from logger.logger import log, COLORS
+from config import user_config
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
@@ -50,6 +51,6 @@ def scan(platforms: str, full_scan: bool=False) -> dict:
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             if rom_id: scanned_rom.id = rom_id
             dbh.add_rom(scanned_rom)
-            dbh.purge_roms(platform, [rom['file_name'] for rom in fs_roms])
+            dbh.purge_roms(scanned_platform.slug, [rom['file_name'] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
     return {'msg': 'Scan completed successfully!'}
