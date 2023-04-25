@@ -105,7 +105,7 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def get_roms_structure(p_slug) -> tuple:
+def get_roms_structure(p_slug: str) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
 
 

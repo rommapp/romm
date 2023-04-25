@@ -16,5 +16,7 @@ class Platform(BaseModel):
     
     n_roms = Column(Integer, default=0)
 
+    fs_slug = Column(String(length=50), default="")
+
     def __repr__(self) -> str:
         return self.name

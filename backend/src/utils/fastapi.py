@@ -1,10 +1,12 @@
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
+from config import user_config
+from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
 
 
-def scan_platform(p_slug: str) -> Platform:
+def scan_platform(fs_slug: str) -> Platform:
     """Get platform details
 
     Args:
@@ -12,14 +14,22 @@ def scan_platform(p_slug: str) -> Platform:
     Returns
         Platform object
     """
-    platform_attrs: dict = igdbh.get_platform_details(p_slug)
-    platform_attrs['n_roms'] = len(fs.get_roms(p_slug))
+
+    platform_attrs: dict = {}
+    platform_attrs['fs_slug'] = fs_slug
+    if fs_slug in user_config['system']['platforms'].keys():
+        platform_attrs['slug'] = user_config['system']['platforms'][fs_slug]
+    else:
+        platform_attrs['slug'] = fs_slug
+    platform_attrs.update(igdbh.get_platform_details(platform_attrs['slug']))
+    platform_attrs['n_roms'] = len(fs.get_roms(platform_attrs['fs_slug']))
     platform = Platform(**platform_attrs)
     return platform
 
 
 def scan_rom(platform: Platform, rom_attrs: dict, r_igbd_id_search: str = '', overwrite: bool = False) -> Rom:
-    roms_path: str = fs.get_roms_structure(platform.slug)
+    p_slug: str = platform.fs_slug if platform.fs_slug else platform.slug
+    roms_path: str = fs.get_roms_structure(p_slug)
     rom_attrs.update(igdbh.get_rom_details(rom_attrs['file_name'], platform.igdb_id, r_igbd_id_search))
     rom_attrs.update(fs.get_cover_details(overwrite, platform.slug, rom_attrs['file_name'], rom_attrs['url_cover']))
     file_size, file_size_units = fs.get_file_size(rom_attrs['multi'], rom_attrs['file_name'], rom_attrs['files'], roms_path)

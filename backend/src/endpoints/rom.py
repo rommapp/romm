@@ -5,6 +5,7 @@ from handler import dbh
 from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
 from models.rom import Rom
+from models.platform import Platform
 
 router = APIRouter()
 
@@ -30,8 +31,9 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     data: dict = await req.json()
     updated_rom: dict = data['updatedRom']
     db_rom: Rom = dbh.get_rom(id)
+    platform: Platform = dbh.get_platform(p_slug)
     try:
-        fs.rename_rom(p_slug, db_rom.file_name, updated_rom['file_name'])
+        fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom['file_name'])
     except RomAlreadyExistsException as e:
         error: str = f"{e}"
         log.error(error)
@@ -52,7 +54,8 @@ def delete_rom(p_slug: str, id: int, filesystem: bool=False) -> dict:
     if filesystem:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
-            fs.remove_rom(p_slug, rom.file_name)
+            platform: Platform = dbh.get_platform(p_slug)
+            fs.remove_rom(platform.fs_slug, rom.file_name)
         except RomNotFoundError as e:
             error: str = f"{e}. Couldn't delete from filesystem."
             log.error(error)
