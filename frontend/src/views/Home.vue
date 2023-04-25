@@ -30,7 +30,7 @@ const { mdAndDown, lgAndUp } = useDisplay()
             cover/>
 
         <v-card-text class="d-flex justify-center">
-            <span>Total games: {{ totalGames }}</span>
+            <span class="text-overline">Total games: {{ totalGames }}</span>
         </v-card-text>
     </v-card>
 
