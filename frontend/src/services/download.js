@@ -1,8 +1,11 @@
 import JSZip from "jszip"
 import { saveAs } from 'file-saver'
+import { storeDownloader } from '@/stores/downloader.js'
 
+const downloader = storeDownloader()
 
 export async function downloadRom(rom, emitter, filesToDownload=[]) {
+    downloader.add(rom.file_name)
     emitter.emit('snackbarScan', {'msg': "Downloading "+rom.file_name+"...", 'icon': 'mdi-download', 'color': 'green'})
     if(rom.multi){
         const zip = new JSZip()
@@ -27,6 +30,7 @@ export async function downloadRom(rom, emitter, filesToDownload=[]) {
         var fileBlob = await file.blob()
         saveAs(fileBlob, rom.file_name)
     }
+    downloader.remove(rom.file_name)
 }
 
 export async function downloadSave(rom) { console.log("Downloading "+rom.file_name+" save file") }
