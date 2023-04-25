@@ -149,14 +149,14 @@ onMounted(() => {
             <v-col class="mt-10" :class="{'info': mdAndUp, 'info-tablet': sm, 'info-mobile': xs}">
                 <div class="info-header text-white">
                     <v-row no-gutters>
-                        <p class="text-h4 font-weight-bold rom-name">{{ rom.r_name }}</p>
+                        <span class="text-h4 font-weight-bold rom-name">{{ rom.r_name }}</span>
                         <v-chip-group class="ml-3 mt-1 hidden-xs">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
                         </v-chip-group>
                     </v-row> 
                     <v-row no-gutters class="align-center">
-                        <p class="font-italic mt-1 rom-platform">{{ rom.p_name || rom.p_slug }}</p>
+                        <span class="font-italic mt-1 rom-platform">{{ rom.p_name || rom.p_slug }}</span>
                         <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
                             <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{ rom.region }}</v-chip>
                             <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>{{ rom.revision }}</v-chip>
@@ -173,25 +173,25 @@ onMounted(() => {
                     <v-window v-model="tab" class="mt-2">
                         <v-window-item value="info">
                             <v-row v-if="!rom.multi" class="d-flex align-center text-body-1 mt-0">
-                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>File</p></v-col>
-                                <v-col class="text-body-1"><p>{{ rom.file_name }}</p></v-col>
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>File</span></v-col>
+                                <v-col class="text-body-1"><span>{{ rom.file_name }}</span></v-col>
                             </v-row>
                             <v-row v-if="rom.multi" class="d-flex align-center text-body-1 mt-0">
-                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Files</p></v-col>
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>Files</span></v-col>
                                 <v-col><v-select :label="rom.file_name" item-title="file_name" v-model="filesToDownload" :items="rom.files" class="mt-2 mb-2" density="compact" variant="outlined" return-object multiple hide-details clearable chips/></v-col>
                             </v-row>
                             <v-row class="d-flex align-center text-body-1 mt-0">
-                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Size</p></v-col>
-                                <v-col><p>{{ rom.file_size }} {{ rom.file_size_units }}</p></v-col>
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>Size</span></v-col>
+                                <v-col><span>{{ rom.file_size }} {{ rom.file_size_units }}</span></v-col>
                             </v-row>
                             <v-row v-if="rom.r_igdb_id!=''" class="d-flex align-center text-body-1 mt-0">
-                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>IGDB</p></v-col>
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>IGDB</span></v-col>
                                 <v-col>
                                     <v-chip variant="outlined" :href="'https://www.igdb.com/games/'+rom.r_slug" label>{{ rom.r_igdb_id }}</v-chip>
                                 </v-col>
                             </v-row>
                             <v-row v-if="rom.tags.length>0" class="d-flex align-center text-body-1 mt-0">
-                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><p>Tags</p></v-col>
+                                <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>Tags</span></v-col>
                                 <v-col><v-chip-group class="pt-0"><v-chip v-for="tag in rom.tags" :key="tag" class="bg-chip" label>{{ tag }}</v-chip></v-chip-group></v-col>
                             </v-row>
                             <v-row class="d-flex mt-3">
@@ -240,7 +240,7 @@ onMounted(() => {
                         clearable/>
                 </v-row>
                 <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="rommAccent1" indeterminate/></v-row>
-                <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><p>No results found</p></v-row>
+                <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><span>No results found</span></v-row>
                 <v-row class="pl-4 pr-4">
                     <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">

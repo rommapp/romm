@@ -23,7 +23,7 @@ function toggleTheme() {
     <app-bar v-if="mdAndDown"/>
 
     <v-tabs v-model="tab" slider-color="rommAccent1">
-        <v-tab value="saves" rounded="0" disabled>General<p class="text-caption text-truncate ml-1">{{ rail ? '' : '[comming soon]' }}</p></v-tab>
+        <v-tab value="saves" rounded="0" disabled>General<span class="text-caption text-truncate ml-1">{{ rail ? '' : '[comming soon]' }}</span></v-tab>
         <v-tab value="ui" rounded="0">User Interface</v-tab>
     </v-tabs>
     <v-window v-model="tab" class="mt-2">

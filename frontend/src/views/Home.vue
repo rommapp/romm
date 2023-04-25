@@ -18,14 +18,7 @@ const { mdAndDown, lgAndUp } = useDisplay()
     <v-card class="mx-auto mt-10" max-width="1000" variant="text">
 
         <v-img
-            v-if="lgAndUp"
-            height="220"
-            src="/assets/romm_complete.svg"
-            cover/>
-
-          <v-img
-            v-if="mdAndDown"
-            height="95"
+            :height="lgAndUp ? 220 : 95"
             src="/assets/romm_complete.svg"
             cover/>
 
