@@ -1,4 +1,4 @@
-"""add platform name to rom
+"""update to 1.8
 
 Revision ID: 1.8
 Revises: 1.7.1

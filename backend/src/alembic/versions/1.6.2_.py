@@ -1,4 +1,4 @@
-"""init
+"""init to 1.6.2
 
 Revision ID: 1.6.2
 Revises: 
