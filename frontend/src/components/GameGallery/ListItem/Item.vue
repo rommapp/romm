@@ -14,7 +14,7 @@ const emitter = inject('emitter')
 </script>
 
 <template>
-    <v-row>
+    <v-row no-gutters>
         <v-col>
             <v-list-item 
                 :to="`/platform/${$route.params.platform}/rom/${rom.id}`"
