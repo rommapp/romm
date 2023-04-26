@@ -4,9 +4,10 @@ from pathlib import Path
 
 import requests
 
-from config import user_config, EXCLUDED_PLATFORMS, \
-    LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, \
+from config import LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, \
     RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config.config_loader import ConfigLoader
+cl = ConfigLoader()
 from logger.logger import log
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException, RomNotFoundError, RomAlreadyExistsException
 
@@ -79,7 +80,8 @@ def store_default_resources() -> None:
 
 # ========= Platforms utils =========
 def _exclude_platforms(platforms) -> None:
-    [platforms.remove(excluded) for excluded in EXCLUDED_PLATFORMS if excluded in platforms]
+    print(cl.config['EXCLUDED_PLATFORMS'])
+    [platforms.remove(excluded) for excluded in cl.config['EXCLUDED_PLATFORMS'] if excluded in platforms]
 
 
 def get_platforms() -> list[str]:
@@ -110,30 +112,15 @@ def get_rom_files(rom: str, roms_path: str) -> list[str]:
 
 def _exclude_files(files, type) -> list[str]:
     if type == 'single':
-        try:
-            excluded_extensions = user_config['exclude']['roms'][f'{type}_file']['extensions']
-        except (TypeError, KeyError):
-            excluded_extensions: list = []
-        try:
-            excluded_names = user_config['exclude']['roms'][f'{type}_file']['names']
-        except (TypeError, KeyError):
-            excluded_names: list = []
+        excluded_extensions = cl.config['EXCLUDED_SINGLE_EXT']
+        excluded_names = cl.config['EXCLUDED_SINGLE_FILES']
     elif type == 'multi':
-        try:
-            excluded_extensions = user_config['exclude']['roms'][f'{type}_file']['parts']['extensions']
-        except (TypeError, KeyError):
-            excluded_extensions: list = []
-        try:
-            excluded_names = user_config['exclude']['roms'][f'{type}_file']['parts']['names']
-        except (TypeError, KeyError):
-            excluded_names: list = []
+        excluded_extensions = cl.config['EXCLUDED_MULTI_PARTS_EXT']
+        excluded_names = cl.config['EXCLUDED_MULTI_PARTS_FILES']
     filtered_files: list = []
     for file in files:
-        try:
-            if file.split('.')[-1] in excluded_extensions or file in excluded_names:
-                filtered_files.append(file)
-        except TypeError:
-            pass
+        if file.split('.')[-1] in excluded_extensions or file in excluded_names:
+            filtered_files.append(file)
     files = [f for f in files if f not in filtered_files]
     return files
 
@@ -141,16 +128,13 @@ def _exclude_files(files, type) -> list[str]:
 def _exclude_multi_roms(roms) -> list[str]:
     try:
         excluded_names: list = []
-        excluded_names = user_config['exclude']['roms']['multi_file']['names']
+        excluded_names = cl.config['EXCLUDED_MULTI_FILES']
     except (TypeError, KeyError):
         pass
     filtered_files: list = []
     for rom in roms:
-        try:
-            if rom in excluded_names:
-                filtered_files.append(rom)
-        except TypeError:
-            pass
+        if rom in excluded_names:
+            filtered_files.append(rom)
     roms = [f for f in roms if f not in filtered_files]
     return roms
 

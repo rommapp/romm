@@ -1,6 +1,4 @@
 import os
-import yaml
-from yaml.loader import SafeLoader
 
 # Uvicorn
 DEV_PORT: int = 5000
@@ -24,16 +22,6 @@ CLIENT_ID: str = os.getenv('CLIENT_ID')
 CLIENT_SECRET: str = os.getenv('CLIENT_SECRET')
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: str = os.getenv('STEAMGRIDDB_API_KEY')
-
-# USER CONFIG
-try:
-    with open(ROMM_USER_CONFIG_PATH) as config: config = yaml.load(config, Loader=SafeLoader)
-except FileNotFoundError:
-    config = None
-user_config: dict = {} if not config else config
-
-EXCLUDED_PLATFORMS: list[str] = user_config['exclude']['platforms'] if user_config['exclude']['platforms'] else []
-
 
 # DB DRIVERS
 SUPPORTED_DB_DRIVERS: list = ['sqlite', 'mariadb']
