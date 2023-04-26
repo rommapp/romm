@@ -80,7 +80,6 @@ def store_default_resources() -> None:
 
 # ========= Platforms utils =========
 def _exclude_platforms(platforms) -> None:
-    print(cl.config['EXCLUDED_PLATFORMS'])
     [platforms.remove(excluded) for excluded in cl.config['EXCLUDED_PLATFORMS'] if excluded in platforms]
 
 
@@ -106,17 +105,13 @@ def get_roms_structure(p_slug: str) -> tuple:
 def get_rom_files(rom: str, roms_path: str) -> list[str]:
     rom_files: list = []
     for path, _, files in os.walk(f"{roms_path}/{rom}"):
-        [rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi')]
+        [rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi_parts')]
     return rom_files
 
 
 def _exclude_files(files, type) -> list[str]:
-    if type == 'single':
-        excluded_extensions = cl.config['EXCLUDED_SINGLE_EXT']
-        excluded_names = cl.config['EXCLUDED_SINGLE_FILES']
-    elif type == 'multi':
-        excluded_extensions = cl.config['EXCLUDED_MULTI_PARTS_EXT']
-        excluded_names = cl.config['EXCLUDED_MULTI_PARTS_FILES']
+    excluded_extensions = cl.config[f'EXCLUDED_{type.upper()}_EXT']
+    excluded_names = cl.config[f'EXCLUDED_{type.upper()}_FILES']
     filtered_files: list = []
     for file in files:
         if file.split('.')[-1] in excluded_extensions or file in excluded_names:
@@ -126,11 +121,7 @@ def _exclude_files(files, type) -> list[str]:
 
 
 def _exclude_multi_roms(roms) -> list[str]:
-    try:
-        excluded_names: list = []
-        excluded_names = cl.config['EXCLUDED_MULTI_FILES']
-    except (TypeError, KeyError):
-        pass
+    excluded_names = cl.config['EXCLUDED_MULTI_FILES']
     filtered_files: list = []
     for rom in roms:
         if rom in excluded_names:
