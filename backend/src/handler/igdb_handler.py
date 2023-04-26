@@ -32,13 +32,13 @@ class IGDBHandler():
         return wrapper
     
 
-    def _search_rom_by_category(self, search_term: str, p_igdb_id: str, category: int = None) -> dict:
-            category_query: str = f"& category={category}" if category else ""
+    def _search_rom(self, search_term: str, p_igdb_id: str, category: int = None) -> dict:
+            category_filter: str = f"& category={category}" if category else ""
             try:
                 return requests.post(self.games_url, headers=self.headers,
                                      data=f"search \"{search_term}\"; \
                                             fields id, slug, name, summary; \
-                                            where platforms=[{p_igdb_id}] {category_query};").json()[0]
+                                            where platforms=[{p_igdb_id}] {category_filter};").json()[0]
             except IndexError:
                 return {}
 
@@ -65,7 +65,8 @@ class IGDBHandler():
     @check_twitch_token
     def get_rom_by_id(self, r_igdb_id: str) -> dict:
         res: dict = requests.post(self.games_url, headers=self.headers,
-                                  data=f"fields slug, name, summary; where id=[{r_igdb_id}];").json()[0]
+                                  data=f"fields slug, name, summary; where id={r_igdb_id};").json()[0]
+        log.debug(res)
         r_slug = res['slug'] if 'slug' in res.keys() else ""
         r_name = res['name'] if 'name' in res.keys() else ""
         summary = res['summary'] if 'summary' in res.keys() else ""
@@ -75,9 +76,9 @@ class IGDBHandler():
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int) -> dict:
         search_term: str = uc(get_search_term(file_name))
-        res = (self._search_rom_by_category(search_term, p_igdb_id, 0) or
-               self._search_rom_by_category(search_term, p_igdb_id, 10) or
-               self._search_rom_by_category(search_term, p_igdb_id))
+        res = (self._search_rom(search_term, p_igdb_id, 0) or
+               self._search_rom(search_term, p_igdb_id, 10) or
+               self._search_rom(search_term, p_igdb_id))
 
         r_igdb_id = res['id'] if 'id' in res.keys() else ""
         r_slug = res['slug'] if 'slug' in res.keys() else ""
@@ -91,17 +92,9 @@ class IGDBHandler():
     
     @check_twitch_token
     def get_matched_rom_by_id(self, igdb_id: str) -> list:
-        matched_rom: list[dict] = []
-        res: list = requests.post(self.games_url, headers=self.headers,
-                                  data=f"fields name, id, slug, summary; where id={igdb_id};")
-        if res.status_code == 200:
-            matched_rom = res.json()
-            for rom in matched_rom:
-                rom['url_cover'] = self._search_cover(rom['id']).replace('t_thumb', f't_cover_big')
-                rom['r_igdb_id'] = rom.pop('id')
-                rom['r_slug'] = rom.pop('slug')
-                rom['r_name'] = rom.pop('name')
-        return matched_rom
+        matched_rom: dict = self.get_rom_by_id(igdb_id)
+        matched_rom['url_cover'] = matched_rom['url_cover'].replace('t_thumb', f't_cover_big')
+        return [matched_rom]
     
 
     @check_twitch_token
