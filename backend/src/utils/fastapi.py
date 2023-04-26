@@ -24,7 +24,7 @@ def scan_platform(fs_slug: str) -> Platform:
             platform_attrs['slug'] = fs_slug
     except (KeyError, TypeError, AttributeError):
         platform_attrs['slug'] = fs_slug
-    platform_attrs.update(igdbh.get_platform_details(platform_attrs['slug']))
+    platform_attrs.update(igdbh.get_platform(platform_attrs['slug']))
     platform_attrs['n_roms'] = len(fs.get_roms(platform_attrs['fs_slug']))
     platform = Platform(**platform_attrs)
     return platform
@@ -33,8 +33,9 @@ def scan_platform(fs_slug: str) -> Platform:
 def scan_rom(platform: Platform, rom_attrs: dict, r_igbd_id_search: str = '', overwrite: bool = False) -> Rom:
     p_slug: str = platform.fs_slug if platform.fs_slug else platform.slug
     roms_path: str = fs.get_roms_structure(p_slug)
-    rom_attrs.update(igdbh.get_rom_details(rom_attrs['file_name'], platform.igdb_id, r_igbd_id_search))
-    rom_attrs.update(fs.get_cover_details(overwrite, platform.slug, rom_attrs['file_name'], rom_attrs['url_cover']))
+    if r_igbd_id_search: rom_attrs.update(igdbh.get_rom_by_id(r_igbd_id_search))
+    else: rom_attrs.update(igdbh.get_rom(rom_attrs['file_name'], platform.igdb_id))
+    rom_attrs.update(fs.get_cover(overwrite, platform.slug, rom_attrs['file_name'], rom_attrs['url_cover']))
     file_size, file_size_units = fs.get_rom_size(rom_attrs['multi'], rom_attrs['file_name'], rom_attrs['files'], roms_path)
     reg, rev, other_tags = parse_tags(rom_attrs['file_name'])
     rom_attrs.update({'file_path': roms_path, 'file_name': rom_attrs['file_name'], 'file_name_no_tags': get_file_name_with_no_tags(rom_attrs['file_name']),

@@ -39,7 +39,7 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
     updated_rom['file_name_no_tags'] = get_file_name_with_no_tags(updated_rom['file_name'])
-    updated_rom.update(fs.get_cover_details(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
+    updated_rom.update(fs.get_cover(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
     dbh.update_rom(id, updated_rom)
     return {'data': dbh.get_rom(id), 'msg': f"{updated_rom['file_name']} updated successfully!"}
 

@@ -57,7 +57,7 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
     return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
 
 
-def get_cover_details(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
+def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
     path_cover_s: str = DEFAULT_PATH_COVER_S
     path_cover_l: str = DEFAULT_PATH_COVER_L
     has_cover: int = 0
