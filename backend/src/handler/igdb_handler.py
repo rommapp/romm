@@ -101,7 +101,7 @@ class IGDBHandler():
     def get_matched_rom_by_id(self, igdb_id: str) -> list:
         matched_rom: dict = self.get_rom_by_id(igdb_id)
         matched_rom['url_cover'] = matched_rom['url_cover'].replace('t_thumb', f't_cover_big')
-        matched_rom['url_screenshots'] = self._search_screenshots(matched_rom['id'])
+        matched_rom['url_screenshots'] = self._search_screenshots(igdb_id)
         return [matched_rom]
     
 
