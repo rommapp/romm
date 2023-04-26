@@ -4,7 +4,7 @@ from unidecode import unidecode as uc
 from time import time
 
 import requests
-from config import CLIENT_ID, CLIENT_SECRET, DEFAULT_URL_COVER_L
+from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 
