@@ -40,6 +40,9 @@ class Rom(BaseModel):
     multi = Column(Boolean, default=False)
     files = Column(JSON, default=[])
 
+    url_screenshots = Column(JSON, default=[])
+    path_screenshots = Column(JSON, default=[])
+
     @property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
