@@ -39,8 +39,5 @@ envs.env
 # database
 mariadb
 
-# data test
-library
-
 # config test
 romm

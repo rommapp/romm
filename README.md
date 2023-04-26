@@ -1,11 +1,11 @@
 <div align="center">
   <h1 style="padding:20px;"><img src="romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
-  <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm">
-  <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm">
-  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?branch=master">
+  <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
+  <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
+  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?style=flat-square&branch=master">
   <a href="https://hub.docker.com/r/zurdi15/romm">
-  <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm">
-  <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm">
+  <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
+  <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm?style=flat-square">
 </div>
 <br>
 <div align="center">
@@ -44,11 +44,11 @@ Available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm6
 
 ## 🖥 Desktop
 
-<details><summary>Video preview</summary><p>https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-ae32-b3ba78db6798.mp4</p></details>
+<details><summary>Video preview</summary><span>https://user-images.githubusercontent.com/34356590/227992371-33056130-c067-49c1-ae32-b3ba78db6798.mp4</span></details>
 
 ## 📱 Mobile
 
-<details><summary>Video preview</summary><p>https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4</p></details>
+<details><summary>Video preview</summary><span>https://user-images.githubusercontent.com/34356590/228007442-0a9cbf6b-4b62-4c1a-aad8-48b13e6337e8.mp4</span></details>
 
 # Installation
 
@@ -129,75 +129,78 @@ This will change over the time, adding games metadata for more platforms. Make s
 <br>
 <details>
   <summary>Platforms support list</summary>
-  <p>
+  <span>
 
-| slug          | name                                | games metadata |
-|---------------|-------------------------------------|     :----:     |
-| 3ds             | Nintendo 3DS                        | ✅             |
-| amiga           | Amiga                               | ✅             |
-| arcade          | Arcade                              | ✅             |
-| atari           | atari                               | ❌             |
-| coleco          | coleco                              | ❌             |
-| c64             | Commodore C64/128/MAX               | ✅             |
-| cpc             | cpc                                 | ❌             |
-| cps1            | cps1                                | ❌             |
-| cps2            | cps2                                | ❌             |
-| cps3            | cps3                                | ❌             |
-| daphne          | daphne                              | ❌             |
-| dc              | Dreamcast                           | ✅             |
-| dos             | DOS                                 | ✅             |
-| fairchild       | fairchild                           | ❌             |
-| fba2012         | fba2012                             | ❌             |
-| fbneo           | fbneo                               | ❌             |
-| fds             | Family Computer Disk System         | ✅             |
-| gb              | Game Boy                            | ✅             |
-| gba             | Game Boy Advance                    | ✅             |
-| gbc             | Game Boy Color                      | ✅             |
-| gg              | gg                                  | ❌             |
-| gw              | gw                                  | ❌             |
-| intellivision   | Intellivision                       | ✅             |
-| jaguar          | Atari Jaguar                        | ✅             |
-| lynx            | Atari Lynx                          | ✅             |
-| md              | md                                  | ❌             |
-| megaduck        | megaduck                            | ❌             |
-| ms              | ms                                  | ❌             |
-| msx             | MSX                                 | ✅             |
-| n64             | Nintendo 64                         | ✅             |
-| nds             | Nintendo DS                         | ✅             |
-| neocd           | neocd                               | ❌             |
-| neogeo          | neogeo                              | ❌             |
-| nes             | Nintendo Entertainment System       | ✅             |
-| ngc             | Nintendo GameCube                   | ✅             |
-| ngp             | ngp                                 | ❌             |
-| odyssey         | odyssey                             | ❌             |
-| pce             | pce                                 | ❌             |
-| pcecd           | pcecd                               | ❌             |
-| pico            | pico                                | ❌             |
-| poke            | poke                                | ❌             |
-| ps              | PlayStation                         | ✅             |
-| ps2             | PlayStation 2                       | ✅             |
-| ps3             | PlayStation 3                       | ✅             |
-| ps4             | ps4                                 | ❌             |
-| psp             | PlayStation Portable                | ✅             |
-| psvita          | PlayStation Vita                    | ✅             |
-| scummvm         | scummvm                             | ❌             |
-| segacd          | Sega CD                             | ✅             |
-| segasgone       | segasgone                           | ❌             |
-| sgb             | sgb                                 | ❌             |
-| sgfx            | sgfx                                | ❌             |
-| snes            | Super Nintendo Entertainment System | ✅             |
-| supervision     | supervision                         | ❌             |
-| switch          | Nintendo Switch                     | ✅             |
-| wii             | Wii                                 | ✅             |
-| win             | PC (Microsoft Windows)              | ✅             |
-| wiiu            | Wii U                               | ✅             |
-| wonderswan      | WonderSwan                          | ✅             |
-| wonderswan-color| WonderSwan Color                    | ✅             |
-| xbox            | Xbox                                | ✅             |
-| xbox360         | Xbox 360                            | ✅             |
-| xboxone         | Xbox One                            | ✅             |
+| slug                    | name                                | games metadata |
+|---------------          |-------------------------------------|     :----:     |
+| 3ds                     | Nintendo 3DS                        | ✅             |
+| amiga                   | Amiga                               | ✅             |
+| arcade                  | Arcade                              | ✅             |
+| atari                   | atari                               | ❌             |
+| coleco                  | coleco                              | ❌             |
+| c64                     | Commodore C64/128/MAX               | ✅             |
+| cpc                     | cpc                                 | ❌             |
+| cps1                    | cps1                                | ❌             |
+| cps2                    | cps2                                | ❌             |
+| cps3                    | cps3                                | ❌             |
+| daphne                  | daphne                              | ❌             |
+| dc                      | Dreamcast                           | ✅             |
+| dos                     | DOS                                 | ✅             |
+| fairchild               | fairchild                           | ❌             |
+| fba2012                 | fba2012                             | ❌             |
+| fbneo                   | fbneo                               | ❌             |
+| fds                     | Family Computer Disk System         | ✅             |
+| gb                      | Game Boy                            | ✅             |
+| gba                     | Game Boy Advance                    | ✅             |
+| gbc                     | Game Boy Color                      | ✅             |
+| genesis-slash-megadrive | Sega Mega Drive/Genesis             | ✅             |
+| gg                      | gg                                  | ❌             |
+| gw                      | gw                                  | ❌             |
+| intellivision           | Intellivision                       | ✅             |
+| jaguar                  | Atari Jaguar                        | ✅             |
+| lynx                    | Atari Lynx                          | ✅             |
+| md                      | md                                  | ❌             |
+| megaduck                | megaduck                            | ❌             |
+| ms                      | ms                                  | ❌             |
+| msx                     | MSX                                 | ✅             |
+| n64                     | Nintendo 64                         | ✅             |
+| nds                     | Nintendo DS                         | ✅             |
+| neocd                   | neocd                               | ❌             |
+| neogeo                  | neogeo                              | ❌             |
+| nes                     | Nintendo Entertainment System       | ✅             |
+| ngc                     | Nintendo GameCube                   | ✅             |
+| ngp                     | ngp                                 | ❌             |
+| odyssey                 | odyssey                             | ❌             |
+| pce                     | pce                                 | ❌             |
+| pcecd                   | pcecd                               | ❌             |
+| pico                    | pico                                | ❌             |
+| poke                    | poke                                | ❌             |
+| ps                      | PlayStation                         | ✅             |
+| ps2                     | PlayStation 2                       | ✅             |
+| ps3                     | PlayStation 3                       | ✅             |
+| ps4                     | ps4                                 | ❌             |
+| psp                     | PlayStation Portable                | ✅             |
+| psvita                  | PlayStation Vita                    | ✅             |
+| saturn                  | Sega Saturn                         | ✅             |
+| scummvm                 | scummvm                             | ❌             |
+| segacd                  | Sega CD                             | ✅             |
+| segasgone               | segasgone                           | ❌             |
+| sms                     | Sega Master System/Mark III         | ✅             |
+| sgb                     | sgb                                 | ❌             |
+| sgfx                    | sgfx                                | ❌             |
+| snes                    | Super Nintendo Entertainment System | ✅             |
+| supervision             | supervision                         | ❌             |
+| switch                  | Nintendo Switch                     | ✅             |
+| wii                     | Wii                                 | ✅             |
+| win                     | PC (Microsoft Windows)              | ✅             |
+| wiiu                    | Wii U                               | ✅             |
+| wonderswan              | WonderSwan                          | ✅             |
+| wonderswan-color        | WonderSwan Color                    | ✅             |
+| xbox                    | Xbox                                | ✅             |
+| xbox360                 | Xbox 360                            | ✅             |
+| xboxone                 | Xbox One                            | ✅             |
 
-  </p>
+  </span>
 </details>
 <br>
 
