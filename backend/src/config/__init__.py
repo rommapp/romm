@@ -32,6 +32,9 @@ except FileNotFoundError:
     config = None
 user_config: dict = {} if not config else config
 
+EXCLUDED_PLATFORMS: list[str] = user_config['exclude']['platforms'] if user_config['exclude']['platforms'] else []
+
+
 # DB DRIVERS
 SUPPORTED_DB_DRIVERS: list = ['sqlite', 'mariadb']
 ROMM_DB_DRIVER: str = os.getenv('ROMM_DB_DRIVER', 'sqlite')
