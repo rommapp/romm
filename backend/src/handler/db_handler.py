@@ -13,8 +13,7 @@ from models.rom import Rom
 
 class DBHandler:
 
-    def __init__(self) -> None:
-        cl = ConfigLoader()
+    def __init__(self, cl: ConfigLoader) -> None:
         self.engine = create_engine(cl.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 

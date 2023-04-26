@@ -1,7 +1,7 @@
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
-from config import user_config
-from logger.logger import log
+from config.config_loader import ConfigLoader
+cl = ConfigLoader()
 from models.platform import Platform
 from models.rom import Rom
 
@@ -18,8 +18,8 @@ def scan_platform(fs_slug: str) -> Platform:
     platform_attrs: dict = {}
     platform_attrs['fs_slug'] = fs_slug
     try:
-        if fs_slug in user_config['system']['platforms'].keys():
-            platform_attrs['slug'] = user_config['system']['platforms'][fs_slug]
+        if fs_slug in cl.config['PLATFORMS_BINDING'].keys():
+            platform_attrs['slug'] = cl.config['PLATFORMS_BINDING'][fs_slug]
         else:
             platform_attrs['slug'] = fs_slug
     except (KeyError, TypeError, AttributeError):

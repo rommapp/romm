@@ -3,7 +3,6 @@ import emoji
 import json
 
 from logger.logger import log, COLORS
-from config import user_config
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
