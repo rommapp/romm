@@ -56,7 +56,7 @@ Available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm6
 
 Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags).
 
-Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example.
+Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) example.
 
 Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
 
@@ -115,9 +115,9 @@ RomM can be configured through a yml file.
 
 For a configuration change to take effect, RomM must be restarted.
 
-Check the [config.yml](https://github.com/zurdi15/romm/blob/master/docker/config.example.yml) example.
+Check the [config.yml](https://github.com/zurdi15/romm/blob/master/examples/config.example.yml) example.
 
-Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml) example to see how to bind it.
+Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) example to see how to bind it.
 
 # Naming convention 
 
