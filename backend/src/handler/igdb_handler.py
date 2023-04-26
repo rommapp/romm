@@ -66,7 +66,6 @@ class IGDBHandler():
     def get_rom_by_id(self, r_igdb_id: str) -> dict:
         res: dict = requests.post(self.games_url, headers=self.headers,
                                   data=f"fields slug, name, summary; where id={r_igdb_id};").json()[0]
-        log.debug(res)
         r_slug = res['slug'] if 'slug' in res.keys() else ""
         r_name = res['name'] if 'name' in res.keys() else ""
         summary = res['summary'] if 'summary' in res.keys() else ""
