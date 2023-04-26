@@ -20,7 +20,7 @@ const emitter = inject('emitter')
                 :to="`/platform/${$route.params.platform}/rom/${rom.id}`"
                 :value="rom.id"
                 :key="rom.id">
-                <v-row class="text-subtitle-2">
+                <v-row class="text-subtitle-2 justify-center align-center">
                     <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>{{ rom.r_name }}</span></v-col>
                     <v-col md="4" lg="4" class="hidden-sm-and-down"><span>{{ rom.file_name }}</span></v-col>
                     <v-col md="1" lg="1" class="hidden-sm-and-down"><span>{{ rom.p_slug }}</span></v-col>
