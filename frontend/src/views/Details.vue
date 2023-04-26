@@ -94,7 +94,7 @@ onMounted(() => {
 
 <template>
 
-    <app-bar v-if="mdAndDown"/>
+    <app-bar class="app-bar-test" v-if="mdAndDown"/>
 
     <background-header :rom="rom" v-if="rom !== undefined"/>
 
@@ -165,7 +165,7 @@ onMounted(() => {
                     </v-row>
                 </div>
                 
-                <div class="mb-10" :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
+                <div :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
                     <v-tabs v-model="tab" slider-color="rommAccent1" >
                         <v-tab value="info" rounded="0">Info</v-tab>
                         <v-tab value="saves" rounded="0" disabled>Saves<span class="text-caption text-truncate ml-1">[comming soon]</span></v-tab>
@@ -327,13 +327,21 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.app-bar-test{
+    position: absolute;
+}
 .scroll {
     overflow-y: scroll
 }
-.content, .content-tablet{
+.content{
     margin-top: 64px;
     margin-left: 100px;
     margin-right: 100px;
+}
+.content-tablet{
+    margin-top: 64px;
+    margin-left: 20px;
+    margin-right: 20px;
 }
 .content, .content-tablet, .content-mobile {
     position: relative;
@@ -356,8 +364,7 @@ onMounted(() => {
     max-width: 700px;
 }
 .info-content-tablet {
-    margin-top: 70px;
-    max-width: 700px;
+    margin-top: 54px;
 }
 .info-content-mobile{
     margin-top: 40px;
