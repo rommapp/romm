@@ -51,14 +51,15 @@ class IGDBHandler():
     
     @check_twitch_token
     def get_platform(self, slug: str) -> tuple:
+        igdb_id: str = ""
+        name: str = slug
         try:
             res: dict = requests.post(self.platform_url, headers=self.headers,
                                       data=f"fields id, name; where slug=\"{slug}\";").json()[0]
-            igdb_id = res['id'] if 'id' in res.keys() else ""
-            name = res['name'] if 'name' in res.keys() else ""
+            igdb_id = res['id']
+            name = res['name']
         except IndexError:
             log.warning(f"{slug} not found in IGDB")
-        if not name: name = slug
         return {'igdb_id': igdb_id, 'name': name, 'slug': slug, 'logo_path': ''}
 
 

@@ -44,10 +44,10 @@ def scan(platforms: str, full_scan: bool=False) -> dict:
             log.warning(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         for rom in fs_roms:
-            if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             rom_id: int = dbh.rom_exists(rom['file_name'], scanned_platform.slug)
             if rom_id and not full_scan: continue
             log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
+            if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             if rom_id: scanned_rom.id = rom_id
             dbh.add_rom(scanned_rom)

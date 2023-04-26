@@ -4,7 +4,9 @@ from pathlib import Path
 
 import requests
 
-from config import user_config, LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
+from config import user_config, EXCLUDED_PLATFORMS, \
+    LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, \
+    RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from logger.logger import log
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException, RomNotFoundError, RomAlreadyExistsException
 
@@ -58,19 +60,12 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
 
 
 def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
-    path_cover_s: str = DEFAULT_PATH_COVER_S
-    path_cover_l: str = DEFAULT_PATH_COVER_L
-    has_cover: int = 0
-    if (overwrite or not _cover_exists(p_slug, file_name, 's')) and url_cover:
-        _store_cover(p_slug, file_name, url_cover, 's')
-    if _cover_exists(p_slug, file_name, 's'):
-        path_cover_s = _get_cover_path(p_slug, file_name, 's')
-    
-    if (overwrite or not _cover_exists(p_slug, file_name, 'l')) and url_cover:
-        _store_cover(p_slug, file_name, url_cover, 'l')
-    if _cover_exists(p_slug, file_name, 'l'):
-        path_cover_l = _get_cover_path(p_slug, file_name, 'l')
-        has_cover = 1
+    # Cover small
+    if (overwrite or not _cover_exists(p_slug, file_name, 's')) and url_cover: _store_cover(p_slug, file_name, url_cover, 's')
+    path_cover_s = _get_cover_path(p_slug, file_name, 's') if _cover_exists(p_slug, file_name, 's') else DEFAULT_PATH_COVER_S
+    # Cover big
+    if (overwrite or not _cover_exists(p_slug, file_name, 'l')) and url_cover: _store_cover(p_slug, file_name, url_cover, 'l')
+    (path_cover_l, has_cover) = (_get_cover_path(p_slug, file_name, 'l'), 1) if _cover_exists(p_slug, file_name, 'l') else (DEFAULT_PATH_COVER_L, 0)
     return {'path_cover_s': path_cover_s, 'path_cover_l': path_cover_l, 'has_cover': has_cover}
 
 
@@ -83,8 +78,8 @@ def store_default_resources() -> None:
 
 
 # ========= Platforms utils =========
-def _exclude_platforms(platforms) -> list['str']:
-    [platforms.remove(excluded) for excluded in user_config['exclude']['platforms'] if excluded in platforms]
+def _exclude_platforms(platforms) -> None:
+    [platforms.remove(excluded) for excluded in EXCLUDED_PLATFORMS if excluded in platforms]
 
 
 def get_platforms() -> list[str]:
@@ -95,12 +90,9 @@ def get_platforms() -> list[str]:
     """
     try:
         platforms: list[str] = list(os.walk(HIGH_PRIO_STRUCTURE_PATH))[0][1] if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else list(os.walk(LIBRARY_BASE_PATH))[0][1]
+        _exclude_platforms(platforms)
     except IndexError:
         raise PlatformsNotFoundException
-    try:
-        _exclude_platforms(platforms)
-    except (KeyError, TypeError):
-        pass
     return platforms
 
 
