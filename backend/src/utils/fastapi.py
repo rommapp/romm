@@ -36,6 +36,7 @@ def scan_rom(platform: Platform, rom_attrs: dict, r_igbd_id_search: str = '', ov
     if r_igbd_id_search: rom_attrs.update(igdbh.get_rom_by_id(r_igbd_id_search))
     else: rom_attrs.update(igdbh.get_rom(rom_attrs['file_name'], platform.igdb_id))
     rom_attrs.update(fs.get_cover(overwrite, platform.slug, rom_attrs['file_name'], rom_attrs['url_cover']))
+    rom_attrs.update(fs.get_screenshots(platform.slug, rom_attrs['file_name'], rom_attrs['url_screenshots']))
     file_size, file_size_units = fs.get_rom_size(rom_attrs['multi'], rom_attrs['file_name'], rom_attrs['files'], roms_path)
     reg, rev, other_tags = parse_tags(rom_attrs['file_name'])
     rom_attrs.update({'file_path': roms_path, 'file_name': rom_attrs['file_name'], 'file_name_no_tags': get_file_name_with_no_tags(rom_attrs['file_name']),
