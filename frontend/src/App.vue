@@ -1,28 +1,41 @@
 <script setup>
-import { ref, inject } from "vue"
+import { ref, inject, onMounted } from "vue"
 import { useTheme } from "vuetify"
-import AppBar from '@/components/AppBar/Base.vue'
-import PlatformsDrawer from '@/components/PlatformsDrawer/Base.vue'
-import SettingsDrawer from '@/components/SettingsDrawer/Base.vue'
+import MainDrawer from '@/components/MainDrawer/Base.vue'
 import Notification from '@/components/Notification.vue'
+import { getPlatforms } from '@/services/api.js'
+import { storePlatforms } from '@/stores/platforms.js'
+import { storeScanning } from '@/stores/scanning.js'
 
 // Props
+const scanning = storeScanning()
+const platforms = storePlatforms()
 useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 const refresh = ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('refresh', () => { refresh.value = !refresh.value })
+emitter.on('refresh', () => {
+  getPlatforms()
+    .then((res) => { platforms.add(res.data.data) })
+    .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
+  refresh.value = !refresh.value
+})
+
+
+onMounted(() => {
+  getPlatforms()
+    .then((res) => { platforms.add(res.data.data) })
+    .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
+})
 </script>
 
 <template>
   <v-app>
 
-    <settings-drawer/>
+    <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
-    <app-bar/>
-
-    <platforms-drawer :key="refresh"/>
+    <main-drawer :key="refresh"/>
 
     <v-main>
       <v-container fluid>
@@ -30,7 +43,7 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
       </v-container>
     </v-main>
 
-    <notification/>
+    <notification class="mt-6"/>
 
   </v-app>
 </template>
@@ -58,25 +71,4 @@ emitter.on('refresh', () => { refresh.value = !refresh.value })
   background-color: #808080;
   border-radius: 5px;
 }
-
-rommDark {
-  primary:      #161b22;
-  secondary:    #a452fe;
-  background:   #0d1117;
-
-  notification: #0d1117;
-  surface:      #161b22;
-  tooltip:      #161b22;
-  chip:         #161b22;
-  
-  rommAccent1:  #a452fe;
-  rommAccent2:  #9a00ea;
-  rommAccent3:  #7b00e1;
-  rommAccent4:  #702bcf;
-  rommAccent5:  #3808a4;
-  rommWhite:    #fefdfe;
-  rommBlack:    #000000;
-  rommRed:      #da3633;
-}
-
 </style>

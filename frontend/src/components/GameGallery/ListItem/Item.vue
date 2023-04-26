@@ -1,42 +1,46 @@
 <script setup>
 import { ref, inject } from 'vue'
-import { useRouter } from 'vue-router'
-import { selectRom, downloadRom, downloadSave } from '@/utils/utils.js'
+import { downloadRom, downloadSave } from '@/services/download.js'
+import { storeDownloader } from '@/stores/downloader.js'
 
 // Props
 const props = defineProps(['rom'])
 const forceImgReload = Date.now()
-const router = useRouter()
 const saveFiles = ref(false)
+const downloader = storeDownloader()
 
 // Event listeners bus
 const emitter = inject('emitter')
 </script>
 
 <template>
-    <v-list-item 
-        @:click="selectRom(rom, emitter, router)"
-        :value="rom.file_name"
-        :key="rom.file_name"
-        class="pa-2">
-        <v-row class="text-subtitle-2">
-            <v-col md="3" lg="3"><p>{{ rom.name }}</p></v-col>
-            <v-col md="3" lg="4" class="hidden-sm-and-down"><p>{{ rom.file_name }}</p></v-col>
-            <v-col class="hidden-sm-and-down"><p>{{ rom.p_slug }}</p></v-col>
-            <v-col class="hidden-sm-and-down"><p>{{ rom.file_size }} {{ rom.file_size_units }}</p></v-col>
-            <v-col class="hidden-sm-and-down"><p>{{ rom.region }}</p></v-col>
-            <v-col class="hidden-sm-and-down"><p>{{ rom.revision }}</p></v-col>
-        </v-row>
-        <template v-slot:prepend>
-            <v-avatar :rounded="0" class="ml-3">
-                <v-img
-                    :src="'/assets'+rom.path_cover_l+'?reload='+forceImgReload"
-                    :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
-                    min-height="100"/>
-            </v-avatar>
-        </template>
-        <template v-slot:append>
-            <v-col class="pa-0 ml-1">
+    <v-row no-gutters>
+        <v-col>
+            <v-list-item 
+                :to="`/platform/${$route.params.platform}/rom/${rom.id}`"
+                :value="rom.id"
+                :key="rom.id">
+                <v-row class="text-subtitle-2 justify-center align-center">
+                    <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>{{ rom.r_name }}</span></v-col>
+                    <v-col md="4" lg="4" class="hidden-sm-and-down"><span>{{ rom.file_name }}</span></v-col>
+                    <v-col md="1" lg="1" class="hidden-sm-and-down"><span>{{ rom.p_slug }}</span></v-col>
+                    <v-col xs="2" sm="2" md="2" lg="2" class="hidden-xs"><span>{{ rom.file_size }} {{ rom.file_size_units }}</span></v-col>
+                    <v-col xs="1" sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.region }}</span></v-col>
+                    <v-col xs="1" sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.revision }}</span></v-col>
+                </v-row>
+                
+                <template v-slot:prepend>
+                    <v-avatar :rounded="0">
+                        <v-progress-linear color="rommAccent1" :active="downloader.value.includes(rom.file_name)" :indeterminate="true" absolute/>
+                        <v-img
+                        :src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
+                        :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
+                        min-height="150"/>
+                    </v-avatar>
+                </template>
+            </v-list-item>
+        </v-col>
+        <v-col cols="2" xs="2" sm="2" md="1" lg="1" class="d-flex justify-center align-center mr-6">
             <v-btn
                 @click="downloadRom(rom, emitter)"
                 icon="mdi-download"
@@ -48,14 +52,12 @@ const emitter = inject('emitter')
                 size="x-small"
                 variant="text"
                 :disabled="!saveFiles"/>
-            </v-col>
             <v-btn
                 @click=""
                 icon="mdi-dots-vertical"
                 size="x-small"
                 variant="text"
-                class="mr-3"
                 :disabled="!saveFiles"/>
-        </template>
-    </v-list-item>
+        </v-col>
+    </v-row>
 </template>

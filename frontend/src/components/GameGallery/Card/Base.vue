@@ -1,14 +1,17 @@
 <script setup>
 import ActionBar from '@/components/GameGallery/Card/ActionBar.vue'
 import Cover from '@/components/GameGallery/Card/Cover.vue'
+import { storeDownloader } from '@/stores/downloader.js'
 
 // Props
 const props = defineProps(['rom'])
+const downloader = storeDownloader()
 </script>
 
 <template>
     <v-hover v-slot="{isHovering, props}">
         <v-card 
+            :loading="downloader.value.includes(rom.file_name) ? 'rommAccent1': null"
             v-bind="props"
             :class="{'on-hover': isHovering}"
             :elevation="isHovering ? 20 : 3">

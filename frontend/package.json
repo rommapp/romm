@@ -1,6 +1,6 @@
 {
   "name": "romm",
-  "version": "1.7.1",
+  "version": "1.8",
   "private": true,
   "scripts": {
     "dev": "vite --host",
@@ -15,10 +15,11 @@
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "mitt": "^3.0.0",
+    "pinia": "^2.0.35",
     "roboto-fontface": "*",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",
-    "vuetify": "^3.0.0",
+    "vuetify": "^3.1.15",
     "webfontloader": "^1.0.0"
   },
   "devDependencies": {
@@ -28,6 +29,8 @@
     "eslint-plugin-vue": "^9.3.0",
     "sass": "^1.55.0",
     "vite": "^3.1.9",
+    "vite-plugin-pwa": "^0.14.7",
+    "vite-plugin-rewrite-all": "^1.0.1",
     "vite-plugin-vuetify": "^1.0.0-alpha.12"
   }
 }
