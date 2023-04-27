@@ -1,3 +1,11 @@
+# v1.8.1 (_27-04-2023_)
+
+## Added
+ - Now it is possible to search a rom match by Name and by ID.
+ - Now screenshots are displayed in screenshots tab (Complete scan needed in order to fetch screenshots from IGDB).
+
+<br>
+
 # v1.8 (_25-04-2023_)
 
 ## Added
