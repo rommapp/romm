@@ -1,6 +1,6 @@
 import axios from 'axios'
 
 
-export async function getPlatforms () {
+export async function fetchPlatforms () {
     return axios.get('/api/platforms')
 }

@@ -3,7 +3,7 @@
         <v-row no-gutter>
             <v-col>
                 <v-list-item>
-                    <v-row class="text-subtitle-2">
+                    <v-row class="text-subtitle-2 align-center">
                         <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>Name</span></v-col>
                         <v-col md="4" lg="4" class="hidden-sm-and-down"><span>File</span></v-col>
                         <v-col md="1" lg="1" class="hidden-sm-and-down"><span>Platform</span></v-col>

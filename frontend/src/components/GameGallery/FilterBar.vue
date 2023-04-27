@@ -13,15 +13,14 @@ onMounted(() => { filterValue.value = filter.value })
 </script>
 
 <template>
+
     <v-text-field
         @click:clear="filter.set('');emitter.emit('filter')" 
         @keyup="filter.set(filterValue);emitter.emit('filter')" 
         v-model="filterValue"
-        label="search"
         prepend-inner-icon="mdi-magnify"
-        class="shrink"
-        variant="outlined"
-        density="compact"
+        label="search"
         hide-details
         clearable/>
+
 </template>
