@@ -1,8 +1,6 @@
 <script setup>
 // Props
 const props = defineProps(['platform', 'rail'])
-
-
 </script>
 
 <template>

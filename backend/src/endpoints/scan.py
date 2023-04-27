@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/scan", status_code=200)
-def scan(platforms: str, full_scan: bool=False) -> dict:
+def scan(platforms: str, complete_rescan: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
@@ -44,7 +44,7 @@ def scan(platforms: str, full_scan: bool=False) -> dict:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
         for rom in fs_roms:
             rom_id: int = dbh.rom_exists(rom['file_name'], scanned_platform.slug)
-            if rom_id and not full_scan: continue
+            if rom_id and not complete_rescan: continue
             log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
             if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
