@@ -170,7 +170,7 @@ onMounted(() => {
                     <v-tabs v-model="tab" slider-color="rommAccent1" >
                         <v-tab value="info" rounded="0">Info</v-tab>
                         <v-tab value="saves" rounded="0" disabled>Saves<span class="text-caption text-truncate ml-1">[comming soon]</span></v-tab>
-                        <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
+                        <v-tab v-if="rom.path_screenshots.length>0" value="screenshots" rounded="0">Screenshots</v-tab>
                     </v-tabs>
                     <v-window v-model="tab" class="mt-2">
                         <v-window-item value="info">
