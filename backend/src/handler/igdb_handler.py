@@ -113,7 +113,7 @@ class IGDBHandler():
     @check_twitch_token
     def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int) -> list:
         matched_roms: list = requests.post(self.games_url, headers=self.headers,
-                                           data=f"search \"{search_term}\"; \
+                                           data=f"search \"{uc(search_term)}\"; \
                                                 fields id, slug, name, summary; \
                                                 where platforms=[{p_igdb_id}];").json()
         for rom in matched_roms:
