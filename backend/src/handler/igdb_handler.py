@@ -71,16 +71,6 @@ class IGDBHandler():
 
 
     @check_twitch_token
-    def get_rom_by_id(self, r_igdb_id: str) -> dict:
-        res: dict = requests.post(self.games_url, headers=self.headers,
-                                  data=f"fields slug, name, summary; where id={r_igdb_id};").json()[0]
-        r_slug = res['slug'] if 'slug' in res.keys() else ""
-        r_name = res['name'] if 'name' in res.keys() else ""
-        summary = res['summary'] if 'summary' in res.keys() else ""
-        return {'r_igdb_id': r_igdb_id, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary, 'url_cover': self._search_cover(r_igdb_id), 'url_screenshots': self._search_screenshots(r_igdb_id)}
-
-
-    @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int) -> dict:
         search_term: str = uc(get_search_term(file_name))
         res = (self._search_rom(search_term, p_igdb_id, 0) or
@@ -98,11 +88,41 @@ class IGDBHandler():
     
     
     @check_twitch_token
+    def get_rom_by_id(self, r_igdb_id: str) -> list:
+        res: list = requests.post(self.games_url, headers=self.headers,
+                                  data=f"fields slug, name, summary; where id={r_igdb_id};")
+        if res.status_code == 200:
+            rom: dict = res.json()[0]
+            r_slug = rom['slug'] if 'slug' in rom.keys() else ""
+            r_name = rom['name'] if 'name' in rom.keys() else ""
+            summary = rom['summary'] if 'summary' in rom.keys() else ""
+            return [{'r_igdb_id': r_igdb_id, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary, 'url_cover': self._search_cover(r_igdb_id), 'url_screenshots': self._search_screenshots(r_igdb_id)}]
+        else:
+            return []
+
+
+    @check_twitch_token
     def get_matched_rom_by_id(self, igdb_id: str) -> list:
-        matched_rom: dict = self.get_rom_by_id(igdb_id)
-        matched_rom['url_cover'] = matched_rom['url_cover'].replace('t_thumb', f't_cover_big')
-        matched_rom['url_screenshots'] = self._search_screenshots(igdb_id)
-        return [matched_rom]
+        matched_roms: list = self.get_rom_by_id(igdb_id)
+        for rom in matched_roms:
+            rom['url_cover'] = rom['url_cover'].replace('t_thumb', f't_cover_big')
+            rom['url_screenshots'] = self._search_screenshots(igdb_id)
+        return matched_roms
+    
+
+    @check_twitch_token
+    def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int) -> list:
+        matched_roms: list = requests.post(self.games_url, headers=self.headers,
+                                           data=f"search \"{search_term}\"; \
+                                                fields id, slug, name, summary; \
+                                                where platforms=[{p_igdb_id}];").json()
+        for rom in matched_roms:
+            rom['url_cover'] = self._search_cover(rom['id']).replace('t_thumb', f't_cover_big')
+            rom['url_screenshots'] = self._search_screenshots(rom['id'])
+            rom['r_igdb_id'] = rom.pop('id')
+            rom['r_slug'] = rom.pop('slug')
+            rom['r_name'] = rom.pop('name')
+        return matched_roms
     
 
     @check_twitch_token
