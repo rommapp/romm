@@ -52,6 +52,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.r_slug = updatedData.r_slug
     updatedRom.value.summary = updatedData.summary
     updatedRom.value.url_cover = updatedData.url_cover
+    updatedRom.value.url_screenshots = updatedData.url_screenshots
     updatedRom.value.r_name = updatedData.r_name
     if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, { updatedRom: updatedRom.value }).then((response) => {
@@ -93,7 +94,7 @@ onMounted(() => {
 
 <template>
 
-    <app-bar v-if="mdAndDown"/>
+    <app-bar class="app-bar-test" v-if="mdAndDown"/>
 
     <background-header :rom="rom" v-if="rom !== undefined"/>
 
@@ -164,11 +165,11 @@ onMounted(() => {
                     </v-row>
                 </div>
                 
-                <div class="mb-10" :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
+                <div :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
                     <v-tabs v-model="tab" slider-color="rommAccent1" >
                         <v-tab value="info" rounded="0">Info</v-tab>
-                        <v-tab value="saves" rounded="0" disabled>Saves</v-tab>
-                        <v-tab value="screenshots" rounded="0" disabled>Screenshots</v-tab>
+                        <v-tab value="saves" rounded="0" disabled>Saves<span class="text-caption text-truncate ml-1">[comming soon]</span></v-tab>
+                        <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
                     </v-tabs>
                     <v-window v-model="tab" class="mt-2">
                         <v-window-item value="info">
@@ -198,12 +199,16 @@ onMounted(() => {
                                 <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
                             </v-row>
                         </v-window-item>
-                        <v-window-item value="saves">
-                            <v-row class="d-flex mt-2"></v-row>
-                        </v-window-item>
                         <v-window-item value="screenshots">
                             <v-row class="d-flex mt-2">
-                                <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
+                                <v-carousel hide-delimiter-background delimiter-icon="mdi-square" class="bg-rommBlack" show-arrows="hover" height="400">
+                                    <v-carousel-item v-for="screenshot in rom.path_screenshots" :src="'/assets'+screenshot"/>
+                                </v-carousel>
+                            </v-row>
+                        </v-window-item>
+                        <v-window-item value="saves">
+                            <v-row class="d-flex mt-2">
+                                <v-col></v-col>
                             </v-row>
                         </v-window-item>
                     </v-window>
@@ -322,13 +327,21 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.app-bar-test{
+    position: absolute;
+}
 .scroll {
     overflow-y: scroll
 }
-.content, .content-tablet{
+.content{
     margin-top: 64px;
     margin-left: 100px;
     margin-right: 100px;
+}
+.content-tablet{
+    margin-top: 64px;
+    margin-left: 20px;
+    margin-right: 20px;
 }
 .content, .content-tablet, .content-mobile {
     position: relative;
@@ -351,8 +364,7 @@ onMounted(() => {
     max-width: 700px;
 }
 .info-content-tablet {
-    margin-top: 70px;
-    max-width: 700px;
+    margin-top: 54px;
 }
 .info-content-mobile{
     margin-top: 40px;

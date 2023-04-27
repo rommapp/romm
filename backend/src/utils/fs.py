@@ -23,7 +23,7 @@ def _cover_exists(p_slug: str, file_name: str, size: str) -> bool:
     Returns
         True if cover exists in filesystem else False
     """
-    logo_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
+    logo_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover/{size}.png"
     return True if os.path.exists(logo_path) else False
 
 
@@ -34,19 +34,15 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str) -> None
         p_slug: short name of the platform
         file_name: name of rom file
         url_cover: url to get the cover
-        size: size of the cover -> big as 'l' | small as 's'
+        size: size of the cover -> big | small
     """
-    cover_file: str = f"{file_name}_{size}.png"
-    cover_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/"
-    sizes: dict = {'l': 'big', 's': 'small'}
-    res = requests.get(url_cover.replace('t_thumb', f't_cover_{sizes[size]}'), stream=True)
+    cover_file: str = f"{size}.png"
+    cover_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover"
+    res = requests.get(url_cover.replace('t_thumb', f't_cover_{size}'), stream=True)
     if res.status_code == 200:
         Path(cover_path).mkdir(parents=True, exist_ok=True)
         with open(f"{cover_path}/{cover_file}", 'wb') as f:
             shutil.copyfileobj(res.raw, f)
-        log.info(f"{file_name} {sizes[size]} cover downloaded successfully!")
-    else:
-        log.error(f"{file_name} {sizes[size]} cover couldn't be downloaded")
 
 
 def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
@@ -55,27 +51,63 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
     Args:
         p_slug: short name of the platform
         file_name: name of rom file
-        size: size of the cover -> big as 'l' | small as 's'
+        size: size of the cover -> big | small
     """
-    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}_{size}.png"
+    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover/{size}.png"
 
 
 def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
     # Cover small
-    if (overwrite or not _cover_exists(p_slug, file_name, 's')) and url_cover: _store_cover(p_slug, file_name, url_cover, 's')
-    path_cover_s = _get_cover_path(p_slug, file_name, 's') if _cover_exists(p_slug, file_name, 's') else DEFAULT_PATH_COVER_S
+    if (overwrite or not _cover_exists(p_slug, file_name, 'small')) and url_cover: _store_cover(p_slug, file_name, url_cover, 'small')
+    path_cover_s = _get_cover_path(p_slug, file_name, 'small') if _cover_exists(p_slug, file_name, 'small') else DEFAULT_PATH_COVER_S
     # Cover big
-    if (overwrite or not _cover_exists(p_slug, file_name, 'l')) and url_cover: _store_cover(p_slug, file_name, url_cover, 'l')
-    (path_cover_l, has_cover) = (_get_cover_path(p_slug, file_name, 'l'), 1) if _cover_exists(p_slug, file_name, 'l') else (DEFAULT_PATH_COVER_L, 0)
+    if (overwrite or not _cover_exists(p_slug, file_name, 'big')) and url_cover: _store_cover(p_slug, file_name, url_cover, 'big')
+    (path_cover_l, has_cover) = (_get_cover_path(p_slug, file_name, 'big'), 1) if _cover_exists(p_slug, file_name, 'big') else (DEFAULT_PATH_COVER_L, 0)
     return {'path_cover_s': path_cover_s, 'path_cover_l': path_cover_l, 'has_cover': has_cover}
+
+
+def _store_screenshot(p_slug: str, file_name: str, url: str, idx: int) -> None:
+    """Store roms resources in filesystem
+    
+    Args:
+        p_slug: short name of the platform
+        file_name: name of rom file
+        url: url to get the screenshot
+    """
+    screenshot_file: str = f"{idx}.jpg"
+    screenshot_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/screenshots"
+    res = requests.get(url, stream=True)
+    if res.status_code == 200:
+        Path(screenshot_path).mkdir(parents=True, exist_ok=True)
+        with open(f"{screenshot_path}/{screenshot_file}", 'wb') as f:
+            shutil.copyfileobj(res.raw, f)
+
+
+def _get_screenshot_path(p_slug: str, file_name: str, idx: str) -> str:
+    """Returns rom cover filesystem path adapted to frontend folder structure
+    
+    Args:
+        p_slug: short name of the platform
+        file_name: name of rom file
+        idx: index number of screenshot
+    """
+    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/screenshots/{idx}.jpg"
+
+
+def get_screenshots(p_slug: str, file_name: str, url_screenshots: list) -> tuple:
+    path_screenshots: list[str] = []
+    for idx, url in enumerate(url_screenshots):
+        _store_screenshot(p_slug, file_name, url, idx)
+        path_screenshots.append(_get_screenshot_path(p_slug, file_name, idx))
+    return {'path_screenshots': path_screenshots}
 
 
 def store_default_resources() -> None:
     """Store default cover resources in the filesystem"""
-    defaul_covers: dict = [{'url': DEFAULT_URL_COVER_L, 'size': 'l'}, {'url': DEFAULT_URL_COVER_S, 'size': 's'}]
+    defaul_covers: dict = [{'url': DEFAULT_URL_COVER_L, 'size': 'big'}, {'url': DEFAULT_URL_COVER_S, 'size': 'small'}]
     for cover in defaul_covers:
-        if not _cover_exists('default', 'cover', cover['size']):
-            _store_cover('default', 'cover', cover['url'], cover['size'])
+        if not _cover_exists('default', 'default', cover['size']):
+            _store_cover('default', 'default', cover['url'], cover['size'])
 
 
 # ========= Platforms utils =========
@@ -102,13 +134,6 @@ def get_roms_structure(p_slug: str) -> tuple:
     return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
 
 
-def get_rom_files(rom: str, roms_path: str) -> list[str]:
-    rom_files: list = []
-    for path, _, files in os.walk(f"{roms_path}/{rom}"):
-        [rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi_parts')]
-    return rom_files
-
-
 def _exclude_files(files, type) -> list[str]:
     excluded_extensions = cl.config[f'EXCLUDED_{type.upper()}_EXT']
     excluded_names = cl.config[f'EXCLUDED_{type.upper()}_FILES']
@@ -130,15 +155,11 @@ def _exclude_multi_roms(roms) -> list[str]:
     return roms
 
 
-def get_rom_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
-    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
-    total_size: int = 0
-    for file in files:
-        total_size += os.stat(file).st_size
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
-        if total_size < 1024.0 or unit == 'PB': break
-        total_size /= 1024.0
-    return round(total_size, 2), unit
+def get_rom_files(rom: str, roms_path: str) -> list[str]:
+    rom_files: list = []
+    for path, _, files in os.walk(f"{roms_path}/{rom}"):
+        [rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi_parts')]
+    return rom_files
 
 
 def get_roms(p_slug: str) -> list[dict] or int:
@@ -161,6 +182,17 @@ def get_roms(p_slug: str) -> list[dict] or int:
                           [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
     [rom.update({'files': get_rom_files(rom['file_name'], roms_path)}) for rom in fs_roms]
     return fs_roms
+
+
+def get_rom_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
+    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
+    total_size: int = 0
+    for file in files:
+        total_size += os.stat(file).st_size
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
+        if total_size < 1024.0 or unit == 'PB': break
+        total_size /= 1024.0
+    return round(total_size, 2), unit
 
 
 def _rom_exists(p_slug: str, file_name: str) -> bool:
