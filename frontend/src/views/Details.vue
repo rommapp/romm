@@ -256,7 +256,7 @@ onMounted(() => {
                 <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="rommAccent1" indeterminate/></v-row>
                 <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><span>No results found</span></v-row>
                 <v-row class="pl-2 pr-2 pb-2 mt-0">
-                    <v-col class="pa-1" cols="6" xs="6" sm="3" md="2" lg="2" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
+                    <v-col class="pa-1" cols="4" xs="4" sm="3" md="2" lg="2" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(updatedData=rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
@@ -282,7 +282,7 @@ onMounted(() => {
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
         <v-card rounded="0" :class="{'edit-content': mdAndUp, 'edit-content-tablet': sm, 'edit-content-mobile': xs}">
-            <v-toolbar class="bg-primary" density="compact">
+            <v-toolbar class="bg-primary pt-1 pb-1" density="compact">
                 <v-toolbar-title><span>Editing</span></v-toolbar-title>
                 <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
@@ -303,8 +303,8 @@ onMounted(() => {
     </v-dialog>
     
     <v-dialog v-model="dialogDeleteRom" width="auto" v-if="rom !== undefined">
-        <v-card rounded="0" max-width="600">
-            <v-toolbar class="bg-red" density="compact">
+        <v-card rounded="0" :class="{'delete-content': mdAndUp, 'delete-content-tablet': sm, 'delete-content-mobile': xs}">
+            <v-toolbar class="bg-red pt-1 pb-1" density="compact">
                 <v-toolbar-title><span>Deleting {{ rom.file_name }}</span></v-toolbar-title>
                 <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
             </v-toolbar>
@@ -323,9 +323,9 @@ onMounted(() => {
 
             <v-divider class="border-opacity-25" :thickness="1"/>
             
-            <v-card-actions class="justify-center">
+            <v-toolbar class="bg-primary pt-1 pb-1" density="compact">
                 <v-checkbox v-model="deleteFromFs" label="Remove from filesystem" class="ml-3" hide-details="true"/>
-            </v-card-actions>
+            </v-toolbar>
         </v-card>
     </v-dialog>
 
@@ -393,19 +393,25 @@ onMounted(() => {
     height: 550px;
 }
 .search-content-mobile{
-    width: 320px;
+    width: 85vw;
     height: 620px;
 }
 .edit-content{
     width: 700px;
-    /* height: 540px; */
 }
 .edit-content-tablet{
     width: 500px;
-    /* height: 540px; */
 }
 .edit-content-mobile{
-    width: 310px;
-    /* height: 540px; */
+    width: 85vw;
+}
+.delete-content{
+    width: 700px;
+}
+.delete-content-tablet{
+    width: 500px;
+}
+.delete-content-mobile{
+    width: 85vw;
 }
 </style>
