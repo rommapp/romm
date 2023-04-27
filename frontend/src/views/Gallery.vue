@@ -62,7 +62,7 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
     </v-expand-transition>
 
 
-    <v-row v-if="galleryView.value != 2 && roms.length>0">
+    <v-row v-if="!gettingRoms && galleryView.value != 2 && roms.length>0">
         <v-col v-for="rom in romsFiltered"
             :key="rom.file_name"
             :cols="views[galleryView.value]['size-cols']"
@@ -75,7 +75,7 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
         </v-col>
     </v-row>
 
-    <v-row v-if="galleryView.value == 2 && roms.length>0" class="justify-center">
+    <v-row v-if="!gettingRoms && galleryView.value == 2 && roms.length>0" class="justify-center">
         <v-col class="pa-0">
             <v-table class="bg-secondary">
                 <game-list-header />
@@ -87,13 +87,13 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
         </v-col>
     </v-row>
     
-    <v-row v-if="roms.length==0" class="d-flex justify-center align-center">
-        <div class="text-h6 mt-16">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
+    <v-row v-if="!gettingRoms && roms.length==0">
+        <div class="text-h6 mt-16 mx-auto">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 
-    <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
-        <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate/>
-    </v-dialog>
+    <v-row v-if="gettingRoms">
+        <v-progress-circular class="mt-16 mx-auto" color="rommAccent1" :width="3" :size="70" indeterminate/>
+    </v-row>
 
 </template>
 

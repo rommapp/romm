@@ -292,7 +292,7 @@ onMounted(() => {
             <v-card-text class="bg-secondary">
                 <v-form @submit.prevent class="ma-4">
                     <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.file_name" label="File name" variant="outlined" required/>
-                    <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
+                    <v-file-input @keyup.enter="updateRom()" label="Custom cover [Comming soon]" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
                 </v-form>
                 <v-row class="justify-center mb-2">
                     <v-btn type="submit" @click="updateRom()" class="bg-rommGreen">Apply</v-btn>

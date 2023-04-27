@@ -20,13 +20,13 @@ const emitter = inject('emitter')
                 :to="`/platform/${$route.params.platform}/rom/${rom.id}`"
                 :value="rom.id"
                 :key="rom.id">
-                <v-row class="text-subtitle-2 justify-center align-center">
+                <v-row class="text-subtitle-2">
                     <v-col cols="9" xs="9" sm="6" md="3" lg="3"><span>{{ rom.r_name }}</span></v-col>
                     <v-col md="4" lg="4" class="hidden-sm-and-down"><span>{{ rom.file_name }}</span></v-col>
                     <v-col md="1" lg="1" class="hidden-sm-and-down"><span>{{ rom.p_slug }}</span></v-col>
-                    <v-col xs="2" sm="2" md="2" lg="2" class="hidden-xs"><span>{{ rom.file_size }} {{ rom.file_size_units }}</span></v-col>
-                    <v-col xs="1" sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.region }}</span></v-col>
-                    <v-col xs="1" sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.revision }}</span></v-col>
+                    <v-col sm="2" md="2" lg="2" class="hidden-xs"><span>{{ rom.file_size }} {{ rom.file_size_units }}</span></v-col>
+                    <v-col sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.region }}</span></v-col>
+                    <v-col sm="1" md="1" lg="1" class="hidden-xs"><span>{{ rom.revision }}</span></v-col>
                 </v-row>
                 
                 <template v-slot:prepend>
@@ -40,7 +40,7 @@ const emitter = inject('emitter')
                 </template>
             </v-list-item>
         </v-col>
-        <v-col cols="2" xs="2" sm="2" md="1" lg="1" class="d-flex justify-center align-center mr-6">
+        <v-col cols="3" xs="3" sm="1" md="1" lg="1" class="d-flex justify-center align-center mr-4">
             <v-btn
                 @click="downloadRom(rom, emitter)"
                 icon="mdi-download"
