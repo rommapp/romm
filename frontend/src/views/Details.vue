@@ -29,7 +29,7 @@ const deleteFromFs = ref(false)
 const filesToDownload = ref([])
 const downloader = storeDownloader()
 const tab = ref('info')
-const { xs, sm, mdAndUp, mdAndDown } = useDisplay()
+const { xs, sm, mdAndUp, mdAndDown, smAndDown } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -95,7 +95,7 @@ onMounted(() => {
 
 <template>
 
-    <app-bar class="app-bar-test" v-if="mdAndDown"/>
+    <app-bar class="app-bar-test" v-if="smAndDown"/>
 
     <background-header :rom="rom" v-if="rom !== undefined"/>
 
@@ -343,6 +343,7 @@ onMounted(() => {
     overflow-y: scroll
 }
 .content{
+    position: absolute !important;
     margin-top: 64px;
     margin-left: 100px;
     margin-right: 100px;
