@@ -233,23 +233,22 @@ onMounted(() => {
             
             <v-toolbar density="compact" class="bg-secondary pt-1 pb-1">
                 <v-row class="align-center">
-                    <v-col class="pb-1 pr-1 pl-6 pt-1" cols="8">
+                    <v-col class="pb-1 pr-1 pl-6 pt-1" cols="6" xs="8" sm="8" md="8" lg="8">
                         <v-text-field
                             @keyup.enter="searchRomIGDB()"
                             @click:clear="searchTerm=''"
                             v-model="searchTerm"
                             label="search"
-                            prepend-inner-icon="mdi-search-web"
                             variant="outlined"
                             density="compact"
                             hide-details
                             clearable/>
                     </v-col>
-                    <v-col class="pb-1 pl-1 pr-1 pt-1" cols="2">
+                    <v-col class="pb-1 pl-1 pr-1 pt-1" cols="3" xs="2" sm="2" md="2" lg="2">
                         <v-select variant="outlined" density="compact" label="by" :items="['ID', 'Name']" v-model="searchBy" hide-details/>
                     </v-col>
-                    <v-col class="pb-1 pl-1 pr-6 pt-1" cols="2">
-                        <v-btn type="submit" @click="searchRomIGDB()" class="bg-primary" block cover>Search</v-btn>
+                    <v-col class="pb-1 pl-1 pr-6 pt-1" cols="3" xs="2" sm="2" md="2" lg="2">
+                        <v-btn type="submit" @click="searchRomIGDB()" class="bg-primary" block cover><v-icon icon="mdi-search-web"/>{{ mdAndUp ? 'Search' : '' }}</v-btn>
                     </v-col>
                 </v-row>
             </v-toolbar>
@@ -257,7 +256,7 @@ onMounted(() => {
                 <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="rommAccent1" indeterminate/></v-row>
                 <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><span>No results found</span></v-row>
                 <v-row class="pl-2 pr-2 pb-2 mt-0">
-                    <v-col class="pa-1" cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
+                    <v-col class="pa-1" cols="6" xs="6" sm="3" md="2" lg="2" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(updatedData=rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
