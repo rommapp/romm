@@ -4,9 +4,8 @@ import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/services/download.js'
-import { storeDownloader } from '@/stores/downloader.js'
+import { storeDownloading } from '@/stores/downloading.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
-import AppBar from '@/components/AppBar/Base.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,7 +15,8 @@ const rom = ref(undefined)
 const updatedRom = ref(undefined)
 const saveFiles = ref(false)
 const searching = ref(false)
-const igdb_id = ref('')
+const searchTerm = ref('')
+const searchBy = ref('Name')
 const matchedRoms = ref([])
 const updating = ref(false)
 const loading = ref(true)
@@ -26,9 +26,9 @@ const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const filesToDownload = ref([])
-const downloader = storeDownloader()
-const tab = ref('info')
-const { xs, sm, mdAndUp, mdAndDown } = useDisplay()
+const downloading = storeDownloading()
+const tab = ref('details')
+const { xs, mdAndDown, lgAndUp } = useDisplay()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -37,7 +37,7 @@ const emitter = inject('emitter')
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    await axios.put('/api/search/roms/igdb?igdb_id='+igdb_id.value, {
+    await axios.put('/api/search/roms/igdb?search_term='+searchTerm.value+'&search_by='+searchBy.value, {
         rom: rom.value
     }).then((response) => {
         matchedRoms.value = response.data.data
@@ -52,6 +52,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.r_slug = updatedData.r_slug
     updatedRom.value.summary = updatedData.summary
     updatedRom.value.url_cover = updatedData.url_cover
+    updatedRom.value.url_screenshots = updatedData.url_screenshots
     updatedRom.value.r_name = updatedData.r_name
     if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
     await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, { updatedRom: updatedRom.value }).then((response) => {
@@ -93,61 +94,57 @@ onMounted(() => {
 
 <template>
 
-    <app-bar v-if="mdAndDown"/>
-
     <background-header :rom="rom" v-if="rom !== undefined"/>
 
-    <div :class="{'content': mdAndUp, 'content-tablet': sm, 'content-mobile': xs}" v-if="rom !== undefined">
+    <div :class="{'content': lgAndUp, 'content-tablet': mdAndDown, 'content-mobile': xs}" v-if="rom !== undefined">
         <v-row class="pt-8 justify-center">
-
-            <v-col :class="{'cover': mdAndUp, 'cover-tablet': sm, 'cover-mobile': xs}">
-                    <v-row>
-                        <v-col>
-                            <v-card elevation="5" :loading="downloader.value.includes(rom.file_name) ? 'rommAccent1': null">
-                                <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
-                                    <template v-slot:placeholder>
-                                        <div class="d-flex align-center justify-center fill-height">
-                                            <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
-                                        </div> 
-                                    </template>
-                                </v-img>
-                            </v-card>
-                        </v-col>
-                    </v-row>
-                    <v-row class="pl-3 pr-3 action-buttons">
-                        <v-col class="pa-0">
-                            <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" color="primary" block><v-icon icon="mdi-download" size="large"/></v-btn>
-                        </v-col>
-                        <v-col class="pa-0">
-                            <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
-                        </v-col>
-                        <v-col class="pa-0">
-                            <v-menu location="bottom">
-                                <template v-slot:activator="{ props }">
-                                    <v-btn v-bind="props" rounded="0" block>
-                                        <v-icon icon="mdi-dots-vertical" size="large"/>
-                                    </v-btn>
+            <v-col :class="{'cover': lgAndUp, 'cover-tablet': mdAndDown, 'cover-mobile': xs}">
+                <v-row>
+                    <v-col>
+                        <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
+                            <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
+                                <template v-slot:placeholder>
+                                    <div class="d-flex align-center justify-center fill-height">
+                                        <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
+                                    </div> 
                                 </template>
-                                <v-list rounded="0" class="pa-0">
-                                    <v-list-item  @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
-                                    </v-list-item>
-                                    <v-divider class="border-opacity-25"/>
-                                    <v-list-item @click="dialogEditRom=true" class="pt-4 pb-4 pr-5">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
-                                    </v-list-item>
-                                    <v-divider class="border-opacity-25"/>
-                                    <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 bg-red">
-                                        <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
-                                    </v-list-item>
-                                </v-list>
-                            </v-menu>
-                        </v-col>
-                    </v-row>
+                            </v-img>
+                        </v-card>
+                    </v-col>
+                </v-row>
+                <v-row class="pl-3 pr-3 action-buttons">
+                    <v-col class="pa-0">
+                        <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" color="primary" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                    </v-col>
+                    <v-col class="pa-0">
+                        <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
+                    </v-col>
+                    <v-col class="pa-0">
+                        <v-menu location="bottom">
+                            <template v-slot:activator="{ props }">
+                                <v-btn v-bind="props" rounded="0" block>
+                                    <v-icon icon="mdi-dots-vertical" size="large"/>
+                                </v-btn>
+                            </template>
+                            <v-list rounded="0" class="pa-0">
+                                <v-list-item  @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
+                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
+                                </v-list-item>
+                                <v-divider class="border-opacity-25"/>
+                                <v-list-item @click="dialogEditRom=true" class="pt-4 pb-4 pr-5">
+                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-pencil-box" class="mr-2"/>Edit</v-list-item-title>
+                                </v-list-item>
+                                <v-divider class="border-opacity-25"/>
+                                <v-list-item @click="dialogDeleteRom=true" class="pt-4 pb-4 pr-5 text-red">
+                                    <v-list-item-title class="d-flex"><v-icon icon="mdi-delete" class="mr-2"/>Delete</v-list-item-title>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
+                    </v-col>
+                </v-row>
             </v-col>
-
-            <v-col class="mt-10" :class="{'info': mdAndUp, 'info-tablet': sm, 'info-mobile': xs}">
-                <div class="info-header text-white">
+            <v-col class="mt-10" :class="{'info': lgAndUp, 'info-tablet': mdAndDown, 'info-mobile': xs}">
+                <div class="text-white">
                     <v-row no-gutters>
                         <span class="text-h4 font-weight-bold rom-name">{{ rom.r_name }}</span>
                         <v-chip-group class="ml-3 mt-1 hidden-xs">
@@ -163,15 +160,14 @@ onMounted(() => {
                         </v-chip-group>
                     </v-row>
                 </div>
-                
-                <div class="mb-10" :class="{'info-content': mdAndUp, 'info-content-tablet': sm, 'info-content-mobile': xs}">
-                    <v-tabs v-model="tab" slider-color="rommAccent1" >
-                        <v-tab value="info" rounded="0">Info</v-tab>
-                        <v-tab value="saves" rounded="0" disabled>Saves</v-tab>
-                        <v-tab value="screenshots" rounded="0" disabled>Screenshots</v-tab>
+                <div :class="{'details-content': lgAndUp, 'details-content-tablet': mdAndDown, 'details-content-mobile': xs}">
+                    <v-tabs v-model="tab" slider-color="rommAccent1" rounded="0">
+                        <v-tab value="details" rounded="0">Details</v-tab>
+                        <v-tab value="saves" rounded="0" disabled>Saves<span class="text-caption text-truncate ml-1">[comming soon]</span></v-tab>
+                        <v-tab v-if="rom.path_screenshots.length>0" value="screenshots" rounded="0">Screenshots</v-tab>
                     </v-tabs>
                     <v-window v-model="tab" class="mt-2">
-                        <v-window-item value="info">
+                        <v-window-item value="details">
                             <v-row v-if="!rom.multi" class="d-flex align-center text-body-1 mt-0">
                                 <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>File</span></v-col>
                                 <v-col class="text-body-1"><span>{{ rom.file_name }}</span></v-col>
@@ -198,56 +194,71 @@ onMounted(() => {
                                 <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
                             </v-row>
                         </v-window-item>
-                        <v-window-item value="saves">
-                            <v-row class="d-flex mt-2"></v-row>
-                        </v-window-item>
                         <v-window-item value="screenshots">
                             <v-row class="d-flex mt-2">
-                                <v-col class="font-weight-medium text-caption"><p>{{ rom.summary }}</p></v-col>
+                                <v-carousel hide-delimiter-background delimiter-icon="mdi-square" class="bg-rommBlack" show-arrows="hover" height="400">
+                                    <v-carousel-item v-for="screenshot in rom.path_screenshots" :src="'/assets'+screenshot"/>
+                                </v-carousel>
+                            </v-row>
+                        </v-window-item>
+                        <v-window-item value="saves">
+                            <v-row class="d-flex mt-2">
                             </v-row>
                         </v-window-item>
                     </v-window>
                 </div>
             </v-col>
-
         </v-row>
     </div>
     
     <v-dialog v-model="dialogSearchRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
-        <v-card :class="{'search-content': mdAndUp, 'search-content-tablet': sm, 'search-content-mobile': xs}">
-
-            <v-toolbar class="bg-primary" density="compact">
-                <v-toolbar-title v-show="searching">Searching...</v-toolbar-title>
-                <v-toolbar-title v-show="!searching"><span>Results found</span></v-toolbar-title>
-                <v-btn icon @click="dialogSearchRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+        <v-card :class="{'search-content': lgAndUp, 'search-content-tablet': mdAndDown, 'search-content-mobile': xs}" rounded="0">
+            <v-toolbar density="compact" class="bg-primary">
+                <v-row class="align-center" no-gutters>
+                    <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+                        <v-chip class="ml-5 text-rommAccent1" variant="outlined" label>IGDB</v-chip>
+                    </v-col>
+                    <v-col>
+                        <v-btn @click="dialogSearchRom=false" class="bg-primary" rounded="0" variant="text" icon="mdi-close" block/>
+                    </v-col>
+                </v-row>
             </v-toolbar>
-
             <v-divider class="border-opacity-25" :thickness="1"/>
             
-            <v-card-text class="pa-3 scroll justify-center align-center bg-secondary">
-                <v-row>
-                    <v-text-field
-                        @keyup.enter="searchRomIGDB()"
-                        @click:clear="igdb_id=''"
-                        v-show="!searching"
-                        v-model="igdb_id"
-                        label="search by id"
-                        prepend-inner-icon="mdi-search-web"
-                        class="ml-5 mt-5 mr-5 mb-5 "
-                        variant="outlined"
-                        density="compact"
-                        hide-details
-                        clearable/>
+            <v-toolbar density="compact" class="bg-primary">
+                <v-row class="align-center" no-gutters>
+                    <v-col cols="7" xs="7" sm="8" md="8" lg="9">
+                        <v-text-field
+                            @keyup.enter="searchRomIGDB()"
+                            @click:clear="searchTerm=''"
+                            v-model="searchTerm"
+                            label="search"
+                            hide-details
+                            clearable/>
+                    </v-col>
+                    <v-col cols="3" xs="3" sm="2" md="2" lg="2">
+                        <v-select label="by" :items="['ID', 'Name']" v-model="searchBy" hide-details/>
+                    </v-col>
+                    <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+                        <v-btn type="submit" @click="searchRomIGDB()" class="bg-primary" rounded="0" variant="text" icon="mdi-search-web" block/>
+                    </v-col>
                 </v-row>
-                <v-row class="justify-center align-center loader-searching" v-show="searching"><v-progress-circular :width="2" :size="40" class="pa-3 ma-3" color="rommAccent1" indeterminate/></v-row>
-                <v-row class="justify-center align-center no-results-searching" v-show="!searching && matchedRoms.length==0" ><span>No results found</span></v-row>
-                <v-row class="pl-4 pr-4">
-                    <v-col cols="6" xs="6" sm="4" md="3" lg="3" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
+            </v-toolbar>
+
+            <v-card-text class="pl-2 pt-1 pr-2 scroll bg-secondary">
+                <v-row class="justify-center loader-searching" v-show="searching">
+                    <v-progress-circular :width="2" :size="40" color="rommAccent1" indeterminate/>
+                </v-row>
+                <v-row class="justify-center no-results-searching" v-show="!searching && matchedRoms.length==0">
+                    <span>No results found</span>
+                </v-row>
+                <v-row class="pl-2 pr-2 pb-1 mt-0">
+                    <v-col class="pa-1" cols="4" xs="4" sm="3" md="3" lg="2" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(updatedData=rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
                                 <v-img v-bind="props" :src="rom.url_cover" cover/>
                                 <v-card-text>
-                                    <v-row class="pa-2">
+                                    <v-row class="pa-1">
                                         <span class="d-inline-block text-truncate">{{ rom.r_name }}</span>
                                     </v-row>
                                 </v-card-text>
@@ -257,61 +268,76 @@ onMounted(() => {
                 </v-row>
             </v-card-text>
 
-            <v-divider v-show="!searching" class="border-opacity-25" :thickness="1"/>
-
-            <v-card-actions v-show="!searching">
-                <v-checkbox v-model="renameAsIGDB" label="Rename file" class="ml-3" hide-details="true"/>
-            </v-card-actions>
-
+            <v-divider class="border-opacity-25" :thickness="1"/>
+            <v-toolbar class="bg-primary" density="compact">
+                <v-checkbox v-model="renameAsIGDB" label="Rename rom" class="ml-3" hide-details/>
+            </v-toolbar>
         </v-card>
     </v-dialog>
 
     <v-dialog v-model="dialogEditRom" scroll-strategy="none" width="auto" :scrim="false" v-if="rom !== undefined">
-        <v-card rounded="0" :class="{'edit-content': mdAndUp, 'edit-content-tablet': sm, 'edit-content-mobile': xs}">
-            <v-toolbar class="bg-primary" density="compact">
-                <v-toolbar-title><span>Editing</span></v-toolbar-title>
-                <v-btn icon @click="dialogEditRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+        <v-card rounded="0" :class="{'edit-content': lgAndUp, 'edit-content-tablet': mdAndDown, 'edit-content-mobile': xs}">
+            <v-toolbar density="compact" class="bg-primary">
+                <v-row class="align-center" no-gutters>
+                    <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+                        <v-icon icon="mdi-pencil-box" class="ml-5"/>
+                    </v-col>
+                    <v-col>
+                        <v-btn @click="dialogEditRom=false" class="bg-primary" rounded="0" variant="text" icon="mdi-close" block/>
+                    </v-col>
+                </v-row>
             </v-toolbar>
-
             <v-divider class="border-opacity-25" :thickness="1"/>
 
-            <v-card-text class="bg-secondary">
-                <v-form @submit.prevent class="ma-4">
-                    <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.file_name" label="File name" variant="outlined" required/>
-                    <v-file-input @keyup.enter="updateRom()" label="Custom cover" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled/>
-                </v-form>
-                <v-row class="justify-center mb-2">
-                    <v-btn type="submit" @click="updateRom()" class="bg-rommGreen">Apply</v-btn>
-                    <v-btn @click="dialogEditRom=false" class="ml-5" variant="tonal">Cancel</v-btn>
+            <v-card-text class="bg-secondary scroll">
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.r_name" label="Name" variant="outlined" required hide-details/>
+                </v-row>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.file_name" label="File name" variant="outlined" required hide-details/>
+                </v-row>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-textarea @keyup.enter="updateRom()" v-model="updatedRom.summary" label="Summary" variant="outlined" required hide-details/>
+                </v-row>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-file-input @keyup.enter="updateRom()" label="Custom cover [Comming soon]" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled hide-details/>
+                </v-row>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-btn @click="updateRom()" class="text-rommGreen">Apply</v-btn>
+                    <v-btn @click="dialogEditRom=false" class="ml-5">Cancel</v-btn>
                 </v-row>
             </v-card-text>
         </v-card>
     </v-dialog>
     
     <v-dialog v-model="dialogDeleteRom" width="auto" v-if="rom !== undefined">
-        <v-card rounded="0" max-width="600">
-            <v-toolbar class="bg-red" density="compact">
-                <v-toolbar-title><span>Deleting {{ rom.file_name }}</span></v-toolbar-title>
-                <v-btn icon @click="dialogDeleteRom=false" class="ml-1" rounded="0"><v-icon>mdi-close</v-icon></v-btn>
+        <v-card rounded="0" :class="{'delete-content': lgAndUp, 'delete-content-tablet': mdAndDown, 'delete-content-mobile': xs}">
+            <v-toolbar density="compact" class="bg-primary">
+                <v-row class="align-center" no-gutters>
+                    <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+                        <v-icon icon="mdi-delete" class="ml-5"/>
+                    </v-col>
+                    <v-col>
+                        <v-btn @click="dialogDeleteRom=false" class="bg-primary" rounded="0" variant="text" icon="mdi-close" block/>
+                    </v-col>
+                </v-row>
             </v-toolbar>
-
             <v-divider class="border-opacity-25" :thickness="1"/>
 
             <v-card-text class="bg-secondary">
-                <v-row class="justify-center ma-2">
-                    <span>Deleting from RomM. Do you confirm?</span>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <span>Deleting {{ rom.file_name }}. Do you confirm?</span>
                 </v-row>
-                <v-row class="justify-center ma-2 mt-5">
-                    <v-btn @click="deleteRom()" class="bg-red">Confirm</v-btn>
-                    <v-btn @click="dialogDeleteRom=false" class="ml-5" variant="tonal">Cancel</v-btn>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-btn @click="deleteRom()" class="text-red">Confirm</v-btn>
+                    <v-btn @click="dialogDeleteRom=false" class="ml-5">Cancel</v-btn>
                 </v-row>
             </v-card-text>
 
             <v-divider class="border-opacity-25" :thickness="1"/>
-            
-            <v-card-actions class="justify-center">
-                <v-checkbox v-model="deleteFromFs" label="Remove from filesystem" class="ml-3" hide-details="true"/>
-            </v-card-actions>
+            <v-toolbar class="bg-primary" density="compact">
+                <v-checkbox v-model="deleteFromFs" label="Remove from filesystem" class="ml-3" hide-details/>
+            </v-toolbar>
         </v-card>
     </v-dialog>
 
@@ -322,69 +348,24 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.scroll {
-    overflow-y: scroll
-}
-.content, .content-tablet{
-    margin-top: 64px;
-    margin-left: 100px;
-    margin-right: 100px;
-}
-.content, .content-tablet, .content-mobile {
-    position: relative;
-}
-.cover, .cover-tablet, .cover-mobile {
-    min-width: 245px;
-    min-height: 326px;
-    max-width: 245px;
-    max-height: 326px;
-}
-.info, .info-tablet, .info-mobile {
-    padding-left: 25px;
-    padding-right: 25px;
-}
-.rom-name, .rom-platform {
-    text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
-}
-.info-content{
-    margin-top: 110px;
-    max-width: 700px;
-}
-.info-content-tablet {
-    margin-top: 70px;
-    max-width: 700px;
-}
-.info-content-mobile{
-    margin-top: 40px;
-}
-.loader-searching {
-    margin-top: 200px;
-}
-.no-results-searching {
-    margin-top: 150px;
-}
-.search-content{
-    width: 700px;
-    height: 540px;
-}
-.search-content-tablet{
-    width: 500px;
-    height: 540px;
-}
-.search-content-mobile{
-    width: 310px;
-    height: 540px;
-}
-.edit-content{
-    width: 700px;
-    /* height: 540px; */
-}
-.edit-content-tablet{
-    width: 500px;
-    /* height: 540px; */
-}
-.edit-content-mobile{
-    width: 310px;
-    /* height: 540px; */
-}
+.scroll { overflow-y: scroll }
+.rom-name, .rom-platform { text-shadow: 1px 1px 3px #000000, 0 0 3px #000000; }
+.content, .content-tablet, .content-mobile { position: relative; }
+.content, .content-tablet { margin-top: 64px; margin-left: 100px; margin-right: 100px; }
+.content-mobile{ margin-top: 64px; margin-left: 20px; margin-right: 20px; }
+.cover, .cover-tablet, .cover-mobile { min-width: 245px; min-height: 326px; max-width: 245px; max-height: 326px; }
+.details, .details-tablet, .details-mobile { padding-left: 25px; padding-right: 25px; }
+.details-content{ margin-top: 126px; max-width: 700px; }
+.details-content-tablet { margin-top: 70px; }
+.details-content-mobile{ margin-top: 40px; }
+.loader-searching, .no-results-searching { margin-top: 200px; }
+.search-content{ width: 900px; height: 640px;}
+.search-content-tablet{ width: 570px; height: 640px; }
+.search-content-mobile{ width: 85vw; height: 640px; }
+.edit-content{ width: 900px; }
+.edit-content-tablet{ width: 570px; }
+.edit-content-mobile{ width: 85vw; }
+.delete-content{ width: 900px; }
+.delete-content-tablet{ width: 570px; }
+.delete-content-mobile{ width: 85vw; }
 </style>

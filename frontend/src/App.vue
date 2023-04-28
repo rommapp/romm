@@ -1,31 +1,33 @@
 <script setup>
 import { ref, inject, onMounted } from "vue"
-import { useTheme } from "vuetify"
-import MainDrawer from '@/components/MainDrawer/Base.vue'
-import Notification from '@/components/Notification.vue'
-import { getPlatforms } from '@/services/api.js'
+import { useTheme, useDisplay } from "vuetify"
+import { fetchPlatforms } from '@/services/api.js'
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
+import Drawer from '@/components/Drawer/Base.vue'
+import AppBar from '@/components/AppBar/Base.vue'
+import Notification from '@/components/Notification.vue'
 
 // Props
-const scanning = storeScanning()
 const platforms = storePlatforms()
-useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
+const scanning = storeScanning()
 const refresh = ref(false)
+const { mdAndDown } = useDisplay()
+useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('refresh', () => {
-  getPlatforms()
-    .then((res) => { platforms.add(res.data.data) })
+  fetchPlatforms()
+    .then((res) => { platforms.set(res.data.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
   refresh.value = !refresh.value
 })
 
-
+// Startup
 onMounted(() => {
-  getPlatforms()
-    .then((res) => { platforms.add(res.data.data) })
+  fetchPlatforms()
+    .then((res) => { platforms.set(res.data.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
 })
 </script>
@@ -33,42 +35,26 @@ onMounted(() => {
 <template>
   <v-app>
 
-    <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
+    <notification class="mt-6"/>
 
-    <main-drawer :key="refresh"/>
+    <v-progress-linear class="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
+
+    <drawer :key="refresh"/>
 
     <v-main>
-      <v-container fluid>
+      <v-container class="pa-0" fluid>
+        <app-bar v-if="mdAndDown"/>
         <router-view :key="refresh"/>
       </v-container>
     </v-main>
 
-    <notification class="mt-6"/>
 
   </v-app>
 </template>
 
 <style>
-/* ===== Scrollbar CSS ===== */
-/* Firefox */
-* {
-  scrollbar-width: none;
-  /* scrollbar-width: thin; */
-  scrollbar-color: #6e6e6e rgba(0, 0, 0, 0);;
-}
-
-/* Chrome, Edge, and Safari */
-*::-webkit-scrollbar {
-  width: 0px;
-  /* width: 3px; */
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0);
-}
-
-*::-webkit-scrollbar-thumb {
-  background-color: #808080;
-  border-radius: 5px;
+@import '@/styles/scrollbar.css';
+.scan-progress-bar {
+  z-index: 1000 !important;
 }
 </style>
