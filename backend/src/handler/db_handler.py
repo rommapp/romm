@@ -64,6 +64,9 @@ class DBHandler:
                     .filter(or_(Platform.fs_slug.not_in(platforms), 
                                 Platform.fs_slug.is_(None))) \
                     .delete(synchronize_session='evaluate')
+                s.query(Rom) \
+                    .filter(Rom.p_slug.not_in(platforms)) \
+                    .delete(synchronize_session='evaluate')
         except ProgrammingError as e:
             self.raise_error(e)
 
