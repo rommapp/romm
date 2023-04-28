@@ -37,7 +37,7 @@ onMounted(() => {
 
     <notification class="mt-6"/>
 
-    <v-progress-linear color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
+    <v-progress-linear class="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
     <drawer :key="refresh"/>
 
@@ -54,4 +54,7 @@ onMounted(() => {
 
 <style>
 @import '@/styles/scrollbar.css';
+.scan-progress-bar {
+  z-index: 1000 !important;
+}
 </style>

@@ -47,7 +47,7 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
 
 <template>
 
-    <v-app-bar elevation="0" density="compact">
+    <v-app-bar class="gallery-app-bar" elevation="0" density="compact">
         <filter-bar/>
         <gallery-view-btn/>
     </v-app-bar>
@@ -85,3 +85,8 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
     </v-row>
 
 </template>
+<style scoped>
+.gallery-app-bar {
+    z-index: 999 !important;
+}
+</style>
