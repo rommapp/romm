@@ -126,10 +126,8 @@ class DBHandler:
 
     # ==== Utils ======
     def rom_exists(self, file_name: str, platform: str) -> int:
-        db_roms: list = self.get_roms(platform)
-        rom_id: int = 0
-        for db_rom in db_roms:
-            if db_rom.file_name == file_name:
-                rom_id = db_rom.id
-                break
-        return rom_id
+        try:
+            with self.session.begin() as s:
+                return s.scalars(select(Rom).filter(p_slug=platform, file_name=file_name)).first().id
+        except ProgrammingError as e:
+            self.raise_error(e)
