@@ -16,7 +16,7 @@ const emitter = inject('emitter')
 // Functions
 async function scan() {
     scanning.set(true)
-    await axios.get('/api/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value).then((response) => {
+    await axios.get('/api/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value, { timeout: 3600000 }).then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refresh')
     }).catch((error) => {
