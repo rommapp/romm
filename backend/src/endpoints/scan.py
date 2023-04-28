@@ -50,6 +50,6 @@ def scan(platforms: str, complete_rescan: bool=False) -> dict:
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             if rom_id: scanned_rom.id = rom_id
             dbh.add_rom(scanned_rom)
-        dbh.purge_roms(scanned_platform.fs_slug, [rom['file_name'] for rom in fs_roms])
+        dbh.purge_roms(scanned_platform.slug, [rom['file_name'] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
     return {'msg': 'Scan completed successfully!'}
