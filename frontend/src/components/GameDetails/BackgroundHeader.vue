@@ -9,14 +9,6 @@ const props = defineProps(['rom'])
 </template>
 
 <style scoped>
-.header-background {
-    top: 0px;
-    left: 0px;
-    width: 100%;
-    max-height: 330px;
-}
-.header-background-img {
-    -webkit-filter: blur(15px);
-    filter: blur(15px);
-}
+.header-background { top: 0px; left: 0px; width: 100%; max-height: 330px; }
+.header-background-img { -webkit-filter: blur(15px); filter: blur(15px); }
 </style>

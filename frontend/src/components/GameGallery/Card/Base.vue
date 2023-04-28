@@ -26,5 +26,4 @@ const downloading = storeDownloading()
 <style scoped>
 .v-card.on-hover { opacity: 1; }
 .v-card:not(.on-hover) { opacity: 0.85; }
-.cover{ cursor: pointer; }
 </style>

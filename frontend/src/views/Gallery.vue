@@ -85,10 +85,3 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
     </v-row>
 
 </template>
-
-<style scoped>
-.rom{ transition: opacity .4s ease-in-out; }
-.rom.on-hover { opacity: 1; }
-.rom:not(.on-hover) { opacity: 0.85; }
-.rom{ cursor: pointer; }
-</style>
