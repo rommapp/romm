@@ -48,13 +48,7 @@ const forceImgReload = Date.now()
 </template>
 
 <style scoped>
-.v-card .rom-title{
-    transition: opacity .4s ease-in-out;
-}
-.rom-title.on-hover {
-    opacity: 1;
-}
-.rom-title:not(.on-hover) {
-    opacity: 0.85;
-}
+
+.rom-title.on-hover { opacity: 1; }
+.rom-title:not(.on-hover) { opacity: 0.85; }
 </style>
