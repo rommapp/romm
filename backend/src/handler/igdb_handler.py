@@ -45,8 +45,11 @@ class IGDBHandler():
 
 
     def _search_cover(self, rom_id: str) -> str:
-        res: dict = requests.post(self.covers_url, headers=self.headers,
-                                  data=f"fields url; where game={rom_id};").json()[0]
+        try:
+            res: dict = requests.post(self.covers_url, headers=self.headers,
+                                    data=f"fields url; where game={rom_id};").json()[0]
+        except IndexError:
+            return ""
         return f"https:{res['url']}" if 'url' in res.keys() else ""
     
 
