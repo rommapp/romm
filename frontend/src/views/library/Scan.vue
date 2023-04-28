@@ -14,16 +14,17 @@ const completeRescan = ref(false)
 const emitter = inject('emitter')
 
 // Functions
-async function scan() {
+function scan() {
     scanning.set(true)
-    await axios.get('/api/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value, { timeout: 3600000 }).then((response) => {
+    axios.get('/api/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value).then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refresh')
+        scanning.set(false)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
+        scanning.set(false)
     })
-    scanning.set(false)
 }
 </script>
 
