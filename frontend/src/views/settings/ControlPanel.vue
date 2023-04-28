@@ -35,13 +35,8 @@ function toggleTheme() {
         </v-window-item>
     </v-window>
 
-    <v-bottom-navigation density="compact" :elevation="0" class="text-caption">
-        <v-row no-gutters class="justify-center align-center">
-            <span class="text-rommAccent1 ml-2">RomM</span><span class="ml-1">v{{ ROMM_VERSION }}</span>
-        </v-row>
+    <v-bottom-navigation :elevation="0" height="36" class="text-caption align-center">
+        <span class="text-rommAccent1 ml-2">RomM</span><span class="ml-1">v{{ ROMM_VERSION }}</span>
     </v-bottom-navigation>
 
 </template>
-
-<style scoped>
-</style>
