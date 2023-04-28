@@ -2,7 +2,7 @@
 
 ## Added
  - Now it is possible to search a rom match by Name and by ID. Solves [#208](https://github.com/zurdi15/romm/issues/208)
- - Now screenshots are displayed in screenshots tab (Complete scan needed in order to fetch screenshots from IGDB). Solves [#57](https://github.com/zurdi15/romm/issues/57)
+ - Now screenshots are displayed in screenshots tab (Complete scan needed in order to fetch screenshots from IGDB). Partially solves [#57](https://github.com/zurdi15/romm/issues/57)
  - Now more rom properties can be manually edited. Solves [#140](https://github.com/zurdi15/romm/issues/140)
 
 <br>
