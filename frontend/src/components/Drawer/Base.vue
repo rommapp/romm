@@ -1,25 +1,25 @@
 <script setup>
 import { ref, inject } from "vue"
-import RailBtn from '@/components/MainDrawer/RailBtn.vue'
-import Platform from '@/components/MainDrawer/Platform.vue'
+import RailBtn from '@/components/Drawer/RailBtn.vue'
+import Platform from '@/components/Drawer/Platform.vue'
 import { storePlatforms } from '@/stores/platforms'
 
 
 // Props
 const platforms = storePlatforms()
-const mainDrawer = ref(undefined)
+const drawer = ref(undefined)
 const open = ref(['Platforms', 'Library', 'Settings'])
 const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('toggleMainDrawer', () => { mainDrawer.value = !mainDrawer.value })
-emitter.on('toggleMainDrawerRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value)})
+emitter.on('toggleDrawer', () => { drawer.value = !drawer.value })
+emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value)})
 </script>
 
 <template>
 
-    <v-navigation-drawer v-model="mainDrawer" :rail="rail" width="300" rail-width="145" elevation="0">
+    <v-navigation-drawer v-model="drawer" :rail="rail" width="300" rail-width="145" elevation="0">
 
         <v-list v-model:opened="open">
             <router-link to="/">

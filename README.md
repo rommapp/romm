@@ -111,7 +111,7 @@ RomM will try to find the structure 1 and if it doesn't exists, RomM will try to
 
 ## ⚙️ Config.yml file
 
-RomM can be configured through a yml file. This is used to exclude platforms and/or roms to be scanned.
+RomM can be configured through a yml file.
 
 For a configuration change to take effect, RomM must be restarted.
 

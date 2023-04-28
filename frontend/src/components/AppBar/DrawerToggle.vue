@@ -8,7 +8,7 @@ const emitter = inject('emitter')
 
 <template>
     <v-btn
-        @click="emitter.emit('toggleMainDrawer')"
+        @click="emitter.emit('toggleDrawer')"
         rounded="0"
         icon>
         <v-avatar rounded="0">

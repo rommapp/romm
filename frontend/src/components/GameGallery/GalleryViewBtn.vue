@@ -7,10 +7,11 @@ const galleryView = storeGalleryView()
 </script>
 
 <template>
-    <v-app-bar-nav-icon
+    <v-btn
         @click="galleryView.next()"
         rounded="0"
-        variant="plain">
-        <v-icon :icon="views[galleryView.value]['icon']"/>
-    </v-app-bar-nav-icon>
+        variant="text"
+        class="mr-0"
+        :icon="views[galleryView.value]['icon']">
+    </v-btn>
 </template>

@@ -2,29 +2,24 @@
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
-import { useDisplay } from "vuetify"
 import { views } from '@/utils/utils.js'
 import { storeFilter } from '@/stores/filter.js'
 import { storeGalleryView } from '@/stores/galleryView.js'
-import { storeContextBar } from '@/stores/contextBar.js'
 import { normalizeString } from '@/utils/utils.js'
-import AppBar from '@/components/AppBar/Base.vue'
-import GalleryViewBtn from '@/components/AppBar/Gallery/GalleryViewBtn.vue'
-import FilterBar from '@/components/AppBar/Gallery/FilterBar.vue'
+import FilterBar from '@/components/GameGallery/FilterBar.vue'
+import GalleryViewBtn from '@/components/GameGallery/GalleryViewBtn.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
 
-const route = useRoute()
 
 // Props
-const gettingRoms = ref(false)
 const roms = ref([])
+const gettingRoms = ref(false)
 const filter = storeFilter()
 const romsFiltered = ref([])
 const galleryView = storeGalleryView()
-const contextBar = storeContextBar()
-const { mdAndDown, lgAndUp } = useDisplay()
+const route = useRoute()
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -37,7 +32,7 @@ function filterRoms() {
     })
 }
 
-async function getRoms(platform) {
+async function fetchRoms(platform) {
     gettingRoms.value = true
     await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
         roms.value = response.data.data
@@ -46,36 +41,30 @@ async function getRoms(platform) {
     gettingRoms.value = false
 }
 
-onMounted(async () => { getRoms(route.params.platform)})
-onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
+onMounted(async () => { fetchRoms(route.params.platform)})
+onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
 </script>
 
 <template>
 
-    <app-bar v-if="mdAndDown"/>
+    <v-app-bar class="gallery-app-bar" elevation="0" density="compact">
+        <filter-bar/>
+        <gallery-view-btn/>
+    </v-app-bar>
 
-    <v-expand-transition>
-        <v-row v-if="contextBar.value || lgAndUp" class="d-flex transition-fast-in-fast-out justify-center align-center">
-            <filter-bar class="pa-1"/>
-            <gallery-view-btn class="bg-secondary mr-1"/>
-        </v-row>
-    </v-expand-transition>
-
-
-    <v-row v-if="galleryView.value != 2 && roms.length>0">
-        <v-col v-for="rom in romsFiltered"
+    <v-row v-if="!gettingRoms && galleryView.value != 2 && roms.length>0" class="pa-1" no-gutters >
+        <v-col v-for="rom in romsFiltered" class="pa-1"
             :key="rom.file_name"
             :cols="views[galleryView.value]['size-cols']"
             :xs="views[galleryView.value]['size-xs']"
             :sm="views[galleryView.value]['size-sm']"
             :md="views[galleryView.value]['size-md']"
-            :lg="views[galleryView.value]['size-lg']"
-            class="pa-1">
+            :lg="views[galleryView.value]['size-lg']">
             <game-card :rom="rom"/>
         </v-col>
     </v-row>
 
-    <v-row v-if="galleryView.value == 2 && roms.length>0" class="justify-center">
+    <v-row v-if="!gettingRoms && galleryView.value == 2 && roms.length>0" no-gutters >
         <v-col class="pa-0">
             <v-table class="bg-secondary">
                 <game-list-header />
@@ -87,27 +76,17 @@ onBeforeRouteUpdate(async (to, _) => { getRoms(to.params.platform) })
         </v-col>
     </v-row>
     
-    <v-row v-if="roms.length==0" class="d-flex justify-center align-center">
-        <div class="text-h6 mt-16">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
+    <v-row v-if="!gettingRoms && roms.length==0" no-gutters>
+        <div class="text-h6 mt-16 mx-auto">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
     </v-row>
 
-    <v-dialog v-model="gettingRoms" scroll-strategy="none" width="auto" :scrim="false" persistent>
-        <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate/>
-    </v-dialog>
+    <v-row v-if="gettingRoms" no-gutters>
+        <v-progress-circular class="mt-16 mx-auto" color="rommAccent1" :width="3" :size="70" indeterminate/>
+    </v-row>
 
 </template>
-
 <style scoped>
-.rom{
-    transition: opacity .4s ease-in-out;
-}
-.rom.on-hover {
-    opacity: 1;
-}
-.rom:not(.on-hover) {
-    opacity: 0.85;
-}
-.rom{
-    cursor: pointer;
+.gallery-app-bar {
+    z-index: 999 !important;
 }
 </style>

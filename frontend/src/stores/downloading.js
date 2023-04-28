@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-export const storeDownloader = defineStore('downloader', {
+export const storeDownloading = defineStore('downloading', {
   state: () => ({ value: [] }),
 
   actions: {
