@@ -1,8 +1,11 @@
 # v1.8.1 (_27-04-2023_)
 
 ## Added
- - Now it is possible to search a rom match by Name and by ID.
- - Now screenshots are displayed in screenshots tab (Complete scan needed in order to fetch screenshots from IGDB).
+ - Now it is possible to search a rom match by Name and by ID. Solves [#208](https://github.com/zurdi15/romm/issues/208)
+ - Now screenshots are displayed in screenshots tab (Complete scan needed in order to fetch screenshots from IGDB). Solves [#57](https://github.com/zurdi15/romm/issues/57)
+ - Now more rom properties can be manually edited. Solves [#140](https://github.com/zurdi15/romm/issues/140)
+## Fixed
+ - Fixed a bug that caused to always scan twice.
 
 <br>
 
