@@ -6,8 +6,6 @@ import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/services/download.js'
 import { storeDownloading } from '@/stores/downloading.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
-import EditDialog from '@/components/GameDetails/EditDialog.vue'
-import DeleteDialog from '@/components/GameDetails/DeleteDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -291,9 +289,15 @@ onMounted(() => {
             </v-toolbar>
             <v-divider class="border-opacity-25" :thickness="1"/>
 
-            <v-card-text class="bg-secondary">
+            <v-card-text class="bg-secondary scroll">
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.r_name" label="Name" variant="outlined" required hide-details/>
+                </v-row>
                 <v-row class="justify-center pa-2" no-gutters>
                     <v-text-field @keyup.enter="updateRom()" v-model="updatedRom.file_name" label="File name" variant="outlined" required hide-details/>
+                </v-row>
+                <v-row class="justify-center pa-2" no-gutters>
+                    <v-textarea @keyup.enter="updateRom()" v-model="updatedRom.summary" label="Summary" variant="outlined" required hide-details/>
                 </v-row>
                 <v-row class="justify-center pa-2" no-gutters>
                     <v-file-input @keyup.enter="updateRom()" label="Custom cover [Comming soon]" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled hide-details/>
