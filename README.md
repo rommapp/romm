@@ -16,9 +16,7 @@
 
 RomM (stands for Rom Manager) is a game library manager focused in retro gaming. Manage and organize all of your games from a web browser.
 
-Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [Gameyfin](https://github.com/grimsi/gameyfin) project is not supported for arm64 architectures and it is a general game library manager, I decided to develop my own game library solution.
-
-Available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm64)
+Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your games from a modern interface while enriching them with IGDB metadata.
 
 ## ⚡ Features
 
