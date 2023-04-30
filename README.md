@@ -3,6 +3,7 @@
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
   <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?style=flat-square&branch=master">
+<br>
   <a href="https://hub.docker.com/r/zurdi15/romm">
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
   <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm?style=flat-square">
