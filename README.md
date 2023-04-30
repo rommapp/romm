@@ -3,6 +3,7 @@
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
   <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?style=flat-square&branch=master">
+<br>
   <a href="https://hub.docker.com/r/zurdi15/romm">
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
   <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm?style=flat-square">
@@ -16,9 +17,7 @@
 
 RomM (stands for Rom Manager) is a game library manager focused in retro gaming. Manage and organize all of your games from a web browser.
 
-Inspired by [Jellyfin](https://jellyfin.org/) and after found that the awesome [Gameyfin](https://github.com/grimsi/gameyfin) project is not supported for arm64 architectures and it is a general game library manager, I decided to develop my own game library solution.
-
-Available as a docker [image](https://hub.docker.com/r/zurdi15/romm) (amd64/arm64)
+Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your games from a modern interface while enriching them with IGDB metadata.
 
 ## ⚡ Features
 
