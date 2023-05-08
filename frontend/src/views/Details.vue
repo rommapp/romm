@@ -245,14 +245,14 @@ onMounted(() => {
                 </v-row>
             </v-toolbar>
 
-            <v-card-text class="pl-2 pt-1 pr-2 scroll bg-secondary">
-                <v-row class="justify-center loader-searching" v-show="searching">
+            <v-card-text class="pa-1 scroll bg-secondary">
+                <v-row class="justify-center loader-searching" v-show="searching" no-gutters>
                     <v-progress-circular :width="2" :size="40" color="rommAccent1" indeterminate/>
                 </v-row>
-                <v-row class="justify-center no-results-searching" v-show="!searching && matchedRoms.length==0">
+                <v-row class="justify-center no-results-searching" v-show="!searching && matchedRoms.length==0" no-gutters>
                     <span>No results found</span>
                 </v-row>
-                <v-row class="pl-2 pr-2 pb-1 mt-0">
+                <v-row no-gutters>
                     <v-col class="pa-1" cols="4" xs="4" sm="3" md="3" lg="2" v-show="!searching" v-for="rom in matchedRoms" :key="rom.file_name">
                         <v-hover v-slot="{isHovering, props}">
                             <v-card @click="updateRom(updatedData=rom)" v-bind="props" :class="{'on-hover': isHovering}" :elevation="isHovering ? 20 : 3">
