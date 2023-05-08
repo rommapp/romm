@@ -24,7 +24,7 @@ class Rom(BaseModel):
     file_size_units = Column(String(length=10), default="")
     
     r_name = Column(String(length=350), default="")
-    r_slug = Column(String(length=100), default="")
+    r_slug = Column(String(length=400), default="")
 
     summary = Column(Text, default="")
 
