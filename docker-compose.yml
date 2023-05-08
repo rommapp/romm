@@ -1,15 +1,15 @@
 version: '3'
 services:
-  romm_db:
+  mariadb:
     image: lscr.io/linuxserver/mariadb:latest
-    container_name: romm_db
+    container_name: mariadb
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWD}
       - MYSQL_DATABASE=${DB_NAME}
       - MYSQL_USER=${DB_USER}
       - MYSQL_PASSWORD=${DB_PASSWD}
     volumes:
-      - ${DB_CONFIG_PATH}:/config
+      - ./config:/config
     ports:
       - ${DB_PORT}:3306
     restart: "no"

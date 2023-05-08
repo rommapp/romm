@@ -18,11 +18,11 @@ DEFAULT_URL_COVER_S: str = "https://images.igdb.com/igdb/image/upload/t_cover_sm
 DEFAULT_PATH_COVER_S: str = f"{RESOURCES_BASE_PATH}/default/default/cover/small.png"
 
 # IGDB
-CLIENT_ID: str = os.getenv('CLIENT_ID')
-CLIENT_SECRET: str = os.getenv('CLIENT_SECRET')
+CLIENT_ID: str = os.environ.get('CLIENT_ID')
+CLIENT_SECRET: str = os.environ.get('CLIENT_SECRET')
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: str = os.getenv('STEAMGRIDDB_API_KEY')
+STEAMGRIDDB_API_KEY: str = os.environ.get('STEAMGRIDDB_API_KEY')
 
 # DB DRIVERS
 SUPPORTED_DB_DRIVERS: list = ['sqlite', 'mariadb']
-ROMM_DB_DRIVER: str = os.getenv('ROMM_DB_DRIVER', 'sqlite')
+ROMM_DB_DRIVER: str = os.environ.get('ROMM_DB_DRIVER', 'sqlite')

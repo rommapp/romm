@@ -27,17 +27,15 @@ coverage
 *.sln
 *.sw?
 
-# venvs
-venv
-
 # pycache
 __pycache__
 
 # secrets
-envs.env
+.env
 
 # database
 mariadb
 
-# config test
-romm
+# config
+./config
+config.yml
