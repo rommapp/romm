@@ -9,7 +9,6 @@ from logger.logger import log
 
 
 class ConfigLoader:
-
     def __init__(self):
         try:
             with open(ROMM_USER_CONFIG_PATH) as config_file: self.config: dict = yaml.load(config_file, Loader=SafeLoader)
@@ -17,24 +16,21 @@ class ConfigLoader:
             self.config: dict = {}
         self._parse_config()
 
-
     @staticmethod
     def get_db_engine():
         if ROMM_DB_DRIVER in SUPPORTED_DB_DRIVERS:
-
             if ROMM_DB_DRIVER == 'mariadb':
-                DB_HOST: str = os.getenv('DB_HOST')
+                DB_HOST: str = os.environ.get('DB_HOST')
                 try:
-                    DB_PORT: int = int(os.getenv('DB_PORT'))
+                    DB_PORT: int = int(os.environ.get('DB_PORT'))
                 except TypeError:
-                    log.critical(f"DB_PORT variable not set properly")
+                    log.critical("DB_PORT variable not set properly")
                     sys.exit(3)
-                DB_USER: str = os.getenv('DB_USER')
-                DB_PASSWD: str = os.getenv('DB_PASSWD')
-                DB_NAME: str = os.getenv('DB_NAME', 'romm')
+                DB_USER: str = os.environ.get('DB_USER')
+                DB_PASSWD: str = os.environ.get('DB_PASSWD')
+                DB_NAME: str = os.environ.get('DB_NAME', 'romm')
             
                 return f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}" % quote_plus(DB_PASSWD)
-
             elif ROMM_DB_DRIVER == 'sqlite':
                 if not os.path.exists(SQLITE_DB_BASE_PATH): os.makedirs(SQLITE_DB_BASE_PATH)
                 return f"sqlite:////{SQLITE_DB_BASE_PATH}/romm.db"
