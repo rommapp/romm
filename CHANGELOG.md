@@ -8,8 +8,8 @@
  - Nintendo Virtual Boy support added. Solves [#222](https://github.com/zurdi15/romm/issues/222)
 
 ## Fixed
- - Potentially malformed urls for covers and screenshots from IGDB. Solves [#216](https://github.com/zurdi15/romm/issues/216)
- - Scan could fail with some games with large names. Solves [#229](https://github.com/zurdi15/romm/issues/229)
+ - Fixed potentially malformed urls for covers and screenshots from IGDB. Solves [#216](https://github.com/zurdi15/romm/issues/216)
+ - Fixed potentially scan fail with some games with large names. Solves [#229](https://github.com/zurdi15/romm/issues/229)
 
 <br>
 
