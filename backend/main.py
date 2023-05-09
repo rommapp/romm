@@ -1,10 +1,8 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import find_dotenv, load_dotenv
 
-load_dotenv(find_dotenv())
-
+from config import DEV_PORT, DEV_HOST
 from endpoints import scan, search, platform, rom
 
 app = FastAPI()
@@ -26,6 +24,4 @@ def startup() -> None:
     pass
 
 if __name__ == '__main__':
-    from config import DEV_PORT, DEV_HOST
-
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)

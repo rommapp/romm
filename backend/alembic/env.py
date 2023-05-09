@@ -2,14 +2,11 @@ import sys
 from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import create_engine
-from dotenv import find_dotenv, load_dotenv
-
-load_dotenv(find_dotenv())
 
 from config.config_loader import ConfigLoader
-cl = ConfigLoader()
-
 from alembic import context
+
+cl = ConfigLoader()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
