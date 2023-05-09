@@ -1,3 +1,18 @@
+# v1.8.2 (_09-05-2023_)
+
+## Added
+ - Atari 2600 support added. Solves [#224](https://github.com/zurdi15/romm/issues/224)
+ - Atari 7800 support added. Solves [#226](https://github.com/zurdi15/romm/issues/226)
+ - Atari 5200 support added. Solves [#225](https://github.com/zurdi15/romm/issues/225)
+ - Sega 32X support added. Solves [#223](https://github.com/zurdi15/romm/issues/223)
+ - Nintendo Virtual Boy support added. Solves [#222](https://github.com/zurdi15/romm/issues/222)
+
+## Fixed
+ - Fixed potentially malformed urls for covers and screenshots from IGDB. Solves [#216](https://github.com/zurdi15/romm/issues/216)
+ - Fixed potentially scan fail with some games with large names. Solves [#229](https://github.com/zurdi15/romm/issues/229)
+
+<br>
+
 # v1.8.1 (_27-04-2023_)
 
 ## Added

@@ -44,19 +44,25 @@ class IGDBHandler():
                 return {}
 
 
+    @staticmethod
+    def _normalize_cover_url(url: str) -> str:
+        url = f"https:{url.replace('https:', '')}"
+        return url
+
+
     def _search_cover(self, rom_id: str) -> str:
         try:
             res: dict = requests.post(self.covers_url, headers=self.headers,
                                     data=f"fields url; where game={rom_id};").json()[0]
         except IndexError:
             return ""
-        return f"https:{res['url']}" if 'url' in res.keys() else ""
+        return self._normalize_cover_url(res['url']) if 'url' in res.keys() else ""
     
 
     def _search_screenshots(self, rom_id: str) -> list:
         res: dict = requests.post(self.screenshots_url, headers=self.headers,
                                   data=f"fields url; where game={rom_id}; limit 5;").json()
-        return [f"https:{r['url']}".replace('t_thumb', 't_original') for r in res if 'url' in r.keys()]
+        return [self._normalize_cover_url(r['url']).replace('t_thumb', 't_original') for r in res if 'url' in r.keys()]
 
     
     @check_twitch_token
