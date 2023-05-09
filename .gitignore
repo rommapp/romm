@@ -36,5 +36,5 @@ __pycache__
 # database
 mariadb
 
-# config
-config.yml
+# virtualenv
+.venv

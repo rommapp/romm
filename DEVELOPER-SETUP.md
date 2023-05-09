@@ -1,6 +1,6 @@
 ## Setting up the backend
 
-### Copy envs.template to envs.env and fill the variables
+### Copy env.template to .env and fill the variables
 
 ```sh
 cp env.template .env
