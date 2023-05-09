@@ -7,11 +7,11 @@ services:
     container_name: romm
     environment:
       - ROMM_DB_DRIVER=mariadb # This variable can be set as: mariadb | sqlite. If it is not defined, sqlite will be the database by default
-      - DB_HOST=romm_db # Only if ROMM_DB_DRIVER='mariadb'
-      - DB_PORT=3306 # Only if ROMM_DB_DRIVER='mariadb'
-      - DB_USER=romm-user # Only if ROMM_DB_DRIVER='mariadb'
-      - DB_NAME=romm # Only if ROMM_DB_DRIVER='mariadb'. Can be optionally changed, and should match the MYSQL_DATABASE value in the mariadb container.
-      - DB_PASSWD=change-me # Only if ROMM_DB_DRIVER='mariadb'
+      - DB_HOST=mariadb # Only needed if ROMM_DB_DRIVER=mariadb
+      - DB_PORT=3306 # Only needed if ROMM_DB_DRIVER=mariadb
+      - DB_USER=romm-user # Only needed if ROMM_DB_DRIVER=mariadb
+      - DB_NAME=romm # Only needed if ROMM_DB_DRIVER=mariadb. Can be optionally changed, and should match the MYSQL_DATABASE value in the mariadb container.
+      - DB_PASSWD=<database password> # Only needed if ROMM_DB_DRIVER=mariadb
       - CLIENT_ID=<IGDB client id>
       - CLIENT_SECRET=<IGDB client secret>
       - STEAMGRIDDB_API_KEY=<SteamGridDB api key>
@@ -19,17 +19,17 @@ services:
       - '/path/to/library:/romm/library'
       - '/path/to/resources:/romm/resources'
       - '/path/to/config.yml:/romm/config.yml'
-      - '/path/to/database:/romm/database' # Only if ROMM_DB_DRIVER='sqlite' or ROMM_DB_DRIVER not exists 
+      - '/path/to/database:/romm/database' # Only needed if ROMM_DB_DRIVER=sqlite or ROMM_DB_DRIVER not exists 
     ports:
       - 80:80
     depends_on:
       - romm_db
     restart: "unless-stopped"
 
-  # Only if ROMM_DB_DRIVER='mariadb'
-  romm_db:
+  # Only needed if ROMM_DB_DRIVER=mariadb
+  mariadb:
     image: mariadb:latest
-    container_name: romm_db
+    container_name: mariadb
     environment:
       - MYSQL_ROOT_PASSWORD=RootPasswordChangeMe
       - MYSQL_DATABASE=romm

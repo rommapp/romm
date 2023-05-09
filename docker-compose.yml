@@ -1,7 +1,7 @@
-version: 3
+version: '3'
 services:
   mariadb:
-    image: lscr.io/linuxserver/mariadb:latest
+    image: mariadb:latest
     container_name: mariadb
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWD}
