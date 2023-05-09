@@ -136,6 +136,9 @@ This will change over the time, adding games metadata for more platforms. Make s
 | amiga                   | Amiga                               | ✅             |
 | arcade                  | Arcade                              | ✅             |
 | atari                   | atari                               | ❌             |
+| atari2600               | Atari 2600                          | ✅             |
+| atari5200               | Atari 5200                          | ✅             |
+| atari7800               | Atari 7800                          | ✅             |
 | coleco                  | coleco                              | ❌             |
 | c64                     | Commodore C64/128/MAX               | ✅             |
 | cpc                     | cpc                                 | ❌             |
@@ -181,6 +184,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 | psp                     | PlayStation Portable                | ✅             |
 | psvita                  | PlayStation Vita                    | ✅             |
 | saturn                  | Sega Saturn                         | ✅             |
+| sega32                  | Sega 32X                            | ✅             |
 | scummvm                 | scummvm                             | ❌             |
 | segacd                  | Sega CD                             | ✅             |
 | segasgone               | segasgone                           | ❌             |
@@ -190,6 +194,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 | snes                    | Super Nintendo Entertainment System | ✅             |
 | supervision             | supervision                         | ❌             |
 | switch                  | Nintendo Switch                     | ✅             |
+| virtualboy              | Virtual Boy                         | ✅             |
 | wii                     | Wii                                 | ✅             |
 | win                     | PC (Microsoft Windows)              | ✅             |
 | wiiu                    | Wii U                               | ✅             |
