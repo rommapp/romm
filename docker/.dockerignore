@@ -9,3 +9,6 @@ __pycache__/
 
 **/assets/library
 ../frontend/assets/library/
+
+**/.env
+.env

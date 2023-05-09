@@ -28,10 +28,11 @@ RUN apt update && \
     apt autoremove && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 WORKDIR /back
-COPY ./backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache --upgrade pip && \
-    pip install --no-cache --upgrade -r requirements.txt
-COPY ./backend/src .
+    pip install --no-cache poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-dev --no-interaction --no-ansi
+COPY ./backend .
 
 # setup init script and config files
 COPY ./docker/init_scripts/* /
