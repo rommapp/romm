@@ -1,7 +1,7 @@
 import os
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 
-load_dotenv(find_dotenv())
+load_dotenv()
 
 # Uvicorn
 DEV_PORT: int = 5000

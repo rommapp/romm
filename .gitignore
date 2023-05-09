@@ -36,5 +36,8 @@ __pycache__
 # database
 mariadb
 
+# used to mock the library/config/mounts/etc while testing
+romm
+
 # virtualenv
 .venv
