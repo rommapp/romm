@@ -1,0 +1,37 @@
+230509 03:06:55 mysqld_safe Starting mariadbd daemon with databases from /config/databases
+2023-05-09  3:06:55 0 [Warning] Setting lower_case_table_names=2 because file system for /config/databases/ is case insensitive
+2023-05-09  3:06:55 0 [Note] Starting MariaDB 10.6.12-MariaDB-log source revision 4c79e15cc3716f69c044d4287ad2160da8101cdc as process 1126
+2023-05-09  3:06:55 0 [Note] Using unique option prefix 'myisam_recover' is error-prone and can break in the future. Please use the full name 'myisam-recover-options' instead.
+2023-05-09  3:06:55 0 [Note] InnoDB: Compressed tables use zlib 1.2.13
+2023-05-09  3:06:55 0 [Note] InnoDB: Number of pools: 1
+2023-05-09  3:06:55 0 [Note] InnoDB: Using crc32 + pclmulqdq instructions
+2023-05-09  3:06:55 0 [Note] mariadbd: O_TMPFILE is not supported on /tmp (disabling future attempts)
+2023-05-09  3:06:55 0 [Warning] InnoDB: Linux Native AIO disabled.
+2023-05-09  3:06:55 0 [Note] InnoDB: Initializing buffer pool, total size = 268435456, chunk size = 134217728
+2023-05-09  3:06:55 0 [Note] InnoDB: Completed initialization of buffer pool
+2023-05-09  3:06:55 0 [Note] InnoDB: 128 rollback segments are active.
+2023-05-09  3:06:55 0 [Note] InnoDB: Creating shared tablespace for temporary tables
+2023-05-09  3:06:55 0 [Note] InnoDB: Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+2023-05-09  3:06:55 0 [Note] InnoDB: File './ibtmp1' size is now 12 MB.
+2023-05-09  3:06:55 0 [Note] InnoDB: 10.6.12 started; log sequence number 42326; transaction id 14
+2023-05-09  3:06:55 0 [Note] InnoDB: Loading buffer pool(s) from /config/databases/ib_buffer_pool
+2023-05-09  3:06:55 0 [Note] Plugin 'FEEDBACK' is disabled.
+2023-05-09  3:06:55 0 [Note] InnoDB: Buffer pool(s) load completed at 230509  3:06:55
+2023-05-09  3:06:55 0 [Note] Server socket created on IP: '0.0.0.0'.
+2023-05-09  3:06:55 0 [Note] Server socket created on IP: '::'.
+2023-05-09  3:06:55 0 [Note] /usr/bin/mariadbd: ready for connections.
+Version: '10.6.12-MariaDB-log'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MariaDB Server
+2023-05-09  3:06:55 4 [Warning] Aborted connection 4 to db: 'unconnected' user: 'unauthenticated' host: 'localhost' (This connection closed normally without authentication)
+2023-05-09  3:07:35 6 [Warning] IP address '172.22.0.1' could not be resolved: Name does not resolve
+2023-05-09  3:07:36 6 [Warning] Aborted connection 6 to db: 'unconnected' user: 'romm' host: '172.22.0.1' (Got an error reading communication packets)
+2023-05-09  3:07:50 7 [Warning] Aborted connection 7 to db: 'romm' user: 'romm' host: '172.22.0.1' (Got an error reading communication packets)
+2023-05-09  3:08:44 0 [Note] /usr/bin/mariadbd (initiated by: unknown): Normal shutdown
+2023-05-09  3:08:44 0 [Note] InnoDB: FTS optimize thread exiting.
+2023-05-09  3:08:44 0 [Note] InnoDB: Starting shutdown...
+2023-05-09  3:08:44 0 [Note] InnoDB: Dumping buffer pool(s) to /config/databases/ib_buffer_pool
+2023-05-09  3:08:44 0 [Note] InnoDB: Buffer pool(s) dump completed at 230509  3:08:44
+2023-05-09  3:08:44 0 [Note] InnoDB: Removed temporary tablespace data file: "./ibtmp1"
+2023-05-09  3:08:44 0 [Note] InnoDB: Shutdown completed; log sequence number 42338; transaction id 15
+2023-05-09  3:08:44 0 [Note] /usr/bin/mariadbd: Shutdown complete
+
+230509 03:08:44 mysqld_safe mysqld from pid file /var/run/mysqld/mysqld.pid ended
