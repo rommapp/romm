@@ -4,7 +4,7 @@ services:
     image: 'zurdi15/romm:latest'
     container_name: romm
     environment:
-      - ROMM_DB_DRIVER="mariadb" # This variable can be set as: mariadb | sqlite. If it is not defined, sqlite will be the database by default
+      - ROMM_DB_DRIVER=mariadb # This variable can be set as: mariadb | sqlite. If it is not defined, sqlite will be the database by default
       - DB_HOST=romm_db # Only if ROMM_DB_DRIVER='mariadb'
       - DB_PORT=3306 # Only if ROMM_DB_DRIVER='mariadb'
       - DB_USER=romm-user # Only if ROMM_DB_DRIVER='mariadb'
