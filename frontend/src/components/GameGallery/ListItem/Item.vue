@@ -33,8 +33,8 @@ const emitter = inject('emitter')
                     <v-avatar :rounded="0">
                         <v-progress-linear color="rommAccent1" :active="downloading.value.includes(rom.file_name)" :indeterminate="true" absolute/>
                         <v-img
-                        :src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
-                        :lazy-src="'/assets'+rom.path_cover_s+'?reload='+forceImgReload"
+                        :src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+forceImgReload"
+                        :lazy-src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+forceImgReload"
                         min-height="150"/>
                     </v-avatar>
                 </template>

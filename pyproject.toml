@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "romm"
+version = "1.8.1"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.30.0"
+fastapi = "^0.95.1"
+uvicorn = "^0.22.0"
+mariadb = "^1.1.6"
+SQLAlchemy = "^2.0.12"
+alembic = "^1.10.4"
+PyYAML = "^6.0"
+Unidecode = "^1.3.6"
+emoji = "^2.2.0"
+python-dotenv = "^1.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

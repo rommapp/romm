@@ -1,4 +1,4 @@
-# build frontend
+# Build frontend
 FROM node:lts-alpine as front-build-stage
 WORKDIR /front
 COPY ./frontend/package*.json .
@@ -6,7 +6,7 @@ RUN npm install
 COPY ./frontend .
 RUN npm run build
 
-# setup frontend
+# Setup frontend
 FROM ubuntu/nginx:1.18-22.04_edge as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
@@ -15,7 +15,7 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/library ${WEBSERVER_FOLDER}/assets/romm/library && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 
-# setup backend
+# Setup backend
 RUN apt update && \
     apt install -y --no-install-recommends ca-certificates curl gnupg && \
       # add deadsnakes ppa for Python versions
@@ -28,16 +28,18 @@ RUN apt update && \
     apt autoremove && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 WORKDIR /back
-COPY ./backend/requirements.txt ./requirements.txt
+COPY ./pyproject.toml ./poetry.lock .
 RUN pip install --no-cache --upgrade pip && \
-    pip install --no-cache --upgrade -r requirements.txt
-COPY ./backend/src .
+    pip install --no-cache poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi --only main
+COPY ./backend .
 
-# setup init script and config files
+# Setup init script and config files
 COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
+# Expose ports and start
 EXPOSE 80
-
 WORKDIR /romm
 CMD ["/init"]

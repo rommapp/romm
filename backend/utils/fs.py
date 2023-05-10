@@ -53,7 +53,7 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
         file_name: name of rom file
         size: size of the cover -> big | small
     """
-    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover/{size}.png"
+    return f"{p_slug}/{file_name}/cover/{size}.png"
 
 
 def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
@@ -91,7 +91,7 @@ def _get_screenshot_path(p_slug: str, file_name: str, idx: str) -> str:
         file_name: name of rom file
         idx: index number of screenshot
     """
-    return f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/screenshots/{idx}.jpg"
+    return f"{p_slug}/{file_name}/screenshots/{idx}.jpg"
 
 
 def get_screenshots(p_slug: str, file_name: str, url_screenshots: list) -> tuple:
@@ -131,7 +131,7 @@ def get_platforms() -> list[str]:
 
 # ========= Roms utils =========
 def get_roms_structure(p_slug: str) -> tuple:
-    return f"{HIGH_PRIO_STRUCTURE_PATH}/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{LIBRARY_BASE_PATH}/{p_slug}/roms"
+    return f"roms/{p_slug}" if os.path.exists(HIGH_PRIO_STRUCTURE_PATH) else f"{p_slug}/roms"
 
 
 def _exclude_files(files, type) -> list[str]:
@@ -171,11 +171,11 @@ def get_roms(p_slug: str) -> list[dict] or int:
     """
     roms_path = get_roms_structure(p_slug)
     try:
-        fs_single_roms: list[str] = list(os.walk(roms_path))[0][2]
+        fs_single_roms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}"))[0][2]
     except IndexError:
         raise RomsNotFoundException(p_slug)
     try:
-        fs_multi_roms: list[str] = list(os.walk(roms_path))[0][1]
+        fs_multi_roms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}"))[0][1]
     except IndexError:
         raise RomsNotFoundException(p_slug)
     fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_files(fs_single_roms, 'single')] + \
@@ -185,7 +185,7 @@ def get_roms(p_slug: str) -> list[dict] or int:
 
 
 def get_rom_size(multi: bool, rom: str, files: list, roms_path:str) -> str:
-    files: list = [f"{roms_path}/{rom}"] if not multi else [f"{roms_path}/{rom}/{file}" for file in files]
+    files: list = [f"{LIBRARY_BASE_PATH}/{roms_path}/{rom}"] if not multi else [f"{LIBRARY_BASE_PATH}/{roms_path}/{rom}/{file}" for file in files]
     total_size: int = 0
     for file in files:
         total_size += os.stat(file).st_size
@@ -205,7 +205,7 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
         True if rom exists in filesystem else False
     """
     rom_path = get_roms_structure(p_slug)
-    exists: bool = True if os.path.exists(f"{rom_path}/{file_name}") else False
+    exists: bool = True if os.path.exists(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}") else False
     return exists
 
 
@@ -214,15 +214,15 @@ def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
         rom_path = get_roms_structure(p_slug)
         if _rom_exists(p_slug, new_name):
             raise RomAlreadyExistsException(new_name)
-        os.rename(f"{rom_path}/{old_name}", f"{rom_path}/{new_name}")
+        os.rename(f"{LIBRARY_BASE_PATH}/{rom_path}/{old_name}", f"{LIBRARY_BASE_PATH}/{rom_path}/{new_name}")
     
 
 def remove_rom(p_slug: str, file_name: str) -> None:
     rom_path = get_roms_structure(p_slug)
     try:
         try:
-            os.remove(f"{rom_path}/{file_name}")
+            os.remove(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
         except IsADirectoryError:
-            shutil.rmtree(f"{rom_path}/{file_name}")
+            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
     except FileNotFoundError:
         raise RomNotFoundError(file_name, p_slug)

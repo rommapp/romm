@@ -27,17 +27,18 @@ coverage
 *.sln
 *.sw?
 
-# venvs
-venv
-
 # pycache
 __pycache__
 
 # secrets
-envs.env
+.env
 
 # database
 mariadb
 
-# config test
-romm
+# used to mock the library/config/mounts/etc while testing
+frontend/assets/romm
+romm_mock
+
+# virtualenv
+.venv
