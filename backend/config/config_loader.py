@@ -12,7 +12,7 @@ class ConfigLoader:
 
     def __init__(self):
         try:
-            with open(ROMM_USER_CONFIG_PATH) as config_file: self.config: dict = yaml.load(config_file, Loader=SafeLoader)
+            with open(ROMM_USER_CONFIG_PATH) as config_file: self.config: dict = (yaml.load(config_file, Loader=SafeLoader) or {})
         except FileNotFoundError:
             self.config: dict = {}
         self._parse_config()
@@ -47,31 +47,31 @@ class ConfigLoader:
     def _parse_config(self) -> dict:
         try:
             self.config['EXCLUDED_PLATFORMS'] = self.config['exclude']['platforms'] if self.config['exclude']['platforms'] else []
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['EXCLUDED_PLATFORMS'] = []
         try:
             self.config['EXCLUDED_SINGLE_EXT'] = self.config['exclude']['roms']['single_file']['extensions'] if self.config['exclude']['roms']['single_file']['extensions'] else []
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['EXCLUDED_SINGLE_EXT'] = []
         try:
             self.config['EXCLUDED_SINGLE_FILES'] = self.config['exclude']['roms']['single_file']['names'] if self.config['exclude']['roms']['single_file']['names'] else []
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['EXCLUDED_SINGLE_FILES'] = []
         try:
             self.config['EXCLUDED_MULTI_FILES'] = self.config['exclude']['roms']['multi_file']['names'] if self.config['exclude']['roms']['multi_file']['names'] else []
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['EXCLUDED_MULTI_FILES'] = []
         try:
             self.config['EXCLUDED_MULTI_PARTS_EXT'] = self.config['exclude']['roms']['multi_file']['parts']['extensions'] if self.config['exclude']['roms']['multi_file']['parts']['extensions'] else []
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['EXCLUDED_MULTI_PARTS_EXT'] = []
         try:
             self.config['EXCLUDED_MULTI_PARTS_FILES'] = self.config['exclude']['roms']['multi_file']['parts']['names'] if self.config['exclude']['roms']['multi_file']['parts']['names'] else []
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['EXCLUDED_MULTI_PARTS_FILES'] = []
         try:
             self.config['PLATFORMS_BINDING'] = self.config['system']['platforms'] if self.config['system']['platforms'] else {}
-        except KeyError:
+        except (KeyError, TypeError):
             self.config['PLATFORMS_BINDING'] = {}
 
 	
