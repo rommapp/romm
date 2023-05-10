@@ -102,7 +102,7 @@ onMounted(() => {
                 <v-row>
                     <v-col>
                         <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
-                            <v-img :src="'/assets'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets'+rom.path_cover_s+'?reload='+Date.now()" cover>
+                            <v-img :src="'/assets/romm/resources/'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+Date.now()" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
@@ -197,7 +197,7 @@ onMounted(() => {
                         <v-window-item value="screenshots">
                             <v-row class="d-flex mt-2">
                                 <v-carousel hide-delimiter-background delimiter-icon="mdi-square" class="bg-rommBlack" show-arrows="hover" height="400">
-                                    <v-carousel-item v-for="screenshot in rom.path_screenshots" :src="'/assets'+screenshot"/>
+                                    <v-carousel-item v-for="screenshot in rom.path_screenshots" :src="'/assets/romm/resources/'+screenshot"/>
                                 </v-carousel>
                             </v-row>
                         </v-window-item>

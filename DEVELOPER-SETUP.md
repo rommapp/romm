@@ -1,3 +1,12 @@
+## Create the mock structure with at least one rom
+
+```sh
+mkdir -p romm_mock/library/roms/switch
+touch romm_mock/library/roms/switch/metroid.xci
+mkdir -p romm_mock/resources
+touch romm_mock/config.yml
+```
+
 ## Setting up the backend
 
 ### Copy env.template to .env and fill the variables
@@ -45,6 +54,13 @@ python main.py
 ```sh
 cd frontend
 npm install
+```
+
+### Create symlink to library and resources
+```sh
+mkdir assets/romm
+ln -s ../../../romm_mock/library assets/romm/library
+ln -s ../../../romm_mock/resources assets/romm/resources
 ```
 
 ### Run the frontend

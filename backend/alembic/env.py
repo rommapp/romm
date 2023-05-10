@@ -6,8 +6,6 @@ from sqlalchemy import create_engine
 from config.config_loader import ConfigLoader
 from alembic import context
 
-cl = ConfigLoader()
-
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -45,7 +43,7 @@ def run_migrations_offline() -> None:
     """
 
     context.configure(
-        url=cl.get_db_engine(),
+        url=ConfigLoader.get_db_engine(),
         target_metadata=target_metadata,
         render_as_batch=True,
         literal_binds=True,
@@ -64,7 +62,7 @@ def run_migrations_online() -> None:
 
     """
 
-    engine = create_engine(cl.get_db_engine())
+    engine = create_engine(ConfigLoader.get_db_engine())
 
     with engine.connect() as connection:
         context.configure(

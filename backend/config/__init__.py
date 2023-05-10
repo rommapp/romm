@@ -8,10 +8,11 @@ DEV_PORT: int = 5000
 DEV_HOST: str = "0.0.0.0"
 
 # PATHS
-LIBRARY_BASE_PATH: str = "/romm/library"
-ROMM_USER_CONFIG_PATH: str = "/romm/config.yml"
-SQLITE_DB_BASE_PATH: str = "/romm/database"
-RESOURCES_BASE_PATH: str = "/romm/resources"
+ROMM_BASE_PATH: str = os.environ.get('ROMM_BASE_PATH', '/romm')
+LIBRARY_BASE_PATH: str = f"{ROMM_BASE_PATH}/library"
+ROMM_USER_CONFIG_PATH: str = f"{ROMM_BASE_PATH}/config.yml"
+SQLITE_DB_BASE_PATH: str = f"{ROMM_BASE_PATH}/database"
+RESOURCES_BASE_PATH: str = f"{ROMM_BASE_PATH}/resources"
 HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
 
 # DEFAULT RESOURCES
