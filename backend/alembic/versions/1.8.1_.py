@@ -5,10 +5,8 @@ Revises: 1.8
 Create Date: 2023-04-17 12:03:19.163501
 
 """
-import os
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import sqlite
 
 
 # revision identifiers, used by Alembic.

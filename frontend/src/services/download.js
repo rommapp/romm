@@ -15,7 +15,7 @@ export async function downloadRom(rom, emitter, filesToDownload=[]) {
         if (files.length == 0){ files = rom.files }
         var count = 0
         files.forEach(async function (file_part) {
-            var file_full_path = "/assets"+rom.file_path+"/"+rom.file_name+"/"+file_part
+            var file_full_path = "/assets/romm/library/"+rom.file_path+"/"+rom.file_name+"/"+file_part
             var file = await fetch(file_full_path)
             var fileBlob = await file.blob()
             var f = zip.folder(rom.file_name);
@@ -25,7 +25,7 @@ export async function downloadRom(rom, emitter, filesToDownload=[]) {
         })
     }
     else{
-        var file_full_path = "/assets"+rom.file_path+"/"+rom.file_name
+        var file_full_path = "/assets/romm/library/"+rom.file_path+"/"+rom.file_name
         var file = await fetch(file_full_path)
         var fileBlob = await file.blob()
         saveAs(fileBlob, rom.file_name)
