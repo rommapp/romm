@@ -45,6 +45,8 @@ async def scan(sid, platforms: str, complete_rescan: bool=True):
     platforms: list[str] = json.loads(platforms) if len(json.loads(platforms)) > 0 else fs_platforms
     log.info(f"Platforms to be scanned: {', '.join(platforms)}")
     for platform in platforms:
+        await app.sio.emit('scanning_platform', platform)
+        await app.sio.emit('') # Workaround to emit in real-time
         log.info(emoji.emojize(f":video_game: {platform} {COLORS['reset']}"))
         scanned_platform: Platform = fastapi.scan_platform(platform)
         if platform != str(scanned_platform): log.info(f"Identified as {COLORS['blue']}{scanned_platform}{COLORS['reset']}")
@@ -59,7 +61,7 @@ async def scan(sid, platforms: str, complete_rescan: bool=True):
         for rom in fs_roms:
             rom_id: int = dbh.rom_exists(scanned_platform.slug, rom['file_name'])
             if rom_id and not complete_rescan: continue
-            await app.sio.emit('scanning', {'platform': scanned_platform.name, 'rom': rom['file_name']})
+            await app.sio.emit('scanning_rom', rom['file_name'])
             await app.sio.emit('') # Workaround to emit in real-time
             log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
             if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
@@ -68,7 +70,7 @@ async def scan(sid, platforms: str, complete_rescan: bool=True):
             dbh.add_rom(scanned_rom)
         dbh.purge_roms(scanned_platform.slug, [rom['file_name'] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
-    await app.sio.emit('done', 'Scan completed!')
+    await app.sio.emit('done')
 
 
 @app.on_event("startup")
