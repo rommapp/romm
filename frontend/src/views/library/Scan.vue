@@ -5,6 +5,7 @@ import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
 
 // Props
+const wsMsg = ref("")
 const platforms = storePlatforms()
 const platformsToScan = ref([])
 const scanning = storeScanning()
@@ -16,14 +17,13 @@ const emitter = inject('emitter')
 // Functions
 async function scan() {
     scanning.set(true)
-    await axios.get('/api/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value).then((response) => {
-        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
+    const socket = new WebSocket('ws://localhost:5000/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value)
+    socket.onmessage = function(e){ wsMsg.value = e.data }
+    socket.onclose = function(){ 
+        scanning.set(false)
+        emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refresh')
-    }).catch((error) => {
-        console.log(error)
-        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
-    })
-    scanning.set(false)
+    }
 }
 </script>
 
@@ -71,6 +71,8 @@ async function scan() {
                     indeterminate/>
             </v-btn>
         </v-row>
+
+        <div class="ma-5"><span class="text-body-1">{{ wsMsg }}</span></div>
     </div>
 
 </template>

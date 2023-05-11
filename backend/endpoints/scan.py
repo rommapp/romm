@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, WebSocket, status, HTTPException
 import emoji
 import json
 
@@ -12,10 +12,11 @@ from models.rom import Rom
 router = APIRouter()
 
 
-@router.get("/scan", status_code=200)
-def scan(platforms: str, complete_rescan: bool=False) -> dict:
+@router.websocket("/scan")
+async def scan(websocket: WebSocket, platforms: str, complete_rescan: bool=False) -> dict:
     """Scan platforms and roms and write them in database."""
 
+    await websocket.accept()
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
 
@@ -45,11 +46,15 @@ def scan(platforms: str, complete_rescan: bool=False) -> dict:
         for rom in fs_roms:
             rom_id: int = dbh.rom_exists(scanned_platform.slug, rom['file_name'])
             if rom_id and not complete_rescan: continue
+            await websocket.send_text(f"Scanning: {scanned_platform} - {rom['file_name']}")
             log.info(f"Scanning {COLORS['orange']}{rom['file_name']}{COLORS['reset']}")
+            import time
+            time.sleep(10)
             if rom['multi']: [log.info(f"\t - {COLORS['orange_i']}{file}{COLORS['reset']}") for file in rom['files']]
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             if rom_id: scanned_rom.id = rom_id
             dbh.add_rom(scanned_rom)
         dbh.purge_roms(scanned_platform.slug, [rom['file_name'] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
-    return {'msg': 'Scan completed successfully!'}
+    await websocket.send_text("")
+    await websocket.close()
