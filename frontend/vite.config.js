@@ -52,12 +52,16 @@ export default defineConfig({
   server: {
     proxy: {
         '/api': {
-            target: 'http://localhost:5000',
-            changeOrigin: false,
-            secure: false,      
-            ws: true,
-            rewrite: (path) => path.replace(/^\/api/, ''),
-        }
+          target: 'http://localhost:5000',
+          changeOrigin: false,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+        '/ws': {
+          target: 'http://localhost:5000',
+          changeOrigin: false,
+          ws: true,
+        },
     },
     port: 3000,
   },
