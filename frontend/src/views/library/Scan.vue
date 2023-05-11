@@ -9,8 +9,9 @@ const platforms = storePlatforms()
 const platformsToScan = ref([])
 const scanning = storeScanning()
 const scanningPlatform = ref("")
-const scannedRoms = ref([])
+const scannedPlatforms = ref([])
 const completeRescan = ref(false)
+
 
 // Event listeners bus
 const emitter = inject('emitter')
@@ -18,12 +19,13 @@ const emitter = inject('emitter')
 // Functions
 async function scan() {
     scanning.set(true);
+    scannedPlatforms.value = []
     const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })
-    socket.on("scanning_platform", (platform) => { scanningPlatform.value = platform })
-    socket.on("scanning_rom", (rom) => { scannedRoms.value.push(rom) })
+    socket.on("scanning_platform", (platform) => { scannedPlatforms.value.push({'p_name': platform[0], 'p_slug': platform[1], 'r': []}); scanningPlatform.value = platform[1] })
+    socket.on("scanning_rom", (r) => { scannedPlatforms.value.forEach(e => { if(e['p_slug'] == scanningPlatform.value){ e['r'].push(r) } }) })
     socket.on("done", () => {
         scanning.set(false);
-        // emitter.emit('refresh')
+        emitter.emit('refresh')
         emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         socket.close()
     })
@@ -76,14 +78,11 @@ async function scan() {
             </v-btn>
         </v-row>
 
-        <v-row no-gutters class="align-center">
-            <v-col cols="12" class="pa-2">
-                <v-avatar :rounded="0" size="40"><v-img :src="'/assets/platforms/'+scanningPlatform+'.ico'"></v-img></v-avatar>
-                <span class="text-overline ml-5"> {{ scanningPlatform }}</span>
-            </v-col>
-            <v-col cols="12">
-                <v-list-item v-for="rom in scannedRoms" class="text-body-2" disabled> - {{ rom }}</v-list-item>
-                <!-- <v-list-item class="text-body-2" disabled>{{ scanningRom }}</v-list-item> -->
+        <v-row no-gutters class="align-center pa-4" v-for="d in scannedPlatforms">
+            <v-col  class="pa-0 ma-0">
+                <v-avatar :rounded="0" size="40"><v-img :src="'/assets/platforms/'+d['p_slug']+'.ico'"></v-img></v-avatar>
+                <span class="text-body-2 ml-5"> {{ d['p_name'] }}</span>
+                <v-list-item v-for="r in d['r']" class="text-body-2" disabled> - {{ r }}</v-list-item>
             </v-col>
         </v-row>
     </div>
