@@ -23,9 +23,10 @@ async function scan() {
     socket.on('disconnect', () => {console.log('ws disconnected');});
     socket.on("scanning", (params) => {wsMsg.value = 'Scanning > '+params['platform']+' - '+params['rom']})
     socket.on("done", (msg) => { 
+        wsMsg.value = msg
         scanning.set(false);
         emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        wsMsg.value = msg
+        socket.close()
     })
     socket.emit("scan", JSON.stringify(platformsToScan.value.map(p => p.fs_slug)), completeRescan.value)
 }
