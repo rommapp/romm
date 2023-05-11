@@ -45,10 +45,10 @@ async def scan(sid, platforms: str, complete_rescan: bool=True):
     platforms: list[str] = json.loads(platforms) if len(json.loads(platforms)) > 0 else fs_platforms
     log.info(f"Platforms to be scanned: {', '.join(platforms)}")
     for platform in platforms:
-        await app.sio.emit('scanning_platform', platform)
-        await app.sio.emit('') # Workaround to emit in real-time
         log.info(emoji.emojize(f":video_game: {platform} {COLORS['reset']}"))
         scanned_platform: Platform = fastapi.scan_platform(platform)
+        await app.sio.emit('scanning_platform', [scanned_platform.name, scanned_platform.slug])
+        await app.sio.emit('') # Workaround to emit in real-time
         if platform != str(scanned_platform): log.info(f"Identified as {COLORS['blue']}{scanned_platform}{COLORS['reset']}")
         dbh.add_platform(scanned_platform)
 
@@ -80,5 +80,5 @@ def startup() -> None:
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
-    # uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False, workers=2)
+    # uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
+    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False, workers=2)
