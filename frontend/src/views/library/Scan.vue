@@ -1,6 +1,6 @@
 <script setup>
-import axios from "axios"
 import { ref, inject } from "vue"
+import { io } from "socket.io-client";
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
 
@@ -16,14 +16,18 @@ const emitter = inject('emitter')
 
 // Functions
 async function scan() {
-    scanning.set(true)
-    const socket = new WebSocket('ws://localhost:5000/scan?platforms='+JSON.stringify(platformsToScan.value.map(p => p.fs_slug))+'&complete_rescan='+completeRescan.value)
-    socket.onmessage = function(e){ wsMsg.value = e.data }
-    socket.onclose = function(){ 
-        scanning.set(false)
+    scanning.set(true);
+    wsMsg.value = 'Scanning...'
+    const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })
+    socket.on("connect", () => {console.log("ws connected")})
+    socket.on('disconnect', () => {console.log('ws disconnected');});
+    socket.on("scanning", (params) => {wsMsg.value = 'Scanning > '+params['platform']+' - '+params['rom']})
+    socket.on("done", (msg) => { 
+        scanning.set(false);
         emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
-        emitter.emit('refresh')
-    }
+        wsMsg.value = msg
+    })
+    socket.emit("scan", JSON.stringify(platformsToScan.value.map(p => p.fs_slug)), completeRescan.value)
 }
 </script>
 
