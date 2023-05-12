@@ -24,7 +24,7 @@ async function scan() {
     socket.on("scanning_platform", (platform) => { scannedPlatforms.value.push({'p_name': platform[0], 'p_slug': platform[1], 'r': []}); scanningPlatform.value = platform[1] })
     socket.on("scanning_rom", (r) => { scannedPlatforms.value.forEach(e => { if(e['p_slug'] == scanningPlatform.value){ e['r'].push(r) } }) })
     socket.on("done", () => {
-        scanning.set(false);
+        scanning.set(false)
         emitter.emit('refresh')
         emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
         socket.close()
