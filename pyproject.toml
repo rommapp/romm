@@ -17,6 +17,7 @@ PyYAML = "^6.0"
 Unidecode = "^1.3.6"
 emoji = "^2.2.0"
 python-dotenv = "^1.0.0"
+ipdb = "^0.13.13"
 
 
 [build-system]
