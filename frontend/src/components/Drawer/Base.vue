@@ -4,7 +4,6 @@ import RailBtn from '@/components/Drawer/RailBtn.vue'
 import Platform from '@/components/Drawer/Platform.vue'
 import { storePlatforms } from '@/stores/platforms'
 
-
 // Props
 const platforms = storePlatforms()
 const drawer = ref(undefined)
@@ -18,35 +17,33 @@ emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.se
 </script>
 
 <template>
-
     <v-navigation-drawer v-model="drawer" :rail="rail" width="300" rail-width="145" elevation="0">
 
         <v-list v-model:opened="open">
             <router-link to="/">
                 <v-list-item class="justify-center pa-0">
-                    <v-img src="/assets/isotipo.svg" width="70" class="home-btn"/>
+                    <v-img src="/assets/isotipo.svg" width="70" class="home-btn" />
                 </v-list-item>
             </router-link>
 
             <v-divider></v-divider>
-            
+
             <v-list-group value="Platforms">
                 <template v-slot:activator="{ props }">
-                    <v-list-item
-                        v-bind="props">
+                    <v-list-item v-bind="props">
                         <span class="text-body-1 text-truncate">{{ rail ? '' : 'Platforms' }}</span>
                         <template v-slot:prepend>
                             <v-avatar :rounded="0" size="40"><v-icon>mdi-controller</v-icon></v-avatar>
                         </template>
                     </v-list-item>
                 </template>
-                <platform class="drawer-item" v-for="platform in platforms.value" :platform="platform" :rail="rail" :key="platform.slug"/>
+                <platform class="drawer-item" v-for="platform in platforms.value" :platform="platform" :rail="rail"
+                    :key="platform.slug" />
             </v-list-group>
 
             <v-list-group value="Library">
                 <template v-slot:activator="{ props }">
-                    <v-list-item
-                        v-bind="props">
+                    <v-list-item v-bind="props">
                         <span class="text-body-1 text-truncate">{{ rail ? '' : 'Library' }}</span>
                         <template v-slot:prepend>
                             <v-avatar :rounded="0" size="40"><v-icon>mdi-animation-outline</v-icon></v-avatar>
@@ -70,8 +67,7 @@ emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.se
 
             <v-list-group value="Settings">
                 <template v-slot:activator="{ props }">
-                    <v-list-item
-                        v-bind="props">
+                    <v-list-item v-bind="props">
                         <span class="text-body-1 text-truncate">{{ rail ? '' : 'Settings' }}</span>
                         <template v-slot:prepend>
                             <v-avatar :rounded="0" size="40"><v-icon>mdi-cog</v-icon></v-avatar>
@@ -87,22 +83,22 @@ emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.se
             </v-list-group>
 
         </v-list>
-        
+
         <template v-slot:append>
-            <v-divider class="border-opacity-25" :thickness="1"/>
-            <rail-btn :rail="rail"/>
+            <v-divider class="border-opacity-25" :thickness="1" />
+            <rail-btn :rail="rail" />
         </template>
 
     </v-navigation-drawer>
-
 </template>
 
 <style scoped>
-.home-btn{
+.home-btn {
     width: 100px;
     height: 100px;
     cursor: pointer;
 }
+
 .drawer-item {
     padding-inline-start: 30px !important;
 }
