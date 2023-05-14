@@ -3,9 +3,16 @@
 ## Added
  - Added platforms to home page.
  - Added the scan log in real time in the scan section.
+ - Added Game and Watch support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
+ - Added Amstrad CPC support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
+ - Added Game and Gear support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
+ - Added PC-98 support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
+ - Added Pokemini support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
+ - Added DOOM support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
 
 ## Fixed
  - Fixed a bug that caused scan to run twice. Solves [#221](https://github.com/zurdi15/romm/issues/221)
+ - Improved RomM initial setup logs for bad folder structure configurations. Solves [#217](https://github.com/zurdi15/romm/issues/217) 
 
 <br>
 
