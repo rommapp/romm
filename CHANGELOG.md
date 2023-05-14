@@ -1,3 +1,14 @@
+# v1.8.3 (xx-05-2023_)
+
+## Added
+ - Added platforms to home page.
+ - Added the scan log in real time in the scan section.
+
+## Fixed
+ - Fixed a bug that caused scan to run twice. Solves [#221](https://github.com/zurdi15/romm/issues/221)
+
+<br>
+
 # v1.8.2 (_09-05-2023_)
 
 ## Added
