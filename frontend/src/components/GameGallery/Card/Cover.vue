@@ -6,7 +6,7 @@ const props = defineProps(['rom', 'isHovering', 'hoverProps', 'size'])
 <template>
     <router-link
         style="text-decoration: none; color: inherit;"
-        :to="`/platform/${$route.params.platform}/rom/${rom.id}`">
+        :to="`/platform/${$route.params.platform}/roms/${rom.id}`">
         <v-img
             :value="rom.id"
             :key="rom.id"
