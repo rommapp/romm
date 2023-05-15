@@ -14,7 +14,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(scan.router)
 app.include_router(search.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
