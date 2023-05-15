@@ -1,6 +1,6 @@
 import emoji
 import json
-from fastapi import APIRouter, status, HTTPException
+from fastapi import status, HTTPException
 
 from logger.logger import log, COLORS
 from utils import fs, fastapi
@@ -9,10 +9,7 @@ from handler import dbh
 from models.platform import Platform
 from models.rom import Rom
 
-# router = APIRouter()
 
-
-# @router.get("/scan", status_code=200)
 async def scan(sid: str, platforms: str, complete_rescan: bool=True, sm=None):
     """Scan platforms and roms and write them in database."""
 
