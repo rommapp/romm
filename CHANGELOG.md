@@ -3,6 +3,7 @@
 ## Added
  - Added platforms to home page.
  - Added the scan log in real time in the scan section.
+ - Added fast scan button in the gallery to direct scan the current platform. Solves [#250](https://github.com/zurdi15/romm/issues/250)
  - Added Game and Watch support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
  - Added Amstrad CPC support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
  - Added Game and Gear support. Partially solves [#245](https://github.com/zurdi15/romm/issues/245)
