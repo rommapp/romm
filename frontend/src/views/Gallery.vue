@@ -49,17 +49,13 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
 </script>
 
 <template>
-
-    <v-app-bar class="gallery-app-bar-secondary" elevation="0" density="compact">
-        <v-select item-title="name" :items="sections" v-model="currentSection" hide-details/>
-    </v-app-bar>
     
     <v-app-bar class="gallery-app-bar" elevation="0" density="compact">
+        <!-- <v-select item-title="name" :items="sections" v-model="currentSection" hide-details/> -->
         <filter-bar/>
         <gallery-view-btn/>
+        <!-- <v-btn @click="" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan"/> -->
     </v-app-bar>
-
-
 
     <v-row v-show="currentSection == 'roms'" no-gutters>
 
@@ -99,11 +95,10 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
         <v-row v-if="gettingRoms" no-gutters>
             <v-progress-circular class="mt-16 mx-auto" color="rommAccent1" :width="3" :size="70" indeterminate/>
         </v-row>
+
     </v-row>
-
-
     
-    <v-row v-show="currentSection == 'firmwares'" no-gutters>
+    <!-- <v-row v-show="currentSection == 'firmwares'" no-gutters>
         <v-col v-for="firmware in firmwares" class="pa-1"
             :key="firmware"
             :cols="views[galleryView.value]['size-cols']"
@@ -117,7 +112,7 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
                 </v-card-text>
             </v-card>
         </v-col>
-    </v-row>
+    </v-row> -->
 
 </template>
 <style scoped>
