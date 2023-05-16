@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
+import { io } from "socket.io-client";
 import { views } from '@/utils/utils.js'
 import { storeFilter } from '@/stores/filter.js'
 import { storeGalleryView } from '@/stores/galleryView.js'
@@ -11,22 +12,37 @@ import GalleryViewBtn from '@/components/GameGallery/GalleryViewBtn.vue'
 import GameCard from '@/components/GameGallery/Card/Base.vue'
 import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
+import { storeScanning } from '@/stores/scanning.js'
 
 
 // Props
 const roms = ref([])
 const gettingRoms = ref(false)
 const filter = storeFilter()
-const romsFiltered = ref([])
-const firmwares = ["firmware_base", "firmware_bios"]
 const galleryView = storeGalleryView()
 const route = useRoute()
-const sections = ['roms', 'firmwares']
+const romsFiltered = ref([])
+// const firmwares = ["firmware_base", "firmware_bios"]
+// const sections = ['roms', 'firmwares']
 const currentSection = ref('roms')
+const scanning = storeScanning()
 
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('filter', () => { filterRoms() })
+
+
+async function scan() {
+    scanning.set(true);
+    const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })    
+    socket.on("done", () => {
+        scanning.set(false)
+        emitter.emit('refresh')
+        emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        socket.close()
+    })
+    socket.emit("scan", JSON.stringify([route.params.platform]), false)
+}
 
 
 function filterRoms() {
@@ -54,7 +70,7 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
         <!-- <v-select item-title="name" :items="sections" v-model="currentSection" hide-details/> -->
         <filter-bar/>
         <gallery-view-btn/>
-        <!-- <v-btn @click="" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan"/> -->
+        <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan"/>
     </v-app-bar>
 
     <v-row v-show="currentSection == 'roms'" no-gutters>
