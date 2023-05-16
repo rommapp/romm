@@ -13,7 +13,8 @@
 
 ## Fixed
  - Fixed a bug that caused scan to run twice. Solves [#221](https://github.com/zurdi15/romm/issues/221)
- - Improved RomM initial setup logs for bad folder structure configurations. Solves [#217](https://github.com/zurdi15/romm/issues/217) 
+ - Improved RomM initial setup logs for bad folder structure configurations. Solves [#217](https://github.com/zurdi15/romm/issues/217)
+ - Improved gallery loading when switching between view modes.
 
 <br>
 
