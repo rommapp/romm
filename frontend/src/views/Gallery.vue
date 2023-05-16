@@ -34,6 +34,7 @@ emitter.on('filter', () => { filterRoms() })
 
 async function scan() {
     scanning.set(true);
+    emitter.emit('snackbarScan', {'msg': "Scanning...", 'icon': 'mdi-check-bold', 'color': 'green'})
     const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })    
     socket.on("done", () => {
         scanning.set(false)
