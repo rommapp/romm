@@ -44,8 +44,7 @@ onMounted(() => {
     <v-main>
       <v-container class="pa-0" fluid>
         <app-bar v-if="mdAndDown"/>
-        <!-- <router-view :key="refresh"/> -->
-        <router-view/>
+        <router-view :key="refresh"/>
       </v-container>
     </v-main>
 
