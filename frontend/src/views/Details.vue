@@ -59,7 +59,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push('/platform/'+rom.value.p_slug+'/rom/'+rom.value.id)
+        router.push('/platform/'+rom.value.p_slug+'/'+rom.value.id)
     }).catch((error) => {
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
     })
