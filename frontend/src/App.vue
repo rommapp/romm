@@ -11,17 +11,22 @@ import Notification from '@/components/Notification.vue'
 // Props
 const platforms = storePlatforms()
 const scanning = storeScanning()
-const refresh = ref(false)
+const refresPlatforms = ref(false)
+const refreshGallery = ref(false)
 const { mdAndDown } = useDisplay()
 useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('refresh', () => {
+emitter.on('refresPlatforms', () => {
   fetchPlatforms()
     .then((res) => { platforms.set(res.data.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
-  refresh.value = !refresh.value
+    refresPlatforms.value = !refresPlatforms.value
+})
+
+emitter.on('refreshGallery', () => {
+  refreshGallery.value = !refreshGallery.value
 })
 
 // Startup
@@ -39,12 +44,12 @@ onMounted(() => {
 
     <v-progress-linear class="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
 
-    <drawer :key="refresh"/>
+    <drawer :key="refresPlatforms"/>
 
     <v-main>
       <v-container class="pa-0" fluid>
         <app-bar v-if="mdAndDown"/>
-        <router-view :key="refresh"/>
+        <router-view :key="refreshGallery"/>
       </v-container>
     </v-main>
 

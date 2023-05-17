@@ -59,7 +59,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push('/platform/'+rom.value.p_slug+'/rom/'+rom.value.id)
+        router.push('/platform/'+rom.value.p_slug+'/'+rom.value.id)
     }).catch((error) => {
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
     })
@@ -102,7 +102,7 @@ onMounted(() => {
                 <v-row>
                     <v-col>
                         <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
-                            <v-img :src="'/assets/romm/resources/'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+Date.now()" cover>
+                            <v-img :src="'/assets/romm/resources/'+rom.path_cover_l" :lazy-src="'/assets/romm/resources/'+rom.path_cover_s" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
@@ -127,7 +127,7 @@ onMounted(() => {
                                 </v-btn>
                             </template>
                             <v-list rounded="0" class="pa-0">
-                                <v-list-item  @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
+                                <v-list-item @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
                                     <v-list-item-title class="d-flex"><v-icon icon="mdi-search-web" class="mr-2"/>Search IGDB</v-list-item-title>
                                 </v-list-item>
                                 <v-divider class="border-opacity-25"/>

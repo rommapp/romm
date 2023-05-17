@@ -25,6 +25,8 @@ Then initialize the virtual environment and install the dependencies
 
 ```sh
 poetry shell
+# Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
+# Fix Loading macOS stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
 poetry install
 ```
 

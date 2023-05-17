@@ -11,7 +11,7 @@ const routes = [
     component: () => import('@/views/Gallery.vue')
   },
   {
-    path: '/platform/:platform/rom/:rom',
+    path: '/platform/:platform/:rom',
     component: () => import('@/views/Details.vue')
   },
   {
