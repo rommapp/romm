@@ -1,10 +1,10 @@
+import emoji
 from fastapi import APIRouter, Request, status, HTTPException
 
 from logger.logger import log
-from handler import dbh
+from handler import dbh, igdbh
 from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
-from models.rom import Rom
 from models.platform import Platform
 
 router = APIRouter()
@@ -14,51 +14,88 @@ router = APIRouter()
 def rom(id: int) -> dict:
     """Returns one rom data of the desired platform"""
 
-    return {'data': dbh.get_rom(id)}
+    return {"data": dbh.get_rom(id)}
 
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
 def roms(p_slug: str) -> dict:
-    """Returns all roms of the desired platform"""
+    """Returns all roms of the given platform"""
 
-    return {'data':  dbh.get_roms(p_slug)}
+    return {"data": dbh.get_roms(p_slug)}
+
+
+async def rename_all_roms(_sid: str, platform_slug: str, sm=None) -> dict:
+    """Renames all ROMs of the given platform to IGDB format"""
+
+    platform = dbh.get_platform(platform_slug)
+    platform_roms = [r for r in dbh.get_roms(platform_slug) if r.r_igdb_id]
+    log.info(emoji.emojize(f":pencil: Renaming all {platform.name} ROMs"))
+
+    for rom in platform_roms:
+        try:
+            igdb_rom_data = igdbh.get_rom_by_id(rom.r_igdb_id)
+            fs.rename_rom(
+                platform.fs_slug, rom.file_name, igdb_rom_data[0].get("r_name", "")
+            )
+            log.info(f'Renamed {rom.file_name} to {igdb_rom_data[0].get("r_name", "")}')
+        except RomAlreadyExistsException as e:
+            log.info(str(e))
+
+    await sm.emit("mass_rename:done")
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)
 async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
-    data: dict = await req.json()
-    updated_rom: dict = data['updatedRom']
-    db_rom: Rom = dbh.get_rom(id)
-    platform: Platform = dbh.get_platform(p_slug)
+    data = await req.json()
+    updated_rom: dict = data["updatedRom"]
+    db_rom = dbh.get_rom(id)
+    platform = dbh.get_platform(p_slug)
+
     try:
-        fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom['file_name'])
+        fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom["file_name"])
     except RomAlreadyExistsException as e:
-        error: str = f"{e}"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
-    updated_rom['file_name_no_tags'] = get_file_name_with_no_tags(updated_rom['file_name'])
-    updated_rom.update(fs.get_cover(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
-    updated_rom.update(fs.get_screenshots(p_slug, updated_rom['file_name'], updated_rom['url_screenshots']))
+        log.error(str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(
+        updated_rom["file_name"]
+    )
+    updated_rom.update(
+        fs.get_cover(True, p_slug, updated_rom["file_name"], updated_rom["url_cover"])
+    )
+    updated_rom.update(
+        fs.get_screenshots(
+            p_slug, updated_rom["file_name"], updated_rom["url_screenshots"]
+        )
+    )
     dbh.update_rom(id, updated_rom)
-    return {'data': dbh.get_rom(id), 'msg': f"{updated_rom['file_name']} updated successfully!"}
+
+    return {
+        "data": dbh.get_rom(id),
+        "msg": f"{updated_rom['file_name']} updated successfully!",
+    }
 
 
 @router.delete("/platforms/{p_slug}/roms/{id}", status_code=200)
-def delete_rom(p_slug: str, id: int, filesystem: bool=False) -> dict:
+def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
     """Detele rom from database [and filesystem]"""
 
-    rom: Rom = dbh.get_rom(id)
+    rom = dbh.get_rom(id)
     log.info(f"Deleting {rom.file_name} from database")
     dbh.delete_rom(id)
+
     if filesystem:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
             platform: Platform = dbh.get_platform(p_slug)
             fs.remove_rom(platform.fs_slug, rom.file_name)
         except RomNotFoundError as e:
-            error: str = f"{e}. Couldn't delete from filesystem."
+            error = f"{str(e)}. Couldn't delete from filesystem."
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-    return {'msg': f'{rom.file_name} deleted successfully!'}
+
+    return {"msg": f"{rom.file_name} deleted successfully!"}

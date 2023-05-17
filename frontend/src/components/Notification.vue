@@ -7,7 +7,7 @@ const snackbarStatus = ref({})
 
 // Event listeners bus
 const emitter = inject('emitter')
-emitter.on('snackbarScan', (snackbar) => {
+emitter.on('snackbarShow', (snackbar) => {
   snackbarShow.value = true
   snackbarStatus.value = snackbar
 })

@@ -210,7 +210,7 @@ def _rom_exists(p_slug: str, file_name: str) -> bool:
 
 
 def rename_rom(p_slug: str, old_name: str, new_name: str) -> None:
-    if new_name != old_name:
+    if new_name and new_name != old_name:
         rom_path = get_roms_structure(p_slug)
         if _rom_exists(p_slug, new_name):
             raise RomAlreadyExistsException(new_name)
