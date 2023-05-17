@@ -25,8 +25,13 @@ async function scan() {
     socket.on("scanning_rom", (r) => { scannedPlatforms.value.forEach(e => { if(e['p_slug'] == scanningPlatform.value){ e['r'].push(r) } }) })
     socket.on("done", () => {
         scanning.set(false)
-        emitter.emit('refresh')
+        emitter.emit('refresPlatforms')
         emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        socket.close()
+    })
+    socket.on("done_ko", (msg) => {
+        scanning.set(false)
+        emitter.emit('snackbarScan', {'msg': "Scan couldn't be completed. Something went wrong: "+msg, 'icon': 'mdi-close-circle', 'color': 'red'})
         socket.close()
     })
     socket.emit("scan", JSON.stringify(platformsToScan.value.map(p => p.fs_slug)), completeRescan.value)

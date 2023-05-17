@@ -29,12 +29,7 @@ def scan_platform(fs_slug: str) -> Platform:
     except (KeyError, TypeError, AttributeError):
         platform_attrs['slug'] = fs_slug
     platform_attrs.update(igdbh.get_platform(platform_attrs['slug']))
-    try:
-        platform_attrs['n_roms'] = len(fs.get_roms(platform_attrs['fs_slug']))
-    except RomsNotFoundException as e:
-        error: str = e.message 
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    platform_attrs['n_roms'] = len(fs.get_roms(platform_attrs['fs_slug']))
     platform = Platform(**platform_attrs)
     return platform
 

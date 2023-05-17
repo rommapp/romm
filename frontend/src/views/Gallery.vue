@@ -34,12 +34,17 @@ emitter.on('filter', () => { filterRoms() })
 
 async function scan() {
     scanning.set(true);
-    emitter.emit('snackbarScan', {'msg': "Scanning...", 'icon': 'mdi-check-bold', 'color': 'green'})
+    emitter.emit('snackbarScan', {'msg': "Scanning "+route.params.platform+"...", 'icon': 'mdi-check-bold', 'color': 'green'})
     const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })    
     socket.on("done", () => {
         scanning.set(false)
-        emitter.emit('refresh')
+        emitter.emit('refreshGallery')
         emitter.emit('snackbarScan', {'msg': "Scan completed successfully!", 'icon': 'mdi-check-bold', 'color': 'green'})
+        socket.close()
+    })
+    socket.on("done_ko", (msg) => {
+        scanning.set(false)
+        emitter.emit('snackbarScan', {'msg': "Scan couldn't be completed. Something went wrong: "+msg, 'icon': 'mdi-close-circle', 'color': 'red'})
         socket.close()
     })
     socket.emit("scan", JSON.stringify([route.params.platform]), false)
