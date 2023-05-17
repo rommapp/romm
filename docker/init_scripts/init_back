@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /back
-alembic upgrade head && uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000
+alembic upgrade head && uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000 --workers 2

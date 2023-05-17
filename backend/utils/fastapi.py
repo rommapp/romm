@@ -1,7 +1,11 @@
+from fastapi import status, HTTPException
+
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
 from config.config_loader import ConfigLoader
 cl = ConfigLoader()
+from utils.exceptions import RomsNotFoundException
+from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
 

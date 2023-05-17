@@ -1,19 +1,18 @@
 <script setup>
 // Props
 const props = defineProps(['rom', 'isHovering', 'hoverProps', 'size'])
-const forceImgReload = Date.now()
 </script>
 
 <template>
     <router-link
         style="text-decoration: none; color: inherit;"
-        :to="`/platform/${$route.params.platform}/rom/${rom.id}`">
+        :to="`/platform/${$route.params.platform}/${rom.id}`">
         <v-img
             :value="rom.id"
             :key="rom.id"
             v-bind="hoverProps"
-            :src="'/assets/romm/resources/'+rom.path_cover_l+'?reload='+forceImgReload"
-            :lazy-src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+forceImgReload"
+            :src="'/assets/romm/resources/'+rom.path_cover_l"
+            :lazy-src="'/assets/romm/resources/'+rom.path_cover_s"
             class="cover"
             cover>
             <template v-slot:placeholder>

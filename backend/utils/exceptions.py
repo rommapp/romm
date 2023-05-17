@@ -1,6 +1,6 @@
 class PlatformsNotFoundException(Exception):
     def __init__(self):
-        self.message = f"Platforms not found"
+        self.message = f"Platforms not found. Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
         super().__init__(self.message)
 
     def __repr__(self) -> str:
@@ -9,7 +9,7 @@ class PlatformsNotFoundException(Exception):
 
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Roms not found for platform {platform}"
+        self.message = f"Roms not found for platform {platform}. Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
         super().__init__(self.message)
 
     def __repr__(self) -> str:
