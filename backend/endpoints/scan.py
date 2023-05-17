@@ -1,6 +1,5 @@
 import emoji
 import json
-from fastapi import status, HTTPException
 
 from logger.logger import log, COLORS
 from utils import fs, fastapi
