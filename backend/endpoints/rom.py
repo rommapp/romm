@@ -34,7 +34,13 @@ async def rename_all_roms(_sid: str, platform_slug: str, sm=None) -> dict:
     for rom in platform_roms:
         try:
             ext = rom.file_name.split(".")[-1]
-            new_filename = f"{rom.r_name} [{rom.region}][{rom.revision}].{ext}"
+            new_filename = rom.r_name
+            if rom.region:
+                new_filename += f" [{rom.region}]"
+            if rom.revision:
+                new_filename += f" [Rev {rom.revision}]"
+            new_filename += f".{ext}"
+
             fs.rename_rom(platform.fs_slug, rom.file_name, new_filename)
             dbh.update_rom(
                 rom.id,
@@ -45,7 +51,7 @@ async def rename_all_roms(_sid: str, platform_slug: str, sm=None) -> dict:
             )
             log.info(f"Renamed {rom.file_name} to {new_filename}")
         except RomAlreadyExistsException as e:
-            log.info(str(e))
+            log.warning(str(e))
 
     await sm.emit("mass_rename:done")
 

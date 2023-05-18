@@ -27,9 +27,8 @@ class DBHandler:
 
     @staticmethod
     def raise_error(e: Exception) -> None:
-        error: str = f"{e}"
-        log.critical(error)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+        log.critical(str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
     # ========= Platforms =========

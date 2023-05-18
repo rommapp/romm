@@ -1,8 +1,8 @@
 <script setup>
 import { ref, inject } from "vue"
-import { io } from "socket.io-client";
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
+import socket from "@/utils/socket";
 
 // Props
 const platforms = storePlatforms()
@@ -12,27 +12,26 @@ const scanningPlatform = ref("")
 const scannedPlatforms = ref([])
 const completeRescan = ref(false)
 
-
 // Event listeners bus
 const emitter = inject('emitter')
-const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })
 
 // Functions
 async function scan() {
     scanning.set(true);
     scannedPlatforms.value = []
+    if (!socket.connected) socket.connect()
     socket.on("scan:scanning_platform", (platform) => { scannedPlatforms.value.push({'p_name': platform[0], 'p_slug': platform[1], 'r': []}); scanningPlatform.value = platform[1] })
     socket.on("scan:scanning_rom", (r) => { scannedPlatforms.value.forEach(e => { if(e['p_slug'] == scanningPlatform.value){ e['r'].push(r) } }) })
     socket.on("scan:done", () => {
         scanning.set(false)
         emitter.emit('refresPlatforms')
         emitter.emit('snackbarShow', {msg: "Scan completed successfully!", icon: 'mdi-check-bold', color: 'green'})
-        socket.close()
+        socket.disconnect()
     })
     socket.on("scan:done_ko", (msg) => {
         scanning.set(false)
         emitter.emit('snackbarShow', {msg: `Scan couldn't be completed. Something went wrong: ${msg}`, icon: 'mdi-close-circle', color: 'red'})
-        socket.close()
+        socket.disconnect()
     })
     socket.emit("scan", JSON.stringify(platformsToScan.value.map(p => p.fs_slug)), completeRescan.value)
 }

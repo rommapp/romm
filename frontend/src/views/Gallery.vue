@@ -1,7 +1,6 @@
 <script setup>
 import { ref, inject, onMounted } from 'vue'
 import { onBeforeRouteUpdate, useRoute } from 'vue-router'
-import { io } from "socket.io-client";
 import { views } from '@/utils/utils.js'
 import { fetchRomsApi } from '@/services/api.js'
 import { storeFilter } from '@/stores/filter.js'
@@ -14,6 +13,7 @@ import GameListHeader from '@/components/GameGallery/ListItem/Header.vue'
 import GameListItem from '@/components/GameGallery/ListItem/Item.vue'
 import { storeScanning } from '@/stores/scanning.js'
 import { storeRenaming } from "@/stores/renaming.js";
+import socket from "@/utils/socket";
 
 import { useDisplay } from "vuetify"
 import { downloadRom, downloadSave } from '@/services/download.js'
@@ -41,11 +41,6 @@ emitter.on("filter", () => {
   filterRoms();
 });
 
-const socket = io({
-  path: "/ws/socket.io/",
-  transports: ["websocket", "polling"],
-});
-
 async function scan() {
   scanning.set(true);
   emitter.emit("snackbarShow", {
@@ -53,6 +48,7 @@ async function scan() {
     icon: "mdi-loading mdi-spin",
     color: "yellow",
   });
+  if (!socket.connected) socket.connect()
   socket.on("scan:done", () => {
     scanning.set(false);
     emitter.emit("refreshGallery");
@@ -81,6 +77,7 @@ async function massRename() {
     msg: `Mass renaming ${route.params.platform} ROMs...`,
     icon: "mdi-loading mdi-spin",
   });
+  if (!socket.connected) socket.connect()
   socket.on("mass_rename:done", () => {
     renaming.set(false);
     emitter.emit("refreshGallery");
