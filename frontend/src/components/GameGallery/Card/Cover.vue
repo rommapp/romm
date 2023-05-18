@@ -12,8 +12,8 @@ const forceImgReload = Date.now()
             :value="rom.id"
             :key="rom.id"
             v-bind="hoverProps"
-            :src="'/assets/romm/resources/'+rom.path_cover_l+'?reload='+forceImgReload"
-            :lazy-src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+forceImgReload"
+            :src="`/assets/romm/resources/${rom.path_cover_l}?reload=${forceImgReload}`"
+            :lazy-src="`/assets/romm/resources/${rom.path_cover_s}?reload=${forceImgReload}`"
             class="cover"
             cover>
             <template v-slot:placeholder>

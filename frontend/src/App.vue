@@ -29,7 +29,7 @@ emitter.on('refreshGallery', () => {
   refreshGallery.value = !refreshGallery.value
 })
 
-// Startup
+
 onMounted(() => {
   fetchPlatforms()
     .then((res) => { platforms.set(res.data.data) })
@@ -53,7 +53,6 @@ onMounted(() => {
           <router-view :key="refreshGallery"/>
       </v-container>
     </v-main>
-
 
   </v-app>
 </template>

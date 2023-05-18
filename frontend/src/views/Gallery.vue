@@ -23,8 +23,8 @@ const galleryView = storeGalleryView()
 const route = useRoute()
 const romsFiltered = ref([])
 // const sections = ['roms', 'firmwares']
-const currentSection = ref('roms')
 // const firmwares = ["firmware_base", "firmware_bios"]
+const currentSection = ref('roms')
 const scanning = storeScanning()
 
 // Event listeners bus
@@ -34,7 +34,7 @@ emitter.on('filter', () => { filterRoms() })
 
 async function scan() {
     scanning.set(true);
-    emitter.emit('snackbarScan', {'msg': "Scanning "+route.params.platform+"...", 'icon': 'mdi-check-bold', 'color': 'green'})
+    emitter.emit('snackbarScan', {'msg': `Scanning ${route.params.platform}...`, 'icon': 'mdi-check-bold', 'color': 'green'})
     const socket = io({ path: '/ws/socket.io/', transports: ['websocket', 'polling'] })    
     socket.on("done", () => {
         scanning.set(false)
@@ -44,7 +44,7 @@ async function scan() {
     })
     socket.on("done_ko", (msg) => {
         scanning.set(false)
-        emitter.emit('snackbarScan', {'msg': "Scan couldn't be completed. Something went wrong: "+msg, 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': `Scan couldn't be completed. Something went wrong: ${msg}`, 'icon': 'mdi-close-circle', 'color': 'red'})
         socket.close()
     })
     socket.emit("scan", JSON.stringify([route.params.platform]), false)
@@ -59,7 +59,7 @@ function filterRoms() {
 
 async function fetchRoms(platform) {
     gettingRoms.value = true
-    await axios.get('/api/platforms/'+platform+'/roms').then((response) => {
+    await axios.get(`/api/platforms/${platform}/roms`).then((response) => {
         roms.value = response.data.data
         filterRoms()
     }).catch((error) => {console.log(error)})
