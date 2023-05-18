@@ -2,7 +2,7 @@ import emoji
 from fastapi import APIRouter, Request, status, HTTPException
 
 from logger.logger import log
-from handler import dbh, igdbh
+from handler import dbh
 from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
 from models.platform import Platform
@@ -33,11 +33,17 @@ async def rename_all_roms(_sid: str, platform_slug: str, sm=None) -> dict:
 
     for rom in platform_roms:
         try:
-            igdb_rom_data = igdbh.get_rom_by_id(rom.r_igdb_id)
-            fs.rename_rom(
-                platform.fs_slug, rom.file_name, igdb_rom_data[0].get("r_name", "")
+            ext = rom.file_name.split(".")[-1]
+            new_filename = f"{rom.r_name} [{rom.region}][{rom.revision}].{ext}"
+            fs.rename_rom(platform.fs_slug, rom.file_name, new_filename)
+            dbh.update_rom(
+                rom.id,
+                {
+                    "file_name": new_filename,
+                    "file_name_no_tags": get_file_name_with_no_tags(new_filename),
+                },
             )
-            log.info(f'Renamed {rom.file_name} to {igdb_rom_data[0].get("r_name", "")}')
+            log.info(f"Renamed {rom.file_name} to {new_filename}")
         except RomAlreadyExistsException as e:
             log.info(str(e))
 
