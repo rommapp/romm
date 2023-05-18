@@ -22,9 +22,9 @@ const filter = storeFilter()
 const galleryView = storeGalleryView()
 const route = useRoute()
 const romsFiltered = ref([])
-// const firmwares = ["firmware_base", "firmware_bios"]
 // const sections = ['roms', 'firmwares']
 const currentSection = ref('roms')
+// const firmwares = ["firmware_base", "firmware_bios"]
 const scanning = storeScanning()
 
 // Event listeners bus
@@ -72,51 +72,66 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
 
 <template>
     
-    <v-app-bar class="gallery-app-bar" elevation="0" density="compact">
-        <!-- <v-select item-title="name" :items="sections" v-model="currentSection" hide-details/> -->
+    <v-toolbar class="gallery-app-bar bg-primary" elevation="0" density="compact">
         <filter-bar/>
         <gallery-view-btn/>
         <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan"/>
-    </v-app-bar>
+    </v-toolbar>
 
-    <v-row v-show="currentSection == 'roms'" no-gutters>
+    <!-- <v-toolbar class="bg-primary" elevation="0" density="compact">
+        <v-select item-title="name" :items="sections" v-model="currentSection" hide-details/>
+        <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan"/>
+    </v-toolbar> -->
 
-        <v-row v-show="!gettingRoms && galleryView.value != 2 && roms.length>0" class="pa-1" no-gutters>
-            <v-col v-for="rom in romsFiltered" class="pa-1"
-                :key="rom.file_name"
-                :cols="views[galleryView.value]['size-cols']"
-                :xs="views[galleryView.value]['size-xs']"
-                :sm="views[galleryView.value]['size-sm']"
-                :md="views[galleryView.value]['size-md']"
-                :lg="views[galleryView.value]['size-lg']">
-                <game-card :rom="rom"/>
-            </v-col>
-        </v-row>
+    <v-row v-show="currentSection == 'roms'" no-gutters class="test">
 
-        <v-row v-show="!gettingRoms && galleryView.value == 2 && roms.length>0" class="pa-1" no-gutters>
-            <v-col class="pa-1"
-                :cols="views[galleryView.value]['size-cols']"
-                :xs="views[galleryView.value]['size-xs']"
-                :sm="views[galleryView.value]['size-sm']"
-                :md="views[galleryView.value]['size-md']"
-                :lg="views[galleryView.value]['size-lg']">
-                <v-table class="bg-secondary">
-                    <game-list-header />
-                    <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1"/>
-                    <tbody>
-                        <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
-                    </tbody>
-                </v-table>
-            </v-col>
-        </v-row>
-        
-        <v-row v-if="!gettingRoms && roms.length==0" no-gutters>
-            <div class="text-h6 mt-16 mx-auto">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
-        </v-row>
+        <template v-if="!gettingRoms">
 
-        <v-row v-if="gettingRoms" no-gutters>
-            <v-progress-circular class="mt-16 mx-auto" color="rommAccent1" :width="3" :size="70" indeterminate/>
-        </v-row>
+            <template v-if="roms.length>0">
+
+                <v-row v-show="galleryView.value != 2" class="pa-1" no-gutters>
+                    <v-col v-for="rom in romsFiltered" class="pa-1"
+                        :key="rom.file_name"
+                        :cols="views[galleryView.value]['size-cols']"
+                        :xs="views[galleryView.value]['size-xs']"
+                        :sm="views[galleryView.value]['size-sm']"
+                        :md="views[galleryView.value]['size-md']"
+                        :lg="views[galleryView.value]['size-lg']">
+                        <game-card :rom="rom"/>
+                    </v-col>
+                </v-row>
+
+                <v-row v-show="galleryView.value == 2" class="pa-1" no-gutters>
+                    <v-col class="pa-1"
+                        :cols="views[galleryView.value]['size-cols']"
+                        :xs="views[galleryView.value]['size-xs']"
+                        :sm="views[galleryView.value]['size-sm']"
+                        :md="views[galleryView.value]['size-md']"
+                        :lg="views[galleryView.value]['size-lg']">
+                        <v-table class="bg-secondary">
+                            <game-list-header />
+                            <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1"/>
+                            <tbody>
+                                <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom"/>
+                            </tbody>
+                        </v-table>
+                    </v-col>
+                </v-row>
+
+            </template>
+
+            <v-row v-if="roms.length==0" no-gutters>
+                <div class="text-h6 mt-16 mx-auto">Feels cold here... <v-icon>mdi-emoticon-sad</v-icon></div>
+            </v-row>
+
+        </template>
+
+
+        <template v-else="gettingRoms">
+            <v-row no-gutters>
+                <v-progress-circular class="mx-auto" color="rommAccent1" :width="3" :size="70" indeterminate/>
+            </v-row>
+        </template>
 
     </v-row>
     
@@ -137,6 +152,7 @@ onBeforeRouteUpdate(async (to, _) => { fetchRoms(to.params.platform) })
     </v-row> -->
 
 </template>
+
 <style scoped>
 .gallery-app-bar {
     z-index: 999 !important;
