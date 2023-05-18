@@ -26,4 +26,4 @@ async def search_rom_igdb(req: Request, search_term: str = '', search_by: str = 
         matched_roms = igdbh.get_matched_roms(rom['file_name'], rom['p_igdb_id'], rom['p_slug'])
     log.info("Results:")
     [log.info(f"\t - {COLORS['blue']}{rom['r_name']}{COLORS['reset']}") for rom in matched_roms]
-    return {'data': matched_roms, 'msg': 'success'}
+    return {'data': matched_roms, msg: 'success'}
