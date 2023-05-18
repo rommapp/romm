@@ -31,7 +31,7 @@ async function scan() {
     })
     socket.on("done_ko", (msg) => {
         scanning.set(false)
-        emitter.emit('snackbarScan', {'msg': "Scan couldn't be completed. Something went wrong: "+msg, 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': `Scan couldn't be completed. Something went wrong: ${msg}`, 'icon': 'mdi-close-circle', 'color': 'red'})
         socket.close()
     })
     socket.emit("scan", JSON.stringify(platformsToScan.value.map(p => p.fs_slug)), completeRescan.value)
@@ -40,8 +40,7 @@ async function scan() {
 
 <template>
 
-    <div class="ma-5">
-        <v-row no-gutters>
+        <v-row class="pa-4" no-gutters>
             <v-select
                 label="Platforms"
                 item-title="name"
@@ -57,7 +56,7 @@ async function scan() {
                 chips/>
         </v-row>
 
-        <v-row class="mb-4" no-gutters>
+        <v-row class="pa-4" no-gutters>
             <v-checkbox
                 v-model="completeRescan"
                 label="Complete Rescan"
@@ -66,7 +65,7 @@ async function scan() {
                 persistent-hint/>
         </v-row>
 
-        <v-row class="mb-4" no-gutters>
+        <v-row class="pa-4" no-gutters>
             <v-btn
                 @click="scan()"
                 :disabled="scanning.value"
@@ -83,13 +82,14 @@ async function scan() {
             </v-btn>
         </v-row>
 
+        <v-divider class="border-opacity-100 ma-4" color="rommAccent1" :thickness="1"/>
+
         <v-row no-gutters class="align-center pa-4" v-for="d in scannedPlatforms">
-            <v-col  class="pa-0 ma-0">
-                <v-avatar :rounded="0" size="40"><v-img :src="'/assets/platforms/'+d['p_slug']+'.ico'"></v-img></v-avatar>
+            <v-col>
+                <v-avatar :rounded="0" size="40"><v-img :src="`/assets/platforms/${d['p_slug']}.ico`"></v-img></v-avatar>
                 <span class="text-body-2 ml-5"> {{ d['p_name'] }}</span>
                 <v-list-item v-for="r in d['r']" class="text-body-2" disabled> - {{ r }}</v-list-item>
             </v-col>
         </v-row>
-    </div>
 
 </template>

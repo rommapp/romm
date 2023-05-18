@@ -2,12 +2,12 @@
 import { ref } from 'vue'
 
 const props = defineProps(['platform'])
-const platformIconUrl = ref('/assets/platforms/' + props.platform.slug + '.ico')
+const platformIconUrl = ref(`/assets/platforms/${props.platform.slug}.ico`)
 const platformIconNotFound = () => { platformIconUrl.value = '/assets/platforms/default.ico' }
 </script>
 
 <template>
-    <router-link style="text-decoration: none; color: inherit;" :to="`/platform/${platform.slug}`">
+    <router-link id="router-link" :to="`/platform/${platform.slug}`">
         <v-hover v-slot="{ isHovering, props }">
             <v-card v-bind="props" :class="{ 'on-hover': isHovering }" :elevation="isHovering ? 20 : 3">
                 <v-card-text>
@@ -29,4 +29,8 @@ const platformIconNotFound = () => { platformIconUrl.value = '/assets/platforms/
 </template>
 
 <style scoped>
+#router-link{
+    text-decoration: none;
+    color: inherit;
+}
 </style>
