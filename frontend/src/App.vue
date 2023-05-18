@@ -40,16 +40,17 @@ onMounted(() => {
 <template>
   <v-app>
 
-    <notification class="mt-6"/>
+    <notification id="notification" class="mt-6"/>
 
-    <v-progress-linear class="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
+    <v-progress-linear id="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute fixed/>
 
-    <drawer :key="refresPlatforms"/>
+    <drawer id="drawer" :key="refresPlatforms"/>
+
+    <app-bar v-if="mdAndDown"/>
 
     <v-main>
       <v-container class="pa-0" fluid>
-        <app-bar v-if="mdAndDown"/>
-        <router-view :key="refreshGallery"/>
+          <router-view :key="refreshGallery"/>
       </v-container>
     </v-main>
 
@@ -59,7 +60,5 @@ onMounted(() => {
 
 <style>
 @import '@/styles/scrollbar.css';
-.scan-progress-bar {
-  z-index: 1000 !important;
-}
+#scan-progress-bar { z-index: 1000 !important; }
 </style>
