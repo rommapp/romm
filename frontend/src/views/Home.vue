@@ -43,7 +43,7 @@ const { lgAndUp } = useDisplay()
         </v-row>
 
         <v-row id="platforms-cards" class="pa-2" no-gutters>
-            <v-col v-for="platform in platforms.value" class="pr-1 pl-1" :key="platform.slug"
+            <v-col v-for="platform in platforms.value" class="pa-1" :key="platform.slug"
                 :cols="views[0]['size-cols']" :xs="views[0]['size-xs']" :sm="views[0]['size-sm']" :md="views[0]['size-md']" :lg="views[0]['size-lg']">
                 <platform :platform="platform" :key="platform.slug"/>
             </v-col>
