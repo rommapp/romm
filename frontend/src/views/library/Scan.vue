@@ -31,7 +31,7 @@ async function scan() {
     })
     socket.on("done_ko", (msg) => {
         scanning.set(false)
-        emitter.emit('snackbarScan', {'msg': "Scan couldn't be completed. Something went wrong: "+msg, 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarScan', {'msg': `Scan couldn't be completed. Something went wrong: ${msg}`, 'icon': 'mdi-close-circle', 'color': 'red'})
         socket.close()
     })
     socket.emit("scan", JSON.stringify(platformsToScan.value.map(p => p.fs_slug)), completeRescan.value)
@@ -85,7 +85,7 @@ async function scan() {
 
         <v-row no-gutters class="align-center pa-4" v-for="d in scannedPlatforms">
             <v-col  class="pa-0 ma-0">
-                <v-avatar :rounded="0" size="40"><v-img :src="'/assets/platforms/'+d['p_slug']+'.ico'"></v-img></v-avatar>
+                <v-avatar :rounded="0" size="40"><v-img :src="`/assets/platforms/${d['p_slug']}.ico`"></v-img></v-avatar>
                 <span class="text-body-2 ml-5"> {{ d['p_name'] }}</span>
                 <v-list-item v-for="r in d['r']" class="text-body-2" disabled> - {{ r }}</v-list-item>
             </v-col>

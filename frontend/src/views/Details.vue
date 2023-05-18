@@ -37,7 +37,7 @@ const emitter = inject('emitter')
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    await axios.put('/api/search/roms/igdb?search_term='+searchTerm.value+'&search_by='+searchBy.value, {
+    await axios.put(`/api/search/roms/igdb?search_term=${searchTerm.value}&search_by=${searchBy.value}`, {
         rom: rom.value
     }).then((response) => {
         matchedRoms.value = response.data.data
@@ -55,7 +55,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.url_screenshots = updatedData.url_screenshots
     updatedRom.value.r_name = updatedData.r_name
     if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
-    await axios.patch('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id, { updatedRom: updatedRom.value }).then((response) => {
+    await axios.patch(`/api/platforms/${rom.value.p_slug}/roms/${rom.value.id}`, { updatedRom: updatedRom.value }).then((response) => {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
@@ -69,14 +69,14 @@ async function updateRom(updatedData={...updatedRom.value}) {
 }
 
 async function deleteRom() {
-    await axios.delete('/api/platforms/'+rom.value.p_slug+'/roms/'+rom.value.id+'?filesystem='+deleteFromFs.value)
+    await axios.delete(`/api/platforms/${rom.value.p_slug}/roms/${rom.value.id}?filesystem=${deleteFromFs.value}`)
     .then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
-        router.push('/platform/'+rom.value.p_slug)
+        router.push(`/platform/${rom.value.p_slug}`)
     }).catch((error) => {
         console.log(error)
         emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
-        if (error.response.status == 404) { router.push('/platform/'+rom.value.p_slug) }
+        if (error.response.status == 404) { router.push(`/platform/${rom.value.p_slug}`) }
     })
     dialogDeleteRom.value = false
 }
@@ -101,7 +101,7 @@ onMounted(() => {
                 <v-row>
                     <v-col>
                         <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
-                            <v-img :src="'/assets/romm/resources/'+rom.path_cover_l+'?reload='+Date.now()" :lazy-src="'/assets/romm/resources/'+rom.path_cover_s+'?reload='+Date.now()" cover>
+                            <v-img :src="`/assets/romm/resources/${rom.path_cover_l}?reload=${Date.now()}`" :lazy-src="`/assets/romm/resources/${rom.path_cover_s}?reload=${Date.now()}`" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
@@ -182,7 +182,7 @@ onMounted(() => {
                             <v-row v-if="rom.r_igdb_id!=''" class="d-flex align-center text-body-1 mt-0">
                                 <v-col cols="3" xs="3" sm="2" md="2" lg="2" class="font-weight-medium"><span>IGDB</span></v-col>
                                 <v-col>
-                                    <v-chip variant="outlined" :href="'https://www.igdb.com/games/'+rom.r_slug" label>{{ rom.r_igdb_id }}</v-chip>
+                                    <v-chip variant="outlined" :href="`https://www.igdb.com/games/${rom.r_slug}`" label>{{ rom.r_igdb_id }}</v-chip>
                                 </v-col>
                             </v-row>
                             <v-row v-if="rom.tags.length>0" class="d-flex align-center text-body-1 mt-0">
@@ -196,7 +196,7 @@ onMounted(() => {
                         <v-window-item value="screenshots">
                             <v-row class="d-flex mt-2">
                                 <v-carousel hide-delimiter-background delimiter-icon="mdi-square" class="bg-rommBlack" show-arrows="hover" height="400">
-                                    <v-carousel-item v-for="screenshot in rom.path_screenshots" :src="'/assets/romm/resources/'+screenshot"/>
+                                    <v-carousel-item v-for="screenshot in rom.path_screenshots" :src="`/assets/romm/resources/${screenshot}`"/>
                                 </v-carousel>
                             </v-row>
                         </v-window-item>
