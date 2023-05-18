@@ -16,7 +16,7 @@ const { lgAndUp } = useDisplay()
         <v-row id="home-header-logo" class="ma-4" no-gutters>
             <v-spacer/>
             <v-col cols="12" xs="12" sm="10" md="10" lg="10">
-                <v-img :height="lgAndUp ? 200 : 100" src="/assets/romm_complete.svg" cover />
+                <v-img :height="lgAndUp ? 200 : 150" src="/assets/romm_complete.svg" cover />
             </v-col>
             <v-spacer/>
         </v-row>
