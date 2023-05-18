@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue"
 import { useTheme, useDisplay } from "vuetify"
-import { fetchPlatforms } from '@/services/api.js'
+import { fetchPlatformsApi } from '@/services/api.js'
 import { storePlatforms } from '@/stores/platforms.js'
 import { storeScanning } from '@/stores/scanning.js'
 import Drawer from '@/components/Drawer/Base.vue'
@@ -19,7 +19,7 @@ useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('refresPlatforms', () => {
-  fetchPlatforms()
+  fetchPlatformsApi()
     .then((res) => { platforms.set(res.data.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
     refresPlatforms.value = !refresPlatforms.value
@@ -29,9 +29,9 @@ emitter.on('refreshGallery', () => {
   refreshGallery.value = !refreshGallery.value
 })
 
-// Startup
+
 onMounted(() => {
-  fetchPlatforms()
+  fetchPlatformsApi()
     .then((res) => { platforms.set(res.data.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
 })
@@ -40,26 +40,25 @@ onMounted(() => {
 <template>
   <v-app>
 
-    <notification class="mt-6"/>
+    <notification id="notification" class="mt-6"/>
 
-    <v-progress-linear class="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute/>
+    <v-progress-linear id="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute fixed/>
 
-    <drawer :key="refresPlatforms"/>
+    <drawer id="drawer" :key="refresPlatforms"/>
+
+    <app-bar v-if="mdAndDown"/>
 
     <v-main>
-      <v-container class="pa-0" fluid>
-        <app-bar v-if="mdAndDown"/>
+      <v-container id="main-container" class="pa-1" fluid>
         <router-view :key="refreshGallery"/>
       </v-container>
     </v-main>
-
 
   </v-app>
 </template>
 
 <style>
 @import '@/styles/scrollbar.css';
-.scan-progress-bar {
-  z-index: 1000 !important;
-}
+#scan-progress-bar { z-index: 1000 !important; }
+#main-container { height: 100%; }
 </style>
