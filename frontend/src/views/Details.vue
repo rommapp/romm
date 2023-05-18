@@ -1,8 +1,8 @@
 <script setup>
-import axios from 'axios'
 import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
+import { fetchRomApi, updateRomApi, deleteRomApi, searchRomApi } from '@/services/api.js'
 import { downloadRom, downloadSave } from '@/services/download.js'
 import { storeDownloading } from '@/stores/downloading.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
@@ -37,11 +37,11 @@ const emitter = inject('emitter')
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    await axios.put(`/api/search/roms/igdb?search_term=${searchTerm.value}&search_by=${searchBy.value}`, {
-        rom: rom.value
-    }).then((response) => {
+    await searchRomApi(searchTerm.value, searchBy.value, rom.value)
+    .then((response) => {
         matchedRoms.value = response.data.data
-    }).catch((error) => {console.log(error)})
+    })
+    .catch((error) => {console.log(error)})
     searching.value = false
 }
 
@@ -55,7 +55,8 @@ async function updateRom(updatedData={...updatedRom.value}) {
     updatedRom.value.url_screenshots = updatedData.url_screenshots
     updatedRom.value.r_name = updatedData.r_name
     if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
-    await axios.patch(`/api/platforms/${rom.value.p_slug}/roms/${rom.value.id}`, { updatedRom: updatedRom.value }).then((response) => {
+    await updateRomApi(rom.value, updatedRom.value)
+    .then((response) => {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
@@ -69,7 +70,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
 }
 
 async function deleteRom() {
-    await axios.delete(`/api/platforms/${rom.value.p_slug}/roms/${rom.value.id}?filesystem=${deleteFromFs.value}`)
+    await deleteRomApi(rom.value.p_slug, deleteFromFs.value)
     .then((response) => {
         emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push(`/platform/${rom.value.p_slug}`)
@@ -83,7 +84,8 @@ async function deleteRom() {
 
 
 onMounted(() => {
-    axios.get(`/api/platforms/${route.params.platform}/roms/${route.params.rom}`).then(response => {
+    fetchRomApi(route.params.platform, route.params.rom)
+    .then(response => {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
         loading.value = false
