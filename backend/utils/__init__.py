@@ -1,5 +1,29 @@
 import re
 
+LANGUAGES = [
+    "Ar",
+    "Da",
+    "De",
+    "En",
+    "En-US",
+    "Es",
+    "Fi",
+    "Fr",
+    "It",
+    "Ja",
+    "Ko",
+    "Nl",
+    "Pl",
+    "Pt",
+    "Pt-BR",
+    "Ru",
+    "Sv",
+    "Zh",
+    "Zh-Hans",
+    "Zh-Hant",
+    "nolang"
+]
+
 REGIONS = [
     ("U", "USA"),
     ("E", "Europe"),
@@ -20,7 +44,7 @@ REGIONS = [
     ("FN", "Finland"),
     ("UK", "England"),
     ("GR", "Greece"),
-    ("UNK", "Unknown Country"),
+    ("UNK", "Unknown"),
     ("HK", "Hong Kong"),
     ("I", "Italy"),
     ("H", "Holland"),
