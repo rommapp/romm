@@ -59,10 +59,10 @@ async function updateRom(updatedData={...updatedRom.value}) {
     .then((response) => {
         rom.value = response.data.data
         updatedRom.value = {...response.data.data}
-        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
+        emitter.emit('snackbarShow', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refreshGallery')
     }).catch((error) => {
-        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarShow', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
     })
     renameAsIGDB.value = false
     updating.value = false
@@ -72,11 +72,11 @@ async function updateRom(updatedData={...updatedRom.value}) {
 async function deleteRom() {
     await deleteRomApi(rom.value.p_slug, deleteFromFs.value)
     .then((response) => {
-        emitter.emit('snackbarScan', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
+        emitter.emit('snackbarShow', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push(`/platform/${rom.value.p_slug}`)
     }).catch((error) => {
         console.log(error)
-        emitter.emit('snackbarScan', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
+        emitter.emit('snackbarShow', {'msg': error.response.data.detail, 'icon': 'mdi-close-circle', 'color': 'red'})
         if (error.response.status == 404) { router.push(`/platform/${rom.value.p_slug}`) }
     })
     dialogDeleteRom.value = false
