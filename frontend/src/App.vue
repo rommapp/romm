@@ -21,8 +21,8 @@ const emitter = inject('emitter')
 emitter.on('refresPlatforms', () => {
   fetchPlatformsApi()
     .then((res) => { platforms.set(res.data.data) })
-    .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
-    refresPlatforms.value = !refresPlatforms.value
+    .catch((error) => { console.log(error); console.log("Couldn't fetch platforms") })
+  refresPlatforms.value = !refresPlatforms.value
 })
 
 emitter.on('refreshGallery', () => {
@@ -33,24 +33,25 @@ emitter.on('refreshGallery', () => {
 onMounted(() => {
   fetchPlatformsApi()
     .then((res) => { platforms.set(res.data.data) })
-    .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
+    .catch((error) => { console.log(error); console.log("Couldn't fetch platforms") })
 })
 </script>
 
 <template>
   <v-app>
 
-    <notification id="notification" class="mt-6"/>
+    <notification class="mt-6" />
 
-    <v-progress-linear id="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true" absolute fixed/>
+    <v-progress-linear id="scan-progress-bar" color="rommAccent1" :active="scanning.value" :indeterminate="true"
+      absolute />
 
-    <drawer id="drawer" :key="refresPlatforms"/>
+    <drawer :key="refresPlatforms" />
 
-    <app-bar v-if="mdAndDown"/>
+    <app-bar v-if="mdAndDown" />
 
     <v-main>
       <v-container id="main-container" class="pa-1" fluid>
-        <router-view :key="refreshGallery"/>
+        <router-view :key="refreshGallery" />
       </v-container>
     </v-main>
 
@@ -59,6 +60,12 @@ onMounted(() => {
 
 <style>
 @import '@/styles/scrollbar.css';
-#scan-progress-bar { z-index: 1000 !important; }
-#main-container { height: 100%; }
+
+#scan-progress-bar {
+  z-index: 1000 !important;
+}
+
+#main-container {
+  height: 100%;
+}
 </style>

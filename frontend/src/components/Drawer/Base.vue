@@ -1,8 +1,8 @@
 <script setup>
 import { ref, inject } from "vue"
-import RailBtn from '@/components/Drawer/RailBtn.vue'
-import Platform from '@/components/Drawer/Platform.vue'
 import { storePlatforms } from '@/stores/platforms'
+import PlatformListItem from '@/components/Platform/PlatformListItem.vue'
+import RailBtn from '@/components/Drawer/RailBtn.vue'
 
 // Props
 const platforms = storePlatforms()
@@ -13,7 +13,7 @@ const rail = (localStorage.getItem('rail') == 'true') ? ref(true) : ref(false)
 // Event listeners bus
 const emitter = inject('emitter')
 emitter.on('toggleDrawer', () => { drawer.value = !drawer.value })
-emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value)})
+emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.setItem('rail', rail.value) })
 </script>
 
 <template>
@@ -37,8 +37,8 @@ emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.se
                         </template>
                     </v-list-item>
                 </template>
-                <platform class="drawer-item" v-for="platform in platforms.value" :platform="platform" :rail="rail"
-                    :key="platform.slug" />
+                <platform-list-item class="drawer-item" v-for="platform in platforms.value" :platform="platform"
+                    :rail="rail" :key="platform.slug" />
             </v-list-group>
 
             <v-list-group value="Library">

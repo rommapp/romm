@@ -29,7 +29,7 @@ const platformIconNotFound = () => { platformIconUrl.value = '/assets/platforms/
 </template>
 
 <style scoped>
-#router-link{
+#router-link {
     text-decoration: none;
     color: inherit;
 }

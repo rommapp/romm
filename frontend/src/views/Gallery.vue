@@ -1,35 +1,25 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
-import { views } from "@/utils/utils.js";
 import { fetchRomsApi } from "@/services/api.js";
-import { storeFilter } from "@/stores/filter.js";
+import { socket } from "@/services/socket.js";
+import { views, normalizeString } from "@/utils/utils.js";
+import { storeGalleryFilter } from "@/stores/galleryFilter.js";
 import { storeGalleryView } from "@/stores/galleryView.js";
-import { normalizeString } from "@/utils/utils.js";
-import FilterBar from "@/components/GameGallery/FilterBar.vue";
-import GalleryViewBtn from "@/components/GameGallery/GalleryViewBtn.vue";
-import GameCard from "@/components/GameGallery/Card/Base.vue";
-import GameListHeader from "@/components/GameGallery/ListItem/Header.vue";
-import GameListItem from "@/components/GameGallery/ListItem/Item.vue";
 import { storeScanning } from "@/stores/scanning.js";
-import socket from "@/utils/socket";
-
-import { useDisplay } from "vuetify";
-import { downloadRom, downloadSave } from "@/services/download.js";
-import { storeDownloading } from "@/stores/downloading.js";
-import BackgroundHeader from "@/components/GameDetails/BackgroundHeader.vue";
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
+import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
+import GameListHeader from "@/components/Game/ListItem/Header.vue";
+import GameListItem from "@/components/Game/ListItem/Item.vue";
 
 // Props
 const route = useRoute();
-// const sections = ['roms', 'firmwares']
-const currentSection = ref("roms");
 const roms = ref([]);
-const gettingRoms = ref(false);
-const filter = storeFilter();
 const romsFiltered = ref([]);
-// const firmwares = ["firmware_base", "firmware_bios"]
+const galleryFilter = storeGalleryFilter();
 const galleryView = storeGalleryView();
+const gettingRoms = ref(false);
 const scanning = storeScanning();
 
 // Event listeners bus
@@ -44,7 +34,7 @@ async function scan() {
   emitter.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
-    color: "yellow",
+    color: "rommAccent1",
   });
   if (!socket.connected) socket.connect();
   socket.on("scan:done", () => {
@@ -71,7 +61,7 @@ async function scan() {
 
 function filterRoms() {
   romsFiltered.value = roms.value.filter((rom) => {
-    return normalizeString(rom.file_name).includes(filter.value);
+    return normalizeString(rom.file_name).includes(galleryFilter.value);
   });
 }
 
@@ -108,12 +98,14 @@ onBeforeRouteUpdate(async (to, _) => {
   </v-app-bar>
 
   <template v-if="gettingRoms">
+    <!-- Gallery loader -->
     <v-row class="fill-height justify-center align-center" no-gutters>
       <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate />
     </v-row>
   </template>
   <template v-else>
     <template v-if="roms.length > 0">
+      <!-- Gallery cards view -->
       <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
         <v-col v-for="rom in romsFiltered" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
           :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
@@ -122,6 +114,7 @@ onBeforeRouteUpdate(async (to, _) => {
         </v-col>
       </v-row>
 
+      <!-- Gallery list view -->
       <v-row v-show="galleryView.value == 2" id="list-view" no-gutters>
         <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
           :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
@@ -137,6 +130,7 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-row>
     </template>
 
+    <!-- Empty gallery message -->
     <template v-else>
       <v-row class="fill-height justify-center align-center" no-gutters>
         <div class="text-h6">

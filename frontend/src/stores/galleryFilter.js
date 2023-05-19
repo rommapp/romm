@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { normalizeString } from '@/utils/utils.js'
 
-export const storeFilter = defineStore('filter', {
+export const storeGalleryFilter = defineStore('galleryFilter', {
   state: () => ({ value: '' }),
 
   actions: {

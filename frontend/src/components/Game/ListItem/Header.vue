@@ -16,10 +16,10 @@
                     </template>
                 </v-list-item>
             </v-col>
-            <v-col cols="3" xs="3" sm="1" md="1" lg="1" class="d-flex justify-center align-center mr-4">
-                <v-btn size="x-small" variant="text" disabled/>
-                <v-btn size="x-small" variant="text" disabled/>
-                <v-btn size="x-small" variant="text" disabled/>
+            <v-col cols="3" xs="3" sm="1" md="1" lg="1" class="mr-4">
+                <v-btn size="x-small" variant="text" disabled />
+                <v-btn size="x-small" variant="text" disabled />
+                <v-btn size="x-small" variant="text" disabled />
             </v-col>
         </v-row>
     </thead>

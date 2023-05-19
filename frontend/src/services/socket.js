@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const socket = io({
+export const socket = io({
   path: "/ws/socket.io/",
   transports: ["websocket", "polling"],
   autoConnect: false,

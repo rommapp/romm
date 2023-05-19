@@ -5,20 +5,13 @@ const forceImgReload = Date.now()
 </script>
 
 <template>
-    <router-link
-        style="text-decoration: none; color: inherit;"
-        :to="`/platform/${$route.params.platform}/${rom.id}`">
-        <v-img
-            :value="rom.id"
-            :key="rom.id"
-            v-bind="hoverProps"
+    <router-link style="text-decoration: none; color: inherit;" :to="`/platform/${$route.params.platform}/${rom.id}`">
+        <v-img :value="rom.id" :key="rom.id" v-bind="hoverProps"
             :src="`/assets/romm/resources/${rom.path_cover_l}?reload=${forceImgReload}`"
-            :lazy-src="`/assets/romm/resources/${rom.path_cover_s}?reload=${forceImgReload}`"
-            class="cover"
-            cover>
+            :lazy-src="`/assets/romm/resources/${rom.path_cover_s}?reload=${forceImgReload}`" class="cover" cover>
             <template v-slot:placeholder>
                 <div class="d-flex align-center justify-center fill-height">
-                    <v-progress-circular color="rommAccent1" :width="2" indeterminate/>
+                    <v-progress-circular color="rommAccent1" :width="2" indeterminate />
                 </div>
             </template>
             <v-expand-transition>
@@ -28,18 +21,10 @@ const forceImgReload = Date.now()
                 </div>
             </v-expand-transition>
             <v-chip-group class="pl-1 pt-0">
-                <v-chip
-                    v-show="rom.region"
-                    size="x-small"
-                    class="bg-chip"
-                    label>
+                <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
                     {{ rom.region }}
                 </v-chip>
-                <v-chip
-                    v-show="rom.revision"
-                    size="x-small"
-                    class="bg-chip"
-                    label>
+                <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>
                     {{ rom.revision }}
                 </v-chip>
             </v-chip-group>
@@ -48,7 +33,11 @@ const forceImgReload = Date.now()
 </template>
 
 <style scoped>
+.rom-title.on-hover {
+    opacity: 1;
+}
 
-.rom-title.on-hover { opacity: 1; }
-.rom-title:not(.on-hover) { opacity: 0.85; }
+.rom-title:not(.on-hover) {
+    opacity: 0.85;
+}
 </style>
