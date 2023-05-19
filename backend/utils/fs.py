@@ -157,8 +157,8 @@ def _exclude_multi_roms(roms) -> list[str]:
 
 def get_rom_files(rom: str, roms_path: str) -> list[str]:
     rom_files: list = []
-    for path, _, files in os.walk(f"{roms_path}/{rom}"):
-        [rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi_parts')]
+    for path, _, files in os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}/{rom}"):
+        [rom_files.append(f"{Path(path, f)}".replace(f"{LIBRARY_BASE_PATH}/{roms_path}/{rom}/", '')) for f in _exclude_files(files, 'multi_parts')]
     return rom_files
 
 
