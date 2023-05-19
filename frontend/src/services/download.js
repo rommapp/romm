@@ -6,7 +6,7 @@ const downloading = storeDownloading()
 
 export async function downloadRom(rom, emitter, filesToDownload=[]) {
     downloading.add(rom.file_name)
-    emitter.emit('snackbarScan', {'msg': `Downloading ${rom.file_name}...`, 'icon': 'mdi-download', 'color': 'green'})
+    emitter.emit('snackbarShow', {'msg': `Downloading ${rom.file_name}...`, 'icon': 'mdi-download', 'color': 'green'})
     if(rom.multi){
         const zip = new JSZip()
         var zipFilename = `${rom.file_name}.zip`

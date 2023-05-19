@@ -152,6 +152,7 @@ This will change over the time, adding games metadata for more platforms. Make s
 |---------------          |-------------------------------------|     :----:     |
 | 3ds                     | Nintendo 3DS                        | ✅             |
 | amiga                   | Amiga                               | ✅             |
+| acpc                    | Amstrad CPC                         | ✅             |
 | arcade                  | Arcade                              | ✅             |
 | atari                   | atari                               | ❌             |
 | atari2600               | Atari 2600                          | ✅             |
@@ -165,16 +166,18 @@ This will change over the time, adding games metadata for more platforms. Make s
 | cps3                    | cps3                                | ❌             |
 | daphne                  | daphne                              | ❌             |
 | dc                      | Dreamcast                           | ✅             |
+| doom                    | doom                                | ❌             |
 | dos                     | DOS                                 | ✅             |
 | fairchild               | fairchild                           | ❌             |
 | fba2012                 | fba2012                             | ❌             |
 | fbneo                   | fbneo                               | ❌             |
 | fds                     | Family Computer Disk System         | ✅             |
+| game-and-watch          | Game & Watch                        | ✅             |
 | gb                      | Game Boy                            | ✅             |
 | gba                     | Game Boy Advance                    | ✅             |
 | gbc                     | Game Boy Color                      | ✅             |
 | genesis-slash-megadrive | Sega Mega Drive/Genesis             | ✅             |
-| gg                      | gg                                  | ❌             |
+| gamegear                | Sega Game Gear                      | ✅             |
 | gw                      | gw                                  | ❌             |
 | intellivision           | Intellivision                       | ✅             |
 | jaguar                  | Atari Jaguar                        | ✅             |
@@ -191,10 +194,11 @@ This will change over the time, adding games metadata for more platforms. Make s
 | ngc                     | Nintendo GameCube                   | ✅             |
 | ngp                     | ngp                                 | ❌             |
 | odyssey                 | odyssey                             | ❌             |
+| pc-98                   | PC-98                               | ✅             |
 | pce                     | pce                                 | ❌             |
 | pcecd                   | pcecd                               | ❌             |
 | pico                    | pico                                | ❌             |
-| poke                    | poke                                | ❌             |
+| pokemon-mini            | Pokémon mini                        | ✅             |
 | ps                      | PlayStation                         | ✅             |
 | ps2                     | PlayStation 2                       | ✅             |
 | ps3                     | PlayStation 3                       | ✅             |

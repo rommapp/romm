@@ -35,9 +35,8 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     try:
         fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom['file_name'])
     except RomAlreadyExistsException as e:
-        error: str = f"{e}"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+        log.error(str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     updated_rom['file_name_no_tags'] = get_file_name_with_no_tags(updated_rom['file_name'])
     updated_rom.update(fs.get_cover(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
     updated_rom.update(fs.get_screenshots(p_slug, updated_rom['file_name'], updated_rom['url_screenshots']))
@@ -58,7 +57,7 @@ def delete_rom(p_slug: str, id: int, filesystem: bool=False) -> dict:
             platform: Platform = dbh.get_platform(p_slug)
             fs.remove_rom(platform.fs_slug, rom.file_name)
         except RomNotFoundError as e:
-            error: str = f"{e}. Couldn't delete from filesystem."
+            error = f"Couldn't delete from filesystem: {str(e)}"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
     return {'msg': f'{rom.file_name} deleted successfully!'}
