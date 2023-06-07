@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Uvicorn
-DEV_PORT: int = 5000
+DEV_PORT: int = int(os.environ.get('VITE_BACKEND_DEV_PORT', '5000'))
 DEV_HOST: str = "0.0.0.0"
 
 # PATHS
