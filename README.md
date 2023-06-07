@@ -71,14 +71,11 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 
 ## 🐳 Docker
 
-__Prerequisites:__
-Install Docker and Docker-compose. Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags).
+Docker should be installed and set up before running the [image](https://hub.docker.com/r/zurdi15/romm/tags).
 
-__To Install:__
-
-1. Get API key from [IGDB](https://www.igdb.com/) for the CLIENT_ID and CLIENT_SECRET variables. _This is required to run a library scan._ Instructions on generating the ID and Secret are [here](https://api-docs.igdb.com/#about). Note that IDGB requires a Twitch account with 2FA enabled to generate the ID and Secret.
-2. Make sure your library folder structure matches one of the options listed in the next section.
-3. Create a docker-compose file. See the following example [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) file for reference. Customize for your setup and include the CLIENT_ID and CLIENT_SECRET from step 1 where indicated in the romm environment section of the file.
+1. Generate an API key for [IGDB](https://www.igdb.com/), and set the `CLIENT_ID` and `CLIENT_SECRET` variables. _This is required to run a library scan._ Instructions on generating the ID and Secret are [here](https://api-docs.igdb.com/#about). Note that IDGB requires a Twitch account with 2FA enabled to generate the ID and Secret.
+2. Verify that your library folder structure matches one of the options listed in the [following section](#folder-structure).
+3. Create a docker-compose file. See the following example [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) file for reference. Customize for your setup and include the `CLIENT_ID` and `CLIENT_SECRET` vareiables where indicated in the  environment section of the file.
 4. Launch the container:
   
   ```bash
@@ -90,11 +87,11 @@ __To Install:__
   
 # Configuration
 
-## 📁 Folder structure
+  <h2 id="folder-structure">📁 Folder structure</h2>
 
 RomM accepts two different folder structure by priority. RomM will try to find the structure 1 and if it doesn't exists, RomM will try to find structure 2.
 
-Review _Platforms support_ section for device naming conventions, and see _Config.yml_ section for ways to override default system names in the folder structure if your directories are named differently.
+Review the [Platforms support](#platform-support) section for device naming conventions, and the [Configuration file](#configuration-file) section to override default system names in the folder structure, if your directories are named differently.
 
   - Structure 1 (high priority) - roms folder at root of library folder:
   ```
@@ -137,7 +134,7 @@ Review _Platforms support_ section for device naming conventions, and see _Confi
   │     ├─ rom_1.iso
   ```
 
-## ⚙️ Config.yml file
+<h2 id="configuration-file">⚙️ Configuration file</h2>
 
 RomM can be configured through a yml file.
 
@@ -149,14 +146,14 @@ Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examp
 
 # Naming convention 
 
-## 🎮 Platforms support
+  <h2 id="platform-support">🎮 Platform support</h2>
 
 If the RomM [folder structure](#📁-folder-structure) is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
 This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
 
 <br>
 <details>
-  <summary>Platforms support list</summary>
+  <summary>Platform support list</summary>
   <span>
 
 | slug                    | name                                | games metadata |
