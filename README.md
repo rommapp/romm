@@ -71,19 +71,30 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 
 ## 🐳 Docker
 
-Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags).
+__Prerequisites:__
+Install Docker and Docker-compose. Last version of the docker [image](https://hub.docker.com/r/zurdi15/romm/tags).
 
-Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) example.
+__To Install:__
 
-Get API key from [IGDB](https://api-docs.igdb.com/#about) for the CLIENT_ID and CLIENT_SECRET variables. 
+1. Get API key from [IGDB](https://www.igdb.com/) for the CLIENT_ID and CLIENT_SECRET variables. _This is required to run a library scan._ Instructions on generating the ID and Secret are [here](https://api-docs.igdb.com/#about). Note that IDGB requires a Twitch account with 2FA enabled to generate the ID and Secret.
+2. Make sure your library folder structure matches one of the options listed in the next section.
+3. Create a docker-compose file. See the following example [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) file for reference. Customize for your setup and include the CLIENT_ID and CLIENT_SECRET from step 1 where indicated in the romm environment section of the file.
+4. Launch the container:
+  
+  ```bash
+  docker-compose up -d
+  ```
 
+ If configured correctly, Romm will automatically run an initial scan on your library.
+  
+  
 # Configuration
 
 ## 📁 Folder structure
 
-RomM accepts two different folder structure by priority.
+RomM accepts two different folder structure by priority. RomM will try to find the structure 1 and if it doesn't exists, RomM will try to find structure 2.
 
-RomM will try to find the structure 1 and if it doesn't exists, RomM will try to find structure 2.
+Review _Platforms support_ section for device naming conventions, and see _Config.yml_ section for ways to override default system names in the folder structure if your directories are named differently.
 
   - Structure 1 (high priority) - roms folder at root of library folder:
   ```
