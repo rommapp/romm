@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_pagination import add_pagination
 
 from config import DEV_PORT, DEV_HOST
 from handler.socket_manager import SocketManager
@@ -17,6 +18,8 @@ app.add_middleware(
 app.include_router(search.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
+
+add_pagination(app)
 
 sm = SocketManager()
 sm.mount_to("/ws", app)

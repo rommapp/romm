@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Request, status, HTTPException
+from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.cursor import CursorPage, CursorParams
+from pydantic import BaseModel
 
 from logger.logger import log
 from handler import dbh
@@ -10,18 +13,61 @@ from models.platform import Platform
 router = APIRouter()
 
 
+class RomSchema(BaseModel):
+    id: int
+
+    r_igdb_id: str
+    p_igdb_id: str
+    r_sgdb_id: str
+    p_sgdb_id: str
+
+    p_slug: str
+    p_name: str
+
+    file_name: str
+    file_name_no_tags: str
+    file_extension: str
+    file_path: str
+    file_size: float
+    file_size_units: str
+
+    r_name: str
+    r_slug: str
+
+    summary: str
+
+    path_cover_s: str
+    path_cover_l: str
+    has_cover: bool
+    url_cover: str
+
+    region: str
+    revision: str
+    tags: list
+
+    multi: bool
+    files: list
+
+    url_screenshots: list
+    path_screenshots: list
+
+    class Config(BaseModel.Config):
+        orm_mode = True
+
+
 @router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
-def rom(id: int) -> dict:
+def rom(id: int):
     """Returns one rom data of the desired platform"""
 
-    return {'data': dbh.get_rom(id)}
+    return dbh.get_rom(id)
 
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
-def roms(p_slug: str) -> dict:
+def roms(p_slug: str, size: int = 50, cursor: str = "") -> CursorPage[RomSchema]:
     """Returns all roms of the desired platform"""
-
-    return {'data':  dbh.get_roms(p_slug)}
+    with dbh.session.begin() as s:
+        cursor_params = CursorParams(size=size, cursor=cursor)
+        return paginate(s, dbh.get_roms(p_slug), cursor_params)
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)
@@ -29,28 +75,43 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
     data: dict = await req.json()
-    updated_rom: dict = data['updatedRom']
+    updated_rom: dict = data["updatedRom"]
     db_rom: Rom = dbh.get_rom(id)
     platform: Platform = dbh.get_platform(p_slug)
+
     try:
-        fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom['file_name'])
+        fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom["file_name"])
     except RomAlreadyExistsException as e:
         log.error(str(e))
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    updated_rom['file_name_no_tags'] = get_file_name_with_no_tags(updated_rom['file_name'])
-    updated_rom.update(fs.get_cover(True, p_slug, updated_rom['file_name'], updated_rom['url_cover']))
-    updated_rom.update(fs.get_screenshots(p_slug, updated_rom['file_name'], updated_rom['url_screenshots']))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(
+        updated_rom["file_name"]
+    )
+    updated_rom.update(
+        fs.get_cover(True, p_slug, updated_rom["file_name"], updated_rom["url_cover"]),
+        fs.get_screenshots(
+            p_slug, updated_rom["file_name"], updated_rom["url_screenshots"]
+        ),
+    )
     dbh.update_rom(id, updated_rom)
-    return {'data': dbh.get_rom(id), 'msg': f"{updated_rom['file_name']} updated successfully!"}
+
+    return {
+        "rom": dbh.get_rom(id),
+        "msg": f"{updated_rom['file_name']} updated successfully!",
+    }
 
 
 @router.delete("/platforms/{p_slug}/roms/{id}", status_code=200)
-def delete_rom(p_slug: str, id: int, filesystem: bool=False) -> dict:
+def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
     """Detele rom from database [and filesystem]"""
 
     rom: Rom = dbh.get_rom(id)
     log.info(f"Deleting {rom.file_name} from database")
     dbh.delete_rom(id)
+
     if filesystem:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
@@ -60,4 +121,5 @@ def delete_rom(p_slug: str, id: int, filesystem: bool=False) -> dict:
             error = f"Couldn't delete from filesystem: {str(e)}"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-    return {'msg': f'{rom.file_name} deleted successfully!'}
+
+    return {"msg": f"{rom.file_name} deleted successfully!"}
