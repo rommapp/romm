@@ -39,7 +39,7 @@ async function searchRomIGDB() {
     dialogSearchRom.value = true
     await searchRomApi(searchTerm.value, searchBy.value, rom.value)
     .then((response) => {
-        matchedRoms.value = response.data.data
+        matchedRoms.value = response.data.roms
     })
     .catch((error) => {console.log(error)})
     searching.value = false
@@ -57,8 +57,8 @@ async function updateRom(updatedData={...updatedRom.value}) {
     if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
     await updateRomApi(rom.value, updatedRom.value)
     .then((response) => {
-        rom.value = response.data.data
-        updatedRom.value = {...response.data.data}
+        rom.value = response.data.rom
+        updatedRom.value = {...response.data.rom}
         emitter.emit('snackbarShow', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refreshGallery')
     }).catch((error) => {
@@ -86,10 +86,13 @@ async function deleteRom() {
 onMounted(() => {
     fetchRomApi(route.params.platform, route.params.rom)
     .then(response => {
-        rom.value = response.data.data
+        rom.value = response.data
         updatedRom.value = {...response.data.data}
         loading.value = false
-    }).catch((error) => { console.log(error);loading.value = false })
+    }).catch((error) => {
+        console.log(error);
+        loading.value = false 
+    })
 })
 </script>
 

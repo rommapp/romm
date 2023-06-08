@@ -16,7 +16,7 @@ class Rom(BaseModel):
     p_slug = Column(String(length=50))
     p_name = Column(String(length=150), default="")
 
-    file_name = Column(String(length=450))
+    file_name = Column(String(length=450), nullable=False)
     file_name_no_tags = Column(String(length=450))
     file_extension = Column(String(length=10), default="")
     file_path = Column(String(length=1000), default="")

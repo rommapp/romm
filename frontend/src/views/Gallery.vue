@@ -31,7 +31,7 @@ const romsFiltered = ref([]);
 // const firmwares = ["firmware_base", "firmware_bios"]
 const galleryView = storeGalleryView();
 const scanning = storeScanning();
-
+const cursor = ref("");
 // Event listeners bus
 const emitter = inject("emitter");
 emitter.on("filter", () => {
@@ -75,11 +75,14 @@ function filterRoms() {
   });
 }
 
-async function fetchRoms(platform) {
+async function fetchMoreRoms(platform) {
+  if (cursor.value === null) return;
+
   gettingRoms.value = true;
-  await fetchRomsApi(platform)
+  await fetchRomsApi(platform, cursor.value)
     .then((response) => {
-      roms.value = response.data.data;
+      roms.value = [...roms.value, ...response.data.items];
+      cursor.value = response.data.next_page;
       filterRoms();
     })
     .catch((error) => {
@@ -92,10 +95,11 @@ async function fetchRoms(platform) {
 }
 
 onMounted(async () => {
-  fetchRoms(route.params.platform);
+  fetchMoreRoms(route.params.platform);
 });
 onBeforeRouteUpdate(async (to, _) => {
-  fetchRoms(to.params.platform);
+  cursor.value = "";
+  fetchMoreRoms(to.params.platform);
 });
 </script>
 
@@ -107,43 +111,49 @@ onBeforeRouteUpdate(async (to, _) => {
     <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan" />
   </v-app-bar>
 
-  <template v-if="gettingRoms">
-    <v-row class="fill-height justify-center align-center" no-gutters>
-      <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate />
+  <template v-if="roms.length > 0 || gettingRoms">
+    <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
+      <v-col v-for="rom in romsFiltered" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
+        :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
+        :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
+        <game-card :rom="rom" />
+      </v-col>
     </v-row>
-  </template>
-  <template v-else>
-    <template v-if="roms.length > 0">
-      <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
-        <v-col v-for="rom in romsFiltered" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
-          :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
-          :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
-          <game-card :rom="rom" />
-        </v-col>
-      </v-row>
 
-      <v-row v-show="galleryView.value == 2" id="list-view" no-gutters>
-        <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
-          :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
-          :lg="views[galleryView.value]['size-lg']">
-          <v-table class="bg-secondary">
-            <game-list-header />
-            <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
-            <tbody>
-              <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom" />
-            </tbody>
-          </v-table>
-        </v-col>
+    <v-row v-show="galleryView.value == 2" id="list-view" no-gutters>
+      <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
+        :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
+        :lg="views[galleryView.value]['size-lg']">
+        <v-table class="bg-secondary">
+          <game-list-header />
+          <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
+          <tbody>
+            <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom" />
+          </tbody>
+        </v-table>
+      </v-col>
+    </v-row>
+
+    <template v-if="gettingRoms">
+      <v-row class="justify-center align-center" no-gutters>
+        <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate />
       </v-row>
     </template>
-
     <template v-else>
-      <v-row class="fill-height justify-center align-center" no-gutters>
-        <div class="text-h6">
-          Feels cold here... <v-icon>mdi-emoticon-sad</v-icon>
-        </div>
+      <v-row class="justify-center align-center" no-gutters>
+        <v-btn @click="fetchMoreRoms(route.params.platform)" :disabled="cursor.value === null" rounded="0" variant="text" class="mr-0" icon>
+          <v-icon>mdi-plus</v-icon>
+        </v-btn>
       </v-row>
     </template>
+  </template>
+
+  <template v-else>
+    <v-row class="fill-height justify-center align-center" no-gutters>
+      <div class="text-h6">
+        Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
+      </div>
+    </v-row>
   </template>
 </template>
 
