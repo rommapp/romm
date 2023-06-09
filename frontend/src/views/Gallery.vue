@@ -113,7 +113,6 @@ onMounted(async () => {
 onBeforeRouteUpdate(async (to, _) => {
   cursor.value = "";
   roms.value = [];
-  filteredRoms.value = [];
   fetchMoreRoms(to.params.platform);
 });
 </script>
@@ -126,9 +125,9 @@ onBeforeRouteUpdate(async (to, _) => {
     <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan" />
   </v-app-bar>
 
-  <template v-if="roms.length > 0 || gettingRoms">
+  <template v-if="filteredRoms.length > 0 || gettingRoms">
     <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
-      <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
+      <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.id" :cols="views[galleryView.value]['size-cols']"
         :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
         :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
         <game-card :rom="rom" />
@@ -143,7 +142,7 @@ onBeforeRouteUpdate(async (to, _) => {
           <game-list-header />
           <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
           <tbody>
-            <game-list-item v-for="rom in filteredRoms" :key="rom.file_name" :rom="rom" />
+            <game-list-item v-for="rom in filteredRoms" :key="rom.id" :rom="rom" />
           </tbody>
         </v-table>
       </v-col>

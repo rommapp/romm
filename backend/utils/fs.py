@@ -1,15 +1,14 @@
 import os
 import shutil
-from pathlib import Path
-
+import datetime
 import requests
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, \
     RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from config.config_loader import ConfigLoader
-cl = ConfigLoader()
-from logger.logger import log
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException, RomNotFoundError, RomAlreadyExistsException
+cl = ConfigLoader()
 
 
 # ========= Resources utils =========
@@ -53,7 +52,7 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
         file_name: name of rom file
         size: size of the cover -> big | small
     """
-    return f"{p_slug}/{file_name}/cover/{size}.png"
+    return f"{p_slug}/{file_name}/cover/{size}.png?timestamp={str(datetime.datetime.now().timestamp())}"
 
 
 def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
