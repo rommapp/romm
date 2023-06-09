@@ -63,11 +63,22 @@ def rom(id: int):
 
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
-def roms(p_slug: str, size: int = 50, cursor: str = "") -> CursorPage[RomSchema]:
+def roms(
+    p_slug: str, size: int = 50, cursor: str = "", search_term: str = ""
+) -> CursorPage[RomSchema]:
     """Returns all roms of the desired platform"""
-    with dbh.session.begin() as s:
+    with dbh.session.begin() as session:
         cursor_params = CursorParams(size=size, cursor=cursor)
-        return paginate(s, dbh.get_roms(p_slug), cursor_params)
+        qq = dbh.get_roms(p_slug)
+
+        if search_term:
+            return paginate(
+                session,
+                qq.filter(Rom.file_name.ilike(f'%{search_term}%')),
+                cursor_params,
+            )
+
+        return paginate(session, qq, cursor_params)
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)

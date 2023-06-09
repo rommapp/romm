@@ -27,7 +27,7 @@ const currentSection = ref("roms");
 const roms = ref([]);
 const gettingRoms = ref(false);
 const filter = storeFilter();
-const romsFiltered = ref([]);
+const filteredRoms = ref([]);
 // const firmwares = ["firmware_base", "firmware_bios"]
 const galleryView = storeGalleryView();
 const scanning = storeScanning();
@@ -69,25 +69,37 @@ async function scan() {
   socket.emit("scan", JSON.stringify([route.params.platform]), false);
 }
 
-function filterRoms() {
-  romsFiltered.value = roms.value.filter((rom) => {
-    return normalizeString(rom.file_name).includes(filter.value);
-  });
+async function filterRoms() {
+  if (filter.value === "") {
+    filteredRoms.value = roms.value;
+    return;
+  }
+
+  gettingRoms.value = true;
+  await fetchRomsApi({ platform: route.params.platform, size: 100, searchTerm: filter.value })
+    .then((response) => {
+      filteredRoms.value = response.data.items;
+    })
+    .catch((error) => {
+      console.error(`Couldn't fetch roms for ${route.params.platform}: ${error}`);
+    })
+    .finally(() => {
+      gettingRoms.value = false;
+    });
 }
 
 async function fetchMoreRoms(platform) {
   if (cursor.value === null) return;
 
   gettingRoms.value = true;
-  await fetchRomsApi(platform, cursor.value)
+  await fetchRomsApi({ platform, cursor: cursor.value })
     .then((response) => {
       roms.value = [...roms.value, ...response.data.items];
+      filteredRoms.value = roms.value;
       cursor.value = response.data.next_page;
-      filterRoms();
     })
     .catch((error) => {
-      console.log(error);
-      console.log(`Couldn't fetch roms for ${platform}`);
+      console.error(`Couldn't fetch roms for ${platform}: ${error}`);
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -97,6 +109,7 @@ async function fetchMoreRoms(platform) {
 onMounted(async () => {
   fetchMoreRoms(route.params.platform);
 });
+
 onBeforeRouteUpdate(async (to, _) => {
   cursor.value = "";
   fetchMoreRoms(to.params.platform);
@@ -113,7 +126,7 @@ onBeforeRouteUpdate(async (to, _) => {
 
   <template v-if="roms.length > 0 || gettingRoms">
     <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
-      <v-col v-for="rom in romsFiltered" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
+      <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
         :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
         :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
         <game-card :rom="rom" />
@@ -128,7 +141,7 @@ onBeforeRouteUpdate(async (to, _) => {
           <game-list-header />
           <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
           <tbody>
-            <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom" />
+            <game-list-item v-for="rom in filteredRoms" :key="rom.file_name" :rom="rom" />
           </tbody>
         </v-table>
       </v-col>
@@ -141,7 +154,8 @@ onBeforeRouteUpdate(async (to, _) => {
     </template>
     <template v-else>
       <v-row class="justify-center align-center" no-gutters>
-        <v-btn @click="fetchMoreRoms(route.params.platform)" :disabled="cursor.value === null" rounded="0" variant="text" class="mr-0" icon>
+        <v-btn @click="fetchMoreRoms(route.params.platform)" :disabled="cursor.value === null || !!filter.value"
+          rounded="0" variant="text" class="mr-0" icon>
           <v-icon>mdi-plus</v-icon>
         </v-btn>
       </v-row>
