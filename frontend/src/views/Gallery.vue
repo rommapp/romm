@@ -32,11 +32,10 @@ const filteredRoms = ref([]);
 const galleryView = storeGalleryView();
 const scanning = storeScanning();
 const cursor = ref("");
+const searchCursor = ref("");
 // Event listeners bus
 const emitter = inject("emitter");
-emitter.on("filter", () => {
-  filterRoms();
-});
+emitter.on("filter", onFilterChange);
 
 // Functions
 async function scan() {
@@ -69,16 +68,14 @@ async function scan() {
   socket.emit("scan", JSON.stringify([route.params.platform]), false);
 }
 
-async function filterRoms() {
-  if (filter.value === "") {
-    filteredRoms.value = roms.value;
-    return;
-  }
-
+async function fetchMoreSearch() {
+  if (searchCursor.value === null) return;
+  
   gettingRoms.value = true;
-  await fetchRomsApi({ platform: route.params.platform, size: 100, searchTerm: filter.value })
+  await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, size: 100, searchTerm: filter.value })
     .then((response) => {
       filteredRoms.value = response.data.items;
+      searchCursor.value = response.data.next_page;
     })
     .catch((error) => {
       console.error(`Couldn't fetch roms for ${route.params.platform}: ${error}`);
@@ -86,6 +83,17 @@ async function filterRoms() {
     .finally(() => {
       gettingRoms.value = false;
     });
+}
+
+function onFilterChange() {
+  searchCursor.value = "";
+
+  if (filter.value === "") {
+    filteredRoms.value = roms.value;
+    return;
+  }
+  
+  fetchMoreSearch();
 }
 
 async function fetchMoreRoms(platform) {
@@ -107,24 +115,22 @@ async function fetchMoreRoms(platform) {
 }
 
 function onListScroll({ target }) {
-  if (!!filter.value) return;
-  if (cursor.value === null) return;
+  if (cursor.value === null && searchCursor.value === null) return;
   
   // If we are at the bottom of the page, fetch more roms
   if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
-    fetchMoreRoms(route.params.platform);
+    filter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
   }
 }
 
 function onGridScroll() {
-  if (!!filter.value) return;
-  if (cursor.value === null) return;
+  if (cursor.value === null && searchCursor.value === null) return;
 
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
 
   // If we are at the bottom of the page, fetch more roms
   if (scrollTop + clientHeight >= scrollHeight) {
-    fetchMoreRoms(route.params.platform);
+    filter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
   }
 }
 
@@ -134,7 +140,11 @@ onMounted(async () => {
 
 onBeforeRouteUpdate(async (to, _) => {
   cursor.value = "";
+  searchCursor.value = "";
+
   roms.value = [];
+  filteredRoms.value = [];
+
   fetchMoreRoms(to.params.platform);
 });
 </script>
