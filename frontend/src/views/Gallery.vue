@@ -112,6 +112,8 @@ onMounted(async () => {
 
 onBeforeRouteUpdate(async (to, _) => {
   cursor.value = "";
+  roms.value = [];
+  filteredRoms.value = [];
   fetchMoreRoms(to.params.platform);
 });
 </script>
