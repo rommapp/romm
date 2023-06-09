@@ -1,19 +1,15 @@
-// Components
-import App from './App.vue'
+import { createApp } from "vue";
+import { registerPlugins } from "@/plugins";
 
-// Composables
-import { createApp } from 'vue'
-
-// Plugins
-import { registerPlugins } from '@/plugins'
+import App from "./App.vue";
 
 // Event bus
-import mitt from 'mitt'
-const emitter = mitt()
+import mitt from "mitt";
+const emitter = mitt();
 
-const app = createApp(App)
+const app = createApp(App);
 
-registerPlugins(app)
+registerPlugins(app);
 
-app.provide('emitter', emitter);
-app.mount('#app')
+app.provide("emitter", emitter);
+app.mount("#app");
