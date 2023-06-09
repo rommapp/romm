@@ -1,10 +1,7 @@
-import Axios from "axios";
-import { setupCache } from "axios-cache-interceptor";
-
-const axios = setupCache(Axios); // axios instance with cache
+import axios from "axios";
 
 export async function fetchPlatformsApi() {
-  return axios.get("/api/platforms", { cache: false });
+  return axios.get("/api/platforms");
 }
 
 export async function fetchRomsApi({
@@ -19,7 +16,7 @@ export async function fetchRomsApi({
 }
 
 export async function fetchRomApi(platform, rom) {
-  return axios.get(`/api/platforms/${platform}/roms/${rom}`, { cache: false });
+  return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
 export async function updateRomApi(rom, updatedRom) {
