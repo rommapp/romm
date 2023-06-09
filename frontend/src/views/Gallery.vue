@@ -72,7 +72,7 @@ async function fetchMoreSearch() {
   if (searchCursor.value === null) return;
   
   gettingRoms.value = true;
-  await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, size: 100, searchTerm: filter.value })
+  await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, searchTerm: filter.value })
     .then((response) => {
       filteredRoms.value = response.data.items;
       searchCursor.value = response.data.next_page;

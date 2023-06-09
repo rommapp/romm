@@ -11,7 +11,6 @@
   "dependencies": {
     "@mdi/font": "7.0.96",
     "axios": "^1.3.4",
-    "axios-cache-interceptor": "^1.1.1",
     "core-js": "^3.8.3",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
