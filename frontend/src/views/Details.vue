@@ -87,7 +87,7 @@ onMounted(() => {
     fetchRomApi(route.params.platform, route.params.rom)
     .then(response => {
         rom.value = response.data
-        updatedRom.value = {...response.data.data}
+        updatedRom.value = response.data
         loading.value = false
     }).catch((error) => {
         console.log(error);
