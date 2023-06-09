@@ -22,7 +22,7 @@
     "socket.io-client": "^4.6.1",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",
-    "vuetify": "^3.1.15",
+    "vuetify": "^3.3.3",
     "webfontloader": "^1.0.0"
   },
   "devDependencies": {

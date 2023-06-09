@@ -126,7 +126,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </v-app-bar>
 
   <template v-if="filteredRoms.length > 0 || gettingRoms">
-    <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
+    <v-row v-show="galleryView.value != 2" no-gutters>
       <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.id" :cols="views[galleryView.value]['size-cols']"
         :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
         :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
@@ -134,7 +134,7 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-col>
     </v-row>
 
-    <v-row v-show="galleryView.value == 2" id="list-view" no-gutters>
+    <v-row v-show="galleryView.value == 2" no-gutters>
       <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
         :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
         :lg="views[galleryView.value]['size-lg']">
@@ -142,7 +142,13 @@ onBeforeRouteUpdate(async (to, _) => {
           <game-list-header />
           <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
           <tbody>
-            <game-list-item v-for="rom in filteredRoms" :key="rom.id" :rom="rom" />
+            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 10.625em)">
+              <template v-slot="{ item }">
+                <v-list-item :key="item.id" :value="item.id">
+                  <game-list-item :rom="item" />
+                </v-list-item>
+              </template>
+            </v-virtual-scroll>
           </tbody>
         </v-table>
       </v-col>
@@ -155,7 +161,7 @@ onBeforeRouteUpdate(async (to, _) => {
     </template>
     <template v-else>
       <v-row class="justify-center align-center" no-gutters>
-        <v-btn @click="fetchMoreRoms(route.params.platform)" :disabled="cursor.value === null || !!filter.value"
+        <v-btn @click="fetchMoreRoms(route.params.platform)" :disabled="!!filter.value"
           rounded="0" variant="text" class="mr-0" icon>
           <v-icon>mdi-plus</v-icon>
         </v-btn>
