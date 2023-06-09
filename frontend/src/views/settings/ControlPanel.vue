@@ -18,8 +18,7 @@ function toggleTheme() {
     <!-- Settings tabs -->
     <v-app-bar elevation="0" density="compact">
         <v-tabs v-model="tab" slider-color="rommAccent1" class="bg-primary">
-            <v-tab value="general" rounded="0" disabled>General<span class="text-caption text-truncate ml-1">[comming
-                    soon]</span></v-tab>
+            <v-tab value="general" rounded="0" disabled>General<span class="text-caption text-truncate ml-1">[coming soon]</span></v-tab>
             <v-tab value="ui" rounded="0">User Interface</v-tab>
         </v-tabs>
     </v-app-bar>

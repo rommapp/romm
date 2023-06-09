@@ -172,9 +172,8 @@ onBeforeMount(() => {
                     :class="{ 'details-content': lgAndUp, 'details-content-tablet': mdAndDown, 'details-content-mobile': xs }">
                     <v-tabs v-model="tab" slider-color="rommAccent1" rounded="0">
                         <v-tab value="details" rounded="0">Details</v-tab>
-                        <v-tab value="saves" rounded="0" disabled>Saves<span
-                                class="text-caption text-truncate ml-1">[comming soon]</span></v-tab>
-                        <v-tab v-if="rom.path_screenshots.length > 0" value="screenshots" rounded="0">Screenshots</v-tab>
+                        <v-tab value="saves" rounded="0" disabled>Saves<span class="text-caption text-truncate ml-1">[coming soon]</span></v-tab>
+                        <v-tab v-if="rom.path_screenshots.length>0" value="screenshots" rounded="0">Screenshots</v-tab>
                     </v-tabs>
                     <v-window v-model="tab" class="mt-2">
                         <v-window-item value="details">
@@ -329,8 +328,7 @@ onBeforeMount(() => {
                         required hide-details />
                 </v-row>
                 <v-row class="justify-center pa-2" no-gutters>
-                    <v-file-input @keyup.enter="updateRom()" label="Custom cover [Comming soon]"
-                        prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled hide-details />
+                    <v-file-input @keyup.enter="updateRom()" label="Custom cover [Coming soon]" prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled hide-details/>
                 </v-row>
                 <v-row class="justify-center pa-2" no-gutters>
                     <v-btn @click="updateRom()" class="text-rommGreen">Apply</v-btn>

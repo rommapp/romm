@@ -58,7 +58,7 @@ emitter.on('toggleDrawerRail', () => { rail.value = !rail.value; localStorage.se
                 </v-list-item>
                 <v-list-item class="drawer-item bg-terciary" disabled>
                     <span class="text-body-2 text-truncate">{{ rail ? '' : 'Upload' }}</span>
-                    <span class="text-caption text-truncate ml-1">{{ rail ? '' : '[comming soon]' }}</span>
+                    <span class="text-caption text-truncate ml-1">{{ rail ? '' : '[coming soon]' }}</span>
                     <template v-slot:prepend>
                         <v-avatar :rounded="0" size="40"><v-icon>mdi-upload</v-icon></v-avatar>
                     </template>
