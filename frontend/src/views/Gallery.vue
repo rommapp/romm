@@ -106,6 +106,15 @@ async function fetchMoreRoms(platform) {
     });
 }
 
+function onScroll({ target }) {
+  if (!!filter.value) return;
+  if (cursor.value === null) return;
+  // If we are at the bottom of the page, fetch more roms
+  if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
+    fetchMoreRoms(route.params.platform);
+  }
+}
+
 onMounted(async () => {
   fetchMoreRoms(route.params.platform);
 });
@@ -142,7 +151,8 @@ onBeforeRouteUpdate(async (to, _) => {
           <game-list-header />
           <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
           <tbody>
-            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 10.625em)">
+            <!-- Height has to be set and exact -->
+            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 122px)" @scroll="onScroll">
               <template v-slot="{ item }">
                 <v-list-item :key="item.id" :value="item.id">
                   <game-list-item :rom="item" />
@@ -153,20 +163,6 @@ onBeforeRouteUpdate(async (to, _) => {
         </v-table>
       </v-col>
     </v-row>
-
-    <template v-if="gettingRoms">
-      <v-row class="justify-center align-center" no-gutters>
-        <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate />
-      </v-row>
-    </template>
-    <template v-else>
-      <v-row class="justify-center align-center" no-gutters>
-        <v-btn @click="fetchMoreRoms(route.params.platform)" :disabled="!!filter.value"
-          rounded="0" variant="text" class="mr-0" icon>
-          <v-icon>mdi-plus</v-icon>
-        </v-btn>
-      </v-row>
-    </template>
   </template>
 
   <template v-else>

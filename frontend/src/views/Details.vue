@@ -70,7 +70,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
 }
 
 async function deleteRom() {
-    await deleteRomApi(rom.value.p_slug, deleteFromFs.value)
+    await deleteRomApi(rom.value, deleteFromFs.value)
     .then((response) => {
         emitter.emit('snackbarShow', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push(`/platform/${rom.value.p_slug}`)
