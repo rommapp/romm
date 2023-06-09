@@ -4,8 +4,12 @@ export async function fetchPlatformsApi() {
   return axios.get("/api/platforms");
 }
 
-export async function fetchRomsApi(platform, cursor) {
-  const params = new URLSearchParams([['size', 50], ['cursor', cursor]]);
+export async function fetchRomsApi({ platform, cursor = "", size = 50, searchTerm = "" }) {
+  const params = new URLSearchParams([
+    ["size", size],
+    ["cursor", cursor],
+    ["search_term", searchTerm],
+  ]);
 
   return axios.get(`/api/platforms/${platform}/roms`, { params });
 }
@@ -26,9 +30,12 @@ export async function deleteRomApi(rom, deleteFromFs) {
   );
 }
 
-export async function searchRomApi(searchTerm, searchBy, rom) {
-  return axios.put(
-    `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
-    { rom }
-  );
+export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
+  const params = new URLSearchParams([
+    ["search_term", searchTerm],
+    ["search_by", searchBy],
+    ["rom", rom],
+  ]);
+
+  return axios.get("/api/search/roms/igdb", { params });
 }

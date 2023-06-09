@@ -2,7 +2,7 @@
 import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
-import { fetchRomApi, updateRomApi, deleteRomApi, searchRomApi } from '@/services/api.js'
+import { fetchRomApi, updateRomApi, deleteRomApi, searchRomIGDBApi } from '@/services/api.js'
 import { downloadRom, downloadSave } from '@/services/download.js'
 import { storeDownloading } from '@/stores/downloading.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
@@ -37,7 +37,7 @@ const emitter = inject('emitter')
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    await searchRomApi(searchTerm.value, searchBy.value, rom.value)
+    await searchRomIGDBApi(searchTerm.value, searchBy.value, rom.value)
     .then((response) => {
         matchedRoms.value = response.data.roms
     })

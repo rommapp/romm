@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request
 import emoji
+from fastapi import APIRouter
 
 from logger.logger import log, COLORS
 from handler import igdbh
@@ -7,14 +7,10 @@ from handler import igdbh
 router = APIRouter()
 
 
-@router.put("/search/roms/igdb", status_code=200)
-async def search_rom_igdb(
-    req: Request, search_term: str = "", search_by: str = ""
-) -> dict:
+@router.get("/search/roms/igdb", status_code=200)
+async def search_rom_igdb(rom: str, search_term: str = "", search_by: str = "") -> dict:
     """Get all the roms matched from igdb."""
 
-    data: dict = await req.json()
-    rom: dict = data["rom"]
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
     matched_roms: list = []
 
