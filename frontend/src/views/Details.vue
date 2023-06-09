@@ -106,7 +106,7 @@ onMounted(() => {
                 <v-row>
                     <v-col>
                         <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
-                            <v-img :src="`/assets/romm/resources/${rom.path_cover_l}?reload=${Date.now()}`" :lazy-src="`/assets/romm/resources/${rom.path_cover_s}?reload=${Date.now()}`" cover>
+                            <v-img :src="`/assets/romm/resources/${rom.path_cover_l}`" :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>

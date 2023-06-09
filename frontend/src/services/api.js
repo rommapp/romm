@@ -4,7 +4,7 @@ import { setupCache } from "axios-cache-interceptor";
 const axios = setupCache(Axios); // axios instance with cache
 
 export async function fetchPlatformsApi() {
-  return axios.get("/api/platforms");
+  return axios.get("/api/platforms", { cache: false });
 }
 
 export async function fetchRomsApi({
@@ -19,7 +19,7 @@ export async function fetchRomsApi({
 }
 
 export async function fetchRomApi(platform, rom) {
-  return axios.get(`/api/platforms/${platform}/roms/${rom}`);
+  return axios.get(`/api/platforms/${platform}/roms/${rom}`, { cache: false });
 }
 
 export async function updateRomApi(rom, updatedRom) {
@@ -35,7 +35,8 @@ export async function deleteRomApi(rom, deleteFromFs) {
 }
 
 export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
-  return axios.get(
-    `/api/search/roms/igdb/?search_term=${searchTerm}&search_by=${searchBy}&rom=${rom}`
+  return axios.put(
+    `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
+    { rom: rom }
   );
 }

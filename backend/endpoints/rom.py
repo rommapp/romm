@@ -74,7 +74,7 @@ def roms(
         if search_term:
             return paginate(
                 session,
-                qq.filter(Rom.file_name.ilike(f'%{search_term}%')),
+                qq.filter(Rom.file_name.ilike(f"%{search_term}%")),
                 cursor_params,
             )
 
@@ -90,28 +90,27 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     db_rom: Rom = dbh.get_rom(id)
     platform: Platform = dbh.get_platform(p_slug)
 
+    file_name = updated_rom.get("file_name", db_rom.file_name)
+
     try:
-        fs.rename_rom(platform.fs_slug, db_rom.file_name, updated_rom["file_name"])
+        if file_name != db_rom.file_name:
+            fs.rename_rom(platform.fs_slug, db_rom.file_name, file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(
-        updated_rom["file_name"]
-    )
+    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(file_name)
+    updated_rom.update(fs.get_cover(True, p_slug, file_name, updated_rom["url_cover"]))
     updated_rom.update(
-        fs.get_cover(True, p_slug, updated_rom["file_name"], updated_rom["url_cover"]),
-        fs.get_screenshots(
-            p_slug, updated_rom["file_name"], updated_rom["url_screenshots"]
-        ),
+        fs.get_screenshots(p_slug, file_name, updated_rom["url_screenshots"]),
     )
     dbh.update_rom(id, updated_rom)
 
     return {
         "rom": dbh.get_rom(id),
-        "msg": f"{updated_rom['file_name']} updated successfully!",
+        "msg": f"{file_name} updated successfully!",
     }
 
 
