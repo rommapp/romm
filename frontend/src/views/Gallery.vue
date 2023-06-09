@@ -106,11 +106,24 @@ async function fetchMoreRoms(platform) {
     });
 }
 
-function onScroll({ target }) {
+function onListScroll({ target }) {
   if (!!filter.value) return;
   if (cursor.value === null) return;
+  
   // If we are at the bottom of the page, fetch more roms
   if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
+    fetchMoreRoms(route.params.platform);
+  }
+}
+
+function onGridScroll() {
+  if (!!filter.value) return;
+  if (cursor.value === null) return;
+
+  const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+
+  // If we are at the bottom of the page, fetch more roms
+  if (scrollTop + clientHeight >= scrollHeight) {
     fetchMoreRoms(route.params.platform);
   }
 }
@@ -135,7 +148,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </v-app-bar>
 
   <template v-if="filteredRoms.length > 0 || gettingRoms">
-    <v-row v-show="galleryView.value != 2" no-gutters>
+    <v-row id="grid-view" v-show="galleryView.value != 2" no-gutters v-scroll="onGridScroll">
       <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.id" :cols="views[galleryView.value]['size-cols']"
         :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
         :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
@@ -152,7 +165,7 @@ onBeforeRouteUpdate(async (to, _) => {
           <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
           <tbody>
             <!-- Height has to be set and exact -->
-            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 122px)" @scroll="onScroll">
+            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 122px)" @scroll="onListScroll">
               <template v-slot="{ item }">
                 <v-list-item :key="item.id" :value="item.id">
                   <game-list-item :rom="item" />
