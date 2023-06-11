@@ -19,6 +19,22 @@ export async function fetchRomApi(platform, rom) {
   return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
+export async function downloadRomApi(rom, files) {
+  axios
+    .get(
+      `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${files || rom.files}`,
+      {
+        responseType: "blob",
+      }
+    )
+    .then((response) => {
+      const a = document.createElement("a");
+      a.href = window.URL.createObjectURL(new Blob([response.data]));
+      a.download = `${rom.r_name}.zip`;
+      a.click();
+    });
+}
+
 export async function updateRomApi(rom, updatedRom) {
   return axios.patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
     updatedRom,

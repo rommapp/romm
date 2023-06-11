@@ -47,5 +47,9 @@ class Rom(BaseModel):
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
 
+    @property
+    def download_path(self) -> str:
+        return f"/assets/romm/library/{self.full_path}"
+
     def __repr__(self) -> str:
         return self.file_name

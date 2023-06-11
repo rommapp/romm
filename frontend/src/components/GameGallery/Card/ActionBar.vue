@@ -1,26 +1,35 @@
 <script setup>
-import { ref, inject } from 'vue'
-import { downloadRom, downloadSave } from '@/services/download.js'
+import { ref } from 'vue'
+import { downloadRomApi } from '@/services/api.js'
 
 // Props
 const props = defineProps(['rom'])
 const saveFiles = ref(false)
 
 // Event listeners bus
-const emitter = inject('emitter')
+const downloadUrl = `${window.location.origin}${props.rom.download_path}`
 </script>
 
 <template>
     <v-card-text>
         <v-row>
             <v-col class="pa-0">
+                <template v-if="rom.multi">
+                    <v-btn
+                        @click="downloadRomApi(rom)"
+                        icon="mdi-download"
+                        size="x-small"
+                        variant="text"/>
+                </template>
+                <template v-else>
+                    <v-btn
+                        :href="downloadUrl"
+                        download
+                        icon="mdi-download"
+                        size="x-small"
+                        variant="text"/>
+                </template>
                 <v-btn
-                    @click="downloadRom(rom, emitter)"
-                    icon="mdi-download"
-                    size="x-small"
-                    variant="text"/>
-                <v-btn
-                    @click="downloadSave(rom, emitter)"
                     icon="mdi-content-save-all"
                     size="x-small"
                     variant="text"

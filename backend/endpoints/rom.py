@@ -1,6 +1,10 @@
+import io
+import tempfile
+import zipfile
 from fastapi import APIRouter, Request, status, HTTPException
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from logger.logger import log
@@ -9,6 +13,7 @@ from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
 from models.rom import Rom
 from models.platform import Platform
+from config import LIBRARY_BASE_PATH
 
 router = APIRouter()
 
@@ -51,15 +56,51 @@ class RomSchema(BaseModel):
     url_screenshots: list
     path_screenshots: list
 
+    full_path: str
+    download_path: str
+
     class Config(BaseModel.Config):
         orm_mode = True
 
 
 @router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
-def rom(id: int):
+def rom(id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
     return dbh.get_rom(id)
+
+
+@router.get("/platforms/{p_slug}/roms/{id}/download", status_code=200)
+def download_rom(id: int, files: str):
+    rom = dbh.get_rom(id)
+    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+    if not rom.multi:
+        return FileResponse(
+            path=rom_path,
+            filename=rom.file_name,
+            media_type="application/octet-stream",
+        )
+
+    mf = io.BytesIO()
+    with zipfile.ZipFile(mf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        try:
+            for file_name in files.split(","):
+                zf.write(f"{rom_path}/{file_name}", file_name)
+        except FileNotFoundError as e:
+            log.error(str(e))
+        finally:
+            zf.close()
+
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    with open(tmp.name, "wb") as f:
+        f.write(mf.getvalue())
+
+        return FileResponse(
+            path=tmp.name,
+            filename=f"{rom.r_name}.zip",
+            media_type="application/octet-stream",
+        )
 
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
