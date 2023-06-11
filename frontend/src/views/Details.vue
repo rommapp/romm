@@ -2,9 +2,7 @@
 import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
-import { fetchRomApi, updateRomApi, deleteRomApi, searchRomIGDBApi } from '@/services/api.js'
-import { downloadRom, downloadSave } from '@/services/download.js'
-import { storeDownloading } from '@/stores/downloading.js'
+import { fetchRomApi, downloadRomApi, updateRomApi, deleteRomApi, searchRomIGDBApi } from '@/services/api.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
 
 const router = useRouter()
@@ -26,8 +24,8 @@ const dialogEditRom = ref(false)
 const dialogDeleteRom = ref(false)
 const deleteFromFs = ref(false)
 const filesToDownload = ref([])
-const downloading = storeDownloading()
 const tab = ref('details')
+const downloadUrl = ref(undefined)
 const { xs, mdAndDown, lgAndUp } = useDisplay()
 
 // Event listeners bus
@@ -87,6 +85,7 @@ onMounted(() => {
     fetchRomApi(route.params.platform, route.params.rom)
     .then(response => {
         rom.value = response.data
+        downloadUrl.value = `${window.location.origin}${rom.download_path}`
         updatedRom.value = response.data
         loading.value = false
     }).catch((error) => {
@@ -105,7 +104,7 @@ onMounted(() => {
             <v-col :class="{'cover': lgAndUp, 'cover-tablet': mdAndDown, 'cover-mobile': xs}">
                 <v-row>
                     <v-col>
-                        <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
+                        <v-card elevation="2">
                             <v-img :src="`/assets/romm/resources/${rom.path_cover_l}`" :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
@@ -118,10 +117,19 @@ onMounted(() => {
                 </v-row>
                 <v-row class="pl-3 pr-3 action-buttons">
                     <v-col class="pa-0">
-                        <v-btn @click="downloadRom(rom, emitter, filesToDownload)" rounded="0" color="primary" block><v-icon icon="mdi-download" size="large"/></v-btn>
+                        <template v-if="rom.multi">
+                            <v-btn @click="downloadRomApi(rom, filesToDownload)" rounded="0" color="primary" block>
+                                <v-icon icon="mdi-download" size="large"/>
+                            </v-btn>
+                        </template>
+                        <template v-else>
+                            <v-btn :href="downloadUrl" rounded="0" color="primary" block>
+                                <v-icon icon="mdi-download" size="large"/>
+                            </v-btn>
+                        </template>
                     </v-col>
                     <v-col class="pa-0">
-                        <v-btn @click="downloadSave(rom, emitter)" rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
+                        <v-btn rounded="0" block :disabled="!saveFiles"><v-icon icon="mdi-content-save-all" size="large"/></v-btn>
                     </v-col>
                     <v-col class="pa-0">
                         <v-menu location="bottom">

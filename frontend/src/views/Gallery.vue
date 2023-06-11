@@ -5,7 +5,6 @@ import { views } from "@/utils/utils.js";
 import { fetchRomsApi } from "@/services/api.js";
 import { storeFilter } from "@/stores/filter.js";
 import { storeGalleryView } from "@/stores/galleryView.js";
-import { normalizeString } from "@/utils/utils.js";
 import FilterBar from "@/components/GameGallery/FilterBar.vue";
 import GalleryViewBtn from "@/components/GameGallery/GalleryViewBtn.vue";
 import GameCard from "@/components/GameGallery/Card/Base.vue";
@@ -15,8 +14,6 @@ import { storeScanning } from "@/stores/scanning.js";
 import socket from "@/utils/socket";
 
 import { useDisplay } from "vuetify";
-import { downloadRom, downloadSave } from "@/services/download.js";
-import { storeDownloading } from "@/stores/downloading.js";
 import BackgroundHeader from "@/components/GameDetails/BackgroundHeader.vue";
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 
