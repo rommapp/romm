@@ -7,7 +7,7 @@ export async function fetchPlatformsApi() {
 export async function fetchRomsApi({
   platform,
   cursor = "",
-  size = 50,
+  size = 60,
   searchTerm = "",
 }) {
   return axios.get(
