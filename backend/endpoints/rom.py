@@ -64,7 +64,7 @@ def rom(id: int):
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
 def roms(
-    p_slug: str, size: int = 50, cursor: str = "", search_term: str = ""
+    p_slug: str, size: int = 60, cursor: str = "", search_term: str = ""
 ) -> CursorPage[RomSchema]:
     """Returns all roms of the desired platform"""
     with dbh.session.begin() as session:
