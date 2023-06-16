@@ -70,7 +70,7 @@ async function scan() {
 }
 
 async function fetchMoreSearch() {
-  if (searchCursor.value === null) return;
+  if (searchCursor.value === null || gettingRoms.value) return;
   
   gettingRoms.value = true;
   await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, searchTerm: filter.value })
@@ -100,7 +100,7 @@ function onFilterChange() {
 }
 
 async function fetchMoreRoms(platform) {
-  if (cursor.value === null) return;
+  if (cursor.value === null  || gettingRoms.value) return;
 
   gettingRoms.value = true;
   await fetchRomsApi({ platform, cursor: cursor.value })
