@@ -25,6 +25,7 @@ const route = useRoute();
 // const sections = ['roms', 'firmwares']
 const currentSection = ref("roms");
 const roms = ref([]);
+const searchRoms = ref([]);
 const gettingRoms = ref(false);
 const filter = storeFilter();
 const filteredRoms = ref([]);
@@ -74,7 +75,8 @@ async function fetchMoreSearch() {
   gettingRoms.value = true;
   await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, searchTerm: filter.value })
     .then((response) => {
-      filteredRoms.value = response.data.items;
+      searchRoms.value = [...searchRoms.value, ...response.data.items];
+      filteredRoms.value = searchRoms.value;
       searchCursor.value = response.data.next_page;
     })
     .catch((error) => {
@@ -87,6 +89,7 @@ async function fetchMoreSearch() {
 
 function onFilterChange() {
   searchCursor.value = "";
+  searchRoms.value = [];
 
   if (filter.value === "") {
     filteredRoms.value = roms.value;
@@ -143,6 +146,7 @@ onBeforeRouteUpdate(async (to, _) => {
   searchCursor.value = "";
 
   roms.value = [];
+  searchRoms.value = [];
   filteredRoms.value = [];
 
   fetchMoreRoms(to.params.platform);
