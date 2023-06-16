@@ -44,7 +44,7 @@ async function scan() {
   emitter.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
-    color: "yellow",
+    color: "rommAccent1",
   });
   if (!socket.connected) socket.connect();
   socket.on("scan:done", () => {
