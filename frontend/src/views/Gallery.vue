@@ -25,18 +25,18 @@ const route = useRoute();
 // const sections = ['roms', 'firmwares']
 const currentSection = ref("roms");
 const roms = ref([]);
+const searchRoms = ref([]);
 const gettingRoms = ref(false);
 const filter = storeFilter();
-const romsFiltered = ref([]);
+const filteredRoms = ref([]);
 // const firmwares = ["firmware_base", "firmware_bios"]
 const galleryView = storeGalleryView();
 const scanning = storeScanning();
-
+const cursor = ref("");
+const searchCursor = ref("");
 // Event listeners bus
 const emitter = inject("emitter");
-emitter.on("filter", () => {
-  filterRoms();
-});
+emitter.on("filter", onFilterChange);
 
 // Functions
 async function scan() {
@@ -44,7 +44,7 @@ async function scan() {
   emitter.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
-    color: "yellow",
+    color: "rommAccent1",
   });
   if (!socket.connected) socket.connect();
   socket.on("scan:done", () => {
@@ -69,33 +69,87 @@ async function scan() {
   socket.emit("scan", JSON.stringify([route.params.platform]), false);
 }
 
-function filterRoms() {
-  romsFiltered.value = roms.value.filter((rom) => {
-    return normalizeString(rom.file_name).includes(filter.value);
-  });
-}
-
-async function fetchRoms(platform) {
+async function fetchMoreSearch() {
+  if (searchCursor.value === null || gettingRoms.value) return;
+  
   gettingRoms.value = true;
-  await fetchRomsApi(platform)
+  await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, searchTerm: filter.value })
     .then((response) => {
-      roms.value = response.data.data;
-      filterRoms();
+      searchRoms.value = [...searchRoms.value, ...response.data.items];
+      filteredRoms.value = searchRoms.value;
+      searchCursor.value = response.data.next_page;
     })
     .catch((error) => {
-      console.log(error);
-      console.log(`Couldn't fetch roms for ${platform}`);
+      console.error(`Couldn't fetch roms for ${route.params.platform}: ${error}`);
     })
     .finally(() => {
       gettingRoms.value = false;
     });
 }
 
+function onFilterChange() {
+  searchCursor.value = "";
+  searchRoms.value = [];
+
+  if (filter.value === "") {
+    filteredRoms.value = roms.value;
+    return;
+  }
+  
+  fetchMoreSearch();
+}
+
+async function fetchMoreRoms(platform) {
+  if (cursor.value === null  || gettingRoms.value) return;
+
+  gettingRoms.value = true;
+  await fetchRomsApi({ platform, cursor: cursor.value })
+    .then((response) => {
+      roms.value = [...roms.value, ...response.data.items];
+      filteredRoms.value = roms.value;
+      cursor.value = response.data.next_page;
+    })
+    .catch((error) => {
+      console.error(`Couldn't fetch roms for ${platform}: ${error}`);
+    })
+    .finally(() => {
+      gettingRoms.value = false;
+    });
+}
+
+function onListScroll({ target }) {
+  if (cursor.value === null && searchCursor.value === null) return;
+  
+  // If we are at the bottom of the page, fetch more roms
+  if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
+    filter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
+  }
+}
+
+function onGridScroll() {
+  if (cursor.value === null && searchCursor.value === null) return;
+
+  const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+
+  // If we are at the bottom of the page, fetch more roms
+  if (scrollTop + clientHeight >= scrollHeight) {
+    filter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
+  }
+}
+
 onMounted(async () => {
-  fetchRoms(route.params.platform);
+  fetchMoreRoms(route.params.platform);
 });
+
 onBeforeRouteUpdate(async (to, _) => {
-  fetchRoms(to.params.platform);
+  cursor.value = "";
+  searchCursor.value = "";
+
+  roms.value = [];
+  searchRoms.value = [];
+  filteredRoms.value = [];
+
+  fetchMoreRoms(to.params.platform);
 });
 </script>
 
@@ -107,43 +161,43 @@ onBeforeRouteUpdate(async (to, _) => {
     <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan" />
   </v-app-bar>
 
-  <template v-if="gettingRoms">
-    <v-row class="fill-height justify-center align-center" no-gutters>
-      <v-progress-circular color="rommAccent1" :width="3" :size="70" indeterminate />
+  <template v-if="filteredRoms.length > 0 || gettingRoms">
+    <v-row id="grid-view" v-show="galleryView.value != 2" no-gutters v-scroll="onGridScroll">
+      <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.id" :cols="views[galleryView.value]['size-cols']"
+        :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
+        :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
+        <game-card :rom="rom" />
+      </v-col>
+    </v-row>
+
+    <v-row v-show="galleryView.value == 2" no-gutters>
+      <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
+        :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
+        :lg="views[galleryView.value]['size-lg']">
+        <v-table class="bg-secondary">
+          <game-list-header />
+          <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
+          <tbody>
+            <!-- Height has to be set and exact -->
+            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 122px)" @scroll="onListScroll">
+              <template v-slot="{ item }">
+                <v-list-item :key="item.id" :value="item.id">
+                  <game-list-item :rom="item" />
+                </v-list-item>
+              </template>
+            </v-virtual-scroll>
+          </tbody>
+        </v-table>
+      </v-col>
     </v-row>
   </template>
+
   <template v-else>
-    <template v-if="roms.length > 0">
-      <v-row v-show="galleryView.value != 2" id="card-view" no-gutters>
-        <v-col v-for="rom in romsFiltered" class="pa-1" :key="rom.file_name" :cols="views[galleryView.value]['size-cols']"
-          :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
-          :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
-          <game-card :rom="rom" />
-        </v-col>
-      </v-row>
-
-      <v-row v-show="galleryView.value == 2" id="list-view" no-gutters>
-        <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
-          :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
-          :lg="views[galleryView.value]['size-lg']">
-          <v-table class="bg-secondary">
-            <game-list-header />
-            <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
-            <tbody>
-              <game-list-item v-for="rom in romsFiltered" :key="rom.file_name" :rom="rom" />
-            </tbody>
-          </v-table>
-        </v-col>
-      </v-row>
-    </template>
-
-    <template v-else>
-      <v-row class="fill-height justify-center align-center" no-gutters>
-        <div class="text-h6">
-          Feels cold here... <v-icon>mdi-emoticon-sad</v-icon>
-        </div>
-      </v-row>
-    </template>
+    <v-row class="fill-height justify-center align-center" no-gutters>
+      <div class="text-h6">
+        Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
+      </div>
+    </v-row>
   </template>
 </template>
 

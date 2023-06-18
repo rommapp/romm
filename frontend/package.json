@@ -14,13 +14,14 @@
     "core-js": "^3.8.3",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
+    "lodash": "^4.17.21",
     "mitt": "^3.0.0",
     "pinia": "^2.0.35",
     "roboto-fontface": "*",
     "socket.io-client": "^4.6.1",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",
-    "vuetify": "^3.1.15",
+    "vuetify": "^3.3.3",
     "webfontloader": "^1.0.0"
   },
   "devDependencies": {
