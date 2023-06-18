@@ -17,9 +17,9 @@ HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: str = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
-DEFAULT_PATH_COVER_L: str = f"default/default/cover/big.png"
+DEFAULT_PATH_COVER_L: str = "default/default/cover/big.png"
 DEFAULT_URL_COVER_S: str = "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
-DEFAULT_PATH_COVER_S: str = f"default/default/cover/small.png"
+DEFAULT_PATH_COVER_S: str = "default/default/cover/small.png"
 
 # IGDB
 CLIENT_ID: str = os.environ.get('CLIENT_ID')

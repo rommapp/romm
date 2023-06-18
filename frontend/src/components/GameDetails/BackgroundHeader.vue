@@ -4,7 +4,7 @@ const props = defineProps(['rom'])
 
 <template>
     <v-card class="header-background" position="absolute" rounded="0" flat>
-        <v-img :src="`/assets/romm/resources/${rom.path_cover_s}?reload=${Date.now()}`" class="header-background-img" cover/>
+        <v-img :src="`/assets/romm/resources/${rom.path_cover_s}`" class="header-background-img" cover/>
     </v-card>
 </template>
 

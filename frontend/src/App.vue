@@ -20,7 +20,7 @@ useTheme().global.name.value = localStorage.getItem('theme') || 'rommDark'
 const emitter = inject('emitter')
 emitter.on('refresPlatforms', () => {
   fetchPlatformsApi()
-    .then((res) => { platforms.set(res.data.data) })
+    .then((res) => { platforms.set(res.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
     refresPlatforms.value = !refresPlatforms.value
 })
@@ -32,7 +32,7 @@ emitter.on('refreshGallery', () => {
 
 onMounted(() => {
   fetchPlatformsApi()
-    .then((res) => { platforms.set(res.data.data) })
+    .then((res) => { platforms.set(res.data) })
     .catch((error) => { console.log(error);console.log("Couldn't fetch platforms") })
 })
 </script>

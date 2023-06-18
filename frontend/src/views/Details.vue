@@ -2,7 +2,7 @@
 import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from "vuetify"
-import { fetchRomApi, updateRomApi, deleteRomApi, searchRomApi } from '@/services/api.js'
+import { fetchRomApi, updateRomApi, deleteRomApi, searchRomIGDBApi } from '@/services/api.js'
 import { downloadRom, downloadSave } from '@/services/download.js'
 import { storeDownloading } from '@/stores/downloading.js'
 import BackgroundHeader from '@/components/GameDetails/BackgroundHeader.vue'
@@ -37,9 +37,9 @@ const emitter = inject('emitter')
 async function searchRomIGDB() {
     searching.value = true
     dialogSearchRom.value = true
-    await searchRomApi(searchTerm.value, searchBy.value, rom.value)
+    await searchRomIGDBApi(searchTerm.value, searchBy.value, rom.value)
     .then((response) => {
-        matchedRoms.value = response.data.data
+        matchedRoms.value = response.data.roms
     })
     .catch((error) => {console.log(error)})
     searching.value = false
@@ -57,8 +57,8 @@ async function updateRom(updatedData={...updatedRom.value}) {
     if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
     await updateRomApi(rom.value, updatedRom.value)
     .then((response) => {
-        rom.value = response.data.data
-        updatedRom.value = {...response.data.data}
+        rom.value = response.data.rom
+        updatedRom.value = {...response.data.rom}
         emitter.emit('snackbarShow', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         emitter.emit('refreshGallery')
     }).catch((error) => {
@@ -70,7 +70,7 @@ async function updateRom(updatedData={...updatedRom.value}) {
 }
 
 async function deleteRom() {
-    await deleteRomApi(rom.value.p_slug, deleteFromFs.value)
+    await deleteRomApi(rom.value, deleteFromFs.value)
     .then((response) => {
         emitter.emit('snackbarShow', {'msg': response.data.msg, 'icon': 'mdi-check-bold', 'color': 'green'})
         router.push(`/platform/${rom.value.p_slug}`)
@@ -86,10 +86,13 @@ async function deleteRom() {
 onMounted(() => {
     fetchRomApi(route.params.platform, route.params.rom)
     .then(response => {
-        rom.value = response.data.data
-        updatedRom.value = {...response.data.data}
+        rom.value = response.data
+        updatedRom.value = response.data
         loading.value = false
-    }).catch((error) => { console.log(error);loading.value = false })
+    }).catch((error) => {
+        console.log(error);
+        loading.value = false 
+    })
 })
 </script>
 
@@ -103,7 +106,7 @@ onMounted(() => {
                 <v-row>
                     <v-col>
                         <v-card elevation="2" :loading="downloading.value.includes(rom.file_name) ? 'rommAccent1': null">
-                            <v-img :src="`/assets/romm/resources/${rom.path_cover_l}?reload=${Date.now()}`" :lazy-src="`/assets/romm/resources/${rom.path_cover_s}?reload=${Date.now()}`" cover>
+                            <v-img :src="`/assets/romm/resources/${rom.path_cover_l}`" :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`" cover>
                                 <template v-slot:placeholder>
                                     <div class="d-flex align-center justify-center fill-height">
                                         <v-progress-circular color="rommAccent1" :width="2" :size="20" indeterminate/>
