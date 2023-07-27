@@ -1,4 +1,5 @@
 import axios from "axios";
+import useDownloadStore from "@/stores/download.js";
 
 export async function fetchPlatformsApi() {
   return axios.get("/api/platforms");
@@ -20,9 +21,14 @@ export async function fetchRomApi(platform, rom) {
 }
 
 export async function downloadRomApi(rom, files) {
+  const downloadStore = useDownloadStore();
+  downloadStore.add(rom.file_name);
+
   axios
     .get(
-      `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${files || rom.files}`,
+      `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
+        files || rom.files
+      }`,
       {
         responseType: "blob",
       }
@@ -32,6 +38,8 @@ export async function downloadRomApi(rom, files) {
       a.href = window.URL.createObjectURL(new Blob([response.data]));
       a.download = `${rom.r_name}.zip`;
       a.click();
+
+      downloadStore.remove(rom.file_name);
     });
 }
 
