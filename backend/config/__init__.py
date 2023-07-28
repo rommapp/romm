@@ -10,6 +10,7 @@ DEV_HOST: str = "0.0.0.0"
 # PATHS
 ROMM_BASE_PATH: str = os.environ.get('ROMM_BASE_PATH', '/romm')
 LIBRARY_BASE_PATH: str = f"{ROMM_BASE_PATH}/library"
+FRONT_LIBRARY_PATH: str = "/assets/romm/library"
 ROMM_USER_CONFIG_PATH: str = f"{ROMM_BASE_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: str = f"{ROMM_BASE_PATH}/database"
 RESOURCES_BASE_PATH: str = f"{ROMM_BASE_PATH}/resources"
