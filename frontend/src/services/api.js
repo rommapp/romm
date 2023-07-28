@@ -21,6 +21,7 @@ export async function fetchRomApi(platform, rom) {
 }
 
 export async function downloadRomApi(rom, files) {
+  if(files != undefined && files.length==0){files=undefined}; // Force to download all multirom-parts when no part is selected in the selector
   const downloadStore = useDownloadStore();
   downloadStore.add(rom.file_name);
 
