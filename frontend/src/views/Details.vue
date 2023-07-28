@@ -125,7 +125,7 @@ onMounted(() => {
                             </v-btn>
                         </template>
                         <template v-else>
-                            <v-btn :href="downloadUrl" rounded="0" color="primary" block>
+                            <v-btn :href="downloadUrl" download rounded="0" color="primary" block>
                                 <v-icon icon="mdi-download" size="large" />
                             </v-btn>
                         </template>
