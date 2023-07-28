@@ -70,7 +70,8 @@ def parse_tags(file_name: str) -> tuple:
             reg = REGIONS_BY_SHORTCODE[tag.lower()]
         elif tag.lower() in REGIONS_NAME_KEYS:
             reg = tag
-        elif "rev" in tag.lower():
+        # Explicit support for "Rev A/Rev 1" tags
+        elif "rev " in tag.lower():
             rev = tag.split(" ")[1]
         else:
             other_tags.append(tag)
@@ -78,7 +79,8 @@ def parse_tags(file_name: str) -> tuple:
 
 
 def get_file_name_with_no_tags(file_name: str) -> str:
-    return re.sub("[\(\[].*?[\)\]]", "", file_name.split(".")[0])
+    # Use .rsplit to remove only the file extension
+    return re.sub("[\(\[].*?[\)\]]", "", file_name.rsplit(".", 1)[0])
 
 
 def get_file_extension(rom: dict) -> str:
