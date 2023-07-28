@@ -82,12 +82,11 @@ async function deleteRom() {
     dialogDeleteRom.value = false
 }
 
-
 onMounted(() => {
     fetchRomApi(route.params.platform, route.params.rom)
     .then(response => {
         rom.value = response.data
-        downloadUrl.value = `${window.location.origin}${rom.download_path}`
+        downloadUrl.value = `${window.location.origin}${rom.value.download_path}`
         updatedRom.value = response.data
         loading.value = false
     }).catch((error) => {
