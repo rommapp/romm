@@ -48,14 +48,16 @@ async function searchRomIGDB() {
 async function updateRom(updatedData={...updatedRom.value}) {
     dialogSearchRom.value = false
     updating.value = true
-    updatedRom.value.r_igdb_id = updatedData.r_igdb_id
-    updatedRom.value.r_slug = updatedData.r_slug
-    updatedRom.value.summary = updatedData.summary
-    updatedRom.value.url_cover = updatedData.url_cover
-    updatedRom.value.url_screenshots = updatedData.url_screenshots
-    updatedRom.value.r_name = updatedData.r_name
-    if (renameAsIGDB.value) { updatedRom.value.file_name = updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) }
-    await updateRomApi(rom.value, updatedRom.value)
+
+    await updateRomApi(rom.value, {
+        r_igdb_id: updatedData.r_igdb_id,
+        r_slug: updatedData.r_slug,
+        summary: updatedData.summary,
+        url_cover: updatedData.url_cover,
+        url_screenshots: updatedData.url_screenshots,
+        r_name: updatedData.r_name,
+        file_name: renameAsIGDB.value ? updatedRom.value.file_name.replace(updatedRom.value.file_name_no_tags, updatedData.r_name) : updatedData.file_name,
+    })
     .then((response) => {
         rom.value = response.data.rom
         updatedRom.value = {...response.data.rom}
@@ -343,8 +345,8 @@ onMounted(() => {
                         prepend-inner-icon="mdi-image" prepend-icon="" variant="outlined" disabled hide-details />
                 </v-row>
                 <v-row class="justify-center pa-2" no-gutters>
-                    <v-btn @click="updateRom()" class="text-rommGreen">Apply</v-btn>
-                    <v-btn @click="dialogEditRom = false" class="ml-5">Cancel</v-btn>
+                    <v-btn @click="dialogEditRom = false">Cancel</v-btn>
+                    <v-btn @click="updateRom()" class="text-rommGreen ml-5">Apply</v-btn>
                 </v-row>
             </v-card-text>
         </v-card>
@@ -371,8 +373,8 @@ onMounted(() => {
                     <span>Deleting {{ rom.file_name }}. Do you confirm?</span>
                 </v-row>
                 <v-row class="justify-center pa-2" no-gutters>
-                    <v-btn @click="deleteRom()" class="text-red">Confirm</v-btn>
-                    <v-btn @click="dialogDeleteRom = false" class="ml-5">Cancel</v-btn>
+                    <v-btn @click="dialogDeleteRom = false">Cancel</v-btn>
+                    <v-btn @click="deleteRom()" class="text-red ml-5">Confirm</v-btn>
                 </v-row>
             </v-card-text>
 

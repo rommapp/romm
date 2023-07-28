@@ -41,7 +41,9 @@ class DBHandler:
     def get_platforms(self) -> list[Platform]:
         try:
             with self.session.begin() as session:
-                return session.scalars(select(Platform).order_by(Platform.slug.asc())).all()
+                return session.scalars(
+                    select(Platform).order_by(Platform.slug.asc())
+                ).all()
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -94,7 +96,9 @@ class DBHandler:
     def delete_rom(self, id: int) -> None:
         try:
             with self.session.begin() as session:
-                session.query(Rom).filter(Rom.id == id).delete(synchronize_session="evaluate")
+                session.query(Rom).filter(Rom.id == id).delete(
+                    synchronize_session="evaluate"
+                )
         except ProgrammingError as e:
             self.raise_error(e)
 
