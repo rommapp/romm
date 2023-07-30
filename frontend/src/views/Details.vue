@@ -436,16 +436,16 @@ onMounted(() => {
 }
 
 .details-content {
-    margin-top: 126px;
+    margin-top: 122px;
     max-width: 700px;
 }
 
 .details-content-tablet {
-    margin-top: 70px;
+    margin-top: 66px;
 }
 
 .details-content-mobile {
-    margin-top: 40px;
+    margin-top: 30px;
 }
 
 .loader-searching,
