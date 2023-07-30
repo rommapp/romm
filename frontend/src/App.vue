@@ -36,7 +36,7 @@ emitter.on("refreshGallery", () => {
 onMounted(async () => {
   try {
     const { data } = await fetchPlatformsApi();
-    platforms.set(data.data);
+    platforms.set(data);
   } catch (error) {
     console.error("Couldn't fetch platforms:", error);
   }
