@@ -6,7 +6,7 @@ import PlatformCard from "@/components/Platform/PlatformCard.vue";
 
 // Props
 const platforms = storePlatforms();
-const totalGames = platforms.getTotalGames();
+const totalGames = platforms.totalGames;
 const { lgAndUp } = useDisplay();
 </script>
 
@@ -37,9 +37,9 @@ const { lgAndUp } = useDisplay();
     >
       <v-chip-group>
         <v-chip class="bg-chip" label>
-          <span class="text-overline"
-            >{{ platforms.value.length }} platforms</span
-          >
+          <span class="text-overline">
+            {{ platforms.value.length }} platforms
+          </span>
         </v-chip>
         <v-chip class="bg-chip" label>
           <span class="text-overline">{{ totalGames }} games</span>
@@ -52,9 +52,9 @@ const { lgAndUp } = useDisplay();
   <template v-if="platforms.value.length > 0">
     <!-- Platforms section title -->
     <v-row class="pa-2" no-gutters>
-      <v-avatar :rounded="0" size="auto"
-        ><v-icon>mdi-controller</v-icon></v-avatar
-      >
+      <v-avatar :rounded="0" size="auto">
+        <v-icon>mdi-controller</v-icon>
+      </v-avatar>
       <span class="text-h6 ml-2">Platforms</span>
       <v-divider class="border-opacity-25" />
     </v-row>

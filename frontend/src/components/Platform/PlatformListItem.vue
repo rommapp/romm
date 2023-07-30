@@ -14,9 +14,9 @@ const props = defineProps(["platform", "rail"]);
       rail ? "" : platform.name
     }}</span>
     <template v-slot:prepend>
-      <v-avatar :rounded="0" size="40"
-        ><v-img :src="`/assets/platforms/${platform.slug}.ico`"></v-img
-      ></v-avatar>
+      <v-avatar :rounded="0" size="40">
+        <v-img :src="`/assets/platforms/${platform.slug}.ico`"></v-img>
+      </v-avatar>
     </template>
     <template v-slot:append>
       <v-chip class="ml-4 bg-chip" size="x-small" label>{{
