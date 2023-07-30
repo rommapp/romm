@@ -169,17 +169,18 @@ def get_roms(p_slug: str) -> list[dict] or int:
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH.
     """
     roms_path = get_roms_structure(p_slug)
+    roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
     try:
-        fs_single_roms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}"))[0][2]
+        fs_single_roms: list[str] = list(os.walk(roms_file_path))[0][2]
     except IndexError:
         raise RomsNotFoundException(p_slug)
     try:
-        fs_multi_roms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}"))[0][1]
+        fs_multi_roms: list[str] = list(os.walk(roms_file_path))[0][1]
     except IndexError:
         raise RomsNotFoundException(p_slug)
     fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_files(fs_single_roms, 'single')] + \
                           [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
-    [rom.update({'files': get_rom_files(rom['file_name'], roms_path)}) for rom in fs_roms]
+    [rom.update({'files': get_rom_files(rom['file_name'], roms_file_path)}) for rom in fs_roms]
     return fs_roms
 
 
