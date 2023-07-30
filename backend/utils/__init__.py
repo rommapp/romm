@@ -68,17 +68,31 @@ def parse_tags(file_name: str) -> tuple:
     for tag in tags:
         if tag.lower() in REGIONS_BY_SHORTCODE.keys():
             reg = REGIONS_BY_SHORTCODE[tag.lower()]
-        elif tag.lower() in REGIONS_NAME_KEYS:
+            continue
+
+        if tag.lower() in REGIONS_NAME_KEYS:
             reg = tag
-        elif "rev" in tag.lower():
-            rev = tag.split(" ")[1]
-        else:
-            other_tags.append(tag)
+            continue
+
+        if "reg" in tag.lower():
+            match = re.match("^reg[\s|-](.*)$", tag, re.IGNORECASE)
+            if match:
+                reg = match.group(1)
+                continue
+
+        if "rev" in tag.lower():
+            match = re.match("^rev[\s|-](.*)$", tag, re.IGNORECASE)
+            if match:
+                rev = match.group(1)
+                continue
+
+        other_tags.append(tag)
     return reg, rev, other_tags
 
 
 def get_file_name_with_no_tags(file_name: str) -> str:
-    return re.sub("[\(\[].*?[\)\]]", "", file_name.split(".")[0])
+    # Use .rsplit to remove only the file extension
+    return re.sub("[\(\[].*?[\)\]]", "", file_name.rsplit(".", 1)[0])
 
 
 def get_file_extension(rom: dict) -> str:
