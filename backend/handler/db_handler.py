@@ -33,29 +33,31 @@ class DBHandler:
     # ========= Platforms =========
     def add_platform(self, Platform: Platform) -> None:
         try:
-            with self.session.begin() as s:
-                s.merge(Platform)
+            with self.session.begin() as session:
+                session.merge(Platform)
         except ProgrammingError as e:
             self.raise_error(e)
 
     def get_platforms(self) -> list[Platform]:
         try:
-            with self.session.begin() as s:
-                return s.scalars(select(Platform).order_by(Platform.slug.asc())).all()
+            with self.session.begin() as session:
+                return session.scalars(
+                    select(Platform).order_by(Platform.slug.asc())
+                ).all()
         except ProgrammingError as e:
             self.raise_error(e)
 
     def get_platform(self, slug: str) -> Platform:
         try:
-            with self.session.begin() as s:
-                return s.scalars(select(Platform).filter_by(slug=slug)).first()
+            with self.session.begin() as session:
+                return session.scalars(select(Platform).filter_by(slug=slug)).first()
         except ProgrammingError as e:
             self.raise_error(e)
 
     def purge_platforms(self, platforms: list[str]) -> None:
         try:
-            with self.session.begin() as s:
-                s.query(Platform).filter(
+            with self.session.begin() as session:
+                session.query(Platform).filter(
                     or_(Platform.fs_slug.not_in(platforms), Platform.fs_slug.is_(None))
                 ).delete(synchronize_session="evaluate")
         except ProgrammingError as e:
@@ -64,8 +66,8 @@ class DBHandler:
     # ========= Roms =========
     def add_rom(self, rom: Rom) -> None:
         try:
-            with self.session.begin() as s:
-                s.merge(rom)
+            with self.session.begin() as session:
+                session.merge(rom)
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -77,15 +79,15 @@ class DBHandler:
 
     def get_rom(self, id) -> Rom:
         try:
-            with self.session.begin() as s:
-                return s.scalars(select(Rom).filter_by(id=id)).first()
+            with self.session.begin() as session:
+                return session.query(Rom).get(id)
         except ProgrammingError as e:
             self.raise_error(e)
 
     def update_rom(self, id: int, data: dict) -> None:
         try:
-            with self.session.begin() as s:
-                s.query(Rom).filter(Rom.id == id).update(
+            with self.session.begin() as session:
+                session.query(Rom).filter(Rom.id == id).update(
                     data, synchronize_session="evaluate"
                 )
         except ProgrammingError as e:
@@ -93,15 +95,17 @@ class DBHandler:
 
     def delete_rom(self, id: int) -> None:
         try:
-            with self.session.begin() as s:
-                s.query(Rom).filter(Rom.id == id).delete(synchronize_session="evaluate")
+            with self.session.begin() as session:
+                session.query(Rom).filter(Rom.id == id).delete(
+                    synchronize_session="evaluate"
+                )
         except ProgrammingError as e:
             self.raise_error(e)
 
     def purge_roms(self, p_slug: str, roms: list[str]) -> None:
         try:
-            with self.session.begin() as s:
-                s.query(Rom).filter(
+            with self.session.begin() as session:
+                session.query(Rom).filter(
                     Rom.p_slug == p_slug, Rom.file_name.not_in(roms)
                 ).delete(synchronize_session="evaluate")
         except ProgrammingError as e:
@@ -110,8 +114,8 @@ class DBHandler:
     # ==== Utils ======
     def rom_exists(self, platform: str, file_name: str) -> int:
         try:
-            with self.session.begin() as s:
-                rom = s.scalar(
+            with self.session.begin() as session:
+                rom = session.scalar(
                     select(Rom).filter_by(p_slug=platform, file_name=file_name)
                 )
                 return rom.id if rom else None
