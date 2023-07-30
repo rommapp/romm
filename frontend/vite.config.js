@@ -15,6 +15,9 @@ export default defineConfig(({mode}) =>{
   const backendPort = env.VITE_BACKEND_DEV_PORT ?? '5000';
 
   return {
+    build: {
+      target: 'esnext'
+    },
     plugins: [
       pluginRewriteAll(),
       vue({ 
