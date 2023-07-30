@@ -1,9 +1,11 @@
-import { defineStore } from 'pinia'
+import { defineStore } from "pinia";
 
-export const storeScanning = defineStore('scanning', {
+export default defineStore("scanning", {
   state: () => ({ value: false }),
 
   actions: {
-    set(scanning) { this.value = scanning }
-  }
-})
+    set(scanning) {
+      this.value = scanning;
+    },
+  },
+});
