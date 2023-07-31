@@ -1,8 +1,8 @@
 <script setup>
 import { ref, inject } from "vue";
 import storePlatforms from "@/stores/platforms";
-import PlatformListItem from '@/components/Platform/PlatformListItem.vue'
-import RailBtn from '@/components/Drawer/RailBtn.vue'
+import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
+import RailBtn from "@/components/Drawer/RailBtn.vue";
 
 // Props
 const platforms = storePlatforms();

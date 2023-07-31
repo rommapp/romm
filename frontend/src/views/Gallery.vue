@@ -119,7 +119,9 @@ function onListScroll({ target }) {
 
   // If we are at the bottom of the page, fetch more roms
   if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
-    galleryFilter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
+    galleryFilter.value
+      ? fetchMoreSearch()
+      : fetchMoreRoms(route.params.platform);
   }
 }
 
@@ -130,7 +132,9 @@ function onGridScroll() {
 
   // If we are at the bottom of the page, fetch more roms
   if (scrollTop + clientHeight >= scrollHeight) {
-    galleryFilter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
+    galleryFilter.value
+      ? fetchMoreSearch()
+      : fetchMoreRoms(route.params.platform);
   }
 }
 
