@@ -1,36 +1,30 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
-import { views } from "@/utils/utils.js";
 import { fetchRomsApi } from "@/services/api.js";
-import { storeFilter } from "@/stores/filter.js";
-import { storeGalleryView } from "@/stores/galleryView.js";
-import FilterBar from "@/components/GameGallery/FilterBar.vue";
-import GalleryViewBtn from "@/components/GameGallery/GalleryViewBtn.vue";
-import GameCard from "@/components/GameGallery/Card/Base.vue";
-import GameListHeader from "@/components/GameGallery/ListItem/Header.vue";
-import GameListItem from "@/components/GameGallery/ListItem/Item.vue";
-import { storeScanning } from "@/stores/scanning.js";
-import socket from "@/utils/socket";
-
-import { useDisplay } from "vuetify";
-import BackgroundHeader from "@/components/GameDetails/BackgroundHeader.vue";
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+import socket from "@/services/socket.js";
+import { views } from "@/utils/utils.js";
+import storeGalleryFilter from "@/stores/galleryFilter.js";
+import storeGalleryView from "@/stores/galleryView.js";
+import storeScanning from "@/stores/scanning.js";
+import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
+import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
+import GameListHeader from "@/components/Game/ListItem/Header.vue";
+import GameListItem from "@/components/Game/ListItem/Item.vue";
 
 // Props
 const route = useRoute();
-// const sections = ['roms', 'firmwares']
-const currentSection = ref("roms");
 const roms = ref([]);
 const searchRoms = ref([]);
-const gettingRoms = ref(false);
-const filter = storeFilter();
 const filteredRoms = ref([]);
-// const firmwares = ["firmware_base", "firmware_bios"]
 const galleryView = storeGalleryView();
+const galleryFilter = storeGalleryFilter();
+const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
+
 // Event listeners bus
 const emitter = inject("emitter");
 emitter.on("filter", onFilterChange);
@@ -68,16 +62,22 @@ async function scan() {
 
 async function fetchMoreSearch() {
   if (searchCursor.value === null || gettingRoms.value) return;
-  
+
   gettingRoms.value = true;
-  await fetchRomsApi({ platform: route.params.platform, cursor: searchCursor.value, searchTerm: filter.value })
+  await fetchRomsApi({
+    platform: route.params.platform,
+    cursor: searchCursor.value,
+    searchTerm: normalizeString(galleryFilter.value),
+  })
     .then((response) => {
       searchRoms.value = [...searchRoms.value, ...response.data.items];
       filteredRoms.value = searchRoms.value;
       searchCursor.value = response.data.next_page;
     })
     .catch((error) => {
-      console.error(`Couldn't fetch roms for ${route.params.platform}: ${error}`);
+      console.error(
+        `Couldn't fetch roms for ${route.params.platform}: ${error}`
+      );
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -88,16 +88,16 @@ function onFilterChange() {
   searchCursor.value = "";
   searchRoms.value = [];
 
-  if (filter.value === "") {
+  if (galleryFilter.value === "") {
     filteredRoms.value = roms.value;
     return;
   }
-  
+
   fetchMoreSearch();
 }
 
 async function fetchMoreRoms(platform) {
-  if (cursor.value === null  || gettingRoms.value) return;
+  if (cursor.value === null || gettingRoms.value) return;
 
   gettingRoms.value = true;
   await fetchRomsApi({ platform, cursor: cursor.value })
@@ -116,10 +116,12 @@ async function fetchMoreRoms(platform) {
 
 function onListScroll({ target }) {
   if (cursor.value === null && searchCursor.value === null) return;
-  
+
   // If we are at the bottom of the page, fetch more roms
   if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
-    filter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
+    galleryFilter.value
+      ? fetchMoreSearch()
+      : fetchMoreRoms(route.params.platform);
   }
 }
 
@@ -130,7 +132,9 @@ function onGridScroll() {
 
   // If we are at the bottom of the page, fetch more roms
   if (scrollTop + clientHeight >= scrollHeight) {
-    filter.value ? fetchMoreSearch() : fetchMoreRoms(route.params.platform);
+    galleryFilter.value
+      ? fetchMoreSearch()
+      : fetchMoreRoms(route.params.platform);
   }
 }
 
@@ -152,31 +156,62 @@ onBeforeRouteUpdate(async (to, _) => {
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
-    <!-- <v-select item-title="name" :items="sections" v-model="currentSection" hide-details/> -->
     <filter-bar />
     <gallery-view-btn />
-    <v-btn @click="scan" rounded="0" variant="text" class="mr-0" icon="mdi-magnify-scan" />
+    <v-btn
+      @click="scan"
+      rounded="0"
+      variant="text"
+      class="mr-0"
+      icon="mdi-magnify-scan"
+    />
   </v-app-bar>
 
   <template v-if="filteredRoms.length > 0 || gettingRoms">
-    <v-row id="grid-view" v-show="galleryView.value != 2" no-gutters v-scroll="onGridScroll">
-      <v-col v-for="rom in filteredRoms" class="pa-1" :key="rom.id" :cols="views[galleryView.value]['size-cols']"
-        :xs="views[galleryView.value]['size-xs']" :sm="views[galleryView.value]['size-sm']"
-        :md="views[galleryView.value]['size-md']" :lg="views[galleryView.value]['size-lg']">
+    <!-- Gallery cards view -->
+    <v-row
+      id="grid-view"
+      v-show="galleryView.value != 2"
+      no-gutters
+      v-scroll="onGridScroll"
+    >
+      <v-col
+        v-for="rom in filteredRoms"
+        class="pa-1"
+        :key="rom.id"
+        :cols="views[galleryView.value]['size-cols']"
+        :xs="views[galleryView.value]['size-xs']"
+        :sm="views[galleryView.value]['size-sm']"
+        :md="views[galleryView.value]['size-md']"
+        :lg="views[galleryView.value]['size-lg']"
+      >
         <game-card :rom="rom" />
       </v-col>
     </v-row>
 
+    <!-- Gallery list view -->
     <v-row v-show="galleryView.value == 2" no-gutters>
-      <v-col :cols="views[galleryView.value]['size-cols']" :xs="views[galleryView.value]['size-xs']"
-        :sm="views[galleryView.value]['size-sm']" :md="views[galleryView.value]['size-md']"
-        :lg="views[galleryView.value]['size-lg']">
+      <v-col
+        :cols="views[galleryView.value]['size-cols']"
+        :xs="views[galleryView.value]['size-xs']"
+        :sm="views[galleryView.value]['size-sm']"
+        :md="views[galleryView.value]['size-md']"
+        :lg="views[galleryView.value]['size-lg']"
+      >
         <v-table class="bg-secondary">
           <game-list-header />
-          <v-divider class="border-opacity-100 mb-4 ml-2 mr-2" color="rommAccent1" :thickness="1" />
+          <v-divider
+            class="border-opacity-100 mb-4 ml-2 mr-2"
+            color="rommAccent1"
+            :thickness="1"
+          />
           <tbody>
             <!-- Height has to be set and exact -->
-            <v-virtual-scroll :items="filteredRoms" height="calc(100vh - 122px)" @scroll="onListScroll">
+            <v-virtual-scroll
+              :items="filteredRoms"
+              height="calc(100vh - 122px)"
+              @scroll="onListScroll"
+            >
               <template v-slot="{ item }">
                 <v-list-item :key="item.id" :value="item.id">
                   <game-list-item :rom="item" />
@@ -189,6 +224,7 @@ onBeforeRouteUpdate(async (to, _) => {
     </v-row>
   </template>
 
+  <!-- Empty gallery message -->
   <template v-else>
     <v-row class="fill-height justify-center align-center" no-gutters>
       <div class="text-h6">
