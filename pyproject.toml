@@ -22,6 +22,8 @@ python-dotenv = "1.0.0"
 ipdb = "0.13.13"
 fastapi-pagination = "^0.12.4"
 sqlakeyset = "^2.0.1684285512"
+pydash = "^7.0.6"
+pytest = "^7.4.0"
 
 
 [build-system]

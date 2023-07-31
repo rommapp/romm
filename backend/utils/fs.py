@@ -6,9 +6,8 @@ from pathlib import Path
 
 from config import LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, \
     RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
-from config.config_loader import ConfigLoader
+from config.config_loader import config
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException, RomNotFoundError, RomAlreadyExistsException
-cl = ConfigLoader()
 
 
 # ========= Resources utils =========
@@ -111,7 +110,7 @@ def store_default_resources() -> None:
 
 # ========= Platforms utils =========
 def _exclude_platforms(platforms) -> None:
-    [platforms.remove(excluded) for excluded in cl.config['EXCLUDED_PLATFORMS'] if excluded in platforms]
+    [platforms.remove(excluded) for excluded in config['EXCLUDED_PLATFORMS'] if excluded in platforms]
 
 
 def get_platforms() -> list[str]:
@@ -134,8 +133,8 @@ def get_roms_structure(p_slug: str) -> tuple:
 
 
 def _exclude_files(files, type) -> list[str]:
-    excluded_extensions = cl.config[f'EXCLUDED_{type.upper()}_EXT']
-    excluded_names = cl.config[f'EXCLUDED_{type.upper()}_FILES']
+    excluded_extensions = config[f'EXCLUDED_{type.upper()}_EXT']
+    excluded_names = config[f'EXCLUDED_{type.upper()}_FILES']
     filtered_files: list = []
     for file in files:
         if file.split('.')[-1] in excluded_extensions or file in excluded_names:
@@ -145,7 +144,7 @@ def _exclude_files(files, type) -> list[str]:
 
 
 def _exclude_multi_roms(roms) -> list[str]:
-    excluded_names = cl.config['EXCLUDED_MULTI_FILES']
+    excluded_names = config['EXCLUDED_MULTI_FILES']
     filtered_files: list = []
     for rom in roms:
         if rom in excluded_names:

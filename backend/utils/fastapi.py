@@ -2,8 +2,7 @@ from fastapi import status, HTTPException
 
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
-from config.config_loader import ConfigLoader
-cl = ConfigLoader()
+from config.config_loader import config
 from utils.exceptions import RomsNotFoundException
 from logger.logger import log
 from models.platform import Platform
@@ -22,8 +21,8 @@ def scan_platform(fs_slug: str) -> Platform:
     platform_attrs: dict = {}
     platform_attrs['fs_slug'] = fs_slug
     try:
-        if fs_slug in cl.config['PLATFORMS_BINDING'].keys():
-            platform_attrs['slug'] = cl.config['PLATFORMS_BINDING'][fs_slug]
+        if fs_slug in config['PLATFORMS_BINDING'].keys():
+            platform_attrs['slug'] = config['PLATFORMS_BINDING'][fs_slug]
         else:
             platform_attrs['slug'] = fs_slug
     except (KeyError, TypeError, AttributeError):
