@@ -77,7 +77,7 @@ def parse_tags(file_name: str) -> tuple:
         if "reg" in tag.lower():
             match = re.match("^reg[\s|-](.*)$", tag, re.IGNORECASE)
             if match:
-                reg = match.group(1)
+                reg = REGIONS_BY_SHORTCODE[match.group(1).lower()] if match.group(1).lower() in REGIONS_BY_SHORTCODE.keys() else match.group(1)
                 continue
 
         if "rev" in tag.lower():
