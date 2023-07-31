@@ -6,7 +6,7 @@ router = APIRouter()
 
 
 @router.get("/platforms", status_code=200)
-def platforms() -> dict:
+def platforms():
     """Returns platforms data"""
 
-    return {'data': dbh.get_platforms()}
+    return dbh.get_platforms()
