@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 
 from config.config_loader import ConfigLoader
 from alembic import context
+from models.base import BaseModel
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -18,9 +19,6 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 sys.path.append(f"{Path(__file__).parent.parent.resolve()}")
-from models.base import BaseModel
-from models.platform import Platform
-from models.rom import Rom
 
 target_metadata = BaseModel.metadata
 
