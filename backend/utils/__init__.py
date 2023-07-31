@@ -26,33 +26,33 @@ LANGUAGES = [
 ]
 
 REGIONS = [
-    ("U", "USA"),
-    ("E", "Europe"),
-    ("J", "Japan"),
-    ("K", "Korea"),
-    ("T", "Taiwan"),
-    ("G", "Germany"),
-    ("B", "Brazil"),
     ("A", "Australia"),
-    ("CH", "China"),
-    ("NL", "Netherlands"),
-    ("PD", "Public Domain"),
-    ("F", "France"),
-    ("S", "Spain"),
-    ("W", "World"),
+    ("AS", "Asia"),
+    ("B", "Brazil"),
     ("C", "Canada"),
-    ("SW", "Sweden"),
+    ("CH", "China"),
+    ("E", "Europe"),
+    ("F", "France"),
     ("FN", "Finland"),
-    ("UK", "England"),
+    ("G", "Germany"),
     ("GR", "Greece"),
-    ("UNK", "Unknown"),
+    ("H", "Holland"),
     ("HK", "Hong Kong"),
     ("I", "Italy"),
-    ("H", "Holland"),
-    ("UNL", "Unlicensed"),
-    ("AS", "Asia"),
-    ("R", "Russia"),
+    ("J", "Japan"),
+    ("K", "Korea"),
+    ("NL", "Netherlands"),
     ("NO", "Norway"),
+    ("PD", "Public Domain"),
+    ("R", "Russia"),
+    ("S", "Spain"),
+    ("SW", "Sweden"),
+    ("T", "Taiwan"),
+    ("U", "USA"),
+    ("UK", "England"),
+    ("UNK", "Unknown"),
+    ("UNL", "Unlicensed"),
+    ("W", "World"),
 ]
 
 REGIONS_BY_SHORTCODE = {region[0].lower(): region[1] for region in REGIONS}
@@ -77,7 +77,11 @@ def parse_tags(file_name: str) -> tuple:
         if "reg" in tag.lower():
             match = re.match("^reg[\s|-](.*)$", tag, re.IGNORECASE)
             if match:
-                reg = REGIONS_BY_SHORTCODE[match.group(1).lower()] if match.group(1).lower() in REGIONS_BY_SHORTCODE.keys() else match.group(1)
+                reg = (
+                    REGIONS_BY_SHORTCODE[match.group(1).lower()]
+                    if match.group(1).lower() in REGIONS_BY_SHORTCODE.keys()
+                    else match.group(1)
+                )
                 continue
 
         if "rev" in tag.lower():
