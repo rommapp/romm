@@ -21,6 +21,7 @@ sys.path.append(f"{Path(__file__).parent.parent.resolve()}")
 from models.base import BaseModel
 from models.platform import Platform
 from models.rom import Rom
+
 target_metadata = BaseModel.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -66,9 +67,7 @@ def run_migrations_online() -> None:
 
     with engine.connect() as connection:
         context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            render_as_batch=True
+            connection=connection, target_metadata=target_metadata, render_as_batch=True
         )
 
         with context.begin_transaction():
