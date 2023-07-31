@@ -3,7 +3,7 @@ import { ref, inject, onMounted } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api.js";
 import socket from "@/services/socket.js";
-import { views } from "@/utils/utils.js";
+import { views, normalizeString } from "@/utils/utils.js";
 import storeGalleryFilter from "@/stores/galleryFilter.js";
 import storeGalleryView from "@/stores/galleryView.js";
 import storeScanning from "@/stores/scanning.js";
