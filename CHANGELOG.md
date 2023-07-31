@@ -1,3 +1,10 @@
+# v1.8.4 (_19-05-2023_)
+
+## Fixed
+ - Fixed broken scan in multi part games. Solves [#262](https://github.com/zurdi15/romm/issues/262)
+
+<br>
+
 # v1.8.3 (_17-05-2023_)
 
 ## Added
