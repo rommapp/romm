@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "romm"
-version = "1.8.3"
+version = "1.9"
 description = ""
 authors = ["zurdi <zurdizurdo25@gmail.com>"]
 readme = "README.md"
