@@ -483,6 +483,7 @@ onBeforeMount(() => {
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
           <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+            <v-icon icon="mdi-search-web" class="ml-5" />
             <v-chip class="ml-5 text-rommAccent1" variant="outlined" label
               >IGDB</v-chip
             >
