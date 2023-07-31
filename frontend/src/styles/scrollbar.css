@@ -1,19 +1,19 @@
 /* Firefox */
 * {
-    scrollbar-width: none;
-    scrollbar-color: #6e6e6e rgba(0, 0, 0, 0);;
+  scrollbar-width: thin;
+  scrollbar-color: #6e6e6e rgba(0, 0, 0, 0);
 }
-  
+
 /* Chrome, Edge, and Safari */
 *::-webkit-scrollbar {
-    width: 0px;
+  width: 3px;
 }
 
 *::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0);
+  background: rgba(0, 0, 0, 0);
 }
 
 *::-webkit-scrollbar-thumb {
-    background-color: #808080;
-    border-radius: 5px;
+  background-color: #808080;
+  border-radius: 5px;
 }

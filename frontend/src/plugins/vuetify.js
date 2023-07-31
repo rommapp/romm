@@ -5,22 +5,22 @@
  */
 
 // Styles
-import '@mdi/font/css/materialdesignicons.css'
-import 'vuetify/styles'
-import { rommDark, rommLight } from '@/styles/themes.js'
+import "@mdi/font/css/materialdesignicons.css";
+import "vuetify/styles";
+import { rommDark, rommLight } from "@/styles/themes.js";
 
 // Composables
-import { createVuetify } from 'vuetify'
+import { createVuetify } from "vuetify";
 
 export default createVuetify({
   icons: {
-    iconfont: 'mdi'
+    iconfont: "mdi",
   },
   theme: {
-    defaultTheme: 'rommDark',
+    defaultTheme: "rommDark",
     themes: {
       rommDark,
-      rommLight
-    }
-  }
-})
+      rommLight,
+    },
+  },
+});

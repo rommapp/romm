@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-requests = "2.30.0"
+requests = "2.31.0"
 fastapi = "0.95.1"
 uvicorn = "0.22.0"
 websockets = "11.0.3"
@@ -20,6 +20,8 @@ Unidecode = "1.3.6"
 emoji = "2.2.0"
 python-dotenv = "1.0.0"
 ipdb = "0.13.13"
+fastapi-pagination = "^0.12.4"
+sqlakeyset = "^2.0.1684285512"
 
 
 [build-system]

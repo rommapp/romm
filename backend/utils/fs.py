@@ -1,15 +1,14 @@
 import os
 import shutil
-from pathlib import Path
-
+import datetime
 import requests
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH, HIGH_PRIO_STRUCTURE_PATH, \
     RESOURCES_BASE_PATH, DEFAULT_URL_COVER_L, DEFAULT_PATH_COVER_L, DEFAULT_URL_COVER_S, DEFAULT_PATH_COVER_S
 from config.config_loader import ConfigLoader
-cl = ConfigLoader()
-from logger.logger import log
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException, RomNotFoundError, RomAlreadyExistsException
+cl = ConfigLoader()
 
 
 # ========= Resources utils =========
@@ -53,7 +52,7 @@ def _get_cover_path(p_slug: str, file_name: str, size: str) -> str:
         file_name: name of rom file
         size: size of the cover -> big | small
     """
-    return f"{p_slug}/{file_name}/cover/{size}.png"
+    return f"{p_slug}/{file_name}/cover/{size}.png?timestamp={str(datetime.datetime.now().timestamp())}"
 
 
 def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str) -> tuple:
@@ -170,17 +169,18 @@ def get_roms(p_slug: str) -> list[dict] or int:
     Returns: list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH.
     """
     roms_path = get_roms_structure(p_slug)
+    roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
     try:
-        fs_single_roms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}"))[0][2]
+        fs_single_roms: list[str] = list(os.walk(roms_file_path))[0][2]
     except IndexError:
         raise RomsNotFoundException(p_slug)
     try:
-        fs_multi_roms: list[str] = list(os.walk(f"{LIBRARY_BASE_PATH}/{roms_path}"))[0][1]
+        fs_multi_roms: list[str] = list(os.walk(roms_file_path))[0][1]
     except IndexError:
         raise RomsNotFoundException(p_slug)
     fs_roms: list[dict] = [{'multi': False, 'file_name': rom} for rom in _exclude_files(fs_single_roms, 'single')] + \
                           [{'multi': True, 'file_name': rom} for rom in _exclude_multi_roms(fs_multi_roms)]
-    [rom.update({'files': get_rom_files(rom['file_name'], roms_path)}) for rom in fs_roms]
+    [rom.update({'files': get_rom_files(rom['file_name'], roms_file_path)}) for rom in fs_roms]
     return fs_roms
 
 
