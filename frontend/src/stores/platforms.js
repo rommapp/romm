@@ -1,9 +1,17 @@
-import { defineStore } from 'pinia'
+import { defineStore } from "pinia";
 
-export const storePlatforms = defineStore('platforms', {
-  state: () => ({ value: [] }),
-
+export default defineStore("platforms", {
+  state: () => {
+    return {
+      value: [],
+    };
+  },
+  getters: {
+    totalGames: ({ value }) => value.reduce((count, p) => count + p.n_roms, 0),
+  },
   actions: {
-    set(platforms) { this.value = platforms }
-  }
-})
+    set(platforms) {
+      this.value = platforms;
+    },
+  },
+});
