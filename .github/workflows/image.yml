@@ -43,7 +43,7 @@ jobs:
             name=zurdi15/romm
             name=ghcr.io/zurdi15/romm
           flavor: |
-            # latest on master branch, prefix dev on other branches
+            # latest on release branch, prefix dev on other branches
             latest=true
             prefix=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }},onlatest=true
           tags: |
