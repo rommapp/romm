@@ -14,7 +14,7 @@ def test_config_loader():
 
 
 def test_empty_config_loader():
-    cl = ConfigLoader()
+    cl = ConfigLoader("")
 
     assert cl.config.get("EXCLUDED_PLATFORMS") == []
     assert cl.config.get("EXCLUDED_EXTENSIONS") == []

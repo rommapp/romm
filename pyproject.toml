@@ -24,6 +24,7 @@ fastapi-pagination = "^0.12.4"
 sqlakeyset = "^2.0.1684285512"
 pydash = "^7.0.6"
 pytest = "^7.4.0"
+pytest-env = "^0.8.2"
 
 
 [build-system]

@@ -73,7 +73,10 @@ class DBHandler:
 
     def get_roms(self, p_slug: str) -> list[Rom]:
         try:
-            return select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())
+            with self.session.begin() as session:
+                return session.scalars(
+                    select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())
+                ).all()
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -112,11 +115,11 @@ class DBHandler:
             self.raise_error(e)
 
     # ==== Utils ======
-    def rom_exists(self, platform: str, file_name: str) -> int:
+    def rom_exists(self, p_slug: str, file_name: str) -> int:
         try:
             with self.session.begin() as session:
                 rom = session.scalar(
-                    select(Rom).filter_by(p_slug=platform, file_name=file_name)
+                    select(Rom).filter_by(p_slug=p_slug, file_name=file_name)
                 )
                 return rom.id if rom else None
         except ProgrammingError as e:

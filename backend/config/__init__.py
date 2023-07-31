@@ -29,6 +29,7 @@ DEFAULT_PATH_COVER_S: str = "default/default/cover/small.png"
 # IGDB
 CLIENT_ID: str = os.environ.get("CLIENT_ID")
 CLIENT_SECRET: str = os.environ.get("CLIENT_SECRET")
+
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: str = os.environ.get("STEAMGRIDDB_API_KEY")
 
