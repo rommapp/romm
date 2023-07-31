@@ -3,7 +3,7 @@ import socketio
 
 class SocketManager(object):
     def __new__(cls):
-        if not hasattr(cls, 'instance'):
+        if not hasattr(cls, "instance"):
             cls.instance = super(SocketManager, cls).__new__(cls)
         return cls.instance
 
@@ -23,7 +23,7 @@ class SocketManager(object):
     @property
     def send(self):
         return self.server.send
-    
+
     @property
     def emit(self):
         return self.server.emit
