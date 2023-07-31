@@ -129,9 +129,10 @@ function onGridScroll() {
   if (cursor.value === null && searchCursor.value === null) return;
 
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+  const scrollOffset = 60;
 
-  // If we are at the bottom of the page, fetch more roms
-  if (scrollTop + clientHeight >= scrollHeight) {
+  // If we are close at the bottom of the page, fetch more roms
+  if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
     galleryFilter.value
       ? fetchMoreSearch()
       : fetchMoreRoms(route.params.platform);
