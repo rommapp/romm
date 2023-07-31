@@ -24,7 +24,7 @@ class ConfigLoader:
             self._parse_config()
 
     @staticmethod
-    def get_db_engine():
+    def get_db_engine() -> str:
         if ROMM_DB_DRIVER == "mariadb":
             DB_HOST: str = os.environ.get("DB_HOST")
             try:
@@ -71,5 +71,6 @@ class ConfigLoader:
         self.config["PLATFORMS_BINDING"] = pydash.get(
             self.config, "system.platforms", {}
         )
+
 
 config = ConfigLoader().config
