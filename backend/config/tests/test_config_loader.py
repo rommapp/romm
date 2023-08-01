@@ -15,7 +15,7 @@ def test_config_loader():
     assert loader.config["EXCLUDED_MULTI_FILES"] == ["my_multi_file_game", "DLC"]
     assert loader.config["EXCLUDED_MULTI_PARTS_EXT"] == ["txt"]
     assert loader.config["EXCLUDED_MULTI_PARTS_FILES"] == ["data.xml"]
-    assert loader.config["PLATFORMS_BINDING"] == {"gc": "ngc", "psx": "ps"}
+    assert loader.config["PLATFORMS_BINDING"] == {"gc": "ngc"}
 
 
 def test_empty_config_loader():
