@@ -122,7 +122,7 @@ async function scan() {
   <v-row no-gutters class="align-center pa-4" v-for="platform in scannedPlatforms">
     <v-col>
       <v-avatar :rounded="0" size="40">
-        <v-img :src="`/assets/platforms/${platform['p_slug']}.ico`"></v-img>
+        <v-img :src="`/assets/platforms/${platform['p_slug'].toLowerCase()}.ico`"></v-img>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform["p_name"] }}</span>
       <v-list-item v-for="rom in platform['rom']" class="text-body-2" disabled>
