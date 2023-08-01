@@ -43,6 +43,7 @@ def rom(platform):
         p_slug="test_platform_slug",
         file_name="test_rom",
         file_name_no_tags="test_rom",
+        file_path="test_platform_slug/roms",
     )
     with session.begin() as s:
         s.merge(rom)
