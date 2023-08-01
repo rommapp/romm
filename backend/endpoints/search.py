@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 import emoji
 
-from logger.logger import log, COLORS
+from logger.logger import log
 from handler import igdbh
 
 router = APIRouter()
@@ -20,14 +20,14 @@ async def search_rom_igdb(
 
     if search_term:
         log.info(f"Searching by {search_by}: {search_term}")
-        if search_by == "ID":
+        if search_by.lower() == "id":
             matched_roms = igdbh.get_matched_roms_by_id(search_term)
-        elif search_by == "Name":
+        elif search_by.lower() == "name":
             matched_roms = igdbh.get_matched_roms_by_name(search_term, rom["p_igdb_id"])
     else:
         log.info(
             emoji.emojize(
-                f":video_game: {rom['p_slug']}: {COLORS['orange']}{rom['file_name']}{COLORS['reset']}"
+                f":video_game: {rom['p_slug']}: {rom['file_name']}"
             )
         )
         matched_roms = igdbh.get_matched_roms(rom["file_name"], rom["p_igdb_id"])
@@ -35,7 +35,7 @@ async def search_rom_igdb(
     log.info("Results:")
 
     [
-        log.info(f"\t - {COLORS['blue']}{rom['r_name']}{COLORS['reset']}")
+        log.info(f"\t - {rom['r_name']}")
         for rom in matched_roms
     ]
 
