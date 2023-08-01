@@ -80,7 +80,7 @@ class DBHandler:
     def get_rom(self, id) -> Rom:
         try:
             with self.session.begin() as session:
-                return session.query(Rom).get(id)
+                return session.get(Rom, id)
         except ProgrammingError as e:
             self.raise_error(e)
 

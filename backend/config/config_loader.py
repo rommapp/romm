@@ -53,10 +53,10 @@ class ConfigLoader:
         self.config["EXCLUDED_PLATFORMS"] = pydash.get(
             self.config, "exclude.platforms", []
         )
-        self.config["EXCLUDED_EXTENSIONS"] = pydash.get(
+        self.config["EXCLUDED_SINGLE_EXT"] = pydash.get(
             self.config, "exclude.roms.single_file.extensions", []
         )
-        self.config["EXCLUDED_FILES"] = pydash.get(
+        self.config["EXCLUDED_SINGLE_FILES"] = pydash.get(
             self.config, "exclude.roms.single_file.names", []
         )
         self.config["EXCLUDED_MULTI_FILES"] = pydash.get(
