@@ -34,8 +34,9 @@ def test_roms(rom):
         )
     )
 
-    roms = dbh.get_roms("test_platform_slug")
-    assert len(roms) == 2
+    with dbh.session.begin() as session:
+        roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
+        assert len(roms) == 2
 
     rom = dbh.get_rom(roms[0].id)
     assert rom.file_name == "test_rom"
@@ -45,14 +46,19 @@ def test_roms(rom):
     assert rom_2.file_name == "test_rom_2_updated"
 
     dbh.delete_rom(rom.id)
-    roms = dbh.get_roms(rom.p_slug)
-    assert len(roms) == 1
+
+    with dbh.session.begin() as session:
+        roms = session.scalars(dbh.get_roms(rom.p_slug)).all()
+        assert len(roms) == 1
 
     dbh.purge_roms(rom_2.p_slug, [rom_2.r_slug])
-    roms = dbh.get_roms("test_platform_slug")
-    assert len(roms) == 0
+
+    with dbh.session.begin() as session:
+        roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
+        assert len(roms) == 0
 
 
 def test_utils(rom):
-    roms = dbh.get_roms("test_platform_slug")
-    assert dbh.rom_exists("test_platform_slug", "test_rom") == roms[0].id
+    with dbh.session.begin() as session:
+        roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
+        assert dbh.rom_exists("test_platform_slug", "test_rom") == roms[0].id
