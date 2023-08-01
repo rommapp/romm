@@ -1,0 +1,224 @@
+interactions:
+- request:
+    body: fields slug, name, summary; where id=3340;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '42'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 3340,\n    \"name\": \"Paper Mario\",\n    \"slug\":
+        \"paper-mario\",\n    \"summary\": \"Paper Mario, a turn-based JRPG entry
+        in the Mario franchise with a paper-based aesthetic and platforming elements,
+        sees the titular character working his way through the Mushroom Kingdom\\u0027s
+        diverse locales and biomes, meeting its inhabitants, fighthing unruly enemies
+        and recruiting an array of companions in order to once again save Princess
+        Peach from the clutches of the evil Koopa King Bowser.\"\n  }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7efb2f8e8bc453f5-YYZ
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 01 Aug 2023 04:02:28 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=xtfZeK7uBDr86XujM6iIOQYiv3cNr.yyHfzPq6q.gQA-1690862548-0-Adn2oVSNHyz3zkUKoiYctDk401IEBYM1lCBJhYQLyvuwrkv8m0924r88Ey3L9jLjQN+9upnHofwB2UHJSUQ3S/c=;
+        path=/; expires=Tue, 01-Aug-23 04:32:28 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 ea419f8269940bd7231c70acd36c430c.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - oSeRLJDNh64iq4Oa7phTz1fEzWBmFr3j1sAcqWEL8ctCLWCnp1iMEA==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '1'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - I9mJNHhpvHcFxCA=
+      x-amzn-Remapped-Content-Length:
+      - '500'
+      x-amzn-Remapped-Date:
+      - Tue, 01 Aug 2023 04:02:28 GMT
+      x-amzn-RequestId:
+      - 9b7ad635-7643-44af-9987-c9fb2a458d90
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields url; where game=3340;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '28'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/covers/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 80830,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1qda.jpg\"\n
+        \ }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7efb2f8fb8fd36b5-YYZ
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 01 Aug 2023 04:02:28 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=yNJu1ibhp40_6PgfMgGYBiqNxKPrfsQFShgYpY4WxQM-1690862548-0-Af673p44x+pWQi71RPf/Zhg4rjs+sXc1QNcgrKNzIBarYDMUuZZERK32ZWOmLbsfhtCWvb8Nt8zRTTYz4oUbgDc=;
+        path=/; expires=Tue, 01-Aug-23 04:32:28 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 5fa5e473f638d77357bb0fccef4ca526.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 8ITHHHNUbl01MAfMxeGtvTkhNVmfQdtfC3n-qu5uDaErnfSEEKCRyw==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '1'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - I9mJPHKmPHcFUQQ=
+      x-amzn-Remapped-Content-Length:
+      - '96'
+      x-amzn-Remapped-Date:
+      - Tue, 01 Aug 2023 04:02:28 GMT
+      x-amzn-RequestId:
+      - ff503170-c13e-4a2a-a198-9ca8efba711c
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields url; where game=3340; limit 5;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '37'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/screenshots/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 24169,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ig9ainu9fershqdinox1.jpg\"\n
+        \ },\n  {\n    \"id\": 24168,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/hdxgs9nruycvrzcgvseu.jpg\"\n
+        \ },\n  {\n    \"id\": 24171,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/kjnf90jnud6njmwto3th.jpg\"\n
+        \ },\n  {\n    \"id\": 24170,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/jz66se3deczeta6hd4ys.jpg\"\n
+        \ },\n  {\n    \"id\": 24167,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
+        \ }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7efb2f911f7da1ea-YYZ
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 01 Aug 2023 04:02:28 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=ELyvBYDrdPts7Yqom8z4cavFvX7vyy0VSh5m0XAHo3E-1690862548-0-AcSP+8MNTVBljob9DL6joLYyAmTvEqVm5O4CtgteK+7ffW0tQZp6urfN2FIcwgdsUK6a2isuKDoFjP5N84D90Jo=;
+        path=/; expires=Tue, 01-Aug-23 04:32:28 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 ae7bbb23871eba9dda7f1abdc6bacfa0.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - cElB3EVKq35RBD8P-iH1fs5r1TQFoEGXTShvRl-DqQufBz38-AmbDA==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '5'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - I9mJSGLdPHcFylA=
+      x-amzn-Remapped-Content-Length:
+      - '542'
+      x-amzn-Remapped-Date:
+      - Tue, 01 Aug 2023 04:02:28 GMT
+      x-amzn-RequestId:
+      - 88315c38-509b-4718-a1f3-0b4c60adc236
+    status:
+      code: 200
+      message: OK
+version: 1
