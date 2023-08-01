@@ -3,6 +3,7 @@ import { ref, inject } from "vue";
 import socket from "@/services/socket.js";
 import storePlatforms from "@/stores/platforms.js";
 import storeScanning from "@/stores/scanning.js";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 
 // Props
 const platforms = storePlatforms();
@@ -22,16 +23,16 @@ async function scan() {
   if (!socket.connected) socket.connect();
   socket.on("scan:scanning_platform", (platform) => {
     scannedPlatforms.value.push({
-      p_name: platform[0],
-      p_slug: platform[1],
+      name: platform[0],
+      slug: platform[1],
       rom: [],
     });
     scanningPlatform.value = platform[1];
   });
   socket.on("scan:scanning_rom", (rom) => {
     scannedPlatforms.value.forEach((platform) => {
-      if (platform["p_slug"] == scanningPlatform.value) {
-        platform["rom"].push(rom);
+      if (platform.slug == scanningPlatform.value) {
+        platform.rom.push(rom);
       }
     });
   });
@@ -119,13 +120,17 @@ async function scan() {
   />
 
   <!-- Scan log -->
-  <v-row no-gutters class="align-center pa-4" v-for="platform in scannedPlatforms">
+  <v-row
+    no-gutters
+    class="align-center pa-4"
+    v-for="platform in scannedPlatforms"
+  >
     <v-col>
       <v-avatar :rounded="0" size="40">
-        <v-img :src="`/assets/platforms/${platform['p_slug'].toLowerCase()}.ico`"></v-img>
+        <platform-icon :platform="platform"></platform-icon>
       </v-avatar>
-      <span class="text-body-2 ml-5"> {{ platform["p_name"] }}</span>
-      <v-list-item v-for="rom in platform['rom']" class="text-body-2" disabled>
+      <span class="text-body-2 ml-5"> {{ platform.name }}</span>
+      <v-list-item v-for="rom in platform.rom" class="text-body-2" disabled>
         - {{ rom }}
       </v-list-item>
     </v-col>
