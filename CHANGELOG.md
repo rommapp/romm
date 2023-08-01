@@ -1,3 +1,15 @@
+# v1.9.1 (_01-08-2023_)
+
+## Added
+ - RomM logs are now stored in `/romm/logs` in docker and path can be binded in docker-compose. Check [docker-compose.example.yml](docker/docker-compose.example.yml). Solves [#303](https://github.com/zurdi15/romm/issues/303)
+
+## Fixed
+ - Fixed multipart roms scanning.
+ - Now platforms folders are case insensitive, allowing to have them lowercase or uppercase. Solves [#282](https://github.com/zurdi15/romm/issues/282)
+ - Fixed a bug that caused the platforms drawer to dissapear after scan.
+
+<br>
+
 # v1.9 (_31-07-2023_)
 
 ## Added
