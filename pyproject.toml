@@ -26,6 +26,7 @@ pydash = "^7.0.6"
 pytest = "^7.4.0"
 pytest-env = "^0.8.2"
 pytest-vcr = "^1.0.2"
+pytest-mock = "^3.11.1"
 
 
 [build-system]

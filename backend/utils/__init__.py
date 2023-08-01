@@ -96,7 +96,7 @@ def parse_tags(file_name: str) -> tuple:
 
 def get_file_name_with_no_tags(file_name: str) -> str:
     # Use .rsplit to remove only the file extension
-    return re.sub("[\(\[].*?[\)\]]", "", file_name.rsplit(".", 1)[0])
+    return re.sub("[\(\[].*?[\)\]]", "", file_name.rsplit(".", 1)[0]).strip()
 
 
 def get_file_extension(rom: dict) -> str:
