@@ -14,6 +14,7 @@ FRONT_LIBRARY_PATH: str = "/assets/romm/library"
 ROMM_USER_CONFIG_PATH: str = f"{ROMM_BASE_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: str = f"{ROMM_BASE_PATH}/database"
 RESOURCES_BASE_PATH: str = f"{ROMM_BASE_PATH}/resources"
+LOGS_BASE_PATH: str = f"{ROMM_BASE_PATH}/logs"
 HIGH_PRIO_STRUCTURE_PATH: str = f"{LIBRARY_BASE_PATH}/roms"
 
 # DEFAULT RESOURCES

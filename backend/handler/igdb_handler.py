@@ -1,7 +1,7 @@
 import sys
 import functools
-from unidecode import unidecode as uc
 from time import time
+from unidecode import unidecode as uc
 
 import requests
 from config import CLIENT_ID, CLIENT_SECRET
@@ -33,6 +33,23 @@ class IGDBHandler:
         return wrapper
 
     def _search_rom(
+        self, search_term: str, p_igdb_id: int, category: int = None
+    ) -> dict:
+        category_filter: str = f"& category={category}" if category else ""
+        try:
+            return requests.post(
+                self.games_url,
+                headers=self.headers,
+                data=f"""search \"{search_term}\";
+                    fields id, slug, name, summary, screenshots;
+                    where platforms=[{p_igdb_id}] {category_filter};
+                """,
+                timeout=120,
+            ).json()[0]
+        except IndexError:
+            return {}
+
+    def _search_rom(
         self, search_term: str, p_igdb_id: str, category: int = None
     ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
@@ -59,6 +76,7 @@ class IGDBHandler:
                 self.covers_url,
                 headers=self.headers,
                 data=f"fields url; where game={rom_id};",
+                timeout=120,
             ).json()[0]
         except IndexError:
             return ""
@@ -70,8 +88,8 @@ class IGDBHandler:
             self.screenshots_url,
             headers=self.headers,
             data=f"fields url; where game={rom_id}; limit 5;",
+            timeout=120,
         ).json()
-
         return [
             self._normalize_cover_url(r["url"]).replace("t_thumb", "t_original")
             for r in res
@@ -85,6 +103,7 @@ class IGDBHandler:
                 self.platform_url,
                 headers=self.headers,
                 data=f'fields id, name; where slug="{slug}";',
+                timeout=120,
             ).json()[0]
 
             return {
@@ -130,6 +149,7 @@ class IGDBHandler:
             self.games_url,
             headers=self.headers,
             data=f"fields slug, name, summary; where id={r_igdb_id};",
+            timeout=120,
         )
 
         try:
@@ -163,6 +183,7 @@ class IGDBHandler:
                 fields id, slug, name, summary;
                 where platforms=[{p_igdb_id}];
             """,
+            timeout=120,
         ).json()
 
         return [
@@ -192,6 +213,7 @@ class IGDBHandler:
                 fields id, slug, name, summary;
                 where platforms=[{p_igdb_id}];
             """,
+            timeout=120,
         ).json()
 
         return [
@@ -214,14 +236,14 @@ class TwitchAuth:
         self.base_url = "https://id.twitch.tv/oauth2/token"
         self.token = ""
         self.token_checkout = int(time())
-        self.SECURE_SECONDS_OFFSET = 10  # seconds offset to avoid invalid token
+        self.secure_seconds_offset = 10  # seconds offset to avoid invalid token
         self.token_valid_seconds = 0
         self.client_id = CLIENT_ID
         self.client_secret = CLIENT_SECRET
 
     def _is_token_valid(self) -> bool:
         return (
-            int(time()) + self.SECURE_SECONDS_OFFSET - self.token_checkout
+            int(time()) + self.secure_seconds_offset - self.token_checkout
             < self.token_valid_seconds
         )
 
@@ -233,6 +255,7 @@ class TwitchAuth:
                 "client_secret": self.client_secret,
                 "grant_type": "client_credentials",
             },
+            timeout=30,
         ).json()
 
         self.token_checkout = int(time())
