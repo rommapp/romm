@@ -10,8 +10,8 @@ def test_config_loader():
     )
 
     assert loader.config["EXCLUDED_PLATFORMS"] == ["romm"]
-    assert loader.config["EXCLUDED_EXTENSIONS"] == ["xml"]
-    assert loader.config["EXCLUDED_FILES"] == ["info.txt"]
+    assert loader.config["EXCLUDED_SINGLE_EXT"] == ["xml"]
+    assert loader.config["EXCLUDED_SINGLE_FILES"] == ["info.txt"]
     assert loader.config["EXCLUDED_MULTI_FILES"] == ["my_multi_file_game", "DLC"]
     assert loader.config["EXCLUDED_MULTI_PARTS_EXT"] == ["txt"]
     assert loader.config["EXCLUDED_MULTI_PARTS_FILES"] == ["data.xml"]
@@ -22,8 +22,8 @@ def test_empty_config_loader():
     loader = ConfigLoader("")
 
     assert loader.config.get("EXCLUDED_PLATFORMS") == []
-    assert loader.config.get("EXCLUDED_EXTENSIONS") == []
-    assert loader.config.get("EXCLUDED_FILES") == []
+    assert loader.config.get("EXCLUDED_SINGLE_EXT") == []
+    assert loader.config.get("EXCLUDED_SINGLE_FILES") == []
     assert loader.config.get("EXCLUDED_MULTI_FILES") == []
     assert loader.config.get("EXCLUDED_MULTI_PARTS_EXT") == []
     assert loader.config.get("EXCLUDED_MULTI_PARTS_FILES") == []
