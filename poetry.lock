@@ -924,6 +924,23 @@ pytest = ">=7.3.1"
 test = ["coverage (>=7.2.7)", "pytest-mock (>=3.10)"]
 
 [[package]]
+name = "pytest-mock"
+version = "3.11.1"
+description = "Thin-wrapper around the mock package for easier use with pytest"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "pytest-mock-3.11.1.tar.gz", hash = "sha256:7f6b125602ac6d743e523ae0bfa71e1a697a2f5534064528c6ff84c2f7c2fc7f"},
+    {file = "pytest_mock-3.11.1-py3-none-any.whl", hash = "sha256:21c279fff83d70763b05f8874cc9cfb3fcacd6d354247a976f9529d19f9acf39"},
+]
+
+[package.dependencies]
+pytest = ">=5.0"
+
+[package.extras]
+dev = ["pre-commit", "pytest-asyncio", "tox"]
+
+[[package]]
 name = "pytest-vcr"
 version = "1.0.2"
 description = "Plugin for managing VCR.py cassettes"
@@ -1585,4 +1602,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "897d3d7a13b638d6f80acc6087f5d4f31e200740ce9f77e9f9b0bb6fa9f336d9"
+content-hash = "6db757ea5d8a196936ec043be6620f7320c3dc05eca4445b5c5d298848da3748"
