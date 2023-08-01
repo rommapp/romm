@@ -1,3 +1,14 @@
+# v1.9 (_31-07-2023_)
+
+## Added
+ - Region and revision system is now more robust and flexible. Solves [#301](https://github.com/zurdi15/romm/issues/301). Check [tags support](https://github.com/zurdi15/romm#-tags-support)
+
+## Fixed
+ - Libraries are now paginated to improve performance in large collections. Solves [#89](https://github.com/zurdi15/romm/issues/89) and [#280](https://github.com/zurdi15/romm/issues/280)
+ - Downloads are now managed in the backend, allowing the web browser to manage the download progression and avoiding memory overload. Solves [#266](https://github.com/zurdi15/romm/issues/266)
+
+<br>
+
 # v1.8.4 (_19-05-2023_)
 
 ## Fixed

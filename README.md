@@ -157,7 +157,7 @@ This will change over the time, adding games metadata for more platforms. Make s
   <span>
 
 | slug                    | name                                | games metadata |
-|---------------          |-------------------------------------|     :----:     |
+|-------------------------|-------------------------------------|     :----:     |
 | 3ds                     | Nintendo 3DS                        | ✅             |
 | amiga                   | Amiga                               | ✅             |
 | acpc                    | Amstrad CPC                         | ✅             |
@@ -240,13 +240,49 @@ This will change over the time, adding games metadata for more platforms. Make s
 
 ## 📑 Tags support
 
-Games can be tagged with region, revision or other tags using parenthesis in the file name. Region and revision tags must be built with the following reserved words:
-  - Region tags must be prefixed with **"reg-"**: (reg-EUR) / (reg-USA) / (reg-Japan) / (reg-whatever)
-  - Revision tags must be prefixed with **"rev-"**: (rev-1) / (rev-v2) / (rev-whatever)
-  - Any other tag can have any structure
-  - Example: **my_game (reg-EUR)(rev-1)(aditional_tag_1)(aditional_tag_2).gba**
+Games can be tagged with region, revision or other tags using parenthesis in the file name. 
 
-Tags can be used with the search bar to help to filter your library.
+ - Regions will be detected according to the following dictionary:
+
+| shortcode | region        |
+|-----------|---------------|
+| A         | Australia     |
+| AS        | Asia          |
+| B         | Brazil        |
+| C         | Canada        |
+| CH        | China         |
+| E         | Europe        |
+| F         | France        |
+| FN        | Finland       |
+| G         | Germany       |
+| GR        | Greece        |
+| H         | Holland       |
+| HK        | Hong Kong     |
+| I         | Italy         |
+| J         | Japan         |
+| K         | Korea         |
+| NL        | Netherlands   |
+| NO        | Norway        |
+| PD        | Public Domain |
+| R         | Russia        |
+| S         | Spain         |
+| SW        | Sweden        |
+| T         | Taiwan        |
+| U         | USA           |
+| UK        | England       |
+| UNK       | Unknown       |
+| UNL       | Unlicensed    |
+| W         | World         |
+
+*Aditionally, region can be set adding **"reg-"** as prefix: (reg-E) / (reg-Spain) / (reg-USA)
+
+ - Revision tags must be prefixed with **"rev "** or with **"rev-"**: (rev v1) / (rev-v1) / (rev-whatever)
+
+  - Any other tag can have any structure
+
+  - Example: **my_game (E)(rev v1)(fav)(aditional_tag).gba**
+
+**NOTE:** Tags can be used with the search bar to help to filter your library.
 
 # ⛏ Troubleshoot
 

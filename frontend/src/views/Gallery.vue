@@ -3,7 +3,7 @@ import { ref, inject, onMounted } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api.js";
 import socket from "@/services/socket.js";
-import { views } from "@/utils/utils.js";
+import { views, normalizeString } from "@/utils/utils.js";
 import storeGalleryFilter from "@/stores/galleryFilter.js";
 import storeGalleryView from "@/stores/galleryView.js";
 import storeScanning from "@/stores/scanning.js";
@@ -84,18 +84,6 @@ async function fetchMoreSearch() {
     });
 }
 
-function onFilterChange() {
-  searchCursor.value = "";
-  searchRoms.value = [];
-
-  if (galleryFilter.value === "") {
-    filteredRoms.value = roms.value;
-    return;
-  }
-
-  fetchMoreSearch();
-}
-
 async function fetchMoreRoms(platform) {
   if (cursor.value === null || gettingRoms.value) return;
 
@@ -114,24 +102,26 @@ async function fetchMoreRoms(platform) {
     });
 }
 
-function onListScroll({ target }) {
-  if (cursor.value === null && searchCursor.value === null) return;
+function onFilterChange() {
+  searchCursor.value = "";
+  searchRoms.value = [];
 
-  // If we are at the bottom of the page, fetch more roms
-  if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
-    galleryFilter.value
-      ? fetchMoreSearch()
-      : fetchMoreRoms(route.params.platform);
+  if (galleryFilter.value === "") {
+    filteredRoms.value = roms.value;
+    return;
   }
+
+  fetchMoreSearch();
 }
 
 function onGridScroll() {
   if (cursor.value === null && searchCursor.value === null) return;
 
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+  const scrollOffset = 60;
 
-  // If we are at the bottom of the page, fetch more roms
-  if (scrollTop + clientHeight >= scrollHeight) {
+  // If we are close at the bottom of the page, fetch more roms
+  if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
     galleryFilter.value
       ? fetchMoreSearch()
       : fetchMoreRoms(route.params.platform);
@@ -206,18 +196,15 @@ onBeforeRouteUpdate(async (to, _) => {
             :thickness="1"
           />
           <tbody>
-            <!-- Height has to be set and exact -->
-            <v-virtual-scroll
-              :items="filteredRoms"
-              height="calc(100vh - 122px)"
-              @scroll="onListScroll"
-            >
-              <template v-slot="{ item }">
-                <v-list-item :key="item.id" :value="item.id">
-                  <game-list-item :rom="item" />
-                </v-list-item>
-              </template>
-            </v-virtual-scroll>
+            <v-list class="bg-secondary">
+              <v-list-item
+                v-for="item in filteredRoms"
+                :key="item.id"
+                :value="item.id"
+              >
+                <game-list-item :rom="item" />
+              </v-list-item>
+            </v-list>
           </tbody>
         </v-table>
       </v-col>
@@ -231,6 +218,23 @@ onBeforeRouteUpdate(async (to, _) => {
         Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
       </div>
     </v-row>
+  </template>
+
+  <template v-if="gettingRoms">
+    <v-dialog
+      :model-value="gettingRoms"
+      scroll-strategy="none"
+      width="auto"
+      :scrim="false"
+      persistent
+    >
+      <v-progress-circular
+        :width="3"
+        :size="70"
+        color="rommAccent1"
+        indeterminate
+      />
+    </v-dialog>
   </template>
 </template>
 
