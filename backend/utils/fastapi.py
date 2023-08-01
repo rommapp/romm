@@ -41,10 +41,14 @@ def scan_rom(
     roms_path = fs.get_roms_structure(p_slug)
 
     if r_igbd_id_search:
-        rom_attrs.update(igdbh.get_rom_by_id(r_igbd_id_search))
+        igdbh_rom = igdbh.get_rom_by_id(r_igbd_id_search)
     else:
-        rom_attrs.update(igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id))
+        igdbh_rom = igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
 
+    if not igdbh_rom:
+        return Rom(**rom_attrs)
+
+    rom_attrs.update(igdbh_rom)
     rom_attrs.update(
         fs.get_cover(
             overwrite=overwrite,

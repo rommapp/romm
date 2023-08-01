@@ -1,6 +1,7 @@
 <script setup>
 // Props
 const props = defineProps(["platform", "rail"]);
+import PlatformIcon from "./PlatformIcon.vue";
 </script>
 
 <template>
@@ -15,7 +16,7 @@ const props = defineProps(["platform", "rail"]);
     }}</span>
     <template v-slot:prepend>
       <v-avatar :rounded="0" size="40">
-        <v-img :src="`/assets/platforms/${platform.slug.toLowerCase()}.ico`"></v-img>
+        <platform-icon :platform="platform"></platform-icon>
       </v-avatar>
     </template>
     <template v-slot:append>
