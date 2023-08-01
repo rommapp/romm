@@ -1,5 +1,6 @@
-from handler.igdb_handler import IGDBHandler, TwitchAuth
 import pytest
+
+from handler.igdb_handler import IGDBHandler
 
 igdbh = IGDBHandler()
 
@@ -14,6 +15,7 @@ def test_get_platform():
     platform = igdbh.get_platform("not_real")
     assert platform == {}
 
+
 @pytest.mark.vcr()
 def test_get_rom():
     rom = igdbh.get_rom("Paper Mario (USA).n64", 4)
@@ -26,6 +28,7 @@ def test_get_rom():
 
     rom = igdbh.get_rom("Not a real game title", 4)
     assert rom == {}
+
 
 @pytest.mark.vcr()
 def test_get_rom_by_id():
@@ -40,6 +43,7 @@ def test_get_rom_by_id():
     rom = igdbh.get_rom_by_id(-1)
     assert rom == {}
 
+
 @pytest.mark.vcr()
 def test_get_matched_roms_by_id():
     roms = igdbh.get_matched_roms_by_id(3340)
@@ -48,6 +52,7 @@ def test_get_matched_roms_by_id():
     assert roms[0]["r_igdb_id"] == 3340
     assert roms[0]["r_slug"] == "paper-mario"
     assert "t_cover_big" in roms[0]["url_cover"]
+
 
 @pytest.mark.vcr()
 def test_get_matched_roms_by_name():
@@ -64,6 +69,7 @@ def test_get_matched_roms_by_name():
 
     roms = igdbh.get_matched_roms_by_name("Notarealgametitle", 4)
     assert roms == []
+
 
 @pytest.mark.vcr()
 def test_get_matched_roms():
