@@ -47,8 +47,8 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str):
         url_cover: url to get the cover
         size: size of the cover -> big | small
     """
-    cover_file: str = f"{size}.png"
-    cover_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover"
+    cover_file = f"{size}.png"
+    cover_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover"
     res = requests.get(
         url_cover.replace("t_thumb", f"t_cover_{size}"), stream=True, timeout=120
     )
@@ -70,7 +70,7 @@ def _get_cover_path(p_slug: str, file_name: str, size: str):
     return f"{p_slug}/{file_name}/cover/{size}.png?timestamp={strtime}"
 
 
-def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str):
+def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str = None):
     # Cover small
     if (overwrite or not _cover_exists(p_slug, file_name, "small")) and url_cover:
         _store_cover(p_slug, file_name, url_cover, "small")
@@ -79,6 +79,7 @@ def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str):
         if _cover_exists(p_slug, file_name, "small")
         else DEFAULT_PATH_COVER_S
     )
+
     # Cover big
     if (overwrite or not _cover_exists(p_slug, file_name, "big")) and url_cover:
         _store_cover(p_slug, file_name, url_cover, "big")
@@ -87,6 +88,7 @@ def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str):
         if _cover_exists(p_slug, file_name, "big")
         else (DEFAULT_PATH_COVER_L, 0)
     )
+
     return {
         "path_cover_s": path_cover_s,
         "path_cover_l": path_cover_l,
@@ -246,11 +248,14 @@ def get_roms(p_slug: str):
     ]
 
 
-def get_rom_size(multi: bool, rom: str, files: list, roms_path: str):
-    files: list = (
-        [f"{LIBRARY_BASE_PATH}/{roms_path}/{rom}"]
+def get_rom_size(roms_path: str, file_name: str, multi: bool, multi_files: list = []):
+    files = (
+        [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
         if not multi
-        else [f"{LIBRARY_BASE_PATH}/{roms_path}/{rom}/{file}" for file in files]
+        else [
+            f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}/{file}"
+            for file in multi_files
+        ]
     )
     total_size: float = 0.0
     for file in files:

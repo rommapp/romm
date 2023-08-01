@@ -47,16 +47,24 @@ def scan_rom(
 
     rom_attrs.update(
         fs.get_cover(
-            overwrite, platform.slug, rom_attrs["file_name"], rom_attrs["url_cover"]
+            overwrite=overwrite,
+            p_slug=platform.slug,
+            file_name=rom_attrs["file_name"],
+            url_cover=rom_attrs["url_cover"],
         )
     )
     rom_attrs.update(
         fs.get_screenshots(
-            platform.slug, rom_attrs["file_name"], rom_attrs["url_screenshots"]
+            p_slug=platform.slug,
+            file_name=rom_attrs["file_name"],
+            url_screenshots=rom_attrs["url_screenshots"],
         )
     )
     file_size, file_size_units = fs.get_rom_size(
-        rom_attrs["multi"], rom_attrs["file_name"], rom_attrs["files"], roms_path
+        multi=rom_attrs["multi"],
+        file_name=rom_attrs["file_name"],
+        multi_files=rom_attrs["files"],
+        roms_path=roms_path,
     )
     reg, rev, other_tags = parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
