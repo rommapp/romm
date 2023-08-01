@@ -4,14 +4,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from config import LOGS_BASE_PATH
 from logger.stdout_formatter import StdoutFormatter
 from logger.file_formatter import FileFormatter
 
 # Create logs folder if not exists
-logs_path = f"{os.getenv('ROMM_BASE_PATH')}/logs"
-Path(logs_path).mkdir(parents=True, exist_ok=True)
+Path(LOGS_BASE_PATH).mkdir(parents=True, exist_ok=True)
 now = datetime.now()
-logs_file = f"{logs_path}/{now.strftime('%Y%m%d_%H%M%S')}.log"
+logs_file = f"{LOGS_BASE_PATH}/{now.strftime('%Y%m%d_%H%M%S')}.log"
 
 # Get logger
 log = logging.getLogger("romm")
