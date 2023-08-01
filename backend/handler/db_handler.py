@@ -73,10 +73,7 @@ class DBHandler:
 
     def get_roms(self, p_slug: str) -> list[Rom]:
         try:
-            with self.session.begin() as session:
-                return session.scalars(
-                    select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())
-                ).all()
+            return select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())
         except ProgrammingError as e:
             self.raise_error(e)
 
