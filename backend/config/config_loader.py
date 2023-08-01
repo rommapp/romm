@@ -14,6 +14,7 @@ from logger.logger import log
 
 
 class ConfigLoader:
+    # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         try:
             with open(config_path) as config_file:
