@@ -122,7 +122,7 @@ async function scan() {
   <v-row no-gutters class="align-center pa-4" v-for="d in scannedPlatforms">
     <v-col>
       <v-avatar :rounded="0" size="40">
-        <v-img :src="`/assets/platforms/${d['p_slug']}.ico`"></v-img>
+        <v-img :src="`/assets/platforms/${d['p_slug'].toLowerCase()}.ico`"></v-img>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ d["p_name"] }}</span>
       <v-list-item v-for="r in d['r']" class="text-body-2" disabled>
