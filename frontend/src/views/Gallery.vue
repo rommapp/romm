@@ -84,18 +84,6 @@ async function fetchMoreSearch() {
     });
 }
 
-function onFilterChange() {
-  searchCursor.value = "";
-  searchRoms.value = [];
-
-  if (galleryFilter.value === "") {
-    filteredRoms.value = roms.value;
-    return;
-  }
-
-  fetchMoreSearch();
-}
-
 async function fetchMoreRoms(platform) {
   if (cursor.value === null || gettingRoms.value) return;
 
@@ -114,15 +102,16 @@ async function fetchMoreRoms(platform) {
     });
 }
 
-function onListScroll({ target }) {
-  if (cursor.value === null && searchCursor.value === null) return;
+function onFilterChange() {
+  searchCursor.value = "";
+  searchRoms.value = [];
 
-  // If we are at the bottom of the page, fetch more roms
-  if (target.scrollTop + target.offsetHeight >= target.scrollHeight) {
-    galleryFilter.value
-      ? fetchMoreSearch()
-      : fetchMoreRoms(route.params.platform);
+  if (galleryFilter.value === "") {
+    filteredRoms.value = roms.value;
+    return;
   }
+
+  fetchMoreSearch();
 }
 
 function onGridScroll() {
@@ -207,18 +196,15 @@ onBeforeRouteUpdate(async (to, _) => {
             :thickness="1"
           />
           <tbody>
-            <!-- Height has to be set and exact -->
-            <v-virtual-scroll
-              :items="filteredRoms"
-              height="calc(100vh - 122px)"
-              @scroll="onListScroll"
-            >
-              <template v-slot="{ item }">
-                <v-list-item :key="item.id" :value="item.id">
-                  <game-list-item :rom="item" />
-                </v-list-item>
-              </template>
-            </v-virtual-scroll>
+            <v-list class="bg-secondary">
+              <v-list-item
+                v-for="item in filteredRoms"
+                :key="item.id"
+                :value="item.id"
+              >
+                <game-list-item :rom="item" />
+              </v-list-item>
+            </v-list>
           </tbody>
         </v-table>
       </v-col>
