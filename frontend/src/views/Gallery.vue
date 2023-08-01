@@ -219,6 +219,23 @@ onBeforeRouteUpdate(async (to, _) => {
       </div>
     </v-row>
   </template>
+
+  <template v-if="gettingRoms">
+    <v-dialog
+      :model-value="gettingRoms"
+      scroll-strategy="none"
+      width="auto"
+      :scrim="false"
+      persistent
+    >
+      <v-progress-circular
+        :width="3"
+        :size="70"
+        color="rommAccent1"
+        indeterminate
+      />
+    </v-dialog>
+  </template>
 </template>
 
 <style scoped>
