@@ -85,7 +85,7 @@ class IGDBHandler:
             res = requests.post(
                 self.platform_url,
                 headers=self.headers,
-                data=f'fields id, name; where slug="{slug}";',
+                data=f'fields id, name; where slug="{slug.lower()}";',
                 timeout=120,
             ).json()[0]
 
@@ -97,7 +97,11 @@ class IGDBHandler:
         except IndexError:
             log.warning(f"{slug} not found in IGDB")
 
-        return {}
+        return {
+            "igdb_id": "",
+            "name": slug,
+            "slug": slug,
+        }
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
@@ -115,7 +119,6 @@ class IGDBHandler:
 
         if not r_igdb_id:
             log.warning(f"{r_name} not found in IGDB")
-            return {}
 
         return {
             "r_igdb_id": r_igdb_id,
