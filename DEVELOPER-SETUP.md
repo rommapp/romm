@@ -27,6 +27,7 @@ Then initialize the virtual environment and install the dependencies
 poetry shell
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
+# Fix mariadb install on linux: $> sudo apt install libmariadb3 libmariadb-dev
 poetry install
 ```
 
