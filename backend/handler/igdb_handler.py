@@ -40,23 +40,6 @@ class IGDBHandler:
             return requests.post(
                 self.games_url,
                 headers=self.headers,
-                data=f"""search \"{search_term}\";
-                    fields id, slug, name, summary, screenshots;
-                    where platforms=[{p_igdb_id}] {category_filter};
-                """,
-                timeout=120,
-            ).json()[0]
-        except IndexError:
-            return {}
-
-    def _search_rom(
-        self, search_term: str, p_igdb_id: str, category: int = None
-    ) -> dict:
-        category_filter: str = f"& category={category}" if category else ""
-        try:
-            return requests.post(
-                self.games_url,
-                headers=self.headers,
                 data=f"""
                     search "{search_term}";
                     fields id, slug, name, summary, screenshots;
