@@ -112,7 +112,7 @@ class IGDBHandler:
             or self._search_rom(search_term, p_igdb_id)
         )
 
-        r_igdb_id = res.get("id", "")
+        r_igdb_id = res.get("id", 0)
         r_slug = res.get("slug", "")
         r_name = res.get("name", search_term)
         summary = res.get("summary", "")

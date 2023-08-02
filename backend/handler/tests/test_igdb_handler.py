@@ -13,7 +13,7 @@ def test_get_platform():
     assert platform["slug"] == "n64"
 
     platform = igdbh.get_platform("not_real")
-    assert platform == {}
+    assert platform == {"igdb_id": "", "name": "not_real", "slug": "not_real"}
 
 
 @pytest.mark.vcr()
@@ -27,7 +27,14 @@ def test_get_rom():
     assert "images.igdb.com" in rom["url_screenshots"][0]
 
     rom = igdbh.get_rom("Not a real game title", 4)
-    assert rom == {}
+    assert rom == {
+        "r_igdb_id": 0,
+        "r_slug": "",
+        "r_name": "Not a real game title",
+        "summary": "",
+        "url_cover": "",
+        "url_screenshots": [],
+    }
 
 
 @pytest.mark.vcr()
