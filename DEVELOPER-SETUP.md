@@ -1,3 +1,5 @@
+# Environment setup
+
 ## Create the mock structure with at least one rom
 
 ```sh
@@ -71,3 +73,18 @@ ln -s ../../../romm_mock/resources assets/romm/resources
 ```sh
 npm run dev
 ```
+
+# Test setup
+
+### Create the test database
+
+```sh
+docker exec -it mariadb mysql -u root -p
+# Enter password: <root password>
+
+CREATE USER 'romm_test'@'localhost' IDENTIFIED BY 'passwd';
+CREATE DATABASE romm_test;
+GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'localhost' WITH GRANT OPTION;
+```
+
+Migrations will be run automatically when running the tests.
