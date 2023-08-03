@@ -87,6 +87,7 @@ docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/set
 *__*Migrations will be run automatically when running the tests.__*
 
 ```sh
+cd backend
 # path or test file can be passed as argument to test only a subset
 pytest [path/file]
 ```
