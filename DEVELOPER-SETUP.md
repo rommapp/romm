@@ -1,6 +1,8 @@
 # Environment setup
 
-## Create the mock structure with at least one rom for manually testing
+## Mocking RomM structure
+
+### - Create the mock structure with at least one rom and empty config for manual testing
 
 ```sh
 mkdir -p romm_mock/library/roms/switch
@@ -11,13 +13,13 @@ touch romm_mock/config.yml
 
 ## Setting up the backend
 
-### Copy env.template to .env and fill the variables
+### - Copy env.template to .env and fill the variables
 
 ```sh
 cp env.template .env
 ```
 
-### Install python dependencies
+### - Install python dependencies
 
 You'll need poetry installed
 
@@ -33,37 +35,38 @@ poetry shell
 poetry install
 ```
 
-### Spin up mariadb in docker
+### - Spin up mariadb in docker
 
 ```sh
 docker-compose up -d
 ```
 
-## And finally run the backend
+### - Run the backend
 
 *__*Migrations will be run automatically when running the backend.__*
 
 ```sh
+cd backend
 python main.py
 ```
 
 ## Setting up the frontend
 
-### Install node.js dependencies
+### - Install node.js dependencies
 
 ```sh
 cd frontend
 npm install
 ```
 
-### Create symlink to library and resources
+### - Create symlink to library and resources
 ```sh
 mkdir assets/romm
 ln -s ../../../romm_mock/library assets/romm/library
 ln -s ../../../romm_mock/resources assets/romm/resources
 ```
 
-### Run the frontend
+### - Run the frontend
 
 ```sh
 npm run dev
@@ -71,14 +74,14 @@ npm run dev
 
 # Test setup
 
-### Create the test user and database with root user
+### - Create the test user and database with root user
 
 ```sh
 docker exec -i mariadb mysql -u root -p<root password> < romm_test/setup.sql    # for amd images
 docker exec -i mariadb mariadb -u root -p<root password> < romm_test/setup.sql  # for arm images
 ```
 
-### Run tests
+### - Run tests
 
 *__*Migrations will be run automatically when running the tests.__*
 
