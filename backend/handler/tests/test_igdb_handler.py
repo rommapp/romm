@@ -1,4 +1,5 @@
 import pytest
+from urllib.parse import urlparse
 
 from handler.igdb_handler import IGDBHandler
 
@@ -23,8 +24,8 @@ def test_get_rom():
     assert rom["r_slug"] == "paper-mario"
     assert rom["r_name"] == "Paper Mario"
     assert rom["summary"]
-    assert "images.igdb.com" in rom["url_cover"]
-    assert "images.igdb.com" in rom["url_screenshots"][0]
+    assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
+    assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
 
     rom = igdbh.get_rom("Not a real game title", 4)
     assert rom == {
@@ -44,11 +45,12 @@ def test_get_rom_by_id():
     assert rom["r_slug"] == "paper-mario"
     assert rom["r_name"] == "Paper Mario"
     assert rom["summary"]
-    assert "images.igdb.com" in rom["url_cover"]
-    assert "images.igdb.com" in rom["url_screenshots"][0]
+    assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
+    assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
 
     rom = igdbh.get_rom_by_id(-1)
-    assert rom == {}
+    assert rom["r_igdb_id"] == -1
+    assert not rom["r_name"]
 
 
 @pytest.mark.vcr()
@@ -87,8 +89,8 @@ def test_get_matched_roms():
     assert roms[0]["r_slug"] == "paper-mario"
     assert roms[0]["r_name"] == "Paper Mario"
     assert roms[0]["summary"]
-    assert "images.igdb.com" in roms[0]["url_cover"]
-    assert "images.igdb.com" in roms[0]["url_screenshots"][0]
+    assert urlparse(roms[0]["url_cover"]).hostname == "images.igdb.com"
+    assert urlparse(roms[0]["url_screenshots"][0]).hostname == "images.igdb.com"
 
     roms = igdbh.get_matched_roms("Paper Mario (USA).n64", None)
     assert roms == []
