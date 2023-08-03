@@ -7,9 +7,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -25,7 +25,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efafe519dff36fa-YYZ
+      - 7f126a00ff5536ff-YYZ
       Connection:
       - keep-alive
       Content-Encoding:
@@ -33,23 +33,23 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:28:51 GMT
+      - Thu, 03 Aug 2023 23:41:55 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=ogRLRqNLcmzY9DuPASpJJgZP7GOQO7CzhkyaysJcWjE-1690860531-0-ARduDIuE+vLnjg/+BxKioPkiVn8IvsCy40FTHe5aWssHrRxze80F9ZmLKVBae2p+ziG0x8c81rNPOjNnQeqInio=;
-        path=/; expires=Tue, 01-Aug-23 03:58:51 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=YSU1kOOYgk2sBN2rEWxDlKrslGRW1UpK8RnA6l.zKh4-1691106115-0-AaN052HbCUAYRaiWZZWlUTi/7cT0S9NbwQ7OwjzwmE/heOVqTfhFSJlTsFv6KbnQWd7RDcWEQI1EyCpeYesnUG4=;
+        path=/; expires=Fri, 04-Aug-23 00:11:55 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
       - chunked
       Via:
-      - 1.1 684b7c29b4b69bec2dc5afe5ef9c1c50.cloudfront.net (CloudFront)
+      - 1.1 9b4f2014232c90b3056e1fb1e00215fc.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - MCUfdjr5_Oa3JFybL0W1L3S4Lk0uOgLa3AgCYidvHZuywEONlKzuEw==
+      - xhnv8ARLgZZoWZOYNyOKw2R9eORp9S7ZCmmvwShks2vAttJzZ_5eLA==
       X-Amz-Cf-Pop:
-      - ORD51-C2
+      - YUL62-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -59,13 +59,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9hOGFFFvHcFa7Q=
+      - JG4yfEnzPHcF9xQ=
       x-amzn-Remapped-Content-Length:
       - '50'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:28:51 GMT
+      - Thu, 03 Aug 2023 23:41:54 GMT
       x-amzn-RequestId:
-      - 057e4982-ea50-4eba-8e2b-33d3b62e5500
+      - 86e7521f-07de-4725-93ae-5945991b2f80
     status:
       code: 200
       message: OK
@@ -77,9 +77,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -95,7 +95,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efafe52ec035485-YYZ
+      - 7f126a033dfe36d6-YYZ
       Connection:
       - keep-alive
       Content-Length:
@@ -103,19 +103,19 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:28:51 GMT
+      - Thu, 03 Aug 2023 23:41:55 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=8buhT4UoR0ySLoSLRnJgCt4tQOqiMrYn34dxSyZN4o4-1690860531-0-AX2HFUVAJ3Flj8uJauUGylBmi/nAxFqNougeTZdXaJViv3wumKplwUN6baGBeuDkm+4va5qx07vvCnKeC+ko8NM=;
-        path=/; expires=Tue, 01-Aug-23 03:58:51 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=C15lGKF9M7qAs3MgWG1Rdg1BBgoNTkXUtiHaTYm2.No-1691106115-0-AcXlYwi9KvmsVhZSGfPc+8QFPyJ8l75AmoGU1uIc08UsxgCqA0ebf/joGzEFDgKANOycFOVnm4SD0FBPe79QJIA=;
+        path=/; expires=Fri, 04-Aug-23 00:11:55 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 6477e7b623b71ec66bc28ed8e271db7e.cloudfront.net (CloudFront)
+      - 1.1 b17b94cbc6db5cb82e8f8d6e55e1e85a.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - jkLi93MCTST-3fs8nFUpKm-yPrWLxo9rtwYefCMiYMIObbST8bLE1w==
+      - lssR6fbnPthIZ3KymDK4XGpoy79m63sp3YG3feOCNlerg3MlqgSjMw==
       X-Amz-Cf-Pop:
       - YTO50-P1
       X-Cache:
@@ -127,13 +127,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9hOIE27vHcFT1Q=
+      - JG4yiHcZPHcFydQ=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:28:51 GMT
+      - Thu, 03 Aug 2023 23:41:55 GMT
       x-amzn-RequestId:
-      - ffb19bbc-123d-4bc3-a2d4-52640ffab302
+      - c4d171c7-91fb-4587-a7d4-2417fab3f265
     status:
       code: 200
       message: OK
