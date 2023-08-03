@@ -34,7 +34,8 @@ async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm=None)
             continue
 
         await sm.emit(
-            "scan:scanning_platform", [scanned_platform.name, scanned_platform.slug]
+            "scan:scanning_platform",
+            {"p_name": scanned_platform.name, "p_slug": scanned_platform.slug},
         )
         await sm.emit("")  # Workaround to emit in real-time
 
@@ -47,7 +48,10 @@ async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm=None)
             if rom_id and not complete_rescan:
                 continue
 
-            await sm.emit("scan:scanning_rom", rom["file_name"])
+            await sm.emit(
+                "scan:scanning_rom",
+                {"p_slug": scanned_platform.slug, "file_name": rom["file_name"]},
+            )
             await sm.emit("")  # Workaround to emit in real-time
 
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
