@@ -183,28 +183,15 @@ onBeforeMount(() => {
         </v-row>
         <v-row class="pl-3 pr-3 action-buttons">
           <v-col class="pa-0">
-            <template v-if="rom.multi">
-              <v-btn
-                @click="downloadRomApi(rom, filesToDownload)"
-                :disabled="downloadStore.value.includes(rom.file_name)"
-                rounded="0"
-                color="primary"
-                block
-              >
-                <v-icon icon="mdi-download" size="large" />
-              </v-btn>
-            </template>
-            <template v-else>
-              <v-btn
-                :href="downloadUrl"
-                download
-                rounded="0"
-                color="primary"
-                block
-              >
-                <v-icon icon="mdi-download" size="large" />
-              </v-btn>
-            </template>
+            <v-btn
+              @click="downloadRomApi(rom, filesToDownload)"
+              :disabled="downloadStore.value.includes(rom.file_name)"
+              rounded="0"
+              color="primary"
+              block
+            >
+              <v-icon icon="mdi-download" size="large" />
+            </v-btn>
           </v-col>
           <v-col class="pa-0">
             <v-btn rounded="0" block :disabled="!saveFiles"
