@@ -258,7 +258,7 @@ class TwitchAuth:
 
     def get_oauth_token(self) -> str:
         if not self._is_token_valid():
-            log.warning("Twitch token invalid: fetching a new one…")
+            log.warning("Twitch token invalid: fetching a new one...")
             self._update_twitch_token()
 
         return self.token
