@@ -1,6 +1,6 @@
 # Environment setup
 
-## Create the mock structure with at least one rom
+## Create the mock structure with at least one rom for manually testing
 
 ```sh
 mkdir -p romm_mock/library/roms/switch
@@ -28,7 +28,7 @@ Then initialize the virtual environment and install the dependencies
 ```sh
 poetry shell
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
-# Fix Loading macOS stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
+# Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
 # Fix mariadb install on linux: $> sudo apt install libmariadb3 libmariadb-dev
 poetry install
 ```
@@ -39,14 +39,9 @@ poetry install
 docker-compose up -d
 ```
 
-### Run the migrations
-
-```sh
-cd backend
-alembic upgrade head
-```
-
 ## And finally run the backend
+
+*__*Migrations will be run automatically when running the backend.__*
 
 ```sh
 python main.py
@@ -76,13 +71,18 @@ npm run dev
 
 # Test setup
 
-### Create the test database
+### Create the test user and database with root user
 
 ```sh
 docker exec -i mariadb mysql -u root -p<root password> < romm_test/setup.sql    # for amd images
 docker exec -i mariadb mariadb -u root -p<root password> < romm_test/setup.sql  # for arm images
-
-pytest
 ```
 
-Migrations will be run automatically when running the tests.
+### Run tests
+
+*__*Migrations will be run automatically when running the tests.__*
+
+```sh
+# path or test file can be passed as argument to test only a subset
+pytest [path/file]
+```
