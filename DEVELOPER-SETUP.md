@@ -32,6 +32,7 @@ poetry shell
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
 # Fix mariadb install on linux: $> sudo apt install libmariadb3 libmariadb-dev
+# Fix mariadb connector/c >= 3.3.1: https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux)
 poetry install
 ```
 
