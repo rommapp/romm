@@ -12,8 +12,8 @@ from models.rom import Rom
 
 
 class DBHandler:
-    def __init__(self, cl: ConfigLoader) -> None:
-        self.engine = create_engine(cl.get_db_engine(), pool_pre_ping=True)
+    def __init__(self) -> None:
+        self.engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
     def retry(func) -> tuple:
@@ -80,7 +80,7 @@ class DBHandler:
     def get_rom(self, id) -> Rom:
         try:
             with self.session.begin() as session:
-                return session.query(Rom).get(id)
+                return session.get(Rom, id)
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -112,11 +112,11 @@ class DBHandler:
             self.raise_error(e)
 
     # ==== Utils ======
-    def rom_exists(self, platform: str, file_name: str) -> int:
+    def rom_exists(self, p_slug: str, file_name: str) -> int:
         try:
             with self.session.begin() as session:
                 rom = session.scalar(
-                    select(Rom).filter_by(p_slug=platform, file_name=file_name)
+                    select(Rom).filter_by(p_slug=p_slug, file_name=file_name)
                 )
                 return rom.id if rom else None
         except ProgrammingError as e:

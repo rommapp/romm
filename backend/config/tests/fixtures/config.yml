@@ -1,0 +1,25 @@
+# Example config file used only for testing
+# Refer to examples/config.example.yml for a more detailed config file
+
+exclude:
+  platforms:
+    - 'romm'
+  roms:
+    single_file:
+      names:
+        - 'info.txt'
+      extensions:
+        - 'xml'
+
+    multi_file:
+      names:
+        - 'my_multi_file_game'
+        - 'DLC'
+      parts:
+        names:
+          - 'data.xml'
+        extensions:
+          - 'txt'
+system:
+  platforms:
+    gc: 'ngc'

@@ -1,12 +1,7 @@
 <script setup>
-import { ref } from "vue";
+import PlatformIcon from "./PlatformIcon.vue";
 
 const props = defineProps(["platform"]);
-const platformIconUrl = ref(`/assets/platforms/${props.platform.slug.toLowerCase()}.ico`);
-
-function onImageError() {
-  platformIconUrl.value = "/assets/platforms/default.ico";
-}
 </script>
 
 <template>
@@ -23,7 +18,7 @@ function onImageError() {
           </v-row>
           <v-row class="pa-1 justify-center">
             <v-avatar :rounded="0" size="100%" class="mt-2">
-              <v-img :src="platformIconUrl" @error="onImageError"></v-img>
+              <platform-icon :platform="platform"></platform-icon>
             </v-avatar>
             <v-chip
               class="bg-chip position-absolute"

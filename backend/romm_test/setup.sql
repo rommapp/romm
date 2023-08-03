@@ -1,0 +1,4 @@
+CREATE DATABASE romm_test;
+CREATE USER 'romm_test'@'%' IDENTIFIED BY 'passwd';
+GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
