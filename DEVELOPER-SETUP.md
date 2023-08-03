@@ -79,12 +79,10 @@ npm run dev
 ### Create the test database
 
 ```sh
-docker exec -it mariadb mysql -u root -p
-# Enter password: <root password>
+docker exec -i mariadb mysql -u root -p<root password> < romm_test/setup.sql    # for amd images
+docker exec -i mariadb mariadb -u root -p<root password> < romm_test/setup.sql  # for arm images
 
-CREATE USER 'romm_test'@'localhost' IDENTIFIED BY 'passwd';
-CREATE DATABASE romm_test;
-GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'localhost' WITH GRANT OPTION;
+pytest
 ```
 
 Migrations will be run automatically when running the tests.
