@@ -42,3 +42,7 @@ romm_mock
 
 # virtualenv
 .venv
+
+# testing
+backend/romm_test/resources
+backend/romm_test/logs

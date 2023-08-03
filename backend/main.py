@@ -1,4 +1,5 @@
 import uvicorn
+import alembic.config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
@@ -39,5 +40,8 @@ def startup() -> None:
 
 
 if __name__ == "__main__":
+    # Run migrations
+    alembic.config.main(argv=["upgrade", "head"])
+
+    # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
-    # uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False, workers=2)

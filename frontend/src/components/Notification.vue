@@ -27,9 +27,9 @@ emitter.on("snackbarShow", (snackbar) => {
     />
     {{ snackbarStatus.msg }}
     <template v-slot:actions>
-      <v-btn @click="snackbarShow = false" variant="text"
-        ><v-icon icon="mdi-close"
-      /></v-btn>
+      <v-btn @click="snackbarShow = false" variant="text">
+        <v-icon icon="mdi-close"/>
+      </v-btn>
     </template>
   </v-snackbar>
 </template>
