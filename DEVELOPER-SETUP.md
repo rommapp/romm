@@ -78,8 +78,8 @@ npm run dev
 ### - Create the test user and database with root user
 
 ```sh
-docker exec -i mariadb mysql -u root -p<root password> < romm_test/setup.sql    # for amd images
-docker exec -i mariadb mariadb -u root -p<root password> < romm_test/setup.sql  # for arm images
+docker exec -i mariadb mysql -u root -p<root password> < backend/romm_test/setup.sql    # for amd images
+docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/setup.sql  # for arm images
 ```
 
 ### - Run tests
