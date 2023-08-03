@@ -7,9 +7,12 @@ from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from models.platform import Platform
 from models.rom import Rom
+from handler.socket_manager import SocketManager
 
 
-async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm=None):
+async def scan(
+    sm: SocketManager, _sid: str, platforms: str, complete_rescan: bool = True
+):
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
@@ -36,8 +39,8 @@ async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm=None)
         await sm.emit(
             "scan:scanning_platform",
             {"p_name": scanned_platform.name, "p_slug": scanned_platform.slug},
+            ignore_queue=True,
         )
-        await sm.emit("")  # Workaround to emit in real-time
 
         dbh.add_platform(scanned_platform)
 
@@ -48,13 +51,17 @@ async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm=None)
             if rom_id and not complete_rescan:
                 continue
 
+            scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             await sm.emit(
                 "scan:scanning_rom",
-                {"p_slug": scanned_platform.slug, "file_name": rom["file_name"]},
+                {
+                    "p_slug": scanned_platform.slug,
+                    "file_name": scanned_rom.file_name,
+                    "r_name": scanned_rom.r_name,
+                },
+                ignore_queue=True,
             )
-            await sm.emit("")  # Workaround to emit in real-time
 
-            scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
             if rom_id:
                 scanned_rom.id = rom_id
 

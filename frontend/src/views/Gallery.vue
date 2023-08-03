@@ -29,6 +29,27 @@ const searchCursor = ref("");
 const emitter = inject("emitter");
 emitter.on("filter", onFilterChange);
 
+socket.on("scan:done", () => {
+  scanning.set(false);
+  emitter.emit("refreshGallery");
+  emitter.emit("snackbarShow", {
+    msg: "Scan completed successfully!",
+    icon: "mdi-check-bold",
+    color: "green",
+  });
+  socket.disconnect();
+});
+
+socket.on("scan:done_ko", (msg) => {
+  scanning.set(false);
+  emitter.emit("snackbarShow", {
+    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
+    icon: "mdi-close-circle",
+    color: "red",
+  });
+  socket.disconnect();
+});
+
 // Functions
 async function scan() {
   scanning.set(true);
@@ -37,26 +58,8 @@ async function scan() {
     icon: "mdi-loading mdi-spin",
     color: "rommAccent1",
   });
+
   if (!socket.connected) socket.connect();
-  socket.on("scan:done", () => {
-    scanning.set(false);
-    emitter.emit("refreshGallery");
-    emitter.emit("snackbarShow", {
-      msg: "Scan completed successfully!",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-    socket.disconnect();
-  });
-  socket.on("scan:done_ko", (msg) => {
-    scanning.set(false);
-    emitter.emit("snackbarShow", {
-      msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    socket.disconnect();
-  });
   socket.emit("scan", JSON.stringify([route.params.platform]), false);
 }
 
