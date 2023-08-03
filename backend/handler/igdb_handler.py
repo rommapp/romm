@@ -35,78 +35,80 @@ class IGDBHandler:
 
         return wrapper
 
+    def _request(self, url: str, data: str, timeout: int = 120) -> list:
+        try:
+            res = requests.post(url, data, headers=self.headers, timeout=timeout)
+            res.raise_for_status()
+        except (HTTPError, Timeout) as err:
+            log.error(err)
+            # All requests to the IGDB API return a list
+            return []
+
+        return res.json()
+
     def _search_rom(
         self, search_term: str, p_igdb_id: int, category: int = None
     ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
-        try:
-            res = requests.post(
-                self.games_url,
-                headers=self.headers,
-                data=f"""
-                    search "{search_term}";
-                    fields id, slug, name, summary, screenshots;
-                    where platforms=[{p_igdb_id}] {category_filter};
-                """,
-            )
-            res.raise_for_status()
-        except (HTTPError, Timeout) as err:
-            log.error(err)
-            return {}
+        roms = self._request(
+            self.games_url,
+            data=f"""
+                search "{search_term}";
+                fields id, slug, name, summary, screenshots;
+                where platforms=[{p_igdb_id}] {category_filter};
+            """,
+        )
 
-        return pydash.get(res.json(), "[0]", {})
+        return pydash.get(roms, "[0]", {})
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
         return f"https:{url.replace('https:', '')}"
 
     def _search_cover(self, rom_id: str) -> str:
-        try:
-            res = requests.post(
-                self.covers_url,
-                headers=self.headers,
-                data=f"fields url; where game={rom_id};",
-                timeout=120,
-            ).json()[0]
-        except IndexError:
+        covers = self._request(
+            self.covers_url,
+            data=f"fields url; where game={rom_id};",
+        )
+
+        cover = pydash.get(covers, "[0]", None)
+        if not cover:
             return ""
 
-        return self._normalize_cover_url(res["url"]) if "url" in res.keys() else ""
+        return self._normalize_cover_url(cover["url"])
 
     def _search_screenshots(self, rom_id: str) -> list:
-        res = requests.post(
+        screenshots = self._request(
             self.screenshots_url,
-            headers=self.headers,
             data=f"fields url; where game={rom_id}; limit 5;",
-            timeout=120,
-        ).json()
+        )
+
         return [
             self._normalize_cover_url(r["url"]).replace("t_thumb", "t_original")
-            for r in res
+            for r in screenshots
             if "url" in r.keys()
         ]
 
     @check_twitch_token
-    def get_platform(self, slug: str):
-        try:
-            res = requests.post(
-                self.platform_url,
-                headers=self.headers,
-                data=f'fields id, name; where slug="{slug.lower()}";',
-                timeout=120,
-            ).json()[0]
+    def get_platform(self, p_slug: str):
+        paltforms = self._request(
+            self.platform_url,
+            data=f'fields id, name; where slug="{p_slug.lower()}";',
+        )
 
-            return {
-                "igdb_id": res["id"],
-                "name": res["name"],
-                "slug": slug,
-            }
-        except IndexError:
+        platform = pydash.get(paltforms, "[0]", None)
+        if not platform:
             return {
                 "igdb_id": "",
-                "name": slug,
-                "slug": slug,
+                "name": p_slug,
+                "slug": p_slug,
             }
+
+        return {
+            "igdb_id": platform["id"],
+            "name": platform["name"],
+            "slug": p_slug,
+        }
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
@@ -133,25 +135,20 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_rom_by_id(self, r_igdb_id: str):
-        res = requests.post(
+        roms = self._request(
             self.games_url,
-            headers=self.headers,
-            data=f"fields slug, name, summary; where id={r_igdb_id};",
-            timeout=120,
+            f"fields slug, name, summary; where id={r_igdb_id};",
         )
+        rom = pydash.get(roms, "[0]", {})
 
-        try:
-            rom = res.json()[0]
-            return {
-                "r_igdb_id": r_igdb_id,
-                "r_slug": rom.get("slug", ""),
-                "r_name": rom.get("name", ""),
-                "summary": rom.get("summary", ""),
-                "url_cover": self._search_cover(r_igdb_id),
-                "url_screenshots": self._search_screenshots(r_igdb_id),
-            }
-        except IndexError:
-            return {}
+        return {
+            "r_igdb_id": r_igdb_id,
+            "r_slug": rom.get("slug", ""),
+            "r_name": rom.get("name", ""),
+            "summary": rom.get("summary", ""),
+            "url_cover": self._search_cover(r_igdb_id),
+            "url_screenshots": self._search_screenshots(r_igdb_id),
+        }
 
     @check_twitch_token
     def get_matched_roms_by_id(self, r_igdb_id: str):
@@ -163,16 +160,14 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int):
-        matched_roms = requests.post(
+        matched_roms = self._request(
             self.games_url,
-            headers=self.headers,
             data=f"""
                 search "{uc(search_term)}";
                 fields id, slug, name, summary;
                 where platforms=[{p_igdb_id}];
             """,
-            timeout=120,
-        ).json()
+        )
 
         return [
             dict(
@@ -193,16 +188,14 @@ class IGDBHandler:
         if not p_igdb_id:
             return []
 
-        matched_roms = requests.post(
+        matched_roms = self._request(
             self.games_url,
-            headers=self.headers,
             data=f"""
                 search "{uc(get_search_term(file_name))}";
                 fields id, slug, name, summary;
                 where platforms=[{p_igdb_id}];
             """,
-            timeout=120,
-        ).json()
+        )
 
         return [
             dict(
