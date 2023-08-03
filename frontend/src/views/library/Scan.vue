@@ -19,13 +19,16 @@ socket.on("scan:scanning_platform", ({ p_name, p_slug }) => {
   scannedPlatforms.value.push({
     name: p_name,
     slug: p_slug,
-    rom: [],
+    roms: [],
   });
 });
 
-socket.on("scan:scanning_rom", ({ p_slug, file_name }) => {
+socket.on("scan:scanning_rom", ({ p_slug, file_name, r_name }) => {
   const platform = scannedPlatforms.value.find((p) => p.slug === p_slug);
-  platform.rom.push(file_name);
+  platform.roms.push({
+    name: r_name,
+    file_name: file_name,
+  });
 });
 
 socket.on("scan:done", () => {
@@ -131,8 +134,13 @@ async function scan() {
         <platform-icon :platform="platform"></platform-icon>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
-      <v-list-item v-for="rom in platform.rom" class="text-body-2" disabled>
-        - {{ rom }}
+      <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
+        <span v-if="rom.name" class="ml-10">
+          • Identified <b>{{ rom.name }} 👾</b>
+        </span>
+        <span v-else class="ml-10">
+          • {{ rom.file_name }} not found in IGDB
+        </span>
       </v-list-item>
     </v-col>
   </v-row>
