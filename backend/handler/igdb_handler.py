@@ -1,9 +1,12 @@
 import sys
 import functools
+import pydash
+import requests
+
 from time import time
 from unidecode import unidecode as uc
+from requests.exceptions import HTTPError, Timeout
 
-import requests
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
@@ -37,7 +40,7 @@ class IGDBHandler:
     ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
         try:
-            return requests.post(
+            res = requests.post(
                 self.games_url,
                 headers=self.headers,
                 data=f"""
@@ -45,9 +48,13 @@ class IGDBHandler:
                     fields id, slug, name, summary, screenshots;
                     where platforms=[{p_igdb_id}] {category_filter};
                 """,
-            ).json()[0]
-        except IndexError:
+            )
+            res.raise_for_status()
+        except (HTTPError, Timeout) as err:
+            log.error(err)
             return {}
+
+        return pydash.get(res.json(), "[0]", {})
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
@@ -95,13 +102,11 @@ class IGDBHandler:
                 "slug": slug,
             }
         except IndexError:
-            log.warning(f"{slug} not found in IGDB")
-
-        return {
-            "igdb_id": "",
-            "name": slug,
-            "slug": slug,
-        }
+            return {
+                "igdb_id": "",
+                "name": slug,
+                "slug": slug,
+            }
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
@@ -116,9 +121,6 @@ class IGDBHandler:
         r_slug = res.get("slug", "")
         r_name = res.get("name", search_term)
         summary = res.get("summary", "")
-
-        if not r_igdb_id:
-            log.warning(f"{r_name} not found in IGDB")
 
         return {
             "r_igdb_id": r_igdb_id,
