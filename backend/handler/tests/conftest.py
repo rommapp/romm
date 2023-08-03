@@ -11,7 +11,7 @@ engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def setup_database():
     alembic.config.main(argv=["upgrade", "head"])
 
