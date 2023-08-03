@@ -40,6 +40,8 @@ def startup() -> None:
 
 
 if __name__ == "__main__":
+    # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
+
+    # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
-    # uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False, workers=2)
