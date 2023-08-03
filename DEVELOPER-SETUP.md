@@ -57,7 +57,7 @@ python main.py
 
 ```sh
 cd frontend
-# npm version >= 16 needed
+# npm version >= 9 needed
 npm install
 ```
 
