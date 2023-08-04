@@ -64,13 +64,24 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
       lg="1"
       class="d-flex justify-center align-center mr-4"
     >
-      <v-btn
-        @click="downloadRomApi(rom)"
-        :disabled="downloadStore.value.includes(rom.file_name)"
-        icon="mdi-download"
-        size="x-small"
-        variant="text"
-      />
+      <template v-if="rom.multi">
+        <v-btn
+          @click="downloadRomApi(rom)"
+          :disabled="downloadStore.value.includes(rom.file_name)"
+          icon="mdi-download"
+          size="x-small"
+          variant="text"
+        />
+      </template>
+      <template v-else>
+        <v-btn
+          :href="downloadUrl"
+          download
+          icon="mdi-download"
+          size="x-small"
+          variant="text"
+        />
+      </template>
       <v-btn
         icon="mdi-content-save-all"
         size="x-small"
