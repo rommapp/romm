@@ -46,3 +46,6 @@ romm_mock
 # testing
 backend/romm_test/resources
 backend/romm_test/logs
+
+# service worker
+frontend/dev-dist
