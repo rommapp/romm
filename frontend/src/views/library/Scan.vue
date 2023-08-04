@@ -9,52 +9,56 @@ import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 const platforms = storePlatforms();
 const platformsToScan = ref([]);
 const scanning = storeScanning();
-const scanningPlatform = ref("");
 const scannedPlatforms = ref([]);
 const completeRescan = ref(false);
 
 // Event listeners bus
 const emitter = inject("emitter");
 
+socket.on("scan:scanning_platform", ({ p_name, p_slug }) => {
+  scannedPlatforms.value.push({
+    name: p_name,
+    slug: p_slug,
+    roms: [],
+  });
+});
+
+socket.on("scan:scanning_rom", ({ p_slug, file_name, r_name }) => {
+  const platform = scannedPlatforms.value.find((p) => p.slug === p_slug);
+  platform.roms.push({
+    name: r_name,
+    file_name: file_name,
+  });
+});
+
+socket.on("scan:done", () => {
+  scanning.set(false);
+  emitter.emit("refreshPlatforms");
+  emitter.emit("snackbarShow", {
+    msg: "Scan completed successfully!",
+    icon: "mdi-check-bold",
+    color: "green",
+  });
+  socket.disconnect();
+});
+
+socket.on("scan:done_ko", (msg) => {
+  scanning.set(false);
+  emitter.emit("snackbarShow", {
+    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
+    icon: "mdi-close-circle",
+    color: "red",
+  });
+  socket.disconnect();
+});
+
 // Functions
 async function scan() {
   scanning.set(true);
   scannedPlatforms.value = [];
+
   if (!socket.connected) socket.connect();
-  socket.on("scan:scanning_platform", (platform) => {
-    scannedPlatforms.value.push({
-      name: platform[0],
-      slug: platform[1],
-      rom: [],
-    });
-    scanningPlatform.value = platform[1];
-  });
-  socket.on("scan:scanning_rom", (rom) => {
-    scannedPlatforms.value.forEach((platform) => {
-      if (platform.slug == scanningPlatform.value) {
-        platform.rom.push(rom);
-      }
-    });
-  });
-  socket.on("scan:done", () => {
-    scanning.set(false);
-    emitter.emit("refreshPlatforms");
-    emitter.emit("snackbarShow", {
-      msg: "Scan completed successfully!",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-    socket.disconnect();
-  });
-  socket.on("scan:done_ko", (msg) => {
-    scanning.set(false);
-    emitter.emit("snackbarShow", {
-      msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    socket.disconnect();
-  });
+
   socket.emit(
     "scan",
     JSON.stringify(platformsToScan.value.map((p) => p.fs_slug)),
@@ -130,8 +134,13 @@ async function scan() {
         <platform-icon :platform="platform"></platform-icon>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
-      <v-list-item v-for="rom in platform.rom" class="text-body-2" disabled>
-        - {{ rom }}
+      <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
+        <span v-if="rom.name" class="ml-10">
+          • Identified <b>{{ rom.name }} 👾</b>
+        </span>
+        <span v-else class="ml-10">
+          • {{ rom.file_name }} not found in IGDB
+        </span>
       </v-list-item>
     </v-col>
   </v-row>

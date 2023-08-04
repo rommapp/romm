@@ -1,8 +1,11 @@
+import emoji
+
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
 from config.config_loader import config
 from models.platform import Platform
 from models.rom import Rom
+from logger.logger import log
 
 
 def scan_platform(fs_slug: str) -> Platform:
@@ -13,6 +16,8 @@ def scan_platform(fs_slug: str) -> Platform:
     Returns
         Platform object
     """
+
+    log.info(f"· {fs_slug}")
 
     platform_attrs = {}
     platform_attrs["fs_slug"] = fs_slug
@@ -25,7 +30,14 @@ def scan_platform(fs_slug: str) -> Platform:
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    platform_attrs.update(igdbh.get_platform(platform_attrs["slug"]))
+    platform = igdbh.get_platform(platform_attrs["slug"])
+
+    if platform["igdb_id"]:
+        log.info(emoji.emojize(f"  Identified as {platform['name']} :video_game:"))
+    else:
+        log.warning(f"  {fs_slug} not found in IGDB")
+
+    platform_attrs.update(platform)
     platform_attrs["n_roms"] = len(fs.get_roms(platform_attrs["fs_slug"]))
 
     return Platform(**platform_attrs)
@@ -40,13 +52,23 @@ def scan_rom(
     p_slug = platform.fs_slug if platform.fs_slug else platform.slug
     roms_path = fs.get_roms_structure(p_slug)
 
+    log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
+
+    if rom_attrs.get("multi", False):
+        [log.info(f"\t\t · {file}") for file in rom_attrs["files"]]
+
     if r_igbd_id_search:
         igdbh_rom = igdbh.get_rom_by_id(r_igbd_id_search)
     else:
         igdbh_rom = igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
 
-    if not igdbh_rom:
+    if not igdbh_rom["r_igdb_id"]:
+        log.warning(
+            f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB"
+        )
         return Rom(**rom_attrs)
+
+    log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['r_name']} :alien_monster:"))
 
     rom_attrs.update(igdbh_rom)
     rom_attrs.update(
