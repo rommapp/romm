@@ -72,7 +72,7 @@ async function scan() {
 
   socket.emit(
     "scan",
-    JSON.stringify(platformsToScan.value.map((p) => p.fs_slug)),
+    platformsToScan.value.map((p) => p.fs_slug).join(","),
     completeRescan.value
   );
 }
