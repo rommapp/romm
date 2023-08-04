@@ -57,35 +57,7 @@ def scan_rom(
     if rom_attrs.get("multi", False):
         [log.info(f"\t\t · {file}") for file in rom_attrs["files"]]
 
-    if r_igbd_id_search:
-        igdbh_rom = igdbh.get_rom_by_id(r_igbd_id_search)
-    else:
-        igdbh_rom = igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
-
-    if not igdbh_rom["r_igdb_id"]:
-        log.warning(
-            f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB"
-        )
-        return Rom(**rom_attrs)
-
-    log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['r_name']} :alien_monster:"))
-
-    rom_attrs.update(igdbh_rom)
-    rom_attrs.update(
-        fs.get_cover(
-            overwrite=overwrite,
-            p_slug=platform.slug,
-            file_name=rom_attrs["file_name"],
-            url_cover=rom_attrs["url_cover"],
-        )
-    )
-    rom_attrs.update(
-        fs.get_screenshots(
-            p_slug=platform.slug,
-            file_name=rom_attrs["file_name"],
-            url_screenshots=rom_attrs["url_screenshots"],
-        )
-    )
+    # Update properties that don't require IGDB
     file_size, file_size_units = fs.get_rom_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
@@ -110,5 +82,38 @@ def scan_rom(
     rom_attrs["p_igdb_id"] = platform.igdb_id
     rom_attrs["p_slug"] = platform.slug
     rom_attrs["p_name"] = platform.name
+
+    # Search in IGDB
+    if r_igbd_id_search:
+        igdbh_rom = igdbh.get_rom_by_id(r_igbd_id_search)
+    else:
+        igdbh_rom = igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
+
+    # Return early if not found in IGDB
+    if not igdbh_rom["r_igdb_id"]:
+        log.warning(
+            f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB"
+        )
+        return Rom(**rom_attrs)
+
+    log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['r_name']} :alien_monster:"))
+
+    # Update properties from IGDB
+    rom_attrs.update(igdbh_rom)
+    rom_attrs.update(
+        fs.get_cover(
+            overwrite=overwrite,
+            p_slug=platform.slug,
+            file_name=rom_attrs["file_name"],
+            url_cover=rom_attrs["url_cover"],
+        )
+    )
+    rom_attrs.update(
+        fs.get_screenshots(
+            p_slug=platform.slug,
+            file_name=rom_attrs["file_name"],
+            url_screenshots=rom_attrs["url_screenshots"],
+        )
+    )
 
     return Rom(**rom_attrs)
