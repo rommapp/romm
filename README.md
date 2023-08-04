@@ -2,7 +2,7 @@
   <h1 style="padding:20px;"><img src="romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
-  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?style=flat-square&branch=master">
+  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/build.yml?style=flat-square&branch=master">
 <br>
   <a href="https://hub.docker.com/r/zurdi15/romm">
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
