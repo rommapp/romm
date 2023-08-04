@@ -27,7 +27,11 @@ sm.mount_to("/ws", app)
 
 
 async def scan_handler(*args):
-    await scan.scan(*args, sm)
+    try:
+        await scan.scan(sm, *args)
+    except Exception as err:
+        await sm.emit("scan:done_ko", str(err))
+        raise (err)
 
 
 sm.on("scan", handler=scan_handler)

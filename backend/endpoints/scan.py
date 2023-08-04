@@ -7,9 +7,12 @@ from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from models.platform import Platform
 from models.rom import Rom
+from handler.socket_manager import SocketManager
 
 
-async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm = None):
+async def scan(
+    sm: SocketManager, _sid: str, platforms: str, complete_rescan: bool = True
+):
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
@@ -27,20 +30,18 @@ async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm = Non
     )
     log.info(f"Platforms to be scanned: {', '.join(platforms)}")
     for platform in platforms:
-        log.info(emoji.emojize(f":video_game: {platform}"))
         try:
             scanned_platform: Platform = fastapi.scan_platform(platform)
         except RomsNotFoundException as e:
             log.error(e)
             continue
+
         await sm.emit(
-            "scan:scanning_platform", [scanned_platform.name, scanned_platform.slug]
+            "scan:scanning_platform",
+            {"p_name": scanned_platform.name, "p_slug": scanned_platform.slug},
+            ignore_queue=True,
         )
-        await sm.emit("")  # Workaround to emit in real-time
-        if platform != str(scanned_platform):
-            log.info(
-                f"Identified as {scanned_platform}"
-            )
+
         dbh.add_platform(scanned_platform)
 
         # Scanning roms
@@ -49,17 +50,21 @@ async def scan(_sid: str, platforms: str, complete_rescan: bool = True, sm = Non
             rom_id: int = dbh.rom_exists(scanned_platform.slug, rom["file_name"])
             if rom_id and not complete_rescan:
                 continue
-            await sm.emit("scan:scanning_rom", rom["file_name"])
-            await sm.emit("")  # Workaround to emit in real-time
-            log.info(f"\t - {rom['file_name']}")
-            if rom["multi"]:
-                [
-                    log.info(f"\t\t · {file}")
-                    for file in rom["files"]
-                ]
+
             scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
+            await sm.emit(
+                "scan:scanning_rom",
+                {
+                    "p_slug": scanned_platform.slug,
+                    "file_name": scanned_rom.file_name,
+                    "r_name": scanned_rom.r_name,
+                },
+                ignore_queue=True,
+            )
+
             if rom_id:
                 scanned_rom.id = rom_id
+
             dbh.add_rom(scanned_rom)
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)

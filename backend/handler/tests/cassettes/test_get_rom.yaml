@@ -1,21 +1,20 @@
 interactions:
 - request:
-    body: "\n                    search \"Paper Mario\";\n                    fields
-      id, slug, name, summary, screenshots;\n                    where platforms=[4]
-      ;\n                "
+    body: "\n                search \"Paper Mario\";\n                fields id, slug,
+      name, summary, screenshots;\n                where platforms=[4] ;\n            "
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '166'
+      - '150'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -83,7 +82,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efb1fb27c3e36aa-YYZ
+      - 7f126d5f6b293987-YYZ
       Connection:
       - keep-alive
       Content-Encoding:
@@ -93,21 +92,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:51:38 GMT
+      - Thu, 03 Aug 2023 23:44:12 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=tYA7FoYlhkvK11e1rJDYoJt29z8zKtCvnmg8sPCYy_w-1690861898-0-ASwvhl+zouXVmGAkLbYiKnPdKOQ6xYLcGnBq1drKyeM+YI3JH1+pcgdQL83tpDQiC5tG4Nz5FxYZq6Vn+7hyogM=;
-        path=/; expires=Tue, 01-Aug-23 04:21:38 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=bLLcuaIASi0bZmVFhPmsX64QEIxShbJgYdDg4.c2ovU-1691106252-0-Af/kCgNlQvV1rE830NQoa11FwK9tKYYqJIhdq9Ne70yNfd+9N6roout2ppRMV3hZf2tDUlIkk7VPLq96Jl680lA=;
+        path=/; expires=Fri, 04-Aug-23 00:14:12 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 9b4f2014232c90b3056e1fb1e00215fc.cloudfront.net (CloudFront)
+      - 1.1 60c77d7f2a0954d991174a909a828016.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - EA2iGalDUXwdsoMCIP37qOnRHah6i_BN6JQldcQlsMh01zmE-ekC0g==
+      - 8vOBHPI5YpN5BjvXTfZybpQmbmz3-vVi1eqgJu7rgJwJXgxxVmB-9Q==
       X-Amz-Cf-Pop:
-      - YUL62-C2
+      - YTO50-P1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -117,13 +116,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9kjtGKUPHcF1UA=
+      - JG5ICGJyPHcFr6g=
       x-amzn-Remapped-Content-Length:
       - '1595'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:51:38 GMT
+      - Thu, 03 Aug 2023 23:44:12 GMT
       x-amzn-RequestId:
-      - 30db0468-6dbe-405c-90ff-e093ab4278b3
+      - 0e5f62e6-d558-484f-93c3-13f9ddaf5c01
     status:
       code: 200
       message: OK
@@ -135,9 +134,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -154,7 +153,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efb1fb3ddbc3972-YYZ
+      - 7f126d622f3236bd-YYZ
       Connection:
       - keep-alive
       Content-Encoding:
@@ -162,21 +161,23 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:51:39 GMT
+      - Thu, 03 Aug 2023 23:44:13 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=FebkrRmEuOVhHBzP67Y1M.MHYCqs2.KHGanFcKnJwtY-1690861899-0-Aa3c0EjIqiyw9FVxJ+xIDPLINDtXRrbCILNW1XwQdTvepDk4De9O/h9jUlQOGkLqjUP9rj9p/YqiVUyFZ+bUB8g=;
-        path=/; expires=Tue, 01-Aug-23 04:21:39 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=RYYy_LYLPL6J1D0C7dMjF3mdj5vb2BcSNfg5ziPlan0-1691106253-0-AdxlU0S8rRHZvUuYozrUZBqmjNEixJEUWLANTttjOerusnkJG+fHNNMOB2V7TmHwSzfojdfk/IXmHvJ8NPthlVA=;
+        path=/; expires=Fri, 04-Aug-23 00:14:13 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
       Via:
-      - 1.1 8dc256e43720ba0f5d01b9e6cd4ce544.cloudfront.net (CloudFront)
+      - 1.1 ea419f8269940bd7231c70acd36c430c.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 1scVQqMoUooKOfXS0lws7_9VyShFnWjK7DuktBdhV1zhXFZHvD7d2Q==
+      - 0fticAwqoch2VCjBD18G9UZ-0fuL55bDm4DbU-tT295PetwxbQdHlQ==
       X-Amz-Cf-Pop:
-      - ORD51-C2
+      - YUL62-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -186,13 +187,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9kjxG6QvHcFSow=
+      - JG5IGGpaPHcF4gA=
       x-amzn-Remapped-Content-Length:
       - '96'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:51:39 GMT
+      - Thu, 03 Aug 2023 23:44:13 GMT
       x-amzn-RequestId:
-      - 72a26163-8ddb-404e-b38b-53000cb45683
+      - 4f89ffc9-fac0-4330-92de-818292867e7b
     status:
       code: 200
       message: OK
@@ -204,9 +205,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -227,7 +228,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efb1fb65cd639de-YYZ
+      - 7f126d64abf3369c-YYZ
       Connection:
       - keep-alive
       Content-Encoding:
@@ -235,21 +236,23 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:51:39 GMT
+      - Thu, 03 Aug 2023 23:44:13 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=qfMe0jDOv8xQfLkSSinTP1gVgDoHSboKutTITBGpNko-1690861899-0-ASgSGgVP6uJf8v+WMpKmHJzoUWQgZ0ggJp/UtHk44GLjV53xbwto6jGb1TuvlSE/58hv51O2kP5w04/7tZ+c3Ug=;
-        path=/; expires=Tue, 01-Aug-23 04:21:39 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=s4Ce14Sy3VrVUWlPy9dJolmqHh4AdrCbjVqVzyabHi4-1691106253-0-AVXeoHwfSXLWaN5JdVMNdDPv3McFYvMJBnD5X5JtFzQ79/ttXibX8gDdeps0pbUgbt2fB75ZMKR2ASCESOqS8U4=;
+        path=/; expires=Fri, 04-Aug-23 00:14:13 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
       Via:
-      - 1.1 6f5a63f08c741820abad2a0b2a35176c.cloudfront.net (CloudFront)
+      - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - HygNsNp7_JpnKV9rmFiS3LOxgPhY6PeuZCZyiFWIlA55KduOoFh41Q==
+      - 6GbnvP9WqZDoHIjyYWSWYHS1D1PD9E-93l1wkEcx6f-Q9m4-U5YV_Q==
       X-Amz-Cf-Pop:
-      - ORD51-C2
+      - YTO50-P1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -259,33 +262,33 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9kjzFzpvHcFwHQ=
+      - JG5IKELtvHcFxxQ=
       x-amzn-Remapped-Content-Length:
       - '542'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:51:39 GMT
+      - Thu, 03 Aug 2023 23:44:13 GMT
       x-amzn-RequestId:
-      - dbb64f4c-cda6-4e13-985c-4fc3341a7aa7
+      - 7814ec9e-fa3c-4235-8f34-70b6be623622
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                    search \"Not a real game title\";\n                    fields
-      id, slug, name, summary, screenshots;\n                    where platforms=[4]
-      ;\n                "
+    body: "\n                search \"Not a real game title\";\n                fields
+      id, slug, name, summary, screenshots;\n                where platforms=[4] ;\n
+      \           "
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '176'
+      - '160'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -297,7 +300,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efb1fb8da23a1ec-YYZ
+      - 7f126d674fde38e3-YYZ
       Connection:
       - keep-alive
       Content-Length:
@@ -305,19 +308,19 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:51:39 GMT
+      - Thu, 03 Aug 2023 23:44:14 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=RG06o5ZAUvWQyEzHnXvfRVTloGQS83LkqSsc5UQNcb8-1690861899-0-AdCsYBB6/xTNt5afaJTa5HAx3kvwaVLUeZzBPCxKX8CoLDQnkI2/evtllKYoNFDCkF+IJbeIgVY7BvVoq9hAKWE=;
-        path=/; expires=Tue, 01-Aug-23 04:21:39 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=WTnyz18eCRd0SfvcLc1.HL_GB8_5XtEqwHLupWyo1Dg-1691106254-0-ASe88xYd/xOCRifJo9ibTwxWgMzt+uhs6kXhoZLXnyeeVnKXTUvDvfII11sR7Zajf1MwAGY2KFa+yInFOpOonC8=;
+        path=/; expires=Fri, 04-Aug-23 00:14:14 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 de0a592002999100a0085e087a370864.cloudfront.net (CloudFront)
+      - 1.1 8422f3871db2552d4ad0cc9f31e22c2e.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - setlZZdf1Scj7w0ozugKvNf9nIFZ5p-VdxGYCOZmXlhR_Ld3q0tOdw==
+      - NN1HJEq_rY56WFe0PbI_jWbXq6ZqcZAvmSEMBXtoEAzZnft8lUsmDw==
       X-Amz-Cf-Pop:
       - YUL62-C2
       X-Cache:
@@ -329,33 +332,33 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9kj5GR3PHcFzLQ=
+      - JG5IPEUBvHcFwbw=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:51:39 GMT
+      - Thu, 03 Aug 2023 23:44:14 GMT
       x-amzn-RequestId:
-      - 929c1657-ed53-4ddf-b7a3-3910fb3c570b
+      - bf6f91b7-25e1-40d7-a740-b428e853bf35
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                    search \"Not a real game title\";\n                    fields
-      id, slug, name, summary, screenshots;\n                    where platforms=[4]
-      & category=10;\n                "
+    body: "\n                search \"Not a real game title\";\n                fields
+      id, slug, name, summary, screenshots;\n                where platforms=[4] &
+      category=10;\n            "
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '189'
+      - '173'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -367,7 +370,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efb1fbad99c38e1-YYZ
+      - 7f126d6a7e22a222-YYZ
       Connection:
       - keep-alive
       Content-Length:
@@ -375,21 +378,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:51:40 GMT
+      - Thu, 03 Aug 2023 23:44:14 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=p3M51f.3s3v0XVTOYUcs8CgZzgsK7h660K1uoCEvmt8-1690861900-0-AWjW0oaIJvojYqMLrDZP4VXSXX0zN4XNn8Aq4QSVIybhc6K4bAlSG/1A4pW7+YlRqpZ2g/LLyUYdydm0lq0DK94=;
-        path=/; expires=Tue, 01-Aug-23 04:21:40 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=ZEpgW84if5CBp_nuRPeBszoRejGEuzDMoTTukpl9aGU-1691106254-0-ATQMHD+4OraybHGTUEaQ1WPKsSolum+hEuf2bWGAlNp0QsvyLzkp/ZfeHsIol8op89rWh9p+6q/dE/pA+EAdOL0=;
+        path=/; expires=Fri, 04-Aug-23 00:14:14 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 238ef6b7fcc1fd30826738c560d235e0.cloudfront.net (CloudFront)
+      - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - m4ZjInTbkJ3_eFzi0xUOsrCIiE0DoMdaFP7WH5ePbpVd3isKHXOhIg==
+      - nQj1vjB38m0Jxw89M0oo3I0iBd84uzouIJn25TaRsmHqd13Auqz5cg==
       X-Amz-Cf-Pop:
-      - ORD51-C2
+      - YTO50-P1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -399,33 +402,33 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9kj7E5EPHcFkrg=
+      - JG5IVEZRPHcFkfQ=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:51:40 GMT
+      - Thu, 03 Aug 2023 23:44:14 GMT
       x-amzn-RequestId:
-      - 9e50a8b9-3d3e-427c-96a6-6c15255cd97a
+      - 213d4393-5519-4c42-907c-95b4e45336ab
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                    search \"Not a real game title\";\n                    fields
-      id, slug, name, summary, screenshots;\n                    where platforms=[4]
-      ;\n                "
+    body: "\n                search \"Not a real game title\";\n                fields
+      id, slug, name, summary, screenshots;\n                where platforms=[4] ;\n
+      \           "
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '176'
+      - '160'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -437,7 +440,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7efb1fbc1b1439e3-YYZ
+      - 7f126d6d0fb6a247-YYZ
       Connection:
       - keep-alive
       Content-Length:
@@ -445,21 +448,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 01 Aug 2023 03:51:40 GMT
+      - Thu, 03 Aug 2023 23:44:15 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=U3ZQXP_dXJL0kmdH0AIGc7JuaJQkf7mdnSEgrTbI8I4-1690861900-0-ARqes4hdr46xpGPIGkKXMnFhNlGvzKiETWH/8D+B/lA0xZhJs5QjGhkrZ9xLcivT5UxjXHl1Q81KyYhNAKKlmyU=;
-        path=/; expires=Tue, 01-Aug-23 04:21:40 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=EIGZAzE7UTkwHk6Cy4cHYMXe6eCeYp7lRcxqNQKqWTE-1691106255-0-AeryOBWmbTOcAZmG+pm/kc1X6+g6zO/vi6h7g1wfgv9khTpHAybk4gwR1WlF4jxKEQ32GWzW/MBI8HBDbvJjO/Q=;
+        path=/; expires=Fri, 04-Aug-23 00:14:15 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 2b26355dcf9bbc955d60730f6007457c.cloudfront.net (CloudFront)
+      - 1.1 9a6f07a84b60a85466bb31603767843c.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 0_vqElusi94bElcjGQTL9WOQWTeXGfgaNzlsVsOWIco8jf68DQpm6A==
+      - 1seMwudjh6edOHPTjFDA_8sl6LfjJ9AgxwsztlbmygsXuFSzBiD8cg==
       X-Amz-Cf-Pop:
-      - ORD51-C2
+      - YUL62-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -469,13 +472,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - I9kj-F3svHcFgag=
+      - JG5IYHasPHcFnLQ=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Tue, 01 Aug 2023 03:51:40 GMT
+      - Thu, 03 Aug 2023 23:44:15 GMT
       x-amzn-RequestId:
-      - 268c4d22-166e-4591-b866-90f1068f8d33
+      - 6bc197a6-5b2e-4c0c-b926-9f8d9bb2ac99
     status:
       code: 200
       message: OK
@@ -487,9 +490,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -505,7 +508,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f062e7adffd248c-ZAG
+      - 7f126d6eab87369f-YYZ
       Connection:
       - keep-alive
       Content-Length:
@@ -513,21 +516,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Wed, 02 Aug 2023 12:04:08 GMT
+      - Thu, 03 Aug 2023 23:44:15 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=OA0Btf4sSBZmQBWC.hfGaJeuAWKHc5xFsa4S5MCrzlY-1690977848-0-Abax6wH16taJDXFxRjIaXRicsnrMsOKd7VxMqOK2OqcdbJ1uF8WMaGkeVgWXXEu10vYikE36VGKOjGjm5VRERO8=;
-        path=/; expires=Wed, 02-Aug-23 12:34:08 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=tqA0IF6yWEomy4yV9QiwUwE7.4Kxsxr7TeOmF7saxGU-1691106255-0-AZUVJ/r/9E0qbSxr7pYly6Kp+tI3wluyRdlleI871f+WGkwmIdx8YBIE5DyCJgZ5uC99izspK/cDBsl4g0PX8ss=;
+        path=/; expires=Fri, 04-Aug-23 00:14:15 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 76991fdca074ecae847653e013587ff8.cloudfront.net (CloudFront)
+      - 1.1 9b2dd59575ce5b546a63dbe37a7ae2de.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - v4pwbs5KWB6RQ1CRb9sO7wA6WWEJ_aDQEFL_Oj3my_YWJeKHg6Qqgg==
+      - iJ_jvuAeqLXjh4hHIEcWfvv17ywpd4ZHBRXsvheiBcHE-Ay5WI9_-A==
       X-Amz-Cf-Pop:
-      - ZAG50-C1
+      - YTO50-P1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -537,13 +540,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JB_oyF9cvHcFwbw=
+      - JG5IaGsUPHcFzjg=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Wed, 02 Aug 2023 12:04:07 GMT
+      - Thu, 03 Aug 2023 23:44:15 GMT
       x-amzn-RequestId:
-      - 9a334f49-4ab7-4320-bdcc-768dd05f5995
+      - be9ad64d-2bfc-4678-8469-66e1df44ff1d
     status:
       code: 200
       message: OK
@@ -555,9 +558,9 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxx
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
@@ -573,7 +576,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f062e7fd97e248e-ZAG
+      - 7f126d70eb7d3987-YYZ
       Connection:
       - keep-alive
       Content-Length:
@@ -581,21 +584,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Wed, 02 Aug 2023 12:04:09 GMT
+      - Thu, 03 Aug 2023 23:44:16 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=G8qCJxiK2VQ2YXLdpRtIDIUnxAYNZoSwh6yk7yEt8_k-1690977849-0-AUW1ne/mttDDZFlft6+VfbQ1lYCG3hWdQzp6BTmROO/QayHithqXAgDlxjebjbdhTtTXQ75Mmn8Mq02OTEBsEXc=;
-        path=/; expires=Wed, 02-Aug-23 12:34:09 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=Trl8yAz8GxOWXz9JKbgLrhg8c0hxPPnl9cDU5AqEpds-1691106256-0-ATDgj0RSkUa8kxzr+rHLdVTYCTqNT346OCChaC1XS/bJ1EJGEpp7zlXUpDR6dr4iY/0t7uVO1VWp2MllwfxCfe8=;
+        path=/; expires=Fri, 04-Aug-23 00:14:16 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 3cf68d8be617999c7beade955cf69ddc.cloudfront.net (CloudFront)
+      - 1.1 ea419f8269940bd7231c70acd36c430c.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - yBzgR4iCXRqL7kWZb-EqfH7Yv2IkmSYanmMFslJh8bW1hivSb-0blA==
+      - f8_2TZSuaneVVFachgZ1rnafKeqO72WMjDtyyT-bRUPfQBwtQeRoGQ==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - YUL62-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -605,13 +608,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JB_o6HQkPHcFcyQ=
+      - JG5IfFhIPHcFSwA=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Wed, 02 Aug 2023 12:04:08 GMT
+      - Thu, 03 Aug 2023 23:44:15 GMT
       x-amzn-RequestId:
-      - cb2dc6ca-812f-480e-9722-c0402e227023
+      - 688c2d14-6d90-4ae5-8132-dcefd35c64ad
     status:
       code: 200
       message: OK
