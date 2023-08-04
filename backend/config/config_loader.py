@@ -27,9 +27,9 @@ class ConfigLoader:
     @staticmethod
     def get_db_engine() -> str:
         if ROMM_DB_DRIVER == "mariadb":
-            DB_HOST: str = os.environ.get("DB_HOST")
+            DB_HOST: str = os.environ.get("DB_HOST", "127.0.0.1")
             try:
-                DB_PORT: int = int(os.environ.get("DB_PORT"))
+                DB_PORT: int = int(os.environ.get("DB_PORT", 3306))
             except TypeError:
                 log.critical("DB_PORT variable not set properly")
                 sys.exit(3)

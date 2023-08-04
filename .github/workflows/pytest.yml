@@ -1,0 +1,69 @@
+name: pytest
+
+on:
+  pull_request:
+    types:
+      - "opened"
+      - "synchronize"
+    paths-ignore:
+      - "docker/**"
+      - "examples/*"
+      - "frontend/**"
+  push:
+    branches:
+      - "master"
+    paths-ignore:
+      - "docker/**"
+      - "examples/*"
+      - "frontend/**"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306
+        env:
+          MYSQL_USER: romm_test
+          MYSQL_PASSWORD: passwd
+          MYSQL_DATABASE: romm_test
+          MYSQL_ROOT_PASSWORD: passwd
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+      - name: Install poetry
+        run: pipx install poetry
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'poetry'
+      - name: Install dependencies
+        run: |
+          poetry install --sync
+      - name: Initiate database
+        run: |
+          mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+      - name: Run python tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+        run: |
+          cd backend
+          poetry run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action/composite@v2
+        if: always()
+        with:
+          files: |
+            backend/pytest-report.xml
