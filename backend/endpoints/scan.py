@@ -68,4 +68,5 @@ async def scan(
             dbh.add_rom(scanned_rom)
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
+
     await sm.emit("scan:done")
