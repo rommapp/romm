@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
 from config import DEV_PORT, DEV_HOST
-from handler.socket_manager import SocketManager
-from endpoints import scan, search, platform, rom
+from handler.socket_manager import socket_app
+from endpoints import search, platform, rom, scan # noqa
 
 app = FastAPI()
 app.add_middleware(
@@ -21,20 +21,7 @@ app.include_router(platform.router)
 app.include_router(rom.router)
 
 add_pagination(app)
-
-sm = SocketManager()
-sm.mount_to("/ws", app)
-
-
-async def scan_handler(*args):
-    try:
-        await scan.scan(sm, *args)
-    except Exception as err:
-        await sm.emit("scan:done_ko", str(err))
-        raise (err)
-
-
-sm.on("scan", handler=scan_handler)
+app.mount("/ws", socket_app)
 
 
 @app.on_event("startup")

@@ -1,5 +1,8 @@
 import json
 import emoji
+import socketio
+from rq import Queue
+from redis import Redis
 
 from logger.logger import log
 from utils import fs, fastapi
@@ -7,13 +10,18 @@ from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from models.platform import Platform
 from models.rom import Rom
-from handler.socket_manager import SocketManager
+from handler.socket_manager import socket_server
 
 
-async def scan(
-    sm: SocketManager, _sid: str, platforms: str, complete_rescan: bool = True
-):
+redis_conn = Redis()
+scan_queue = Queue(connection=redis_conn)
+
+
+async def scan_filesystem(platforms: str, complete_rescan: bool = True):
     """Scan platforms and roms and write them in database."""
+
+    # Connect to external socketio server
+    sm = socketio.AsyncRedisManager("redis://", write_only=True)
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
@@ -39,7 +47,6 @@ async def scan(
         await sm.emit(
             "scan:scanning_platform",
             {"p_name": scanned_platform.name, "p_slug": scanned_platform.slug},
-            ignore_queue=True,
         )
 
         dbh.add_platform(scanned_platform)
@@ -56,10 +63,10 @@ async def scan(
                 "scan:scanning_rom",
                 {
                     "p_slug": scanned_platform.slug,
+                    "p_name": scanned_platform.name,
                     "file_name": scanned_rom.file_name,
                     "r_name": scanned_rom.r_name,
                 },
-                ignore_queue=True,
             )
 
             if rom_id:
@@ -69,4 +76,9 @@ async def scan(
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
 
-    await sm.emit("scan:done")
+    await sm.emit("scan:done", {})
+
+
+@socket_server.on("scan")
+def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
+    scan_queue.enqueue(scan_filesystem, platforms, complete_rescan)
