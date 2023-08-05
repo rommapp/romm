@@ -6,7 +6,6 @@ from logger.logger import log
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from models.rom import Rom
 from handler.socket_manager import socket_server
 from worker import redis_conn, redis_url
 
@@ -33,7 +32,7 @@ async def scan_platforms(paltforms: str, complete_rescan: bool):
             scanned_platform = fastapi.scan_platform(p_slug)
         except RomsNotFoundException as e:
             log.error(e)
-            return
+            continue
 
         await sm.emit(
             "scan:scanning_platform",
@@ -49,7 +48,7 @@ async def scan_platforms(paltforms: str, complete_rescan: bool):
             if rom_id and not complete_rescan:
                 continue
 
-            scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
+            scanned_rom = fastapi.scan_rom(scanned_platform, rom)
             await sm.emit(
                 "scan:scanning_rom",
                 {
