@@ -1,7 +1,6 @@
 import emoji
 import socketio
 from rq import Queue
-from redis import Redis
 
 from logger.logger import log
 from utils import fs, fastapi
@@ -9,15 +8,15 @@ from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from models.rom import Rom
 from handler.socket_manager import socket_server
+from worker import redis_conn, redis_url
 
 
-redis_conn = Redis()
 scan_queue = Queue(connection=redis_conn)
 
 
 async def scan_platform(p_slug: str, complete_rescan: bool):
     # Connect to external socketio server
-    sm = socketio.AsyncRedisManager("redis://", write_only=True)
+    sm = socketio.AsyncRedisManager(redis_url, write_only=True)
 
     try:
         # Verify that platform exists
@@ -60,7 +59,7 @@ async def scan_platform(p_slug: str, complete_rescan: bool):
 
 async def report_complete(fs_platforms: list[str]):
     # Connect to external socketio server
-    sm = socketio.AsyncRedisManager("redis://", write_only=True)
+    sm = socketio.AsyncRedisManager(redis_url, write_only=True)
 
     dbh.purge_platforms(fs_platforms)
 
@@ -71,9 +70,6 @@ async def report_complete(fs_platforms: list[str]):
 async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
     """Scan platforms and roms and write them in database."""
 
-    # Connect to external socketio server
-    sm = socketio.AsyncRedisManager("redis://", write_only=True)
-
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
 
@@ -82,11 +78,12 @@ async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
         fs_platforms: list[str] = fs.get_platforms()
     except PlatformsNotFoundException as e:
         log.error(e)
-        await sm.emit("scan:done_ko", e.message)
+        await socket_server.emit("scan:done_ko", e.message)
         return
 
     platform_list = platforms.split(",") if platforms else fs_platforms
 
+    # Queue up a job for each platform
     jobs = scan_queue.enqueue_many(
         [
             Queue.prepare_data(
