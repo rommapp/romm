@@ -149,7 +149,7 @@ Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examp
   <h2 id="platform-support">🎮 Platform support</h2>
 
 If the RomM [folder structure](#📁-folder-structure) is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
-This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
+This will change over the time, adding games metadata for more platforms.
 
 <br>
 <details>
