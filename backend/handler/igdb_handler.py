@@ -235,12 +235,13 @@ class TwitchAuth:
             sys.exit(2)
 
         # Set token in redis to expire in <expires_in> seconds
-        redis_client.set("twitch_token", token, ex=expires_in)
+        redis_client.set("twitch_token", token, ex=expires_in - 10)
         log.info("Twitch token fetched!")
 
         return token
 
     def get_oauth_token(self) -> str:
+        # Use a fake token when running tests
         if "pytest" in sys.modules:
             return "test_token"
 

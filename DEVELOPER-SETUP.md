@@ -51,6 +51,14 @@ cd backend
 python main.py
 ```
 
+
+### - Start a worker
+
+```sh
+cd backend
+python worker.py
+```
+
 ## Setting up the frontend
 
 ### - Install node.js dependencies
