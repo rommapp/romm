@@ -1,11 +1,16 @@
 #!/bin/bash
 
+# Run migrations and start uvicorn
 /init_back &
-  
+ 
+# Start nginx
 /init_front &
-  
+
+# Start rq worker
+/init_worker &
+
 # Wait for any process to exit
 wait -n
-  
+
 # Exit with status of process that exited first
 exit $?
