@@ -22,7 +22,7 @@ async def scan_platforms(paltforms: str, complete_rescan: bool):
         fs_platforms: list[str] = fs.get_platforms()
     except PlatformsNotFoundException as e:
         log.error(e)
-        await socket_server.emit("scan:done_ko", e.message)
+        await sm.emit("scan:done_ko", e.message)
         return
 
     platform_list = paltforms.split(",") if paltforms else fs_platforms
