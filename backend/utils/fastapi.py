@@ -38,7 +38,6 @@ def scan_platform(fs_slug: str) -> Platform:
         log.warning(f"  {fs_slug} not found in IGDB")
 
     platform_attrs.update(platform)
-    platform_attrs["n_roms"] = len(fs.get_roms(platform_attrs["fs_slug"]))
 
     return Platform(**platform_attrs)
 

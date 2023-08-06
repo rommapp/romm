@@ -162,6 +162,7 @@ def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
     rom: Rom = dbh.get_rom(id)
     log.info(f"Deleting {rom.file_name} from database")
     dbh.delete_rom(id)
+    dbh.update_n_roms(p_slug)
 
     if filesystem:
         log.info(f"Deleting {rom.file_name} from filesystem")

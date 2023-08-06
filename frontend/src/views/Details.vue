@@ -95,6 +95,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
 async function deleteRom() {
   await deleteRomApi(rom.value, deleteFromFs.value)
     .then((response) => {
+      emitter.emit("refreshPlatforms");
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",

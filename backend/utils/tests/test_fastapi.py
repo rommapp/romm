@@ -14,7 +14,6 @@ def test_scan_platform():
     assert platform.slug == "n64"
     assert platform.name == "Nintendo 64"
     assert platform.igdb_id == 4
-    assert platform.n_roms == 2
 
     try:
         platform = scan_platform("")
