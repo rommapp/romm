@@ -31,6 +31,7 @@ emitter.on("filter", onFilterChange);
 
 socket.on("scan:done", () => {
   scanning.set(false);
+  emitter.emit("refreshPlatforms");
   emitter.emit("refreshGallery");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
