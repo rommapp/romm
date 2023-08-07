@@ -61,7 +61,7 @@ async function scan() {
   });
 
   if (!socket.connected) socket.connect();
-  socket.emit("scan", JSON.stringify([route.params.platform]), false);
+  socket.emit("scan", route.params.platform, false);
 }
 
 async function fetchMoreSearch() {

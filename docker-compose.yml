@@ -3,11 +3,18 @@ services:
   mariadb:
     image: mariadb:latest
     container_name: mariadb
+    restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWD}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWD}
+      - MYSQL_ROOT_PASSWORD=$DB_ROOT_PASSWD
+      - MYSQL_DATABASE=$DB_NAME
+      - MYSQL_USER=$DB_USER
+      - MYSQL_PASSWORD=$DB_PASSWD
     ports:
-      - ${DB_PORT}:3306
-    restart: "no"
+      - $DB_PORT:3306
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - ${REDIS_PORT}:6379

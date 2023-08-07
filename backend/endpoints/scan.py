@@ -1,37 +1,35 @@
-import json
 import emoji
+import socketio
+from rq import Queue
 
 from logger.logger import log
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from models.platform import Platform
-from models.rom import Rom
-from handler.socket_manager import SocketManager
+from handler.socket_manager import socket_server
+from worker import redis_conn, redis_url
 
 
-async def scan(
-    sm: SocketManager, _sid: str, platforms: str, complete_rescan: bool = True
-):
-    """Scan platforms and roms and write them in database."""
+scan_queue = Queue(connection=redis_conn)
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    fs.store_default_resources()
 
-    try:  # Scanning platforms
+async def scan_platforms(paltforms: str, complete_rescan: bool):
+    # Connect to external socketio server
+    sm = socketio.AsyncRedisManager(redis_url, write_only=True)
+
+    # Scanning file system
+    try:
         fs_platforms: list[str] = fs.get_platforms()
     except PlatformsNotFoundException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
         return
 
-    platforms: list[str] = (
-        json.loads(platforms) if len(json.loads(platforms)) > 0 else fs_platforms
-    )
-    log.info(f"Platforms to be scanned: {', '.join(platforms)}")
-    for platform in platforms:
+    platform_list = paltforms.split(",") if paltforms else fs_platforms
+    for p_slug in platform_list:
         try:
-            scanned_platform: Platform = fastapi.scan_platform(platform)
+            # Verify that platform exists
+            scanned_platform = fastapi.scan_platform(p_slug)
         except RomsNotFoundException as e:
             log.error(e)
             continue
@@ -39,7 +37,6 @@ async def scan(
         await sm.emit(
             "scan:scanning_platform",
             {"p_name": scanned_platform.name, "p_slug": scanned_platform.slug},
-            ignore_queue=True,
         )
 
         dbh.add_platform(scanned_platform)
@@ -51,15 +48,15 @@ async def scan(
             if rom_id and not complete_rescan:
                 continue
 
-            scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
+            scanned_rom = fastapi.scan_rom(scanned_platform, rom)
             await sm.emit(
                 "scan:scanning_rom",
                 {
                     "p_slug": scanned_platform.slug,
+                    "p_name": scanned_platform.name,
                     "file_name": scanned_rom.file_name,
                     "r_name": scanned_rom.r_name,
                 },
-                ignore_queue=True,
             )
 
             if rom_id:
@@ -70,4 +67,15 @@ async def scan(
         dbh.update_n_roms(scanned_platform.slug)
     dbh.purge_platforms(fs_platforms)
 
-    await sm.emit("scan:done")
+    await sm.emit("scan:done", {})
+
+
+@socket_server.on("scan")
+async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
+    """Scan platforms and roms and write them in database."""
+
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
+    fs.store_default_resources()
+
+    # Queue up a job for each platform
+    scan_queue.enqueue(scan_platforms, platforms, complete_rescan)

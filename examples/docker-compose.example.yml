@@ -12,6 +12,7 @@ services:
       - DB_USER=romm-user # [Optional] Only needed if ROMM_DB_DRIVER=mariadb
       - DB_NAME=romm # [Optional] Only needed if ROMM_DB_DRIVER=mariadb. Can be optionally changed, and should match the MYSQL_DATABASE value in the mariadb container.
       - DB_PASSWD=<database password> # [Optional] Only needed if ROMM_DB_DRIVER=mariadb
+      - REDIS_HOST=redis
       - CLIENT_ID=<IGDB client id>
       - CLIENT_SECRET=<IGDB client secret>
       - STEAMGRIDDB_API_KEY=<SteamGridDB api key>
