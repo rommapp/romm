@@ -32,7 +32,7 @@ async function deleteRom() {
         router.push(`/platform/${props.rom.p_slug}`);
       }
     });
-  emitter.emit('close-delete-dialog')
+  emitter.emit("close-delete-dialog");
 }
 </script>
 
@@ -40,6 +40,7 @@ async function deleteRom() {
   <v-dialog
     :modelValue="show"
     width="auto"
+    @click:outside="emitter.emit('close-delete-dialog')"
   >
     <v-card
       rounded="0"
@@ -89,10 +90,9 @@ async function deleteRom() {
       </v-toolbar>
     </v-card>
   </v-dialog>
-
 </template>
 
-<style>
+<style scoped>
 .delete-content {
   width: 900px;
 }
