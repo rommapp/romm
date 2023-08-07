@@ -48,7 +48,6 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
       });
     });
   emitter.emit("updating-rom-end");
-  emitter.emit("close-edit-dialog");
 }
 </script>
 
