@@ -6,14 +6,13 @@ import {
   fetchRomApi,
   downloadRomApi,
   updateRomApi,
-  deleteRomApi,
   searchRomIGDBApi,
 } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
+import DeleteRom from "@/components/Dialog/DeleteRom.vue";
 
 // Props
-const router = useRouter();
 const route = useRoute();
 const downloadStore = useDownloadStore();
 const rom = ref(undefined);
@@ -29,7 +28,6 @@ const renameAsIGDB = ref(false);
 const dialogSearchRom = ref(false);
 const dialogEditRom = ref(false);
 const dialogDeleteRom = ref(false);
-const deleteFromFs = ref(false);
 const filesToDownload = ref(undefined);
 const tab = ref("details");
 const downloadUrl = ref(undefined);
@@ -37,6 +35,8 @@ const { xs, mdAndDown, lgAndUp } = useDisplay();
 
 // Event listeners bus
 const emitter = inject("emitter");
+
+emitter.on("close-delete-dialog", () => { dialogDeleteRom.value = false; });
 
 // Functions
 async function searchRomIGDB() {
@@ -90,31 +90,6 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
   renameAsIGDB.value = false;
   updating.value = false;
   dialogEditRom.value = false;
-}
-
-async function deleteRom() {
-  await deleteRomApi(rom.value, deleteFromFs.value)
-    .then((response) => {
-      emitter.emit("refreshPlatforms");
-      emitter.emit("snackbarShow", {
-        msg: response.data.msg,
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-      router.push(`/platform/${rom.value.p_slug}`);
-    })
-    .catch((error) => {
-      console.log(error);
-      emitter.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-      if (error.response.status == 404) {
-        router.push(`/platform/${rom.value.p_slug}`);
-      }
-    });
-  dialogDeleteRom.value = false;
 }
 
 onBeforeMount(() => {
@@ -686,55 +661,7 @@ onBeforeMount(() => {
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="dialogDeleteRom" width="auto" v-if="rom !== undefined">
-    <v-card
-      rounded="0"
-      :class="{
-        'delete-content': lgAndUp,
-        'delete-content-tablet': mdAndDown,
-        'delete-content-mobile': xs,
-      }"
-    >
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-delete" class="ml-5" />
-          </v-col>
-          <v-col>
-            <v-btn
-              @click="dialogDeleteRom = false"
-              class="bg-primary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
-
-      <v-card-text class="bg-secondary">
-        <v-row class="justify-center pa-2" no-gutters>
-          <span>Deleting {{ rom.file_name }}. Do you confirm?</span>
-        </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="dialogDeleteRom = false">Cancel</v-btn>
-          <v-btn @click="deleteRom()" class="text-red ml-5">Confirm</v-btn>
-        </v-row>
-      </v-card-text>
-
-      <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-primary" density="compact">
-        <v-checkbox
-          v-model="deleteFromFs"
-          label="Remove from filesystem"
-          class="ml-3"
-          hide-details
-        />
-      </v-toolbar>
-    </v-card>
-  </v-dialog>
+  <DeleteRom :show="dialogDeleteRom" :rom="rom"/>
 
   <v-dialog
     :model-value="updating || loading"
