@@ -24,17 +24,17 @@ class DBHandler:
         return wrapper
 
     @staticmethod
-    def raise_error(e: Exception) -> None:
+    def raise_error(e: Exception):
         log.critical(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
     # ========= Platforms =========
-    def add_platform(self, Platform: Platform) -> None:
+    def add_platform(self, platform: Platform):
         try:
             with self.session.begin() as session:
-                session.merge(Platform)
+                session.merge(platform)
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -47,14 +47,14 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_platform(self, slug: str) -> Platform:
+    def get_platform(self, slug: str):
         try:
             with self.session.begin() as session:
                 return session.scalars(select(Platform).filter_by(slug=slug)).first()
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def purge_platforms(self, platforms: list[str]) -> None:
+    def purge_platforms(self, platforms: list[str]):
         try:
             with self.session.begin() as session:
                 session.query(Platform).filter(
@@ -64,27 +64,27 @@ class DBHandler:
             self.raise_error(e)
 
     # ========= Roms =========
-    def add_rom(self, rom: Rom) -> None:
+    def add_rom(self, rom: Rom):
         try:
             with self.session.begin() as session:
                 session.merge(rom)
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_roms(self, p_slug: str) -> list[Rom]:
+    def get_roms(self, p_slug: str):
         try:
             return select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_rom(self, id) -> Rom:
+    def get_rom(self, id):
         try:
             with self.session.begin() as session:
                 return session.get(Rom, id)
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def update_rom(self, id: int, data: dict) -> None:
+    def update_rom(self, id: int, data: dict):
         try:
             with self.session.begin() as session:
                 session.query(Rom).filter(Rom.id == id).update(
@@ -93,7 +93,7 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def delete_rom(self, id: int) -> None:
+    def delete_rom(self, id: int):
         try:
             with self.session.begin() as session:
                 session.query(Rom).filter(Rom.id == id).delete(
@@ -102,12 +102,26 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def purge_roms(self, p_slug: str, roms: list[str]) -> None:
+    def purge_roms(self, p_slug: str, roms: list[str]):
         try:
             with self.session.begin() as session:
                 session.query(Rom).filter(
                     Rom.p_slug == p_slug, Rom.file_name.not_in(roms)
                 ).delete(synchronize_session="evaluate")
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def update_n_roms(self, p_slug: str):
+        try:
+            with self.session.begin() as session:
+                session.query(Platform).filter_by(slug=p_slug).update(
+                    {
+                        Platform.n_roms: len(
+                            session.query(Rom).filter_by(p_slug=p_slug).all()
+                        )
+                    },
+                    synchronize_session="evaluate",
+                )
         except ProgrammingError as e:
             self.raise_error(e)
 

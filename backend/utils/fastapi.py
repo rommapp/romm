@@ -38,7 +38,6 @@ def scan_platform(fs_slug: str) -> Platform:
         log.warning(f"  {fs_slug} not found in IGDB")
 
     platform_attrs.update(platform)
-    platform_attrs["n_roms"] = len(fs.get_roms(platform_attrs["fs_slug"]))
 
     return Platform(**platform_attrs)
 
@@ -89,6 +88,8 @@ def scan_rom(
     else:
         igdbh_rom = igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
 
+    rom_attrs.update(igdbh_rom)
+
     # Return early if not found in IGDB
     if not igdbh_rom["r_igdb_id"]:
         log.warning(
@@ -99,7 +100,6 @@ def scan_rom(
     log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['r_name']} :alien_monster:"))
 
     # Update properties from IGDB
-    rom_attrs.update(igdbh_rom)
     rom_attrs.update(
         fs.get_cover(
             overwrite=overwrite,
