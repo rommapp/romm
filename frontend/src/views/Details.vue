@@ -17,6 +17,7 @@ const updatedRom = ref(undefined);
 const saveFiles = ref(false);
 const updating = ref(false);
 const loading = ref(true);
+const searchRomDialog = ref();
 const searchRomDialogShow = ref(false);
 const editRomDialogShow = ref(false);
 const deleteRomDialogShow = ref(false);
@@ -142,7 +143,7 @@ onBeforeMount(() => {
               </template>
               <v-list rounded="0" class="pa-0">
                 <v-list-item
-                  @click="searchRomDialogShow = true"
+                  @click="searchRomDialogShow = true; searchRomDialog.searchRomIGDB()"
                   class="pt-4 pb-4 pr-5"
                 >
                   <v-list-item-title class="d-flex"
@@ -390,7 +391,7 @@ onBeforeMount(() => {
     </v-row>
   </div>
 
-  <search-rom-dialog :show="searchRomDialogShow" :rom="rom" :searchTerm="rom.r_name" />
+  <search-rom-dialog :show="searchRomDialogShow" :rom="rom" ref="searchRomDialog"/>
 
   <edit-rom-dialog
     :show="editRomDialogShow"

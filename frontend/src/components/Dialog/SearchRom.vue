@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, inject, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { updateRomApi, searchRomIGDBApi } from "@/services/api.js";
@@ -62,13 +62,10 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
       });
     });
 
-  updating.value = false;
+    emitter.emit("updating-rom-end");
 }
 
-onMounted(async () => {
-  searchTerm.value = props.rom.r_name
-  searchRomIGDB()
-});
+defineExpose({ searchRomIGDB });
 </script>
 
 <template>
