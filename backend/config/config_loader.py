@@ -9,6 +9,11 @@ from config import (
     ROMM_DB_DRIVER,
     SQLITE_DB_BASE_PATH,
     ROMM_USER_CONFIG_PATH,
+    DB_HOST,
+    DB_PORT,
+    DB_USER,
+    DB_PASSWD,
+    DB_NAME,
 )
 from logger.logger import log
 
@@ -27,16 +32,6 @@ class ConfigLoader:
     @staticmethod
     def get_db_engine() -> str:
         if ROMM_DB_DRIVER == "mariadb":
-            DB_HOST: str = os.environ.get("DB_HOST", "127.0.0.1")
-            try:
-                DB_PORT: int = int(os.environ.get("DB_PORT", 3306))
-            except TypeError:
-                log.critical("DB_PORT variable not set properly")
-                sys.exit(3)
-
-            DB_USER: str = os.environ.get("DB_USER")
-            DB_PASSWD: str = os.environ.get("DB_PASSWD")
-            DB_NAME: str = os.environ.get("DB_NAME", "romm")
             return (
                 f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}"
                 % quote_plus(DB_PASSWD)

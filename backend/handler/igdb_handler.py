@@ -2,14 +2,16 @@ import sys
 import functools
 import pydash
 import requests
+from redis import Redis
 
-from time import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 
-from config import CLIENT_ID, CLIENT_SECRET
+from config import CLIENT_ID, CLIENT_SECRET, REDIS_HOST, REDIS_PORT
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
+
+redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 
 class IGDBHandler:
@@ -20,7 +22,7 @@ class IGDBHandler:
         self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
         self.twitch_auth = TwitchAuth()
         self.headers = {
-            "Client-ID": self.twitch_auth.client_id,
+            "Client-ID": CLIENT_ID,
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
@@ -213,50 +215,39 @@ class IGDBHandler:
 
 
 class TwitchAuth:
-    def __init__(self) -> None:
-        self.base_url = "https://id.twitch.tv/oauth2/token"
-        self.token = ""
-        self.token_checkout = int(time())
-        self.secure_seconds_offset = 10  # seconds offset to avoid invalid token
-        self.token_valid_seconds = 0
-        self.client_id = CLIENT_ID
-        self.client_secret = CLIENT_SECRET
-
-    def _is_token_valid(self) -> bool:
-        return (
-            int(time()) + self.secure_seconds_offset - self.token_checkout
-            < self.token_valid_seconds
-        )
-
-    def _update_twitch_token(self):
+    def _update_twitch_token(self) -> str:
         res = requests.post(
-            url=self.base_url,
+            url="https://id.twitch.tv/oauth2/token",
             params={
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
                 "grant_type": "client_credentials",
             },
             timeout=30,
         ).json()
 
-        self.token_checkout = int(time())
-        self.token_valid_seconds = res.get("expires_in", 0)
-        self.token = res.get("access_token", "")
-
-        if not self.token:
+        token = res.get("access_token", "")
+        expires_in = res.get("expires_in", 0)
+        if not token or expires_in == 0:
             log.error(
                 "Could not get twitch auth token: check client_id and client_secret"
             )
             sys.exit(2)
 
+        # Set token in redis to expire in <expires_in> seconds
+        redis_client.set("twitch_token", token, ex=expires_in - 10)
         log.info("Twitch token fetched!")
 
+        return token
+
     def get_oauth_token(self) -> str:
+        # Use a fake token when running tests
         if "pytest" in sys.modules:
             return "test_token"
 
-        if not self._is_token_valid():
+        token = redis_client.get("twitch_token")
+        if not token:
             log.warning("Twitch token invalid: fetching a new one...")
-            self._update_twitch_token()
+            return self._update_twitch_token()
 
-        return self.token
+        return token
