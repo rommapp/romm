@@ -152,7 +152,7 @@ async function scan() {
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
       <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
-        <span v-if="rom.r_name" class="ml-10">
+        <span v-if="rom.r_igdb_id" class="ml-10">
           • Identified <b>{{ rom.r_name }} 👾</b>
         </span>
         <span v-else class="ml-10">
