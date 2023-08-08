@@ -29,7 +29,6 @@ def scan_platform(fs_slug: str) -> Platform:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
-
     platform = igdbh.get_platform(platform_attrs["slug"])
 
     if platform["igdb_id"]:
@@ -48,8 +47,8 @@ def scan_rom(
     r_igbd_id_search: str = "",
     overwrite: bool = False,
 ) -> Rom:
-    p_slug = platform.fs_slug if platform.fs_slug else platform.slug
-    roms_path = fs.get_roms_structure(p_slug)
+    p_slug = platform.fs_slug if platform.fs_slug else platform.slug  # type: ignore
+    roms_path = fs.get_roms_structure(p_slug)  # type: ignore
 
     log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
 
@@ -83,10 +82,11 @@ def scan_rom(
     rom_attrs["p_name"] = platform.name
 
     # Search in IGDB
-    if r_igbd_id_search:
-        igdbh_rom = igdbh.get_rom_by_id(r_igbd_id_search)
-    else:
-        igdbh_rom = igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
+    igdbh_rom = (
+        igdbh.get_rom_by_id(int(r_igbd_id_search))
+        if r_igbd_id_search
+        else igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)  # type: ignore
+    )
 
     rom_attrs.update(igdbh_rom)
 
@@ -103,15 +103,15 @@ def scan_rom(
     rom_attrs.update(
         fs.get_cover(
             overwrite=overwrite,
-            p_slug=platform.slug,
-            file_name=rom_attrs["file_name"],
+            p_slug=platform.slug, # type: ignore
+            file_name=rom_attrs["r_name"],
             url_cover=rom_attrs["url_cover"],
         )
     )
     rom_attrs.update(
         fs.get_screenshots(
-            p_slug=platform.slug,
-            file_name=rom_attrs["file_name"],
+            p_slug=platform.slug, # type: ignore
+            file_name=rom_attrs["r_name"],
             url_screenshots=rom_attrs["url_screenshots"],
         )
     )
