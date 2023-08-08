@@ -1,20 +1,23 @@
 <script setup>
 import { ref, inject } from "vue";
-import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { deleteRomApi } from "@/services/api.js";
+import { updateRomApi } from "@/services/api.js";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const props = defineProps(["show", "rom", "updatedRom"]);
+const updatedRom = ref();
+const show = ref(false);
+const rom = ref();
+
 const emitter = inject("emitter");
-const updatedRom = ref(undefined);
-const saveFiles = ref(false);
-const updating = ref(false);
-const loading = ref(true);
+emitter.on("showEditDialog", (romToEdit, updatedRomToEdit) => {
+  show.value = true;
+  rom.value = romToEdit;
+  updatedRom.value = updatedRomToEdit;
+});
 
 async function updateRom(updatedData = { ...updatedRom.value }) {
-  emitter.emit("close-edit-dialog");
-  emitter.emit("updating-rom-start");
+  show.value = false;
+  emitter.emit("showLoadingDialog", true, true);
 
   await updateRomApi(rom.value, {
     r_igdb_id: updatedData.r_igdb_id,
@@ -47,7 +50,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         color: "red",
       });
     });
-  emitter.emit("updating-rom-end");
+  emitter.emit("showLoadingDialog", false, false);
 }
 </script>
 
@@ -57,8 +60,10 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
     scroll-strategy="none"
     width="auto"
     :scrim="false"
-    @click:outside="emitter.emit('close-edit-dialog')"
-    v-if="rom !== undefined"
+    @click:outside="show = false"
+    @keydown.esc="show = false"
+    no-click-animation
+    persistent
   >
     <v-card
       rounded="0"
@@ -75,7 +80,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
           </v-col>
           <v-col>
             <v-btn
-              @click="emitter.emit('close-edit-dialog')"
+              @click="show = false"
               class="bg-primary"
               rounded="0"
               variant="text"
@@ -91,7 +96,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         <v-row class="justify-center pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
-            v-model="props.updatedRom.r_name"
+            v-model="updatedRom.r_name"
             label="Name"
             variant="outlined"
             required
@@ -101,7 +106,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         <v-row class="justify-center pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
-            v-model="props.updatedRom.file_name"
+            v-model="updatedRom.file_name"
             label="File name"
             variant="outlined"
             required
@@ -111,7 +116,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         <v-row class="justify-center pa-2" no-gutters>
           <v-textarea
             @keyup.enter="updateRom()"
-            v-model="props.updatedRom.summary"
+            v-model="updatedRom.summary"
             label="Summary"
             variant="outlined"
             required
@@ -130,7 +135,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
           />
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="emitter.emit('close-edit-dialog')">Cancel</v-btn>
+          <v-btn @click="show = false">Cancel</v-btn>
           <v-btn @click="updateRom()" class="text-rommGreen ml-5">Apply</v-btn>
         </v-row>
       </v-card-text>

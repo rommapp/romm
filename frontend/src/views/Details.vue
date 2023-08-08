@@ -8,64 +8,50 @@ import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
 import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
+import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const route = useRoute();
 const downloadStore = useDownloadStore();
-const rom = ref(undefined);
-const updatedRom = ref(undefined);
+const rom = ref();
+const updatedRom = ref();
 const saveFiles = ref(false);
-const updating = ref(false);
-const loading = ref(true);
-const searchRomDialog = ref();
-const searchRomDialogShow = ref(false);
-const editRomDialogShow = ref(false);
-const deleteRomDialogShow = ref(false);
-const filesToDownload = ref(undefined);
+const filesToDownload = ref();
 const tab = ref("details");
-const downloadUrl = ref(undefined);
+const downloadUrl = ref();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 
 // Event listeners bus
 const emitter = inject("emitter");
-emitter.on("close-search-dialog", () => {
-  searchRomDialogShow.value = false;
-});
-emitter.on("close-edit-dialog", () => {
-  editRomDialogShow.value = false;
-});
-emitter.on("close-delete-dialog", () => {
-  deleteRomDialogShow.value = false;
-});
 
 // Functions
-onBeforeMount(() => {
-  fetchRomApi(route.params.platform, route.params.rom)
+onBeforeMount(async () => {
+  emitter.emit("showLoadingDialog", true, false);
+  await fetchRomApi(route.params.platform, route.params.rom)
     .then((response) => {
       rom.value = response.data;
       downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
       updatedRom.value = response.data;
-      loading.value = false;
     })
     .catch((error) => {
       console.log(error);
-      loading.value = false;
+    })
+    .finally(() => {
+      emitter.emit("showLoadingDialog", false, false);
     });
 });
 </script>
 
 <template>
-  <template v-if="rom !== undefined">
-    <background-header :image="rom.path_cover_s" />
-  </template>
+  <background-header v-if="rom" :image="rom.path_cover_s" />
 
   <div
+    v-if="rom"
     :class="{
       content: lgAndUp,
       'content-tablet': mdAndDown,
       'content-mobile': xs,
     }"
-    v-if="rom !== undefined"
   >
     <v-row class="pt-8 justify-center">
       <v-col
@@ -143,7 +129,7 @@ onBeforeMount(() => {
               </template>
               <v-list rounded="0" class="pa-0">
                 <v-list-item
-                  @click="searchRomDialogShow = true; searchRomDialog.searchRomIGDB()"
+                  @click="emitter.emit('showSearchDialog', rom)"
                   class="pt-4 pb-4 pr-5"
                 >
                   <v-list-item-title class="d-flex"
@@ -153,7 +139,7 @@ onBeforeMount(() => {
                 </v-list-item>
                 <v-divider class="border-opacity-25" />
                 <v-list-item
-                  @click="editRomDialogShow = true"
+                  @click="emitter.emit('showEditDialog', rom, updatedRom)"
                   class="pt-4 pb-4 pr-5"
                 >
                   <v-list-item-title class="d-flex"
@@ -165,7 +151,7 @@ onBeforeMount(() => {
                 </v-list-item>
                 <v-divider class="border-opacity-25" />
                 <v-list-item
-                  @click="deleteRomDialogShow = true"
+                  @click="emitter.emit('showDeleteDialog', rom)"
                   class="pt-4 pb-4 pr-5 text-red"
                 >
                   <v-list-item-title class="d-flex"
@@ -391,30 +377,10 @@ onBeforeMount(() => {
     </v-row>
   </div>
 
-  <search-rom-dialog :show="searchRomDialogShow" :rom="rom" ref="searchRomDialog"/>
-
-  <edit-rom-dialog
-    :show="editRomDialogShow"
-    :rom="rom"
-    :updatedRom="updatedRom"
-  />
-
-  <delete-rom-dialog :show="deleteRomDialogShow" :rom="rom" />
-
-  <v-dialog
-    :model-value="updating || loading"
-    scroll-strategy="none"
-    width="auto"
-    :scrim="updating"
-    persistent
-  >
-    <v-progress-circular
-      :width="3"
-      :size="70"
-      color="rommAccent1"
-      indeterminate
-    />
-  </v-dialog>
+  <search-rom-dialog />
+  <edit-rom-dialog />
+  <delete-rom-dialog />
+  <loading-dialog />
 </template>
 
 <style scoped>
