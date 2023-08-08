@@ -20,6 +20,7 @@ import LoadingDialog from "@/components/Dialog/Loading.vue";
 // Props
 const route = useRoute();
 const roms = ref([]);
+const updatedRom = ref([]);
 const searchRoms = ref([]);
 const filteredRoms = ref([]);
 const galleryView = storeGalleryView();
@@ -72,7 +73,10 @@ async function fetchMoreSearch() {
   if (searchCursor.value === null || gettingRoms.value) return;
 
   gettingRoms.value = true;
-  emitter.emit("showLoadingDialog", gettingRoms.value, false);
+  emitter.emit("showLoadingDialog", {
+    loading: gettingRoms.value,
+    scrim: false,
+  });
   await fetchRomsApi({
     platform: route.params.platform,
     cursor: searchCursor.value,
@@ -90,7 +94,10 @@ async function fetchMoreSearch() {
     })
     .finally(() => {
       gettingRoms.value = false;
-      emitter.emit("showLoadingDialog", gettingRoms.value, false);
+      emitter.emit("showLoadingDialog", {
+        loading: gettingRoms.value,
+        scrim: false,
+      });
     });
 }
 
@@ -98,7 +105,10 @@ async function fetchMoreRoms(platform) {
   if (cursor.value === null || gettingRoms.value) return;
 
   gettingRoms.value = true;
-  emitter.emit("showLoadingDialog", gettingRoms.value, false);
+  emitter.emit("showLoadingDialog", {
+    loading: gettingRoms.value,
+    scrim: false,
+  });
   await fetchRomsApi({ platform, cursor: cursor.value })
     .then((response) => {
       roms.value = [...roms.value, ...response.data.items];
@@ -110,7 +120,10 @@ async function fetchMoreRoms(platform) {
     })
     .finally(() => {
       gettingRoms.value = false;
-      emitter.emit("showLoadingDialog", gettingRoms.value, false);
+      emitter.emit("showLoadingDialog", {
+        loading: gettingRoms.value,
+        scrim: false,
+      });
     });
 }
 
