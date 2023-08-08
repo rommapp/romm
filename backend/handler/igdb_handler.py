@@ -7,7 +7,7 @@ from time import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 
-from config import CLIENT_ID, CLIENT_SECRET
+from config import CLIENT_ID, CLIENT_SECRET, DEFAULT_URL_COVER_S
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 
@@ -73,7 +73,7 @@ class IGDBHandler:
 
         cover = pydash.get(covers, "[0]", None)
         if not cover:
-            return ""
+            return DEFAULT_URL_COVER_S
 
         return self._normalize_cover_url(cover["url"])
 
