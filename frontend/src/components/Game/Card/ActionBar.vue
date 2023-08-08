@@ -3,12 +3,11 @@ import { ref, inject } from "vue";
 import { downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 
-const downloadStore = useDownloadStore();
-
 // Props
 const emitter = inject("emitter");
 const props = defineProps(["rom"]);
 const saveFiles = ref(false);
+const downloadStore = useDownloadStore();
 const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
 </script>
 
