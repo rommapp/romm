@@ -4,22 +4,26 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { deleteRomApi } from "@/services/api.js";
 
-const router = useRouter();
-const deleteFromFs = ref(false);
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const props = defineProps(["show", "rom"]);
+const router = useRouter();
+const show = ref(false);
+const rom = ref();
+const deleteFromFs = ref(false);
+
 const emitter = inject("emitter");
+emitter.on("showDeleteDialog", (romToDelete) => {
+  rom.value = romToDelete;
+  show.value = true;
+});
 
 async function deleteRom() {
-  await deleteRomApi(props.rom, deleteFromFs.value)
+  await deleteRomApi(rom.value, deleteFromFs.value)
     .then((response) => {
-      emitter.emit("refreshPlatforms");
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
-      router.push(`/platform/${props.rom.p_slug}`);
     })
     .catch((error) => {
       console.log(error);
@@ -28,11 +32,12 @@ async function deleteRom() {
         icon: "mdi-close-circle",
         color: "red",
       });
-      if (error.response.status == 404) {
-        router.push(`/platform/${props.rom.p_slug}`);
-      }
+      return;
     });
-  emitter.emit("close-delete-dialog");
+  await router.push(`/platform/${rom.value.p_slug}`);
+  emitter.emit("refreshGallery");
+  emitter.emit("refreshPlatforms");
+  show.value = false;
 }
 </script>
 
@@ -40,7 +45,10 @@ async function deleteRom() {
   <v-dialog
     :modelValue="show"
     width="auto"
-    @click:outside="emitter.emit('close-delete-dialog')"
+    @click:outside="show = false"
+    @keydown.esc="show = false"
+    no-click-animation
+    persistent
   >
     <v-card
       rounded="0"
@@ -57,7 +65,7 @@ async function deleteRom() {
           </v-col>
           <v-col>
             <v-btn
-              @click="emitter.emit('close-delete-dialog')"
+              @click="show = false"
               class="bg-primary"
               rounded="0"
               variant="text"
@@ -74,7 +82,7 @@ async function deleteRom() {
           <span>Deleting {{ rom.file_name }}. Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="emitter.emit('close-delete-dialog')">Cancel</v-btn>
+          <v-btn @click="show = false">Cancel</v-btn>
           <v-btn @click="deleteRom()" class="text-red ml-5">Confirm</v-btn>
         </v-row>
       </v-card-text>

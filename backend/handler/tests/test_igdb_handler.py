@@ -78,22 +78,3 @@ def test_get_matched_roms_by_name():
 
     roms = igdbh.get_matched_roms_by_name("Notarealgametitle", 4)
     assert roms == []
-
-
-@pytest.mark.vcr()
-def test_get_matched_roms():
-    roms = igdbh.get_matched_roms("Paper Mario (USA).n64", 4)
-    assert len(roms) == 9
-
-    assert roms[0]["r_igdb_id"] == 3340
-    assert roms[0]["r_slug"] == "paper-mario"
-    assert roms[0]["r_name"] == "Paper Mario"
-    assert roms[0]["summary"]
-    assert urlparse(roms[0]["url_cover"]).hostname == "images.igdb.com"
-    assert urlparse(roms[0]["url_screenshots"][0]).hostname == "images.igdb.com"
-
-    roms = igdbh.get_matched_roms("Paper Mario (USA).n64", None)
-    assert roms == []
-
-    roms = igdbh.get_matched_roms("Notarealgametitle", 4)
-    assert roms == []

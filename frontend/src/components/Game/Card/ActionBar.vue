@@ -1,11 +1,12 @@
 <script setup>
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 
 const downloadStore = useDownloadStore();
 
 // Props
+const emitter = inject("emitter");
 const props = defineProps(["rom"]);
 const saveFiles = ref(false);
 const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
@@ -49,18 +50,23 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
             icon="mdi-dots-vertical"
             size="x-small"
             variant="text"
-            disabled
           />
         </template>
         <v-list rounded="0" class="pa-0">
-          <v-list-item @click="searchRomIGDB()" class="pt-4 pb-4 pr-5">
+          <v-list-item
+            @click="emitter.emit('showSearchDialog', rom)"
+            class="pt-4 pb-4 pr-5"
+          >
             <v-list-item-title class="d-flex"
               ><v-icon icon="mdi-search-web" class="mr-2" />Search
               IGDB</v-list-item-title
             >
           </v-list-item>
           <v-divider class="border-opacity-25" />
-          <v-list-item @click="dialogEditRom = true" class="pt-4 pb-4 pr-5">
+          <v-list-item
+            @click="emitter.emit('showEditDialog', rom)"
+            class="pt-4 pb-4 pr-5"
+          >
             <v-list-item-title class="d-flex"
               ><v-icon
                 icon="mdi-pencil-box"
@@ -70,7 +76,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
           </v-list-item>
           <v-divider class="border-opacity-25" />
           <v-list-item
-            @click="dialogDeleteRom = true"
+            @click="emitter.emit('showDeleteDialog', rom)"
             class="pt-4 pb-4 pr-5 text-red"
           >
             <v-list-item-title class="d-flex"

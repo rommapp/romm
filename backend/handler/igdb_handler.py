@@ -183,34 +183,6 @@ class IGDBHandler:
             for rom in matched_roms
         ]
 
-    @check_twitch_token
-    def get_matched_roms(self, file_name: str, p_igdb_id: int):
-        if not p_igdb_id:
-            return []
-
-        matched_roms = self._request(
-            self.games_url,
-            data=f"""
-                search "{uc(get_search_term(file_name))}";
-                fields id, slug, name, summary;
-                where platforms=[{p_igdb_id}];
-            """,
-        )
-
-        return [
-            dict(
-                rom,
-                url_cover=self._search_cover(rom["id"]).replace(
-                    "t_thumb", "t_cover_big"
-                ),
-                url_screenshots=self._search_screenshots(rom["id"]),
-                r_igdb_id=rom.pop("id"),
-                r_slug=rom.pop("slug"),
-                r_name=rom.pop("name"),
-            )
-            for rom in matched_roms
-        ]
-
 
 class TwitchAuth:
     def __init__(self) -> None:

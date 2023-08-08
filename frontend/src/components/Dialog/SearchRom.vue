@@ -1,36 +1,48 @@
 <script setup>
-import { ref, inject, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
 import { updateRomApi, searchRomIGDBApi } from "@/services/api.js";
 
-const emitter = inject("emitter");
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const props = defineProps(["show", "rom"]);
+const show = ref(false);
+const rom = ref();
+const updatedRom = ref();
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
 const matchedRoms = ref([]);
 const renameAsIGDB = ref(false);
-const updating = ref(false);
+
+const emitter = inject("emitter");
+emitter.on("showSearchDialog", (romToSearch, updatedRomToSearch) => {
+  rom.value = romToSearch;
+  searchTerm.value = romToSearch["file_name_no_tags"];
+  updatedRom.value = updatedRomToSearch;
+  show.value = true;
+  searchRomIGDB();
+});
 
 async function searchRomIGDB() {
-  searching.value = true;
-  await searchRomIGDBApi(searchTerm.value, searchBy.value, props.rom)
-    .then((response) => {
-      matchedRoms.value = response.data.roms;
-    })
-    .catch((error) => {
-      console.log(error);
-    });
-  searching.value = false;
+  if (!searching.value) {
+    searching.value = true;
+    await searchRomIGDBApi(searchTerm.value, searchBy.value, rom.value)
+      .then((response) => {
+        matchedRoms.value = response.data.roms;
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .finally(() => {
+        searching.value = false;
+      });
+  }
 }
 
 async function updateRom(updatedData = { ...updatedRom.value }) {
-  emitter.emit("close-search-dialog");
-  emitter.emit("updating-rom-start");
+  show.value = false;
+  emitter.emit("showLoadingDialog", true, true);
 
-  await updateRomApi(props.rom, {
+  await updateRomApi(rom, {
     r_igdb_id: updatedData.r_igdb_id,
     r_slug: updatedData.r_slug,
     summary: updatedData.summary,
@@ -60,12 +72,15 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         icon: "mdi-close-circle",
         color: "red",
       });
+    })
+    .finally(() => {
+      emitter.emit("showLoadingDialog", false, false);
     });
-
-    emitter.emit("updating-rom-end");
 }
 
-defineExpose({ searchRomIGDB });
+onBeforeUnmount(() => {
+  emitter.off("showSearchDialog");
+});
 </script>
 
 <template>
@@ -74,7 +89,10 @@ defineExpose({ searchRomIGDB });
     scroll-strategy="none"
     width="auto"
     :scrim="false"
-    @click:outside="emitter.emit('close-search-dialog')"
+    @click:outside="show = false"
+    @keydown.esc="show = false"
+    no-click-animation
+    persistent
   >
     <v-card
       :class="{
@@ -94,7 +112,7 @@ defineExpose({ searchRomIGDB });
           </v-col>
           <v-col>
             <v-btn
-              @click="emitter.emit('close-search-dialog')"
+              @click="show = false"
               class="bg-primary"
               rounded="0"
               variant="text"
@@ -135,6 +153,7 @@ defineExpose({ searchRomIGDB });
               variant="text"
               icon="mdi-search-web"
               block
+              :disabled="searching"
             />
           </v-col>
         </v-row>
@@ -207,6 +226,9 @@ defineExpose({ searchRomIGDB });
 </template>
 
 <style scoped>
+.scroll {
+  overflow-y: scroll;
+}
 .loader-searching,
 .no-results-searching {
   margin-top: 200px;
