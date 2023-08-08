@@ -49,7 +49,7 @@ async function updateRom(updatedData = { ...rom.value }) {
     r_name: updatedData.r_name,
     file_name: renameAsIGDB.value
       ? rom.value.file_name.replace(
-        rom.value.file_name_no_tags,
+          rom.value.file_name_no_tags,
           updatedData.r_name
         )
       : updatedData.file_name,
@@ -194,6 +194,9 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
+                <v-tooltip activator="parent" location="top" class="tooltip">{{
+                  rom.r_name
+                }}</v-tooltip>
                 <v-img v-bind="props" :src="rom.url_cover" cover />
                 <v-card-text>
                   <v-row class="pa-1">
@@ -222,6 +225,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
 .scroll {
   overflow-y: scroll;
 }
