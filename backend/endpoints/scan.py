@@ -1,37 +1,38 @@
-import json
 import emoji
+import socketio
+from rq import Queue
 
 from logger.logger import log
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from models.platform import Platform
-from models.rom import Rom
-from handler.socket_manager import SocketManager
+from utils.socket import socket_server
+from utils.cache import redis_client, redis_url, redis_connectable
+
+scan_queue = Queue(connection=redis_client)
 
 
-async def scan(
-    sm: SocketManager, _sid: str, platforms_to_scan: str, complete_rescan: bool = True
-):
-    """Scan platforms and roms and write them in database."""
+async def scan_platforms(paltforms: str, complete_rescan: bool):
+    # Connect to external socketio server
+    sm = (
+        socketio.AsyncRedisManager(redis_url, write_only=True)
+        if redis_connectable
+        else socket_server
+    )
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    fs.store_default_resources()
-
-    try:  # Scanning platforms
+    # Scanning file system
+    try:
         fs_platforms: list[str] = fs.get_platforms()
     except PlatformsNotFoundException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
         return
 
-    platforms: list[str] = (
-        json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
-    )
-    log.info(f"Platforms to be scanned: {', '.join(platforms)}")
-    for platform in platforms:
+    platform_list = paltforms.split(",") if paltforms else fs_platforms
+    for p_slug in platform_list:
         try:
-            scanned_platform: Platform = fastapi.scan_platform(platform)
+            # Verify that platform exists
+            scanned_platform = fastapi.scan_platform(p_slug)
         except RomsNotFoundException as e:
             log.error(e)
             continue
@@ -39,35 +40,49 @@ async def scan(
         await sm.emit(
             "scan:scanning_platform",
             {"p_name": scanned_platform.name, "p_slug": scanned_platform.slug},
-            ignore_queue=True,
         )
 
         dbh.add_platform(scanned_platform)
 
         # Scanning roms
-        fs_roms: list[dict] = fs.get_roms(scanned_platform.fs_slug) # type: ignore
+        fs_roms: list[dict] = fs.get_roms(scanned_platform.fs_slug)  # type: ignore
         for rom in fs_roms:
-            rom_id: int = dbh.rom_exists(scanned_platform.slug, rom["file_name"]) # type: ignore
+            rom_id: int = dbh.rom_exists(scanned_platform.slug, rom["file_name"])  # type: ignore
             if rom_id and not complete_rescan:
                 continue
 
-            scanned_rom: Rom = fastapi.scan_rom(scanned_platform, rom)
+            scanned_rom = fastapi.scan_rom(scanned_platform, rom)
             await sm.emit(
                 "scan:scanning_rom",
                 {
                     "p_slug": scanned_platform.slug,
+                    "p_name": scanned_platform.name,
                     "file_name": scanned_rom.file_name,
                     "r_name": scanned_rom.r_name,
+                    "r_igdb_id": scanned_rom.r_igdb_id,
                 },
-                ignore_queue=True,
             )
 
             if rom_id:
-                scanned_rom.id = rom_id # type: ignore
+                scanned_rom.id = rom_id  # type: ignore
 
             dbh.add_rom(scanned_rom)
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])  # type: ignore
-        dbh.update_n_roms(scanned_platform.slug) # type: ignore
+        dbh.update_n_roms(scanned_platform.slug)  # type: ignore
     dbh.purge_platforms(fs_platforms)
 
-    await sm.emit("scan:done")
+    await sm.emit("scan:done", {})
+
+
+@socket_server.on("scan")
+async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
+    """Scan platforms and roms and write them in database."""
+
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
+    fs.store_default_resources()
+
+    # Run in worker if redis is available
+    if redis_connectable:
+        scan_queue.enqueue(scan_platforms, platforms, complete_rescan)
+    else:
+        await scan_platforms(platforms, complete_rescan)

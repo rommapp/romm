@@ -27,12 +27,23 @@ DEFAULT_URL_COVER_S: str = (
 )
 DEFAULT_PATH_COVER_S: str = "default/default/cover/small.png"
 
+# MARIADB
+DB_HOST = os.environ.get("DB_HOST", "127.0.0.1")
+DB_PORT: int = int(os.environ.get("DB_PORT", 3306))
+DB_USER = os.environ.get("DB_USER")
+DB_PASSWD = os.environ.get("DB_PASSWD")
+DB_NAME = os.environ.get("DB_NAME", "romm")
+
+# REDIS
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
+
 # IGDB
-CLIENT_ID: str = os.environ.get("CLIENT_ID", "")
-CLIENT_SECRET: str = os.environ.get("CLIENT_SECRET", "")
+CLIENT_ID = os.environ.get("CLIENT_ID")
+CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: str = os.environ.get("STEAMGRIDDB_API_KEY", "")
+STEAMGRIDDB_API_KEY = os.environ.get("STEAMGRIDDB_API_KEY")
 
 # DB DRIVERS
-ROMM_DB_DRIVER: str = os.environ.get("ROMM_DB_DRIVER", "sqlite")
+ROMM_DB_DRIVER = os.environ.get("ROMM_DB_DRIVER", "sqlite")

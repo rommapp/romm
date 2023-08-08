@@ -19,6 +19,7 @@ async def search_rom_igdb(
     matched_roms: list = []
 
     log.info(f"Searching by {search_by}: {search_term}")
+    log.info(emoji.emojize(f":video_game: {rom['p_slug']}: {rom['file_name']}"))
     if search_by.lower() == "id":
         matched_roms = igdbh.get_matched_roms_by_id(int(search_term))
     elif search_by.lower() == "name":
