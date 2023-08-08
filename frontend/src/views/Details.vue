@@ -26,18 +26,18 @@ const emitter = inject("emitter");
 
 // Functions
 onBeforeMount(async () => {
-  emitter.emit("showLoadingDialog", true, false);
+  emitter.emit("showLoadingDialog", { loading: true, scrim: false });
   await fetchRomApi(route.params.platform, route.params.rom)
     .then((response) => {
       rom.value = response.data;
-      downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
       updatedRom.value = response.data;
+      downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
     })
     .catch((error) => {
       console.log(error);
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", false, false);
+      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 });
 </script>
@@ -139,7 +139,7 @@ onBeforeMount(async () => {
                 </v-list-item>
                 <v-divider class="border-opacity-25" />
                 <v-list-item
-                  @click="emitter.emit('showEditDialog', rom, updatedRom)"
+                  @click="emitter.emit('showEditDialog', rom)"
                   class="pt-4 pb-4 pr-5"
                 >
                   <v-list-item-title class="d-flex"

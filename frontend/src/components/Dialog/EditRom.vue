@@ -4,20 +4,21 @@ import { useDisplay } from "vuetify";
 import { updateRomApi } from "@/services/api.js";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const updatedRom = ref();
 const show = ref(false);
 const rom = ref();
+const updatedRom = ref();
+const renameAsIGDB = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showEditDialog", (romToEdit, updatedRomToEdit) => {
+emitter.on("showEditDialog", (romToEdit) => {
   show.value = true;
   rom.value = romToEdit;
-  updatedRom.value = updatedRomToEdit;
+  updatedRom.value = { ...romToEdit };
 });
 
 async function updateRom(updatedData = { ...updatedRom.value }) {
   show.value = false;
-  emitter.emit("showLoadingDialog", true, true);
+  emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await updateRomApi(rom.value, {
     r_igdb_id: updatedData.r_igdb_id,
@@ -50,7 +51,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         color: "red",
       });
     });
-  emitter.emit("showLoadingDialog", false, false);
+  emitter.emit("showLoadingDialog", { loading: false, scrim: false });
 }
 </script>
 

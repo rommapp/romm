@@ -14,10 +14,10 @@ const matchedRoms = ref([]);
 const renameAsIGDB = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showSearchDialog", (romToSearch, updatedRomToSearch) => {
+emitter.on("showSearchDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch["file_name_no_tags"];
-  updatedRom.value = updatedRomToSearch;
+  updatedRom.value = { ...romToSearch };
+  searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
   searchRomIGDB();
 });
@@ -40,9 +40,9 @@ async function searchRomIGDB() {
 
 async function updateRom(updatedData = { ...updatedRom.value }) {
   show.value = false;
-  emitter.emit("showLoadingDialog", true, true);
+  emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  await updateRomApi(rom, {
+  await updateRomApi(rom.value, {
     r_igdb_id: updatedData.r_igdb_id,
     r_slug: updatedData.r_slug,
     summary: updatedData.summary,
@@ -74,7 +74,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", false, false);
+      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 

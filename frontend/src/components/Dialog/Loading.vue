@@ -5,9 +5,9 @@ const show = ref(false);
 const scrim = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showLoadingDialog", (loading, setScrim) => {
-  show.value = loading;
-  scrim.value = setScrim;
+emitter.on("showLoadingDialog", (args) => {
+  show.value = args.loading;
+  scrim.value = args.scrim;
 });
 </script>
 
