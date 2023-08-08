@@ -14,6 +14,11 @@ from logger.logger import log
 from utils.cache import cache
 from .ps2_opl_index import opl_index
 
+MAIN_GAME_CATEGORY = 0
+EXPANDED_GAME_CATEGORY = 10
+
+N_SCREENSHOTS = 5
+
 ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 PS2_IGDB_ID = 8
 
@@ -52,7 +57,7 @@ class IGDBHandler:
         return res.json()
 
     def _search_rom(
-        self, search_term: str, p_igdb_id: int, category: int = None
+        self, search_term: str, p_igdb_id: int, category: int = 0
     ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
@@ -85,7 +90,7 @@ class IGDBHandler:
     def _search_screenshots(self, rom_id: str) -> list:
         screenshots = self._request(
             self.screenshots_url,
-            data=f"fields url; where game={rom_id}; limit 5;",
+            data=f"fields url; where game={rom_id}; limit {N_SCREENSHOTS};",
         )
 
         return [
@@ -128,8 +133,8 @@ class IGDBHandler:
                 search_term = index_entry["Name"]
 
         res = (
-            self._search_rom(uc(search_term), p_igdb_id, 0)
-            or self._search_rom(uc(search_term), p_igdb_id, 10)
+            self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)
+            or self._search_rom(uc(search_term), p_igdb_id, EXPANDED_GAME_CATEGORY)
             or self._search_rom(uc(search_term), p_igdb_id)
         )
 
