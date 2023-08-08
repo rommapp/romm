@@ -2,14 +2,25 @@ import sys
 import functools
 import pydash
 import requests
+import re
+import time
 
-from time import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 
 from config import CLIENT_ID, CLIENT_SECRET, DEFAULT_URL_COVER_S
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
+from utils.cache import cache
+from .ps2_opl_index import opl_index
+
+MAIN_GAME_CATEGORY = 0
+EXPANDED_GAME_CATEGORY = 10
+
+N_SCREENSHOTS = 5
+
+ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_IGDB_ID = 8
 
 
 class IGDBHandler:
@@ -20,7 +31,7 @@ class IGDBHandler:
         self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
         self.twitch_auth = TwitchAuth()
         self.headers = {
-            "Client-ID": self.twitch_auth.client_id,
+            "Client-ID": CLIENT_ID,
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
@@ -79,7 +90,7 @@ class IGDBHandler:
     def _search_screenshots(self, rom_id: int) -> list:
         screenshots = self._request(
             self.screenshots_url,
-            data=f"fields url; where game={rom_id}; limit 5;",
+            data=f"fields url; where game={rom_id}; limit {N_SCREENSHOTS};",
         )
 
         return [
@@ -112,11 +123,20 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
-        search_term = uc(get_search_term(file_name))
+        search_term = get_search_term(file_name)
+
+        # Patch support for PS2 OPL filename format
+        match = re.match(ps2_opl_regex, search_term)
+        if p_igdb_id == PS2_IGDB_ID and match:
+            serial_code = match.group(1)
+            index_entry = opl_index.get(serial_code, None)
+            if index_entry:
+                search_term = index_entry["Name"]
+
         res = (
-            self._search_rom(search_term, p_igdb_id, 0)
-            or self._search_rom(search_term, p_igdb_id, 10)
-            or self._search_rom(search_term, p_igdb_id)
+            self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)
+            or self._search_rom(uc(search_term), p_igdb_id, EXPANDED_GAME_CATEGORY)
+            or self._search_rom(uc(search_term), p_igdb_id)
         )
 
         r_igdb_id = res.get("id", 0)
@@ -185,50 +205,44 @@ class IGDBHandler:
 
 
 class TwitchAuth:
-    def __init__(self) -> None:
-        self.base_url = "https://id.twitch.tv/oauth2/token"
-        self.token = ""
-        self.token_checkout = int(time())
-        self.secure_seconds_offset = 10  # seconds offset to avoid invalid token
-        self.token_valid_seconds = 0
-        self.client_id = CLIENT_ID
-        self.client_secret = CLIENT_SECRET
-
-    def _is_token_valid(self) -> bool:
-        return (
-            int(time()) + self.secure_seconds_offset - self.token_checkout
-            < self.token_valid_seconds
-        )
-
-    def _update_twitch_token(self):
+    def _update_twitch_token(self) -> str:
         res = requests.post(
-            url=self.base_url,
+            url="https://id.twitch.tv/oauth2/token",
             params={
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
                 "grant_type": "client_credentials",
             },
             timeout=30,
         ).json()
 
-        self.token_checkout = int(time())
-        self.token_valid_seconds = res.get("expires_in", 0)
-        self.token = res.get("access_token", "")
-
-        if not self.token:
+        token = res.get("access_token", "")
+        expires_in = res.get("expires_in", 0)
+        if not token or expires_in == 0:
             log.error(
                 "Could not get twitch auth token: check client_id and client_secret"
             )
             sys.exit(2)
 
+        # Set token in redis to expire in <expires_in> seconds
+        cache.set("twitch_token", token, ex=expires_in - 10)
+        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)
+
         log.info("Twitch token fetched!")
 
+        return token
+
     def get_oauth_token(self) -> str:
+        # Use a fake token when running tests
         if "pytest" in sys.modules:
             return "test_token"
 
-        if not self._is_token_valid():
-            log.warning("Twitch token invalid: fetching a new one...")
-            self._update_twitch_token()
+        # Fetch the token cache
+        token = cache.get("twitch_token")
+        token_expires_at = cache.get("twitch_token_expires_at")
 
-        return self.token
+        if not token or time.time() > float(token_expires_at or 0):
+            log.warning("Twitch token invalid: fetching a new one...")
+            return self._update_twitch_token()
+
+        return token

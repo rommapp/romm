@@ -15,24 +15,40 @@ const completeRescan = ref(false);
 // Event listeners bus
 const emitter = inject("emitter");
 
+function scrollToBottom() {
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
 socket.on("scan:scanning_platform", ({ p_name, p_slug }) => {
   scannedPlatforms.value.push({
     name: p_name,
     slug: p_slug,
     roms: [],
   });
+  window.setTimeout(scrollToBottom, 100);
 });
 
-socket.on("scan:scanning_rom", ({ p_slug, file_name, r_name }) => {
-  const platform = scannedPlatforms.value.find((p) => p.slug === p_slug);
-  platform.roms.push({
-    name: r_name,
-    file_name: file_name,
-  });
+socket.on("scan:scanning_rom", ({ p_slug, p_name, ...rom }) => {
+  let platform = scannedPlatforms.value.find((p) => p.slug === p_slug);
+
+  // Add the platform if the socket dropped and it's missing
+  if (!platform) {
+    scannedPlatforms.value.push({
+      name: p_name,
+      slug: p_slug,
+      roms: [],
+    });
+
+    platform = scannedPlatforms.slice(-1);
+  }
+
+  platform.roms.push(rom);
+  window.setTimeout(scrollToBottom, 100);
 });
 
 socket.on("scan:done", () => {
   scanning.set(false);
+  
   emitter.emit("refreshPlatforms");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
@@ -44,6 +60,7 @@ socket.on("scan:done", () => {
 
 socket.on("scan:done_ko", (msg) => {
   scanning.set(false);
+
   emitter.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
@@ -61,7 +78,7 @@ async function scan() {
 
   socket.emit(
     "scan",
-    JSON.stringify(platformsToScan.value.map((p) => p.fs_slug)),
+    platformsToScan.value.map((p) => p.fs_slug).join(","),
     completeRescan.value
   );
 }
@@ -135,8 +152,8 @@ async function scan() {
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
       <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
-        <span v-if="rom.name" class="ml-10">
-          • Identified <b>{{ rom.name }} 👾</b>
+        <span v-if="rom.r_igdb_id" class="ml-10">
+          • Identified <b>{{ rom.r_name }} 👾</b>
         </span>
         <span v-else class="ml-10">
           • {{ rom.file_name }} not found in IGDB
