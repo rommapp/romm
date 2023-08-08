@@ -19,20 +19,22 @@ from config import (
 
 @pytest.mark.vcr
 def test_get_cover():
+    # Game: Paper Mario (USA).z64
     cover = get_cover(
         overwrite=False,
         p_slug="n64",
-        r_name="Paper Mario (USA).z64",
+        r_name="Paper Mario",
     )
 
     assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
     assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
+    # Game: Paper Mario (USA).z64
     cover = get_cover(
         overwrite=True,
         p_slug="n64",
-        r_name="Paper Mario (USA).z64",
+        r_name="Paper Mario",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
@@ -40,10 +42,11 @@ def test_get_cover():
     assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
+    # Game: Super Mario 64 (J) (Rev A)
     cover = get_cover(
         overwrite=False,
         p_slug="n64",
-        r_name="Super Mario 64 (USA).z64",
+        r_name="Super Mario 64",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
@@ -51,10 +54,11 @@ def test_get_cover():
     assert "n64/Super Mario 64/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
+    # Game: Fake Game.xyz
     cover = get_cover(
         overwrite=False,
         p_slug="n64",
-        r_name="Fake Game.xyz",
+        r_name="Fake Game",
     )
 
     assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
