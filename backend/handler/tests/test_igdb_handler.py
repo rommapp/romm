@@ -1,5 +1,6 @@
 import pytest
 from urllib.parse import urlparse
+from config import DEFAULT_URL_COVER_S
 
 from handler.igdb_handler import IGDBHandler
 
@@ -32,7 +33,7 @@ def test_get_rom():
     assert rom["r_slug"] == ""
     assert rom["r_name"] == "Not a real game title"
     assert not rom["summary"]
-    assert not rom["url_cover"]
+    assert rom["url_cover"] == DEFAULT_URL_COVER_S
     assert not rom["url_screenshots"]
 
 
@@ -43,7 +44,7 @@ def test_get_ps2_opl_rom():
     assert rom["r_slug"] == ""
     assert rom["r_name"] == "WWE Smack"
     assert not rom["summary"]
-    assert not rom["url_cover"]
+    assert rom["url_cover"] == DEFAULT_URL_COVER_S
     assert not rom["url_screenshots"]
 
     rom = igdbh.get_rom("SLUS_210.60.WWE Smack.iso", 8)
