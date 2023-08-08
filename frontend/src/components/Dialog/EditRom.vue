@@ -6,17 +6,15 @@ import { updateRomApi } from "@/services/api.js";
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
-const updatedRom = ref();
 const renameAsIGDB = ref(false);
 
 const emitter = inject("emitter");
 emitter.on("showEditDialog", (romToEdit) => {
   show.value = true;
   rom.value = romToEdit;
-  updatedRom.value = { ...romToEdit };
 });
 
-async function updateRom(updatedData = { ...updatedRom.value }) {
+async function updateRom(updatedData = { ...rom.value }) {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
@@ -28,15 +26,13 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
     url_screenshots: updatedData.url_screenshots,
     r_name: updatedData.r_name,
     file_name: renameAsIGDB.value
-      ? updatedRom.value.file_name.replace(
-          updatedRom.value.file_name_no_tags,
+      ? rom.value.file_name.replace(
+        rom.value.file_name_no_tags,
           updatedData.r_name
         )
       : updatedData.file_name,
   })
     .then((response) => {
-      rom.value = response.data.rom;
-      updatedRom.value = { ...response.data.rom };
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
@@ -97,7 +93,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         <v-row class="justify-center pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
-            v-model="updatedRom.r_name"
+            v-model="rom.r_name"
             label="Name"
             variant="outlined"
             required
@@ -107,7 +103,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         <v-row class="justify-center pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
-            v-model="updatedRom.file_name"
+            v-model="rom.file_name"
             label="File name"
             variant="outlined"
             required
@@ -117,7 +113,7 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
         <v-row class="justify-center pa-2" no-gutters>
           <v-textarea
             @keyup.enter="updateRom()"
-            v-model="updatedRom.summary"
+            v-model="rom.summary"
             label="Summary"
             variant="outlined"
             required

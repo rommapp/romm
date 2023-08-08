@@ -6,17 +6,15 @@ import { updateRomApi, searchRomIGDBApi } from "@/services/api.js";
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
-const updatedRom = ref();
+const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
 const matchedRoms = ref([]);
-const renameAsIGDB = ref(false);
 
 const emitter = inject("emitter");
 emitter.on("showSearchDialog", (romToSearch) => {
   rom.value = romToSearch;
-  updatedRom.value = { ...romToSearch };
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
   searchRomIGDB();
@@ -38,7 +36,7 @@ async function searchRomIGDB() {
   }
 }
 
-async function updateRom(updatedData = { ...updatedRom.value }) {
+async function updateRom(updatedData = { ...rom.value }) {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
@@ -50,15 +48,13 @@ async function updateRom(updatedData = { ...updatedRom.value }) {
     url_screenshots: updatedData.url_screenshots,
     r_name: updatedData.r_name,
     file_name: renameAsIGDB.value
-      ? updatedRom.value.file_name.replace(
-          updatedRom.value.file_name_no_tags,
+      ? rom.value.file_name.replace(
+        rom.value.file_name_no_tags,
           updatedData.r_name
         )
       : updatedData.file_name,
   })
     .then((response) => {
-      rom.value = response.data.rom;
-      updatedRom.value = { ...response.data.rom };
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
