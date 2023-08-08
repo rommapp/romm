@@ -250,7 +250,7 @@ class TwitchAuth:
         token = cache.get("twitch_token")
         token_expires_at = cache.get("twitch_token_expires_at")
 
-        if not token or time.time() > float(token_expires_at):
+        if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
             return self._update_twitch_token()
 
