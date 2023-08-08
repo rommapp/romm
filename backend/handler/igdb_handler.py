@@ -3,17 +3,17 @@ import functools
 import pydash
 import requests
 import re
-from redis import Redis
+import time
 
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 
-from config import CLIENT_ID, CLIENT_SECRET, REDIS_HOST, REDIS_PORT
+from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
+from utils.cache import cache
 from .ps2_opl_index import opl_index
 
-redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 PS2_IGDB_ID = 8
 
@@ -247,7 +247,9 @@ class TwitchAuth:
             sys.exit(2)
 
         # Set token in redis to expire in <expires_in> seconds
-        redis_client.set("twitch_token", token, ex=expires_in - 10)
+        cache.set("twitch_token", token, ex=expires_in - 10)
+        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)
+
         log.info("Twitch token fetched!")
 
         return token
@@ -257,8 +259,11 @@ class TwitchAuth:
         if "pytest" in sys.modules:
             return "test_token"
 
-        token = redis_client.get("twitch_token")
-        if not token:
+        # Fetch the token cache
+        token = cache.get("twitch_token")
+        token_expires_at = cache.get("twitch_token_expires_at")
+
+        if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
             return self._update_twitch_token()
 
