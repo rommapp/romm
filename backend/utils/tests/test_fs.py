@@ -22,39 +22,39 @@ def test_get_cover():
     cover = get_cover(
         overwrite=False,
         p_slug="n64",
-        file_name="Paper Mario (USA).z64",
+        r_name="Paper Mario (USA).z64",
     )
 
-    assert "n64/Paper Mario (USA).z64/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper Mario (USA).z64/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
     cover = get_cover(
         overwrite=True,
         p_slug="n64",
-        file_name="Paper Mario (USA).z64",
+        r_name="Paper Mario (USA).z64",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
-    assert "n64/Paper Mario (USA).z64/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper Mario (USA).z64/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
     cover = get_cover(
         overwrite=False,
         p_slug="n64",
-        file_name="Super Mario 64 (USA).z64",
+        r_name="Super Mario 64 (USA).z64",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
-    assert "n64/Super Mario 64 (USA).z64/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Super Mario 64 (USA).z64/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Super Mario 64/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Super Mario 64/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
     cover = get_cover(
         overwrite=False,
         p_slug="n64",
-        file_name="Fake Game.xyz",
+        r_name="Fake Game.xyz",
     )
 
     assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]

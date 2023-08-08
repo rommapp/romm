@@ -104,14 +104,14 @@ def scan_rom(
         fs.get_cover(
             overwrite=overwrite,
             p_slug=platform.slug, # type: ignore
-            file_name=rom_attrs["r_name"],
+            r_name=rom_attrs["r_name"],
             url_cover=rom_attrs["url_cover"],
         )
     )
     rom_attrs.update(
         fs.get_screenshots(
             p_slug=platform.slug, # type: ignore
-            file_name=rom_attrs["r_name"],
+            r_name=rom_attrs["r_name"],
             url_screenshots=rom_attrs["url_screenshots"],
         )
     )
