@@ -1,5 +1,6 @@
 from logger.logger import log
 
+
 def test_logger(caplog):
    log.debug("Testing debug message")
    assert "debug message" in caplog.text

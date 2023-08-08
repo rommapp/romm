@@ -1,7 +1,7 @@
 import logging
 
-class FileFormatter(logging.Formatter):
 
+class FileFormatter(logging.Formatter):
     level: str = "%(levelname)s"
     dots: str = ":"
     identifier: str = "\t  [RomM]"

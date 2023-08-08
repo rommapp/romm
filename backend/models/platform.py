@@ -19,4 +19,4 @@ class Platform(BaseModel):
     fs_slug = Column(String(length=50), primary_key=True)
 
     def __repr__(self) -> str:
-        return self.name
+        return self.name # type: ignore
