@@ -7,15 +7,16 @@ from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from handler.socket_manager import socket_server
-from worker import redis_conn, redis_url
-
-
-scan_queue = Queue(connection=redis_conn)
+from utils.cache import redis_client, redis_url, redis_connectable
 
 
 async def scan_platforms(paltforms: str, complete_rescan: bool):
     # Connect to external socketio server
-    sm = socketio.AsyncRedisManager(redis_url, write_only=True)
+    sm = (
+        socketio.AsyncRedisManager(redis_url, write_only=True)
+        if redis_connectable
+        else socket_server
+    )
 
     # Scanning file system
     try:
@@ -77,5 +78,11 @@ async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
 
-    # Queue up a job for each platform
-    scan_queue.enqueue(scan_platforms, platforms, complete_rescan)
+    # Run in worker if redis is available
+    if redis_connectable:
+        scan_queue = Queue(connection=redis_client)
+
+        # Queue up a job for all platform
+        scan_queue.enqueue(scan_platforms, platforms, complete_rescan)
+    else:
+        await scan_platforms(platforms, complete_rescan)
