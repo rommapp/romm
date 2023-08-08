@@ -2,6 +2,7 @@ import sys
 import functools
 import pydash
 import requests
+import re
 from redis import Redis
 
 from unidecode import unidecode as uc
@@ -10,9 +11,10 @@ from requests.exceptions import HTTPError, Timeout
 from config import CLIENT_ID, CLIENT_SECRET, REDIS_HOST, REDIS_PORT
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
+from .ps2_opl_index import opl_index
 
 redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
-
+ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 
 class IGDBHandler:
     def __init__(self) -> None:
@@ -114,11 +116,20 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
-        search_term = uc(get_search_term(file_name))
+        search_term = get_search_term(file_name)
+
+        # Patch support for PS2 OPL filename format
+        match = re.match(ps2_opl_regex, search_term)
+        if p_igdb_id == 8 and match:
+            serial_code = match.group(1)
+            index_entry = opl_index.get(serial_code, None)
+            if index_entry:
+                search_term = index_entry["Name"]
+
         res = (
-            self._search_rom(search_term, p_igdb_id, 0)
-            or self._search_rom(search_term, p_igdb_id, 10)
-            or self._search_rom(search_term, p_igdb_id)
+            self._search_rom(uc(search_term), p_igdb_id, 0)
+            or self._search_rom(uc(search_term), p_igdb_id, 10)
+            or self._search_rom(uc(search_term), p_igdb_id)
         )
 
         r_igdb_id = res.get("id", 0)

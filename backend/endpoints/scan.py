@@ -56,6 +56,7 @@ async def scan_platforms(paltforms: str, complete_rescan: bool):
                     "p_name": scanned_platform.name,
                     "file_name": scanned_rom.file_name,
                     "r_name": scanned_rom.r_name,
+                    "r_igdb_id": scanned_rom.r_igdb_id,
                 },
             )
 
