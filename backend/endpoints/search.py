@@ -20,7 +20,7 @@ async def search_rom_igdb(
 
     log.info(f"Searching by {search_by}: {search_term}")
     if search_by.lower() == "id":
-        matched_roms = igdbh.get_matched_roms_by_id(search_term)
+        matched_roms = igdbh.get_matched_roms_by_id(int(search_term))
     elif search_by.lower() == "name":
         matched_roms = (
             []

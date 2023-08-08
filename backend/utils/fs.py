@@ -70,7 +70,9 @@ def _get_cover_path(p_slug: str, file_name: str, size: str):
     return f"{p_slug}/{file_name}/cover/{size}.png?timestamp={strtime}"
 
 
-def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str = None):
+def get_cover(
+    overwrite: bool, p_slug: str, file_name: str, url_cover: str = ""
+) -> dict:
     # Cover small
     if (overwrite or not _cover_exists(p_slug, file_name, "small")) and url_cover:
         _store_cover(p_slug, file_name, url_cover, "small")
@@ -124,7 +126,7 @@ def _get_screenshot_path(p_slug: str, file_name: str, idx: str):
     return f"{p_slug}/{file_name}/screenshots/{idx}.jpg"
 
 
-def get_screenshots(p_slug: str, file_name: str, url_screenshots: list):
+def get_screenshots(p_slug: str, file_name: str, url_screenshots: list) -> dict:
     path_screenshots: list[str] = []
     for idx, url in enumerate(url_screenshots):
         _store_screenshot(p_slug, file_name, url, idx)

@@ -25,7 +25,8 @@ class IGDBHandler:
             "Accept": "application/json",
         }
 
-    def check_twitch_token(func) -> tuple:
+    @staticmethod
+    def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
             args[0].headers[
@@ -46,9 +47,7 @@ class IGDBHandler:
 
         return res.json()
 
-    def _search_rom(
-        self, search_term: str, p_igdb_id: int, category: int = None
-    ) -> dict:
+    def _search_rom(self, search_term: str, p_igdb_id: int, category: int = 0) -> dict:
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
             self.games_url,
@@ -65,7 +64,7 @@ class IGDBHandler:
     def _normalize_cover_url(url: str) -> str:
         return f"https:{url.replace('https:', '')}"
 
-    def _search_cover(self, rom_id: str) -> str:
+    def _search_cover(self, rom_id: int) -> str:
         covers = self._request(
             self.covers_url,
             data=f"fields url; where game={rom_id};",
@@ -77,7 +76,7 @@ class IGDBHandler:
 
         return self._normalize_cover_url(cover["url"])
 
-    def _search_screenshots(self, rom_id: str) -> list:
+    def _search_screenshots(self, rom_id: int) -> list:
         screenshots = self._request(
             self.screenshots_url,
             data=f"fields url; where game={rom_id}; limit 5;",
@@ -97,18 +96,19 @@ class IGDBHandler:
         )
 
         platform = pydash.get(paltforms, "[0]", None)
-        if not platform:
-            return {
+        return (
+            {
                 "igdb_id": "",
                 "name": p_slug,
                 "slug": p_slug,
             }
-
-        return {
-            "igdb_id": platform["id"],
-            "name": platform["name"],
-            "slug": p_slug,
-        }
+            if not platform
+            else {
+                "igdb_id": platform["id"],
+                "name": platform["name"],
+                "slug": p_slug,
+            }
+        )
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
@@ -134,7 +134,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_rom_by_id(self, r_igdb_id: str):
+    def get_rom_by_id(self, r_igdb_id: int):
         roms = self._request(
             self.games_url,
             f"fields slug, name, summary; where id={r_igdb_id};",
@@ -151,7 +151,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_matched_roms_by_id(self, r_igdb_id: str):
+    def get_matched_roms_by_id(self, r_igdb_id: int):
         matched_rom = self.get_rom_by_id(r_igdb_id)
         matched_rom.update(
             url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),

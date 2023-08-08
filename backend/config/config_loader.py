@@ -34,8 +34,8 @@ class ConfigLoader:
                 log.critical("DB_PORT variable not set properly")
                 sys.exit(3)
 
-            DB_USER: str = os.environ.get("DB_USER")
-            DB_PASSWD: str = os.environ.get("DB_PASSWD")
+            DB_USER: str = os.environ.get("DB_USER", "")
+            DB_PASSWD: str = os.environ.get("DB_PASSWD", "")
             DB_NAME: str = os.environ.get("DB_NAME", "romm")
             return (
                 f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -50,7 +50,7 @@ class ConfigLoader:
         log.critical(f"{ROMM_DB_DRIVER} database not supported")
         sys.exit(3)
 
-    def _parse_config(self) -> dict:
+    def _parse_config(self):
         self.config["EXCLUDED_PLATFORMS"] = pydash.get(
             self.config, "exclude.platforms", []
         )

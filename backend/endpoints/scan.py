@@ -11,7 +11,7 @@ from handler.socket_manager import SocketManager
 
 
 async def scan(
-    sm: SocketManager, _sid: str, platforms: str, complete_rescan: bool = True
+    sm: SocketManager, _sid: str, platforms_to_scan: str, complete_rescan: bool = True
 ):
     """Scan platforms and roms and write them in database."""
 
@@ -26,7 +26,7 @@ async def scan(
         return
 
     platforms: list[str] = (
-        json.loads(platforms) if len(json.loads(platforms)) > 0 else fs_platforms
+        json.loads(platforms_to_scan) if len(json.loads(platforms_to_scan)) > 0 else fs_platforms
     )
     log.info(f"Platforms to be scanned: {', '.join(platforms)}")
     for platform in platforms:
@@ -45,9 +45,9 @@ async def scan(
         dbh.add_platform(scanned_platform)
 
         # Scanning roms
-        fs_roms: list[str] = fs.get_roms(scanned_platform.fs_slug)
+        fs_roms: list[dict] = fs.get_roms(scanned_platform.fs_slug) # type: ignore
         for rom in fs_roms:
-            rom_id: int = dbh.rom_exists(scanned_platform.slug, rom["file_name"])
+            rom_id: int = dbh.rom_exists(scanned_platform.slug, rom["file_name"]) # type: ignore
             if rom_id and not complete_rescan:
                 continue
 
@@ -63,11 +63,11 @@ async def scan(
             )
 
             if rom_id:
-                scanned_rom.id = rom_id
+                scanned_rom.id = rom_id # type: ignore
 
             dbh.add_rom(scanned_rom)
-        dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
-        dbh.update_n_roms(scanned_platform.slug)
+        dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])  # type: ignore
+        dbh.update_n_roms(scanned_platform.slug) # type: ignore
     dbh.purge_platforms(fs_platforms)
 
     await sm.emit("scan:done")

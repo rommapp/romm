@@ -26,4 +26,4 @@ class PlatformSchema(BaseModel):
 def platforms() -> list[PlatformSchema]:
     """Returns platforms data"""
 
-    return dbh.get_platforms()
+    return dbh.get_platforms() # type: ignore
