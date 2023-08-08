@@ -15,6 +15,7 @@ from .ps2_opl_index import opl_index
 
 redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_IGDB_ID = 8
 
 class IGDBHandler:
     def __init__(self) -> None:
@@ -120,7 +121,7 @@ class IGDBHandler:
 
         # Patch support for PS2 OPL filename format
         match = re.match(ps2_opl_regex, search_term)
-        if p_igdb_id == 8 and match:
+        if p_igdb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
             index_entry = opl_index.get(serial_code, None)
             if index_entry:
