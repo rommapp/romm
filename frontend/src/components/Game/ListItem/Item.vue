@@ -71,6 +71,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
           :disabled="downloadStore.value.includes(rom.file_name)"
           icon="mdi-download"
           size="x-small"
+          rounded="0"
           variant="text"
         />
       </template>
@@ -80,12 +81,14 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
           download
           icon="mdi-download"
           size="x-small"
+          rounded="0"
           variant="text"
         />
       </template>
       <v-btn
         icon="mdi-content-save-all"
         size="x-small"
+        rounded="0"
         variant="text"
         :disabled="!saveFiles"
       />
@@ -96,18 +99,25 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
             v-bind="props"
             icon="mdi-dots-vertical"
             size="x-small"
+            rounded="0"
             variant="text"
           />
         </template>
         <v-list rounded="0" class="pa-0">
-          <v-list-item @click="emitter.emit('showSearchDialog', rom)" class="pt-4 pb-4 pr-5">
+          <v-list-item
+            @click="emitter.emit('showSearchDialog', rom)"
+            class="pt-4 pb-4 pr-5"
+          >
             <v-list-item-title class="d-flex"
               ><v-icon icon="mdi-search-web" class="mr-2" />Search
               IGDB</v-list-item-title
             >
           </v-list-item>
           <v-divider class="border-opacity-25" />
-          <v-list-item @click="emitter.emit('showEditDialog', rom)" class="pt-4 pb-4 pr-5">
+          <v-list-item
+            @click="emitter.emit('showEditDialog', rom)"
+            class="pt-4 pb-4 pr-5"
+          >
             <v-list-item-title class="d-flex"
               ><v-icon
                 icon="mdi-pencil-box"

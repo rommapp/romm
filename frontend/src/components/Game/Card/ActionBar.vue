@@ -21,6 +21,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
             :disabled="downloadStore.value.includes(rom.file_name)"
             icon="mdi-download"
             size="x-small"
+            rounded="0"
             variant="text"
           />
         </template>
@@ -30,12 +31,14 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
             download
             icon="mdi-download"
             size="x-small"
+            rounded="0"
             variant="text"
           />
         </template>
         <v-btn
           icon="mdi-content-save-all"
           size="x-small"
+          rounded="0"
           variant="text"
           :disabled="!saveFiles"
         />
@@ -48,6 +51,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
             v-bind="props"
             icon="mdi-dots-vertical"
             size="x-small"
+            rounded="0"
             variant="text"
           />
         </template>
