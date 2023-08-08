@@ -37,4 +37,5 @@ class FallbackCache:
         return repr(self)
 
 
-cache = redis_client if redis_connectable else FallbackCache()
+_cache_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+cache = _cache_client if redis_connectable else FallbackCache()
