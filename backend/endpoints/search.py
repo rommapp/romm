@@ -25,18 +25,11 @@ async def search_rom_igdb(
         elif search_by.lower() == "name":
             matched_roms = igdbh.get_matched_roms_by_name(search_term, rom["p_igdb_id"])
     else:
-        log.info(
-            emoji.emojize(
-                f":video_game: {rom['p_slug']}: {rom['file_name']}"
-            )
-        )
+        log.info(emoji.emojize(f":video_game: {rom['p_slug']}: {rom['file_name']}"))
         matched_roms = igdbh.get_matched_roms(rom["file_name"], rom["p_igdb_id"])
 
     log.info("Results:")
 
-    [
-        log.info(f"\t - {rom['r_name']}")
-        for rom in matched_roms
-    ]
+    [log.info(f"\t - {rom['r_name']}") for rom in matched_roms]
 
     return {"roms": matched_roms, "msg": "success"}
