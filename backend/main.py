@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
 from config import DEV_PORT, DEV_HOST
-from handler.socket_manager import socket_app
 from endpoints import search, platform, rom, scan  # noqa
+from utils.socket import socket_app
 
 app = FastAPI()
 app.add_middleware(
