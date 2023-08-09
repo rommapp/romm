@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BaseConfig
 
 from handler import dbh
 
@@ -7,8 +7,6 @@ router = APIRouter()
 
 
 class PlatformSchema(BaseModel):
-    model_config = ConfigDict(orm_mode=True)
-
     igdb_id: str
     sgdb_id: str
 
@@ -20,9 +18,11 @@ class PlatformSchema(BaseModel):
 
     n_roms: int
 
+    class Config(BaseConfig):
+        orm_mode = True
+
 
 @router.get("/platforms", status_code=200)
 def platforms() -> list[PlatformSchema]:
     """Returns platforms data"""
-
     return dbh.get_platforms()

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, status, HTTPException
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BaseConfig
 
 from logger.logger import log
 from handler import dbh
@@ -19,8 +19,6 @@ router = APIRouter()
 
 
 class RomSchema(BaseModel):
-    model_config = ConfigDict(orm_mode=True)
-
     id: int
 
     r_igdb_id: str
@@ -60,6 +58,9 @@ class RomSchema(BaseModel):
 
     full_path: str
     download_path: str
+
+    class Config(BaseConfig):
+        orm_mode = True
 
 
 @router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
