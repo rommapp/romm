@@ -146,14 +146,14 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     updated_rom.update(
         fs.get_cover(
             overwrite=True,
-            p_slug=p_slug,
+            p_slug=platform.slug,
             r_name=updated_rom["file_name_no_tags"],
             url_cover=updated_rom["url_cover"],
         )
     )
     updated_rom.update(
         fs.get_screenshots(
-            p_slug=p_slug,
+            p_slug=platform.slug,
             r_name=updated_rom["file_name_no_tags"],
             url_screenshots=updated_rom["url_screenshots"],
         ),
