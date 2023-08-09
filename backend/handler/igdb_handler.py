@@ -4,9 +4,9 @@ import pydash
 import requests
 import re
 import time
-
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
+from typing import Optional
 
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
@@ -104,19 +104,18 @@ class IGDBHandler:
         )
 
         platform = pydash.get(paltforms, "[0]", None)
-        return (
-            {
+        if not platform:
+            return {
                 "igdb_id": "",
                 "name": p_slug,
                 "slug": p_slug,
             }
-            if not platform
-            else {
-                "igdb_id": platform["id"],
-                "name": platform["name"],
-                "slug": p_slug,
-            }
-        )
+
+        return {
+            "igdb_id": platform["id"],
+            "name": platform["name"],
+            "slug": p_slug,
+        }
 
     @check_twitch_token
     def get_rom(self, file_name: str, p_igdb_id: int):
@@ -128,7 +127,7 @@ class IGDBHandler:
             serial_code = match.group(1)
             index_entry = opl_index.get(serial_code, None)
             if index_entry:
-                search_term = index_entry["Name"]
+                search_term = index_entry["Name"]  # type: ignore
 
         res = (
             self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)
@@ -177,6 +176,9 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int):
+        if not p_igdb_id:
+            return []
+
         matched_roms = self._request(
             self.games_url,
             data=f"""
@@ -222,8 +224,8 @@ class TwitchAuth:
             sys.exit(2)
 
         # Set token in redis to expire in <expires_in> seconds
-        cache.set("twitch_token", token, ex=expires_in - 10)
-        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)
+        cache.set("twitch_token", token, ex=expires_in - 10)  # type: ignore
+        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore
 
         log.info("Twitch token fetched!")
 
@@ -235,8 +237,8 @@ class TwitchAuth:
             return "test_token"
 
         # Fetch the token cache
-        token = cache.get("twitch_token")
-        token_expires_at = cache.get("twitch_token_expires_at")
+        token = cache.get("twitch_token")  # type: ignore
+        token_expires_at = cache.get("twitch_token_expires_at")  # type: ignore
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, status, HTTPException
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from logger.logger import log
 from handler import dbh
@@ -19,6 +19,8 @@ router = APIRouter()
 
 
 class RomSchema(BaseModel):
+    model_config = ConfigDict(orm_mode=True)
+
     id: int
 
     r_igdb_id: str
@@ -58,9 +60,6 @@ class RomSchema(BaseModel):
 
     full_path: str
     download_path: str
-
-    class Config(BaseModel.Config):
-        orm_mode = True
 
 
 @router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
@@ -119,7 +118,7 @@ def roms(
                 cursor_params,
             )
 
-        return paginate(session, qq, cursor_params)  # type: ignore
+        return paginate(session, qq, cursor_params)
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)
@@ -134,18 +133,29 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     file_name = updated_rom.get("file_name", db_rom.file_name)
 
     try:
-        if file_name != db_rom.file_name:  # type: ignore
-            fs.rename_rom(platform.fs_slug, db_rom.file_name, file_name)  # type: ignore
+        if file_name != db_rom.file_name:
+            fs.rename_rom(platform.fs_slug, db_rom.file_name, file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(file_name)  # type: ignore
-    updated_rom.update(fs.get_cover(overwrite=True, p_slug=p_slug, r_name=updated_rom["file_name_no_tags"], url_cover=updated_rom["url_cover"]))  # type: ignore
+    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(file_name)
     updated_rom.update(
-        fs.get_screenshots(p_slug=p_slug, r_name=updated_rom["file_name_no_tags"], url_screenshots=updated_rom["url_screenshots"]),  # type: ignore
+        fs.get_cover(
+            overwrite=True,
+            p_slug=p_slug,
+            r_name=updated_rom["file_name_no_tags"],
+            url_cover=updated_rom["url_cover"],
+        )
+    )
+    updated_rom.update(
+        fs.get_screenshots(
+            p_slug=p_slug,
+            r_name=updated_rom["file_name_no_tags"],
+            url_screenshots=updated_rom["url_screenshots"],
+        ),
     )
     dbh.update_rom(id, updated_rom)
 
@@ -168,7 +178,7 @@ def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
             platform: Platform = dbh.get_platform(p_slug)
-            fs.remove_rom(platform.fs_slug, rom.file_name)  # type: ignore
+            fs.remove_rom(platform.fs_slug, rom.file_name)
         except RomNotFoundError as e:
             error = f"Couldn't delete from filesystem: {str(e)}"
             log.error(error)

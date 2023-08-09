@@ -1,4 +1,4 @@
-import socketio
+import socketio  # type: ignore
 
 from utils.cache import redis_url, redis_connectable
 

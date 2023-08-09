@@ -23,15 +23,21 @@ class ConfigLoader:
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         try:
             with open(config_path) as config_file:
-                self.config: dict = yaml.load(config_file, Loader=SafeLoader) or {}
+                self.config = yaml.load(config_file, Loader=SafeLoader) or {}
         except FileNotFoundError:
-            self.config: dict = {}
+            self.config = {}
         finally:
             self._parse_config()
 
     @staticmethod
     def get_db_engine() -> str:
         if ROMM_DB_DRIVER == "mariadb":
+            if not DB_USER or not DB_PASSWD:
+                log.critical(
+                    "Missing database credentials. Please check your configuration file"
+                )
+                sys.exit(3)
+
             return (
                 f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}"
                 % quote_plus(DB_PASSWD)
