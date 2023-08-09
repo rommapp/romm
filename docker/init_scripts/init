@@ -7,7 +7,7 @@
 /init_front &
 
 # Start rq worker
-/init_worker &
+# /init_worker &
 
 # Wait for any process to exit
 wait -n
