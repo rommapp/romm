@@ -12,10 +12,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Set version
-        run: VERSION=$(cat .romm-version); sed -i "s/<romm_version>/$VERSION/" pyproject.toml frontend/package.json
       - name: Set environment variables
-        run: echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+        shell: bash
+        run: |
+          echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          VERSION=$(cat .romm-version)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Set version
+        shell: bash
+        run: sed -i "s/<romm_version>/${{ env.VERSION }}/" pyproject.toml frontend/package.json
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
@@ -43,9 +48,9 @@ jobs:
             latest=true
             prefix=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }},onlatest=true
           tags: |
-            type=raw,value=${{ inputs.version }}
+            type=raw,value=${{ env.VERSION }}
           labels: |
-            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.version=${{ env.VERSION }}
       - name: Build image
         uses: docker/build-push-action@v4
         with:
