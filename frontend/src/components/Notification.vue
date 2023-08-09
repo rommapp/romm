@@ -16,9 +16,9 @@ emitter.on("snackbarShow", (snackbar) => {
 <template>
   <v-snackbar
     v-model="snackbarShow"
-    :timeout="4000"
+    :timeout="2000"
     location="top"
-    color="notification"
+    color="tooltip"
   >
     <v-icon
       :icon="snackbarStatus.icon"
