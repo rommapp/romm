@@ -18,20 +18,7 @@ async function updateRom(updatedData = { ...rom.value }) {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  await updateRomApi(rom.value, {
-    r_igdb_id: updatedData.r_igdb_id,
-    r_slug: updatedData.r_slug,
-    summary: updatedData.summary,
-    url_cover: updatedData.url_cover,
-    url_screenshots: updatedData.url_screenshots,
-    r_name: updatedData.r_name,
-    file_name: renameAsIGDB.value
-      ? rom.value.file_name.replace(
-        rom.value.file_name_no_tags,
-          updatedData.r_name
-        )
-      : updatedData.file_name,
-  })
+  await updateRomApi(rom.value, updatedData, renameAsIGDB.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
@@ -46,8 +33,10 @@ async function updateRom(updatedData = { ...rom.value }) {
         icon: "mdi-close-circle",
         color: "red",
       });
+    })
+    .finally(() => {
+      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
     });
-  emitter.emit("showLoadingDialog", { loading: false, scrim: false });
 }
 </script>
 
@@ -133,7 +122,11 @@ async function updateRom(updatedData = { ...rom.value }) {
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false">Cancel</v-btn>
-          <v-btn @click="updateRom()" class="text-rommGreen ml-5">Apply</v-btn>
+          <v-btn
+            @click="updateRom()"
+            class="text-rommGreen ml-5"
+            >Apply</v-btn
+          >
         </v-row>
       </v-card-text>
     </v-card>

@@ -43,12 +43,22 @@ export async function downloadRomApi(rom, files) {
       a.href = window.URL.createObjectURL(new Blob([response.data]));
       a.download = `${rom.r_name}.zip`;
       a.click();
-
       downloadStore.remove(rom.file_name);
     });
 }
 
-export async function updateRomApi(rom, updatedRom) {
+export async function updateRomApi(rom, updatedData, renameAsIGDB) {
+  const updatedRom = {
+    r_igdb_id: updatedData.r_igdb_id,
+    r_slug: updatedData.r_slug,
+    summary: updatedData.summary,
+    url_cover: updatedData.url_cover,
+    url_screenshots: updatedData.url_screenshots,
+    r_name: updatedData.r_name,
+    file_name: renameAsIGDB
+      ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
+      : updatedData.file_name,
+  };
   return axios.patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
     updatedRom,
   });
