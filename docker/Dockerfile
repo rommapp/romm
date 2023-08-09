@@ -25,6 +25,8 @@ RUN apt update && \
     apt install -y --no-install-recommends \
       libmariadb3 libmariadb-dev gcc \
       python3.10 python3.10-dev python3-pip && \
+    apt install -y --no-install-recommends \
+      netcat && \
     apt autoremove && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 WORKDIR /back
