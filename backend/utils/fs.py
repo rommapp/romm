@@ -1,6 +1,5 @@
 import os
 import shutil
-import datetime
 from pathlib import Path
 import requests
 
@@ -69,9 +68,7 @@ def _get_cover_path(p_slug: str, r_name: str, size: str):
     return f"{p_slug}/{r_name}/cover/{size}.png"
 
 
-def get_cover(
-    overwrite: bool, p_slug: str, r_name: str, url_cover: str = ""
-) -> dict:
+def get_cover(overwrite: bool, p_slug: str, r_name: str, url_cover: str = "") -> dict:
     # Cover small
     if (overwrite or not _cover_exists(p_slug, r_name, "small")) and url_cover:
         _store_cover(p_slug, r_name, url_cover, "small")
@@ -135,7 +132,7 @@ def get_screenshots(p_slug: str, r_name: str, url_screenshots: list) -> dict:
 
 def store_default_resources():
     """Store default cover resources in the filesystem"""
-    defaul_covers: list = [
+    defaul_covers = [
         {"url": DEFAULT_URL_COVER_L, "size": "big"},
         {"url": DEFAULT_URL_COVER_S, "size": "small"},
     ]

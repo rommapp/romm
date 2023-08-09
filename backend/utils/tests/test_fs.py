@@ -4,11 +4,11 @@ from utils.fs import (
     get_cover,
     get_platforms,
     get_roms_structure,
-    get_rom_files,  # TODO: test function
     get_roms,
     get_rom_size,
-    rename_rom,  # TODO: test function
-    remove_rom,  # TODO: test function
+    # get_rom_files,  # TODO: write test
+    # rename_rom,  # TODO: write test
+    # remove_rom,  # TODO: write test
 )
 
 from config import (
