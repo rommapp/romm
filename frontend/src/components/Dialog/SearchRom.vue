@@ -213,8 +213,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .tooltip :deep(.v-overlay__content) {
-  background: rgba(254, 253, 254, 0.98) !important; /* rommWhite */
-  color: rgba(0, 0, 0, 1) !important; /* rommBlack */
+  background: rgba(201, 201, 201, 0.98) !important;
+  color: rgb(41, 41, 41) !important;
 }
 .scroll {
   overflow-y: scroll;
