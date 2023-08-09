@@ -39,11 +39,11 @@ REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 
 # IGDB
-CLIENT_ID = os.environ.get("CLIENT_ID")
-CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
+CLIENT_ID = os.environ.get("CLIENT_ID", "")
+CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY = os.environ.get("STEAMGRIDDB_API_KEY")
+STEAMGRIDDB_API_KEY = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
 # DB DRIVERS
 ROMM_DB_DRIVER = os.environ.get("ROMM_DB_DRIVER", "sqlite")

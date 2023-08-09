@@ -1,6 +1,5 @@
 import os
 import shutil
-import datetime
 from pathlib import Path
 import requests
 
@@ -23,32 +22,32 @@ from utils.exceptions import (
 
 
 # ========= Resources utils =========
-def _cover_exists(p_slug: str, file_name: str, size: str):
+def _cover_exists(p_slug: str, r_name: str, size: str):
     """Check if rom cover exists in filesystem
 
     Args:
         p_slug: short name of the platform
-        file_name: name of rom file
+        r_name: name of rom file
         size: size of the cover -> big as 'l' | small as 's'
     Returns
         True if cover exists in filesystem else False
     """
     return bool(
-        os.path.exists(f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover/{size}.png")
+        os.path.exists(f"{RESOURCES_BASE_PATH}/{p_slug}/{r_name}/cover/{size}.png")
     )
 
 
-def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str):
+def _store_cover(p_slug: str, r_name: str, url_cover: str, size: str):
     """Store roms resources in filesystem
 
     Args:
         p_slug: short name of the platform
-        file_name: name of rom file
+        r_name: name of rom file
         url_cover: url to get the cover
         size: size of the cover -> big | small
     """
     cover_file = f"{size}.png"
-    cover_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/cover"
+    cover_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{r_name}/cover"
     res = requests.get(
         url_cover.replace("t_thumb", f"t_cover_{size}"), stream=True, timeout=120
     )
@@ -58,7 +57,7 @@ def _store_cover(p_slug: str, file_name: str, url_cover: str, size: str):
             shutil.copyfileobj(res.raw, f)
 
 
-def _get_cover_path(p_slug: str, file_name: str, size: str):
+def _get_cover_path(p_slug: str, r_name: str, size: str):
     """Returns rom cover filesystem path adapted to frontend folder structure
 
     Args:
@@ -66,26 +65,25 @@ def _get_cover_path(p_slug: str, file_name: str, size: str):
         file_name: name of rom file
         size: size of the cover -> big | small
     """
-    strtime = str(datetime.datetime.now().timestamp())
-    return f"{p_slug}/{file_name}/cover/{size}.png?timestamp={strtime}"
+    return f"{p_slug}/{r_name}/cover/{size}.png"
 
 
-def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str = None):
+def get_cover(overwrite: bool, p_slug: str, r_name: str, url_cover: str = "") -> dict:
     # Cover small
-    if (overwrite or not _cover_exists(p_slug, file_name, "small")) and url_cover:
-        _store_cover(p_slug, file_name, url_cover, "small")
+    if (overwrite or not _cover_exists(p_slug, r_name, "small")) and url_cover:
+        _store_cover(p_slug, r_name, url_cover, "small")
     path_cover_s = (
-        _get_cover_path(p_slug, file_name, "small")
-        if _cover_exists(p_slug, file_name, "small")
+        _get_cover_path(p_slug, r_name, "small")
+        if _cover_exists(p_slug, r_name, "small")
         else DEFAULT_PATH_COVER_S
     )
 
     # Cover big
-    if (overwrite or not _cover_exists(p_slug, file_name, "big")) and url_cover:
-        _store_cover(p_slug, file_name, url_cover, "big")
+    if (overwrite or not _cover_exists(p_slug, r_name, "big")) and url_cover:
+        _store_cover(p_slug, r_name, url_cover, "big")
     (path_cover_l, has_cover) = (
-        (_get_cover_path(p_slug, file_name, "big"), 1)
-        if _cover_exists(p_slug, file_name, "big")
+        (_get_cover_path(p_slug, r_name, "big"), 1)
+        if _cover_exists(p_slug, r_name, "big")
         else (DEFAULT_PATH_COVER_L, 0)
     )
 
@@ -96,7 +94,7 @@ def get_cover(overwrite: bool, p_slug: str, file_name: str, url_cover: str = Non
     }
 
 
-def _store_screenshot(p_slug: str, file_name: str, url: str, idx: int):
+def _store_screenshot(p_slug: str, r_name: str, url: str, idx: int):
     """Store roms resources in filesystem
 
     Args:
@@ -105,7 +103,7 @@ def _store_screenshot(p_slug: str, file_name: str, url: str, idx: int):
         url: url to get the screenshot
     """
     screenshot_file: str = f"{idx}.jpg"
-    screenshot_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{file_name}/screenshots"
+    screenshot_path: str = f"{RESOURCES_BASE_PATH}/{p_slug}/{r_name}/screenshots"
     res = requests.get(url, stream=True, timeout=120)
     if res.status_code == 200:
         Path(screenshot_path).mkdir(parents=True, exist_ok=True)
@@ -113,7 +111,7 @@ def _store_screenshot(p_slug: str, file_name: str, url: str, idx: int):
             shutil.copyfileobj(res.raw, f)
 
 
-def _get_screenshot_path(p_slug: str, file_name: str, idx: str):
+def _get_screenshot_path(p_slug: str, r_name: str, idx: str):
     """Returns rom cover filesystem path adapted to frontend folder structure
 
     Args:
@@ -121,20 +119,20 @@ def _get_screenshot_path(p_slug: str, file_name: str, idx: str):
         file_name: name of rom file
         idx: index number of screenshot
     """
-    return f"{p_slug}/{file_name}/screenshots/{idx}.jpg"
+    return f"{p_slug}/{r_name}/screenshots/{idx}.jpg"
 
 
-def get_screenshots(p_slug: str, file_name: str, url_screenshots: list):
+def get_screenshots(p_slug: str, r_name: str, url_screenshots: list) -> dict:
     path_screenshots: list[str] = []
     for idx, url in enumerate(url_screenshots):
-        _store_screenshot(p_slug, file_name, url, idx)
-        path_screenshots.append(_get_screenshot_path(p_slug, file_name, str(idx)))
+        _store_screenshot(p_slug, r_name, url, idx)
+        path_screenshots.append(_get_screenshot_path(p_slug, r_name, str(idx)))
     return {"path_screenshots": path_screenshots}
 
 
 def store_default_resources():
     """Store default cover resources in the filesystem"""
-    defaul_covers: list = [
+    defaul_covers = [
         {"url": DEFAULT_URL_COVER_L, "size": "big"},
         {"url": DEFAULT_URL_COVER_S, "size": "small"},
     ]
