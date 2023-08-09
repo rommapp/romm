@@ -1,6 +1,7 @@
 import os
 import shutil
 from pathlib import Path
+import datetime
 import requests
 
 from config import (
@@ -65,7 +66,8 @@ def _get_cover_path(p_slug: str, r_name: str, size: str):
         file_name: name of rom file
         size: size of the cover -> big | small
     """
-    return f"{p_slug}/{r_name}/cover/{size}.png"
+    strtime = str(datetime.datetime.now().timestamp())
+    return f"{p_slug}/{r_name}/cover/{size}.png?timestamp={strtime}"
 
 
 def get_cover(overwrite: bool, p_slug: str, r_name: str, url_cover: str = "") -> dict:
