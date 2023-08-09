@@ -5,6 +5,7 @@ import { useDisplay } from "vuetify";
 import { fetchRomApi, downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
+import AdminMenu from "@/components/AdminMenu/Base.vue";
 import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
@@ -127,41 +128,7 @@ onBeforeMount(async () => {
                   <v-icon icon="mdi-dots-vertical" size="large" />
                 </v-btn>
               </template>
-              <v-list rounded="0" class="pa-0">
-                <v-list-item
-                  @click="emitter.emit('showSearchDialog', rom)"
-                  class="pt-4 pb-4 pr-5"
-                >
-                  <v-list-item-title class="d-flex"
-                    ><v-icon icon="mdi-search-web" class="mr-2" />Search
-                    IGDB</v-list-item-title
-                  >
-                </v-list-item>
-                <v-divider class="border-opacity-25" />
-                <v-list-item
-                  @click="emitter.emit('showEditDialog', rom)"
-                  class="pt-4 pb-4 pr-5"
-                >
-                  <v-list-item-title class="d-flex"
-                    ><v-icon
-                      icon="mdi-pencil-box"
-                      class="mr-2"
-                    />Edit</v-list-item-title
-                  >
-                </v-list-item>
-                <v-divider class="border-opacity-25" />
-                <v-list-item
-                  @click="emitter.emit('showDeleteDialog', rom)"
-                  class="pt-4 pb-4 pr-5 text-red"
-                >
-                  <v-list-item-title class="d-flex"
-                    ><v-icon
-                      icon="mdi-delete"
-                      class="mr-2"
-                    />Delete</v-list-item-title
-                  >
-                </v-list-item>
-              </v-list>
+              <admin-menu :rom="rom" />
             </v-menu>
           </v-col>
         </v-row>
