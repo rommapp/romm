@@ -2,7 +2,7 @@ from redis import Redis, ConnectionError
 
 from config import REDIS_HOST, REDIS_PORT
 
-redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+redis_client = Redis(host=REDIS_HOST, port=int(REDIS_PORT), db=0)
 redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
 try:
@@ -13,7 +13,7 @@ except ConnectionError:
 
 class FallbackCache:
     def __init__(self) -> None:
-        self.fallback = {}
+        self.fallback: dict = {}
 
     def get(self, key: str, *args, **kwargs) -> str:
         return self.fallback.get(key, "")
@@ -38,5 +38,8 @@ class FallbackCache:
 
 
 # A seperate client that auto-decodes responses is needed
-_cache_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
-cache = _cache_client if redis_connectable else FallbackCache()
+_cache_client = Redis(
+    host=REDIS_HOST, port=int(REDIS_PORT), db=0, decode_responses=True
+)
+_fallback_cache = FallbackCache()
+cache = _cache_client if redis_connectable else _fallback_cache

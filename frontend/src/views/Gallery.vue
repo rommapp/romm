@@ -12,10 +12,15 @@ import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameListHeader from "@/components/Game/ListItem/Header.vue";
 import GameListItem from "@/components/Game/ListItem/Item.vue";
+import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
+import EditRomDialog from "@/components/Dialog/EditRom.vue";
+import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
+import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const route = useRoute();
 const roms = ref([]);
+const updatedRom = ref([]);
 const searchRoms = ref([]);
 const filteredRoms = ref([]);
 const galleryView = storeGalleryView();
@@ -31,14 +36,14 @@ emitter.on("filter", onFilterChange);
 
 socket.on("scan:done", () => {
   scanning.set(false);
-  emitter.emit("refreshPlatforms");
-  emitter.emit("refreshGallery");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
   });
   socket.disconnect();
+  emitter.emit("refreshPlatforms");
+  emitter.emit("refreshGallery");
 });
 
 socket.on("scan:done_ko", (msg) => {
@@ -68,6 +73,10 @@ async function fetchMoreSearch() {
   if (searchCursor.value === null || gettingRoms.value) return;
 
   gettingRoms.value = true;
+  emitter.emit("showLoadingDialog", {
+    loading: gettingRoms.value,
+    scrim: false,
+  });
   await fetchRomsApi({
     platform: route.params.platform,
     cursor: searchCursor.value,
@@ -85,6 +94,10 @@ async function fetchMoreSearch() {
     })
     .finally(() => {
       gettingRoms.value = false;
+      emitter.emit("showLoadingDialog", {
+        loading: gettingRoms.value,
+        scrim: false,
+      });
     });
 }
 
@@ -92,6 +105,10 @@ async function fetchMoreRoms(platform) {
   if (cursor.value === null || gettingRoms.value) return;
 
   gettingRoms.value = true;
+  emitter.emit("showLoadingDialog", {
+    loading: gettingRoms.value,
+    scrim: false,
+  });
   await fetchRomsApi({ platform, cursor: cursor.value })
     .then((response) => {
       roms.value = [...roms.value, ...response.data.items];
@@ -103,6 +120,10 @@ async function fetchMoreRoms(platform) {
     })
     .finally(() => {
       gettingRoms.value = false;
+      emitter.emit("showLoadingDialog", {
+        loading: gettingRoms.value,
+        scrim: false,
+      });
     });
 }
 
@@ -224,22 +245,10 @@ onBeforeRouteUpdate(async (to, _) => {
     </v-row>
   </template>
 
-  <template v-if="gettingRoms">
-    <v-dialog
-      :model-value="gettingRoms"
-      scroll-strategy="none"
-      width="auto"
-      :scrim="false"
-      persistent
-    >
-      <v-progress-circular
-        :width="3"
-        :size="70"
-        color="rommAccent1"
-        indeterminate
-      />
-    </v-dialog>
-  </template>
+  <search-rom-dialog />
+  <edit-rom-dialog />
+  <delete-rom-dialog />
+  <loading-dialog />
 </template>
 
 <style scoped>

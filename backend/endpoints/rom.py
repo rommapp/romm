@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, status, HTTPException
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, BaseConfig
 
 from logger.logger import log
 from handler import dbh
@@ -59,7 +59,7 @@ class RomSchema(BaseModel):
     full_path: str
     download_path: str
 
-    class Config(BaseModel.Config):
+    class Config(BaseConfig):
         orm_mode = True
 
 
@@ -143,9 +143,20 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
         )
 
     updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(file_name)
-    updated_rom.update(fs.get_cover(True, p_slug, file_name, updated_rom["url_cover"]))
     updated_rom.update(
-        fs.get_screenshots(p_slug, file_name, updated_rom["url_screenshots"]),
+        fs.get_cover(
+            overwrite=True,
+            p_slug=platform.slug,
+            r_name=updated_rom["file_name_no_tags"],
+            url_cover=updated_rom["url_cover"],
+        )
+    )
+    updated_rom.update(
+        fs.get_screenshots(
+            p_slug=platform.slug,
+            r_name=updated_rom["file_name_no_tags"],
+            url_screenshots=updated_rom["url_screenshots"],
+        ),
     )
     dbh.update_rom(id, updated_rom)
 

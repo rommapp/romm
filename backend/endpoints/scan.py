@@ -1,5 +1,5 @@
 import emoji
-import socketio
+import socketio  # type: ignore
 from rq import Queue
 
 from logger.logger import log
@@ -45,9 +45,9 @@ async def scan_platforms(paltforms: str, complete_rescan: bool):
         dbh.add_platform(scanned_platform)
 
         # Scanning roms
-        fs_roms: list[str] = fs.get_roms(scanned_platform.fs_slug)
+        fs_roms = fs.get_roms(scanned_platform.fs_slug)
         for rom in fs_roms:
-            rom_id: int = dbh.rom_exists(scanned_platform.slug, rom["file_name"])
+            rom_id = dbh.rom_exists(scanned_platform.slug, rom["file_name"])
             if rom_id and not complete_rescan:
                 continue
 
@@ -83,6 +83,6 @@ async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
 
     # Run in worker if redis is available
     if redis_connectable:
-        scan_queue.enqueue(scan_platforms, platforms, complete_rescan)
+        return scan_queue.enqueue(scan_platforms, platforms, complete_rescan)
     else:
         await scan_platforms(platforms, complete_rescan)

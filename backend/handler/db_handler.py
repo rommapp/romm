@@ -16,7 +16,8 @@ class DBHandler:
         self.engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
-    def retry(func) -> tuple:
+    @staticmethod
+    def retry(func):
         @functools.wraps(func)
         def wrapper(*args):
             return func(*args)
@@ -38,7 +39,7 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_platforms(self) -> list[Platform]:
+    def get_platforms(self):
         try:
             with self.session.begin() as session:
                 return session.scalars(
@@ -102,7 +103,7 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def purge_roms(self, p_slug: str, roms: list[str]):
+    def purge_roms(self, p_slug: str, roms: list[list[str]]):
         try:
             with self.session.begin() as session:
                 session.query(Rom).filter(
@@ -126,12 +127,12 @@ class DBHandler:
             self.raise_error(e)
 
     # ==== Utils ======
-    def rom_exists(self, p_slug: str, file_name: str) -> int:
+    def rom_exists(self, p_slug: str, file_name: str):
         try:
             with self.session.begin() as session:
                 rom = session.scalar(
                     select(Rom).filter_by(p_slug=p_slug, file_name=file_name)
                 )
-                return rom.id if rom else None
+                return rom.id if rom else 0
         except ProgrammingError as e:
             self.raise_error(e)
