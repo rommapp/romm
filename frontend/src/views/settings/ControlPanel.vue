@@ -1,13 +1,14 @@
 <script setup>
 import { ref } from "vue";
 import { useTheme } from "vuetify";
+import version from "../../../package"
 
 // Props
 const tab = ref("ui");
 const theme = useTheme();
 const darkMode =
   localStorage.getItem("theme") == "rommDark" ? ref(true) : ref(false);
-const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION;
+const ROMM_VERSION = version.version;
 
 // Functions
 function toggleTheme() {
