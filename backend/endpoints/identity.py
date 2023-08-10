@@ -1,6 +1,6 @@
 from typing import Annotated
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, BaseConfig
 
@@ -17,11 +17,6 @@ from utils.auth import (
 router = APIRouter()
 
 
-class TokenSchema(BaseModel):
-    access_token: str
-    token_type: str
-
-
 class UserSchema(BaseModel):
     username: str
     disabled: bool
@@ -30,8 +25,10 @@ class UserSchema(BaseModel):
         orm_mode = True
 
 
-@router.post("/token", response_model=TokenSchema)
-def login_with_password(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+@router.post("/token", response_model=UserSchema)
+def login_with_password(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response
+):
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -45,16 +42,31 @@ def login_with_password(form_data: Annotated[OAuth2PasswordRequestForm, Depends(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    response.set_cookie("access_token", access_token, httponly=True)
+
+    return user
 
 
-@router.get("/users/me/", response_model=UserSchema)
-def current_user(current_user: Annotated[User, Depends(get_current_active_user)]):
+@router.get(
+    "/users/",
+    dependencies=[Depends(get_current_active_user)],
+)
+def users() -> list[UserSchema]:
+    return dbh.get_users()
+
+
+@router.get("/users/me/")
+def current_user(
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> UserSchema:
     return current_user
 
 
-@router.post("/users/", response_model=UserSchema)
-def create_user(username: str, password: str):
+@router.post(
+    "/users/",
+    dependencies=[Depends(get_current_active_user)],
+)
+def create_user(username: str, password: str) -> UserSchema:
     user = User(
         username=username, hashed_password=get_password_hash(password), disabled=False
     )
