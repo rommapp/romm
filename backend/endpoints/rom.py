@@ -6,6 +6,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, BaseConfig
+from starlette.authentication import requires
 
 from logger.logger import log
 from handler import dbh
@@ -64,14 +65,16 @@ class RomSchema(BaseModel):
 
 
 @router.get("/platforms/{p_slug}/roms/{id}")
-def rom(id: int) -> RomSchema:
+@requires(["authenticated"])
+def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
     return dbh.get_rom(id)
 
 
 @router.get("/platforms/{p_slug}/roms/{id}/download")
-def download_rom(id: int, files: str):
+@requires(["authenticated"])
+def download_rom(request: Request, id: int, files: str):
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
@@ -104,8 +107,13 @@ def download_rom(id: int, files: str):
 
 
 @router.get("/platforms/{p_slug}/roms")
+@requires(["authenticated"])
 def roms(
-    p_slug: str, size: int = 60, cursor: str = "", search_term: str = ""
+    request: Request,
+    p_slug: str,
+    size: int = 60,
+    cursor: str = "",
+    search_term: str = "",
 ) -> CursorPage[RomSchema]:
     """Returns all roms of the desired platform"""
     with dbh.session.begin() as session:
@@ -123,10 +131,11 @@ def roms(
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}")
-async def updateRom(req: Request, p_slug: str, id: int) -> dict:
+@requires(["authenticated"])
+async def updateRom(request: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
-    data: dict = await req.json()
+    data: dict = await request.json()
     updated_rom: dict = data["updatedRom"]
     db_rom: Rom = dbh.get_rom(id)
     platform: Platform = dbh.get_platform(p_slug)
@@ -167,7 +176,10 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
 
 
 @router.delete("/platforms/{p_slug}/roms/{id}")
-def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
+@requires(["authenticated", "admin"])
+def delete_rom(
+    request: Request, p_slug: str, id: int, filesystem: bool = False
+) -> dict:
     """Detele rom from database [and filesystem]"""
 
     rom: Rom = dbh.get_rom(id)

@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, BaseConfig
+from starlette.authentication import requires
 
 from handler import dbh
 
@@ -23,6 +24,7 @@ class PlatformSchema(BaseModel):
 
 
 @router.get("/platforms")
-def platforms() -> list[PlatformSchema]:
+@requires(["authenticated"])
+def platforms(request: Request) -> list[PlatformSchema]:
     """Returns platforms data"""
     return dbh.get_platforms()

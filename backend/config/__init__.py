@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Uvicorn
+# UVICORN
 DEV_PORT: int = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
 DEV_HOST: str = "0.0.0.0"
 
@@ -47,3 +47,6 @@ STEAMGRIDDB_API_KEY = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
 # DB DRIVERS
 ROMM_DB_DRIVER = os.environ.get("ROMM_DB_DRIVER", "sqlite")
+
+# SECRETS
+SECRET_KEY = "9b9da8bfd88822ad708530bb36e61d02c130a74de7a8e84d5f456bf6fee5c518"

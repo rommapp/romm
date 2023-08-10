@@ -4,8 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST
+from config import DEV_PORT, DEV_HOST, SECRET_KEY
 from endpoints import search, platform, rom, identity, scan  # noqa
 from utils.socket import socket_app
 from utils.auth import BasicAuthBackend
@@ -21,6 +22,12 @@ app.add_middleware(
 app.add_middleware(
     AuthenticationMiddleware,
     backend=BasicAuthBackend(),
+)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    same_site="strict",
+    https_only=False,
 )
 app.include_router(identity.router)
 app.include_router(platform.router)

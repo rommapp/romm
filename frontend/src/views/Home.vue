@@ -3,11 +3,20 @@ import { useDisplay } from "vuetify";
 import { views } from "@/utils/utils.js";
 import storePlatforms from "@/stores/platforms.js";
 import PlatformCard from "@/components/Platform/PlatformCard.vue";
+import axios from "axios";
 
 // Props
 const platforms = storePlatforms();
 const totalGames = platforms.totalGames;
 const { lgAndUp } = useDisplay();
+
+function login() {
+  axios.post("/api/login", {}, {
+    headers: {
+      Authorization: "Basic Z2Vvcmdlcy1hbnRvaW5lOnBhc3N3b3Jk",
+    }
+  })
+}
 </script>
 
 <template>
@@ -20,6 +29,14 @@ const { lgAndUp } = useDisplay();
         src="/assets/romm_complete.svg"
         cover
       />
+    </v-col>
+    <v-spacer />
+  </v-row>
+
+  <v-row class="pa-2" no-gutters>
+    <v-spacer />
+    <v-col cols="12" xs="12" sm="10" md="10" lg="10">
+      <v-btn @click="login">Login</v-btn>
     </v-col>
     <v-spacer />
   </v-row>
