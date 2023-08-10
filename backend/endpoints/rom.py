@@ -93,7 +93,11 @@ def download_rom(id: int, files: str):
     zipped_chunks = stream_zip(local_files())
 
     # Streams the zip file to the client
-    return StreamingResponse(zipped_chunks, media_type="application/zip")
+    return StreamingResponse(
+        zipped_chunks,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={rom.r_name}.zip"},
+    )
 
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
