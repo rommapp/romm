@@ -1,5 +1,6 @@
 import base64
 import binascii
+import secrets
 from typing import Annotated
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status
@@ -15,6 +16,11 @@ from starlette.requests import HTTPConnection
 
 from handler import dbh
 from models.user import User
+from config import SECRET_KEY
+from utils.cache import cache
+
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 def verify_password(plain_password, hashed_password):
@@ -37,10 +43,6 @@ def authenticate_user(username: str, password: str):
 
 
 # JWT based authentication
-
-SECRET_KEY = "9b9da8bfd88822ad708530bb36e61d02c130a74de7a8e84d5f456bf6fee5c518"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -95,6 +97,16 @@ async def get_current_active_user(
 
 class BasicAuthBackend(AuthenticationBackend):
     async def authenticate(self, conn: HTTPConnection):
+        # Check if session key already stored in redis
+        session_id = conn.session.get('session_id')
+        if session_id:
+            username = cache.get(f'romm:{session_id}')
+            if username:
+                user = dbh.get_user(username)
+                if user:
+                    # Key exists therefore user is authenticated
+                    return AuthCredentials(["authenticated", "admin"]), user
+
         if "Authorization" not in conn.headers:
             return
 
@@ -115,5 +127,9 @@ class BasicAuthBackend(AuthenticationBackend):
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Authorization"},
             )
+        
+        # Generate unique session key and store in redis
+        conn.session['session_id'] = secrets.token_hex(16)
+        cache.set(f'romm:{conn.session["session_id"]}', user.username)
 
-        return AuthCredentials(["authenticated"]), user
+        return AuthCredentials(["authenticated", "admin"]), user

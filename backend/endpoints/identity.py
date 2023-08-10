@@ -64,7 +64,7 @@ def users(request: Request) -> list[UserSchema]:
 
 
 @router.get("/users/me")
-@requires("authenticated")
+@requires(["authenticated"])
 def current_user(request: Request) -> UserSchema:
     return request.user
 
