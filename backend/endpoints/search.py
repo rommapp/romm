@@ -7,7 +7,7 @@ from handler import igdbh
 router = APIRouter()
 
 
-@router.put("/search/roms/igdb", status_code=200)
+@router.put("/search/roms/igdb")
 async def search_rom_igdb(
     req: Request, search_term: str = "", search_by: str = ""
 ) -> dict:

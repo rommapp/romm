@@ -63,14 +63,14 @@ class RomSchema(BaseModel):
         orm_mode = True
 
 
-@router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
+@router.get("/platforms/{p_slug}/roms/{id}")
 def rom(id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
     return dbh.get_rom(id)
 
 
-@router.get("/platforms/{p_slug}/roms/{id}/download", status_code=200)
+@router.get("/platforms/{p_slug}/roms/{id}/download")
 def download_rom(id: int, files: str):
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
@@ -103,7 +103,7 @@ def download_rom(id: int, files: str):
         )
 
 
-@router.get("/platforms/{p_slug}/roms", status_code=200)
+@router.get("/platforms/{p_slug}/roms")
 def roms(
     p_slug: str, size: int = 60, cursor: str = "", search_term: str = ""
 ) -> CursorPage[RomSchema]:
@@ -122,7 +122,7 @@ def roms(
         return paginate(session, qq, cursor_params)
 
 
-@router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)
+@router.patch("/platforms/{p_slug}/roms/{id}")
 async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
@@ -166,7 +166,7 @@ async def updateRom(req: Request, p_slug: str, id: int) -> dict:
     }
 
 
-@router.delete("/platforms/{p_slug}/roms/{id}", status_code=200)
+@router.delete("/platforms/{p_slug}/roms/{id}")
 def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
     """Detele rom from database [and filesystem]"""
 
