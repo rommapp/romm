@@ -23,8 +23,9 @@ export async function fetchRomApi(platform, rom) {
 
 // Listen for multi-file download events
 socket.on("download:complete", ({ id }) => {
+  const downloadStore = useDownloadStore();
   useDownloadStore().remove(id);
-  socket.disconnect();
+  if (downloadStore.value.length === 0) socket.disconnect();
 });
 
 // Used only for multi-file downloads
