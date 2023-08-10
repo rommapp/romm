@@ -18,9 +18,6 @@ jobs:
           echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
           VERSION=$(cat .romm-version)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-      - name: Set version
-        shell: bash
-        run: sed -i "s/<romm_version>/${{ env.VERSION }}/" pyproject.toml frontend/package.json
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
