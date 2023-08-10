@@ -1,13 +1,14 @@
 <script setup>
 import { ref } from "vue";
 import { useTheme } from "vuetify";
+import version from "../../../package"
 
 // Props
 const tab = ref("ui");
 const theme = useTheme();
 const darkMode =
   localStorage.getItem("theme") == "rommDark" ? ref(true) : ref(false);
-const ROMM_VERSION = import.meta.env.VITE_ROMM_VERSION;
+const ROMM_VERSION = version.version;
 
 // Functions
 function toggleTheme() {
@@ -47,7 +48,7 @@ function toggleTheme() {
   <v-bottom-navigation :elevation="0" height="36" class="text-caption">
     <v-row class="align-center justify-center" no-gutters>
       <span class="text-rommAccent1">RomM</span>
-      <span class="ml-1">v{{ ROMM_VERSION }}</span>
+      <span class="ml-1">{{ ROMM_VERSION }}</span>
     </v-row>
   </v-bottom-navigation>
 </template>
