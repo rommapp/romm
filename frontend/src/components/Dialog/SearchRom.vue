@@ -15,7 +15,7 @@ const matchedRoms = ref([]);
 const emitter = inject("emitter");
 emitter.on("showSearchDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.r_name;
+  searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
   searchRomIGDB();
 });
