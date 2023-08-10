@@ -21,10 +21,12 @@ export async function fetchRomApi(platform, rom) {
   return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
-// Listen for multi-file download events
+// Listen for multi-file download completion events
 socket.on("download:complete", ({ id }) => {
   const downloadStore = useDownloadStore();
   useDownloadStore().remove(id);
+
+  // Disconnect socket when no more downloads are in progress
   if (downloadStore.value.length === 0) socket.disconnect();
 });
 
