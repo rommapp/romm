@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
 from config import DEV_PORT, DEV_HOST
-from endpoints import search, platform, rom, scan  # noqa
+from endpoints import search, platform, rom, identity, scan  # noqa
 from utils.socket import socket_app
 
 app = FastAPI()
@@ -19,6 +19,7 @@ app.add_middleware(
 app.include_router(search.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
+app.include_router(identity.router)
 
 add_pagination(app)
 app.mount("/ws", socket_app)

@@ -9,6 +9,7 @@ from logger.logger import log
 from config.config_loader import ConfigLoader
 from models.platform import Platform
 from models.rom import Rom
+from models.user import User
 
 
 class DBHandler:
@@ -134,5 +135,52 @@ class DBHandler:
                     select(Rom).filter_by(p_slug=p_slug, file_name=file_name)
                 )
                 return rom.id if rom else 0
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    # ========= Users =========
+    def add_user(self, user: User):
+        try:
+            with self.session.begin() as session:
+                session.merge(user)
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def get_user(self, username: str):
+        try:
+            with self.session.begin() as session:
+                return session.scalars(select(User).filter_by(username=username)).first()
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def get_user_by_id(self, id: int):
+        try:
+            with self.session.begin() as session:
+                return session.get(User, id)
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def update_user(self, id: int, data: dict):
+        try:
+            with self.session.begin() as session:
+                session.query(User).filter(User.id == id).update(
+                    data, synchronize_session="evaluate"
+                )
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def delete_user(self, id: int):
+        try:
+            with self.session.begin() as session:
+                session.query(User).filter(User.id == id).delete(
+                    synchronize_session="evaluate"
+                )
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def get_users(self):
+        try:
+            with self.session.begin() as session:
+                return session.scalars(select(User)).all()
         except ProgrammingError as e:
             self.raise_error(e)

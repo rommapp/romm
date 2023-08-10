@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "RomM"
-version = "<romm_version>"
+version = "1.9.2"
 description = "RomM (Rom Manager) is a web based retro roms manager integrated with IGDB."
 authors = ["zurdi <zurdizurdo25@gmail.com>"]
 readme = "README.md"
@@ -33,6 +33,8 @@ types-pyyaml = "^6.0.12.11"
 types-requests = "^2.31.0.2"
 mypy = "^1.4.1"
 types-redis = "^4.6.0.3"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 
 [build-system]
 requires = ["poetry-core"]

@@ -22,7 +22,7 @@ class PlatformSchema(BaseModel):
         orm_mode = True
 
 
-@router.get("/platforms", status_code=200)
+@router.get("/platforms")
 def platforms() -> list[PlatformSchema]:
     """Returns platforms data"""
     return dbh.get_platforms()
