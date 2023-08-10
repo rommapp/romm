@@ -29,22 +29,14 @@ export async function downloadRomApi(rom, files) {
   const downloadStore = useDownloadStore();
   downloadStore.add(rom.file_name);
 
-  axios
-    .get(
-      `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
-        files || rom.files
-      }`,
-      {
-        responseType: "blob",
-      }
-    )
-    .then((response) => {
-      const a = document.createElement("a");
-      a.href = window.URL.createObjectURL(new Blob([response.data]));
-      a.download = `${rom.r_name}.zip`;
-      a.click();
-      downloadStore.remove(rom.file_name);
-    });
+  const a = document.createElement("a");
+  a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
+    files || rom.files
+  }`;
+  a.download = `${rom.r_name}.zip`;
+  a.click();
+
+  downloadStore.remove(rom.file_name);
 }
 
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {
