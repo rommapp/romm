@@ -14,7 +14,7 @@ const props = defineProps(["rom", "isHovering", "hoverProps", "size"]);
   >
     <v-progress-linear
       color="rommAccent1"
-      :active="downloadStore.value.includes(rom.file_name)"
+      :active="downloadStore.value.includes(rom.id)"
       :indeterminate="true"
       absolute
     />

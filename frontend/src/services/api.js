@@ -1,5 +1,6 @@
 import axios from "axios";
 import useDownloadStore from "@/stores/download.js";
+import socket from "@/services/socket.js";
 
 export async function fetchPlatformsApi() {
   return axios.get("/api/platforms");
@@ -20,14 +21,18 @@ export async function fetchRomApi(platform, rom) {
   return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
+// Listen for multi-file download events
+socket.on("download:complete", ({ id }) => {
+  useDownloadStore().remove(id);
+  socket.disconnect();
+});
+
+// Used only for multi-file downloads
 export async function downloadRomApi(rom, files) {
   // Force download of all multirom-parts when no part is selected
   if (files != undefined && files.length == 0) {
     files = undefined;
   }
-
-  const downloadStore = useDownloadStore();
-  downloadStore.add(rom.file_name);
 
   const a = document.createElement("a");
   a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
@@ -36,7 +41,8 @@ export async function downloadRomApi(rom, files) {
   a.download = `${rom.r_name}.zip`;
   a.click();
 
-  downloadStore.remove(rom.file_name);
+  if (!socket.connected) socket.connect();
+  useDownloadStore().add(rom.id);
 }
 
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {

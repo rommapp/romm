@@ -67,7 +67,7 @@ onBeforeMount(async () => {
             <v-card
               elevation="2"
               :loading="
-                downloadStore.value.includes(rom.file_name)
+                downloadStore.value.includes(rom.id)
                   ? 'rommAccent1'
                   : null
               "
@@ -96,7 +96,7 @@ onBeforeMount(async () => {
             <template v-if="rom.multi">
               <v-btn
                 @click="downloadRomApi(rom, filesToDownload)"
-                :disabled="downloadStore.value.includes(rom.file_name)"
+                :disabled="downloadStore.value.includes(rom.id)"
                 rounded="0"
                 color="primary"
                 block
