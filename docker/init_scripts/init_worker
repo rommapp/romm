@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /back
-rq worker high default low --logging_level WARN
+nc -z ${REDIS_HOST:-localhost} ${REDIS_PORT:-6379} && rq worker high default low --logging_level WARN
