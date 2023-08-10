@@ -2,8 +2,9 @@ from datetime import datetime
 from fastapi import APIRouter, Request, status, HTTPException
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, BaseConfig
+
 from stat import S_IFREG
 from stream_zip import ZIP_64, stream_zip
 
@@ -14,6 +15,8 @@ from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
 from models.rom import Rom
 from models.platform import Platform
 from config import LIBRARY_BASE_PATH
+
+from .utils import CustomStreamingResponse
 
 router = APIRouter()
 
@@ -93,10 +96,11 @@ def download_rom(id: int, files: str):
     zipped_chunks = stream_zip(local_files())
 
     # Streams the zip file to the client
-    return StreamingResponse(
+    return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={rom.r_name}.zip"},
+        emit_body={"id": rom.id},
     )
 
 
