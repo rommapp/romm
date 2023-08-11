@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -12,8 +13,14 @@ from starlette_csrf import CSRFMiddleware
 from starlette.types import Receive, Scope, Send
 
 from handler import dbh
-from config import ROMM_AUTH_SECRET_KEY
+from config import (
+    ROMM_SECRET_KEY,
+    ROMM_AUTH_ENABLED,
+    ROMM_AUTH_USERNAME,
+    ROMM_AUTH_PASSWORD,
+)
 from utils.cache import cache
+from models.user import User, Role, FULL_SCOPES
 
 ALGORITHM = "HS256"
 
@@ -51,7 +58,7 @@ def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
 
     to_encode.update({"exp": expire})
 
-    return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, ROMM_SECRET_KEY, algorithm=ALGORITHM)
 
 
 credentials_exception = HTTPException(
@@ -63,7 +70,7 @@ credentials_exception = HTTPException(
 
 async def get_current_active_user_from_token(token: str):
     try:
-        payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, ROMM_SECRET_KEY, algorithms=[ALGORITHM])
     except (JWTError):
         raise credentials_exception
 
@@ -82,16 +89,17 @@ async def get_current_active_user_from_token(token: str):
 
     return user, payload
 
+
 async def get_current_active_user_from_session(conn: HTTPConnection):
     # Check if session key already stored in cache
     session_id = conn.session.get("session_id")
     if not session_id:
         return None
-        
+
     username = cache.get(f"romm:{session_id}")
     if not username:
         return None
-    
+
     # Key exists therefore user is authenticated
     user = dbh.get_user(username)
     if user is None:
@@ -104,8 +112,12 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
 
     return user
 
+
 class BasicAuthBackend(AuthenticationBackend):
     async def authenticate(self, conn: HTTPConnection):
+        if not ROMM_AUTH_ENABLED:
+            return (AuthCredentials(FULL_SCOPES), None)
+
         # Check if session key already stored in cache
         user = await get_current_active_user_from_session(conn)
         if user:
@@ -125,7 +137,7 @@ class BasicAuthBackend(AuthenticationBackend):
         # Only access tokens can request resources
         if payload.get("type") == "access":
             return (AuthCredentials(user.oauth_scopes), user)
-            
+
         return None
 
 
@@ -134,5 +146,21 @@ class CustomCSRFMiddleware(CSRFMiddleware):
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        
+
         await super().__call__(scope, receive, send)
+
+
+def create_default_admin_user():
+    if not ROMM_AUTH_ENABLED:
+        return
+
+    try:
+        dbh.add_user(
+            User(
+                username=ROMM_AUTH_USERNAME,
+                hashed_password=get_password_hash(ROMM_AUTH_PASSWORD),
+                role=Role.ADMIN,
+            )
+        )
+    except IntegrityError:
+        pass
