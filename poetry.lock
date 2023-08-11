@@ -1636,6 +1636,21 @@ itsdangerous = ">=2.0.1,<3.0.0"
 starlette = ">=0.14.2"
 
 [[package]]
+name = "stream-zip"
+version = "0.0.67"
+description = "Python function to construct a ZIP archive with stream processing - without having to store the entire ZIP in memory or disk"
+optional = false
+python-versions = ">=3.6.7"
+files = [
+    {file = "stream_zip-0.0.67-py3-none-any.whl", hash = "sha256:e4200f9f18f48f759742dd9bc980f4712568dd0815ff618b3facf8573aba3800"},
+    {file = "stream_zip-0.0.67.tar.gz", hash = "sha256:492ddfb338701fbf4d744126027515c9ae8daca692c0acbc1719dc37ba15f634"},
+]
+
+[package.extras]
+ci = ["coverage (==6.2)", "pytest (==6.2.5)", "pytest-cov (==3.0.0)", "stream-unzip (==0.0.86)"]
+dev = ["coverage (>=6.2)", "pytest (>=6.2.5)", "pytest-cov (>=3.0.0)", "stream-unzip (>=0.0.86)"]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -2063,4 +2078,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "943dffcd3dcce4387c78f68f4577cbf566c8f2a04764ba00558300da46708694"
+content-hash = "7f2a0c7ad3f9887dc3188c57edc8873364a37b763d5e20f2f188511066d80340"
