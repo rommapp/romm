@@ -24,13 +24,13 @@ async function login() {
       <v-text-field
         @keyup.enter="login()"
         type="text"
-        label="username"
+        label="Username"
         variant="underlined"
       ></v-text-field>
       <v-text-field
         @keyup.enter="login()"
         type="password"
-        label="password"
+        label="Password"
         variant="underlined"
       ></v-text-field>
     </v-col>
