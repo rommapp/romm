@@ -7,9 +7,7 @@ useTheme().global.name.value = localStorage.getItem("theme") || "rommDark";
 <template>
   <v-app>
     <v-main>
-      <v-container id="main-container" class="pa-1" fluid>
-        <router-view />
-      </v-container>
+      <router-view />
     </v-main>
   </v-app>
 </template>

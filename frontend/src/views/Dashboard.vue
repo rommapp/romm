@@ -23,7 +23,6 @@ const { lgAndUp } = useDisplay();
     </v-col>
     <v-spacer />
   </v-row>
-
   <!-- Info chips -->
   <v-row class="pa-2" no-gutters>
     <v-spacer />
