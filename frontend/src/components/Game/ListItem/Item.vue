@@ -45,7 +45,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
           <v-avatar :rounded="0">
             <v-progress-linear
               color="rommAccent1"
-              :active="downloadStore.value.includes(rom.file_name)"
+              :active="downloadStore.value.includes(rom.id)"
               :indeterminate="true"
               absolute
             />
@@ -69,7 +69,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
       <template v-if="rom.multi">
         <v-btn
           @click="downloadRomApi(rom)"
-          :disabled="downloadStore.value.includes(rom.file_name)"
+          :disabled="downloadStore.value.includes(rom.id)"
           icon="mdi-download"
           size="x-small"
           rounded="0"
