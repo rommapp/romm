@@ -15,11 +15,6 @@ useTheme().global.name.value = localStorage.getItem("theme") || "rommDark";
 <style>
 @import "@/styles/scrollbar.css";
 
-#scan-progress-bar {
-  z-index: 1000 !important;
-}
 
-#main-container {
-  height: 100%;
-}
+
 </style>

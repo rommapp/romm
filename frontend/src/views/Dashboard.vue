@@ -12,7 +12,7 @@ const { lgAndUp } = useDisplay();
 
 <template>
   <!-- Header logo -->
-  <v-row class="pa-2" no-gutters>
+  <!-- <v-row class="pa-2" no-gutters>
     <v-spacer />
     <v-col cols="12" xs="12" sm="10" md="10" lg="10">
       <v-img
@@ -22,17 +22,24 @@ const { lgAndUp } = useDisplay();
       />
     </v-col>
     <v-spacer />
-  </v-row>
-  <!-- Info chips -->
+  </v-row> -->
+  <!-- Summary -->
   <v-row class="pa-2" no-gutters>
-    <v-spacer />
+      <v-avatar :rounded="0" size="auto">
+        <v-icon>mdi-text-box-outline</v-icon>
+      </v-avatar>
+      <span class="text-h6 ml-2">Summary</span>
+      <v-divider class="border-opacity-25" />
+  </v-row>
+
+  <v-row class="pa-2" no-gutters>
     <v-col
       cols="12"
       xs="12"
       sm="10"
       md="10"
       lg="10"
-      class="d-flex justify-center"
+      class="d-flex"
     >
       <v-chip-group>
         <v-chip class="bg-chip" label>
@@ -45,12 +52,11 @@ const { lgAndUp } = useDisplay();
         </v-chip>
       </v-chip-group>
     </v-col>
-    <v-spacer />
   </v-row>
 
   <template v-if="platforms.value.length > 0">
     <!-- Platforms section title -->
-    <v-row class="pa-2" no-gutters>
+    <v-row class="pa-2 mt-2" no-gutters>
       <v-avatar :rounded="0" size="auto">
         <v-icon>mdi-controller</v-icon>
       </v-avatar>

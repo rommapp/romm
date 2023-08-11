@@ -35,7 +35,7 @@ onMounted(async () => {
   <notification class="mt-6" />
 
   <v-progress-linear
-    id="scan-progress-bar"
+    class="scan-progress-bar"
     color="rommAccent1"
     :active="scanning.value"
     :indeterminate="true"
@@ -45,5 +45,13 @@ onMounted(async () => {
 
   <drawer :key="refreshPlatforms" />
   <app-bar v-if="mdAndDown" />
-  <router-view :key="refreshGallery" />
+  <v-main class="pa-1">
+    <router-view :key="refreshGallery" />
+  </v-main>
 </template>
+
+<style scoped>
+.scan-progress-bar {
+  z-index: 1000 !important;
+}
+</style>
