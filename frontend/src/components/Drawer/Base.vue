@@ -19,6 +19,12 @@ emitter.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
   localStorage.setItem("rail", rail.value);
 });
+
+function logout() {
+  /* TODO: implement logout logic */
+  localStorage.setItem("login", false);
+  emitter.emit("login", false);
+}
 </script>
 
 <template>
@@ -29,10 +35,10 @@ emitter.on("toggleDrawerRail", () => {
     rail-width="145"
     elevation="0"
   >
-    <v-list v-model:opened="open">
+    <v-list v-model:opened="open" class="pa-0">
       <router-link to="/">
         <v-list-item class="justify-center pa-0">
-          <v-img src="/assets/isotipo.svg" width="70" class="home-btn" />
+          <v-img src="/assets/isotipo.svg" class="home-btn ma-2" />
         </v-list-item>
       </router-link>
 
@@ -124,6 +130,19 @@ emitter.on("toggleDrawerRail", () => {
             >
           </template>
         </v-list-item>
+        <v-list-item
+          class="drawer-item bg-terciary"
+          @click="logout()"
+        >
+          <span class="text-body-2 text-truncate">{{
+            rail ? "" : "Logout"
+          }}</span>
+          <template v-slot:prepend>
+            <v-avatar :rounded="0" size="40"
+              ><v-icon>mdi-logout-variant</v-icon></v-avatar
+            >
+          </template>
+        </v-list-item>
       </v-list-group>
     </v-list>
 
@@ -136,8 +155,7 @@ emitter.on("toggleDrawerRail", () => {
 
 <style scoped>
 .home-btn {
-  width: 100px;
-  height: 100px;
+  width: 70px;
   cursor: pointer;
 }
 
