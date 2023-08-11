@@ -1,49 +1,74 @@
 <script setup>
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
+import Notification from "@/components/Notification.vue";
 
+const emitter = inject("emitter");
 const router = useRouter();
-const visible = ref(false);
+const visiblePassword = ref(false);
+const username = ref();
+const password = ref();
+const validCredentials = ref(true);
+
+// POC FOR VALIDATING AND TESTING LOGIN PAGE
+function checkCredentials() {
+  validCredentials.value = (username.value == "zurdi");
+}
 
 async function login() {
   /* TODO: implement login logic */
-  localStorage.setItem("authenticated", true);
-  await router.push({ name: "dashboard" });
+  checkCredentials();
+  if (validCredentials.value) {
+    localStorage.setItem("authenticated", true);
+    await router.push({ name: "dashboard" });
+  } else {
+    const msg = "Invalid credentials";
+    emitter.emit("snackbarShow", {
+      msg: `Unable to login: ${msg}`,
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  }
 }
+// POC FOR VALIDATING AND TESTING LOGIN PAGE
 </script>
 
 <template>
   <span class="bg"></span>
 
+  <notification class="mt-6" />
+
   <v-container class="fill-height">
     <v-row>
       <v-col>
-        <v-row no-gutters>
+        <v-row class="bg-red" no-gutters>
           <v-img src="/assets/isotipo.svg" id="login-logo" />
         </v-row>
 
-        <v-row class="justify-center mt-7" no-gutters>
+        <v-row class="justify-center mt-2" no-gutters>
           <v-col cols="6" xs="6" sm="5" md="4" lg="3">
             <v-text-field
               @keyup.enter="login()"
               prepend-inner-icon="mdi-account"
               type="text"
+              v-model="username"
               label="Username"
               variant="underlined"
             ></v-text-field>
             <v-text-field
               @keyup.enter="login()"
               prepend-inner-icon="mdi-lock"
-              :type="visible ? 'text' : 'password'"
+              :type="visiblePassword ? 'text' : 'password'"
+              v-model="password"
               label="Password"
               variant="underlined"
-              :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
-              @click:append-inner="visible = !visible"
+              :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
+              @click:append-inner="visiblePassword = !visiblePassword"
             ></v-text-field>
           </v-col>
         </v-row>
 
-        <v-row class="justify-center mt-7" no-gutters>
+        <v-row class="justify-center mt-2 bg-green" no-gutters>
           <v-btn
             @click="login()"
             rounded="0"
@@ -52,6 +77,7 @@ async function login() {
             >Sign In</v-btn
           >
         </v-row>
+
       </v-col>
     </v-row>
   </v-container>
