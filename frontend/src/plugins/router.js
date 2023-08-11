@@ -3,6 +3,10 @@ import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
   {
+    path: "/login",
+    component: () => import("@/views/Login.vue"),
+  },
+  {
     path: "/",
     component: () => import("@/views/Home.vue"),
   },
@@ -21,6 +25,10 @@ const routes = [
   {
     path: "/settings/control-panel",
     component: () => import("@/views/settings/ControlPanel.vue"),
+  },
+  {
+    path: "/:pathMatch(.*)*",
+    component: () => import("@/views/Home.vue"),
   },
 ];
 
