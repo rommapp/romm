@@ -1,5 +1,11 @@
 import axios from "axios";
+import cookie from "js-cookie";
 import useDownloadStore from "@/stores/download.js";
+
+// Set CSRF token for all requests
+axios.get("/api/heartbeat").then(() => {
+  axios.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
+})
 
 export async function fetchPlatformsApi() {
   return axios.get("/api/platforms");

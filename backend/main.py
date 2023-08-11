@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette_csrf import CSRFMiddleware
 
 from config import DEV_PORT, DEV_HOST, SECRET_KEY
 from endpoints import search, platform, rom, identity, scan  # noqa
@@ -12,6 +13,7 @@ from utils.socket import socket_app
 from utils.auth import BasicAuthBackend
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,8 +29,13 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
     same_site="strict",
-    https_only=False, # TODO: Set to True in production
+    https_only=False,  # TODO: Set to True in production
 )
+app.add_middleware(
+    CSRFMiddleware,
+    secret=SECRET_KEY,
+)
+
 app.include_router(identity.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
@@ -37,6 +44,9 @@ app.include_router(search.router)
 add_pagination(app)
 app.mount("/ws", socket_app)
 
+@app.get("/heartbeat")
+def heartbeat():
+    return {"status": "ok"}
 
 @app.on_event("startup")
 def startup() -> None:

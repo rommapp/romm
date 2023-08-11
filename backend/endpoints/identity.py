@@ -13,9 +13,8 @@ from models.user import User, Role
 from utils.cache import cache
 from utils.auth import (
     authenticate_user,
-    create_access_token,
+    create_oauth_token,
     get_password_hash,
-    get_current_active_user,
 )
 
 router = APIRouter()
@@ -43,24 +42,30 @@ def credentials_exception(scheme: str):
 
 @router.post("/token")
 def generate_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    if form_data.grant_type == "refresh_token":
+        pass
+
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise credentials_exception("Bearer")
 
-    access_token = create_access_token(
+    access_token = create_oauth_token(
         data={"sub": user.username, "type": "access"},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    refresh_token = create_access_token(
+    refresh_token = create_oauth_token(
         data={"sub": user.username, "type": "refresh"},
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
 
+    # TODO add scopes to request
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "Bearer",
+        "token_type": "bearer",
+        "expires": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
 
@@ -69,14 +74,15 @@ def refresh_access_token(request: Request):
     if not request.user.is_authenticated:
         raise credentials_exception("Bearer")
 
-    access_token = create_access_token(
+    access_token = create_oauth_token(
         data={"sub": request.user.username, "type": "access"},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
     return {
         "access_token": access_token,
-        "token_type": "Bearer",
+        "token_type": "bearer",
+        "expires": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
 
