@@ -1,21 +1,15 @@
-import base64
-import binascii
-import secrets
-from typing import Annotated
 from datetime import datetime, timedelta
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from starlette.authentication import (
     AuthCredentials,
     AuthenticationBackend,
-    AuthenticationError,
 )
 from starlette.requests import HTTPConnection
 
 from handler import dbh
-from models.user import User
 from config import SECRET_KEY
 from utils.cache import cache
 
@@ -42,8 +36,6 @@ def authenticate_user(username: str, password: str):
     return user
 
 
-# JWT based authentication
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -61,75 +53,57 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    user = dbh.get_user(username)
-    if user is None:
-        raise credentials_exception
-
-    return user
-
-
-async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)]
-):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-
-    return current_user
-
-
-# Session based authentication
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
 
 class BasicAuthBackend(AuthenticationBackend):
     async def authenticate(self, conn: HTTPConnection):
-        # Check if session key already stored in redis
-        session_id = conn.session.get('session_id')
+        # Check if session key already stored in cache
+        session_id = conn.session.get("session_id")
         if session_id:
-            username = cache.get(f'romm:{session_id}')
+            username = cache.get(f"romm:{session_id}")
             if username:
+                # Key exists therefore user is authenticated
                 user = dbh.get_user(username)
-                if user:
-                    # Key exists therefore user is authenticated
-                    return AuthCredentials(["authenticated", "admin"]), user
+                if user is None:
+                    raise credentials_exception
 
+                if user.disabled:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
+                    )
+
+                return (AuthCredentials(user.oauth_scopes), user)
+
+        # Check if Authorization header exists
         if "Authorization" not in conn.headers:
             return
 
         auth = conn.headers["Authorization"]
+        scheme, token = auth.split()
+        if scheme.lower() != "bearer":
+            return
+
         try:
-            scheme, credentials = auth.split()
-            if scheme.lower() != "basic":
-                return
-            decoded = base64.b64decode(credentials).decode("ascii")
-        except (ValueError, UnicodeDecodeError, binascii.Error):
-            raise AuthenticationError("Invalid basic auth credentials")
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        except (JWTError):
+            raise credentials_exception
 
-        username, _, password = decoded.partition(":")
-        user = authenticate_user(username, password)
-        if not user:
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+
+        user = dbh.get_user(username)
+        if user is None:
+            raise credentials_exception
+
+        if user.disabled:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Authorization"},
+                status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
             )
-        
-        # Generate unique session key and store in redis
-        conn.session['session_id'] = secrets.token_hex(16)
-        cache.set(f'romm:{conn.session["session_id"]}', user.username)
 
-        return AuthCredentials(["authenticated", "admin"]), user
+        return (AuthCredentials(user.oauth_scopes), user)

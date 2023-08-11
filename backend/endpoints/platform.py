@@ -24,7 +24,7 @@ class PlatformSchema(BaseModel):
 
 
 @router.get("/platforms")
-@requires(["authenticated"])
+@requires(["platforms.read"])
 def platforms(request: Request) -> list[PlatformSchema]:
     """Returns platforms data"""
     return dbh.get_platforms()

@@ -65,7 +65,7 @@ class RomSchema(BaseModel):
 
 
 @router.get("/platforms/{p_slug}/roms/{id}")
-@requires(["authenticated"])
+@requires(["roms.read"])
 def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
@@ -73,7 +73,7 @@ def rom(request: Request, id: int) -> RomSchema:
 
 
 @router.get("/platforms/{p_slug}/roms/{id}/download")
-@requires(["authenticated"])
+@requires(["roms.read"])
 def download_rom(request: Request, id: int, files: str):
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
@@ -107,7 +107,7 @@ def download_rom(request: Request, id: int, files: str):
 
 
 @router.get("/platforms/{p_slug}/roms")
-@requires(["authenticated"])
+@requires(["roms.read"])
 def roms(
     request: Request,
     p_slug: str,
@@ -131,7 +131,7 @@ def roms(
 
 
 @router.patch("/platforms/{p_slug}/roms/{id}")
-@requires(["authenticated"])
+@requires(["roms.write"])
 async def updateRom(request: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
@@ -176,7 +176,7 @@ async def updateRom(request: Request, p_slug: str, id: int) -> dict:
 
 
 @router.delete("/platforms/{p_slug}/roms/{id}")
-@requires(["authenticated", "admin"])
+@requires(["roms.write"])
 def delete_rom(
     request: Request, p_slug: str, id: int, filesystem: bool = False
 ) -> dict:
