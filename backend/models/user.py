@@ -11,9 +11,9 @@ class Role(enum.Enum):
     ADMIN = 2
 
 
-VIEWER_SCOPES = ["me.read", "me.write", "roms.read", "platforms.read"]
-EDITOR_SCOPES = VIEWER_SCOPES + ["roms.write", "platforms.write"]
-ADMIN_SCOPES = EDITOR_SCOPES + ["users.read", "users.write"]
+DEFAULT_SCOPES = ["me.read", "me.write", "roms.read", "platforms.read"]
+WRITE_SCOPES = DEFAULT_SCOPES + ["roms.write", "platforms.write"]
+FULL_SCOPES = WRITE_SCOPES + ["users.read", "users.write"]
 
 
 class User(BaseModel, SimpleUser):
@@ -27,9 +27,9 @@ class User(BaseModel, SimpleUser):
     @property
     def oauth_scopes(self):
         if self.role == Role.ADMIN:
-            return ADMIN_SCOPES
+            return FULL_SCOPES
 
         if self.role == Role.EDITOR:
-            return EDITOR_SCOPES
+            return WRITE_SCOPES
 
-        return VIEWER_SCOPES
+        return DEFAULT_SCOPES

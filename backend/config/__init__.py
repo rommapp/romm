@@ -53,4 +53,4 @@ ROMM_DB_DRIVER = os.environ.get("ROMM_DB_DRIVER", "sqlite")
 ROMM_AUTH_ENABLED = os.environ.get("ROMM_AUTH_ENABLED", "false") == "true"
 ROMM_AUTH_USERNAME = os.environ.get("ROMM_AUTH_USERNAME", "admin")
 ROMM_AUTH_PASSWORD = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
-ROMM_AUTH_SECRET_KEY = os.environ.get("ROMM_AUTH_SECRET_KEY", secrets.token_hex(32))
+ROMM_SECRET_KEY = os.environ.get("ROMM_SECRET_KEY", secrets.token_hex(32))

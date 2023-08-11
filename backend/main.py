@@ -7,11 +7,10 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY
+from config import DEV_PORT, DEV_HOST, ROMM_SECRET_KEY
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from utils.socket import socket_app
-from utils.auth import BasicAuthBackend, CustomCSRFMiddleware
-
+from utils.auth import BasicAuthBackend, CustomCSRFMiddleware, create_default_admin_user
 
 
 app = FastAPI()
@@ -29,13 +28,13 @@ app.add_middleware(
 )
 app.add_middleware(
     SessionMiddleware,
-    secret_key=ROMM_AUTH_SECRET_KEY,
+    secret_key=ROMM_SECRET_KEY,
     same_site="strict",
     https_only=False,
 )
 app.add_middleware(
     CustomCSRFMiddleware,
-    secret=ROMM_AUTH_SECRET_KEY,
+    secret=ROMM_SECRET_KEY,
     exempt_urls=[re.compile(r"^/oauth/.*"), re.compile(r"^/ws")],
 )
 
@@ -64,5 +63,8 @@ if __name__ == "__main__":
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
 
+    # Create default admin user
+    create_default_admin_user()
+    
     # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)

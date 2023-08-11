@@ -149,7 +149,9 @@ class DBHandler:
     def get_user(self, username: str):
         try:
             with self.session.begin() as session:
-                return session.scalars(select(User).filter_by(username=username)).first()
+                return session.scalars(
+                    select(User).filter_by(username=username)
+                ).first()
         except ProgrammingError as e:
             self.raise_error(e)
 
