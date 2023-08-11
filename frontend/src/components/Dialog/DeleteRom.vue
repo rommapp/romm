@@ -34,7 +34,10 @@ async function deleteRom() {
       });
       return;
     });
-  await router.push(`/platform/${rom.value.p_slug}`);
+  await router.push({
+    name: "platform",
+    params: { platform: rom.value.p_slug },
+  });
   emitter.emit("refreshGallery");
   emitter.emit("refreshPlatforms");
   show.value = false;

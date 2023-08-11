@@ -1,10 +1,12 @@
 <script setup>
 import { ref, inject } from "vue";
+import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
 import RailBtn from "@/components/Drawer/RailBtn.vue";
 
 // Props
+const router = useRouter();
 const platforms = storePlatforms();
 const drawer = ref(undefined);
 const open = ref(["Platforms", "Library", "Settings"]);
@@ -20,10 +22,10 @@ emitter.on("toggleDrawerRail", () => {
   localStorage.setItem("rail", rail.value);
 });
 
-function logout() {
+async function logout() {
   /* TODO: implement logout logic */
-  localStorage.setItem("login", false);
-  emitter.emit("login", false);
+  localStorage.setItem("authenticated", false);
+  await router.push({ name: "login" });
 }
 </script>
 
@@ -130,10 +132,7 @@ function logout() {
             >
           </template>
         </v-list-item>
-        <v-list-item
-          class="drawer-item bg-terciary"
-          @click="logout()"
-        >
+        <v-list-item class="drawer-item bg-terciary" @click="logout()">
           <span class="text-body-2 text-truncate">{{
             rail ? "" : "Logout"
           }}</span>
