@@ -39,7 +39,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
 
     if expires_delta:
@@ -59,7 +59,7 @@ credentials_exception = HTTPException(
 )
 
 
-async def get_current_active_user(token: str):
+async def get_current_active_user_from_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except (JWTError):
@@ -80,25 +80,34 @@ async def get_current_active_user(token: str):
 
     return user, payload.get("type")
 
+async def get_current_active_user_from_session(conn: HTTPConnection):
+    # Check if session key already stored in cache
+    session_id = conn.session.get("session_id")
+    if not session_id:
+        return None
+        
+    username = cache.get(f"romm:{session_id}")
+    if not username:
+        return None
+    
+    # Key exists therefore user is authenticated
+    user = dbh.get_user(username)
+    if user is None:
+        raise credentials_exception
+
+    if user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
+        )
+
+    return user
 
 class BasicAuthBackend(AuthenticationBackend):
     async def authenticate(self, conn: HTTPConnection):
         # Check if session key already stored in cache
-        session_id = conn.session.get("session_id")
-        if session_id:
-            username = cache.get(f"romm:{session_id}")
-            if username:
-                # Key exists therefore user is authenticated
-                user = dbh.get_user(username)
-                if user is None:
-                    raise credentials_exception
-
-                if user.disabled:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
-                    )
-
-                return (AuthCredentials(user.oauth_scopes), user)
+        user = await get_current_active_user_from_session(conn)
+        if user:
+            return (AuthCredentials(user.oauth_scopes), user)
 
         # Check if Authorization header exists
         if "Authorization" not in conn.headers:
@@ -109,9 +118,10 @@ class BasicAuthBackend(AuthenticationBackend):
         if scheme.lower() != "bearer":
             return
 
-        user, token_type = await get_current_active_user(token)
+        user, token_type = await get_current_active_user_from_token(token)
 
-        return (
-            AuthCredentials(user.oauth_scopes if token_type == "access" else None),
-            user,
-        )
+        # Refresh tokens have no access to endpoints
+        if token_type == "refresh":
+            return AuthCredentials(), user
+
+        return (AuthCredentials(user.oauth_scopes), user)

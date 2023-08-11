@@ -6,7 +6,6 @@ import re
 import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
-from typing import Optional
 
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
@@ -16,11 +15,10 @@ from .ps2_opl_index import opl_index
 
 MAIN_GAME_CATEGORY = 0
 EXPANDED_GAME_CATEGORY = 10
-
 N_SCREENSHOTS = 5
+PS2_IGDB_ID = 8
 
 ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
-PS2_IGDB_ID = 8
 
 
 class IGDBHandler:
