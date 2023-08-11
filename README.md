@@ -295,3 +295,4 @@ Games can be tagged with region, revision or other tags using parenthesis in the
 # 🎖 Credits
 
 * Pc icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
+* Login page background wallpaper - <a href="https://www.freepik.com/free-vector/colorful-futuristic-background-with-shiny-particles_9260185.htm#query=gaming%20background&position=29&from_view=keyword&track=ais">Image by pikisuperstar</a> on Freepik
