@@ -20,7 +20,7 @@ async function login() {
   </v-row>
   <v-row class="pa-2" no-gutters>
     <v-spacer />
-    <v-col cols="12" xs="12" sm="10" md="10" lg="2">
+    <v-col cols="6" xs="6" sm="5" md="4" lg="3">
       <v-text-field
         @keyup.enter="login()"
         type="text"
@@ -56,7 +56,7 @@ async function login() {
   background: url("/assets/login_bg.jpg") no-repeat center center;
   background-size: cover;
   transform: scale(1);
-  /* -webkit-filter: blur(3px);
-  filter: blur(3px); */
+  /* -webkit-filter: blur(4px);
+  filter: blur(4px); */
 }
 </style>
