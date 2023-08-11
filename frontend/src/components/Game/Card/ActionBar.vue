@@ -18,7 +18,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
         <template v-if="rom.multi">
           <v-btn
             @click="downloadRomApi(rom)"
-            :disabled="downloadStore.value.includes(rom.file_name)"
+            :disabled="downloadStore.value.includes(rom.id)"
             icon="mdi-download"
             size="x-small"
             rounded="0"

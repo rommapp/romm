@@ -1,6 +1,7 @@
 import axios from "axios";
 import cookie from "js-cookie";
 import useDownloadStore from "@/stores/download.js";
+import socket from "@/services/socket.js";
 
 // Set CSRF token for all requests
 axios.get("/api/heartbeat").then(() => {
@@ -26,31 +27,31 @@ export async function fetchRomApi(platform, rom) {
   return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
+// Listen for multi-file download completion events
+socket.on("download:complete", ({ id }) => {
+  const downloadStore = useDownloadStore();
+  useDownloadStore().remove(id);
+
+  // Disconnect socket when no more downloads are in progress
+  if (downloadStore.value.length === 0) socket.disconnect();
+});
+
+// Used only for multi-file downloads
 export async function downloadRomApi(rom, files) {
   // Force download of all multirom-parts when no part is selected
   if (files != undefined && files.length == 0) {
     files = undefined;
   }
 
-  const downloadStore = useDownloadStore();
-  downloadStore.add(rom.file_name);
+  const a = document.createElement("a");
+  a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
+    files || rom.files
+  }`;
+  a.download = `${rom.r_name}.zip`;
+  a.click();
 
-  axios
-    .get(
-      `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
-        files || rom.files
-      }`,
-      {
-        responseType: "blob",
-      }
-    )
-    .then((response) => {
-      const a = document.createElement("a");
-      a.href = window.URL.createObjectURL(new Blob([response.data]));
-      a.download = `${rom.r_name}.zip`;
-      a.click();
-      downloadStore.remove(rom.file_name);
-    });
+  if (!socket.connected) socket.connect();
+  useDownloadStore().add(rom.id);
 }
 
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {

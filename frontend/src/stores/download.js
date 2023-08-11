@@ -4,11 +4,11 @@ export default defineStore("download", {
   state: () => ({ value: [] }),
 
   actions: {
-    add(filename) {
-      this.value.push(filename);
+    add(id) {
+      this.value.push(id);
     },
-    remove(filename) {
-      this.value.splice(this.value.indexOf(filename), 1);
+    remove(id) {
+      this.value.splice(this.value.indexOf(id), 1);
     },
   },
 });

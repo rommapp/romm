@@ -36,6 +36,8 @@ types-redis = "^4.6.0.3"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 itsdangerous = "^2.1.2"
+stream-zip = "^0.0.67"
+starlette-csrf = "^3.0.0"
 
 [build-system]
 requires = ["poetry-core"]
