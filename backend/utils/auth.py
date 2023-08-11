@@ -14,7 +14,6 @@ from config import SECRET_KEY
 from utils.cache import cache
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 def verify_password(plain_password, hashed_password):
@@ -60,6 +59,28 @@ credentials_exception = HTTPException(
 )
 
 
+async def get_current_active_user(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except (JWTError):
+        raise credentials_exception
+
+    username: str = payload.get("sub")
+    if username is None:
+        raise credentials_exception
+
+    user = dbh.get_user(username)
+    if user is None:
+        raise credentials_exception
+
+    if user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
+        )
+
+    return user, payload.get("type")
+
+
 class BasicAuthBackend(AuthenticationBackend):
     async def authenticate(self, conn: HTTPConnection):
         # Check if session key already stored in cache
@@ -83,27 +104,14 @@ class BasicAuthBackend(AuthenticationBackend):
         if "Authorization" not in conn.headers:
             return
 
-        auth = conn.headers["Authorization"]
-        scheme, token = auth.split()
+        # Returns if Authorization header is not Bearer
+        scheme, token = conn.headers["Authorization"].split()
         if scheme.lower() != "bearer":
             return
 
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        except (JWTError):
-            raise credentials_exception
+        user, token_type = await get_current_active_user(token)
 
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-
-        user = dbh.get_user(username)
-        if user is None:
-            raise credentials_exception
-
-        if user.disabled:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
-            )
-
-        return (AuthCredentials(user.oauth_scopes), user)
+        return (
+            AuthCredentials(user.oauth_scopes if token_type == "access" else None),
+            user,
+        )
