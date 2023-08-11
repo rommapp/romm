@@ -27,7 +27,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
     same_site="strict",
-    https_only=False,
+    https_only=False, # TODO: Set to True in production
 )
 app.include_router(identity.router)
 app.include_router(platform.router)

@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 @router.put("/search/roms/igdb")
-@requires(["authenticated"])
+@requires(["roms.read"])
 async def search_rom_igdb(
     request: Request, search_term: str = "", search_by: str = ""
 ) -> dict:

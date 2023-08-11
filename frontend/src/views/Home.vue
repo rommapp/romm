@@ -11,11 +11,16 @@ const totalGames = platforms.totalGames;
 const { lgAndUp } = useDisplay();
 
 function login() {
-  axios.post("/api/login", {}, {
-    headers: {
-      Authorization: "Basic Z2Vvcmdlcy1hbnRvaW5lOnBhc3N3b3Jk",
+  axios.post(
+    "/api/login",
+    {},
+    {
+      auth: {
+        username: "georges-antoine",
+        password: "password",
+      },
     }
-  })
+  );
 }
 </script>
 
