@@ -39,6 +39,7 @@ const routes = [
       },
       {
         path: "/:pathMatch(.*)*",
+        name: "noMatch",
         component: () => import("@/views/Dashboard.vue"),
       },
     ],
@@ -58,6 +59,8 @@ router.beforeEach(async (to, from) => {
   if (!isAuthenticated() && to.name !== "login") {
     return { name: "login" };
   } else if (isAuthenticated() && to.name === "login") {
+    return { name: "dashboard" };
+  } else if (to.name == "noMatch"){
     return { name: "dashboard" };
   }
 });
