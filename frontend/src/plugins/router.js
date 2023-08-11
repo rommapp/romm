@@ -56,7 +56,11 @@ function isAuthenticated() {
 }
 
 router.beforeEach(async (to, from) => {
-  if (!isAuthenticated() && to.name !== "login") {
+
+  const publicPages = ['/login'];
+  const authRequired = !publicPages.includes(to.path);
+
+  if (!isAuthenticated() && to.name !== "login" && authRequired) {
     return { name: "login" };
   } else if (isAuthenticated() && to.name === "login") {
     return { name: "dashboard" };

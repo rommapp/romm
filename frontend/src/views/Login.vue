@@ -11,13 +11,9 @@ const password = ref();
 const validCredentials = ref(true);
 
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
-function checkCredentials() {
-  validCredentials.value = (username.value == "zurdi");
-}
-
 async function login() {
   /* TODO: implement login logic */
-  checkCredentials();
+  validCredentials.value = (username.value == "zurdi");
   if (validCredentials.value) {
     localStorage.setItem("authenticated", true);
     await router.push({ name: "dashboard" });
@@ -41,7 +37,7 @@ async function login() {
   <v-container class="fill-height">
     <v-row>
       <v-col>
-        <v-row class="bg-red" no-gutters>
+        <v-row no-gutters>
           <v-img src="/assets/isotipo.svg" id="login-logo" />
         </v-row>
 
@@ -68,7 +64,7 @@ async function login() {
           </v-col>
         </v-row>
 
-        <v-row class="justify-center mt-2 bg-green" no-gutters>
+        <v-row class="justify-center mt-2" no-gutters>
           <v-btn
             @click="login()"
             rounded="0"
