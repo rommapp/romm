@@ -86,7 +86,10 @@ async def oauth(form_data: Annotated[OAuth2RequestForm, Depends()]):
     # TODO: Authentication via client_id/client_secret
     # Should also support specifying scopes
     elif form_data.grant_type == "client_credentials":
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client credentials are not yet supported",
+        )
 
     else:
         # All other grant types are unsupported
