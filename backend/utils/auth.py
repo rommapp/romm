@@ -8,6 +8,8 @@ from starlette.authentication import (
     AuthenticationBackend,
 )
 from starlette.requests import HTTPConnection
+from starlette_csrf import CSRFMiddleware
+from starlette.types import Receive, Scope, Send
 
 from handler import dbh
 from config import SECRET_KEY
@@ -27,10 +29,10 @@ def get_password_hash(password):
 def authenticate_user(username: str, password: str):
     user = dbh.get_user(username)
     if not user:
-        return False
+        return None
 
     if not verify_password(password, user.hashed_password):
-        return False
+        return None
 
     return user
 
@@ -78,7 +80,7 @@ async def get_current_active_user_from_token(token: str):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
         )
 
-    return user, payload.get("type")
+    return user, payload
 
 async def get_current_active_user_from_session(conn: HTTPConnection):
     # Check if session key already stored in cache
@@ -111,17 +113,26 @@ class BasicAuthBackend(AuthenticationBackend):
 
         # Check if Authorization header exists
         if "Authorization" not in conn.headers:
-            return
+            return None
 
         # Returns if Authorization header is not Bearer
         scheme, token = conn.headers["Authorization"].split()
         if scheme.lower() != "bearer":
+            return None
+
+        user, payload = await get_current_active_user_from_token(token)
+
+        # Only access tokens can request resources
+        if payload.get("type") == "access":
+            return (AuthCredentials(user.oauth_scopes), user)
+            
+        return None
+
+
+class CustomCSRFMiddleware(CSRFMiddleware):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
             return
-
-        user, token_type = await get_current_active_user_from_token(token)
-
-        # Refresh tokens have no access to endpoints
-        if token_type == "refresh":
-            return AuthCredentials(), user
-
-        return (AuthCredentials(user.oauth_scopes), user)
+        
+        await super().__call__(scope, receive, send)
