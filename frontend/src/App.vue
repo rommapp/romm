@@ -1,6 +1,9 @@
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, inject, onMounted, onBeforeMount } from "vue";
 import { useTheme, useDisplay } from "vuetify";
+import cookie from "js-cookie";
+import axios from "axios";
+
 import { fetchPlatformsApi } from "@/services/api.js";
 import storePlatforms from "@/stores/platforms.js";
 import storeScanning from "@/stores/scanning.js";
@@ -31,6 +34,12 @@ emitter.on("refreshPlatforms", async () => {
 
 emitter.on("refreshGallery", () => {
   refreshGallery.value = !refreshGallery.value;
+});
+
+onBeforeMount(async () => {
+  // Set CSRF token for all requests
+  await axios.get("/api/heartbeat");
+  axios.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
 });
 
 onMounted(async () => {

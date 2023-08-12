@@ -7,9 +7,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from logger.logger import log
 from config.config_loader import ConfigLoader
-from models.platform import Platform
-from models.rom import Rom
-from models.user import User
+from models import Platform, Rom, User
 
 
 class DBHandler:
