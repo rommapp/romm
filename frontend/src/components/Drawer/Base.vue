@@ -1,13 +1,11 @@
 <script setup>
 import { ref, inject } from "vue";
-import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
 import LogoutBtn from "@/components/Drawer/LogoutBtn.vue";
 
 // Props
-const router = useRouter();
 const platforms = storePlatforms();
 const drawer = ref(undefined);
 const open = ref(["Platforms", "Library", "Settings"]);
@@ -22,12 +20,6 @@ emitter.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
   localStorage.setItem("rail", rail.value);
 });
-
-async function logout() {
-  /* TODO: implement logout logic */
-  localStorage.setItem("authenticated", false);
-  await router.push({ name: "login" });
-}
 </script>
 
 <template>

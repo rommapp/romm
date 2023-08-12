@@ -1,5 +1,14 @@
 <script setup>
+import { useRouter } from "vue-router";
+
 const props = defineProps(["rail"]);
+const router = useRouter();
+
+async function logout() {
+  /* TODO: implement logout logic */
+  localStorage.setItem("authenticated", false);
+  await router.push({ name: "login" });
+}
 </script>
 
 <template>
