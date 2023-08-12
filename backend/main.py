@@ -1,13 +1,14 @@
 import uvicorn
 import alembic.config
 import re
+import secrets
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST, ROMM_SECRET_KEY
+from config import DEV_PORT, DEV_HOST
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from utils.socket import socket_app
 from utils.auth import BasicAuthBackend, CustomCSRFMiddleware, create_default_admin_user
@@ -28,13 +29,13 @@ app.add_middleware(
 )
 app.add_middleware(
     SessionMiddleware,
-    secret_key=ROMM_SECRET_KEY,
+    secret_key=secrets.token_hex(32),
     same_site="strict",
     https_only=False,
 )
 app.add_middleware(
     CustomCSRFMiddleware,
-    secret=ROMM_SECRET_KEY,
+    secret=secrets.token_hex(32),
     exempt_urls=[re.compile(r"^/oauth/.*"), re.compile(r"^/ws")],
 )
 
