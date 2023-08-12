@@ -3,8 +3,6 @@ FROM node:lts-alpine as front-build-stage
 COPY ./.romm-version /
 WORKDIR /front
 COPY ./frontend ./
-RUN sed -i -r "s/<romm_version>/$(cat /.romm-version)/g" ./package.json
-RUN sed -i -r "s/<romm_version>/$(cat /.romm-version)/g" ./package-lock.json
 RUN npm install
 RUN npm run build
 
@@ -33,7 +31,6 @@ RUN apt update && \
 COPY ./.romm-version /
 WORKDIR /back
 COPY ./pyproject.toml ./poetry.lock ./
-RUN sed -i -r "s/<romm_version>/$(cat /.romm-version)/g" ./pyproject.toml
 RUN pip install --no-cache --upgrade pip && \
     pip install --no-cache poetry && \
     poetry config virtualenvs.create false && \
