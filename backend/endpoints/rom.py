@@ -1,11 +1,12 @@
-import io
-import tempfile
-import zipfile
+from datetime import datetime
 from fastapi import APIRouter, Request, status, HTTPException
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, BaseConfig
+
+from stat import S_IFREG
+from stream_zip import ZIP_64, stream_zip
 
 from logger.logger import log
 from handler import dbh
@@ -14,6 +15,8 @@ from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
 from models.rom import Rom
 from models.platform import Platform
 from config import LIBRARY_BASE_PATH
+
+from .utils import CustomStreamingResponse
 
 router = APIRouter()
 
@@ -76,31 +79,29 @@ def download_rom(id: int, files: str):
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     if not rom.multi:
-        return FileResponse(
-            path=rom_path,
-            filename=rom.file_name,
-            media_type="application/octet-stream",
-        )
+        return FileResponse(path=rom_path, filename=rom.file_name)
 
-    mf = io.BytesIO()
-    with zipfile.ZipFile(mf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        try:
-            for file_name in files.split(","):
-                zf.write(f"{rom_path}/{file_name}", file_name)
-        except FileNotFoundError as e:
-            log.error(str(e))
-        finally:
-            zf.close()
+    # Builds a generator of tuples for each member file
+    def local_files():
+        def contents(file_name):
+            with open(f"{rom_path}/{file_name}", "rb") as f:
+                while chunk := f.read(65536):
+                    yield chunk
 
-    tmp = tempfile.NamedTemporaryFile(delete=False)
-    with open(tmp.name, "wb") as f:
-        f.write(mf.getvalue())
+        return [
+            (file_name, datetime.now(), S_IFREG | 0o600, ZIP_64, contents(file_name))
+            for file_name in files.split(",")
+        ]
 
-        return FileResponse(
-            path=tmp.name,
-            filename=f"{rom.r_name}.zip",
-            media_type="application/octet-stream",
-        )
+    zipped_chunks = stream_zip(local_files())
+
+    # Streams the zip file to the client
+    return CustomStreamingResponse(
+        zipped_chunks,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={rom.r_name}.zip"},
+        emit_body={"id": rom.id},
+    )
 
 
 @router.get("/platforms/{p_slug}/roms", status_code=200)
