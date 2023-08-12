@@ -14,6 +14,7 @@ const emitter = inject("emitter");
     rounded="0"
     color="primary"
     block
+    elevation="0"
   >
     <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>
     <v-icon v-if="!rail">mdi-arrow-collapse-left</v-icon>

@@ -26,5 +26,3 @@ import PlatformIcon from "./PlatformIcon.vue";
     </template>
   </v-list-item>
 </template>
-
-<style scoped></style>

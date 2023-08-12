@@ -13,7 +13,7 @@ const validCredentials = ref(true);
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
 async function login() {
   /* TODO: implement login logic */
-  validCredentials.value = (username.value == "zurdi");
+  validCredentials.value = username.value == "zurdi";
   if (validCredentials.value) {
     localStorage.setItem("authenticated", true);
     await router.push({ name: "dashboard" });
@@ -70,10 +70,9 @@ async function login() {
             rounded="0"
             class="bg-primary"
             append-icon="mdi-chevron-right-circle-outline"
-            >Sign In</v-btn
+            >Login</v-btn
           >
         </v-row>
-
       </v-col>
     </v-row>
   </v-container>

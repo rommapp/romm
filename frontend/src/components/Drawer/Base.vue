@@ -2,8 +2,9 @@
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
+import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
-import RailBtn from "@/components/Drawer/RailBtn.vue";
+import LogoutBtn from "@/components/Drawer/LogoutBtn.vue";
 
 // Props
 const router = useRouter();
@@ -37,14 +38,11 @@ async function logout() {
     rail-width="145"
     elevation="0"
   >
+    <template v-slot:prepend>
+      <drawer-header :rail="rail" />
+    </template>
     <v-list v-model:opened="open" class="pa-0">
-      <router-link to="/">
-        <v-list-item class="justify-center pa-0">
-          <v-img src="/assets/isotipo.svg" class="home-btn ma-2" />
-        </v-list-item>
-      </router-link>
-
-      <v-divider></v-divider>
+      <v-divider />
 
       <v-list-group value="Platforms">
         <template v-slot:activator="{ props }">
@@ -132,32 +130,17 @@ async function logout() {
             >
           </template>
         </v-list-item>
-        <v-list-item class="drawer-item bg-terciary" @click="logout()">
-          <span class="text-body-2 text-truncate">{{
-            rail ? "" : "Logout"
-          }}</span>
-          <template v-slot:prepend>
-            <v-avatar :rounded="0" size="40"
-              ><v-icon>mdi-logout-variant</v-icon></v-avatar
-            >
-          </template>
-        </v-list-item>
       </v-list-group>
     </v-list>
 
     <template v-slot:append>
       <v-divider class="border-opacity-25" :thickness="1" />
-      <rail-btn :rail="rail" />
+      <logout-btn :rail="rail" />
     </template>
   </v-navigation-drawer>
 </template>
 
 <style scoped>
-.home-btn {
-  width: 70px;
-  cursor: pointer;
-}
-
 .drawer-item {
   padding-inline-start: 30px !important;
 }
