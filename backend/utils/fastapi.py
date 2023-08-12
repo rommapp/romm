@@ -4,8 +4,7 @@ from typing import Any
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
 from config.config_loader import config
-from models.platform import Platform
-from models.rom import Rom
+from models import Platform, Rom
 from logger.logger import log
 
 

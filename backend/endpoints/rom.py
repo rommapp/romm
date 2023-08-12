@@ -13,8 +13,7 @@ from logger.logger import log
 from handler import dbh
 from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
-from models.rom import Rom
-from models.platform import Platform
+from models import Rom, Platform
 from config import LIBRARY_BASE_PATH
 
 from .utils import CustomStreamingResponse

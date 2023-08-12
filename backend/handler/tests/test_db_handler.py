@@ -1,6 +1,5 @@
 from handler.db_handler import DBHandler
-from models.platform import Platform
-from models.rom import Rom
+from models import Platform, Rom
 
 dbh = DBHandler()
 

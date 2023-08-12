@@ -4,8 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config.config_loader import ConfigLoader
-from models.platform import Platform
-from models.rom import Rom
+from models import Platform, Rom
 
 engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
