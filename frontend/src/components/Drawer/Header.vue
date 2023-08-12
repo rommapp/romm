@@ -17,7 +17,7 @@ const props = defineProps(["rail"]);
       <rail-btn :rail="rail" />
     </template>
   </v-list-item>
-  <v-list-item v-if="rail">
+  <v-list-item class="pa-0" v-if="rail">
     <rail-btn :rail="rail" />
   </v-list-item>
 </template>

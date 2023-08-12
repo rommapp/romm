@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import { useTheme } from "vuetify";
-import version from "../../../package"
+import version from "../../../package";
 
 // Props
 const tab = ref("ui");
@@ -22,16 +22,38 @@ function toggleTheme() {
   <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="rommAccent1" class="bg-primary">
-      <v-tab value="general" rounded="0" disabled>
+      <v-tab value="general" rounded="0">
         General
-        <span class="text-caption text-truncate ml-1"> [coming soon] </span>
       </v-tab>
       <v-tab value="ui" rounded="0">User Interface</v-tab>
     </v-tabs>
   </v-app-bar>
 
   <v-window v-model="tab">
-    <v-window-item value="general" />
+    <v-window-item value="general">
+      <v-row class="pa-4 bg-red" no-gutters>
+        <v-card>
+          <v-toolbar density="compact" class="bg-primary">
+            <v-row class="align-center" no-gutters>
+              <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+                <v-icon icon="mdi-pencil-box" class="ml-5" />
+              </v-col>
+              <v-col>
+                <v-btn
+                  @click="show = false"
+                  class="bg-primary"
+                  rounded="0"
+                  variant="text"
+                  icon="mdi-close"
+                  block
+                />
+              </v-col>
+            </v-row>
+          </v-toolbar>
+        </v-card>
+      </v-row>
+    </v-window-item>
+
     <v-window-item value="ui">
       <v-row class="pa-4" no-gutters>
         <v-switch
