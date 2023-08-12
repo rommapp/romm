@@ -1,12 +1,12 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
-import Drawer from "@/components/Drawer/Base.vue";
-import AppBar from "@/components/AppBar/Base.vue";
-import Notification from "@/components/Notification.vue";
 import { fetchPlatformsApi } from "@/services/api.js";
 import storePlatforms from "@/stores/platforms.js";
 import storeScanning from "@/stores/scanning.js";
+import Drawer from "@/components/Drawer/Base.vue";
+import AppBar from "@/components/AppBar/Base.vue";
+import Notification from "@/components/Notification.vue";
 
 // Props
 const { mdAndDown } = useDisplay();
@@ -35,7 +35,7 @@ onMounted(async () => {
   <notification class="mt-6" />
 
   <v-progress-linear
-    class="scan-progress-bar"
+    id="scan-progress-bar"
     color="rommAccent1"
     :active="scanning.value"
     :indeterminate="true"
@@ -44,14 +44,16 @@ onMounted(async () => {
   />
 
   <drawer :key="refreshPlatforms" />
+
   <app-bar v-if="mdAndDown" />
-  <v-main class="pa-1">
+
+  <v-container class="pa-1" fluid>
     <router-view :key="refreshGallery" />
-  </v-main>
+  </v-container>
 </template>
 
 <style scoped>
-.scan-progress-bar {
+#scan-progress-bar {
   z-index: 1000 !important;
 }
 </style>
