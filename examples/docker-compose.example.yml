@@ -20,7 +20,7 @@ services:
       - ROMM_AUTH_ENABLED=true # [Optional] Will enable user management and require authentication to access the interface (default to false)
       - ROMM_AUTH_USERNAME=admin # [Optional] Username for default admin user
       - ROMM_AUTH_PASSWORD=<admin password> # [Optional] Password for default admin user (defaults to admin)
-      - ROMM_SECRET_KEY=<secret key> # [Optional] Used to encrypt user passwords, generate one with `openssl rand -hex 32`
+      - ROMM_AUTH_SECRET_KEY=<secret key> # [Optional] Used to encrypt user passwords, generate one with `openssl rand -hex 32`
     volumes:
       - '/path/to/library:/romm/library'
       - '/path/to/resources:/romm/resources' # [Optional] Path where roms metadata (covers) are stored

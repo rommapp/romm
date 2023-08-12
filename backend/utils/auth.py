@@ -14,7 +14,7 @@ from starlette.types import Receive, Scope, Send
 
 from handler import dbh
 from config import (
-    ROMM_SECRET_KEY,
+    ROMM_AUTH_SECRET_KEY,
     ROMM_AUTH_ENABLED,
     ROMM_AUTH_USERNAME,
     ROMM_AUTH_PASSWORD,
@@ -58,7 +58,7 @@ def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
 
     to_encode.update({"exp": expire})
 
-    return jwt.encode(to_encode, ROMM_SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
 
 
 credentials_exception = HTTPException(
@@ -70,7 +70,7 @@ credentials_exception = HTTPException(
 
 async def get_current_active_user_from_token(token: str):
     try:
-        payload = jwt.decode(token, ROMM_SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
     except (JWTError):
         raise credentials_exception
 
