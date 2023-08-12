@@ -27,7 +27,7 @@ emitter.on("toggleDrawerRail", () => {
     v-model="drawer"
     :rail="rail"
     width="300"
-    rail-width="145"
+    rail-width="105"
     elevation="0"
   >
     <template v-slot:prepend>

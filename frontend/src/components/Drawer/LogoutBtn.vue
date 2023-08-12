@@ -20,6 +20,6 @@ async function logout() {
     block
   >
     {{ rail ? "" : "Logout" }}
-    <v-icon class="ml-3">mdi-logout-variant</v-icon>
+    <v-icon :class="{'ml-3': !rail}">mdi-logout-variant</v-icon>
   </v-btn>
 </template>
