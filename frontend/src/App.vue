@@ -14,7 +14,4 @@ useTheme().global.name.value = localStorage.getItem("theme") || "rommDark";
 
 <style>
 @import "@/styles/scrollbar.css";
-
-
-
 </style>
