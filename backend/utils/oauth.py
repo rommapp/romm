@@ -110,6 +110,7 @@ def protected_route(
     method: Callable[[DecoratedCallable], DecoratedCallable],
     path: str,
     scopes: list[str] = [],
+    **kwargs,
 ):
     return method(
         path,
@@ -119,4 +120,5 @@ def protected_route(
                 scopes=scopes,
             ),
         ],
+        **kwargs,
     )
