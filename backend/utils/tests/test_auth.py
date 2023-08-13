@@ -2,7 +2,7 @@ from fastapi.exceptions import HTTPException
 
 from models import User
 from handler import dbh
-from utils.auth import (
+from ..auth import (
     verify_password,
     get_password_hash,
     authenticate_user,
@@ -10,8 +10,8 @@ from utils.auth import (
     create_default_admin_user,
     HybridAuthBackend,
 )
-from utils.oauth import WRITE_SCOPES, create_oauth_token
-from utils.cache import cache
+from ..oauth import WRITE_SCOPES, create_oauth_token
+from ..cache import cache
 
 
 def test_verify_password():

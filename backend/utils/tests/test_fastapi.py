@@ -1,7 +1,7 @@
 import pytest
 
-from utils.fastapi import scan_platform, scan_rom
-from utils.exceptions import RomsNotFoundException
+from ..fastapi import scan_platform, scan_rom
+from ..exceptions import RomsNotFoundException
 from models import Platform, Rom
 
 
