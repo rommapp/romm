@@ -41,7 +41,11 @@ def login(request: Request):
     try:
         scheme, credentials = auth.split()
         if scheme.lower() != "basic":
-            return
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication scheme",
+                headers={"WWW-Authenticate": "Basic"},
+            )
         decoded = base64.b64decode(credentials).decode("ascii")
     except (ValueError, UnicodeDecodeError, binascii.Error):
         raise credentials_exception
@@ -63,7 +67,10 @@ def logout(request: Request):
     # Check if session key already stored in cache
     session_id = request.session.get("session_id")
     if not session_id:
-        return
+        return {"message": "Already logged out"}
+
+    if not request.user.id:
+        return {"message": "Already logged out"}
 
     cache.delete(f"romm:{session_id}")
     request.session["session_id"] = None

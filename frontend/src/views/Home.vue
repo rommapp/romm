@@ -22,6 +22,10 @@ function login() {
     }
   );
 }
+
+function logout() {
+  axios.post("/api/logout");
+}
 </script>
 
 <template>
@@ -42,6 +46,7 @@ function login() {
     <v-spacer />
     <v-col cols="12" xs="12" sm="10" md="10" lg="10">
       <v-btn @click="login">Login</v-btn>
+      <v-btn @click="logout" class="ml-2">Logout</v-btn>
     </v-col>
     <v-spacer />
   </v-row>
