@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config.config_loader import ConfigLoader
-from models import Platform, Rom
+from models import Platform, Rom, User
 
 engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -20,6 +20,7 @@ def clear_database():
     with session.begin() as s:
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(User).delete(synchronize_session="evaluate")
 
 
 @pytest.fixture
@@ -46,3 +47,13 @@ def rom(platform):
     with session.begin() as s:
         s.merge(rom)
     return rom
+
+@pytest.fixture
+def user():
+    user = User(
+        username="test_user",
+        hashed_password="test_password",
+    )
+    with session.begin() as s:
+        s.merge(user)
+    return user
