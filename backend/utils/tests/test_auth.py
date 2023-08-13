@@ -140,7 +140,7 @@ async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
     creds, user = await backend.authenticate(conn)
 
     assert not user
-    assert not creds
+    assert creds.scopes == []
 
 
 async def test_hybrid_auth_backend_auth_header(editor_user):
@@ -178,7 +178,7 @@ async def test_hybrid_auth_backend_invalid_scheme():
     creds, user = await backend.authenticate(conn)
 
     assert not user
-    assert not creds
+    assert creds.scopes == []
 
 
 async def test_hybrid_auth_backend_with_refresh_token(editor_user):
@@ -201,7 +201,7 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user):
     creds, user = await backend.authenticate(conn)
 
     assert not user
-    assert not creds
+    assert creds.scopes == []
 
 
 async def test_hybrid_auth_backend_scope_subset(editor_user):

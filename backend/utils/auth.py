@@ -100,18 +100,18 @@ class HybridAuthBackend(AuthenticationBackend):
 
         # Check if Authorization header exists
         if "Authorization" not in conn.headers:
-            return None, None
+            return (AuthCredentials([]), None)
 
         # Returns if Authorization header is not Bearer
         scheme, token = conn.headers["Authorization"].split()
         if scheme.lower() != "bearer":
-            return None, None
+            return (AuthCredentials([]), None)
 
         user, payload = await get_current_active_user_from_token(token)
 
         # Only access tokens can request resources
         if payload.get("type") != "access":
-            return None, None
+            return (AuthCredentials([]), None)
 
         # Only grant access to resources with overlapping scopes
         token_scopes = set(list(payload.get("scopes").split(" ")))
