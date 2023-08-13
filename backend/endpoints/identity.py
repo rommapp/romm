@@ -86,7 +86,7 @@ def current_user(request: Request) -> UserSchema:
 @protected_route(router.get, "/users/{user_id}", ["users.read"])
 @requires(["users.read"])
 def get_user(request: Request, user_id: int) -> UserSchema:
-    user = dbh.get_user_by_id(user_id)
+    user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -131,14 +131,14 @@ class UserUpdateForm:
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
 ) -> UserSchema:
-    user = dbh.get_user_by_id(user_id)
+    user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     cleaned_data = {}
 
     if form_data.username:
-        existing_user = dbh.get_user(form_data.username.lower())
+        existing_user = dbh.get_user_by_username(form_data.username.lower())
         if existing_user:
             raise HTTPException(
                 status_code=400, detail="Username already in use by another user"
@@ -162,4 +162,4 @@ def update_user(
 
     dbh.update_user(user_id, cleaned_data)
 
-    return dbh.get_user_by_id(user_id)
+    return dbh.get_user(user_id)

@@ -97,7 +97,7 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user):
 def test_create_default_admin_user():
     create_default_admin_user()
 
-    user = dbh.get_user("test_admin")
+    user = dbh.get_user_by_username("test_admin")
     assert user.username == "test_admin"
     assert verify_password("test_admin_password", user.hashed_password)
 

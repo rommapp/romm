@@ -5,7 +5,7 @@ from main import app
 client = TestClient(app)
 
 
-def test_platforms(access_token, platform):
+def test_get_platforms(access_token, platform):
     response = client.get("/platforms")
     assert response.status_code == 403
 

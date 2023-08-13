@@ -133,7 +133,7 @@ def roms(
 
 @protected_route(router.patch, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
 @requires(["roms.write"])
-async def updateRom(request: Request, p_slug: str, id: int) -> dict:
+async def update_rom(request: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
     data: dict = await request.json()
@@ -158,14 +158,14 @@ async def updateRom(request: Request, p_slug: str, id: int) -> dict:
             overwrite=True,
             p_slug=platform.slug,
             r_name=updated_rom["file_name_no_tags"],
-            url_cover=updated_rom["url_cover"],
+            url_cover=updated_rom.get("url_cover", ""),
         )
     )
     updated_rom.update(
         fs.get_screenshots(
             p_slug=platform.slug,
             r_name=updated_rom["file_name_no_tags"],
-            url_screenshots=updated_rom["url_screenshots"],
+            url_screenshots=updated_rom.get("url_screenshots", ""),
         ),
     )
     dbh.update_rom(id, updated_rom)

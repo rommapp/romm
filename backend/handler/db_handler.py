@@ -144,7 +144,7 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_user(self, username: str):
+    def get_user_by_username(self, username: str):
         try:
             with self.session.begin() as session:
                 return session.scalars(
@@ -153,7 +153,7 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_user_by_id(self, id: int):
+    def get_user(self, id: int):
         try:
             with self.session.begin() as session:
                 return session.get(User, id)

@@ -78,14 +78,14 @@ def test_users(admin_user):
     all_users = dbh.get_users()
     assert len(all_users) == 2
 
-    new_user = dbh.get_user("new_user")
+    new_user = dbh.get_user_by_username("new_user")
     assert new_user.username == "new_user"
     assert new_user.role == Role.VIEWER
     assert not new_user.disabled
 
     dbh.update_user(new_user.id, {"role": Role.EDITOR})
 
-    new_user = dbh.get_user_by_id(new_user.id)
+    new_user = dbh.get_user(new_user.id)
     assert new_user.role == Role.EDITOR
 
     dbh.delete_user(new_user.id)
