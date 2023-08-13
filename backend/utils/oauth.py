@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Callable
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Security
 from fastapi.param_functions import Form
 from fastapi.security.oauth2 import OAuth2PasswordBearer
+from fastapi.types import DecoratedCallable
 
 from config import ROMM_AUTH_SECRET_KEY
 
@@ -57,7 +58,7 @@ async def get_current_active_user_from_token(token: str):
         payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise credentials_exception
-    
+
     username: str = payload.get("sub")
     if username is None:
         raise credentials_exception
@@ -105,7 +106,11 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 )
 
 
-def protected_route(method, path: str, scopes: list[str] = []):
+def protected_route(
+    method: Callable[[DecoratedCallable], DecoratedCallable],
+    path: str,
+    scopes: list[str] = [],
+):
     return method(
         path,
         dependencies=[
