@@ -1,28 +1,30 @@
-from datetime import datetime, timedelta
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from passlib.context import CryptContext
+from starlette.requests import HTTPConnection
+from starlette_csrf import CSRFMiddleware
+from starlette.types import Receive, Scope, Send
 from starlette.authentication import (
     AuthCredentials,
     AuthenticationBackend,
 )
-from starlette.requests import HTTPConnection
-from starlette_csrf import CSRFMiddleware
-from starlette.types import Receive, Scope, Send
 
 from handler import dbh
+from utils.cache import cache
+from models.user import User, Role
 from config import (
-    ROMM_AUTH_SECRET_KEY,
     ROMM_AUTH_ENABLED,
     ROMM_AUTH_USERNAME,
     ROMM_AUTH_PASSWORD,
 )
-from utils.cache import cache
-from models.user import User, Role, FULL_SCOPES
 
-ALGORITHM = "HS256"
+from .oauth import (
+    FULL_SCOPES,
+    get_current_active_user_from_token,
+)
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password, hashed_password):
@@ -44,52 +46,6 @@ def authenticate_user(username: str, password: str):
     return user
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-
-def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-
-    to_encode.update({"exp": expire})
-
-    return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
-
-
-credentials_exception = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Could not validate credentials",
-    headers={"WWW-Authenticate": "Bearer"},
-)
-
-
-async def get_current_active_user_from_token(token: str):
-    try:
-        payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
-    except (JWTError):
-        raise credentials_exception
-
-    username: str = payload.get("sub")
-    if username is None:
-        raise credentials_exception
-
-    user = dbh.get_user(username)
-    if user is None:
-        raise credentials_exception
-
-    if user.disabled:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
-        )
-
-    return user, payload
-
-
 async def get_current_active_user_from_session(conn: HTTPConnection):
     # Check if session key already stored in cache
     session_id = conn.session.get("session_id")
@@ -103,7 +59,10 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
     # Key exists therefore user is authenticated
     user = dbh.get_user(username)
     if user is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
 
     if user.disabled:
         raise HTTPException(
@@ -126,7 +85,7 @@ class BasicAuthBackend(AuthenticationBackend):
         # Check if Authorization header exists
         if "Authorization" not in conn.headers:
             return None
-
+        
         # Returns if Authorization header is not Bearer
         scheme, token = conn.headers["Authorization"].split()
         if scheme.lower() != "bearer":
@@ -135,10 +94,14 @@ class BasicAuthBackend(AuthenticationBackend):
         user, payload = await get_current_active_user_from_token(token)
 
         # Only access tokens can request resources
-        if payload.get("type") == "access":
-            return (AuthCredentials(user.oauth_scopes), user)
+        if payload.get("type") != "access":
+            return None
 
-        return None
+        # Only grant access to resources with overlapping scopes
+        token_scopres = set(list(payload.get("scope")))
+        overlapping_scopes = list(token_scopres & set(user.oauth_scopes))
+
+        return (AuthCredentials(overlapping_scopes), user)
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):

@@ -1,11 +1,11 @@
-from typing import Annotated, Optional
+from typing import Annotated
 from datetime import timedelta
 from fastapi import Depends, APIRouter, HTTPException, status
-from fastapi.param_functions import Form
 
 
-from utils.auth import (
-    authenticate_user,
+from utils.auth import authenticate_user
+from utils.oauth import (
+    OAuth2RequestForm,
     create_oauth_token,
     get_current_active_user_from_token,
 )
@@ -17,54 +17,28 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 router = APIRouter()
 
 
-class OAuth2RequestForm:
-    def __init__(
-        self,
-        grant_type: str = Form(default="password"),
-        scope: str = Form(default=""),
-        username: Optional[str] = Form(default=None),
-        password: Optional[str] = Form(default=None),
-        client_id: Optional[str] = Form(default=None),
-        client_secret: Optional[str] = Form(default=None),
-        refresh_token: Optional[str] = Form(default=None),
-    ):
-        self.grant_type = grant_type
-        self.scopes = scope.split()
-        self.username = username
-        self.password = password
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.refresh_token = refresh_token
-
-
-def credentials_exception(details: str):
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=details,
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-
-@router.post("/oauth/token")
-async def oauth(form_data: Annotated[OAuth2RequestForm, Depends()]):
+@router.post("/token")
+async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
     # Suppport refreshing access tokens
     if form_data.grant_type == "refresh_token":
         token = form_data.refresh_token
         if not token:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing refresh token"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
-        
+
         user, payload = await get_current_active_user_from_token(token)
         if payload.get("type") != "refresh":
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
-        
+
         access_token = create_oauth_token(
-            data={"sub": user.username, "type": "access"},
+            data={
+                "sub": user.username,
+                "scope": payload.get("scope"),
+                "type": "access",
+            },
             expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         )
 
@@ -73,7 +47,7 @@ async def oauth(form_data: Annotated[OAuth2RequestForm, Depends()]):
             "token_type": "bearer",
             "expires": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }
-    
+
     # Authentication via username/password
     elif form_data.grant_type == "password":
         user = authenticate_user(form_data.username, form_data.password)
@@ -82,9 +56,8 @@ async def oauth(form_data: Annotated[OAuth2RequestForm, Depends()]):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
             )
-    
+
     # TODO: Authentication via client_id/client_secret
-    # Should also support specifying scopes
     elif form_data.grant_type == "client_credentials":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -98,13 +71,28 @@ async def oauth(form_data: Annotated[OAuth2RequestForm, Depends()]):
             detail="Invalid grant type",
         )
 
+    # Check if user has access to requested scopes
+    if not set(form_data.scopes).issubset(user.oauth_scopes):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient scope",
+        )
+
     access_token = create_oauth_token(
-        data={"sub": user.username, "type": "access"},
+        data={
+            "sub": user.username,
+            "scope": form_data.scopes.join(" "),
+            "type": "access",
+        },
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
     refresh_token = create_oauth_token(
-        data={"sub": user.username, "type": "refresh"},
+        data={
+            "sub": user.username,
+            "scope": form_data.scopes.join(" "),
+            "type": "refresh",
+        },
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
 
@@ -112,5 +100,5 @@ async def oauth(form_data: Annotated[OAuth2RequestForm, Depends()]):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "expires": ACCESS_TOKEN_EXPIRE_MINUTES,
     }

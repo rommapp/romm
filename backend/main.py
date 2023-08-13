@@ -13,7 +13,6 @@ from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from utils.socket import socket_app
 from utils.auth import BasicAuthBackend, CustomCSRFMiddleware, create_default_admin_user
 
-
 app = FastAPI()
 
 app.add_middleware(
@@ -36,7 +35,7 @@ app.add_middleware(
 app.add_middleware(
     CustomCSRFMiddleware,
     secret=secrets.token_hex(32),
-    exempt_urls=[re.compile(r"^/oauth/.*"), re.compile(r"^/ws")],
+    exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
 )
 
 app.include_router(oauth.router)
@@ -66,6 +65,6 @@ if __name__ == "__main__":
 
     # Create default admin user
     create_default_admin_user()
-    
+
     # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)

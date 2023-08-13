@@ -3,17 +3,13 @@ from sqlalchemy import Column, String, Boolean, Integer, Enum
 from starlette.authentication import SimpleUser
 
 from .base import BaseModel
+from utils.oauth import DEFAULT_SCOPES, WRITE_SCOPES, FULL_SCOPES
 
 
 class Role(enum.Enum):
-    VIEWER = 0
-    EDITOR = 1
-    ADMIN = 2
-
-
-DEFAULT_SCOPES = ["me.read", "me.write", "roms.read", "platforms.read"]
-WRITE_SCOPES = DEFAULT_SCOPES + ["roms.write", "platforms.write"]
-FULL_SCOPES = WRITE_SCOPES + ["users.read", "users.write"]
+    VIEWER = "viewer"
+    EDITOR = "editor"
+    ADMIN = "admin"
 
 
 class User(BaseModel, SimpleUser):
