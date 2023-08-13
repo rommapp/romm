@@ -1,6 +1,5 @@
 # Build frontend
 FROM node:lts-alpine as front-build-stage
-COPY ./.romm-version /
 WORKDIR /front
 COPY ./frontend ./
 RUN npm install
@@ -28,7 +27,6 @@ RUN apt update && \
       python3.10 python3.10-dev python3-pip && \
     apt autoremove && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*
-COPY ./.romm-version /
 WORKDIR /back
 COPY ./pyproject.toml ./poetry.lock ./
 RUN pip install --no-cache --upgrade pip && \
