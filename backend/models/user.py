@@ -18,7 +18,7 @@ class User(BaseModel, SimpleUser):
     username: str = Column(String(length=255), unique=True, index=True)
     hashed_password: str = Column(String(length=255))
     disabled: bool = Column(Boolean(), default=False)
-    role: Role = Column(Enum(Role), default=Role.ADMIN)
+    role: Role = Column(Enum(Role), default=Role.VIEWER)
 
     @property
     def oauth_scopes(self):

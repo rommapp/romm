@@ -22,16 +22,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Handles both basic and oauth authentication
 app.add_middleware(
     AuthenticationMiddleware,
     backend=BasicAuthBackend(),
 )
+
+# Enables support for sessions on requests
 app.add_middleware(
     SessionMiddleware,
     secret_key=secrets.token_hex(32),
     same_site="strict",
     https_only=False,
 )
+
+# CSRF protection (except endpoints listed in exempt_urls)
 app.add_middleware(
     CustomCSRFMiddleware,
     secret=ROMM_AUTH_SECRET_KEY,
@@ -48,6 +54,7 @@ add_pagination(app)
 app.mount("/ws", socket_app)
 
 
+# Endpoint to set the CSRF token in cache
 @app.get("/heartbeat")
 def heartbeat():
     return {"status": "ok"}

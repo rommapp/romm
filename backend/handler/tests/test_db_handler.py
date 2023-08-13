@@ -66,7 +66,7 @@ def test_utils(rom):
         assert dbh.rom_exists("test_platform_slug", "test_rom") == roms[0].id
 
 
-def test_users(user):
+def test_users(admin_user):
     dbh.add_user(
         User(
             username="new_user",
@@ -79,7 +79,7 @@ def test_users(user):
 
     new_user = dbh.get_user("new_user")
     assert new_user.username == "new_user"
-    assert new_user.role == Role.ADMIN
+    assert new_user.role == Role.VIEWER
     assert not new_user.disabled
 
     dbh.update_user(new_user.id, {"role": Role.EDITOR})
@@ -95,9 +95,10 @@ def test_users(user):
     try:
         new_user = dbh.add_user(
             User(
-                username="test_user",
+                username="test_admin_user",
                 hashed_password="test_password",
+                role=Role.ADMIN,
             )
         )
     except IntegrityError as e:
-        assert "Duplicate entry 'test_user' for key" in str(e)
+        assert "Duplicate entry 'test_admin_user' for key" in str(e)
