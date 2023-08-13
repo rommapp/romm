@@ -11,7 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from utils.socket import socket_app
-from utils.auth import BasicAuthBackend, CustomCSRFMiddleware, create_default_admin_user
+from utils.auth import HybridAuthBackend, CustomCSRFMiddleware, create_default_admin_user
 
 app = FastAPI()
 
@@ -26,7 +26,7 @@ app.add_middleware(
 # Handles both basic and oauth authentication
 app.add_middleware(
     AuthenticationMiddleware,
-    backend=BasicAuthBackend(),
+    backend=HybridAuthBackend(),
 )
 
 # Enables support for sessions on requests

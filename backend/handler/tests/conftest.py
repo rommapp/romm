@@ -6,6 +6,8 @@ from sqlalchemy.orm import sessionmaker
 from config.config_loader import ConfigLoader
 from models import Platform, Rom, User
 from models.user import Role
+from utils.auth import get_password_hash
+from .. import dbh
 
 engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -29,9 +31,7 @@ def platform():
     platform = Platform(
         name="test_platform", slug="test_platform_slug", fs_slug="test_platform"
     )
-    with session.begin() as s:
-        s.merge(platform)
-    return platform
+    return dbh.add_platform(platform)
 
 
 @pytest.fixture
@@ -45,42 +45,34 @@ def rom(platform):
         file_name_no_tags="test_rom",
         file_path="test_platform_slug/roms",
     )
-    with session.begin() as s:
-        s.merge(rom)
-    return rom
+    return dbh.add_rom(rom)
 
 
 @pytest.fixture
 def admin_user():
     user = User(
-        username="test_admin_user",
-        hashed_password="test_password",
+        username="test_admin",
+        hashed_password=get_password_hash("test_admin_password"),
         role=Role.ADMIN,
     )
-    with session.begin() as s:
-        s.merge(user)
-    return user
+    return dbh.add_user(user)
 
 
 @pytest.fixture
 def editor_user():
     user = User(
-        username="test_editor_user",
-        hashed_password="test_password",
+        username="test_editor",
+        hashed_password=get_password_hash("test_editor_password"),
         role=Role.EDITOR,
     )
-    with session.begin() as s:
-        s.merge(user)
-    return user
+    return dbh.add_user(user)
 
 
 @pytest.fixture
 def user():
     user = User(
         username="test_user",
-        hashed_password="test_password",
+        hashed_password=get_password_hash("test_password"),
         role=Role.VIEWER,
     )
-    with session.begin() as s:
-        s.merge(user)
-    return user
+    return dbh.add_user(user)

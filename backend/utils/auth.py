@@ -72,7 +72,23 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
     return user
 
 
-class BasicAuthBackend(AuthenticationBackend):
+def create_default_admin_user():
+    if not ROMM_AUTH_ENABLED:
+        return
+
+    try:
+        dbh.add_user(
+            User(
+                username=ROMM_AUTH_USERNAME,
+                hashed_password=get_password_hash(ROMM_AUTH_PASSWORD),
+                role=Role.ADMIN,
+            )
+        )
+    except IntegrityError:
+        pass
+
+
+class HybridAuthBackend(AuthenticationBackend):
     async def authenticate(self, conn: HTTPConnection):
         if not ROMM_AUTH_ENABLED:
             return (AuthCredentials(FULL_SCOPES), None)
@@ -84,18 +100,18 @@ class BasicAuthBackend(AuthenticationBackend):
 
         # Check if Authorization header exists
         if "Authorization" not in conn.headers:
-            return None
-        
+            return None, None
+
         # Returns if Authorization header is not Bearer
         scheme, token = conn.headers["Authorization"].split()
         if scheme.lower() != "bearer":
-            return None
+            return None, None
 
         user, payload = await get_current_active_user_from_token(token)
 
         # Only access tokens can request resources
         if payload.get("type") != "access":
-            return None
+            return None, None
 
         # Only grant access to resources with overlapping scopes
         token_scopes = set(list(payload.get("scopes").split(" ")))
@@ -111,19 +127,3 @@ class CustomCSRFMiddleware(CSRFMiddleware):
             return
 
         await super().__call__(scope, receive, send)
-
-
-def create_default_admin_user():
-    if not ROMM_AUTH_ENABLED:
-        return
-
-    try:
-        dbh.add_user(
-            User(
-                username=ROMM_AUTH_USERNAME,
-                hashed_password=get_password_hash(ROMM_AUTH_PASSWORD),
-                role=Role.ADMIN,
-            )
-        )
-    except IntegrityError:
-        pass
