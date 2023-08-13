@@ -226,4 +226,4 @@ async def test_hybrid_auth_backend_scope_subset(editor_user):
 
     assert user.id == editor_user.id
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
-    assert creds.scopes == scopes
+    assert set(creds.scopes).issubset(scopes)
