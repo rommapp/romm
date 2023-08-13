@@ -98,8 +98,8 @@ class BasicAuthBackend(AuthenticationBackend):
             return None
 
         # Only grant access to resources with overlapping scopes
-        token_scopres = set(list(payload.get("scope")))
-        overlapping_scopes = list(token_scopres & set(user.oauth_scopes))
+        token_scopes = set(list(payload.get("scopes").split(" ")))
+        overlapping_scopes = list(token_scopes & set(user.oauth_scopes))
 
         return (AuthCredentials(overlapping_scopes), user)
 
