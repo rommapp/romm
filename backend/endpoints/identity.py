@@ -1,6 +1,7 @@
 import secrets
 import base64
 import binascii
+from typing import Optional, Annotated
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from fastapi.security.http import HTTPBasic
 from pydantic import BaseModel, BaseConfig
@@ -34,7 +35,7 @@ credentials_exception = HTTPException(
 @router.post("/login", dependencies=[Depends(HTTPBasic())])
 def login(request: Request):
     if "Authorization" not in request.headers:
-        raise credentials_exception()
+        raise credentials_exception
 
     auth = request.headers["Authorization"]
     try:
@@ -43,18 +44,31 @@ def login(request: Request):
             return
         decoded = base64.b64decode(credentials).decode("ascii")
     except (ValueError, UnicodeDecodeError, binascii.Error):
-        raise credentials_exception()
+        raise credentials_exception
 
     username, _, password = decoded.partition(":")
     user = authenticate_user(username, password)
     if not user:
-        raise credentials_exception()
+        raise credentials_exception
 
     # Generate unique session key and store in cache
     request.session["session_id"] = secrets.token_hex(16)
     cache.set(f'romm:{request.session["session_id"]}', user.username)
 
     return {"message": "Successfully logged in"}
+
+
+@router.post("/logout")
+def logout(request: Request):
+    # Check if session key already stored in cache
+    session_id = request.session.get("session_id")
+    if not session_id:
+        return
+
+    cache.delete(f"romm:{session_id}")
+    request.session["session_id"] = None
+
+    return {"message": "Successfully logged out"}
 
 
 @protected_route(router.get, "/users", ["users.read"])
@@ -69,7 +83,22 @@ def current_user(request: Request) -> UserSchema:
     return request.user
 
 
-@protected_route(router.post, "/users", ["users.write"])
+@protected_route(router.get, "/users/{user_id}", ["users.read"])
+@requires(["users.read"])
+def get_user(request: Request, user_id: int) -> UserSchema:
+    user = dbh.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return user
+
+
+@protected_route(
+    router.post,
+    "/users",
+    ["users.write"],
+    status_code=status.HTTP_201_CREATED,
+)
 @requires(["users.write"])
 def create_user(
     request: Request, username: str, password: str, role: str
@@ -77,9 +106,60 @@ def create_user(
     user = User(
         username=username,
         hashed_password=get_password_hash(password),
-        disabled=False,
         role=Role[role.upper()],
     )
-    dbh.add_user(user)
 
-    return user
+    return dbh.add_user(user)
+
+
+class UserUpdateForm:
+    def __init__(
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        role: Optional[str] = None,
+        disabled: Optional[bool] = None,
+    ):
+        self.username = username
+        self.password = password
+        self.role = role
+        self.disabled = disabled
+
+
+@protected_route(router.patch, "/users/{user_id}", ["users.write"])
+@requires(["users.write"])
+def update_user(
+    request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
+) -> UserSchema:
+    user = dbh.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    cleaned_data = {}
+
+    if form_data.username:
+        existing_user = dbh.get_user(form_data.username.lower())
+        if existing_user:
+            raise HTTPException(
+                status_code=400, detail="Username already in use by another user"
+            )
+
+        cleaned_data["username"] = form_data.username.lower()
+
+    if form_data.password:
+        cleaned_data["hashed_password"] = get_password_hash(form_data.password)
+
+    if form_data.role:
+        cleaned_data["role"] = Role[form_data.role.upper()]
+
+    if form_data.disabled is not None:
+        cleaned_data["disabled"] = form_data.disabled
+
+    if not cleaned_data:
+        raise HTTPException(
+            status_code=400, detail="No valid fields to update were provided"
+        )
+
+    dbh.update_user(user_id, cleaned_data)
+
+    return dbh.get_user_by_id(user_id)

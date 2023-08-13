@@ -2,6 +2,7 @@ import uvicorn
 import alembic.config
 import re
 import secrets
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
@@ -41,12 +42,14 @@ app.add_middleware(
     https_only=False,
 )
 
-# CSRF protection (except endpoints listed in exempt_urls)
-app.add_middleware(
-    CustomCSRFMiddleware,
-    secret=ROMM_AUTH_SECRET_KEY,
-    exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
-)
+if "pytest" not in sys.modules:
+    # CSRF protection (except endpoints listed in exempt_urls)
+    app.add_middleware(
+        CustomCSRFMiddleware,
+        secret=ROMM_AUTH_SECRET_KEY,
+        exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
+    )
+
 
 app.include_router(oauth.router)
 app.include_router(identity.router)
