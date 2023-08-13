@@ -8,7 +8,7 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST
+from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from utils.socket import socket_app
 from utils.auth import BasicAuthBackend, CustomCSRFMiddleware, create_default_admin_user
@@ -34,7 +34,7 @@ app.add_middleware(
 )
 app.add_middleware(
     CustomCSRFMiddleware,
-    secret=secrets.token_hex(32),
+    secret=ROMM_AUTH_SECRET_KEY,
     exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
 )
 

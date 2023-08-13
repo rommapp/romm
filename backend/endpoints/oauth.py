@@ -36,7 +36,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
         access_token = create_oauth_token(
             data={
                 "sub": user.username,
-                "scope": payload.get("scope"),
+                "scopes": payload.get("scopes"),
                 "type": "access",
             },
             expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -81,7 +81,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
     access_token = create_oauth_token(
         data={
             "sub": user.username,
-            "scope": form_data.scopes.join(" "),
+            "scopes": " ".join(form_data.scopes),
             "type": "access",
         },
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -90,7 +90,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
     refresh_token = create_oauth_token(
         data={
             "sub": user.username,
-            "scope": form_data.scopes.join(" "),
+            "scopes": " ".join(form_data.scopes),
             "type": "refresh",
         },
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),

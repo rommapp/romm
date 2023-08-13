@@ -55,9 +55,9 @@ async def get_current_active_user_from_token(token: str):
 
     try:
         payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
-    except (JWTError):
+    except JWTError:
         raise credentials_exception
-
+    
     username: str = payload.get("sub")
     if username is None:
         raise credentials_exception
@@ -96,6 +96,7 @@ class OAuth2RequestForm:
 
 oauth2_password_bearer = OAuth2PasswordBearer(
     tokenUrl="/token",
+    auto_error=False,
     scopes={
         **DEFAULT_SCOPES_MAP,
         **WRITE_SCOPES_MAP,
