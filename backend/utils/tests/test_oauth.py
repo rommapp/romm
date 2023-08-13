@@ -40,7 +40,7 @@ async def test_get_current_active_user_from_token_invalid_token():
 async def test_get_current_active_user_from_token_invalid_user():
     token = create_oauth_token({"sub": "invalid_user"})
 
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(HTTPException):
         await get_current_active_user_from_token(token)
 
 
