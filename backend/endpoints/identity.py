@@ -149,7 +149,8 @@ def update_user(
     if form_data.password:
         cleaned_data["hashed_password"] = get_password_hash(form_data.password)
 
-    if form_data.role:
+    # You can't change your own role
+    if form_data.role and request.user.id != user_id:
         cleaned_data["role"] = Role[form_data.role.upper()]
 
     if form_data.disabled is not None:
@@ -162,4 +163,32 @@ def update_user(
 
     dbh.update_user(user_id, cleaned_data)
 
+    # Log out the current user if username or password changed
+    if cleaned_data.get("username") or cleaned_data.get("hashed_password"):
+        session_id = request.session.get("session_id")
+        if session_id:
+            cache.delete(f"romm:{session_id}")
+            request.session["session_id"] = None
+
     return dbh.get_user(user_id)
+
+
+@protected_route(router.delete, "/users/{user_id}", ["users.write"])
+def delete_user(request: Request, user_id: int):
+    user = dbh.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # You can't delete the user you're logged in as
+    if request.user.id == user_id:
+        raise HTTPException(status_code=400, detail="You cannot delete yourself")
+
+    # You can't delete the last admin user
+    if user.role == Role.ADMIN and len(dbh.get_admin_users()) == 1:
+        raise HTTPException(
+            status_code=400, detail="You cannot delete the last admin user"
+        )
+
+    dbh.delete_user(user_id)
+
+    return {"message": "User successfully deleted"}
