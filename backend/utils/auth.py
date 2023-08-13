@@ -36,7 +36,7 @@ def get_password_hash(password):
 
 
 def authenticate_user(username: str, password: str):
-    user = dbh.get_user(username)
+    user = dbh.get_user_by_username(username)
     if not user:
         return None
 
@@ -57,7 +57,7 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
         return None
 
     # Key exists therefore user is authenticated
-    user = dbh.get_user(username)
+    user = dbh.get_user_by_username(username)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

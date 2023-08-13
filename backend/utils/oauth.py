@@ -63,7 +63,7 @@ async def get_current_active_user_from_token(token: str):
     if username is None:
         raise credentials_exception
 
-    user = dbh.get_user(username)
+    user = dbh.get_user_by_username(username)
     if user is None:
         raise credentials_exception
 
