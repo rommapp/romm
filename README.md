@@ -67,6 +67,10 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 </details>
 <br>
 
+# The RomM community:
+[Wiki](https://github.com/zurdi15/romm/wiki) <br/>
+[Discord](https://discord.gg/P5HtHnhUDH)<br/>
+
 # Installation
 
 ## 🐳 Docker
