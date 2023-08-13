@@ -15,8 +15,8 @@ const { lgAndUp } = useDisplay();
   <v-row class="pa-1" no-gutters>
     <v-col>
       <v-card rounded="0">
-        <v-card-title
-          ><v-icon class="mr-2">mdi-text-box-outline</v-icon
+        <v-card-title class="bg-terciary"
+          ><v-icon class="mr-3">mdi-text-box-outline</v-icon
           >Summary</v-card-title
         >
         <v-divider class="border-opacity-25" />
@@ -40,8 +40,8 @@ const { lgAndUp } = useDisplay();
     <v-row class="pa-1" no-gutters>
       <v-col>
         <v-card rounded="0">
-          <v-card-title
-            ><v-icon class="mr-2">mdi-controller</v-icon>Platforms</v-card-title
+          <v-card-title class="bg-terciary"
+            ><v-icon class="mr-3">mdi-controller</v-icon>Platforms</v-card-title
           >
           <v-divider class="border-opacity-25" />
           <v-card-text>
