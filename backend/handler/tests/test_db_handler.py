@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from handler.db_handler import DBHandler
 from models import Platform, Rom, User
 from models.user import Role
+from utils.auth import get_password_hash
 
 dbh = DBHandler()
 
@@ -70,7 +71,7 @@ def test_users(admin_user):
     dbh.add_user(
         User(
             username="new_user",
-            hashed_password="test_password",
+            hashed_password=get_password_hash("test_password"),
         )
     )
 
@@ -95,10 +96,10 @@ def test_users(admin_user):
     try:
         new_user = dbh.add_user(
             User(
-                username="test_admin_user",
-                hashed_password="test_password",
+                username="test_admin",
+                hashed_password=get_password_hash("test_password"),
                 role=Role.ADMIN,
             )
         )
     except IntegrityError as e:
-        assert "Duplicate entry 'test_admin_user' for key" in str(e)
+        assert "Duplicate entry 'test_admin' for key" in str(e)

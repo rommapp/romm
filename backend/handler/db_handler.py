@@ -34,7 +34,7 @@ class DBHandler:
     def add_platform(self, platform: Platform):
         try:
             with self.session.begin() as session:
-                session.merge(platform)
+                return session.merge(platform)
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -67,7 +67,7 @@ class DBHandler:
     def add_rom(self, rom: Rom):
         try:
             with self.session.begin() as session:
-                session.merge(rom)
+                return session.merge(rom)
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -140,7 +140,7 @@ class DBHandler:
     def add_user(self, user: User):
         try:
             with self.session.begin() as session:
-                session.merge(user)
+                return session.merge(user)
         except ProgrammingError as e:
             self.raise_error(e)
 
