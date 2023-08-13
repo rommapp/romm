@@ -6,5 +6,5 @@ def test_admin(admin_user):
 def test_editor(editor_user):
     editor_user.oauth_scopes == WRITE_SCOPES
 
-def test_user(user):
-    user.oauth_scopes == DEFAULT_SCOPES
+def test_user(viewer_user):
+    viewer_user.oauth_scopes == DEFAULT_SCOPES
