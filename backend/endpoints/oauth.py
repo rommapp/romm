@@ -68,7 +68,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
         # All other grant types are unsupported
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid grant type",
+            detail="Invalid or unsupported grant type",
         )
 
     # Check if user has access to requested scopes
@@ -100,5 +100,5 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires": ACCESS_TOKEN_EXPIRE_MINUTES,
+        "expires": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }

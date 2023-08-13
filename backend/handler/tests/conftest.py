@@ -69,10 +69,10 @@ def editor_user():
 
 
 @pytest.fixture
-def user():
+def viewer_user():
     user = User(
-        username="test_user",
-        hashed_password=get_password_hash("test_password"),
+        username="test_viewer",
+        hashed_password=get_password_hash("test_viewer_password"),
         role=Role.VIEWER,
     )
     return dbh.add_user(user)
