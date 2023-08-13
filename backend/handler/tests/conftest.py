@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from config.config_loader import ConfigLoader
 from models import Platform, Rom, User
+from models.user import Role
 
 engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -48,11 +49,37 @@ def rom(platform):
         s.merge(rom)
     return rom
 
+
+@pytest.fixture
+def admin_user():
+    user = User(
+        username="test_admin_user",
+        hashed_password="test_password",
+        role=Role.ADMIN,
+    )
+    with session.begin() as s:
+        s.merge(user)
+    return user
+
+
+@pytest.fixture
+def editor_user():
+    user = User(
+        username="test_editor_user",
+        hashed_password="test_password",
+        role=Role.EDITOR,
+    )
+    with session.begin() as s:
+        s.merge(user)
+    return user
+
+
 @pytest.fixture
 def user():
     user = User(
         username="test_user",
         hashed_password="test_password",
+        role=Role.VIEWER,
     )
     with session.begin() as s:
         s.merge(user)
