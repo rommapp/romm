@@ -4,11 +4,12 @@ from starlette.authentication import requires
 
 from logger.logger import log
 from handler import igdbh
+from utils.oauth import protected_route
 
 router = APIRouter()
 
 
-@router.put("/search/roms/igdb")
+@protected_route(router.put, "/search/roms/igdb", ["roms.read"])
 @requires(["roms.read"])
 async def search_rom_igdb(
     request: Request, search_term: str = "", search_by: str = ""

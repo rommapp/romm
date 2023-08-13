@@ -1,20 +1,18 @@
 import secrets
 import base64
 import binascii
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Depends
+from fastapi.security.http import HTTPBasic
 from pydantic import BaseModel, BaseConfig
 from starlette.authentication import requires
 
 from handler import dbh
 from models.user import User, Role
 from utils.cache import cache
-from utils.auth import (
-    authenticate_user,
-    get_password_hash,
-)
+from utils.auth import authenticate_user, get_password_hash
+from utils.oauth import protected_route
 
 router = APIRouter()
-
 
 
 class UserSchema(BaseModel):
@@ -26,15 +24,14 @@ class UserSchema(BaseModel):
         orm_mode = True
 
 
-def credentials_exception():
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Incorrect username or password",
-        headers={"WWW-Authenticate": "Basic"},
-    )
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Incorrect username or password",
+    headers={"WWW-Authenticate": "Basic"},
+)
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(HTTPBasic())])
 def login(request: Request):
     if "Authorization" not in request.headers:
         raise credentials_exception()
@@ -60,19 +57,19 @@ def login(request: Request):
     return {"message": "Successfully logged in"}
 
 
-@router.get("/users")
+@protected_route(router.get, "/users", ["users.read"])
 @requires(["users.read"])
 def users(request: Request) -> list[UserSchema]:
     return dbh.get_users()
 
 
-@router.get("/users/me")
+@protected_route(router.get, "/users/me", ["me.read"])
 @requires(["me.read"])
 def current_user(request: Request) -> UserSchema:
     return request.user
 
 
-@router.post("/users/")
+@protected_route(router.post, "/users", ["users.write"])
 @requires(["users.write"])
 def create_user(
     request: Request, username: str, password: str, role: str

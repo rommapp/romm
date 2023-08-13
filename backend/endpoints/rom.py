@@ -13,6 +13,7 @@ from logger.logger import log
 from handler import dbh
 from utils import fs, get_file_name_with_no_tags
 from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
+from utils.oauth import protected_route
 from models import Rom, Platform
 from config import LIBRARY_BASE_PATH
 
@@ -66,7 +67,7 @@ class RomSchema(BaseModel):
         orm_mode = True
 
 
-@router.get("/platforms/{p_slug}/roms/{id}")
+@protected_route(router.get, "/platforms/{p_slug}/roms/{id}", ["roms.read"])
 @requires(["roms.read"])
 def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
@@ -74,7 +75,7 @@ def rom(request: Request, id: int) -> RomSchema:
     return dbh.get_rom(id)
 
 
-@router.get("/platforms/{p_slug}/roms/{id}/download")
+@protected_route(router.get, "/platforms/{p_slug}/roms/{id}/download", ["roms.read"])
 @requires(["roms.read"])
 def download_rom(request: Request, id: int, files: str):
     rom = dbh.get_rom(id)
@@ -106,7 +107,7 @@ def download_rom(request: Request, id: int, files: str):
     )
 
 
-@router.get("/platforms/{p_slug}/roms")
+@protected_route(router.get, "/platforms/{p_slug}/roms", ["roms.read"])
 @requires(["roms.read"])
 def roms(
     request: Request,
@@ -130,7 +131,7 @@ def roms(
         return paginate(session, qq, cursor_params)
 
 
-@router.patch("/platforms/{p_slug}/roms/{id}")
+@protected_route(router.patch, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
 @requires(["roms.write"])
 async def updateRom(request: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
@@ -175,7 +176,7 @@ async def updateRom(request: Request, p_slug: str, id: int) -> dict:
     }
 
 
-@router.delete("/platforms/{p_slug}/roms/{id}")
+@protected_route(router.delete, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
 @requires(["roms.write"])
 def delete_rom(
     request: Request, p_slug: str, id: int, filesystem: bool = False
