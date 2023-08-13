@@ -1,5 +1,8 @@
+from sqlalchemy.exc import IntegrityError
+
 from handler.db_handler import DBHandler
-from models import Platform, Rom
+from models import Platform, Rom, User
+from models.user import Role
 
 dbh = DBHandler()
 
@@ -61,3 +64,40 @@ def test_utils(rom):
     with dbh.session.begin() as session:
         roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
         assert dbh.rom_exists("test_platform_slug", "test_rom") == roms[0].id
+
+
+def test_users(user):
+    dbh.add_user(
+        User(
+            username="new_user",
+            hashed_password="test_password",
+        )
+    )
+
+    all_users = dbh.get_users()
+    assert len(all_users) == 2
+
+    new_user = dbh.get_user("new_user")
+    assert new_user.username == "new_user"
+    assert new_user.role == Role.ADMIN
+    assert not new_user.disabled
+
+    dbh.update_user(new_user.id, {"role": Role.EDITOR})
+
+    new_user = dbh.get_user_by_id(new_user.id)
+    assert new_user.role == Role.EDITOR
+
+    dbh.delete_user(new_user.id)
+
+    all_users = dbh.get_users()
+    assert len(all_users) == 1
+
+    try:
+        new_user = dbh.add_user(
+            User(
+                username="test_user",
+                hashed_password="test_password",
+            )
+        )
+    except IntegrityError as e:
+        assert "Duplicate entry 'test_user' for key" in str(e)
