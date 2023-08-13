@@ -71,7 +71,7 @@ def test_users(admin_user):
     dbh.add_user(
         User(
             username="new_user",
-            hashed_password=get_password_hash("test_password"),
+            hashed_password=get_password_hash("new_password"),
         )
     )
 
@@ -97,7 +97,7 @@ def test_users(admin_user):
         new_user = dbh.add_user(
             User(
                 username="test_admin",
-                hashed_password=get_password_hash("test_password"),
+                hashed_password=get_password_hash("new_password"),
                 role=Role.ADMIN,
             )
         )
