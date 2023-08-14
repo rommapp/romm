@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Final
 from datetime import timedelta
 from fastapi import Depends, APIRouter, HTTPException, status
 
@@ -11,8 +11,8 @@ from utils.oauth import (
 )
 
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
+REFRESH_TOKEN_EXPIRE_DAYS : Final = 7
 
 router = APIRouter()
 

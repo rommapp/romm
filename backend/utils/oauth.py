@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional, Callable
+from typing import Optional, Callable, Final
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Security
 from fastapi.param_functions import Form
@@ -8,28 +8,28 @@ from fastapi.types import DecoratedCallable
 
 from config import ROMM_AUTH_SECRET_KEY
 
-ALGORITHM = "HS256"
+ALGORITHM: Final = "HS256"
 
-DEFAULT_SCOPES_MAP = {
+DEFAULT_SCOPES_MAP: Final = {
     "me.read": "View your profile",
     "me.write": "Modify your profile",
     "roms.read": "View ROMs",
     "platforms.read": "View platforms",
 }
 
-WRITE_SCOPES_MAP = {
+WRITE_SCOPES_MAP: Final = {
     "roms.write": "Modify ROMs",
     "platforms.write": "Modify platforms",
 }
 
-FULL_SCOPES_MAP = {
+FULL_SCOPES_MAP: Final = {
     "users.read": "View users",
     "users.write": "Modify users",
 }
 
-DEFAULT_SCOPES = list(DEFAULT_SCOPES_MAP.keys())
-WRITE_SCOPES = DEFAULT_SCOPES + list(WRITE_SCOPES_MAP.keys())
-FULL_SCOPES = WRITE_SCOPES + list(FULL_SCOPES_MAP.keys())
+DEFAULT_SCOPES: Final = list(DEFAULT_SCOPES_MAP.keys())
+WRITE_SCOPES: Final = DEFAULT_SCOPES + list(WRITE_SCOPES_MAP.keys())
+FULL_SCOPES: Final = WRITE_SCOPES + list(FULL_SCOPES_MAP.keys())
 
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
