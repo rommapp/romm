@@ -21,14 +21,16 @@ export async function fetchRomApi(platform, rom) {
   return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
-// Listen for multi-file download completion events
-socket.on("download:complete", ({ id }) => {
+function clearRomFromDownloads({ id }) {
   const downloadStore = useDownloadStore();
-  useDownloadStore().remove(id);
+  downloadStore.remove(id);
 
   // Disconnect socket when no more downloads are in progress
   if (downloadStore.value.length === 0) socket.disconnect();
-});
+}
+
+// Listen for multi-file download completion events
+socket.on("download:complete", clearRomFromDownloads);
 
 // Used only for multi-file downloads
 export async function downloadRomApi(rom, files) {
@@ -46,6 +48,11 @@ export async function downloadRomApi(rom, files) {
 
   if (!socket.connected) socket.connect();
   useDownloadStore().add(rom.id);
+
+  // Clear download state after 60 seconds in case error/timeout
+  setTimeout(() => {
+    clearRomFromDownloads(rom);
+  }, 60 * 1000);
 }
 
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {
