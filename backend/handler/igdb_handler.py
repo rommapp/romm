@@ -6,6 +6,7 @@ import re
 import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
+from typing import Final
 
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
@@ -13,12 +14,11 @@ from logger.logger import log
 from utils.cache import cache
 from .ps2_opl_index import opl_index
 
-MAIN_GAME_CATEGORY = 0
-EXPANDED_GAME_CATEGORY = 10
-N_SCREENSHOTS = 5
-PS2_IGDB_ID = 8
-
-ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+MAIN_GAME_CATEGORY: Final = 0
+EXPANDED_GAME_CATEGORY: Final = 10
+N_SCREENSHOTS: Final = 5
+PS2_IGDB_ID: Final = 8
+PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 
 
 class IGDBHandler:
@@ -119,8 +119,8 @@ class IGDBHandler:
     def get_rom(self, file_name: str, p_igdb_id: int):
         search_term = get_search_term(file_name)
 
-        # Patch support for PS2 OPL filename format
-        match = re.match(ps2_opl_regex, search_term)
+        # Patch support for PS2 OPL flename format
+        match = re.match(PS2_OPL_REGEX, search_term)
         if p_igdb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
             index_entry = opl_index.get(serial_code, None)
