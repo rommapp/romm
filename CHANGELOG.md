@@ -1,4 +1,4 @@
-# v1.10 (_xx-08-2023_)
+# v1.10 (_15-08-2023_)
 
 ## Added
  - Rom admin menu added to roms in gallery. Closes [#28](https://github.com/zurdi15/romm/issues/28)
