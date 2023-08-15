@@ -3,60 +3,82 @@ import { ref, inject } from "vue";
 import socket from "@/services/socket.js";
 import storePlatforms from "@/stores/platforms.js";
 import storeScanning from "@/stores/scanning.js";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 
 // Props
 const platforms = storePlatforms();
 const platformsToScan = ref([]);
 const scanning = storeScanning();
-const scanningPlatform = ref("");
 const scannedPlatforms = ref([]);
 const completeRescan = ref(false);
 
 // Event listeners bus
 const emitter = inject("emitter");
 
+function scrollToBottom() {
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+socket.on("scan:scanning_platform", ({ p_name, p_slug }) => {
+  scannedPlatforms.value.push({
+    name: p_name,
+    slug: p_slug,
+    roms: [],
+  });
+  window.setTimeout(scrollToBottom, 100);
+});
+
+socket.on("scan:scanning_rom", ({ p_slug, p_name, ...rom }) => {
+  let platform = scannedPlatforms.value.find((p) => p.slug === p_slug);
+
+  // Add the platform if the socket dropped and it's missing
+  if (!platform) {
+    scannedPlatforms.value.push({
+      name: p_name,
+      slug: p_slug,
+      roms: [],
+    });
+
+    platform = scannedPlatforms.slice(-1);
+  }
+
+  platform.roms.push(rom);
+  window.setTimeout(scrollToBottom, 100);
+});
+
+socket.on("scan:done", () => {
+  scanning.set(false);
+  
+  emitter.emit("refreshPlatforms");
+  emitter.emit("snackbarShow", {
+    msg: "Scan completed successfully!",
+    icon: "mdi-check-bold",
+    color: "green",
+  });
+  socket.disconnect();
+});
+
+socket.on("scan:done_ko", (msg) => {
+  scanning.set(false);
+
+  emitter.emit("snackbarShow", {
+    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
+    icon: "mdi-close-circle",
+    color: "red",
+  });
+  socket.disconnect();
+});
+
 // Functions
 async function scan() {
   scanning.set(true);
   scannedPlatforms.value = [];
+
   if (!socket.connected) socket.connect();
-  socket.on("scan:scanning_platform", (platform) => {
-    scannedPlatforms.value.push({
-      p_name: platform[0],
-      p_slug: platform[1],
-      rom: [],
-    });
-    scanningPlatform.value = platform[1];
-  });
-  socket.on("scan:scanning_rom", (rom) => {
-    scannedPlatforms.value.forEach((platform) => {
-      if (platform["p_slug"] == scanningPlatform.value) {
-        platform["rom"].push(rom);
-      }
-    });
-  });
-  socket.on("scan:done", () => {
-    scanning.set(false);
-    emitter.emit("refreshPlatforms");
-    emitter.emit("snackbarShow", {
-      msg: "Scan completed successfully!",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-    socket.disconnect();
-  });
-  socket.on("scan:done_ko", (msg) => {
-    scanning.set(false);
-    emitter.emit("snackbarShow", {
-      msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    socket.disconnect();
-  });
+
   socket.emit(
     "scan",
-    JSON.stringify(platformsToScan.value.map((p) => p.fs_slug)),
+    platformsToScan.value.map((p) => p.fs_slug).join(","),
     completeRescan.value
   );
 }
@@ -119,14 +141,23 @@ async function scan() {
   />
 
   <!-- Scan log -->
-  <v-row no-gutters class="align-center pa-4" v-for="platform in scannedPlatforms">
+  <v-row
+    no-gutters
+    class="align-center pa-4"
+    v-for="platform in scannedPlatforms"
+  >
     <v-col>
       <v-avatar :rounded="0" size="40">
-        <v-img :src="`/assets/platforms/${platform['p_slug'].toLowerCase()}.ico`"></v-img>
+        <platform-icon :platform="platform"></platform-icon>
       </v-avatar>
-      <span class="text-body-2 ml-5"> {{ platform["p_name"] }}</span>
-      <v-list-item v-for="rom in platform['rom']" class="text-body-2" disabled>
-        - {{ rom }}
+      <span class="text-body-2 ml-5"> {{ platform.name }}</span>
+      <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
+        <span v-if="rom.r_igdb_id" class="ml-10">
+          • Identified <b>{{ rom.r_name }} 👾</b>
+        </span>
+        <span v-else class="ml-10">
+          • {{ rom.file_name }} not found in IGDB
+        </span>
       </v-list-item>
     </v-col>
   </v-row>

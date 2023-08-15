@@ -1,11 +1,12 @@
 import uvicorn
+import alembic.config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
 from config import DEV_PORT, DEV_HOST
-from handler.socket_manager import SocketManager
-from endpoints import scan, search, platform, rom
+from endpoints import search, platform, rom, scan  # noqa
+from utils.socket import socket_app
 
 app = FastAPI()
 app.add_middleware(
@@ -20,16 +21,7 @@ app.include_router(platform.router)
 app.include_router(rom.router)
 
 add_pagination(app)
-
-sm = SocketManager()
-sm.mount_to("/ws", app)
-
-
-async def scan_handler(*args):
-    await scan.scan(*args, sm)
-
-
-sm.on("scan", handler=scan_handler)
+app.mount("/ws", socket_app)
 
 
 @app.on_event("startup")
@@ -39,5 +31,8 @@ def startup() -> None:
 
 
 if __name__ == "__main__":
+    # Run migrations
+    alembic.config.main(argv=["upgrade", "head"])
+
+    # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
-    # uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=False, workers=2)

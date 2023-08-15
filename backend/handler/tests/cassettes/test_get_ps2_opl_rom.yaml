@@ -1,0 +1,642 @@
+interactions:
+- request:
+    body: "\n                search \"WWE Smack\";\n                fields id, slug,
+      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '148'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: '[]'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed54583736cc-YYZ
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:04 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=2FZ8yXd6kJCZczwShE3trToMz6isxk3pRUdc56wkEYI-1691530924-0-AaqEUxKzxOgi0q16HWpEhnxkee2iScFmFmmwLDzJ7V8+Lm65RvQWP9+x+2SsA08kOrB4y76l/LHK/K17sx8OwhQ=;
+        path=/; expires=Tue, 08-Aug-23 22:12:04 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 0cf68108b8820db4a096a661da0108ba.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - yWhkDdhd8nwU3D_xJgnuyJJT0ZozkSB-Fzb_Kv24Iy3_KAqMa81ATw==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '0'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF69GAEvHcFSFw=
+      x-amzn-Remapped-Content-Length:
+      - '2'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:04 GMT
+      x-amzn-RequestId:
+      - f89b0a7e-0132-468a-9765-e860db9af0e5
+    status:
+      code: 200
+      message: OK
+- request:
+    body: "\n                search \"WWE Smack\";\n                fields id, slug,
+      name, summary, screenshots;\n                where platforms=[8] & category=10;\n
+      \           "
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '161'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: '[]'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed55b93fa1e4-YYZ
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:04 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=Puva_j5o1yiq.tnKDbNcV9pRuJbwrDYniBPvgoCQRXY-1691530924-0-ARyofbQZWmGWeXv8t7ZyqA9cLRh4bt44QD551g2b/4ovRPGCxYEce8NyjxvhPQoeZwdzuWtPOX4XhuRF0cj0dFc=;
+        path=/; expires=Tue, 08-Aug-23 22:12:04 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 17eb4ce9c34597b3328325a19f8138fe.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - LlXMW-vJq3MPlx4V-D3RBkS_BeLRWZP6EnqmwClehjo-DKCuMEYqBQ==
+      X-Amz-Cf-Pop:
+      - JFK50-P6
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '0'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF6_HRsPHcFfQg=
+      x-amzn-Remapped-Content-Length:
+      - '2'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:04 GMT
+      x-amzn-RequestId:
+      - 738c513a-5c6d-4b7c-b10d-0eb712ade4e5
+    status:
+      code: 200
+      message: OK
+- request:
+    body: "\n                search \"WWE Smack\";\n                fields id, slug,
+      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '148'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: '[]'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed575c81a226-YYZ
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:04 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=jlhBpkzNgFQ60YxJyjPoZQeFRys3Boz2kkiA0GzSM4E-1691530924-0-ARN2bowq/YOIbetCAuqjH8574ysfCvbCuUSI3sSC9HBViMCrAeK+BQMkCe6DAParzXuxnB8omL4Dkonp5Q+j1q0=;
+        path=/; expires=Tue, 08-Aug-23 22:12:04 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 6e810acc9d798bdf126180508d1b511e.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - UeAJtI52TSI8rQ7RlwlHc6jftX4OvgNz3Gw2IfioYp_ZNqV14aku7Q==
+      X-Amz-Cf-Pop:
+      - JFK50-P6
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '0'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF7DFU_vHcFQJQ=
+      x-amzn-Remapped-Content-Length:
+      - '2'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:04 GMT
+      x-amzn-RequestId:
+      - 0f819ab1-564f-422e-925d-5cd09471dfb6
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields url; where game=0;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '25'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/covers/
+  response:
+    body:
+      string: '[]'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed59ddaea250-YYZ
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:05 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=5hfxta3kbDkpYYMbi4pWqTE4TCxYZTOLNpZZFnLi3BY-1691530925-0-AXngRGKN3b+A560jM6xfcJC8ybSeSrB84RN5cVumXhBcW7x4aeWkFMsvETU9eL0uuUqRx8EHCa+f2Imgohg76+o=;
+        path=/; expires=Tue, 08-Aug-23 22:12:05 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 0252b483f7b420504a413a83f987b080.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - lFMJmVctmUi1nCqdc39Ou5-RXXPbx-OlBzhX8HZzWZSYVbOv6GMTOA==
+      X-Amz-Cf-Pop:
+      - JFK50-P6
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '0'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF7GGvlPHcFkfg=
+      x-amzn-Remapped-Content-Length:
+      - '2'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:05 GMT
+      x-amzn-RequestId:
+      - 2d66b17c-39e7-48c4-ad47-471ad90fecc4
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields url; where game=0; limit 5;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '34'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/screenshots/
+  response:
+    body:
+      string: '[]'
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed5b3f3439e7-YYZ
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:05 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=xQhaAjFgeVf91imq1V7u_fKbBT.2iuPS0fOuXwyjaY0-1691530925-0-AYwl6RE7yyGBd7ZHNqOtw8YOSkuqle6edPWbN2C/FPRjSMLARxkSSGyajCWulxpJYGkoC33IvmlvXhE/Dux7KFk=;
+        path=/; expires=Tue, 08-Aug-23 22:12:05 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 0cf68108b8820db4a096a661da0108ba.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - oCOyIQwsjsGRFEH-VmwCpuhNE_QdXBNxeyPcz1uWsBE52WoKHmUyKg==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '0'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF7JHGPvHcFjyw=
+      x-amzn-Remapped-Content-Length:
+      - '2'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:05 GMT
+      x-amzn-RequestId:
+      - 9b979995-d6e6-46d8-afb8-e93c06120852
+    status:
+      code: 200
+      message: OK
+- request:
+    body: "\n                search \"WWE SmackDown! vs. RAW\";\n                fields
+      id, slug, name, summary, screenshots;\n                where platforms=[8] ;\n
+      \           "
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '161'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 80852,\n    \"name\": \"WWE Smackdown! vs. Raw\",\n
+        \   \"screenshots\": [\n      337102,\n      337103,\n      337104,\n      337105,\n
+        \     337106,\n      337107,\n      337108\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw\",\n
+        \   \"summary\": \"WWE SmackDown! vs. Raw brings two of wrestling\\u0027s
+        most popular game series together on the PS2. The game re-creates WWE programming
+        with voice-overs and commentary throughout the season mode. During matches,
+        you can learn a host of new gameplay moves, such as stare-downs, chop battles,
+        and submission reversals. You can also try out situational challenges or create
+        your own championship. Play as your favorite wrestler, including legends and
+        Divas, and prove to the world that you have what it takes to be the WWE champion.\"\n
+        \ },\n  {\n    \"id\": 2265,\n    \"name\": \"WWE SmackDown vs. Raw 2011\",\n
+        \   \"screenshots\": [\n      25356,\n      25357,\n      25358,\n      25359,\n
+        \     25360\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2011\",\n    \"summary\":
+        \"WWE SmackDown vs. Raw 2011 will empower players more than ever to define
+        their destiny and gameplay experiences in a dynamic and ever-changing WWE.
+        Along the way, your decisions will decide gameplay scenarios, allowing for
+        more spontaneous WWE action in and out of the ring. Enjoy a greater level
+        of interactivity that allows you to customize your WWE experience and control
+        your destinies in all-new Road to WrestleMania story-driven campaigns.\\n\\nYou\\u0027ve
+        seen the Superstars\\u0027 greatest moments on WWE programming. You\u2019ve
+        shared them and lived through them on television, on the web, and at the arenas.
+        Now, it\\u0027s time for you to define your ultimate WWE moment, in the most
+        interactive experience in the WWE Universe. This is your moment.\"\n  },\n
+        \ {\n    \"id\": 5300,\n    \"name\": \"WWE SmackDown vs. Raw 2010\",\n    \"screenshots\":
+        [\n      27682\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2010\",\n    \"summary\":
+        \"The best-selling fighting videogame franchise returns to the virtual ring
+        with the most authentic, entertaining and compelling simulation of WWE programming
+        to date. Featuring unparalleled creation tools, a robust Superstar roster,
+        key franchise improvements and a few surprises, WWE SmackDown vs. Raw 2010
+        delivers the empowering freedom to create, customize and share gameplay experiences.
+        It\\u0027s your world now.\"\n  },\n  {\n    \"id\": 5299,\n    \"name\":
+        \"WWE SmackDown vs. Raw 2009\",\n    \"screenshots\": [\n      27080\n    ],\n
+        \   \"slug\": \"wwe-smackdown-vs-raw-2009\",\n    \"summary\": \"WWE SmackDown
+        vs. Raw 2009 for the Wii builds upon its inaugural offering by significantly
+        expanding its match type options, giving players more ways to enjoy the platform\\u0027s
+        unique pick-up-and-play experience. The game also takes full combat sports
+        entertainment to the next level by giving players more superstar control with
+        interactive entrances and victory scenes.\"\n  },\n  {\n    \"id\": 18323,\n
+        \   \"name\": \"WWE SmackDown! vs. Raw 2006\",\n    \"screenshots\": [\n      337109,\n
+        \     337110,\n      337111,\n      337112\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2006\",\n
+        \   \"summary\": \"The debut PlayStation Portable offering of THQ and Yuke\\u0027s
+        long-running 3D wrestling series. WWE SmackDown! vs. RAW 2006 expands on THQ\\u0027s
+        popular multi-million unit-selling franchise with a number of key new features.
+        The Buried Alive Casket match, two new wrestler attributes (Stamina and Hardcore),
+        and a realistic momentum system all combine to turn the series away from its
+        arcade roots and towards that of a simulation. The PSP version follows closely
+        on the heels of its PS2 tag-teammate in terms of features and wrestler rosters,
+        with exclusive extras including additional characters and other features for
+        the PSP version, plus USB system link to connect the two versions together.\"\n
+        \ },\n  {\n    \"id\": 7252,\n    \"name\": \"WWE SmackDown vs. Raw 2007\",\n
+        \   \"screenshots\": [\n      27298\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2007\",\n
+        \   \"summary\": \"A brand new Analog Control System makes fighting more realistic
+        than ever with intuitive movement and new elements of control. An enhanced
+        Season Mode provides multiple branching storylines and unprecedented levels
+        of player choice. In and out of the ring, dozens of user-controlled environmental
+        hotspots let players take advantage of anything at their disposal to inflict
+        damage on opponents in new and unique ways. Additionally, new high impact
+        combination moves let players take the power of WWE Superstars into their
+        own hands. Experience the intensity of WWE fans in a brand new, fully loaded
+        interactive fighting area. Players can take advantage of multiple weapons,
+        environmental damage and grabbing signs and weapons from the crowd. WWE SmackDown
+        vs. RAW 2007 offers multiple enhancements, including incredible high definition
+        graphics, updated rosters for both RAW and SmackDown, an expanded General
+        Manager Mode, online multiplayer game play with voice chat support and more.\"\n
+        \ },\n  {\n    \"id\": 5298,\n    \"name\": \"WWE SmackDown vs. Raw 2008\",\n
+        \   \"screenshots\": [\n      26973,\n      178914,\n      178915,\n      178916,\n
+        \     178917,\n      178918,\n      178919,\n      178920,\n      178921,\n
+        \     178922,\n      178923,\n      178924\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2008\",\n
+        \   \"summary\": \"The 2008 edition in the Smackdown vs. Raw series holds
+        new features to the WWE game franchise. This is the first in the series to
+        include the extremists of ECW, including The Sandman, Marcus Cor Von and CM
+        Punk.\\n\\nThe game also features a new struggle submission system, new weapon
+        choices including guitars, and eight superstar fighting styles, including
+        Showman, Powerhouse, High-Flyer and more. Each player can now choose a primary
+        and a secondary fighting style. It continues the legend trend and new arenas,
+        such as Wrestlemania 23, Unforgiven and Summerslam as well as the classic
+        superstars like Undertaker, Shawn Michaels and Ric Flair. The roster largely
+        depends on the platform, and some versions include wrestlers not available
+        in the other ones.\"\n  }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed5dd96ba216-YYZ
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Length:
+      - '2424'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:05 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=lFnWxIux8YDNP5ICYrRJNZN30Jxkv2T1QzKICAHLqOM-1691530925-0-AZHMsgCTbsWbvEU3UIsf90t5Ef/i7SGyz4Z4TwsBDzvH2+0mANJkeHp53rWNzYfkN4Mz1wJAgFz8tfKtoydRRow=;
+        path=/; expires=Tue, 08-Aug-23 22:12:05 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 0252b483f7b420504a413a83f987b080.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - qMI0thyxNG4YqxaWxxTBgXkpeDOXi8Bs0zUkoQsOxxTo_XrbvaVCyg==
+      X-Amz-Cf-Pop:
+      - JFK50-P6
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '7'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF7MF6bPHcFZ_w=
+      x-amzn-Remapped-Content-Length:
+      - '2424'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:05 GMT
+      x-amzn-RequestId:
+      - 401f41a8-2a6b-4964-920b-eb774319cfda
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields url; where game=80852;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '29'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/covers/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 209154,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co4hdu.jpg\"\n
+        \ }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed5f2ddd36bf-YYZ
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:06 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=NBzU8tnnDPzzbIAUPFzzHf10sB1qjmrChgr4Ut46Ox4-1691530926-0-AdGbP+m+iP2Llc9wZ0uUxmpsDceQbzmnbkQ4M7VXQz85LhsD6qkxyqkdlu6iWeq+0Yir4PaVw3gfSMjnzHcT0X0=;
+        path=/; expires=Tue, 08-Aug-23 22:12:06 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 0cf68108b8820db4a096a661da0108ba.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - o_MYoqRnT-DeRtef1fxWHzCYrIqFijaFAWrmcj15zvdCq0rXCY4UNw==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '1'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF7QHazPHcFcww=
+      x-amzn-Remapped-Content-Length:
+      - '97'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:06 GMT
+      x-amzn-RequestId:
+      - a71761ba-563f-47a0-8a38-2154eec2f4ce
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields url; where game=80852; limit 5;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '38'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/screenshots/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 337103,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783z.jpg\"\n
+        \ },\n  {\n    \"id\": 337104,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7840.jpg\"\n
+        \ },\n  {\n    \"id\": 337105,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7841.jpg\"\n
+        \ },\n  {\n    \"id\": 337102,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783y.jpg\"\n
+        \ },\n  {\n    \"id\": 337107,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7843.jpg\"\n
+        \ }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 7f3aed623f323703-YYZ
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Aug 2023 21:42:06 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=zB0ETxnaV0kJzmyVyhhM2ZwIFSuA0eNxJ2FvRuPgG9s-1691530926-0-AQLXHBSsCwuXuiOXkg86hSIKr1UR1ihHIGDIrlfZ+zv0MVziB/rpH6H+EknfKKjcJMyFjIjACi8tggV87C83JS0=;
+        path=/; expires=Tue, 08-Aug-23 22:12:06 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 fe2c65104051140806cad998f531e478.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - QfT8ouLqo-_tJw0mOCqRGudg1z4R5KlILNRHYGG4ehbuHDse4k4OWQ==
+      X-Amz-Cf-Pop:
+      - YUL62-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '7'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - JXF7VFzivHcFS_w=
+      x-amzn-Remapped-Content-Length:
+      - '477'
+      x-amzn-Remapped-Date:
+      - Tue, 08 Aug 2023 21:42:06 GMT
+      x-amzn-RequestId:
+      - 54fb9c00-2b9c-4a62-9efd-89e44f768f66
+    status:
+      code: 200
+      message: OK
+version: 1

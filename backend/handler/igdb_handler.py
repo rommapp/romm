@@ -1,212 +1,247 @@
 import sys
 import functools
-from time import time
-from unidecode import unidecode as uc
-
+import pydash
 import requests
+import re
+import time
+from unidecode import unidecode as uc
+from requests.exceptions import HTTPError, Timeout
+from typing import Optional
+
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
+from utils.cache import cache
+from .ps2_opl_index import opl_index
+
+MAIN_GAME_CATEGORY = 0
+EXPANDED_GAME_CATEGORY = 10
+
+N_SCREENSHOTS = 5
+
+ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_IGDB_ID = 8
 
 
-class IGDBHandler():
-
+class IGDBHandler:
     def __init__(self) -> None:
-        base_url: str = 'https://api.igdb.com/v4'
-        self.platform_url: str = f'{base_url}/platforms/'
-        self.games_url: str = f'{base_url}/games/'
-        self.covers_url: str = f'{base_url}/covers/'
-        self.screenshots_url: str = f'{base_url}/screenshots/'
-        self.twitch_auth: TwitchAuth = TwitchAuth()
+        self.platform_url = "https://api.igdb.com/v4/platforms/"
+        self.games_url = "https://api.igdb.com/v4/games/"
+        self.covers_url = "https://api.igdb.com/v4/covers/"
+        self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
+        self.twitch_auth = TwitchAuth()
         self.headers = {
-            'Client-ID': self.twitch_auth.client_id,
-            'Authorization': f'Bearer {self.twitch_auth.get_oauth_token()}',
-            'Accept': 'application/json'
+            "Client-ID": CLIENT_ID,
+            "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
+            "Accept": "application/json",
         }
 
-
-    def check_twitch_token(func) -> tuple:
+    @staticmethod
+    def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].headers['Authorization'] = f'Bearer {args[0].twitch_auth.get_oauth_token()}'
+            args[0].headers[
+                "Authorization"
+            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
             return func(*args)
+
         return wrapper
 
-
-    def _search_rom(self, search_term: str, p_igdb_id: int, category: int = None) -> dict:
-        category_filter: str = f"& category={category}" if category else ""
+    def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
-            return requests.post(self.games_url,
-                                 headers=self.headers,
-                                 data=f"""search \"{search_term}\";
-                                      fields id, slug, name, summary, screenshots;
-                                      where platforms=[{p_igdb_id}] {category_filter};""",
-                                 timeout=120).json()[0]
-        except IndexError:
-            return {}
+            res = requests.post(url, data, headers=self.headers, timeout=timeout)
+            res.raise_for_status()
+        except (HTTPError, Timeout) as err:
+            log.error(err)
+            # All requests to the IGDB API return a list
+            return []
 
+        return res.json()
+
+    def _search_rom(self, search_term: str, p_igdb_id: int, category: int = 0) -> dict:
+        category_filter: str = f"& category={category}" if category else ""
+        roms = self._request(
+            self.games_url,
+            data=f"""
+                search "{search_term}";
+                fields id, slug, name, summary, screenshots;
+                where platforms=[{p_igdb_id}] {category_filter};
+            """,
+        )
+
+        return pydash.get(roms, "[0]", {})
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
         return f"https:{url.replace('https:', '')}"
 
+    def _search_cover(self, rom_id: int) -> str:
+        covers = self._request(
+            self.covers_url,
+            data=f"fields url; where game={rom_id};",
+        )
 
-    def _search_cover(self, rom_id: str) -> str:
-        try:
-            res: dict = requests.post(self.covers_url,
-                                      headers=self.headers,
-                                      data=f"fields url; where game={rom_id};",
-                                      timeout=120).json()[0]
-        except IndexError:
-            return ""
+        cover = pydash.get(covers, "[0]", None)
+        return "" if not cover else self._normalize_cover_url(cover["url"])
 
-        return self._normalize_cover_url(res['url']) if 'url' in res.keys() else ""
+    def _search_screenshots(self, rom_id: int) -> list:
+        screenshots = self._request(
+            self.screenshots_url,
+            data=f"fields url; where game={rom_id}; limit {N_SCREENSHOTS};",
+        )
 
-
-    def _search_screenshots(self, rom_id: str) -> list:
-        res: dict = requests.post(self.screenshots_url,
-                                  headers=self.headers,
-                                  data=f"fields url; where game={rom_id}; limit 5;",
-                                  timeout=120).json()
-        return [self._normalize_cover_url(r['url']).replace('t_thumb', 't_original')
-                for r in res if 'url' in r.keys()]
-
-
-    @check_twitch_token
-    def get_platform(self, slug: str) -> dict:
-        igdb_id: str = ""
-        name: str = slug
-        try:
-            res: dict = requests.post(self.platform_url,
-                                      headers=self.headers,
-                                      data=f"fields id, name; where slug=\"{slug.lower()}\";",
-                                      timeout=120).json()[0]
-            igdb_id = res['id']
-            name = res['name']
-        except IndexError:
-            log.warning(f"{slug} not found in IGDB")
-        return {'igdb_id': igdb_id, 'name': name, 'slug': slug, 'logo_path': ''}
-
+        return [
+            self._normalize_cover_url(r["url"]).replace("t_thumb", "t_original")
+            for r in screenshots
+            if "url" in r.keys()
+        ]
 
     @check_twitch_token
-    def get_rom(self, file_name: str, p_igdb_id: int) -> dict:
-        search_term: str = uc(get_search_term(file_name))
-        res = (self._search_rom(search_term, p_igdb_id, 0) or
-               self._search_rom(search_term, p_igdb_id, 10) or
-               self._search_rom(search_term, p_igdb_id))
+    def get_platform(self, p_slug: str):
+        paltforms = self._request(
+            self.platform_url,
+            data=f'fields id, name; where slug="{p_slug.lower()}";',
+        )
 
-        r_igdb_id = res['id'] if 'id' in res.keys() else ""
-        r_slug = res['slug'] if 'slug' in res.keys() else ""
-        r_name = res['name'] if 'name' in res.keys() else search_term
-        summary = res['summary'] if 'summary' in res.keys() else ""
+        platform = pydash.get(paltforms, "[0]", None)
+        if not platform:
+            return {
+                "igdb_id": "",
+                "name": p_slug,
+                "slug": p_slug,
+            }
 
-        if not r_igdb_id:
-            log.warning(f"{r_name} not found in IGDB")
-
-        return {'r_igdb_id': r_igdb_id, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary,
-                'url_cover': self._search_cover(r_igdb_id),
-                'url_screenshots': self._search_screenshots(r_igdb_id)}
-
-
-    @check_twitch_token
-    def get_rom_by_id(self, r_igdb_id: str) -> list:
-        res = requests.post(self.games_url,
-                            headers=self.headers,
-                            data=f"fields slug, name, summary; where id={r_igdb_id};",
-                            timeout=120)
-        if res.status_code == 200:
-            rom: dict = res.json()[0]
-            r_slug = rom['slug'] if 'slug' in rom.keys() else ""
-            r_name = rom['name'] if 'name' in rom.keys() else ""
-            summary = rom['summary'] if 'summary' in rom.keys() else ""
-            return [{'r_igdb_id': r_igdb_id, 'r_slug': r_slug, 'r_name': r_name, 'summary': summary,
-                     'url_cover': self._search_cover(r_igdb_id),
-                     'url_screenshots': self._search_screenshots(r_igdb_id)}]
-        return []
-
+        return {
+            "igdb_id": platform["id"],
+            "name": platform["name"],
+            "slug": p_slug,
+        }
 
     @check_twitch_token
-    def get_matched_rom_by_id(self, igdb_id: str) -> list:
-        matched_roms: list = self.get_rom_by_id(igdb_id)
-        for rom in matched_roms:
-            rom['url_cover'] = rom['url_cover'].replace('t_thumb', 't_cover_big')
-            rom['url_screenshots'] = self._search_screenshots(igdb_id)
-        return matched_roms
+    def get_rom(self, file_name: str, p_igdb_id: int):
+        search_term = get_search_term(file_name)
 
+        # Patch support for PS2 OPL filename format
+        match = re.match(ps2_opl_regex, search_term)
+        if p_igdb_id == PS2_IGDB_ID and match:
+            serial_code = match.group(1)
+            index_entry = opl_index.get(serial_code, None)
+            if index_entry:
+                search_term = index_entry["Name"]  # type: ignore
+
+        res = (
+            self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)
+            or self._search_rom(uc(search_term), p_igdb_id, EXPANDED_GAME_CATEGORY)
+            or self._search_rom(uc(search_term), p_igdb_id)
+        )
+
+        r_igdb_id = res.get("id", 0)
+        r_slug = res.get("slug", "")
+        r_name = res.get("name", search_term)
+        summary = res.get("summary", "")
+
+        return {
+            "r_igdb_id": r_igdb_id,
+            "r_slug": r_slug,
+            "r_name": r_name,
+            "summary": summary,
+            "url_cover": self._search_cover(r_igdb_id),
+            "url_screenshots": self._search_screenshots(r_igdb_id),
+        }
 
     @check_twitch_token
-    def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int) -> list:
-        matched_roms: list = requests.post(self.games_url, headers=self.headers,
-                                           data=f"""search \"{uc(search_term)}\";
-                                                fields id, slug, name, summary;
-                                                where platforms=[{p_igdb_id}];""",
-                                           timeout=120).json()
-        for rom in matched_roms:
-            rom['url_cover'] = self._search_cover(rom['id']).replace('t_thumb', 't_cover_big')
-            rom['url_screenshots'] = self._search_screenshots(rom['id'])
-            rom['r_igdb_id'] = rom.pop('id')
-            rom['r_slug'] = rom.pop('slug')
-            rom['r_name'] = rom.pop('name')
-        return matched_roms
+    def get_rom_by_id(self, r_igdb_id: int):
+        roms = self._request(
+            self.games_url,
+            f"fields slug, name, summary; where id={r_igdb_id};",
+        )
+        rom = pydash.get(roms, "[0]", {})
 
+        return {
+            "r_igdb_id": r_igdb_id,
+            "r_slug": rom.get("slug", ""),
+            "r_name": rom.get("name", ""),
+            "summary": rom.get("summary", ""),
+            "url_cover": self._search_cover(r_igdb_id),
+            "url_screenshots": self._search_screenshots(r_igdb_id),
+        }
 
     @check_twitch_token
-    def get_matched_roms(self, file_name: str, p_igdb_id: int, p_slug: str) -> list:
-        if p_igdb_id:
-            matched_roms: list = requests.post(self.games_url, headers=self.headers,
-                                               data=f"""search \"{uc(get_search_term(file_name))}\";
-                                                    fields id, slug, name, summary;
-                                                    where platforms=[{p_igdb_id}];""",
-                                               timeout=120).json()
-            for rom in matched_roms:
-                rom['url_cover'] = self._search_cover(rom['id']).replace('t_thumb', 't_cover_big')
-                rom['url_screenshots'] = self._search_screenshots(rom['id'])
-                rom['r_igdb_id'] = rom.pop('id')
-                rom['r_slug'] = rom.pop('slug')
-                rom['r_name'] = rom.pop('name')
-        else:
-            matched_roms: list[dict] = []
-            log.warning(f"{p_slug} is not supported!")
-        return matched_roms
+    def get_matched_roms_by_id(self, r_igdb_id: int):
+        matched_rom = self.get_rom_by_id(r_igdb_id)
+        matched_rom.update(
+            url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),
+        )
+        return [matched_rom]
+
+    @check_twitch_token
+    def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int):
+        if not p_igdb_id:
+            return []
+
+        matched_roms = self._request(
+            self.games_url,
+            data=f"""
+                search "{uc(search_term)}";
+                fields id, slug, name, summary;
+                where platforms=[{p_igdb_id}];
+            """,
+        )
+
+        return [
+            dict(
+                rom,
+                url_cover=self._search_cover(rom["id"]).replace(
+                    "t_thumb", "t_cover_big"
+                ),
+                url_screenshots=self._search_screenshots(rom["id"]),
+                r_igdb_id=rom.pop("id"),
+                r_slug=rom.pop("slug"),
+                r_name=rom.pop("name"),
+            )
+            for rom in matched_roms
+        ]
 
 
+class TwitchAuth:
+    def _update_twitch_token(self) -> str:
+        res = requests.post(
+            url="https://id.twitch.tv/oauth2/token",
+            params={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "grant_type": "client_credentials",
+            },
+            timeout=30,
+        ).json()
 
-class TwitchAuth():
-
-    def __init__(self) -> None:
-        self.base_url: str = 'https://id.twitch.tv/oauth2/token'
-        self.token: str = ""
-        self.token_checkout: int = int(time())
-        self.secure_seconds_offset: int = 10 # seconds offset to avoid invalid token 
-        self.token_valid_seconds: int = 0
-        self.client_id: str = CLIENT_ID
-        self.client_secret: str = CLIENT_SECRET
-
-
-    def _is_token_valid(self) -> bool:
-        return True if int(time()) + self.secure_seconds_offset - self.token_checkout < self.token_valid_seconds else False
-
-
-    def _update_twitch_token(self) -> None:
-        res = requests.post(url=self.base_url,
-                            params={
-                                'client_id': self.client_id,
-                                'client_secret': self.client_secret,
-                                'grant_type': 'client_credentials'},
-                            timeout=30
-                            ).json()
-        self.token_checkout = int(time())
-        try:
-            self.token_valid_seconds = res['expires_in']
-            self.token = res['access_token']
-            log.info("Twitch token fetched!")
-        except KeyError:
-            log.error("Could not get twitch auth token: check client_id and client_secret")
+        token = res.get("access_token", "")
+        expires_in = res.get("expires_in", 0)
+        if not token or expires_in == 0:
+            log.error(
+                "Could not get twitch auth token: check client_id and client_secret"
+            )
             sys.exit(2)
 
+        # Set token in redis to expire in <expires_in> seconds
+        cache.set("twitch_token", token, ex=expires_in - 10)  # type: ignore
+        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore
+
+        log.info("Twitch token fetched!")
+
+        return token
 
     def get_oauth_token(self) -> str:
-        if not self._is_token_valid():
-            log.warning("Twitch token invalid: fetching a new one")
-            self._update_twitch_token()
-        return self.token
+        # Use a fake token when running tests
+        if "pytest" in sys.modules:
+            return "test_token"
+
+        # Fetch the token cache
+        token = cache.get("twitch_token")  # type: ignore
+        token_expires_at = cache.get("twitch_token_expires_at")  # type: ignore
+
+        if not token or time.time() > float(token_expires_at or 0):
+            log.warning("Twitch token invalid: fetching a new one...")
+            return self._update_twitch_token()
+
+        return token

@@ -2,7 +2,7 @@
   <h1 style="padding:20px;"><img src="romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
-  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/image.yml?style=flat-square&branch=master">
+  <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/build.yml?style=flat-square&branch=master">
 <br>
   <a href="https://hub.docker.com/r/zurdi15/romm">
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
@@ -66,6 +66,10 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 
 </details>
 <br>
+
+# The RomM community
+[Wiki](https://github.com/zurdi15/romm/wiki) <br/>
+[Discord](https://discord.gg/P5HtHnhUDH)<br/>
 
 # Installation
 
@@ -149,7 +153,7 @@ Check the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examp
   <h2 id="platform-support">🎮 Platform support</h2>
 
 If the RomM [folder structure](#📁-folder-structure) is followed, any kind of platform/folder-name is supported for the core features. For having extra metadata as well as cover images and platforms icons, the following table shows how to name your platforms folders.
-This will change over the time, adding games metadata for more platforms. Make sure that the platforms folder names are lowercase.
+This will change over the time, adding games metadata for more platforms.
 
 <br>
 <details>

@@ -1,0 +1,52 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "dev",
+			"path": "frontend",
+			"problemMatcher": [],
+			"label": "Launch frontend [npm]"
+		},
+		{
+			"type": "shell",
+			"command": "source ~/.cache/pypoetry/virtualenvs/romm-TjwgbYlf-py3.11/bin/activate; cd backend; python main.py",
+			"label": "Launch backend [python]",
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
+			"command": "source ~/.cache/pypoetry/virtualenvs/romm-TjwgbYlf-py3.11/bin/activate; cd backend; pytest -v",
+			"label": "Execute tests [pytest]",
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
+			"command": "./docker/build_local_image.sh",
+			"label": "Build docker local image [docker]",
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"type": "shell",
+			"command": "docker compose up -d",
+			"label": "Setup development environment [docker] (1)",
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
+			"command": "export $(cat .env | xargs); docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
+			"label": "Setup development environment migrations [docker] (2)",
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
+			"command": "cd romm_mock; docker compose up -d",
+			"label": "Setup testing environment [docker]",
+			"problemMatcher": []
+		}
+	]
+}

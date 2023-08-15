@@ -16,9 +16,9 @@ emitter.on("snackbarShow", (snackbar) => {
 <template>
   <v-snackbar
     v-model="snackbarShow"
-    :timeout="4000"
+    :timeout="2000"
     location="top"
-    color="notification"
+    color="tooltip"
   >
     <v-icon
       :icon="snackbarStatus.icon"
@@ -27,9 +27,9 @@ emitter.on("snackbarShow", (snackbar) => {
     />
     {{ snackbarStatus.msg }}
     <template v-slot:actions>
-      <v-btn @click="snackbarShow = false" variant="text"
-        ><v-icon icon="mdi-close"
-      /></v-btn>
+      <v-btn @click="snackbarShow = false" variant="text">
+        <v-icon icon="mdi-close"/>
+      </v-btn>
     </template>
   </v-snackbar>
 </template>
