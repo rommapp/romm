@@ -20,6 +20,8 @@ coverage
 # Editor directories and files
 .vscode
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
 .idea
 *.suo
 *.ntvs*
@@ -42,3 +44,11 @@ romm_mock
 
 # virtualenv
 .venv
+
+# testing
+backend/romm_test/resources
+backend/romm_test/logs
+.pytest_cache
+
+# service worker
+frontend/dev-dist

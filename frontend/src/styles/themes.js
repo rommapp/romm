@@ -7,7 +7,7 @@ export const rommDark = {
     background: "#0d1117",
 
     surface: "#161b22",
-    tooltip: "#161b22",
+    tooltip: "#202832",
     chip: "#161b22",
 
     rommAccent1: "#a452fe",

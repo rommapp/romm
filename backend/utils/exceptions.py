@@ -1,6 +1,9 @@
+folder_struct_msg = "Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
+
+
 class PlatformsNotFoundException(Exception):
     def __init__(self):
-        self.message = f"Platforms not found. Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
+        self.message = f"Platforms not found. {folder_struct_msg}"
         super().__init__(self.message)
 
     def __repr__(self) -> str:
@@ -9,10 +12,10 @@ class PlatformsNotFoundException(Exception):
 
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Roms not found for platform {platform}. Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
+        self.message = f"Roms not found for platform {platform}. {folder_struct_msg}"
         super().__init__(self.message)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return self.message
 
 
@@ -21,7 +24,7 @@ class RomNotFoundError(Exception):
         self.message = f"Rom {rom} not found for platform {platform}"
         super().__init__(self.message)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return self.message
 
 
@@ -30,5 +33,5 @@ class RomAlreadyExistsException(Exception):
         self.message = f"Can't rename: {rom_name} already exists"
         super().__init__(self.message)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return self.message

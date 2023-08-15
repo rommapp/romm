@@ -40,6 +40,17 @@ export default defineConfig(({ mode }) => {
             },
           ],
         },
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+          navigateFallbackDenylist: [
+            /\/assets\/romm\/library/,
+            /\/api\/platforms\/.*\/roms\/.*\/download/,
+          ],
+        },
+        devOptions: {
+          enabled: false,
+          type: "module",
+        },
       }),
     ],
     define: { "process.env": {} },

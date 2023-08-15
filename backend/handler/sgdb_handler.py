@@ -6,33 +6,33 @@ from logger.logger import log
 
 class SGDBHandler:
     def __init__(self) -> None:
-        self.headers: dict = {
+        self.headers = {
             "Authorization": f"Bearer {STEAMGRIDDB_API_KEY}",
             "Accept": "*/*",
         }
-        self.BASE_URL: str = "https://www.steamgriddb.com/api/v2"
-        self.DEFAULT_IMAGE_URL: str = (
-            "https://www.steamgriddb.com/static/img/logo-512.png"
-        )
+        self.BASE_URL = "https://www.steamgriddb.com/api/v2"
+        self.DEFAULT_IMAGE_URL = "https://www.steamgriddb.com/static/img/logo-512.png"
 
-    def get_details(self, term) -> tuple:
-        id: int = ""
-        name: str = ""
-        url_logo: str = ""
-        try:
-            res: dict = requests.get(
-                f"{self.BASE_URL}/search/autocomplete/{term}", headers=self.headers
-            ).json()["data"][0]
-            id: int = res["id"]
-            name: str = res["name"]
-        except IndexError:
-            log.warning(f"{term} not found in steamgriddb")
-        else:
-            try:
-                res = requests.get(
-                    f"{self.BASE_URL}/grid/game/{id}", headers=self.headers
-                )
-                url_logo: str = res.json()["data"][0]["url"]
-            except IndexError:
-                log.warning(f"{term} logo not found in steamgriddb")
-        return (id, name, url_logo)
+    def get_details(self, term):
+        search_response = requests.get(
+            f"{self.BASE_URL}/search/autocomplete/{term}", headers=self.headers
+        ).json()
+
+        if len(search_response["data"]) == 0:
+            log.info(f"Could not find {term} on SteamGridDB")
+            return ("", "", self.DEFAULT_IMAGE_URL)
+
+        game_id = search_response["data"][0]["id"]
+        game_name = search_response["data"][0]["name"]
+
+        game_response = requests.get(
+            f"{self.BASE_URL}/grid/game/{game_id}", headers=self.headers
+        ).json()
+
+        if len(game_response["data"]) == 0:
+            log.info(f"Could not find {game_name} image on SteamGridDB")
+            return (game_id, game_name, self.DEFAULT_IMAGE_URL)
+
+        game_image_url = game_response["data"][0]["url"]
+
+        return (game_id, game_name, game_image_url)

@@ -5,7 +5,7 @@ const props = defineProps(["image"]);
 <template>
   <v-card id="header-background" position="absolute" rounded="0" flat>
     <v-img
-      :src="`/assets/romm/resources/${image}?reload=${Date.now()}`"
+      :src="`/assets/romm/resources/${image}`"
       id="header-background-img"
       cover
     />

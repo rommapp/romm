@@ -1,5 +1,6 @@
 import axios from "axios";
 import useDownloadStore from "@/stores/download.js";
+import socket from "@/services/socket.js";
 
 export async function fetchPlatformsApi() {
   return axios.get("/api/platforms");
@@ -20,35 +21,52 @@ export async function fetchRomApi(platform, rom) {
   return axios.get(`/api/platforms/${platform}/roms/${rom}`);
 }
 
+function clearRomFromDownloads({ id }) {
+  const downloadStore = useDownloadStore();
+  downloadStore.remove(id);
+
+  // Disconnect socket when no more downloads are in progress
+  if (downloadStore.value.length === 0) socket.disconnect();
+}
+
+// Listen for multi-file download completion events
+socket.on("download:complete", clearRomFromDownloads);
+
+// Used only for multi-file downloads
 export async function downloadRomApi(rom, files) {
   // Force download of all multirom-parts when no part is selected
   if (files != undefined && files.length == 0) {
     files = undefined;
   }
 
-  const downloadStore = useDownloadStore();
-  downloadStore.add(rom.file_name);
+  const a = document.createElement("a");
+  a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
+    files || rom.files
+  }`;
+  a.download = `${rom.r_name}.zip`;
+  a.click();
 
-  axios
-    .get(
-      `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
-        files || rom.files
-      }`,
-      {
-        responseType: "blob",
-      }
-    )
-    .then((response) => {
-      const a = document.createElement("a");
-      a.href = window.URL.createObjectURL(new Blob([response.data]));
-      a.download = `${rom.r_name}.zip`;
-      a.click();
+  if (!socket.connected) socket.connect();
+  useDownloadStore().add(rom.id);
 
-      downloadStore.remove(rom.file_name);
-    });
+  // Clear download state after 60 seconds in case error/timeout
+  setTimeout(() => {
+    clearRomFromDownloads(rom);
+  }, 60 * 1000);
 }
 
-export async function updateRomApi(rom, updatedRom) {
+export async function updateRomApi(rom, updatedData, renameAsIGDB) {
+  const updatedRom = {
+    r_igdb_id: updatedData.r_igdb_id,
+    r_slug: updatedData.r_slug,
+    summary: updatedData.summary,
+    url_cover: updatedData.url_cover,
+    url_screenshots: updatedData.url_screenshots,
+    r_name: updatedData.r_name,
+    file_name: renameAsIGDB
+      ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
+      : updatedData.file_name,
+  };
   return axios.patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
     updatedRom,
   });
