@@ -1,3 +1,19 @@
+# v1.10 (_xx-08-2023_)
+
+## Added
+ - Rom admin menu added to roms in gallery. Closes [#28](https://github.com/zurdi15/romm/issues/28)
+ - Added ps2/opl naming convention support for roms scanning. Closes [#324](https://github.com/zurdi15/romm/issues/324)
+
+## Fixed
+ - Fixed an error caused by the service worker that sometimes intercepts download requests and returns a bad response. Fixes [#297](https://github.com/zurdi15/romm/issues/297)
+ - Fixed rom count in platform selector when deleting/scanning roms. Fixes [#325](https://github.com/zurdi15/romm/issues/325)
+
+## Changed
+ - Improved scanning and IGDB requests logs. Fixes [#317](https://github.com/zurdi15/romm/issues/317)
+ - Improved downloading process.  Fixes [#332](https://github.com/zurdi15/romm/issues/332)
+
+<br>
+
 # v1.9.1 (_01-08-2023_)
 
 ## Added
