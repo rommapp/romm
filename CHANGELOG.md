@@ -14,7 +14,7 @@
 
 
 
-**_Note_**: Experimental support for redis in the backend was added for anyone that wants to test it (it's experimental so expect some bugs). It's not required yet (check docker-compose.example.yml to check how to set the needed environment variables) but it will likely be introduced in 2.0.
+<!-- **_Note_**: Experimental support for redis in the backend was added for anyone that wants to test it (it's experimental so expect some bugs). It's not required yet (check docker-compose.example.yml to check how to set the needed environment variables) but it will likely be introduced in 2.0. -->
 
 <br>
 
