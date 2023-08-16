@@ -8,7 +8,7 @@ const emitter = inject("emitter");
 <template>
   <v-list rounded="0" class="pa-0">
     <v-list-item
-      @click="emitter.emit('showSearchDialog', rom)"
+      @click="emitter.emit('showSearchRomDialog', rom)"
       class="pt-4 pb-4 pr-5"
     >
       <v-list-item-title class="d-flex"
@@ -18,7 +18,7 @@ const emitter = inject("emitter");
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
-      @click="emitter.emit('showEditDialog', rom)"
+      @click="emitter.emit('showEditRomDialog', rom)"
       class="pt-4 pb-4 pr-5"
     >
       <v-list-item-title class="d-flex"
@@ -27,7 +27,7 @@ const emitter = inject("emitter");
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
-      @click="emitter.emit('showDeleteDialog', rom)"
+      @click="emitter.emit('showDeleteRomDialog', rom)"
       class="pt-4 pb-4 pr-5 text-red"
     >
       <v-list-item-title class="d-flex"

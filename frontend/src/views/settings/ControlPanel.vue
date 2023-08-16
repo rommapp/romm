@@ -1,13 +1,17 @@
 <script setup>
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { useTheme } from "vuetify";
 import { VDataTable } from "vuetify/labs/VDataTable";
+import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
+import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
+import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import version from "../../../package";
 
 // Props
+const emitter = inject("emitter");
+
 const tab = ref("general");
 
-// User CRUD
 const usersHeaders = [
   {
     title: "Username",
@@ -21,120 +25,106 @@ const usersHeaders = [
     sortable: true,
     key: "rol",
   },
-  { title: "Actions", align: "end", key: "actions", sortable: false },
+  { align: "end", key: "actions", sortable: false },
 ];
 const users = ref([
   {
+    id: 1,
     username: "User 1",
     rol: "Admin",
   },
   {
+    id: 2,
     username: "User 2",
     rol: "user",
   },
   {
+    id: 3,
     username: "User 3",
     rol: "Admin",
   },
   {
+    id: 4,
     username: "User 4",
-    rol: "user"
+    rol: "user",
   },
   {
+    id: 5,
     username: "User 5",
     rol: "user",
   },
   {
+    id: 6,
     username: "User 6",
     rol: "user",
   },
   {
+    id: 7,
     username: "User 7",
     rol: "Admin",
   },
   {
+    id: 8,
     username: "User 8",
     rol: "user",
   },
   {
+    id: 9,
     username: "User 9",
     rol: "Admin",
   },
   {
+    id: 10,
     username: "User 10",
     rol: "user",
   },
   {
+    id: 11,
     username: "User 13123",
     rol: "Admin",
   },
   {
+    id: 12,
     username: "User 2",
     rol: "user",
   },
   {
+    id: 13,
     username: "User 3",
     rol: "Admin",
   },
   {
+    id: 14,
     username: "User 4",
     rol: "user",
   },
   {
+    id: 15,
     username: "User 5",
     rol: "user",
   },
   {
+    id: 16,
     username: "User 6",
     rol: "user",
   },
   {
+    id: 17,
     username: "User 7",
     rol: "Admin",
   },
   {
+    id: 18,
     username: "User 8",
     rol: "user",
   },
   {
+    id: 19,
     username: "User 9",
     rol: "Admin",
-  }
+  },
 ]);
 const usersPerPage = ref(5);
-const dialogCreate = ref(false);
-const dialogEdit = ref(false);
-const dialogDelete = ref(false);
-const createdUser = ref({
-  username: "",
-  password: "",
-  rol: "",
-});
-const editedUser = ref({
-  id: "",
-  username: "",
-  password: "",
-  rol: "",
-});
-const deletedUser = ref({
-  id: "",
-  username: "",
-});
-function createUser() {
-  // TODO: call create user endpoint
-  dialogCreate.value = false;
-}
-function editUser(user) {
-  // TODO: call edit user endpoint
-  editedUser.value = user;
-  dialogEdit.value = true;
-}
-function deleteUser(user) {
-  // TODO: call delete user endpoint
-  deletedUser.value = user;
-  dialogDelete.value = true;
-}
-// User CRUD
 
 const theme = useTheme();
 const darkMode =
@@ -178,228 +168,31 @@ function toggleTheme() {
                       >Users</v-toolbar-title
                     >
 
-                    <v-dialog
-                      v-model="dialogCreate"
-                      max-width="500px"
-                      :scrim="false"
+                    <v-btn
+                      prepend-icon="mdi-plus"
+                      variant="outlined"
+                      @click="emitter.emit('showCreateUserDialog')"
                     >
-                      <template v-slot:activator="{ props }">
-                        <v-btn
-                          v-bind="props"
-                          prepend-icon="mdi-plus"
-                          variant="outlined"
-                        >
-                          Create user
-                        </v-btn>
-                      </template>
-                      <v-card>
-                        <v-toolbar density="compact" class="bg-terciary">
-                          <v-row class="align-center" no-gutters>
-                            <v-col cols="10">
-                              <v-icon icon="mdi-account" class="ml-5 mr-2" />
-                            </v-col>
-                            <v-col>
-                              <v-btn
-                                @click="dialogCreate = false"
-                                class="bg-terciary"
-                                rounded="0"
-                                variant="text"
-                                icon="mdi-close"
-                                block
-                              />
-                            </v-col>
-                          </v-row>
-                        </v-toolbar>
-                        <v-divider class="border-opacity-25" :thickness="1" />
+                      Create user
+                    </v-btn>
 
-                        <v-card-text>
-                          <v-row class="pa-2" no-gutters>
-                            <v-col>
-                              <v-text-field
-                                rounded="0"
-                                variant="outlined"
-                                v-model="createdUser.username"
-                                label="username"
-                                required
-                                hide-details
-                              ></v-text-field>
-                            </v-col>
-                          </v-row>
-                          <v-row class="pa-2" no-gutters>
-                            <v-col>
-                              <v-text-field
-                                rounded="0"
-                                variant="outlined"
-                                v-model="createdUser.password"
-                                label="Password"
-                                required
-                                hide-details
-                              ></v-text-field>
-                            </v-col>
-                          </v-row>
-                          <v-row class="pa-2" no-gutters>
-                            <v-col>
-                              <v-select
-                                v-model="createdUser.rol"
-                                rounded="0"
-                                variant="outlined"
-                                :items="['admin', 'user']"
-                                label="Rol"
-                                required
-                                hide-details
-                              ></v-select>
-                            </v-col>
-                          </v-row>
-                          <v-row class="justify-center pa-2" no-gutters>
-                            <v-btn
-                              @click="dialogCreate = false"
-                              class="bg-terciary"
-                              >Cancel</v-btn
-                            >
-                            <v-btn
-                              class="text-rommGreen bg-terciary ml-5"
-                              @click="createUser()"
-                              >Create</v-btn
-                            >
-                          </v-row>
-                        </v-card-text>
-                      </v-card>
-                    </v-dialog>
+                    <create-user-dialog />
 
-                    <v-dialog
-                      v-model="dialogEdit"
-                      max-width="500px"
-                      :scrim="false"
-                    >
-                      <v-card>
-                        <v-toolbar density="compact" class="bg-terciary">
-                          <v-row class="align-center" no-gutters>
-                            <v-col cols="10">
-                              <v-icon icon="mdi-pencil-box" class="ml-5 mr-2" />
-                            </v-col>
-                            <v-col>
-                              <v-btn
-                                @click="dialogEdit = false"
-                                class="bg-terciary"
-                                rounded="0"
-                                variant="text"
-                                icon="mdi-close"
-                                block
-                              />
-                            </v-col>
-                          </v-row>
-                        </v-toolbar>
-                        <v-divider class="border-opacity-25" :thickness="1" />
+                    <edit-user-dialog />
 
-                        <v-card-text>
-                          <v-row class="pa-2" no-gutters>
-                            <v-col>
-                              <v-text-field
-                                rounded="0"
-                                variant="outlined"
-                                v-model="editedUser.username"
-                                label="username"
-                                required
-                                hide-details
-                              ></v-text-field>
-                            </v-col>
-                          </v-row>
-                          <v-row class="pa-2" no-gutters>
-                            <v-col>
-                              <v-text-field
-                                rounded="0"
-                                variant="outlined"
-                                v-model="editedUser.password"
-                                label="Password"
-                                required
-                                hide-details
-                              ></v-text-field>
-                            </v-col>
-                          </v-row>
-                          <v-row class="pa-2" no-gutters>
-                            <v-col>
-                              <v-select
-                                v-model="editedUser.rol"
-                                rounded="0"
-                                variant="outlined"
-                                :items="['admin', 'user']"
-                                label="Rol"
-                                required
-                                hide-details
-                              ></v-select>
-                            </v-col>
-                          </v-row>
-                          <v-row class="justify-center pa-2" no-gutters>
-                            <v-btn
-                              @click="dialogEdit = false"
-                              class="bg-terciary"
-                              >Cancel</v-btn
-                            >
-                            <v-btn
-                              class="text-rommGreen bg-terciary ml-5"
-                              @click=""
-                              >Apply</v-btn
-                            >
-                          </v-row>
-                        </v-card-text>
-                      </v-card>
-                    </v-dialog>
-
-                    <v-dialog
-                      v-model="dialogDelete"
-                      max-width="500px"
-                      :scrim="true"
-                    >
-                      <v-card>
-                        <v-toolbar density="compact" class="bg-terciary">
-                          <v-row class="align-center" no-gutters>
-                            <v-col cols="10">
-                              <v-icon icon="mdi-delete" class="ml-5 mr-2" />
-                            </v-col>
-                            <v-col>
-                              <v-btn
-                                @click="dialogDelete = false"
-                                class="bg-terciary"
-                                rounded="0"
-                                variant="text"
-                                icon="mdi-close"
-                                block
-                              />
-                            </v-col>
-                          </v-row>
-                        </v-toolbar>
-                        <v-divider class="border-opacity-25" :thickness="1" />
-
-                        <v-card-text>
-                          <v-row class="justify-center pa-2" no-gutters>
-                            <span class="mr-1">Deleting</span
-                            ><span class="text-rommAccent1">{{
-                              deletedUser.username
-                            }}</span
-                            >.<span class="ml-1">Do you confirm?</span>
-                          </v-row>
-                          <v-row class="justify-center pa-2" no-gutters>
-                            <v-btn
-                              @click="dialogDelete = false"
-                              class="bg-terciary"
-                              >Cancel</v-btn
-                            >
-                            <v-btn
-                              class="bg-terciary text-rommRed ml-5"
-                              @click=""
-                              >Confirm</v-btn
-                            >
-                          </v-row>
-                        </v-card-text>
-                      </v-card>
-                    </v-dialog>
+                    <delete-user-dialog />
                   </v-toolbar>
                 </template>
                 <template v-slot:item.actions="{ item }">
-                  <v-icon class="me-2" @click="editUser(item.raw)">
+                  <v-icon
+                    class="me-2"
+                    @click="emitter.emit('showEditUserDialog', item.raw)"
+                  >
                     mdi-pencil
                   </v-icon>
-                  <v-icon class="text-red" @click="deleteUser(item.raw)"
+                  <v-icon
+                    class="text-red"
+                    @click="emitter.emit('showDeleteUserDialog', item.raw)"
                     >mdi-delete</v-icon
                   >
                 </template>

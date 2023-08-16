@@ -6,9 +6,9 @@ import { fetchRomApi, downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
-import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
-import EditRomDialog from "@/components/Dialog/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props

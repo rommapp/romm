@@ -9,7 +9,7 @@ const rom = ref();
 const renameAsIGDB = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showEditDialog", (romToEdit) => {
+emitter.on("showEditRomDialog", (romToEdit) => {
   show.value = true;
   rom.value = romToEdit;
 });

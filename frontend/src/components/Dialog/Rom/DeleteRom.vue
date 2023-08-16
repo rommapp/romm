@@ -11,7 +11,7 @@ const rom = ref();
 const deleteFromFs = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showDeleteDialog", (romToDelete) => {
+emitter.on("showDeleteRomDialog", (romToDelete) => {
   rom.value = romToDelete;
   show.value = true;
 });

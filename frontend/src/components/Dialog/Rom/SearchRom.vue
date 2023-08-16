@@ -13,7 +13,7 @@ const searchBy = ref("Name");
 const matchedRoms = ref([]);
 
 const emitter = inject("emitter");
-emitter.on("showSearchDialog", (romToSearch) => {
+emitter.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
@@ -62,7 +62,7 @@ async function updateRom(updatedData = { ...rom.value }) {
 }
 
 onBeforeUnmount(() => {
-  emitter.off("showSearchDialog");
+  emitter.off("showSearchRomDialog");
 });
 </script>
 
