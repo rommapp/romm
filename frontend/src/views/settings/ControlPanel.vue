@@ -6,18 +6,14 @@ import version from "../../../package";
 
 // Props
 const tab = ref("general");
-const dialog = ref(false);
+const dialogCreate = ref(false);
 const dialogDelete = ref(false);
-const editedIndex = ref(-1);
 const editedItem = ref({
-  name: "",
+  username: "",
+  password: "",
   rol: "",
 });
-const defaultItem = ref({
-  name: "",
-  rol: "",
-});
-const headers = [
+const usersHeaders = [
   {
     title: "Name",
     align: "start",
@@ -30,7 +26,7 @@ const headers = [
     sortable: true,
     key: "rol",
   },
-  { title: 'Actions', align: 'end', key: 'actions', sortable: false },
+  { title: "Actions", align: "end", key: "actions", sortable: false },
 ];
 const users = ref([
   {
@@ -39,7 +35,7 @@ const users = ref([
   },
   {
     name: "User 2",
-    rol: "Admin",
+    rol: "user",
   },
   {
     name: "User 3",
@@ -47,15 +43,15 @@ const users = ref([
   },
   {
     name: "User 4",
-    rol: "Admin",
+    rol: "user",
   },
   {
     name: "User 5",
-    rol: "Admin",
+    rol: "user",
   },
   {
     name: "User 6",
-    rol: "Admin",
+    rol: "user",
   },
   {
     name: "User 7",
@@ -63,7 +59,7 @@ const users = ref([
   },
   {
     name: "User 8",
-    rol: "Admin",
+    rol: "user",
   },
   {
     name: "User 9",
@@ -71,10 +67,51 @@ const users = ref([
   },
   {
     name: "User 10",
+    rol: "user",
+  },
+  {
+    name: "User 1",
     rol: "Admin",
-  }
+  },
+  {
+    name: "User 2",
+    rol: "user",
+  },
+  {
+    name: "User 3",
+    rol: "Admin",
+  },
+  {
+    name: "User 4",
+    rol: "user",
+  },
+  {
+    name: "User 5",
+    rol: "user",
+  },
+  {
+    name: "User 6",
+    rol: "user",
+  },
+  {
+    name: "User 7",
+    rol: "Admin",
+  },
+  {
+    name: "User 8",
+    rol: "user",
+  },
+  {
+    name: "User 9",
+    rol: "Admin",
+  },
+  {
+    name: "User 10",
+    rol: "user",
+  },
 ]);
-const itemsPerPage = ref(5);
+const rolSelect = ref("user");
+const usersPerPage = ref(5);
 const theme = useTheme();
 const darkMode =
   localStorage.getItem("theme") == "rommDark" ? ref(true) : ref(false);
@@ -97,6 +134,7 @@ function toggleTheme() {
     </v-tabs>
   </v-app-bar>
 
+  <!-- General tab -->
   <v-window v-model="tab">
     <v-window-item value="general">
       <v-row class="pa-1">
@@ -104,45 +142,83 @@ function toggleTheme() {
           <v-card rounded="0">
             <v-card-text class="pa-0">
               <v-data-table
-                v-model:items-per-page="itemsPerPage"
-                :headers="headers"
+                v-model:items-per-page="usersPerPage"
+                :headers="usersHeaders"
                 :items="users"
                 :sort-by="[{ key: 'name', order: 'asc' }]"
-                class="elevation-1"
               >
                 <template v-slot:top>
-                  <v-toolbar flat class="bg-terciary">
+                  <v-toolbar class="bg-terciary">
                     <v-toolbar-title
                       ><v-icon class="mr-3">mdi-account-group</v-icon
                       >Users</v-toolbar-title
                     >
-                    <v-divider class="mx-4" inset vertical></v-divider>
-                    <v-spacer></v-spacer>
-                    <v-dialog v-model="dialog" max-width="500px">
+                    <v-dialog v-model="dialogCreate" max-width="500px">
                       <template v-slot:activator="{ props }">
-                        <v-btn color="primary" dark class="mb-2" v-bind="props">
-                          New Item
+                        <v-btn
+                          v-bind="props"
+                          prepend-icon="mdi-plus"
+                          variant="outlined"
+                        >
+                          Create user
                         </v-btn>
                       </template>
                       <v-card>
-                        <v-card-title>
-                          <span class="text-h5">{{ formTitle }}</span>
-                        </v-card-title>
+                        <!-- <v-card-title>
+                          <span class="text-h5">Create user</span>
+                        </v-card-title> -->
+
+                        <v-toolbar density="compact" class="bg-primary">
+                          <v-row class="align-center" no-gutters>
+                            <v-col cols="10">
+                              <v-icon icon="mdi-account" class="ml-5 mr-2" />
+                              Create user
+                            </v-col>
+                            <v-col cols="2">
+                              <v-btn
+                                @click="dialogCreate = false"
+                                class="bg-primary"
+                                rounded="0"
+                                variant="text"
+                                icon="mdi-close"
+                                block
+                              />
+                            </v-col>
+                          </v-row>
+                        </v-toolbar>
+                        <v-divider class="border-opacity-25" :thickness="1" />
 
                         <v-card-text>
                           <v-container>
-                            <v-row>
-                              <v-col cols="12" sm="6" md="4">
+                            <v-row no-gutters>
+                              <v-col >
                                 <v-text-field
-                                  v-model="editedItem.name"
-                                  label="Name"
+                                  rounded="0"
+                                  variant="solo-filled"
+                                  v-model="editedItem.username"
+                                  label="Username"
                                 ></v-text-field>
                               </v-col>
-                              <v-col cols="12" sm="6" md="4">
+                              </v-row>
+                              <v-row no-gutters>
+                              <v-col >
                                 <v-text-field
-                                  v-model="editedItem.rol"
-                                  label="Rol"
+                                  rounded="0"
+                                  variant="solo-filled"
+                                  v-model="editedItem.password"
+                                  label="Password"
                                 ></v-text-field>
+                              </v-col>
+                              </v-row>
+                              <v-row no-gutters>
+                              <v-col >
+                                <v-select
+                                  v-model="rolSelect"
+                                  rounded="0"
+                                  variant="solo-filled"
+                                  :items="['admin', 'user']"
+                                  label="Rol"
+                                ></v-select>
                               </v-col>
                             </v-row>
                           </v-container>
@@ -151,19 +227,14 @@ function toggleTheme() {
                         <v-card-actions>
                           <v-spacer></v-spacer>
                           <v-btn
-                            color="blue-darken-1"
                             variant="text"
-                            @click="close"
+                            rounded="0"
+                            @click="dialogCreate = false"
+                            >Cancel</v-btn
                           >
-                            Cancel
-                          </v-btn>
-                          <v-btn
-                            color="blue-darken-1"
-                            variant="text"
-                            @click="save"
+                          <v-btn variant="text" rounded="0" @click="save"
+                            >Save</v-btn
                           >
-                            Save
-                          </v-btn>
                         </v-card-actions>
                       </v-card>
                     </v-dialog>
@@ -175,16 +246,10 @@ function toggleTheme() {
                         >
                         <v-card-actions>
                           <v-spacer></v-spacer>
-                          <v-btn
-                            color="blue-darken-1"
-                            variant="text"
-                            @click="closeDelete"
+                          <v-btn variant="text" @click="closeDelete"
                             >Cancel</v-btn
                           >
-                          <v-btn
-                            color="blue-darken-1"
-                            variant="text"
-                            @click="deleteItemConfirm"
+                          <v-btn variant="text" @click="deleteItemConfirm"
                             >OK</v-btn
                           >
                           <v-spacer></v-spacer>
@@ -194,12 +259,8 @@ function toggleTheme() {
                   </v-toolbar>
                 </template>
                 <template v-slot:item.actions="{ item }">
-                  <v-icon size="small" class="me-2" @click="">
-                    mdi-pencil
-                  </v-icon>
-                  <v-icon size="small" @click="">
-                    mdi-delete
-                  </v-icon>
+                  <v-icon class="me-2" @click=""> mdi-pencil </v-icon>
+                  <v-icon @click=""> mdi-delete </v-icon>
                 </template>
               </v-data-table>
             </v-card-text>
@@ -208,6 +269,7 @@ function toggleTheme() {
       </v-row>
     </v-window-item>
 
+    <!-- User Interface tab -->
     <v-window-item value="ui">
       <v-row class="pa-4" no-gutters>
         <v-switch
