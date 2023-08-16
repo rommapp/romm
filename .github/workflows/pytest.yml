@@ -37,8 +37,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Set version
-        run: VERSION=$(cat .romm-version); sed -i "s/<romm_version>/$VERSION/" pyproject.toml
       - name: Install mariadb connectors
         run: |
           sudo apt-get update
