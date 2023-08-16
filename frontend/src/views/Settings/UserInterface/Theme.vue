@@ -31,20 +31,16 @@ function toggleTheme() {
             <v-col key="dark" cols="6" sm="3" md="2" lg="2" class="px-2">
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
-                  :color="isSelected ? 'terciary' : 'primary'"
+                  :color="isSelected ? 'rommAccent1' : 'rommGray'"
                   class="d-flex align-center"
-                  height="70"
+                  height="50"
+                  variant="outlined"
                   @click="toggle"
                 >
                   <v-scroll-y-transition>
                     <div class="text-subtitle-2 flex-grow-1 text-center">
                       <v-icon class="mr-2">mdi-moon-waning-crescent</v-icon>Dark
                       Theme
-                      <v-radio
-                        :value="0"
-                        class="position-absolute"
-                        style="bottom: 1rem; right: 1rem"
-                      />
                     </div>
                   </v-scroll-y-transition>
                 </v-card>
@@ -53,19 +49,15 @@ function toggleTheme() {
             <v-col key="light" cols="6" sm="3" md="2" lg="2" class="px-2">
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
-                  :color="isSelected ? 'terciary' : 'primary'"
+                  :color="isSelected ? 'rommAccent1' : 'rommGray'"
                   class="d-flex align-center"
-                  height="70"
+                  height="50"
+                  variant="outlined"
                   @click="toggle"
                 >
                   <v-scroll-y-transition>
                     <div class="text-subtitle-2 flex-grow-1 text-center">
                       <v-icon class="mr-2">mdi-weather-sunny</v-icon>Light Theme
-                      <v-radio
-                        :value="1"
-                        class="position-absolute"
-                        style="bottom: 1rem; right: 1rem"
-                      />
                     </div>
                   </v-scroll-y-transition>
                 </v-card>
