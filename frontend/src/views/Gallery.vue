@@ -12,15 +12,14 @@ import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameListHeader from "@/components/Game/ListItem/Header.vue";
 import GameListItem from "@/components/Game/ListItem/Item.vue";
-import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
-import EditRomDialog from "@/components/Dialog/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const route = useRoute();
 const roms = ref([]);
-const updatedRom = ref([]);
 const searchRoms = ref([]);
 const filteredRoms = ref([]);
 const galleryView = storeGalleryView();
