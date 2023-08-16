@@ -31,6 +31,7 @@ const filterRoms = debounce(() => {
     v-model="filterValue"
     prepend-inner-icon="mdi-magnify"
     label="search"
+    rounded="0"
     hide-details
     clearable
   />

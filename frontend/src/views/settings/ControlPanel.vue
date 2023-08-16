@@ -125,6 +125,13 @@ const users = ref([
   },
 ]);
 const usersPerPage = ref(5);
+const usersPerPageOptions = [
+  { value: 5, title: "5" },
+  { value: 10, title: "10" },
+  { value: 25, title: "25" },
+  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
+];
+const userSearch = ref("");
 
 const theme = useTheme();
 const darkMode =
@@ -154,46 +161,61 @@ function toggleTheme() {
       <v-row class="pa-1">
         <v-col>
           <v-card rounded="0">
+            <v-toolbar class="bg-terciary" density="comfortable">
+              <v-toolbar-title
+                ><v-icon class="mr-3">mdi-account-group</v-icon
+                >Users</v-toolbar-title
+              >
+              <v-btn
+                prepend-icon="mdi-plus"
+                variant="outlined"
+                class="text-rommAccent1"
+                @click="emitter.emit('showCreateUserDialog')"
+              >
+                Add user
+              </v-btn>
+            </v-toolbar>
+
+            <v-divider class="border-opacity-25" />
+
             <v-card-text class="pa-0">
+              <v-text-field
+                v-model="userSearch"
+                prepend-inner-icon="mdi-magnify"
+                label="Search"
+                rounded="0"
+                single-line
+                hide-details
+                clearable
+                density="comfortable"
+                class="bg-secondary"
+              ></v-text-field>
+
+              <create-user-dialog />
+
+              <edit-user-dialog />
+
+              <delete-user-dialog />
               <v-data-table
+                :items-per-page-options="usersPerPageOptions"
                 v-model:items-per-page="usersPerPage"
+                height="320"
+                :search="userSearch"
                 :headers="usersHeaders"
                 :items="users"
                 :sort-by="[{ key: 'username', order: 'asc' }]"
               >
-                <template v-slot:top>
-                  <v-toolbar class="bg-terciary">
-                    <v-toolbar-title
-                      ><v-icon class="mr-3">mdi-account-group</v-icon
-                      >Users</v-toolbar-title
-                    >
-
-                    <v-btn
-                      prepend-icon="mdi-plus"
-                      variant="outlined"
-                      @click="emitter.emit('showCreateUserDialog')"
-                    >
-                      Create user
-                    </v-btn>
-
-                    <create-user-dialog />
-
-                    <edit-user-dialog />
-
-                    <delete-user-dialog />
-                  </v-toolbar>
-                </template>
                 <template v-slot:item.actions="{ item }">
-                  <v-icon
-                    class="me-2"
+                  <v-btn
+                    class="me-2 bg-terciary"
                     @click="emitter.emit('showEditUserDialog', { ...item.raw })"
                   >
-                    mdi-pencil
-                  </v-icon>
-                  <v-icon
-                    class="text-red"
+                    <v-icon>mdi-pencil</v-icon>
+                  </v-btn>
+                  <v-btn
+                    class="bg-terciary text-rommRed"
                     @click="emitter.emit('showDeleteUserDialog', item.raw)"
-                    >mdi-delete</v-icon
+                    ><v-icon>mdi-delete</v-icon></v-btn
                   >
                 </template>
               </v-data-table>
