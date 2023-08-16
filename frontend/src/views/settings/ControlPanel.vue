@@ -186,7 +186,7 @@ function toggleTheme() {
                 <template v-slot:item.actions="{ item }">
                   <v-icon
                     class="me-2"
-                    @click="emitter.emit('showEditUserDialog', item.raw)"
+                    @click="emitter.emit('showEditUserDialog', { ...item.raw })"
                   >
                     mdi-pencil
                   </v-icon>
