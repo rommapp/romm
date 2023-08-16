@@ -153,7 +153,11 @@ function toggleTheme() {
                       ><v-icon class="mr-3">mdi-account-group</v-icon
                       >Users</v-toolbar-title
                     >
-                    <v-dialog v-model="dialogCreate" max-width="500px">
+                    <v-dialog
+                      v-model="dialogCreate"
+                      max-width="500px"
+                      :scrim="false"
+                    >
                       <template v-slot:activator="{ props }">
                         <v-btn
                           v-bind="props"
@@ -164,20 +168,15 @@ function toggleTheme() {
                         </v-btn>
                       </template>
                       <v-card>
-                        <!-- <v-card-title>
-                          <span class="text-h5">Create user</span>
-                        </v-card-title> -->
-
-                        <v-toolbar density="compact" class="bg-primary">
+                        <v-toolbar density="compact" class="bg-terciary">
                           <v-row class="align-center" no-gutters>
                             <v-col cols="10">
                               <v-icon icon="mdi-account" class="ml-5 mr-2" />
-                              Create user
                             </v-col>
-                            <v-col cols="2">
+                            <v-col>
                               <v-btn
                                 @click="dialogCreate = false"
-                                class="bg-primary"
+                                class="bg-terciary"
                                 rounded="0"
                                 variant="text"
                                 icon="mdi-close"
@@ -189,53 +188,48 @@ function toggleTheme() {
                         <v-divider class="border-opacity-25" :thickness="1" />
 
                         <v-card-text>
-                          <v-container>
-                            <v-row no-gutters>
-                              <v-col >
-                                <v-text-field
-                                  rounded="0"
-                                  variant="solo-filled"
-                                  v-model="editedItem.username"
-                                  label="Username"
-                                ></v-text-field>
-                              </v-col>
-                              </v-row>
-                              <v-row no-gutters>
-                              <v-col >
-                                <v-text-field
-                                  rounded="0"
-                                  variant="solo-filled"
-                                  v-model="editedItem.password"
-                                  label="Password"
-                                ></v-text-field>
-                              </v-col>
-                              </v-row>
-                              <v-row no-gutters>
-                              <v-col >
-                                <v-select
-                                  v-model="rolSelect"
-                                  rounded="0"
-                                  variant="solo-filled"
-                                  :items="['admin', 'user']"
-                                  label="Rol"
-                                ></v-select>
-                              </v-col>
-                            </v-row>
-                          </v-container>
+                          <v-row class="pa-2" no-gutters>
+                            <v-col>
+                              <v-text-field
+                                rounded="0"
+                                variant="outlined"
+                                v-model="editedItem.username"
+                                label="Username"
+                              ></v-text-field>
+                            </v-col>
+                          </v-row>
+                          <v-row class="pa-2" no-gutters>
+                            <v-col>
+                              <v-text-field
+                                rounded="0"
+                                variant="outlined"
+                                v-model="editedItem.password"
+                                label="Password"
+                              ></v-text-field>
+                            </v-col>
+                          </v-row>
+                          <v-row class="pa-2" no-gutters>
+                            <v-col>
+                              <v-select
+                                v-model="rolSelect"
+                                rounded="0"
+                                variant="outlined"
+                                :items="['admin', 'user']"
+                                label="Rol"
+                              ></v-select>
+                            </v-col>
+                          </v-row>
+                          <v-row class="justify-center pa-2" no-gutters>
+                            <v-btn @click="dialogCreate = false" class="bg-terciary"
+                              >Cancel</v-btn
+                            >
+                            <v-btn
+                              class="text-rommGreen bg-terciary ml-5"
+                              @click=""
+                              >Create</v-btn
+                            >
+                          </v-row>
                         </v-card-text>
-
-                        <v-card-actions>
-                          <v-spacer></v-spacer>
-                          <v-btn
-                            variant="text"
-                            rounded="0"
-                            @click="dialogCreate = false"
-                            >Cancel</v-btn
-                          >
-                          <v-btn variant="text" rounded="0" @click="save"
-                            >Save</v-btn
-                          >
-                        </v-card-actions>
                       </v-card>
                     </v-dialog>
                     <v-dialog v-model="dialogDelete" max-width="500px">
