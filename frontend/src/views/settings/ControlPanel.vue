@@ -227,14 +227,29 @@ function toggleTheme() {
 
     <!-- User Interface tab -->
     <v-window-item value="ui">
-      <v-row class="pa-4" no-gutters>
-        <v-switch
-          @change="toggleTheme()"
-          v-model="darkMode"
-          prepend-icon="mdi-theme-light-dark"
-          hide-details
-          inset
-        />
+      <v-row class="pa-1">
+        <v-col>
+          <v-card rounded="0">
+            <v-toolbar class="bg-terciary" density="comfortable">
+              <v-toolbar-title
+                ><v-icon class="mr-3">mdi-theme-light-dark</v-icon
+                >Theme</v-toolbar-title
+              >
+            </v-toolbar>
+
+            <v-divider class="border-opacity-25" />
+
+            <v-card-text>
+              <v-switch
+                @change="toggleTheme()"
+                v-model="darkMode"
+                hide-details
+                inset
+                :label="darkMode ? 'Dark' : 'Light'"
+              />
+            </v-card-text>
+          </v-card>
+        </v-col>
       </v-row>
     </v-window-item>
   </v-window>
