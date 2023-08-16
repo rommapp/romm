@@ -15,27 +15,27 @@ const routes = [
       {
         path: "/",
         name: "dashboard",
-        component: () => import("@/views/Dashboard.vue"),
+        component: () => import("@/views/Dashboard/Base.vue"),
       },
       {
         path: "/platform/:platform",
         name: "platform",
-        component: () => import("@/views/Gallery.vue"),
+        component: () => import("@/views/Gallery/Base.vue"),
       },
       {
         path: "/platform/:platform/:rom",
         name: "rom",
-        component: () => import("@/views/Details.vue"),
+        component: () => import("@/views/Details/Base.vue"),
       },
       {
         path: "/library/scan",
         name: "scan",
-        component: () => import("@/views/library/Scan.vue"),
+        component: () => import("@/views/Library/Scan.vue"),
       },
       {
         path: "/settings/control-panel",
         name: "controlPanel",
-        component: () => import("@/views/settings/ControlPanel.vue"),
+        component: () => import("@/views/Settings/ControlPanel.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
@@ -56,15 +56,14 @@ function isAuthenticated() {
 }
 
 router.beforeEach(async (to, from) => {
-
-  const publicPages = ['/login'];
+  const publicPages = ["/login"];
   const authRequired = !publicPages.includes(to.path);
 
   if (!isAuthenticated() && to.name !== "login" && authRequired) {
     return { name: "login" };
   } else if (isAuthenticated() && to.name === "login") {
     return { name: "dashboard" };
-  } else if (to.name == "noMatch"){
+  } else if (to.name == "noMatch") {
     return { name: "dashboard" };
   }
 });

@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from "vue";
-import Users from "@/views/settings/General/Users.vue";
-import Theme from "@/views/settings/UserInterface/Theme.vue";
+import Users from "@/views/Settings/General/Users.vue";
+import Theme from "@/views/Settings/UserInterface/Theme.vue";
 import version from "../../../package";
 
 // Props

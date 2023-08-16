@@ -130,8 +130,8 @@ const userSearch = ref("");
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="comfortable">
-      <v-toolbar-title
+    <v-toolbar class="bg-terciary" density="compact">
+      <v-toolbar-title class="text-button"
         ><v-icon class="mr-3">mdi-account-group</v-icon>Users</v-toolbar-title
       >
       <v-btn

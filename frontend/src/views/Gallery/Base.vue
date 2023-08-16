@@ -237,10 +237,10 @@ onBeforeRouteUpdate(async (to, _) => {
 
   <!-- Empty gallery message -->
   <template v-else>
-    <v-row class="fill-height justify-center align-center" no-gutters>
-      <div class="text-h6">
-        Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
-      </div>
+    <v-row class="align-center justify-center" no-gutters>
+      <v-col cols="6" md="2">
+        <v-card-text class="mt-16">Feels empty here... <v-icon>mdi-emoticon-sad</v-icon></v-card-text>
+      </v-col>
     </v-row>
   </template>
 
