@@ -5,7 +5,6 @@ import dashboardPlatforms from "@/views/Dashboard/Platforms.vue"
 
 // Props
 const platforms = storePlatforms();
-
 </script>
 
 <template>
