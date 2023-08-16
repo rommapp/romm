@@ -6,19 +6,14 @@ import version from "../../../package";
 
 // Props
 const tab = ref("general");
-const dialogCreate = ref(false);
-const dialogDelete = ref(false);
-const editedItem = ref({
-  username: "",
-  password: "",
-  rol: "",
-});
+
+// User CRUD
 const usersHeaders = [
   {
-    title: "Name",
+    title: "Username",
     align: "start",
     sortable: true,
-    key: "name",
+    key: "username",
   },
   {
     title: "Rol",
@@ -30,88 +25,117 @@ const usersHeaders = [
 ];
 const users = ref([
   {
-    name: "User 1",
+    username: "User 1",
     rol: "Admin",
   },
   {
-    name: "User 2",
+    username: "User 2",
     rol: "user",
   },
   {
-    name: "User 3",
+    username: "User 3",
     rol: "Admin",
   },
   {
-    name: "User 4",
+    username: "User 4",
+    rol: "user"
+  },
+  {
+    username: "User 5",
     rol: "user",
   },
   {
-    name: "User 5",
+    username: "User 6",
     rol: "user",
   },
   {
-    name: "User 6",
-    rol: "user",
-  },
-  {
-    name: "User 7",
+    username: "User 7",
     rol: "Admin",
   },
   {
-    name: "User 8",
+    username: "User 8",
     rol: "user",
   },
   {
-    name: "User 9",
+    username: "User 9",
     rol: "Admin",
   },
   {
-    name: "User 10",
+    username: "User 10",
     rol: "user",
   },
   {
-    name: "User 1",
+    username: "User 13123",
     rol: "Admin",
   },
   {
-    name: "User 2",
+    username: "User 2",
     rol: "user",
   },
   {
-    name: "User 3",
+    username: "User 3",
     rol: "Admin",
   },
   {
-    name: "User 4",
+    username: "User 4",
     rol: "user",
   },
   {
-    name: "User 5",
+    username: "User 5",
     rol: "user",
   },
   {
-    name: "User 6",
+    username: "User 6",
     rol: "user",
   },
   {
-    name: "User 7",
+    username: "User 7",
     rol: "Admin",
   },
   {
-    name: "User 8",
+    username: "User 8",
     rol: "user",
   },
   {
-    name: "User 9",
+    username: "User 9",
     rol: "Admin",
-  },
-  {
-    name: "User 10",
-    rol: "user",
-  },
+  }
 ]);
-const rolSelect = ref("user");
 const usersPerPage = ref(5);
+const dialogCreate = ref(false);
+const dialogEdit = ref(false);
+const dialogDelete = ref(false);
+const createdUser = ref({
+  username: "",
+  password: "",
+  rol: "",
+});
+const editedUser = ref({
+  id: "",
+  username: "",
+  password: "",
+  rol: "",
+});
+const deletedUser = ref({
+  id: "",
+  username: "",
+});
+function createUser() {
+  // TODO: call create user endpoint
+  dialogCreate.value = false;
+}
+function editUser(user) {
+  // TODO: call edit user endpoint
+  editedUser.value = user;
+  dialogEdit.value = true;
+}
+function deleteUser(user) {
+  // TODO: call delete user endpoint
+  deletedUser.value = user;
+  dialogDelete.value = true;
+}
+// User CRUD
+
 const theme = useTheme();
 const darkMode =
   localStorage.getItem("theme") == "rommDark" ? ref(true) : ref(false);
@@ -145,7 +169,7 @@ function toggleTheme() {
                 v-model:items-per-page="usersPerPage"
                 :headers="usersHeaders"
                 :items="users"
-                :sort-by="[{ key: 'name', order: 'asc' }]"
+                :sort-by="[{ key: 'username', order: 'asc' }]"
               >
                 <template v-slot:top>
                   <v-toolbar class="bg-terciary">
@@ -153,6 +177,7 @@ function toggleTheme() {
                       ><v-icon class="mr-3">mdi-account-group</v-icon
                       >Users</v-toolbar-title
                     >
+
                     <v-dialog
                       v-model="dialogCreate"
                       max-width="500px"
@@ -193,8 +218,10 @@ function toggleTheme() {
                               <v-text-field
                                 rounded="0"
                                 variant="outlined"
-                                v-model="editedItem.username"
-                                label="Username"
+                                v-model="createdUser.username"
+                                label="username"
+                                required
+                                hide-details
                               ></v-text-field>
                             </v-col>
                           </v-row>
@@ -203,58 +230,178 @@ function toggleTheme() {
                               <v-text-field
                                 rounded="0"
                                 variant="outlined"
-                                v-model="editedItem.password"
+                                v-model="createdUser.password"
                                 label="Password"
+                                required
+                                hide-details
                               ></v-text-field>
                             </v-col>
                           </v-row>
                           <v-row class="pa-2" no-gutters>
                             <v-col>
                               <v-select
-                                v-model="rolSelect"
+                                v-model="createdUser.rol"
                                 rounded="0"
                                 variant="outlined"
                                 :items="['admin', 'user']"
                                 label="Rol"
+                                required
+                                hide-details
                               ></v-select>
                             </v-col>
                           </v-row>
                           <v-row class="justify-center pa-2" no-gutters>
-                            <v-btn @click="dialogCreate = false" class="bg-terciary"
+                            <v-btn
+                              @click="dialogCreate = false"
+                              class="bg-terciary"
                               >Cancel</v-btn
                             >
                             <v-btn
                               class="text-rommGreen bg-terciary ml-5"
-                              @click=""
+                              @click="createUser()"
                               >Create</v-btn
                             >
                           </v-row>
                         </v-card-text>
                       </v-card>
                     </v-dialog>
-                    <v-dialog v-model="dialogDelete" max-width="500px">
+
+                    <v-dialog
+                      v-model="dialogEdit"
+                      max-width="500px"
+                      :scrim="false"
+                    >
                       <v-card>
-                        <v-card-title class="text-h5"
-                          >Are you sure you want to delete this
-                          item?</v-card-title
-                        >
-                        <v-card-actions>
-                          <v-spacer></v-spacer>
-                          <v-btn variant="text" @click="closeDelete"
-                            >Cancel</v-btn
-                          >
-                          <v-btn variant="text" @click="deleteItemConfirm"
-                            >OK</v-btn
-                          >
-                          <v-spacer></v-spacer>
-                        </v-card-actions>
+                        <v-toolbar density="compact" class="bg-terciary">
+                          <v-row class="align-center" no-gutters>
+                            <v-col cols="10">
+                              <v-icon icon="mdi-pencil-box" class="ml-5 mr-2" />
+                            </v-col>
+                            <v-col>
+                              <v-btn
+                                @click="dialogEdit = false"
+                                class="bg-terciary"
+                                rounded="0"
+                                variant="text"
+                                icon="mdi-close"
+                                block
+                              />
+                            </v-col>
+                          </v-row>
+                        </v-toolbar>
+                        <v-divider class="border-opacity-25" :thickness="1" />
+
+                        <v-card-text>
+                          <v-row class="pa-2" no-gutters>
+                            <v-col>
+                              <v-text-field
+                                rounded="0"
+                                variant="outlined"
+                                v-model="editedUser.username"
+                                label="username"
+                                required
+                                hide-details
+                              ></v-text-field>
+                            </v-col>
+                          </v-row>
+                          <v-row class="pa-2" no-gutters>
+                            <v-col>
+                              <v-text-field
+                                rounded="0"
+                                variant="outlined"
+                                v-model="editedUser.password"
+                                label="Password"
+                                required
+                                hide-details
+                              ></v-text-field>
+                            </v-col>
+                          </v-row>
+                          <v-row class="pa-2" no-gutters>
+                            <v-col>
+                              <v-select
+                                v-model="editedUser.rol"
+                                rounded="0"
+                                variant="outlined"
+                                :items="['admin', 'user']"
+                                label="Rol"
+                                required
+                                hide-details
+                              ></v-select>
+                            </v-col>
+                          </v-row>
+                          <v-row class="justify-center pa-2" no-gutters>
+                            <v-btn
+                              @click="dialogEdit = false"
+                              class="bg-terciary"
+                              >Cancel</v-btn
+                            >
+                            <v-btn
+                              class="text-rommGreen bg-terciary ml-5"
+                              @click=""
+                              >Apply</v-btn
+                            >
+                          </v-row>
+                        </v-card-text>
+                      </v-card>
+                    </v-dialog>
+
+                    <v-dialog
+                      v-model="dialogDelete"
+                      max-width="500px"
+                      :scrim="true"
+                    >
+                      <v-card>
+                        <v-toolbar density="compact" class="bg-terciary">
+                          <v-row class="align-center" no-gutters>
+                            <v-col cols="10">
+                              <v-icon icon="mdi-delete" class="ml-5 mr-2" />
+                            </v-col>
+                            <v-col>
+                              <v-btn
+                                @click="dialogDelete = false"
+                                class="bg-terciary"
+                                rounded="0"
+                                variant="text"
+                                icon="mdi-close"
+                                block
+                              />
+                            </v-col>
+                          </v-row>
+                        </v-toolbar>
+                        <v-divider class="border-opacity-25" :thickness="1" />
+
+                        <v-card-text>
+                          <v-row class="justify-center pa-2" no-gutters>
+                            <span class="mr-1">Deleting</span
+                            ><span class="text-rommAccent1">{{
+                              deletedUser.username
+                            }}</span
+                            >.<span class="ml-1">Do you confirm?</span>
+                          </v-row>
+                          <v-row class="justify-center pa-2" no-gutters>
+                            <v-btn
+                              @click="dialogDelete = false"
+                              class="bg-terciary"
+                              >Cancel</v-btn
+                            >
+                            <v-btn
+                              class="bg-terciary text-rommRed ml-5"
+                              @click=""
+                              >Confirm</v-btn
+                            >
+                          </v-row>
+                        </v-card-text>
                       </v-card>
                     </v-dialog>
                   </v-toolbar>
                 </template>
                 <template v-slot:item.actions="{ item }">
-                  <v-icon class="me-2" @click=""> mdi-pencil </v-icon>
-                  <v-icon @click=""> mdi-delete </v-icon>
+                  <v-icon class="me-2" @click="editUser(item.raw)">
+                    mdi-pencil
+                  </v-icon>
+                  <v-icon class="text-red" @click="deleteUser(item.raw)"
+                    >mdi-delete</v-icon
+                  >
                 </template>
               </v-data-table>
             </v-card-text>
