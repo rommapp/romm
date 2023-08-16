@@ -43,3 +43,8 @@ export const rommLight = {
     rommBlack: "#000000",
   },
 };
+
+export const themes = {
+  0: 'rommDark',
+  1: 'rommLight'
+}
