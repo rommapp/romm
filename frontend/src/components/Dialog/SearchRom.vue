@@ -85,7 +85,7 @@ onBeforeUnmount(() => {
       }"
       rounded="0"
     >
-      <v-toolbar density="compact" class="bg-primary">
+      <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
           <v-col cols="9" xs="9" sm="10" md="10" lg="11">
             <v-icon icon="mdi-search-web" class="ml-5" />
@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
           <v-col>
             <v-btn
               @click="show = false"
-              class="bg-primary"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
             <v-btn
               type="submit"
               @click="searchRomIGDB()"
-              class="bg-primary"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-search-web"
@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
         </v-row>
       </v-toolbar>
 
-      <v-card-text class="pa-1 scroll bg-secondary">
+      <v-card-text class="pa-1 scroll">
         <v-row
           class="justify-center loader-searching"
           v-show="searching"
@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
       </v-card-text>
 
       <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-primary" density="compact">
+      <v-toolbar class="bg-terciary" density="compact">
         <v-checkbox
           v-model="renameAsIGDB"
           label="Rename rom"
