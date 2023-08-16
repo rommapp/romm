@@ -59,7 +59,7 @@ async function updateRom(updatedData = { ...rom.value }) {
         'edit-content-mobile': xs,
       }"
     >
-      <v-toolbar density="compact" class="bg-primary">
+      <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
           <v-col cols="9" xs="9" sm="10" md="10" lg="11">
             <v-icon icon="mdi-pencil-box" class="ml-5" />
@@ -67,7 +67,7 @@ async function updateRom(updatedData = { ...rom.value }) {
           <v-col>
             <v-btn
               @click="show = false"
-              class="bg-primary"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -78,8 +78,8 @@ async function updateRom(updatedData = { ...rom.value }) {
       </v-toolbar>
       <v-divider class="border-opacity-25" :thickness="1" />
 
-      <v-card-text class="bg-secondary scroll">
-        <v-row class="justify-center pa-2" no-gutters>
+      <v-card-text>
+        <v-row class="pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
             v-model="rom.r_name"
@@ -89,7 +89,7 @@ async function updateRom(updatedData = { ...rom.value }) {
             hide-details
           />
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+        <v-row class="pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
             v-model="rom.file_name"
@@ -99,7 +99,7 @@ async function updateRom(updatedData = { ...rom.value }) {
             hide-details
           />
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+        <v-row class="pa-2" no-gutters>
           <v-textarea
             @keyup.enter="updateRom()"
             v-model="rom.summary"
@@ -109,7 +109,7 @@ async function updateRom(updatedData = { ...rom.value }) {
             hide-details
           />
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+        <v-row class="pa-2" no-gutters>
           <v-file-input
             @keyup.enter="updateRom()"
             label="Custom cover [Coming soon]"
@@ -121,10 +121,10 @@ async function updateRom(updatedData = { ...rom.value }) {
           />
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false">Cancel</v-btn>
+          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
           <v-btn
             @click="updateRom()"
-            class="text-rommGreen ml-5"
+            class="text-rommGreen ml-5 bg-terciary"
             >Apply</v-btn
           >
         </v-row>
