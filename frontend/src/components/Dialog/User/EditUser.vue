@@ -49,6 +49,7 @@ function editUser() {
               label="username"
               required
               hide-details
+              clearable
             ></v-text-field>
           </v-col>
         </v-row>
@@ -61,6 +62,7 @@ function editUser() {
               label="Password"
               required
               hide-details
+              clearable
             ></v-text-field>
           </v-col>
         </v-row>
