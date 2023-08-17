@@ -1,9 +1,12 @@
 import axios from "axios";
 import useDownloadStore from "@/stores/download.js";
 import socket from "@/services/socket.js";
+import router from "@/plugins/router";
 
 export async function fetchPlatformsApi() {
-  return axios.get("/api/platforms");
+  return axios.get("/api/platforms").catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
 }
 
 export async function fetchRomsApi({
@@ -12,13 +15,21 @@ export async function fetchRomsApi({
   size = 60,
   searchTerm = "",
 }) {
-  return axios.get(
-    `/api/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
-  );
+  return axios
+    .get(
+      `/api/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
+    )
+    .catch(({ response }) => {
+      if (response.status === 403) router.push("/login");
+    });
 }
 
 export async function fetchRomApi(platform, rom) {
-  return axios.get(`/api/platforms/${platform}/roms/${rom}`);
+  return axios
+    .get(`/api/platforms/${platform}/roms/${rom}`)
+    .catch(({ response }) => {
+      if (response.status === 403) router.push("/login");
+    });
 }
 
 function clearRomFromDownloads({ id }) {
@@ -67,20 +78,32 @@ export async function updateRomApi(rom, updatedData, renameAsIGDB) {
       ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
       : updatedData.file_name,
   };
-  return axios.patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
-    updatedRom,
-  });
+  return axios
+    .patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
+      updatedRom,
+    })
+    .catch(({ response }) => {
+      if (response.status === 403) router.push("/login");
+    });
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {
-  return axios.delete(
-    `/api/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
-  );
+  return axios
+    .delete(
+      `/api/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
+    )
+    .catch(({ response }) => {
+      if (response.status === 403) router.push("/login");
+    });
 }
 
 export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
-  return axios.put(
-    `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
-    { rom: rom }
-  );
+  return axios
+    .put(
+      `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
+      { rom: rom }
+    )
+    .catch(({ response }) => {
+      if (response.status === 403) router.push("/login");
+    });
 }

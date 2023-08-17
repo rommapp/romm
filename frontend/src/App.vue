@@ -1,4 +1,5 @@
 <script setup>
+import { onBeforeMount } from "vue";
 import { useTheme } from "vuetify";
 import axios from "axios";
 import cookie from "js-cookie";
