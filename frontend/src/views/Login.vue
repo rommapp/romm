@@ -1,4 +1,5 @@
 <script setup>
+import axios from "axios";
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import Notification from "@/components/Notification.vue";
@@ -9,23 +10,31 @@ const router = useRouter();
 const username = ref();
 const password = ref();
 const visiblePassword = ref(false);
-const validCredentials = ref(true);
 
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
-async function login() {
+function login() {
+  const token = btoa(`${username.value}:${password.value}`);
   /* TODO: implement login logic */
-  validCredentials.value = username.value == "zurdi";
-  if (validCredentials.value) {
-    localStorage.setItem("authenticated", true);
-    await router.push({ name: "dashboard" }); // TODO: redirect to the last valid url
-  } else {
-    const msg = "Invalid credentials";
-    emitter.emit("snackbarShow", {
-      msg: `Unable to login: ${msg}`,
-      icon: "mdi-close-circle",
-      color: "red",
+  axios
+    .post(
+      `/api/login`,
+      {},
+      {
+        headers: {
+          Authorization: `Basic ${token}`,
+        },
+      }
+    )
+    .then(() => {
+      router.push("/");
+    })
+    .catch(({ message }) => {
+      emitter.emit("snackbarShow", {
+        msg: `Unable to login: ${message}`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
     });
-  }
 }
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
 </script>

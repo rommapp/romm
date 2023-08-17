@@ -1,19 +1,22 @@
-from fastapi import APIRouter, Request
 import emoji
+from fastapi import APIRouter, Request
+from starlette.authentication import requires
 
 from logger.logger import log
 from handler import igdbh
+from utils.oauth import protected_route
 
 router = APIRouter()
 
 
-@router.put("/search/roms/igdb", status_code=200)
+@protected_route(router.put, "/search/roms/igdb", ["roms.read"])
+@requires(["roms.read"])
 async def search_rom_igdb(
-    req: Request, search_term: str = "", search_by: str = ""
+    request: Request, search_term: str = "", search_by: str = ""
 ) -> dict:
     """Get all the roms matched from igdb."""
 
-    data: dict = await req.json()
+    data: dict = await request.json()
     rom: dict = data["rom"]
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
     matched_roms: list = []
