@@ -7,28 +7,23 @@ import { views, normalizeString } from "@/utils/utils.js";
 import storeGalleryFilter from "@/stores/galleryFilter.js";
 import storeGalleryView from "@/stores/galleryView.js";
 import storeScanning from "@/stores/scanning.js";
-import { VDataTable } from "vuetify/labs/VDataTable";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
-import GameListHeader from "@/components/Game/ListItem/Header.vue";
-import GameListItem from "@/components/Game/ListItem/Item.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
+import { VDataTable } from "vuetify/labs/VDataTable";
 import { downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 const location = window.location.origin;
 const downloadStore = useDownloadStore();
 const saveFiles = ref(false);
-const romsPerPage = ref(5);
+const romsPerPage = ref(-1);
 const romsPerPageOptions = [
-  { value: 5, title: "5" },
-  { value: 10, title: "10" },
-  { value: 25, title: "25" },
   { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
 ];
 const romsHeaders = [
@@ -51,25 +46,19 @@ const romsHeaders = [
     key: "file_name",
   },
   {
-    title: "Platform",
-    align: "start",
-    sortable: true,
-    key: "p_name",
-  },
-  {
     title: "Size",
     align: "start",
     sortable: true,
     key: "file_size",
   },
   {
-    title: "Region",
+    title: "Reg",
     align: "start",
     sortable: true,
     key: "region",
   },
   {
-    title: "Revision",
+    title: "Rev",
     align: "start",
     sortable: true,
     key: "revision",
@@ -241,7 +230,7 @@ onBeforeRouteUpdate(async (to, _) => {
     />
   </v-app-bar>
 
-  <template v-if="filteredRoms.length > 0 || gettingRoms">
+  <template v-if="filteredRoms.length > 0">
     <!-- Gallery cards view -->
     <v-row v-show="galleryView.value != 2" no-gutters v-scroll="onGridScroll">
       <v-col
@@ -288,13 +277,12 @@ onBeforeRouteUpdate(async (to, _) => {
         </v-table>
       </v-col> -->
       <v-data-table
-        class="bg-background"
-        :fixed-header="true"
+        :items-per-page="romsPerPage"
         :items-per-page-options="romsPerPageOptions"
-        v-model:items-per-page="romsPerPage"
+        items-per-page-text=""
         :headers="romsHeaders"
+        item-value="id"
         :items="filteredRoms"
-        :sort-by="[{ key: 'r_name', order: 'asc' }]"
       >
         <template v-slot:item.path_cover_s="{ item }">
           <v-avatar :rounded="0">
@@ -312,11 +300,15 @@ onBeforeRouteUpdate(async (to, _) => {
           </v-avatar>
         </template>
         <template v-slot:item.file_size="{ item }">
-          <span>{{ item.selectable.file_size }} {{ item.selectable.file_size_units }}</span>
+          <span
+            >{{ item.selectable.file_size }}
+            {{ item.selectable.file_size_units }}</span
+          >
         </template>
         <template v-slot:item.actions="{ item }">
           <template v-if="item.selectable.multi">
             <v-btn
+              class="my-1"
               @click="downloadRomApi(item.selectable)"
               :disabled="downloadStore.value.includes(item.selectable.id)"
               download
@@ -327,6 +319,7 @@ onBeforeRouteUpdate(async (to, _) => {
           </template>
           <template v-else>
             <v-btn
+              class="my-1"
               :href="`${location}${item.selectable.download_path}`"
               download
               size="small"
@@ -334,12 +327,17 @@ onBeforeRouteUpdate(async (to, _) => {
               ><v-icon>mdi-download</v-icon></v-btn
             >
           </template>
-          <v-btn size="small" variant="text" :disabled="!saveFiles"
+          <v-btn size="small" variant="text" :disabled="!saveFiles" class="my-1"
             ><v-icon>mdi-content-save-all</v-icon></v-btn
           >
           <v-menu location="bottom">
             <template v-slot:activator="{ props }">
-              <v-btn @click="" v-bind="props" size="small" variant="text"
+              <v-btn
+                @click=""
+                v-bind="props"
+                size="small"
+                variant="text"
+                class="my-1"
                 ><v-icon>mdi-dots-vertical</v-icon></v-btn
               >
             </template>
@@ -351,7 +349,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <!-- Empty gallery message -->
-  <template v-else>
+  <template v-if="filteredRoms.length == 0 && !gettingRoms">
     <v-row class="align-center justify-center" no-gutters>
       <v-col cols="6" md="2">
         <div class="mt-16">
