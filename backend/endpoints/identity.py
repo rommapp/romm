@@ -32,7 +32,7 @@ credentials_exception = HTTPException(
 )
 
 
-@router.post("/login", dependencies=[Depends(HTTPBasic())])
+@router.post("/login", dependencies=[Depends(HTTPBasic(auto_error=False))])
 def login(request: Request):
     if "Authorization" not in request.headers:
         raise credentials_exception
