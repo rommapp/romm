@@ -40,7 +40,7 @@ const routes = [
       {
         path: "/:pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Dashboard.vue"),
+        component: () => import("@/views/Dashboard/Base.vue"),
       },
     ],
   },
