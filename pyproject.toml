@@ -40,6 +40,7 @@ stream-zip = "^0.0.67"
 starlette-csrf = "^3.0.0"
 pytest-asyncio = "^0.21.1"
 httpx = "^0.24.1"
+python-multipart = "^0.0.6"
 
 [build-system]
 requires = ["poetry-core"]
