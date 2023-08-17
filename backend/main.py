@@ -1,3 +1,4 @@
+import os
 import uvicorn
 import alembic.config
 import re
@@ -42,7 +43,7 @@ app.add_middleware(
     https_only=False,
 )
 
-if "pytest" not in sys.modules:
+if "pytest" not in sys.modules and os.environ.get("ROMM_AUTH_ENABLED"):
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,

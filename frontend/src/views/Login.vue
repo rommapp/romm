@@ -1,7 +1,7 @@
 <script setup>
-import axios from "axios";
-import { ref, inject } from "vue";
+import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
+import axios from "axios";
 import Notification from "@/components/Notification.vue";
 
 // Props
@@ -37,6 +37,13 @@ function login() {
     });
 }
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
+
+onBeforeMount(async () => {
+  // Check if romm auth is enabled
+  await axios.post("/api/login").then(() => {
+    router.push("/");
+  });
+});
 </script>
 
 <template>
