@@ -72,8 +72,8 @@ async function fetchRoms(platform) {
 
   if (
     (searchCursor.value === null && isFiltered) ||
-    gettingRoms.value ||
-    cursor.value === null
+    (cursor.value === null && !isFiltered) ||
+    gettingRoms.value
   )
     return;
 
