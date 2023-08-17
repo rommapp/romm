@@ -177,11 +177,15 @@ const userSearch = ref("");
         <template v-slot:item.actions="{ item }">
           <v-btn
             class="mr-2 bg-terciary"
+            size="small"
+            rounded="0"
             @click="emitter.emit('showEditUserDialog', { ...item.raw })"
           >
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
           <v-btn
+          size="small"
+          rounded="0"
             class="bg-terciary text-rommRed"
             @click="emitter.emit('showDeleteUserDialog', item.raw)"
             ><v-icon>mdi-delete</v-icon></v-btn
