@@ -1,6 +1,12 @@
 name: build romm image
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'romm version'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -13,11 +19,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Set environment variables
-        shell: bash
-        run: |
-          echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
-          VERSION=$(cat .romm-version)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        run: echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
@@ -45,9 +47,9 @@ jobs:
             latest=true
             prefix=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }},onlatest=true
           tags: |
-            type=raw,value=${{ env.VERSION }}
+            type=raw,value=${{ inputs.version }}
           labels: |
-            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.version=${{ inputs.version }}
       - name: Build image
         uses: docker/build-push-action@v4
         with:

@@ -23,7 +23,7 @@ emitter.on("snackbarShow", (snackbar) => {
     <v-icon
       :icon="snackbarStatus.icon"
       :color="snackbarStatus.color"
-      class="ml-2 mr-2"
+      class="mx-2"
     />
     {{ snackbarStatus.msg }}
     <template v-slot:actions>

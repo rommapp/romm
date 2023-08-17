@@ -18,6 +18,7 @@ export const rommDark = {
     rommGreen: "#3FB950",
     rommWhite: "#fefdfe",
     rommBlack: "#000000",
+    rommGray: "#808080"
   },
 };
 
@@ -41,5 +42,11 @@ export const rommLight = {
     rommGreen: "#3FB950",
     rommWhite: "#fefdfe",
     rommBlack: "#000000",
+    rommGray: "#808080"
   },
 };
+
+export const themes = {
+  0: 'rommDark',
+  1: 'rommLight'
+}
