@@ -5,6 +5,7 @@ import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 
+// Props
 const emitter = inject("emitter");
 
 const usersHeaders = [
@@ -174,7 +175,7 @@ const userSearch = ref("");
       >
         <template v-slot:item.actions="{ item }">
           <v-btn
-            class="me-2 bg-terciary"
+            class="mr-2 bg-terciary"
             @click="emitter.emit('showEditUserDialog', { ...item.raw })"
           >
             <v-icon>mdi-pencil</v-icon>

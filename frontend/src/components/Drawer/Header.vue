@@ -4,12 +4,14 @@ import RailBtn from "@/components/Drawer/RailBtn.vue";
 const props = defineProps(["rail"]);
 </script>
 <template>
-  <v-list-item class="ml-2 mt-2 mb-2">
-    <span class="text-h5 text-truncate ml-4">{{ rail ? "" : "RomM" }}</span>
+  <v-list-item :class="{ 'ml-10': !rail, 'ml-2': rail }" class="my-2">
     <template v-slot:prepend>
       <router-link to="/">
-        <v-avatar :rounded="0" size="60" class=""
+        <v-avatar :rounded="0" size="60" class="mr-3"
           ><v-img src="/assets/isotipo.svg"
+        /></v-avatar>
+        <v-avatar v-if="!rail" :rounded="0" size="60"
+          ><v-img src="/assets/logotipo.svg"
         /></v-avatar>
       </router-link>
     </template>

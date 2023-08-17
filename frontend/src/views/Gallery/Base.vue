@@ -184,7 +184,6 @@ onBeforeRouteUpdate(async (to, _) => {
   <template v-if="filteredRoms.length > 0 || gettingRoms">
     <!-- Gallery cards view -->
     <v-row
-      id="grid-view"
       v-show="galleryView.value != 2"
       no-gutters
       v-scroll="onGridScroll"
@@ -215,7 +214,7 @@ onBeforeRouteUpdate(async (to, _) => {
         <v-table class="bg-secondary">
           <game-list-header />
           <v-divider
-            class="border-opacity-100 mb-4 ml-2 mr-2"
+            class="border-opacity-100 my-4 mx-2"
             color="rommAccent1"
             :thickness="1"
           />
@@ -239,7 +238,9 @@ onBeforeRouteUpdate(async (to, _) => {
   <template v-else>
     <v-row class="align-center justify-center" no-gutters>
       <v-col cols="6" md="2">
-        <v-card-text class="mt-16">Feels empty here... <v-icon>mdi-emoticon-sad</v-icon></v-card-text>
+        <div class="mt-16"
+          >Feels empty here... <v-icon>mdi-emoticon-sad</v-icon></div
+        >
       </v-col>
     </v-row>
   </template>

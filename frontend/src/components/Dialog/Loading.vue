@@ -14,9 +14,9 @@ emitter.on("showLoadingDialog", (args) => {
 <template>
   <v-dialog
     :modelValue="show"
+    :scrim="false"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
     persistent
   >
     <v-progress-circular

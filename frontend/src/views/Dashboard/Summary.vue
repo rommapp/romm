@@ -1,17 +1,12 @@
 <script setup>
 import storePlatforms from "@/stores/platforms.js";
+
+// Props
 const platforms = storePlatforms();
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
-      <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-text-box-outline</v-icon
-        >Summary</v-toolbar-title
-      >
-    </v-toolbar>
-    <v-divider class="border-opacity-25" />
-    <v-card-text>
+    <v-card-text class="py-0 px-2">
       <v-chip-group>
         <v-chip class="text-overline bg-chip" label>
           <v-icon class="mr-2">mdi-controller</v-icon

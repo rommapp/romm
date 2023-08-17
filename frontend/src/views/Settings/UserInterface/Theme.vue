@@ -3,7 +3,10 @@ import { ref } from "vue";
 import { useTheme } from "vuetify";
 import { themes } from "@/styles/themes.js";
 
+// Props
 const selectedTheme = ref(localStorage.getItem("theme"));
+
+// Functions
 function toggleTheme() {
   localStorage.setItem("theme", selectedTheme.value);
   useTheme().global.name.value = themes[selectedTheme.value];
