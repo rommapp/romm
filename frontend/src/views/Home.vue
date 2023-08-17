@@ -21,6 +21,7 @@ emitter.on("refreshGallery", () => {
   refreshGallery.value = !refreshGallery.value;
 });
 
+// Functions
 onMounted(async () => {
   try {
     const { data } = await fetchPlatformsApi();

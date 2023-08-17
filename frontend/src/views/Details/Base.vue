@@ -91,7 +91,7 @@ onBeforeMount(async () => {
             </v-card>
           </v-col>
         </v-row>
-        <v-row class="pl-3 pr-3 action-buttons">
+        <v-row class="px-3 action-buttons">
           <v-col class="pa-0">
             <template v-if="rom.multi">
               <v-btn
@@ -240,7 +240,7 @@ onBeforeMount(async () => {
                     item-title="file_name"
                     v-model="filesToDownload"
                     :items="rom.files"
-                    class="mt-2 mb-2"
+                    class="my-2"
                     density="compact"
                     variant="outlined"
                     return-object

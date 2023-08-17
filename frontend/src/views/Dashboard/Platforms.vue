@@ -3,6 +3,7 @@ import { views } from "@/utils/utils.js";
 import PlatformCard from "@/components/Platform/PlatformCard.vue";
 import storePlatforms from "@/stores/platforms.js";
 
+// Props
 const platforms = storePlatforms();
 </script>
 <template>
