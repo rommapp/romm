@@ -10,61 +10,11 @@ import storeScanning from "@/stores/scanning.js";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
+import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-
-import { VDataTable } from "vuetify/labs/VDataTable";
-import { downloadRomApi } from "@/services/api.js";
-import useDownloadStore from "@/stores/download.js";
-import AdminMenu from "@/components/AdminMenu/Base.vue";
-const location = window.location.origin;
-const downloadStore = useDownloadStore();
-const saveFiles = ref(false);
-const romsPerPage = ref(-1);
-const romsPerPageOptions = [
-  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
-];
-const romsHeaders = [
-  {
-    title: "",
-    align: "start",
-    sortable: false,
-    key: "path_cover_s",
-  },
-  {
-    title: "Name",
-    align: "start",
-    sortable: true,
-    key: "r_name",
-  },
-  {
-    title: "File",
-    align: "start",
-    sortable: true,
-    key: "file_name",
-  },
-  {
-    title: "Size",
-    align: "start",
-    sortable: true,
-    key: "file_size",
-  },
-  {
-    title: "Reg",
-    align: "start",
-    sortable: true,
-    key: "region",
-  },
-  {
-    title: "Rev",
-    align: "start",
-    sortable: true,
-    key: "revision",
-  },
-  { align: "end", key: "actions", sortable: false },
-];
 
 // Props
 const route = useRoute();
@@ -117,51 +67,37 @@ async function scan() {
   socket.emit("scan", route.params.platform, false);
 }
 
-async function fetchMoreSearch() {
-  if (searchCursor.value === null || gettingRoms.value) return;
+async function fetchRoms(platform) {
+  const isFiltered = normalizeString(galleryFilter.value).trim() != "";
+
+  if (
+    (searchCursor.value === null && isFiltered) ||
+    gettingRoms.value ||
+    cursor.value === null
+  )
+    return;
 
   gettingRoms.value = true;
   emitter.emit("showLoadingDialog", {
     loading: gettingRoms.value,
     scrim: false,
   });
+
   await fetchRomsApi({
-    platform: route.params.platform,
-    cursor: searchCursor.value,
+    platform: platform,
+    cursor: isFiltered ? searchCursor.value : cursor.value,
     searchTerm: normalizeString(galleryFilter.value),
   })
     .then((response) => {
-      searchRoms.value = [...searchRoms.value, ...response.data.items];
-      filteredRoms.value = searchRoms.value;
-      searchCursor.value = response.data.next_page;
-    })
-    .catch((error) => {
-      console.error(
-        `Couldn't fetch roms for ${route.params.platform}: ${error}`
-      );
-    })
-    .finally(() => {
-      gettingRoms.value = false;
-      emitter.emit("showLoadingDialog", {
-        loading: gettingRoms.value,
-        scrim: false,
-      });
-    });
-}
-
-async function fetchMoreRoms(platform) {
-  if (cursor.value === null || gettingRoms.value) return;
-
-  gettingRoms.value = true;
-  emitter.emit("showLoadingDialog", {
-    loading: gettingRoms.value,
-    scrim: false,
-  });
-  await fetchRomsApi({ platform, cursor: cursor.value })
-    .then((response) => {
-      roms.value = [...roms.value, ...response.data.items];
-      filteredRoms.value = roms.value;
-      cursor.value = response.data.next_page;
+      if (isFiltered) {
+        searchCursor.value = response.data.next_page;
+        searchRoms.value = [...searchRoms.value, ...response.data.items];
+        filteredRoms.value = searchRoms.value;
+      } else {
+        cursor.value = response.data.next_page;
+        roms.value = [...roms.value, ...response.data.items];
+        filteredRoms.value = roms.value;
+      }
     })
     .catch((error) => {
       console.error(`Couldn't fetch roms for ${platform}: ${error}`);
@@ -184,10 +120,10 @@ function onFilterChange() {
     return;
   }
 
-  fetchMoreSearch();
+  fetchRoms(route.params.platform);
 }
 
-function onGridScroll() {
+function onScroll() {
   if (cursor.value === null && searchCursor.value === null) return;
 
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
@@ -196,24 +132,22 @@ function onGridScroll() {
   // If we are close at the bottom of the page, fetch more roms
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
     galleryFilter.value
-      ? fetchMoreSearch()
-      : fetchMoreRoms(route.params.platform);
+      ? fetchRoms(route.params.platform)
+      : fetchRoms(route.params.platform);
   }
 }
 
 onMounted(async () => {
-  fetchMoreRoms(route.params.platform);
+  fetchRoms(route.params.platform);
 });
 
 onBeforeRouteUpdate(async (to, _) => {
   cursor.value = "";
   searchCursor.value = "";
-
   roms.value = [];
   searchRoms.value = [];
   filteredRoms.value = [];
-
-  fetchMoreRoms(to.params.platform);
+  fetchRoms(to.params.platform);
 });
 </script>
 
@@ -232,8 +166,9 @@ onBeforeRouteUpdate(async (to, _) => {
 
   <template v-if="filteredRoms.length > 0">
     <!-- Gallery cards view -->
-    <v-row v-show="galleryView.value != 2" no-gutters v-scroll="onGridScroll">
+    <v-row no-gutters v-scroll="onScroll">
       <v-col
+        v-show="galleryView.value != 2"
         v-for="rom in filteredRoms"
         class="pa-1"
         :key="rom.id"
@@ -245,106 +180,11 @@ onBeforeRouteUpdate(async (to, _) => {
       >
         <game-card :rom="rom" />
       </v-col>
-    </v-row>
 
-    <!-- Gallery list view -->
-    <v-row v-show="galleryView.value == 2" no-gutters>
-      <!-- <v-col
-        :cols="views[galleryView.value]['size-cols']"
-        :xs="views[galleryView.value]['size-xs']"
-        :sm="views[galleryView.value]['size-sm']"
-        :md="views[galleryView.value]['size-md']"
-        :lg="views[galleryView.value]['size-lg']"
-      >
-        <v-table class="bg-secondary">
-          <game-list-header />
-          <v-divider
-            class="border-opacity-100 my-4 mx-2"
-            color="rommAccent1"
-            :thickness="1"
-          />
-          <tbody>
-            <v-list class="bg-secondary">
-              <v-list-item
-                v-for="item in filteredRoms"
-                :key="item.id"
-                :value="item.id"
-              >
-                <game-list-item :rom="item" />
-              </v-list-item>
-            </v-list>
-          </tbody>
-        </v-table>
-      </v-col> -->
-      <v-data-table
-        :items-per-page="romsPerPage"
-        :items-per-page-options="romsPerPageOptions"
-        items-per-page-text=""
-        :headers="romsHeaders"
-        item-value="id"
-        :items="filteredRoms"
-      >
-        <template v-slot:item.path_cover_s="{ item }">
-          <v-avatar :rounded="0">
-            <v-progress-linear
-              color="rommAccent1"
-              :active="downloadStore.value.includes(item.selectable.id)"
-              :indeterminate="true"
-              absolute
-            />
-            <v-img
-              :src="`/assets/romm/resources/${item.selectable.path_cover_s}`"
-              :lazy-src="`/assets/romm/resources/${item.selectable.path_cover_s}`"
-              min-height="150"
-            />
-          </v-avatar>
-        </template>
-        <template v-slot:item.file_size="{ item }">
-          <span
-            >{{ item.selectable.file_size }}
-            {{ item.selectable.file_size_units }}</span
-          >
-        </template>
-        <template v-slot:item.actions="{ item }">
-          <template v-if="item.selectable.multi">
-            <v-btn
-              class="my-1"
-              @click="downloadRomApi(item.selectable)"
-              :disabled="downloadStore.value.includes(item.selectable.id)"
-              download
-              size="small"
-              variant="text"
-              ><v-icon>mdi-download</v-icon></v-btn
-            >
-          </template>
-          <template v-else>
-            <v-btn
-              class="my-1"
-              :href="`${location}${item.selectable.download_path}`"
-              download
-              size="small"
-              variant="text"
-              ><v-icon>mdi-download</v-icon></v-btn
-            >
-          </template>
-          <v-btn size="small" variant="text" :disabled="!saveFiles" class="my-1"
-            ><v-icon>mdi-content-save-all</v-icon></v-btn
-          >
-          <v-menu location="bottom">
-            <template v-slot:activator="{ props }">
-              <v-btn
-                @click=""
-                v-bind="props"
-                size="small"
-                variant="text"
-                class="my-1"
-                ><v-icon>mdi-dots-vertical</v-icon></v-btn
-              >
-            </template>
-            <admin-menu :rom="item.selectable" />
-          </v-menu>
-        </template>
-      </v-data-table>
+      <!-- Gallery list view -->
+      <v-col v-show="galleryView.value == 2">
+        <game-data-table :filteredRoms="filteredRoms" />
+      </v-col>
     </v-row>
   </template>
 
