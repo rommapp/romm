@@ -15,10 +15,6 @@ const completeRescan = ref(false);
 // Event listeners bus
 const emitter = inject("emitter");
 
-function scrollToBottom() {
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
 socket.on("scan:scanning_platform", ({ p_name, p_slug }) => {
   scannedPlatforms.value.push({
     name: p_name,
@@ -70,6 +66,10 @@ socket.on("scan:done_ko", (msg) => {
 });
 
 // Functions
+function scrollToBottom() {
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
 async function scan() {
   scanning.set(true);
   scannedPlatforms.value = [];
@@ -121,16 +121,16 @@ async function scan() {
       :disabled="scanning.value"
       prepend-icon="mdi-magnify-scan"
       rounded="0"
-    >
-      <span v-if="!scanning.value">Scan</span>
+      :loading="scanning.value"
+    >Scan
+    <template v-slot:loader>
       <v-progress-circular
-        v-show="scanning.value"
         color="rommAccent1"
-        class="ml-3 mr-2"
         :width="2"
         :size="20"
         indeterminate
       />
+    </template>
     </v-btn>
   </v-row>
 

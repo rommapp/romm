@@ -1,8 +1,9 @@
 <script setup>
 import { ref, inject } from "vue";
 import storePlatforms from "@/stores/platforms";
+import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
-import RailBtn from "@/components/Drawer/RailBtn.vue";
+import LogoutBtn from "@/components/Drawer/LogoutBtn.vue";
 
 // Props
 const platforms = storePlatforms();
@@ -26,17 +27,14 @@ emitter.on("toggleDrawerRail", () => {
     v-model="drawer"
     :rail="rail"
     width="300"
-    rail-width="145"
+    rail-width="103"
     elevation="0"
   >
-    <v-list v-model:opened="open">
-      <router-link to="/">
-        <v-list-item class="justify-center pa-0">
-          <v-img src="/assets/isotipo.svg" width="70" class="home-btn" />
-        </v-list-item>
-      </router-link>
-
-      <v-divider></v-divider>
+    <template v-slot:prepend>
+      <drawer-header :rail="rail" />
+    </template>
+    <v-list v-model:opened="open" class="pa-0">
+      <v-divider />
 
       <v-list-group value="Platforms">
         <template v-slot:activator="{ props }">
@@ -129,18 +127,12 @@ emitter.on("toggleDrawerRail", () => {
 
     <template v-slot:append>
       <v-divider class="border-opacity-25" :thickness="1" />
-      <rail-btn :rail="rail" />
+      <logout-btn :rail="rail" />
     </template>
   </v-navigation-drawer>
 </template>
 
 <style scoped>
-.home-btn {
-  width: 100px;
-  height: 100px;
-  cursor: pointer;
-}
-
 .drawer-item {
   padding-inline-start: 30px !important;
 }

@@ -1,105 +1,60 @@
 <script setup>
+import { ref, inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
-import { views } from "@/utils/utils.js";
+import { fetchPlatformsApi } from "@/services/api.js";
 import storePlatforms from "@/stores/platforms.js";
-import PlatformCard from "@/components/Platform/PlatformCard.vue";
-import axios from "axios";
+import storeScanning from "@/stores/scanning.js";
+import Drawer from "@/components/Drawer/Base.vue";
+import AppBar from "@/components/AppBar/Base.vue";
+import Notification from "@/components/Notification.vue";
 
 // Props
+const { mdAndDown } = useDisplay();
 const platforms = storePlatforms();
-const totalGames = platforms.totalGames;
-const { lgAndUp } = useDisplay();
+const scanning = storeScanning();
+const refreshPlatforms = ref(false);
+const refreshGallery = ref(false);
 
-function login() {
-  axios.post(
-    "/api/login",
-    {},
-    {
-      auth: {
-        username: "georges-antoine",
-        password: "password",
-      },
-    }
-  );
-}
+// Event listeners bus
+const emitter = inject("emitter");
+emitter.on("refreshGallery", () => {
+  refreshGallery.value = !refreshGallery.value;
+});
 
-function logout() {
-  axios.post("/api/logout");
-}
+// Functions
+onMounted(async () => {
+  try {
+    const { data } = await fetchPlatformsApi();
+    platforms.set(data);
+  } catch (error) {
+    console.error("Couldn't fetch platforms:", error);
+  }
+});
 </script>
 
 <template>
-  <!-- Header logo -->
-  <v-row class="pa-2" no-gutters>
-    <v-spacer />
-    <v-col cols="12" xs="12" sm="10" md="10" lg="10">
-      <v-img
-        :height="lgAndUp ? 200 : 150"
-        src="/assets/romm_complete.svg"
-        cover
-      />
-    </v-col>
-    <v-spacer />
-  </v-row>
+  <notification class="mt-6" />
 
-  <v-row class="pa-2" no-gutters>
-    <v-spacer />
-    <v-col cols="12" xs="12" sm="10" md="10" lg="10">
-      <v-btn @click="login">Login</v-btn>
-      <v-btn @click="logout" class="ml-2">Logout</v-btn>
-    </v-col>
-    <v-spacer />
-  </v-row>
+  <v-progress-linear
+    id="scan-progress-bar"
+    color="rommAccent1"
+    :active="scanning.value"
+    :indeterminate="true"
+    absolute
+    fixed
+  />
 
-  <!-- Info chips -->
-  <v-row class="pa-2" no-gutters>
-    <v-spacer />
-    <v-col
-      cols="12"
-      xs="12"
-      sm="10"
-      md="10"
-      lg="10"
-      class="d-flex justify-center"
-    >
-      <v-chip-group>
-        <v-chip class="bg-chip" label>
-          <span class="text-overline">
-            {{ platforms.value.length }} platforms
-          </span>
-        </v-chip>
-        <v-chip class="bg-chip" label>
-          <span class="text-overline">{{ totalGames }} games</span>
-        </v-chip>
-      </v-chip-group>
-    </v-col>
-    <v-spacer />
-  </v-row>
+  <drawer :key="refreshPlatforms" />
 
-  <template v-if="platforms.value.length > 0">
-    <!-- Platforms section title -->
-    <v-row class="pa-2" no-gutters>
-      <v-avatar :rounded="0" size="auto">
-        <v-icon>mdi-controller</v-icon>
-      </v-avatar>
-      <span class="text-h6 ml-2">Platforms</span>
-      <v-divider class="border-opacity-25" />
-    </v-row>
+  <app-bar v-if="mdAndDown" />
 
-    <!-- Platforms cards -->
-    <v-row class="pa-2" no-gutters>
-      <v-col
-        v-for="platform in platforms.value"
-        class="pa-1"
-        :key="platform.slug"
-        :cols="views[0]['size-cols']"
-        :xs="views[0]['size-xs']"
-        :sm="views[0]['size-sm']"
-        :md="views[0]['size-md']"
-        :lg="views[0]['size-lg']"
-      >
-        <platform-card :platform="platform" :key="platform.slug" />
-      </v-col>
-    </v-row>
-  </template>
+  <v-container class="pa-1" fluid>
+    <router-view :key="refreshGallery" />
+  </v-container>
 </template>
+
+<style scoped>
+#scan-progress-bar {
+  z-index: 1000 !important;
+}
+</style>

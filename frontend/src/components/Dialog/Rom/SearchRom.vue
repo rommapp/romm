@@ -11,9 +11,10 @@ const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
 const matchedRoms = ref([]);
+const selectedScrapSource = ref(0);
 
 const emitter = inject("emitter");
-emitter.on("showSearchDialog", (romToSearch) => {
+emitter.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
@@ -62,7 +63,7 @@ async function updateRom(updatedData = { ...rom.value }) {
 }
 
 onBeforeUnmount(() => {
-  emitter.off("showSearchDialog");
+  emitter.off("showSearchRomDialog");
 });
 </script>
 
@@ -85,26 +86,57 @@ onBeforeUnmount(() => {
       }"
       rounded="0"
     >
-      <v-toolbar density="compact" class="bg-primary">
+      <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+
+          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
             <v-icon icon="mdi-search-web" class="ml-5" />
-            <v-chip class="ml-5 text-rommAccent1" variant="outlined" label
-              >IGDB</v-chip
-            >
           </v-col>
-          <v-col>
+
+          <v-col cols="8" xs="8" sm="9" md="9" lg="10">
+            <v-item-group mandatory v-model="selectedScrapSource">
+              <v-item v-slot="{ isSelected, toggle }">
+                <v-chip
+                  class="mx-1"
+                  :color="isSelected ? 'rommAccent1' : 'rommGray'"
+                  variant="outlined"
+                  label
+                  @click="toggle"
+                  >IGDB</v-chip
+                >
+              </v-item>
+              <!-- TODO: Ready item group to scrap from different sources -->
+              <!-- <v-item v-slot="{ isSelected, toggle }" disabled>
+                <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
+                  >ScreenScraper</v-chip
+                >
+              </v-item>
+              <v-item v-slot="{ isSelected, toggle }" disabled>
+                <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
+                  >MobyGames</v-chip
+                >
+              </v-item>
+              <v-item v-slot="{ isSelected, toggle }" disabled>
+                <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
+                  >RAWG</v-chip
+                >
+              </v-item> -->
+            </v-item-group>
+          </v-col>
+
+          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               @click="show = false"
-              class="bg-primary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
             />
           </v-col>
+
         </v-row>
       </v-toolbar>
+
       <v-divider class="border-opacity-25" :thickness="1" />
 
       <v-toolbar density="compact" class="bg-primary">
@@ -113,6 +145,7 @@ onBeforeUnmount(() => {
             <v-text-field
               @keyup.enter="searchRomIGDB()"
               @click:clear="searchTerm = ''"
+              class="bg-terciary"
               v-model="searchTerm"
               label="search"
               hide-details
@@ -122,6 +155,7 @@ onBeforeUnmount(() => {
           <v-col cols="3" xs="3" sm="2" md="2" lg="2">
             <v-select
               label="by"
+              class="bg-terciary"
               :items="['ID', 'Name']"
               v-model="searchBy"
               hide-details
@@ -131,7 +165,7 @@ onBeforeUnmount(() => {
             <v-btn
               type="submit"
               @click="searchRomIGDB()"
-              class="bg-primary"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-search-web"
@@ -142,7 +176,7 @@ onBeforeUnmount(() => {
         </v-row>
       </v-toolbar>
 
-      <v-card-text class="pa-1 scroll bg-secondary">
+      <v-card-text class="pa-1 scroll">
         <v-row
           class="justify-center loader-searching"
           v-show="searching"
@@ -199,7 +233,8 @@ onBeforeUnmount(() => {
       </v-card-text>
 
       <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-primary" density="compact">
+
+      <v-toolbar class="bg-terciary" density="compact">
         <v-checkbox
           v-model="renameAsIGDB"
           label="Rename rom"

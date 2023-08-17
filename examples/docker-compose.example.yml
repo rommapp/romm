@@ -12,8 +12,8 @@ services:
       - DB_USER=romm-user # [Optional]
       - DB_NAME=romm # [Optional] Should match the MYSQL_DATABASE value in the mariadb container
       - DB_PASSWD=<database password> # [Optional]
-      - REDIS_HOST=redis # [Optional] Enables running long tasks (full rescans) in the background
-      - REDIS_PORT=6379 # [Optional]
+      # - REDIS_HOST=redis # [Optional] Enables running long tasks (full rescans) in the background
+      # - REDIS_PORT=6379 # [Optional]
       - CLIENT_ID=<IGDB client id> # [Optional] Required to fetch metadata from IGDB
       - CLIENT_SECRET=<IGDB client secret> # [Optional] 
       - STEAMGRIDDB_API_KEY=<SteamGridDB api key> # [Optional] Only needed if you want to use SteamGridDB as a source for covers
@@ -48,10 +48,10 @@ services:
       - 3306:3306
     restart: "unless-stopped"
 
-  # [Optional] Experimental support for Redis backend
-  redis:
-    image: redis:alpine
-    container_name: redis
-    restart: unless-stopped
-    ports:
-      - 6379:6379
+  # [Optional][Experimental]
+  # redis:
+  #   image: redis:alpine
+  #   container_name: redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - 6379:6379
