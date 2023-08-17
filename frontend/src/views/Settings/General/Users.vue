@@ -130,7 +130,7 @@ const usersPerPageOptions = [
 const userSearch = ref("");
 </script>
 <template>
-  <v-card rounded="0">
+  <v-card rounded="0" elevation="0">
     <v-toolbar class="bg-terciary" density="compact">
       <v-toolbar-title class="text-button"
         ><v-icon class="mr-3">mdi-account-group</v-icon>Users</v-toolbar-title
@@ -166,6 +166,7 @@ const userSearch = ref("");
 
       <delete-user-dialog />
       <v-data-table
+      class="bg-background"
         :items-per-page-options="usersPerPageOptions"
         v-model:items-per-page="usersPerPage"
         :search="userSearch"
