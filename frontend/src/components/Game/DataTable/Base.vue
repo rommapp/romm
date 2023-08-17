@@ -89,6 +89,7 @@ const romsHeaders = [
       <template v-if="item.selectable.multi">
         <v-btn
           class="my-1"
+          rounded="0"
           @click="downloadRomApi(item.selectable)"
           :disabled="downloadStore.value.includes(item.selectable.id)"
           download
@@ -100,6 +101,7 @@ const romsHeaders = [
       <template v-else>
         <v-btn
           class="my-1"
+          rounded="0"
           :href="`${location}${item.selectable.download_path}`"
           download
           size="small"
@@ -107,13 +109,18 @@ const romsHeaders = [
           ><v-icon>mdi-download</v-icon></v-btn
         >
       </template>
-      <v-btn size="small" variant="text" :disabled="!saveFiles" class="my-1"
+      <v-btn
+        size="small"
+        variant="text"
+        :disabled="!saveFiles"
+        class="my-1"
+        rounded="0"
         ><v-icon>mdi-content-save-all</v-icon></v-btn
       >
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
-            @click=""
+            rounded="0"
             v-bind="props"
             size="small"
             variant="text"
