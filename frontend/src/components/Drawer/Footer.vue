@@ -33,7 +33,7 @@ async function logout() {
       {{ rail ? "" : auth.user?.username }}
     </div>
     <template v-slot:prepend>
-      <v-avatar :class="{ 'ml-4': rail, 'my-3': rail }">
+      <v-avatar :class="{ 'ml-4': rail, 'my-2': rail }">
         <v-img src="/assets/default_user.png" />
       </v-avatar>
     </template>
@@ -48,9 +48,10 @@ async function logout() {
   </v-list-item>
   <v-btn
     v-if="rail"
+    rounded="0"
     variant="text"
     icon="mdi-location-exit"
-    class="ml-7 my-1"
+    block
     @click="logout()"
   ></v-btn>
 </template>
