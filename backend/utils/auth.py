@@ -2,7 +2,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
-from starlette_csrf import CSRFMiddleware
+from starlette_csrf.middleware import CSRFMiddleware
 from starlette.types import Receive, Scope, Send
 from starlette.authentication import (
     AuthCredentials,
