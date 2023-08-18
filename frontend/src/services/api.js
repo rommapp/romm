@@ -9,7 +9,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response.status === 403) {
-      router.push("/login");
+      router.push(`/login?next=${router.currentRoute.value.path}`);
     }
     return Promise.reject(error);
   }
