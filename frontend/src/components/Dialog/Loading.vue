@@ -23,7 +23,7 @@ emitter.on("showLoadingDialog", (args) => {
       <v-card-text class="pa-4">
         <v-progress-circular
           :width="3"
-          :size="80"
+          :size="70"
           color="rommAccent1"
           indeterminate
         />
