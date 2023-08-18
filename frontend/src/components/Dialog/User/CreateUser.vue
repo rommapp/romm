@@ -18,6 +18,7 @@ emitter.on("showCreateUserDialog", () => {
 async function createUser() {
   await createUserApi(user.value);
   show.value = false;
+  emitter.emit("refreshView");
 }
 </script>
 <template>

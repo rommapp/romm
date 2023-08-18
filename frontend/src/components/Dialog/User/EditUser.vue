@@ -15,6 +15,7 @@ function editUser() {
   console.log("Updating user:");
   console.log(user.value);
   show.value = false;
+  emitter.emit("refreshView");
 }
 </script>
 <template>

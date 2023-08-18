@@ -40,8 +40,8 @@ socket.on("scan:done", () => {
     color: "green",
   });
   socket.disconnect();
-  emitter.emit("refreshPlatforms");
-  emitter.emit("refreshGallery");
+  emitter.emit("refreshDrawer");
+  emitter.emit("refreshView");
 });
 
 socket.on("scan:done_ko", (msg) => {
