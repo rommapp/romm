@@ -113,3 +113,33 @@ export async function fetchCurrentUserApi() {
     if (response.status === 403) router.push("/login");
   });
 }
+
+export async function fetchUsersApi() {
+  return axios.get("/api/users").catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
+}
+
+export async function fetchUserApi(user) {
+  return axios.get(`/api/users/${user.id}`).catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
+}
+
+export async function createUserApi(user) {
+  return axios.post("/api/users", { user }).catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
+}
+
+export async function updateUserApi(user) {
+  return axios.put(`/api/users/${user.id}`, { user }).catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
+}
+
+export async function deleteUserApi(user) {
+  return axios.delete(`/api/users/${user.id}`).catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
+}

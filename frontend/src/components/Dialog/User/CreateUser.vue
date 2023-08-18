@@ -1,10 +1,12 @@
 <script setup>
 import { ref, inject } from "vue";
 
+import { createUserApi } from "@/services/api";
+
 const user = ref({
   username: "",
   password: "",
-  rol: "user",
+  role: "viewer",
 });
 const show = ref(false);
 
@@ -13,17 +15,13 @@ emitter.on("showCreateUserDialog", () => {
   show.value = true;
 });
 
-function createUser() {
-  // TODO: create user endpoint
-  console.log("Creating user:")
-  console.log(user.value)
+async function createUser() {
+  await createUserApi(user.value);
   show.value = false;
-  user.value = { username: "", password: "", rol: "user" };
 }
 </script>
 <template>
   <v-dialog v-model="show" max-width="500px" :scrim="false">
-    
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -74,21 +72,21 @@ function createUser() {
         <v-row class="pa-2" no-gutters>
           <v-col>
             <v-select
-              v-model="user.rol"
+              v-model="user.role"
               rounded="0"
               variant="outlined"
-              :items="['admin', 'user']"
-              label="Rol"
+              :items="['viewer', 'editor', 'admin']"
+              label="Role"
               required
               hide-details
-            ></v-select>
+            />
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="text-rommGreen bg-terciary ml-5" @click="createUser()"
-            >Create</v-btn
-          >
+          <v-btn class="text-rommGreen bg-terciary ml-5" @click="createUser()">
+            Create
+          </v-btn>
         </v-row>
       </v-card-text>
     </v-card>

@@ -27,7 +27,7 @@ function toggleTheme() {
       <v-item-group
         mandatory
         v-model="selectedTheme"
-        :on-update:model-value="toggleTheme()"
+        @update:model-value="toggleTheme"
       >
         <v-radio-group v-model="selectedTheme" hide-details>
           <v-row no-gutters>
