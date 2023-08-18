@@ -1,4 +1,3 @@
-import os
 import secrets
 import base64
 import binascii
@@ -137,7 +136,7 @@ class UserUpdateForm:
         self.disabled = disabled
 
 
-@protected_route(router.patch, "/users/{user_id}", ["users.write"])
+@protected_route(router.put, "/users/{user_id}", ["users.write"])
 @requires(["users.write"])
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
@@ -154,7 +153,7 @@ def update_user(
 
     cleaned_data = {}
 
-    if form_data.username:
+    if form_data.username != user.username:
         existing_user = dbh.get_user_by_username(form_data.username.lower())
         if existing_user:
             raise HTTPException(
@@ -181,7 +180,9 @@ def update_user(
     dbh.update_user(user_id, cleaned_data)
 
     # Log out the current user if username or password changed
-    if cleaned_data.get("username") or cleaned_data.get("hashed_password"):
+    if request.user.id == user_id and (
+        cleaned_data.get("username") or cleaned_data.get("hashed_password")
+    ):
         session_id = request.session.get("session_id")
         if session_id:
             cache.delete(f"romm:{session_id}")

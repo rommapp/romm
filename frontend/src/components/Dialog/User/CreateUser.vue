@@ -16,7 +16,15 @@ emitter.on("showCreateUserDialog", () => {
 });
 
 async function createUser() {
-  await createUserApi(user.value);
+  await createUserApi(user.value).catch(({ response, message }) => {
+    emitter.emit("snackbarShow", {
+      msg: `Unable to create user: ${
+        response?.data?.detail || response?.statusText || message
+      }`,
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  });
   show.value = false;
   emitter.emit("refreshView");
 }
@@ -85,7 +93,11 @@ async function createUser() {
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="text-rommGreen bg-terciary ml-5" @click="createUser()">
+          <v-btn
+            :disabled="!user.username || !user.password"
+            class="text-rommGreen bg-terciary ml-5"
+            @click="createUser()"
+          >
             Create
           </v-btn>
         </v-row>
