@@ -3,8 +3,10 @@ import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import Notification from "@/components/Notification.vue";
+import storeAuth from "@/stores/auth.js";
 
 // Props
+const auth = storeAuth();
 const emitter = inject("emitter");
 const router = useRouter();
 const username = ref();
@@ -40,7 +42,10 @@ function login() {
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
 
 onBeforeMount(async () => {
-  // TODO: Check if romm auth is enabled to redirect to the home dashboard
+  // Check if romm auth is enabled
+  if (!auth.enabled) {
+    router.push("/");
+  }
 });
 </script>
 
