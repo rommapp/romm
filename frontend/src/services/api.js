@@ -3,7 +3,7 @@ import useDownloadStore from "@/stores/download.js";
 import socket from "@/services/socket.js";
 import router from "@/plugins/router";
 
-let api = axios.create({ baseURL: "/api", timeout: 1000 });
+let api = axios.create({ baseURL: "/api", timeout: 120000 });
 
 api.interceptors.response.use(
   (response) => response,
