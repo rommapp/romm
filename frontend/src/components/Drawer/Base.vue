@@ -4,7 +4,7 @@ import storePlatforms from "@/stores/platforms";
 import storeAuth from "@/stores/auth";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
-import RailFooter from "@/components/Drawer/RailFooter.vue";
+import RailFooter from "@/components/Drawer/Footer.vue";
 
 // Props
 const platforms = storePlatforms();
@@ -28,7 +28,7 @@ emitter.on("toggleDrawerRail", () => {
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    width="300"
+    width="270"
     rail-width="103"
     elevation="0"
   >
