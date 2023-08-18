@@ -11,13 +11,12 @@ const username = ref();
 const password = ref();
 const visiblePassword = ref(false);
 
-// POC FOR VALIDATING AND TESTING LOGIN PAGE
 function login() {
   const token = btoa(`${username.value}:${password.value}`);
   /* TODO: implement login logic */
   axios
     .post(
-      `/api/login`,
+      "/api/login",
       {},
       {
         headers: {
@@ -28,9 +27,11 @@ function login() {
     .then(() => {
       router.push("/");
     })
-    .catch(({ message }) => {
+    .catch(({ response, message }) => {
       emitter.emit("snackbarShow", {
-        msg: `Unable to login: ${message}`,
+        msg: `Unable to login: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
         icon: "mdi-close-circle",
         color: "red",
       });
