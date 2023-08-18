@@ -13,7 +13,15 @@ emitter.on("showDeleteUserDialog", (userToDelete) => {
 });
 
 async function deleteUser() {
-  await deleteUserApi(user.value);
+  await deleteUserApi(user.value).catch(({ response, message }) => {
+    emitter.emit("snackbarShow", {
+      msg: `Unable to delete user: ${
+        response?.data?.detail || response?.statusText || message
+      }`,
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  });
   show.value = false;
 }
 </script>
@@ -47,7 +55,9 @@ async function deleteUser() {
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="bg-terciary text-rommRed ml-5" @click="deleteUser()">Confirm</v-btn>
+          <v-btn class="bg-terciary text-rommRed ml-5" @click="deleteUser()"
+            >Confirm</v-btn
+          >
         </v-row>
       </v-card-text>
     </v-card>
