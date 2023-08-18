@@ -18,6 +18,7 @@ router = APIRouter()
 
 
 class UserSchema(BaseModel):
+    id: int
     username: str
     disabled: bool
     role: Role

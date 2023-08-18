@@ -13,7 +13,7 @@ emitter.on("showDeleteUserDialog", (userToDelete) => {
 });
 
 async function deleteUser() {
-  await deleteUserApi(user.value.id);
+  await deleteUserApi(user.value);
   show.value = false;
 }
 </script>

@@ -6,7 +6,7 @@ import Theme from "@/views/Settings/UserInterface/Theme.vue";
 import version from "../../../package";
 
 // Props
-const tab = ref("general");
+const tab = ref("ui");
 const auth = storeAuth();
 const ROMM_VERSION = version.version;
 </script>
@@ -14,8 +14,8 @@ const ROMM_VERSION = version.version;
   <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="rommAccent1" class="bg-primary">
-      <v-tab v-if="auth?.user" value="users" rounded="0">Users</v-tab>
       <v-tab value="ui" rounded="0">User Interface</v-tab>
+      <v-tab v-if="auth?.user" value="users" rounded="0">Users</v-tab>
     </v-tabs>
   </v-app-bar>
 
