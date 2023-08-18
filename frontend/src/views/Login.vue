@@ -40,10 +40,7 @@ function login() {
 // POC FOR VALIDATING AND TESTING LOGIN PAGE
 
 onBeforeMount(async () => {
-  // Check if romm auth is enabled
-  await axios.post("/api/login").then(() => {
-    router.push("/");
-  });
+  // TODO: Check if romm auth is enabled to redirect to the home dashboard
 });
 </script>
 
