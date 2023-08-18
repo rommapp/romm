@@ -15,7 +15,6 @@ const visiblePassword = ref(false);
 
 function login() {
   const token = btoa(`${username.value}:${password.value}`);
-  /* TODO: implement login logic */
   axios
     .post(
       "/api/login",
@@ -27,7 +26,8 @@ function login() {
       }
     )
     .then(() => {
-      router.push("/");
+      const next = router.currentRoute.value.query?.next || "/";
+      router.push(next);
     })
     .catch(({ response, message }) => {
       emitter.emit("snackbarShow", {
@@ -39,7 +39,6 @@ function login() {
       });
     });
 }
-// POC FOR VALIDATING AND TESTING LOGIN PAGE
 
 onBeforeMount(async () => {
   // Check if romm auth is enabled
