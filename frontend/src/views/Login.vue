@@ -92,7 +92,6 @@ onBeforeMount(async () => {
             <v-col cols="10" md="8">
               <v-btn
                 @click="login()"
-                rounded="0"
                 append-icon="mdi-chevron-right-circle-outline"
                 block
                 >Login</v-btn
@@ -112,10 +111,12 @@ onBeforeMount(async () => {
   width: 100%;
   height: 100%;
   position: absolute;
-  background: url("/assets/login_bg.jpg") center center;
+  background: url("/assets/login_bg.png") center center;
   background-size: cover;
+  -webkit-filter: blur(3px);
+  filter: blur(3px);
 }
 #card {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.4);
 }
 </style>
