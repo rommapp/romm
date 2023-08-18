@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import Users from "@/views/Settings/General/Users.vue";
+import Users from "@/views/Settings/Users/Users.vue";
 import Theme from "@/views/Settings/UserInterface/Theme.vue";
 import version from "../../../package";
 
