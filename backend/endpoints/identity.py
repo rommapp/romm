@@ -13,11 +13,13 @@ from models.user import User, Role
 from utils.cache import cache
 from utils.auth import authenticate_user, get_password_hash
 from utils.oauth import protected_route
+from config import ROMM_AUTH_ENABLED
 
 router = APIRouter()
 
 
 class UserSchema(BaseModel):
+    id: int
     username: str
     disabled: bool
     role: Role
@@ -91,7 +93,7 @@ def users(request: Request) -> list[UserSchema]:
 
 @protected_route(router.get, "/users/me", ["me.read"])
 @requires(["me.read"])
-def current_user(request: Request) -> UserSchema:
+def current_user(request: Request) -> UserSchema | None:
     return request.user
 
 
@@ -115,6 +117,12 @@ def get_user(request: Request, user_id: int) -> UserSchema:
 def create_user(
     request: Request, username: str, password: str, role: str
 ) -> UserSchema:
+    if not ROMM_AUTH_ENABLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot create user: ROMM_AUTH_ENABLED is set to False",
+        )
+
     user = User(
         username=username,
         hashed_password=get_password_hash(password),
@@ -143,6 +151,12 @@ class UserUpdateForm:
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
 ) -> UserSchema:
+    if not ROMM_AUTH_ENABLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update user: ROMM_AUTH_ENABLED is set to False",
+        )
+
     user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -187,6 +201,12 @@ def update_user(
 
 @protected_route(router.delete, "/users/{user_id}", ["users.write"])
 def delete_user(request: Request, user_id: int):
+    if not ROMM_AUTH_ENABLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete user: ROMM_AUTH_ENABLED is set to False",
+        )
+
     user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

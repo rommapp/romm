@@ -1,25 +1,27 @@
 <script setup>
 import { ref } from "vue";
+import storeAuth from "@/stores/auth";
 import Users from "@/views/Settings/General/Users.vue";
 import Theme from "@/views/Settings/UserInterface/Theme.vue";
 import version from "../../../package";
 
 // Props
-const tab = ref("general");
+const tab = ref("ui");
+const auth = storeAuth();
 const ROMM_VERSION = version.version;
 </script>
 <template>
   <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="rommAccent1" class="bg-primary">
-      <v-tab value="general" rounded="0"> General </v-tab>
       <v-tab value="ui" rounded="0">User Interface</v-tab>
+      <v-tab v-if="auth?.user" value="users" rounded="0">Users</v-tab>
     </v-tabs>
   </v-app-bar>
 
-  <!-- General tab -->
+  <!-- Users tab -->
   <v-window v-model="tab">
-    <v-window-item value="general">
+    <v-window-item value="users">
       <v-row class="pa-1">
         <v-col>
           <users />
