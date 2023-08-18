@@ -48,7 +48,7 @@ async function updateRom(updatedData = { ...rom.value }) {
         icon: "mdi-check-bold",
         color: "green",
       });
-      emitter.emit("refreshGallery");
+      emitter.emit("refreshView");
     })
     .catch((error) => {
       emitter.emit("snackbarShow", {

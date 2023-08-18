@@ -23,6 +23,7 @@ async function deleteUser() {
     });
   });
   show.value = false;
+  emitter.emit("refreshView");
 }
 </script>
 <template>

@@ -7,7 +7,7 @@ import version from "../../../package";
 
 // Props
 const auth = storeAuth();
-const tab = ref(auth?.user ? "users" : "ui")
+const tab = ref(auth?.user ? "users" : "ui");
 const ROMM_VERSION = version.version;
 </script>
 <template>
@@ -19,17 +19,15 @@ const ROMM_VERSION = version.version;
     </v-tabs>
   </v-app-bar>
 
-  <!-- Users tab -->
   <v-window v-model="tab">
-    <template v-if="auth?.user">
-      <v-window-item value="users">
-        <v-row class="pa-1">
-          <v-col>
-            <users />
-          </v-col>
-        </v-row>
-      </v-window-item>
-    </template>
+    <!-- Users tab -->
+    <v-window-item value="users">
+      <v-row class="pa-1">
+        <v-col>
+          <users />
+        </v-col>
+      </v-row>
+    </v-window-item>
 
     <!-- User Interface tab -->
     <v-window-item value="ui">
