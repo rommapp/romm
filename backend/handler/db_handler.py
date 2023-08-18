@@ -7,7 +7,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from logger.logger import log
 from config.config_loader import ConfigLoader
-from models import Platform, Rom, User
+from models import Platform, Rom, User, Role
 
 
 class DBHandler:
@@ -182,5 +182,12 @@ class DBHandler:
         try:
             with self.session.begin() as session:
                 return session.scalars(select(User)).all()
+        except ProgrammingError as e:
+            self.raise_error(e)
+
+    def get_admin_users(self):
+        try:
+            with self.session.begin() as session:
+                return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
         except ProgrammingError as e:
             self.raise_error(e)
