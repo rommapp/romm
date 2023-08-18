@@ -12,8 +12,8 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 
 function editUser() {
   // TODO: edit user endpoint
-  console.log("Updating user:")
-  console.log(user.value)
+  console.log("Updating user:");
+  console.log(user.value);
   show.value = false;
 }
 </script>
@@ -69,11 +69,11 @@ function editUser() {
         <v-row class="pa-2" no-gutters>
           <v-col>
             <v-select
-              v-model="user.rol"
+              v-model="user.role"
               rounded="0"
               variant="outlined"
-              :items="['admin', 'user']"
-              label="Rol"
+              :items="['viewer', 'editor', 'admin']"
+              label="Role"
               required
               hide-details
             ></v-select>
@@ -81,7 +81,9 @@ function editUser() {
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="text-rommGreen bg-terciary ml-5" @click="editUser()">Apply</v-btn>
+          <v-btn class="text-rommGreen bg-terciary ml-5" @click="editUser()"
+            >Apply</v-btn
+          >
         </v-row>
       </v-card-text>
     </v-card>

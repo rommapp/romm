@@ -1,11 +1,14 @@
 import { defineStore } from "pinia";
 
 export default defineStore("auth", {
-  state: () => ({ returnUrl: "" }),
+  state: () => ({ enabled: false, user: null }),
 
   actions: {
-    set(returnUrl) {
-      this.returnUrl = returnUrl;
+    setUser(user) {
+      this.user = user;
+    },
+    setEnabled(enabled) {
+      this.enabled = enabled;
     },
   },
 });

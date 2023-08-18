@@ -1,14 +1,12 @@
 <script setup>
-import { ref, inject } from "vue";
+import { ref, inject, onMounted } from "vue";
 import { VDataTable } from "vuetify/labs/VDataTable";
+import { fetchUsersApi } from "@/services/api";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 
-// Props
-const emitter = inject("emitter");
-
-const usersHeaders = [
+const HEADERS = [
   {
     title: "Username",
     align: "start",
@@ -16,118 +14,34 @@ const usersHeaders = [
     key: "username",
   },
   {
-    title: "Rol",
+    title: "Role",
     align: "start",
     sortable: true,
-    key: "rol",
+    key: "role",
   },
   { align: "end", key: "actions", sortable: false },
 ];
-const users = ref([
-  {
-    id: 1,
-    username: "User 1",
-    rol: "Admin",
-  },
-  {
-    id: 2,
-    username: "User 2",
-    rol: "user",
-  },
-  {
-    id: 3,
-    username: "User 3",
-    rol: "Admin",
-  },
-  {
-    id: 4,
-    username: "User 4",
-    rol: "user",
-  },
-  {
-    id: 5,
-    username: "User 5",
-    rol: "user",
-  },
-  {
-    id: 6,
-    username: "User 6",
-    rol: "user",
-  },
-  {
-    id: 7,
-    username: "User 7",
-    rol: "Admin",
-  },
-  {
-    id: 8,
-    username: "User 8",
-    rol: "user",
-  },
-  {
-    id: 9,
-    username: "User 9",
-    rol: "Admin",
-  },
-  {
-    id: 10,
-    username: "User 10",
-    rol: "user",
-  },
-  {
-    id: 11,
-    username: "User 13123",
-    rol: "Admin",
-  },
-  {
-    id: 12,
-    username: "User 2",
-    rol: "user",
-  },
-  {
-    id: 13,
-    username: "User 3",
-    rol: "Admin",
-  },
-  {
-    id: 14,
-    username: "User 4",
-    rol: "user",
-  },
-  {
-    id: 15,
-    username: "User 5",
-    rol: "user",
-  },
-  {
-    id: 16,
-    username: "User 6",
-    rol: "user",
-  },
-  {
-    id: 17,
-    username: "User 7",
-    rol: "Admin",
-  },
-  {
-    id: 18,
-    username: "User 8",
-    rol: "user",
-  },
-  {
-    id: 19,
-    username: "User 9",
-    rol: "Admin",
-  },
-]);
-const usersPerPage = ref(5);
-const usersPerPageOptions = [
+
+const PER_PAGE_OPTIONS = [
   { value: 5, title: "5" },
   { value: 10, title: "10" },
   { value: 25, title: "25" },
   { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
 ];
+
+// Props
+const emitter = inject("emitter");
+const users = ref([]);
+const usersPerPage = ref(5);
 const userSearch = ref("");
+
+onMounted(() => {
+  fetchUsersApi().then(({ data }) => {
+    users.value = data;
+  }).catch((error) => {
+    console.log(error);
+  });
+});
 </script>
 <template>
   <v-card rounded="0" elevation="0">
@@ -158,7 +72,7 @@ const userSearch = ref("");
         clearable
         density="comfortable"
         class="bg-secondary"
-      ></v-text-field>
+      />
 
       <create-user-dialog />
 
@@ -166,11 +80,11 @@ const userSearch = ref("");
 
       <delete-user-dialog />
       <v-data-table
-      class="bg-background"
-        :items-per-page-options="usersPerPageOptions"
+        class="bg-background"
+        :items-per-page-options="PER_PAGE_OPTIONS"
         v-model:items-per-page="usersPerPage"
         :search="userSearch"
-        :headers="usersHeaders"
+        :headers="HEADERS"
         :items="users"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
