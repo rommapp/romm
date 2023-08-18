@@ -1,7 +1,6 @@
 import uvicorn
 import alembic.config
 import re
-import secrets
 import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,7 +45,7 @@ app.add_middleware(
 # Enables support for sessions on requests
 app.add_middleware(
     SessionMiddleware,
-    secret_key=secrets.token_hex(32),
+    secret_key=ROMM_AUTH_SECRET_KEY,
     same_site="strict",
     https_only=False,
 )
