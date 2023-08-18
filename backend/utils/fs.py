@@ -14,7 +14,7 @@ from config import (
     DEFAULT_PATH_COVER_S,
 )
 from config.config_loader import config
-from utils.exceptions import (
+from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomsNotFoundException,
     RomNotFoundError,

@@ -12,7 +12,7 @@ from stream_zip import ZIP_64, stream_zip
 from logger.logger import log
 from handler import dbh
 from utils import fs, get_file_name_with_no_tags
-from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
+from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
 from utils.oauth import protected_route
 from models import Rom, Platform
 from config import LIBRARY_BASE_PATH
