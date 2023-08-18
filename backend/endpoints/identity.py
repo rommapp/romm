@@ -34,8 +34,6 @@ class UserSchema(BaseModel):
 
 @router.post("/login", dependencies=[Depends(HTTPBasic(auto_error=False))])
 def login(request: Request):
-    if not os.environ.get("ROMM_AUTH_ENABLED"):
-        return {"message": "RomM auth not enabled."}
 
     if "Authorization" not in request.headers:
         raise credentials_exception
