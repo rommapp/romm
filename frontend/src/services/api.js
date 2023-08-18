@@ -3,10 +3,20 @@ import useDownloadStore from "@/stores/download.js";
 import socket from "@/services/socket.js";
 import router from "@/plugins/router";
 
+let api = axios.create({ baseURL: "/api", timeout: 1000 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response.status === 403) {
+      router.push("/login");
+    }
+    return Promise.reject(error);
+  }
+);
+
 export async function fetchPlatformsApi() {
-  return axios.get("/api/platforms").catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+  return api.get("/platforms");
 }
 
 export async function fetchRomsApi({
@@ -15,21 +25,13 @@ export async function fetchRomsApi({
   size = 60,
   searchTerm = "",
 }) {
-  return axios
-    .get(
-      `/api/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
-    )
-    .catch(({ response }) => {
-      if (response.status === 403) router.push("/login");
-    });
+  return api.get(
+    `/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
+  );
 }
 
 export async function fetchRomApi(platform, rom) {
-  return axios
-    .get(`/api/platforms/${platform}/roms/${rom}`)
-    .catch(({ response }) => {
-      if (response.status === 403) router.push("/login");
-    });
+  return api.get(`/platforms/${platform}/roms/${rom}`);
 }
 
 function clearRomFromDownloads({ id }) {
@@ -51,7 +53,7 @@ export async function downloadRomApi(rom, files) {
   }
 
   const a = document.createElement("a");
-  a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
+  a.href = `/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
     files || rom.files
   }`;
   a.download = `${rom.r_name}.zip`;
@@ -78,68 +80,45 @@ export async function updateRomApi(rom, updatedData, renameAsIGDB) {
       ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
       : updatedData.file_name,
   };
-  return axios
-    .patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
-      updatedRom,
-    })
-    .catch(({ response }) => {
-      if (response.status === 403) router.push("/login");
-    });
+
+  return api.patch(`/platforms/${rom.p_slug}/roms/${rom.id}`, {
+    updatedRom,
+  });
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {
-  return axios
-    .delete(
-      `/api/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
-    )
-    .catch(({ response }) => {
-      if (response.status === 403) router.push("/login");
-    });
+  return api.delete(
+    `/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
+  );
 }
 
 export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
-  return axios
-    .put(
-      `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
-      { rom: rom }
-    )
-    .catch(({ response }) => {
-      if (response.status === 403) router.push("/login");
-    });
+  return api.put(
+    `/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
+    { rom: rom }
+  );
 }
 
 export async function fetchCurrentUserApi() {
-  return axios.get("/api/users/me").catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+  return api.get("/users/me");
 }
 
 export async function fetchUsersApi() {
-  return axios.get("/api/users").catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+  return api.get("/users");
 }
 
 export async function fetchUserApi(user) {
-  return axios.get(`/api/users/${user.id}`).catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+  return api.get(`/users/${user.id}`);
 }
 
-export async function createUserApi(user) {
-  return axios.post("/api/users", { user }).catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+export async function createUserApi({ username, password, role }) {
+  return api.post("/users", {}, { params: { username, password, role } });
 }
 
 export async function updateUserApi(user) {
-  return axios.put(`/api/users/${user.id}`, { user }).catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+  return api.put(`/users/${user.id}`, { user });
 }
 
 export async function deleteUserApi(user) {
-  return axios.delete(`/api/users/${user.id}`).catch(({ response }) => {
-    if (response.status === 403) router.push("/login");
-  });
+  return api.delete(`/users/${user.id}`);
 }
