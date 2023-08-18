@@ -13,10 +13,7 @@ const router = useRouter();
 const downloadStore = useDownloadStore();
 const saveFiles = ref(false);
 const romsPerPage = ref(-1);
-const romsPerPageOptions = [
-  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
-];
-const romsHeaders = [
+const HEADERS = [
   {
     title: "",
     align: "start",
@@ -55,6 +52,9 @@ const romsHeaders = [
   },
   { align: "end", key: "actions", sortable: false },
 ];
+const PER_PAGE_OPTIONS = [
+  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
+];
 
 function rowClick(_, row) {
   router.push(
@@ -66,9 +66,9 @@ function rowClick(_, row) {
 <template>
   <v-data-table
     :items-per-page="romsPerPage"
-    :items-per-page-options="romsPerPageOptions"
+    :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
-    :headers="romsHeaders"
+    :headers="HEADERS"
     item-value="id"
     :items="filteredRoms"
     @click:row="rowClick"

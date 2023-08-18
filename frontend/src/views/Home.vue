@@ -14,13 +14,13 @@ const { mdAndDown } = useDisplay();
 const platforms = storePlatforms();
 const scanning = storeScanning();
 const auth = storeAuth();
-const refreshPlatforms = ref(false);
-const refreshGallery = ref(false);
+const refreshDrawer = ref(false);
+const refreshView = ref(false);
 
 // Event listeners bus
 const emitter = inject("emitter");
-emitter.on("refreshGallery", () => {
-  refreshGallery.value = !refreshGallery.value;
+emitter.on("refreshView", () => {
+  refreshView.value = !refreshView.value;
 });
 
 // Functions
@@ -49,12 +49,12 @@ onMounted(async () => {
     fixed
   />
 
-  <drawer :key="refreshPlatforms" />
+  <drawer :key="refreshDrawer" />
 
   <app-bar v-if="mdAndDown" />
 
   <v-container class="pa-1" fluid>
-    <router-view :key="refreshGallery" />
+    <router-view :key="refreshView" />
   </v-container>
 </template>
 
