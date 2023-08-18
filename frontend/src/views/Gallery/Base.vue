@@ -27,6 +27,7 @@ const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
+const scrollOnTop = ref();
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -124,9 +125,12 @@ function onFilterChange() {
 }
 
 function onScroll() {
-  if (cursor.value === null && searchCursor.value === null) return;
 
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+  scrollOnTop.value = scrollTop == 0 // Check scroll position to show fab to top
+
+  if (cursor.value === null && searchCursor.value === null) return;
+
   const scrollOffset = 60;
 
   // If we are close at the bottom of the page, fetch more roms
@@ -135,6 +139,14 @@ function onScroll() {
       ? fetchRoms(route.params.platform)
       : fetchRoms(route.params.platform);
   }
+}
+
+function toTop() {
+  window.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: "smooth",
+  });
 }
 
 onMounted(async () => {
@@ -198,6 +210,28 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-col>
     </v-row>
   </template>
+
+  <v-layout-item
+
+    v-scroll="onScroll"
+    class="text-end"
+    :model-value="scrollOnTop"
+    position="bottom"
+    size="88"
+  >
+    <div class="ma-4">
+      <v-fab-transition>
+        <v-btn
+          v-show="true"
+          color="terciary"
+          elevation="8"
+          icon="mdi-chevron-up"
+          size="large"
+          @click="toTop"
+        />
+      </v-fab-transition>
+    </div>
+  </v-layout-item>
 
   <search-rom-dialog />
   <edit-rom-dialog />
