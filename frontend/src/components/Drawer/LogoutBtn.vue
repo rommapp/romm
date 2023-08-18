@@ -1,27 +1,56 @@
 <script setup>
+import { inject } from "vue";
 import { useRouter } from "vue-router";
+import axios from "axios";
+
+import storeAuth from "@/stores/auth.js";
 
 const props = defineProps(["rail"]);
 const router = useRouter();
+const emitter = inject("emitter");
+const auth = storeAuth();
 
 async function logout() {
-  /* TODO: implement logout logic */
-  localStorage.setItem("authenticated", false);
-  await router.push({ name: "login" });
+  axios
+    .post("/api/logout", {})
+    .then(({ data }) => {
+      emitter.emit("snackbarShow", {
+        msg: data.message,
+        icon: "mdi-close-circle",
+        color: "green",
+      });
+      router.push("/login");
+    })
+    .catch(({ message }) => {
+      router.push("/login");
+    });
 }
 </script>
 
 <template>
   <v-list-item height="60" class="bg-primary text-button" rounded="0">
-    {{ rail ? "" : "Zurdi" }}
+    <div class="text-no-wrap text-truncate">
+      {{ rail ? "" : auth.user?.username }}
+    </div>
     <template v-slot:prepend>
       <v-avatar :class="{ 'ml-4': rail, 'my-3': rail }">
         <v-img src="/assets/default_user.png" />
       </v-avatar>
     </template>
     <template v-slot:append>
-      <v-btn v-if="!rail" variant="text" icon="mdi-location-exit" @click="logout()"></v-btn>
+      <v-btn
+        v-if="!rail"
+        variant="text"
+        icon="mdi-location-exit"
+        @click="logout()"
+      ></v-btn>
     </template>
   </v-list-item>
-  <v-btn v-if="rail" variant="text" icon="mdi-location-exit" class="ml-7 my-1" @click="logout()"></v-btn>
+  <v-btn
+    v-if="rail"
+    variant="text"
+    icon="mdi-location-exit"
+    class="ml-7 my-1"
+    @click="logout()"
+  ></v-btn>
 </template>

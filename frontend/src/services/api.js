@@ -107,3 +107,9 @@ export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
       if (response.status === 403) router.push("/login");
     });
 }
+
+export async function fetchCurrentUserApi() {
+  return axios.get("/api/users/me").catch(({ response }) => {
+    if (response.status === 403) router.push("/login");
+  });
+}

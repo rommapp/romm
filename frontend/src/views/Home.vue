@@ -1,9 +1,10 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
-import { fetchPlatformsApi } from "@/services/api.js";
+import { fetchPlatformsApi, fetchCurrentUserApi } from "@/services/api.js";
 import storePlatforms from "@/stores/platforms.js";
 import storeScanning from "@/stores/scanning.js";
+import storeAuth from "@/stores/auth.js";
 import Drawer from "@/components/Drawer/Base.vue";
 import AppBar from "@/components/AppBar/Base.vue";
 import Notification from "@/components/Notification.vue";
@@ -12,6 +13,7 @@ import Notification from "@/components/Notification.vue";
 const { mdAndDown } = useDisplay();
 const platforms = storePlatforms();
 const scanning = storeScanning();
+const auth = storeAuth();
 const refreshPlatforms = ref(false);
 const refreshGallery = ref(false);
 
@@ -24,10 +26,13 @@ emitter.on("refreshGallery", () => {
 // Functions
 onMounted(async () => {
   try {
-    const { data } = await fetchPlatformsApi();
-    platforms.set(data);
+    const { data: platformData } = await fetchPlatformsApi();
+    platforms.set(platformData);
+
+    const { data: userData } = await fetchCurrentUserApi();
+    if (userData) auth.setUser(userData);
   } catch (error) {
-    console.error("Couldn't fetch platforms:", error);
+    console.error(error);
   }
 });
 </script>
