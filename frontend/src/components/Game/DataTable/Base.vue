@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 import { downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
 import { VDataTable } from "vuetify/labs/VDataTable";
@@ -8,6 +9,7 @@ import AdminMenu from "@/components/AdminMenu/Base.vue";
 // Props
 const props = defineProps(["filteredRoms"]);
 const location = window.location.origin;
+const router = useRouter();
 const downloadStore = useDownloadStore();
 const saveFiles = ref(false);
 const romsPerPage = ref(-1);
@@ -53,6 +55,12 @@ const romsHeaders = [
   },
   { align: "end", key: "actions", sortable: false },
 ];
+
+function rowClick(_, row) {
+  router.push(
+    `/platform/${row.item.selectable.p_slug}/${row.item.selectable.id}`
+  );
+}
 </script>
 
 <template>
@@ -63,6 +71,7 @@ const romsHeaders = [
     :headers="romsHeaders"
     item-value="id"
     :items="filteredRoms"
+    @click:row="rowClick"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
@@ -90,7 +99,7 @@ const romsHeaders = [
         <v-btn
           class="my-1"
           rounded="0"
-          @click="downloadRomApi(item.selectable)"
+          @click.stop="downloadRomApi(item.selectable)"
           :disabled="downloadStore.value.includes(item.selectable.id)"
           download
           size="small"
@@ -102,6 +111,7 @@ const romsHeaders = [
         <v-btn
           class="my-1"
           rounded="0"
+          @click.stop=""
           :href="`${location}${item.selectable.download_path}`"
           download
           size="small"
