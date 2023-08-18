@@ -1,6 +1,8 @@
 <script setup>
 import { ref, inject } from "vue";
 
+import { deleteUserApi } from "@/services/api";
+
 const user = ref();
 const show = ref(false);
 
@@ -10,10 +12,8 @@ emitter.on("showDeleteUserDialog", (userToDelete) => {
   show.value = true;
 });
 
-function deleteUser() {
-  // TODO: delete user endpoint
-  console.log("Deleting user:")
-  console.log(user.value)
+async function deleteUser() {
+  await deleteUserApi(user.value);
   show.value = false;
 }
 </script>
