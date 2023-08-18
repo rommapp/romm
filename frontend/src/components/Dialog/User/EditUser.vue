@@ -1,6 +1,8 @@
 <script setup>
 import { ref, inject } from "vue";
 
+import { updateUserApi } from "@/services/api";
+
 const user = ref();
 const show = ref(false);
 
@@ -11,9 +13,16 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 });
 
 function editUser() {
-  // TODO: edit user endpoint
-  console.log("Updating user:");
-  console.log(user.value);
+  updateUserApi(user.value).catch(({ response, message }) => {
+    emitter.emit("snackbarShow", {
+      msg: `Unable to edit user: ${
+        response?.data?.detail || response?.statusText || message
+      }`,
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  });
+  
   show.value = false;
   emitter.emit("refreshView");
 }
