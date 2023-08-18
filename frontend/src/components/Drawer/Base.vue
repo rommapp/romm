@@ -1,12 +1,14 @@
 <script setup>
 import { ref, inject } from "vue";
 import storePlatforms from "@/stores/platforms";
+import storeAuth from "@/stores/auth";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
-import LogoutBtn from "@/components/Drawer/LogoutBtn.vue";
+import RailFooter from "@/components/Drawer/RailFooter.vue";
 
 // Props
 const platforms = storePlatforms();
+const auth = storeAuth();
 const drawer = ref(undefined);
 const open = ref(["Platforms", "Library", "Settings"]);
 const rail = ref(localStorage.getItem("rail") == "true");
@@ -127,7 +129,7 @@ emitter.on("toggleDrawerRail", () => {
 
     <template v-slot:append>
       <v-divider class="border-opacity-25" :thickness="1" />
-      <logout-btn :rail="rail" />
+      <rail-footer v-if="auth.enabled" :rail="rail" />
     </template>
   </v-navigation-drawer>
 </template>

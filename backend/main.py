@@ -9,7 +9,7 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY
+from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_ENABLED
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from utils.socket import socket_app
 from utils.auth import (
@@ -64,7 +64,7 @@ app.mount("/ws", socket_app)
 # Endpoint to set the CSRF token in cache
 @app.get("/heartbeat")
 def heartbeat():
-    return {"status": "ok"}
+    return {"ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED}
 
 
 @app.on_event("startup")
