@@ -11,7 +11,7 @@ import PlatformIcon from "./PlatformIcon.vue";
     :key="platform"
     class="pt-4 pb-4 bg-terciary"
   >
-    <span class="text-body-2 text-truncate">{{
+    <span class="text-body-2">{{
       rail ? "" : platform.name
     }}</span>
     <template v-slot:prepend>
