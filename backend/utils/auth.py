@@ -56,15 +56,21 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
     if not username:
         return None
 
-    # Key exists therefore user is authenticated
+    # Key exists therefore user is probably authenticated
     user = dbh.get_user_by_username(username)
     if user is None:
+        cache.delete(f"romm:{session_id}")
+        conn.session["session_id"] = None
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="User not found",
         )
 
     if user.disabled:
+        cache.delete(f"romm:{session_id}")
+        conn.session["session_id"] = None
+
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
         )

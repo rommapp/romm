@@ -1,4 +1,3 @@
-import os
 import uvicorn
 import alembic.config
 import re
@@ -30,6 +29,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+if ROMM_AUTH_ENABLED and "pytest" not in sys.modules:
+    # CSRF protection (except endpoints listed in exempt_urls)
+    app.add_middleware(
+        CustomCSRFMiddleware,
+        secret=ROMM_AUTH_SECRET_KEY,
+        exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
+    )
+
 # Handles both basic and oauth authentication
 app.add_middleware(
     AuthenticationMiddleware,
@@ -43,15 +50,6 @@ app.add_middleware(
     same_site="strict",
     https_only=False,
 )
-
-if "pytest" not in sys.modules and os.environ.get("ROMM_AUTH_ENABLED"):
-    # CSRF protection (except endpoints listed in exempt_urls)
-    app.add_middleware(
-        CustomCSRFMiddleware,
-        secret=ROMM_AUTH_SECRET_KEY,
-        exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
-    )
-
 
 app.include_router(oauth.router)
 app.include_router(identity.router)

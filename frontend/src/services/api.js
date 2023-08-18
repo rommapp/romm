@@ -115,8 +115,8 @@ export async function createUserApi({ username, password, role }) {
   return api.post("/users", {}, { params: { username, password, role } });
 }
 
-export async function updateUserApi(user) {
-  return api.put(`/users/${user.id}`, { user });
+export async function updateUserApi({ id, username, password, role }) {
+  return api.put(`/users/${id}`, {}, { params: { username, password, role } });
 }
 
 export async function deleteUserApi(user) {
