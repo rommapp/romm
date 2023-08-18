@@ -27,7 +27,8 @@ function login() {
       }
     )
     .then(() => {
-      router.push("/");
+      const next = router.currentRoute.value.query?.next || "/";
+      router.push(next);
     })
     .catch(({ response, message }) => {
       emitter.emit("snackbarShow", {
