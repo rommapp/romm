@@ -38,8 +38,8 @@ async function deleteRom() {
     name: "platform",
     params: { platform: rom.value.p_slug },
   });
-  emitter.emit("refreshGallery");
-  emitter.emit("refreshPlatforms");
+  emitter.emit("refreshView");
+  emitter.emit("refreshDrawer");
   show.value = false;
 }
 </script>

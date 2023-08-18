@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_ENABLED
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
+from handler import dbh
 from utils.socket import socket_app
 from utils.auth import (
     HybridAuthBackend,
@@ -71,15 +72,15 @@ def heartbeat():
 @app.on_event("startup")
 def startup() -> None:
     """Startup application."""
-    pass
+
+    # Create default admin user if no admin user exists
+    if len(dbh.get_admin_users()) == 0:
+        create_default_admin_user()
 
 
 if __name__ == "__main__":
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
-
-    # Create default admin user
-    create_default_admin_user()
 
     # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)

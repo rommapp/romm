@@ -45,7 +45,7 @@ socket.on("scan:scanning_rom", ({ p_slug, p_name, ...rom }) => {
 socket.on("scan:done", () => {
   scanning.set(false);
   
-  emitter.emit("refreshPlatforms");
+  emitter.emit("refreshDrawer");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
