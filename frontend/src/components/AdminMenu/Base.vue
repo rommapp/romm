@@ -18,7 +18,7 @@ const emitter = inject("emitter");
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
-      @click="emitter.emit('showEditRomDialog', rom)"
+      @click="emitter.emit('showEditRomDialog', { ...rom })"
       class="py-4 pr-5"
     >
       <v-list-item-title class="d-flex"
