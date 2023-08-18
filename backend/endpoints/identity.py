@@ -13,6 +13,10 @@ from models.user import User, Role
 from utils.cache import cache
 from utils.auth import authenticate_user, get_password_hash
 from utils.oauth import protected_route
+from exceptions.credentials_exceptions import (
+    credentials_exception,
+    authentication_scheme_exception,
+)
 from config import ROMM_AUTH_ENABLED
 
 router = APIRouter()
@@ -28,16 +32,8 @@ class UserSchema(BaseModel):
         orm_mode = True
 
 
-credentials_exception = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Incorrect username or password",
-    headers={"WWW-Authenticate": "Basic"},
-)
-
-
 @router.post("/login", dependencies=[Depends(HTTPBasic(auto_error=False))])
 def login(request: Request):
-
     if not os.environ.get("ROMM_AUTH_ENABLED"):
         return {"message": "RomM auth not enabled."}
 
@@ -48,11 +44,8 @@ def login(request: Request):
     try:
         scheme, credentials = auth.split()
         if scheme.lower() != "basic":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication scheme",
-                headers={"WWW-Authenticate": "Basic"},
-            )
+            raise authentication_scheme_exception
+
         decoded = base64.b64decode(credentials).decode("ascii")
     except (ValueError, UnicodeDecodeError, binascii.Error):
         raise credentials_exception

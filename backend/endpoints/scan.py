@@ -4,7 +4,7 @@ from rq import Queue
 
 from logger.logger import log
 from utils import fs, fastapi
-from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
+from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from utils.socket import socket_server
 from utils.cache import redis_client, redis_url, redis_connectable
