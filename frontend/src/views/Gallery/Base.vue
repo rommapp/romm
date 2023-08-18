@@ -27,7 +27,7 @@ const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
-const scrollOnTop = ref();
+const scrollOnTop = ref(true);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -212,10 +212,9 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <v-layout-item
-
     v-scroll="onScroll"
     class="text-end"
-    :model-value="scrollOnTop"
+    :model-value="!scrollOnTop"
     position="bottom"
     size="88"
   >
