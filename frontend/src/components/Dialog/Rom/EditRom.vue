@@ -7,6 +7,10 @@ const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
 const renameAsIGDB = ref(false);
+const fileNameInputRules = {
+  required: (value) => !!value || "Required.",
+  newFileName: (value) => !value.includes("/") || "Invalid characters",
+};
 
 const emitter = inject("emitter");
 emitter.on("showEditRomDialog", (romToEdit) => {
@@ -15,6 +19,22 @@ emitter.on("showEditRomDialog", (romToEdit) => {
 });
 
 async function updateRom(updatedData = { ...rom.value }) {
+  if (updatedData.file_name.includes("/")) {
+    emitter.emit("snackbarShow", {
+      msg: "Couldn't edit rom: invalid file name characters",
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+    return;
+  } else if (!updatedData.file_name) {
+    emitter.emit("snackbarShow", {
+      msg: "Couldn't edit rom: file name required",
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+    return;
+  }
+
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
@@ -93,6 +113,10 @@ async function updateRom(updatedData = { ...rom.value }) {
           <v-text-field
             @keyup.enter="updateRom()"
             v-model="rom.file_name"
+            :rules="[
+              fileNameInputRules.newFileName,
+              fileNameInputRules.required,
+            ]"
             label="File name"
             variant="outlined"
             required
