@@ -18,7 +18,7 @@ from utils.auth import (
     create_default_admin_user,
 )
 
-app = FastAPI()
+app = FastAPI(title="RomM API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
