@@ -27,7 +27,7 @@ const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
-const scrollOnTop = ref(true);
+const scrolledToTop = ref(true);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -125,9 +125,8 @@ function onFilterChange() {
 }
 
 function onScroll() {
-
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  scrollOnTop.value = scrollTop == 0 // Check scroll position to show fab to top
+  scrolledToTop.value = scrollTop == 0 // Check scroll position to show fab to top
 
   if (cursor.value === null && searchCursor.value === null) return;
 
@@ -214,7 +213,7 @@ onBeforeRouteUpdate(async (to, _) => {
   <v-layout-item
     v-scroll="onScroll"
     class="text-end"
-    :model-value="!scrollOnTop"
+    :model-value="!scrolledToTop"
     position="bottom"
     size="88"
   >

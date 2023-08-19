@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
                   >IGDB</v-chip
                 >
               </v-item>
-              <!-- TODO: Ready item group to scrap from different sources -->
+              <!-- TODO: Ready item group to scrape from different sources -->
               <!-- <v-item v-slot="{ isSelected, toggle }" disabled>
                 <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
                   >ScreenScraper</v-chip

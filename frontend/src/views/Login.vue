@@ -14,7 +14,6 @@ const password = ref();
 const visiblePassword = ref(false);
 
 function login() {
-  const token = btoa(`${username.value}:${password.value}`);
   axios
     .post(
       "/api/login",
@@ -42,9 +41,9 @@ function login() {
 }
 
 onBeforeMount(async () => {
-  // Check if romm auth is enabled
+  // Check if authentication is enabled
   if (!auth.enabled) {
-    router.push("/");
+    return router.push("/");
   }
 });
 </script>
