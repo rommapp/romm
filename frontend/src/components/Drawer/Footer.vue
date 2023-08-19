@@ -23,6 +23,8 @@ async function logout() {
     })
     .catch(() => {
       router.push("/login");
+    }).finally(() => {
+      auth.setUser(null);
     });
 }
 </script>
