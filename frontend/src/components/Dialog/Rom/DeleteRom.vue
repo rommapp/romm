@@ -83,12 +83,12 @@ async function deleteRom() {
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <span class="mr-1">Deleting</span>
-          <span class="text-rommAccent1">{{ rom.file_name }}</span
+          <span class="text-romm-accent-1">{{ rom.file_name }}</span
           >.<span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn @click="deleteRom()" class="text-rommRed bg-terciary ml-5"
+          <v-btn @click="deleteRom()" class="text-romm-red bg-terciary ml-5"
             >Confirm</v-btn
           >
         </v-row>

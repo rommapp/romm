@@ -51,12 +51,12 @@ async function deleteUser() {
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <span class="mr-1">Deleting</span
-          ><span class="text-rommAccent1">{{ user.username }}</span
+          ><span class="text-romm-accent-1">{{ user.username }}</span
           >.<span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="bg-terciary text-rommRed ml-5" @click="deleteUser()"
+          <v-btn class="bg-terciary text-romm-red ml-5" @click="deleteUser()"
             >Confirm</v-btn
           >
         </v-row>

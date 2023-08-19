@@ -13,7 +13,7 @@ const props = defineProps(["rom", "isHovering", "hoverProps", "size"]);
     :to="`/platform/${$route.params.platform}/${rom.id}`"
   >
     <v-progress-linear
-      color="rommAccent1"
+      color="romm-accent-1"
       :active="downloadStore.value.includes(rom.id)"
       :indeterminate="true"
       absolute
@@ -29,7 +29,7 @@ const props = defineProps(["rom", "isHovering", "hoverProps", "size"]);
     >
       <template v-slot:placeholder>
         <div class="d-flex align-center justify-center fill-height">
-          <v-progress-circular color="rommAccent1" :width="2" indeterminate />
+          <v-progress-circular color="romm-accent-1" :width="2" indeterminate />
         </div>
       </template>
       <v-expand-transition>

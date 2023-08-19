@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
               <v-item v-slot="{ isSelected, toggle }">
                 <v-chip
                   class="mx-1"
-                  :color="isSelected ? 'rommAccent1' : 'rommGray'"
+                  :color="isSelected ? 'romm-accent-1' : 'rommGray'"
                   variant="outlined"
                   label
                   @click="toggle"
@@ -107,17 +107,17 @@ onBeforeUnmount(() => {
               </v-item>
               <!-- TODO: Ready item group to scrap from different sources -->
               <!-- <v-item v-slot="{ isSelected, toggle }" disabled>
-                <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
+                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'rommGray'" variant="outlined" label @click="toggle"
                   >ScreenScraper</v-chip
                 >
               </v-item>
               <v-item v-slot="{ isSelected, toggle }" disabled>
-                <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
+                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'rommGray'" variant="outlined" label @click="toggle"
                   >MobyGames</v-chip
                 >
               </v-item>
               <v-item v-slot="{ isSelected, toggle }" disabled>
-                <v-chip class="mx-1" :color="isSelected ? 'rommAccent1' : 'rommGray'" variant="outlined" label @click="toggle"
+                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'rommGray'" variant="outlined" label @click="toggle"
                   >RAWG</v-chip
                 >
               </v-item> -->
@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
           <v-progress-circular
             :width="2"
             :size="40"
-            color="rommAccent1"
+            color="romm-accent-1"
             indeterminate
           />
         </v-row>

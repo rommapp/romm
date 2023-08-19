@@ -76,7 +76,7 @@ function rowClick(_, row) {
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
         <v-progress-linear
-          color="rommAccent1"
+          color="romm-accent-1"
           :active="downloadStore.value.includes(item.selectable.id)"
           :indeterminate="true"
           absolute
