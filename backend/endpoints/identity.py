@@ -1,6 +1,4 @@
 import secrets
-import base64
-import binascii
 from typing import Optional, Annotated
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from fastapi.security.http import HTTPBasic
@@ -11,11 +9,8 @@ from models.user import User, Role
 from utils.cache import cache
 from utils.auth import authenticate_user, get_password_hash, clear_session
 from utils.oauth import protected_route
-from exceptions.credentials_exceptions import (
-    credentials_exception,
-    authentication_scheme_exception,
-)
 from config import ROMM_AUTH_ENABLED
+from exceptions.credentials_exceptions import credentials_exception
 
 router = APIRouter()
 
@@ -30,23 +25,9 @@ class UserSchema(BaseModel):
         orm_mode = True
 
 
-@router.post("/login", dependencies=[Depends(HTTPBasic(auto_error=False))])
-def login(request: Request):
-    if "Authorization" not in request.headers:
-        raise credentials_exception
-
-    auth = request.headers["Authorization"]
-    try:
-        scheme, credentials = auth.split()
-        if scheme.lower() != "basic":
-            raise authentication_scheme_exception
-
-        decoded = base64.b64decode(credentials).decode("ascii")
-    except (ValueError, UnicodeDecodeError, binascii.Error):
-        raise credentials_exception
-
-    username, _, password = decoded.partition(":")
-    user = authenticate_user(username, password)
+@router.post("/login")
+def login(request: Request, credentials=Depends(HTTPBasic())):
+    user = authenticate_user(credentials.username, credentials.password)
     if not user:
         raise credentials_exception
 
