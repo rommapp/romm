@@ -1,5 +1,5 @@
 from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 from starlette_csrf.middleware import CSRFMiddleware
@@ -46,6 +46,13 @@ def authenticate_user(username: str, password: str):
     return user
 
 
+def clear_session(req: HTTPConnection | Request):
+    session_id = req.session.get("session_id")
+    if session_id:
+        cache.delete(f"romm:{session_id}")
+        req.session["session_id"] = None
+
+
 async def get_current_active_user_from_session(conn: HTTPConnection):
     # Check if session key already stored in cache
     session_id = conn.session.get("session_id")
@@ -59,8 +66,7 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
     # Key exists therefore user is probably authenticated
     user = dbh.get_user_by_username(username)
     if user is None:
-        cache.delete(f"romm:{session_id}")
-        conn.session["session_id"] = None
+        clear_session(conn)
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -68,8 +74,7 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
         )
 
     if user.disabled:
-        cache.delete(f"romm:{session_id}")
-        conn.session["session_id"] = None
+        clear_session(conn)
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"

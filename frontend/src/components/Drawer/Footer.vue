@@ -21,7 +21,7 @@ async function logout() {
       });
       router.push("/login");
     })
-    .catch(({ message }) => {
+    .catch(() => {
       router.push("/login");
     });
 }

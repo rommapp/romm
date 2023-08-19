@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, BaseConfig
-from starlette.authentication import requires
 
 from handler import dbh
 from utils.oauth import protected_route
@@ -25,7 +24,6 @@ class PlatformSchema(BaseModel):
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])
-@requires(["platforms.read"])
 def platforms(request: Request) -> list[PlatformSchema]:
     """Returns platforms data"""
     return dbh.get_platforms()

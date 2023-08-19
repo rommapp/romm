@@ -5,12 +5,11 @@ from typing import Optional, Annotated
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from fastapi.security.http import HTTPBasic
 from pydantic import BaseModel, BaseConfig
-from starlette.authentication import requires
 
 from handler import dbh
 from models.user import User, Role
 from utils.cache import cache
-from utils.auth import authenticate_user, get_password_hash
+from utils.auth import authenticate_user, get_password_hash, clear_session
 from utils.oauth import protected_route
 from exceptions.credentials_exceptions import (
     credentials_exception,
@@ -33,7 +32,6 @@ class UserSchema(BaseModel):
 
 @router.post("/login", dependencies=[Depends(HTTPBasic(auto_error=False))])
 def login(request: Request):
-
     if "Authorization" not in request.headers:
         raise credentials_exception
 
@@ -66,29 +64,25 @@ def logout(request: Request):
     if not session_id:
         return {"message": "Already logged out"}
 
-    if not request.user.id:
+    if not request.user.is_authenticated:
         return {"message": "Already logged out"}
 
-    cache.delete(f"romm:{session_id}")
-    request.session["session_id"] = None
+    clear_session(request)
 
     return {"message": "Successfully logged out"}
 
 
 @protected_route(router.get, "/users", ["users.read"])
-@requires(["users.read"])
 def users(request: Request) -> list[UserSchema]:
     return dbh.get_users()
 
 
 @protected_route(router.get, "/users/me", ["me.read"])
-@requires(["me.read"])
 def current_user(request: Request) -> UserSchema | None:
     return request.user
 
 
 @protected_route(router.get, "/users/{user_id}", ["users.read"])
-@requires(["users.read"])
 def get_user(request: Request, user_id: int) -> UserSchema:
     user = dbh.get_user(user_id)
     if not user:
@@ -103,7 +97,6 @@ def get_user(request: Request, user_id: int) -> UserSchema:
     ["users.write"],
     status_code=status.HTTP_201_CREATED,
 )
-@requires(["users.write"])
 def create_user(
     request: Request, username: str, password: str, role: str
 ) -> UserSchema:
@@ -137,7 +130,6 @@ class UserUpdateForm:
 
 
 @protected_route(router.put, "/users/{user_id}", ["users.write"])
-@requires(["users.write"])
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
 ) -> UserSchema:
@@ -180,13 +172,9 @@ def update_user(
     dbh.update_user(user_id, cleaned_data)
 
     # Log out the current user if username or password changed
-    if request.user.id == user_id and (
-        cleaned_data.get("username") or cleaned_data.get("hashed_password")
-    ):
-        session_id = request.session.get("session_id")
-        if session_id:
-            cache.delete(f"romm:{session_id}")
-            request.session["session_id"] = None
+    creds_updated = cleaned_data.get("username") or cleaned_data.get("hashed_password")
+    if request.user.id == user_id and creds_updated:
+        clear_session(request)
 
     return dbh.get_user(user_id)
 
