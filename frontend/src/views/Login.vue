@@ -20,8 +20,9 @@ function login() {
       "/api/login",
       {},
       {
-        headers: {
-          Authorization: `Basic ${token}`,
+        auth: {
+          username: username.value,
+          password: password.value,
         },
       }
     )

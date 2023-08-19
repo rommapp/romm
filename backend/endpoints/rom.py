@@ -4,7 +4,6 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, BaseConfig
-from starlette.authentication import requires
 
 from stat import S_IFREG
 from stream_zip import ZIP_64, stream_zip
@@ -68,7 +67,6 @@ class RomSchema(BaseModel):
 
 
 @protected_route(router.get, "/platforms/{p_slug}/roms/{id}", ["roms.read"])
-@requires(["roms.read"])
 def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
@@ -76,7 +74,6 @@ def rom(request: Request, id: int) -> RomSchema:
 
 
 @protected_route(router.get, "/platforms/{p_slug}/roms/{id}/download", ["roms.read"])
-@requires(["roms.read"])
 def download_rom(request: Request, id: int, files: str):
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
@@ -108,7 +105,6 @@ def download_rom(request: Request, id: int, files: str):
 
 
 @protected_route(router.get, "/platforms/{p_slug}/roms", ["roms.read"])
-@requires(["roms.read"])
 def roms(
     request: Request,
     p_slug: str,
@@ -132,7 +128,6 @@ def roms(
 
 
 @protected_route(router.patch, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
-@requires(["roms.write"])
 async def update_rom(request: Request, p_slug: str, id: int) -> dict:
     """Updates rom details"""
 
@@ -177,7 +172,6 @@ async def update_rom(request: Request, p_slug: str, id: int) -> dict:
 
 
 @protected_route(router.delete, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
-@requires(["roms.write"])
 def delete_rom(
     request: Request, p_slug: str, id: int, filesystem: bool = False
 ) -> dict:
