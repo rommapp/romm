@@ -84,7 +84,7 @@ def test_create_user(access_token):
 def test_update_user(access_token, editor_user):
     assert editor_user.role == Role.EDITOR
 
-    response = client.patch(
+    response = client.put(
         f"/users/{editor_user.id}",
         params={"username": "editor_user_new_username", "role": "viewer"},
         headers={"Authorization": f"Bearer {access_token}"},
@@ -93,3 +93,13 @@ def test_update_user(access_token, editor_user):
 
     user = response.json()
     assert user["role"] == "viewer"
+
+
+def test_delete_user(access_token, editor_user):
+    response = client.delete(
+        f"/users/{editor_user.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["message"] == "User successfully deleted"
