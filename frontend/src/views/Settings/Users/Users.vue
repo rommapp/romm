@@ -52,7 +52,7 @@ onMounted(() => {
       <v-btn
         prepend-icon="mdi-plus"
         variant="outlined"
-        class="text-rommAccent1"
+        class="text-romm-accent-1"
         @click="emitter.emit('showCreateUserDialog')"
       >
         Add user
@@ -100,7 +100,7 @@ onMounted(() => {
           <v-btn
           size="small"
           rounded="0"
-            class="bg-terciary text-rommRed"
+            class="bg-terciary text-romm-red"
             @click="emitter.emit('showDeleteUserDialog', item.raw)"
             ><v-icon>mdi-delete</v-icon></v-btn
           >

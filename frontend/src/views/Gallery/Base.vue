@@ -28,6 +28,7 @@ const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
 const scrollOnTop = ref(true);
+const selectedRoms = ref([]);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -61,7 +62,7 @@ async function scan() {
   emitter.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
-    color: "rommAccent1",
+    color: "romm-accent-1",
   });
 
   if (!socket.connected) socket.connect();
@@ -125,9 +126,8 @@ function onFilterChange() {
 }
 
 function onScroll() {
-
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  scrollOnTop.value = scrollTop == 0 // Check scroll position to show fab to top
+  scrollOnTop.value = scrollTop == 0; // Check scroll position to show fab to top
 
   if (cursor.value === null && searchCursor.value === null) return;
 
@@ -178,26 +178,28 @@ onBeforeRouteUpdate(async (to, _) => {
 
   <template v-if="filteredRoms.length > 0">
     <!-- Gallery cards view -->
-    <v-row no-gutters v-scroll="onScroll">
-      <v-col
-        v-show="galleryView.value != 2"
-        v-for="rom in filteredRoms"
-        class="pa-1"
-        :key="rom.id"
-        :cols="views[galleryView.value]['size-cols']"
-        :xs="views[galleryView.value]['size-xs']"
-        :sm="views[galleryView.value]['size-sm']"
-        :md="views[galleryView.value]['size-md']"
-        :lg="views[galleryView.value]['size-lg']"
-      >
-        <game-card :rom="rom" />
-      </v-col>
+    <v-item-group v-model="selectedRoms" multiple>
+        <v-row no-gutters v-scroll="onScroll">
+          <v-col
+            v-show="galleryView.value != 2"
+            v-for="rom in filteredRoms"
+            class="pa-1"
+            :key="rom.id"
+            :cols="views[galleryView.value]['size-cols']"
+            :xs="views[galleryView.value]['size-xs']"
+            :sm="views[galleryView.value]['size-sm']"
+            :md="views[galleryView.value]['size-md']"
+            :lg="views[galleryView.value]['size-lg']"
+          >
+            <game-card :rom="rom" />
+          </v-col>
 
-      <!-- Gallery list view -->
-      <v-col v-show="galleryView.value == 2">
-        <game-data-table :filteredRoms="filteredRoms" />
-      </v-col>
-    </v-row>
+          <!-- Gallery list view -->
+          <v-col v-show="galleryView.value == 2">
+            <game-data-table :filteredRoms="filteredRoms" />
+          </v-col>
+        </v-row>
+    </v-item-group>
   </template>
 
   <!-- Empty gallery message -->
@@ -241,5 +243,9 @@ onBeforeRouteUpdate(async (to, _) => {
 <style scoped>
 #gallery-app-bar {
   z-index: 999 !important;
+}
+.game-card.game-selected {
+  border: 2px solid rgba(var(--v-theme-romm-accent-2));
+  padding: 0;
 }
 </style>
