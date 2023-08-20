@@ -2,8 +2,9 @@
 import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
+
 import Notification from "@/components/Notification.vue";
-import storeAuth from "@/stores/auth.js";
+import storeAuth from "@/stores/auth";
 
 // Props
 const auth = storeAuth();

@@ -1,8 +1,8 @@
 <script setup>
 import { ref, inject } from "vue";
-import socket from "@/services/socket.js";
-import storePlatforms from "@/stores/platforms.js";
-import storeScanning from "@/stores/scanning.js";
+import socket from "@/services/socket";
+import storePlatforms from "@/stores/platforms";
+import storeScanning from "@/stores/scanning";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 
 // Props

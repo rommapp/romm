@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
-import { updateRomApi, searchRomIGDBApi } from "@/services/api.js";
+import { updateRomApi, searchRomIGDBApi } from "@/services/api";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);

@@ -2,7 +2,7 @@
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { deleteRomApi } from "@/services/api.js";
+import { deleteRomApi } from "@/services/api";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();

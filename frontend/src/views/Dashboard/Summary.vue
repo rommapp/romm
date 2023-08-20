@@ -1,5 +1,5 @@
 <script setup>
-import storePlatforms from "@/stores/platforms.js";
+import storePlatforms from "@/stores/platforms";
 
 // Props
 const platforms = storePlatforms();

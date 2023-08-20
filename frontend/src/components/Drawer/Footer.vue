@@ -3,7 +3,7 @@ import { inject } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 
-import storeAuth from "@/stores/auth.js";
+import storeAuth from "@/stores/auth";
 
 const props = defineProps(["rail"]);
 const router = useRouter();

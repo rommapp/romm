@@ -3,8 +3,8 @@ import { onBeforeMount } from "vue";
 import { useTheme } from "vuetify";
 import axios from "axios";
 import cookie from "js-cookie";
-import { themes } from "@/styles/themes.js";
-import storeAuth from "@/stores/auth.js";
+import { themes } from "@/styles/themes";
+import storeAuth from "@/stores/auth";
 
 // Props
 const auth = storeAuth();

@@ -1,7 +1,7 @@
 <script setup>
-import useDownloadStore from "@/stores/download.js";
+import storeDownload from "@/stores/download";
 
-const downloadStore = useDownloadStore();
+const downloadStore = storeDownload();
 
 // Props
 const props = defineProps(["rom", "isHovering", "hoverProps", "size"]);

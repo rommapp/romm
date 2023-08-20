@@ -1,6 +1,6 @@
 <script setup>
-import { views } from "@/utils/utils.js";
-import storeGalleryView from "@/stores/galleryView.js";
+import { views } from "@/utils/utils";
+import storeGalleryView from "@/stores/galleryView";
 
 // Props
 const galleryView = storeGalleryView();

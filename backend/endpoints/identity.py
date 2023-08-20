@@ -20,6 +20,7 @@ class UserSchema(BaseModel):
     username: str
     disabled: bool
     role: Role
+    oauth_scopes: list[str]
 
     class Config(BaseConfig):
         orm_mode = True
