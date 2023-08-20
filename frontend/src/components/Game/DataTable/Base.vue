@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { downloadRomApi } from "@/services/api.js";
-import useDownloadStore from "@/stores/download.js";
+import { downloadRomApi } from "@/services/api";
+import storeDownload from "@/stores/download";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
@@ -10,7 +10,7 @@ import AdminMenu from "@/components/AdminMenu/Base.vue";
 const props = defineProps(["filteredRoms"]);
 const location = window.location.origin;
 const router = useRouter();
-const downloadStore = useDownloadStore();
+const downloadStore = storeDownload();
 const saveFiles = ref(false);
 const romsPerPage = ref(-1);
 const HEADERS = [

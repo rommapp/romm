@@ -1,5 +1,5 @@
 <script setup>
-import storeScanning from "@/stores/scanning.js";
+import storeScanning from "@/stores/scanning";
 import DrawerToggle from "@/components/AppBar/DrawerToggle.vue";
 
 // Props

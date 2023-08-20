@@ -1,6 +1,6 @@
 import axios from "axios";
-import useDownloadStore from "@/stores/download.js";
-import socket from "@/services/socket.js";
+import storeDownload from "@/stores/download";
+import socket from "@/services/socket";
 import router from "@/plugins/router";
 
 let api = axios.create({ baseURL: "/api", timeout: 120000 });
@@ -35,7 +35,7 @@ export async function fetchRomApi(platform, rom) {
 }
 
 function clearRomFromDownloads({ id }) {
-  const downloadStore = useDownloadStore();
+  const downloadStore = storeDownload();
   downloadStore.remove(id);
 
   // Disconnect socket when no more downloads are in progress
@@ -60,7 +60,7 @@ export async function downloadRomApi(rom, files) {
   a.click();
 
   if (!socket.connected) socket.connect();
-  useDownloadStore().add(rom.id);
+  storeDownload().add(rom.id);
 
   // Clear download state after 60 seconds in case error/timeout
   setTimeout(() => {

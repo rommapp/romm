@@ -1,5 +1,5 @@
 <script setup>
-import storePlatforms from "@/stores/platforms.js";
+import storePlatforms from "@/stores/platforms";
 import dashboardSummary from "@/views/Dashboard/Summary.vue"
 import dashboardPlatforms from "@/views/Dashboard/Platforms.vue"
 

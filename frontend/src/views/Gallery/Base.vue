@@ -1,12 +1,12 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
-import { fetchRomsApi } from "@/services/api.js";
-import socket from "@/services/socket.js";
-import { views, normalizeString } from "@/utils/utils.js";
-import storeGalleryFilter from "@/stores/galleryFilter.js";
-import storeGalleryView from "@/stores/galleryView.js";
-import storeScanning from "@/stores/scanning.js";
+import { fetchRomsApi } from "@/services/api";
+import socket from "@/services/socket";
+import { views, normalizeString } from "@/utils/utils";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
+import storeScanning from "@/stores/scanning";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
@@ -126,7 +126,7 @@ function onFilterChange() {
 
 function onScroll() {
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  scrolledToTop.value = scrollTop == 0 // Check scroll position to show fab to top
+  scrolledToTop.value = scrollTop == 0; // Check scroll position to show fab to top
 
   if (cursor.value === null && searchCursor.value === null) return;
 

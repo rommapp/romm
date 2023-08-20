@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import { useTheme } from "vuetify";
-import { themes } from "@/styles/themes.js";
+import { themes } from "@/styles/themes";
 
 // Props
 const theme = useTheme();
