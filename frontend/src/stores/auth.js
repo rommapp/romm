@@ -12,12 +12,12 @@ const FULL_SCOPES_LIST = [
 ];
 
 export default defineStore("auth", {
-  state: () => ({ enabled: false, user: null, scopes: [] }),
+  state: () => ({ enabled: false, user: null, oauth_scopes: [] }),
 
   getters: {
     scopes: (state) => {
       if (!state.enabled) return FULL_SCOPES_LIST;
-      return state.user?.scopes ?? [];
+      return state.user?.oauth_scopes ?? [];
     },
   },
 
