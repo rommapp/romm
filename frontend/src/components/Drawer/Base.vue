@@ -60,7 +60,7 @@ emitter.on("toggleDrawerRail", () => {
         />
       </v-list-group>
 
-      <v-list-group value="Library">
+      <v-list-group value="Library" v-if="auth.scopes.includes('roms.write')">
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
             <span class="text-body-1 text-truncate">{{
