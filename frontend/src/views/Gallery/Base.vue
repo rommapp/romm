@@ -1,13 +1,13 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
-import { fetchRomsApi } from "@/services/api.js";
-import socket from "@/services/socket.js";
-import { views, normalizeString, compareArrays } from "@/utils/utils.js";
-import storeGalleryFilter from "@/stores/galleryFilter.js";
-import storeGalleryView from "@/stores/galleryView.js";
+import { fetchRomsApi } from "@/services/api";
+import socket from "@/services/socket";
+import { views, normalizeString } from "@/utils/utils";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
 import useRomsStore from "@/stores/roms.js";
-import storeScanning from "@/stores/scanning.js";
+import storeScanning from "@/stores/scanning";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
@@ -34,7 +34,7 @@ const cursor = ref("");
 const searchCursor = ref("");
 const romsStore = useRomsStore();
 const openedBulkMenu = ref(false);
-const scrollOnTop = ref(true);
+const scrolledToTop = ref(true);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -133,7 +133,7 @@ function onFilterChange() {
 
 function onScroll() {
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  scrollOnTop.value = scrollTop == 0; // Check scroll position to show fab to top
+  scrolledToTop.value = scrollTop == 0; // Check scroll position to show fab to top
 
   if (cursor.value === null && searchCursor.value === null) return;
 
@@ -241,7 +241,7 @@ onBeforeRouteUpdate(async (to, _) => {
   <v-layout-item
     v-scroll="onScroll"
     class="text-end"
-    :model-value="true"
+    :model-value="!scrolledToTop"
     position="bottom"
     size="88"
   >
@@ -249,7 +249,7 @@ onBeforeRouteUpdate(async (to, _) => {
       <v-scroll-y-reverse-transition>
         <v-btn
           id="scrollToTop"
-          v-show="!scrollOnTop"
+          v-show="!scrolledToTop"
           color="primary"
           elevation="8"
           icon

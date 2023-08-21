@@ -2,8 +2,9 @@
 import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
+
 import Notification from "@/components/Notification.vue";
-import storeAuth from "@/stores/auth.js";
+import storeAuth from "@/stores/auth";
 
 // Props
 const auth = storeAuth();
@@ -14,14 +15,14 @@ const password = ref();
 const visiblePassword = ref(false);
 
 function login() {
-  const token = btoa(`${username.value}:${password.value}`);
   axios
     .post(
       "/api/login",
       {},
       {
-        headers: {
-          Authorization: `Basic ${token}`,
+        auth: {
+          username: username.value,
+          password: password.value,
         },
       }
     )
@@ -41,9 +42,9 @@ function login() {
 }
 
 onBeforeMount(async () => {
-  // Check if romm auth is enabled
+  // Check if authentication is enabled
   if (!auth.enabled) {
-    router.push("/");
+    return router.push("/");
   }
 });
 </script>

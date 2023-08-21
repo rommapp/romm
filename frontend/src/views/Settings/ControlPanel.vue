@@ -7,14 +7,20 @@ import version from "../../../package";
 
 // Props
 const auth = storeAuth();
-const tab = ref(auth?.user ? "users" : "ui");
+const tab = ref(auth.scopes.includes("users.read") ? "users" : "ui");
 const ROMM_VERSION = version.version;
 </script>
 <template>
   <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
-      <v-tab v-if="auth?.user" value="users" rounded="0">Users</v-tab>
+      <v-tab
+        :disabled="!auth.scopes.includes('users.read')"
+        value="users"
+        rounded="0"
+      >
+        Users
+      </v-tab>
       <v-tab value="ui" rounded="0">User Interface</v-tab>
     </v-tabs>
   </v-app-bar>

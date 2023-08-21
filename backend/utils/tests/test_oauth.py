@@ -1,5 +1,5 @@
 import pytest
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 
 from handler import dbh
@@ -66,7 +66,9 @@ def test_protected_route():
     router = APIRouter()
 
     @protected_route(router.get, "/test")
-    def test_route():
+    def test_route(request: Request):
         return {"test": "test"}
+    
+    req = Request({"type": "http", "method": "GET", "url": "/test"})
 
-    assert test_route() == {"test": "test"}
+    assert test_route(req) == {"test": "test"}

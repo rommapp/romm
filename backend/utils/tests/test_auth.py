@@ -70,7 +70,7 @@ async def test_get_current_active_user_from_session_bad_username(editor_user):
     try:
         await get_current_active_user_from_session(conn)
     except HTTPException as e:
-        assert e.status_code == 404
+        assert e.status_code == 403
         assert e.detail == "User not found"
 
 

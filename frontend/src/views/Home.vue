@@ -1,10 +1,10 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
-import { fetchPlatformsApi, fetchCurrentUserApi } from "@/services/api.js";
-import storePlatforms from "@/stores/platforms.js";
-import storeScanning from "@/stores/scanning.js";
-import storeAuth from "@/stores/auth.js";
+import { fetchPlatformsApi, fetchCurrentUserApi } from "@/services/api";
+import storePlatforms from "@/stores/platforms";
+import storeScanning from "@/stores/scanning";
+import storeAuth from "@/stores/auth";
 import Drawer from "@/components/Drawer/Base.vue";
 import AppBar from "@/components/AppBar/Base.vue";
 import Notification from "@/components/Notification.vue";

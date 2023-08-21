@@ -1,6 +1,5 @@
 import emoji
 from fastapi import APIRouter, Request
-from starlette.authentication import requires
 
 from logger.logger import log
 from handler import igdbh
@@ -10,7 +9,6 @@ router = APIRouter()
 
 
 @protected_route(router.put, "/search/roms/igdb", ["roms.read"])
-@requires(["roms.read"])
 async def search_rom_igdb(
     request: Request, search_term: str = "", search_by: str = ""
 ) -> dict:

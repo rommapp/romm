@@ -5,6 +5,7 @@ from fastapi import HTTPException, status, Security
 from fastapi.param_functions import Form
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 from fastapi.types import DecoratedCallable
+from starlette.authentication import requires
 
 from config import ROMM_AUTH_SECRET_KEY
 
@@ -112,13 +113,17 @@ def protected_route(
     scopes: list[str] = [],
     **kwargs,
 ):
-    return method(
-        path,
-        dependencies=[
-            Security(
-                dependency=oauth2_password_bearer,
-                scopes=scopes,
-            ),
-        ],
-        **kwargs,
-    )
+    def decorator(func: DecoratedCallable):
+        fn = requires(scopes)(func)
+        return method(
+            path,
+            dependencies=[
+                Security(
+                    dependency=oauth2_password_bearer,
+                    scopes=scopes,
+                ),
+            ],
+            **kwargs,
+        )(fn)
+
+    return decorator
