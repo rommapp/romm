@@ -1,52 +1,44 @@
 <script setup>
+import { ref } from "vue";
+import useRomsStore from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
 
 // Props
 const props = defineProps(["rom"]);
+const romsStore = useRomsStore();
+const selected = ref(romsStore.selected.includes(props.rom.id));
+function selectRom() {
+  selected.value = !selected.value;
+}
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props }">
-    <v-item v-slot="{ isSelected, toggle }">
-      <v-card
-        v-bind="props"
-        class="rom-card"
-        :class="{ 'on-hover': isHovering, 'rom-selected': isSelected }"
-        :elevation="isHovering ? 20 : 3"
-        @click="toggle"
-      >
-        <v-hover v-slot="{ isHovering, props }" open-delay="800">
-          <v-icon style="bottom: 3.1rem; right: 0.6rem" class="position-absolute checkbox" :class="{ 'checkbox-selected': isSelected }" >{{ isSelected ? 'mdi-circle-slice-8' : 'mdi-circle-outline' }}</v-icon>
-          <cover :rom="rom" :isHovering="isHovering" :hoverProps="props" />
-          <action-bar :rom="rom" />
-        </v-hover>
-      </v-card>
-    </v-item>
+    <v-card
+      v-bind="props"
+      class="rom-card"
+      :class="{ 'on-hover': isHovering, 'rom-selected': selected }"
+      :elevation="isHovering ? 20 : 3"
+    >
+      <v-hover v-slot="{ isHovering, props }" open-delay="800">
+        
+        <cover :rom="rom" :isHovering="isHovering" :hoverProps="props" :selected="selected" @selectRom="selectRom()"/>
+        <action-bar :rom="rom" />
+      </v-hover>
+    </v-card>
   </v-hover>
 </template>
 
 <style scoped lang="scss">
-.checkbox{
-  z-index: 1000 !important;
-}
-.checkbox.checkbox-selected{
-  bottom: 2.9rem !important;
-  right: 0.4rem !important;
+.v-card {
+  opacity: 0.85;
+  border: 3px solid rgba(var(--v-theme-primary));
 }
 .v-card.on-hover {
   opacity: 1;
 }
-.v-card:not(.on-hover) {
-  opacity: 0.85;
-}
-
-.rom-card.rom-selected {
+.v-card.rom-selected {
   border: 3px solid rgba(var(--v-theme-romm-accent-2));
-  padding: 0;
-}
-
-.rom-card:not(.rom-selected) {
-  padding: 3px;
 }
 </style>

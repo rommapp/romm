@@ -4,7 +4,19 @@ import useDownloadStore from "@/stores/download.js";
 const downloadStore = useDownloadStore();
 
 // Props
-const props = defineProps(["rom", "isHovering", "hoverProps", "size"]);
+const props = defineProps([
+  "rom",
+  "isHovering",
+  "hoverProps",
+  "size",
+  "selected",
+]);
+
+const emit = defineEmits(["selectRom"]);
+const selectRom = () => {
+  console.log("ASDASD");
+  emit("selectRom");
+};
 </script>
 
 <template>
@@ -48,16 +60,26 @@ const props = defineProps(["rom", "isHovering", "hoverProps", "size"]);
           {{ rom.revision }}
         </v-chip>
       </v-chip-group>
+      <v-icon
+        @click.prevent="selectRom"
+        size="small"
+        class="position-absolute checkbox"
+        :class="{ 'checkbox-selected': selected }"
+        >{{ selected ? "mdi-circle-slice-8" : "mdi-circle-outline" }}</v-icon
+      >
     </v-img>
   </router-link>
 </template>
 
 <style scoped>
+.rom-title {
+  opacity: 0.85;
+}
 .rom-title.on-hover {
   opacity: 1;
 }
-
-.rom-title:not(.on-hover) {
-  opacity: 0.85;
+.checkbox{
+  bottom: 0.2rem; 
+  right: 0.2rem;
 }
 </style>

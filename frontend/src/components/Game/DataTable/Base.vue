@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
+import useRomsStore from "@/stores/roms.js";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
@@ -11,6 +12,7 @@ const props = defineProps(["filteredRoms"]);
 const location = window.location.origin;
 const router = useRouter();
 const downloadStore = useDownloadStore();
+const romsStore = useRomsStore();
 const saveFiles = ref(false);
 const romsPerPage = ref(-1);
 const HEADERS = [
@@ -55,6 +57,7 @@ const HEADERS = [
 const PER_PAGE_OPTIONS = [
   { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
 ];
+const selectedRoms = ref([]);
 
 function rowClick(_, row) {
   router.push(
@@ -72,6 +75,9 @@ function rowClick(_, row) {
     item-value="id"
     :items="filteredRoms"
     @click:row="rowClick"
+    show-select
+    v-model="selectedRoms"
+    :update:modelValue="romsStore.updateSelectedRoms(selectedRoms)"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
