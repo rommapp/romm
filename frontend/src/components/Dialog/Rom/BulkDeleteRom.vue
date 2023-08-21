@@ -2,26 +2,27 @@
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
 import { deleteRomsApi } from "@/services/api.js";
+import useRomsStore from "@/stores/roms.js";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const roms = ref([]);
+const romsStore = useRomsStore();
 const deleteFromFs = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showBulkDeleteRomDialog", (romsToDelete) => {
-  roms.value = romsToDelete;
+emitter.on("showBulkDeleteRomDialog", () => {
   show.value = true;
 });
 
 async function deleteRoms() {
-  await deleteRomsApi(roms.value, deleteFromFs.value)
+  await deleteRomsApi(romsStore.selected, deleteFromFs.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
+      romsStore.updateSelectedRoms([]);
     })
     .catch((error) => {
       console.log(error);
@@ -81,7 +82,9 @@ async function deleteRoms() {
       <v-card-text class="scroll bg-terciary py-0">
         <v-row class="justify-center pa-2" no-gutters>
           <v-list class="bg-terciary py-0">
-            <v-list-item v-for="rom in roms" class="justify-center bg-terciary"
+            <v-list-item
+              v-for="rom in romsStore.selected"
+              class="justify-center bg-terciary"
               >{{ rom.r_name }} - [
               <span class="text-romm-accent-1">{{ rom.file_name }}</span>
               ]</v-list-item

@@ -17,9 +17,12 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import BulkDeleteRomDialog from "@/components/Dialog/Rom/BulkDeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import storeAuth from "@/stores/auth.js";
+
 
 // Props
 const route = useRoute();
+const auth = storeAuth();
 const roms = ref([]);
 const searchRoms = ref([]);
 const filteredRoms = ref([]);
@@ -245,6 +248,7 @@ onBeforeRouteUpdate(async (to, _) => {
     <div class="ma-4">
       <v-scroll-y-reverse-transition>
         <v-btn
+          id="scrollToTop"
           v-show="!scrollOnTop"
           color="primary"
           elevation="8"
@@ -252,7 +256,8 @@ onBeforeRouteUpdate(async (to, _) => {
           class="mr-2"
           size="large"
           @click="toTop"
-        ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn>
+          ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn
+        >
       </v-scroll-y-reverse-transition>
       <v-menu
         location="top"
@@ -318,5 +323,8 @@ onBeforeRouteUpdate(async (to, _) => {
 .game-card.game-selected {
   border: 2px solid rgba(var(--v-theme-romm-accent-2));
   padding: 0;
+}
+#scrollToTop {
+  border: 1px solid rgba(var(--v-theme-romm-accent-2));
 }
 </style>
