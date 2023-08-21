@@ -2,12 +2,14 @@
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api";
+import { compareArrays } from "@/utils/utils";
 import socket from "@/services/socket";
 import { views, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-import useRomsStore from "@/stores/roms.js";
+import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
+import storeAuth from "@/stores/auth";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
@@ -17,7 +19,6 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import BulkDeleteRomDialog from "@/components/Dialog/Rom/BulkDeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import storeAuth from "@/stores/auth.js";
 
 
 // Props
@@ -32,7 +33,7 @@ const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
-const romsStore = useRomsStore();
+const romsStore = storeRoms();
 const openedBulkMenu = ref(false);
 const scrolledToTop = ref(true);
 
@@ -241,7 +242,7 @@ onBeforeRouteUpdate(async (to, _) => {
   <v-layout-item
     v-scroll="onScroll"
     class="text-end"
-    :model-value="!scrolledToTop"
+    :model-value="true"
     position="bottom"
     size="88"
   >
