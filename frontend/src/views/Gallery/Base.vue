@@ -6,6 +6,7 @@ import socket from "@/services/socket.js";
 import { views, normalizeString } from "@/utils/utils.js";
 import storeGalleryFilter from "@/stores/galleryFilter.js";
 import storeGalleryView from "@/stores/galleryView.js";
+import useRomsStore from "@/stores/roms.js";
 import storeScanning from "@/stores/scanning.js";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
@@ -27,8 +28,9 @@ const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
+const romsStore = useRomsStore();
+const openedBulkMenu = ref(false);
 const scrollOnTop = ref(true);
-const selectedRoms = ref([]);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -177,29 +179,27 @@ onBeforeRouteUpdate(async (to, _) => {
   </v-app-bar>
 
   <template v-if="filteredRoms.length > 0">
-    <v-item-group v-model="selectedRoms" multiple>
-      <v-row no-gutters v-scroll="onScroll">
-        <!-- Gallery cards view -->
-        <v-col
-          v-show="galleryView.value != 2"
-          v-for="rom in filteredRoms"
-          class="pa-1"
-          :key="rom.id"
-          :cols="views[galleryView.value]['size-cols']"
-          :xs="views[galleryView.value]['size-xs']"
-          :sm="views[galleryView.value]['size-sm']"
-          :md="views[galleryView.value]['size-md']"
-          :lg="views[galleryView.value]['size-lg']"
-        >
-          <game-card :rom="rom" />
-        </v-col>
+    <v-row no-gutters v-scroll="onScroll">
+      <!-- Gallery cards view -->
+      <v-col
+        v-show="galleryView.value != 2"
+        v-for="rom in filteredRoms"
+        class="pa-1"
+        :key="rom.id"
+        :cols="views[galleryView.value]['size-cols']"
+        :xs="views[galleryView.value]['size-xs']"
+        :sm="views[galleryView.value]['size-sm']"
+        :md="views[galleryView.value]['size-md']"
+        :lg="views[galleryView.value]['size-lg']"
+      >
+        <game-card :rom="rom" />
+      </v-col>
 
-        <!-- Gallery list view -->
-        <v-col v-show="galleryView.value == 2">
-          <game-data-table :filteredRoms="filteredRoms" />
-        </v-col>
-      </v-row>
-    </v-item-group>
+      <!-- Gallery list view -->
+      <v-col v-show="galleryView.value == 2">
+        <game-data-table :filteredRoms="filteredRoms" />
+      </v-col>
+    </v-row>
   </template>
 
   <!-- Empty gallery message -->
@@ -216,21 +216,55 @@ onBeforeRouteUpdate(async (to, _) => {
   <v-layout-item
     v-scroll="onScroll"
     class="text-end"
-    :model-value="!scrollOnTop"
+    :model-value="true"
     position="bottom"
     size="88"
   >
     <div class="ma-4">
-      <v-fab-transition>
+      <v-scroll-y-reverse-transition>
         <v-btn
-          v-show="true"
-          color="terciary"
+          v-show="!scrollOnTop"
+          color="primary"
           elevation="8"
           icon="mdi-chevron-up"
+          class="mr-2"
           size="large"
           @click="toTop"
         />
-      </v-fab-transition>
+      </v-scroll-y-reverse-transition>
+      <v-menu
+        location="top"
+        v-model="openedBulkMenu"
+        :transition="
+          openedBulkMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
+        "
+      >
+        <template v-slot:activator="{ props }">
+          <v-fab-transition>
+            <v-btn
+              v-show="romsStore.selected.length > 0"
+              color="romm-accent-1"
+              v-bind="props"
+              elevation="8"
+              icon
+              size="large"
+              @click=""
+              >{{ romsStore.selected.length }}</v-btn
+            >
+          </v-fab-transition>
+        </template>
+
+        <v-btn
+          v-show="romsStore.selected.length > 0"
+          color="terciary"
+          elevation="8"
+          icon="mdi-delete"
+          size="large"
+          class="mb-2"
+          @click=""
+          ><v-icon color="romm-red">mdi-delete</v-icon></v-btn
+        >
+      </v-menu>
     </div>
   </v-layout-item>
 
