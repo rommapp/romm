@@ -199,3 +199,39 @@ def delete_rom(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     return {"msg": f"{rom.file_name} deleted successfully!"}
+
+
+@router.delete("/platforms/{p_slug}/roms", status_code=200)
+async def bulk_delete_roms(
+    req: Request,
+    p_slug: str,
+    filesystem: bool = False,
+) -> dict:
+    """Detele roms from database [and filesystem]"""
+
+    data: dict = await req.json()
+    roms_ids: list = data["roms"]
+
+    for rom_id in roms_ids:
+        rom = dbh.get_rom(rom_id)
+        if not rom:
+            error = f"Rom with id {rom_id} not found"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+        log.info(f"Deleting {rom.file_name} from database")
+        dbh.delete_rom(rom.id)
+
+        if filesystem:
+            log.info(f"Deleting {rom.file_name} from filesystem")
+            try:
+                platform: Platform = dbh.get_platform(p_slug)
+                fs.remove_rom(platform.fs_slug, rom.file_name)
+            except RomNotFoundError as e:
+                error = f"Couldn't delete from filesystem: {str(e)}"
+                log.error(error)
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    dbh.update_n_roms(p_slug)
+
+    return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
