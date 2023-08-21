@@ -248,11 +248,11 @@ onBeforeRouteUpdate(async (to, _) => {
           v-show="!scrollOnTop"
           color="primary"
           elevation="8"
-          icon="mdi-chevron-up"
+          icon
           class="mr-2"
           size="large"
           @click="toTop"
-        />
+        ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn>
       </v-scroll-y-reverse-transition>
       <v-menu
         location="top"
