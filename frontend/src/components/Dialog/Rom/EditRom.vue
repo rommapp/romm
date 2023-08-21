@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
-import { updateRomApi } from "@/services/api.js";
+import { updateRomApi } from "@/services/api";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);

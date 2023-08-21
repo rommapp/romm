@@ -2,8 +2,9 @@
 import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { fetchRomApi, downloadRomApi } from "@/services/api.js";
-import useDownloadStore from "@/stores/download.js";
+import { fetchRomApi, downloadRomApi } from "@/services/api";
+import storeDownload from "@/stores/download";
+import storeAuth from "@/stores/auth";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -13,7 +14,8 @@ import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const route = useRoute();
-const downloadStore = useDownloadStore();
+const downloadStore = storeDownload();
+const auth = storeAuth();
 const rom = ref();
 const updatedRom = ref();
 const saveFiles = ref(false);
@@ -124,7 +126,7 @@ onBeforeMount(async () => {
           <v-col class="pa-0">
             <v-menu location="bottom">
               <template v-slot:activator="{ props }">
-                <v-btn v-bind="props" rounded="0" block>
+                <v-btn :disabled="!auth.scopes.includes('roms.write')" v-bind="props" rounded="0" block>
                   <v-icon icon="mdi-dots-vertical" size="large" />
                 </v-btn>
               </template>

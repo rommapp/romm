@@ -1,7 +1,7 @@
 <script setup>
-import { views } from "@/utils/utils.js";
+import { views } from "@/utils/utils";
 import PlatformCard from "@/components/Platform/PlatformCard.vue";
-import storePlatforms from "@/stores/platforms.js";
+import storePlatforms from "@/stores/platforms";
 
 // Props
 const platforms = storePlatforms();

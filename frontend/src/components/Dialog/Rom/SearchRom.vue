@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
-import { updateRomApi, searchRomIGDBApi } from "@/services/api.js";
+import { updateRomApi, searchRomIGDBApi } from "@/services/api";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
                   >IGDB</v-chip
                 >
               </v-item>
-              <!-- TODO: Ready item group to scrap from different sources -->
+              <!-- TODO: Ready item group to scrape from different sources -->
               <!-- <v-item v-slot="{ isSelected, toggle }" disabled>
                 <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'rommGray'" variant="outlined" label @click="toggle"
                   >ScreenScraper</v-chip

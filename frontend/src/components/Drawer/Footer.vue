@@ -3,7 +3,7 @@ import { inject } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 
-import storeAuth from "@/stores/auth.js";
+import storeAuth from "@/stores/auth";
 
 const props = defineProps(["rail"]);
 const router = useRouter();
@@ -21,8 +21,10 @@ async function logout() {
       });
       router.push("/login");
     })
-    .catch(({ message }) => {
+    .catch(() => {
       router.push("/login");
+    }).finally(() => {
+      auth.setUser(null);
     });
 }
 </script>

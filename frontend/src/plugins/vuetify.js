@@ -7,7 +7,7 @@
 // Styles
 import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
-import { rommDark, rommLight } from "@/styles/themes.js";
+import { rommDark, rommLight } from "@/styles/themes";
 
 // Composables
 import { createVuetify } from "vuetify";
