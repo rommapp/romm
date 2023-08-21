@@ -21,11 +21,13 @@ function selectRom() {
       :class="{ 'on-hover': isHovering, 'rom-selected': selected }"
       :elevation="isHovering ? 20 : 3"
     >
-      <v-hover v-slot="{ isHovering, props }" open-delay="800">
-        
-        <cover :rom="rom" :isHovering="isHovering" :hoverProps="props" :selected="selected" @selectRom="selectRom()"/>
-        <action-bar :rom="rom" />
-      </v-hover>
+      <cover
+        :rom="rom"
+        :isHoveringTop="isHovering"
+        :selected="selected"
+        @selectRom="selectRom()"
+      />
+      <action-bar :rom="rom" />
     </v-card>
   </v-hover>
 </template>
