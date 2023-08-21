@@ -3,7 +3,7 @@ import { ref, inject, onMounted } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api.js";
 import socket from "@/services/socket.js";
-import { views, normalizeString } from "@/utils/utils.js";
+import { views, normalizeString, compareArrays } from "@/utils/utils.js";
 import storeGalleryFilter from "@/stores/galleryFilter.js";
 import storeGalleryView from "@/stores/galleryView.js";
 import useRomsStore from "@/stores/roms.js";
@@ -151,6 +151,21 @@ function toTop() {
   });
 }
 
+function selectAllRoms() {
+  if (
+    compareArrays(
+      filteredRoms.value.map((value) => value.id),
+      romsStore.selected
+    )
+  ) {
+    romsStore.updateSelectedRoms([]);
+    openedBulkMenu.value = false;
+  } else {
+    romsStore.updateSelectedRoms(filteredRoms.value.map((value) => value.id));
+  }
+  emitter.emit("refreshSelected");
+}
+
 onMounted(async () => {
   fetchRoms(route.params.platform);
 });
@@ -255,10 +270,25 @@ onBeforeRouteUpdate(async (to, _) => {
         </template>
 
         <v-btn
-          v-show="romsStore.selected.length > 0"
           color="terciary"
           elevation="8"
-          icon="mdi-delete"
+          :icon="
+            compareArrays(
+              filteredRoms.map((value) => value.id),
+              romsStore.selected
+            )
+              ? 'mdi-select'
+              : 'mdi-select-all'
+          "
+          size="large"
+          class="mb-2"
+          @click.stop="selectAllRoms"
+        />
+
+        <v-btn
+          color="terciary"
+          elevation="8"
+          icon
           size="large"
           class="mb-2"
           @click=""
