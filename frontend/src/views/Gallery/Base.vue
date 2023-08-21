@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api.js";
 import socket from "@/services/socket.js";
@@ -15,6 +15,7 @@ import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import BulkDeleteRomDialog from "@/components/Dialog/Rom/BulkDeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
@@ -154,20 +155,26 @@ function toTop() {
 function selectAllRoms() {
   if (
     compareArrays(
-      filteredRoms.value.map((value) => value.id),
-      romsStore.selected
+      filteredRoms.value.map((rom) => rom.id),
+      romsStore.selected.map((rom) => rom.id)
     )
   ) {
     romsStore.updateSelectedRoms([]);
     openedBulkMenu.value = false;
   } else {
-    romsStore.updateSelectedRoms(filteredRoms.value.map((value) => value.id));
+    romsStore.updateSelectedRoms(filteredRoms.value);
   }
   emitter.emit("refreshSelected");
 }
 
 onMounted(async () => {
   fetchRoms(route.params.platform);
+});
+
+onBeforeUnmount(() => {
+  socket.off("scan:scanning_rom");
+  socket.off("scan:done");
+  socket.off("scan:done_ko");
 });
 
 onBeforeRouteUpdate(async (to, _) => {
@@ -263,7 +270,6 @@ onBeforeRouteUpdate(async (to, _) => {
               elevation="8"
               icon
               size="large"
-              @click=""
               >{{ romsStore.selected.length }}</v-btn
             >
           </v-fab-transition>
@@ -274,8 +280,8 @@ onBeforeRouteUpdate(async (to, _) => {
           elevation="8"
           :icon="
             compareArrays(
-              filteredRoms.map((value) => value.id),
-              romsStore.selected
+              filteredRoms.map((rom) => rom.id),
+              romsStore.selected.map((rom) => rom.id)
             )
               ? 'mdi-select'
               : 'mdi-select-all'
@@ -291,7 +297,7 @@ onBeforeRouteUpdate(async (to, _) => {
           icon
           size="large"
           class="mb-2"
-          @click=""
+          @click="emitter.emit('showBulkDeleteRomDialog', romsStore.selected)"
           ><v-icon color="romm-red">mdi-delete</v-icon></v-btn
         >
       </v-menu>
@@ -301,6 +307,7 @@ onBeforeRouteUpdate(async (to, _) => {
   <search-rom-dialog />
   <edit-rom-dialog />
   <delete-rom-dialog />
+  <bulk-delete-rom-dialog />
   <loading-dialog />
 </template>
 
