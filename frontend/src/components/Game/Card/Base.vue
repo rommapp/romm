@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import useRomsStore from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
@@ -7,10 +7,20 @@ import Cover from "@/components/Game/Card/Cover.vue";
 // Props
 const props = defineProps(["rom"]);
 const romsStore = useRomsStore();
-const selected = ref(romsStore.selected.includes(props.rom.id));
+const selected = ref();
 function selectRom() {
   selected.value = !selected.value;
+  if (selected.value) {
+    romsStore.addSelectedRoms(props.rom.id);
+  } else {
+    romsStore.removeSelectedRoms(props.rom.id);
+  }
 }
+
+const emitter = inject("emitter");
+emitter.on("refreshSelected", () => {
+  selected.value = romsStore.selected.includes(props.rom.id);
+});
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { downloadRomApi } from "@/services/api.js";
 import useDownloadStore from "@/stores/download.js";
@@ -8,6 +8,7 @@ import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
 // Props
+const emitter = inject("emitter");
 const props = defineProps(["filteredRoms"]);
 const location = window.location.origin;
 const router = useRouter();
@@ -57,7 +58,6 @@ const HEADERS = [
 const PER_PAGE_OPTIONS = [
   { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
 ];
-const selectedRoms = ref([]);
 
 function rowClick(_, row) {
   router.push(
@@ -76,8 +76,8 @@ function rowClick(_, row) {
     :items="filteredRoms"
     @click:row="rowClick"
     show-select
-    v-model="selectedRoms"
-    :update:modelValue="romsStore.updateSelectedRoms(selectedRoms)"
+    v-model="romsStore.selected"
+    @update:model-value="emitter.emit('refreshSelected')"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
