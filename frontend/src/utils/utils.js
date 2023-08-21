@@ -34,3 +34,7 @@ export function normalizeString(s) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
+
+export const compareArrays = (a, b) =>
+  a.length === b.length &&
+  a.every((element, index) => element === b[index]);
