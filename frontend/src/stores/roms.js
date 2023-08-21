@@ -12,7 +12,7 @@ export default defineStore("roms", {
     },
     removeSelectedRoms(rom) {
       this.selected = this.selected.filter(function (value) {
-        return value != rom;
+        return value.id != rom.id;
       });
     },
   },

@@ -11,15 +11,17 @@ const selected = ref();
 function selectRom() {
   selected.value = !selected.value;
   if (selected.value) {
-    romsStore.addSelectedRoms(props.rom.id);
+    romsStore.addSelectedRoms(props.rom);
   } else {
-    romsStore.removeSelectedRoms(props.rom.id);
+    romsStore.removeSelectedRoms(props.rom);
   }
 }
 
 const emitter = inject("emitter");
 emitter.on("refreshSelected", () => {
-  selected.value = romsStore.selected.includes(props.rom.id);
+  selected.value = romsStore.selected
+    .map((rom) => rom.id)
+    .includes(props.rom.id);
 });
 </script>
 

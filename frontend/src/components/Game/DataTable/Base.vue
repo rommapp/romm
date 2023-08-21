@@ -72,7 +72,7 @@ function rowClick(_, row) {
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
     :headers="HEADERS"
-    item-value="id"
+    :item-value="item => item"
     :items="filteredRoms"
     @click:row="rowClick"
     show-select
