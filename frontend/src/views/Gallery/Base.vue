@@ -177,28 +177,28 @@ onBeforeRouteUpdate(async (to, _) => {
   </v-app-bar>
 
   <template v-if="filteredRoms.length > 0">
-    <!-- Gallery cards view -->
     <v-item-group v-model="selectedRoms" multiple>
-        <v-row no-gutters v-scroll="onScroll">
-          <v-col
-            v-show="galleryView.value != 2"
-            v-for="rom in filteredRoms"
-            class="pa-1"
-            :key="rom.id"
-            :cols="views[galleryView.value]['size-cols']"
-            :xs="views[galleryView.value]['size-xs']"
-            :sm="views[galleryView.value]['size-sm']"
-            :md="views[galleryView.value]['size-md']"
-            :lg="views[galleryView.value]['size-lg']"
-          >
-            <game-card :rom="rom" />
-          </v-col>
+      <v-row no-gutters v-scroll="onScroll">
+        <!-- Gallery cards view -->
+        <v-col
+          v-show="galleryView.value != 2"
+          v-for="rom in filteredRoms"
+          class="pa-1"
+          :key="rom.id"
+          :cols="views[galleryView.value]['size-cols']"
+          :xs="views[galleryView.value]['size-xs']"
+          :sm="views[galleryView.value]['size-sm']"
+          :md="views[galleryView.value]['size-md']"
+          :lg="views[galleryView.value]['size-lg']"
+        >
+          <game-card :rom="rom" />
+        </v-col>
 
-          <!-- Gallery list view -->
-          <v-col v-show="galleryView.value == 2">
-            <game-data-table :filteredRoms="filteredRoms" />
-          </v-col>
-        </v-row>
+        <!-- Gallery list view -->
+        <v-col v-show="galleryView.value == 2">
+          <game-data-table :filteredRoms="filteredRoms" />
+        </v-col>
+      </v-row>
     </v-item-group>
   </template>
 
