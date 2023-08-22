@@ -46,7 +46,14 @@ function selectAllRoms() {
     @click.stop="selectAllRoms"
   />
 
-  <v-btn color="terciary" elevation="8" icon size="large" class="mb-2" @click=""
+  <v-btn
+    v-if="auth.scopes.includes('roms.write')"
+    color="terciary"
+    elevation="8"
+    icon
+    size="large"
+    class="mb-2"
+    @click=""
     ><v-icon>mdi-magnify-scan</v-icon></v-btn
   >
 
