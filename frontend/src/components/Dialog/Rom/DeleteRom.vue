@@ -2,11 +2,13 @@
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { deleteRomsApi } from "@/services/api.js";
+import { deleteRomsApi } from "@/services/api";
+import romsStore from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
+const storeRoms = romsStore();
 const roms = ref();
 const deleteFromFs = ref(false);
 
@@ -24,6 +26,7 @@ async function deleteRoms() {
         icon: "mdi-check-bold",
         color: "green",
       });
+      storeRoms.updateSelectedRoms([]);
     })
     .catch((error) => {
       console.log(error);
