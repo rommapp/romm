@@ -32,8 +32,7 @@ function selectAllRoms() {
         ? 'mdi-select'
         : 'mdi-select-all'
     "
-    size="large"
-    class="mb-2"
+    class="mb-2 ml-1"
     @click.stop="selectAllRoms"
   />
 
@@ -42,13 +41,12 @@ function selectAllRoms() {
     color="terciary"
     elevation="8"
     icon
-    size="large"
-    class="mb-2"
+    class="mb-2 ml-1"
     @click=""
     ><v-icon>mdi-magnify-scan</v-icon></v-btn
   >
 
-  <v-btn color="terciary" elevation="8" icon size="large" class="mb-2" @click=""
+  <v-btn color="terciary" elevation="8" icon class="mb-2 ml-1" @click=""
     ><v-icon>mdi-download</v-icon></v-btn
   >
 
@@ -57,8 +55,7 @@ function selectAllRoms() {
     color="terciary"
     elevation="8"
     icon
-    size="large"
-    class="mb-3"
+    class="mb-3 ml-1"
     @click="emitter.emit('showDeleteRomDialog', romsStore.selected)"
     ><v-icon color="romm-red">mdi-delete</v-icon></v-btn
   >
