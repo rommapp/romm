@@ -2,22 +2,22 @@
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { deleteRomApi } from "@/services/api";
+import { deleteRomsApi } from "@/services/api.js";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
-const rom = ref();
+const roms = ref();
 const deleteFromFs = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showDeleteRomDialog", (romToDelete) => {
-  rom.value = romToDelete;
+emitter.on("showDeleteRomDialog", (romsToDelete) => {
+  roms.value = romsToDelete;
   show.value = true;
 });
 
-async function deleteRom() {
-  await deleteRomApi(rom.value, deleteFromFs.value)
+async function deleteRoms() {
+  await deleteRomsApi(roms.value, deleteFromFs.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
@@ -36,7 +36,7 @@ async function deleteRom() {
     });
   await router.push({
     name: "platform",
-    params: { platform: rom.value.p_slug },
+    params: { platform: roms.value[0].p_slug },
   });
   emitter.emit("refreshView");
   emitter.emit("refreshDrawer");
@@ -79,16 +79,28 @@ async function deleteRom() {
         </v-row>
       </v-toolbar>
       <v-divider class="border-opacity-25" :thickness="1" />
-
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <span class="mr-1">Deleting</span>
-          <span class="text-romm-accent-1">{{ rom.file_name }}</span
-          >.<span class="ml-1">Do you confirm?</span>
+          <span>Deleting the following games. Do you confirm?</span>
         </v-row>
+      </v-card-text>
+      <v-card-text class="scroll bg-terciary py-0">
+        <v-row class="justify-center pa-2" no-gutters>
+          <v-list class="bg-terciary py-0">
+            <v-list-item
+              v-for="rom in roms"
+              class="justify-center bg-terciary"
+              >{{ rom.r_name }} - [
+              <span class="text-romm-accent-1">{{ rom.file_name }}</span>
+              ]</v-list-item
+            >
+          </v-list>
+        </v-row>
+      </v-card-text>
+      <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn @click="deleteRom()" class="text-romm-red bg-terciary ml-5"
+          <v-btn @click="deleteRoms()" class="text-romm-red bg-terciary ml-5"
             >Confirm</v-btn
           >
         </v-row>
@@ -110,13 +122,19 @@ async function deleteRom() {
 <style scoped>
 .delete-content {
   width: 900px;
+  max-height: 600px;
 }
 
 .delete-content-tablet {
   width: 570px;
+  max-height: 600px;
 }
 
 .delete-content-mobile {
   width: 85vw;
+  max-height: 600px;
+}
+.scroll {
+  overflow-y: scroll;
 }
 </style>
