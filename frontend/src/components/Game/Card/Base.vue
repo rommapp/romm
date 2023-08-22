@@ -5,16 +5,20 @@ import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
 
 // Props
-const props = defineProps(["rom"]);
+const props = defineProps(["rom", "index"]);
+const emit = defineEmits(["selectRom"]);
 const romsStore = useRomsStore();
 const selected = ref();
-function selectRom() {
+
+// Functions
+function selectRom(event) {
   selected.value = !selected.value;
   if (selected.value) {
     romsStore.addSelectedRoms(props.rom);
   } else {
     romsStore.removeSelectedRoms(props.rom);
   }
+  emit("selectRom", event, props.index, selected.value);
 }
 
 const emitter = inject("emitter");
@@ -37,7 +41,7 @@ emitter.on("refreshSelected", () => {
         :rom="rom"
         :isHoveringTop="isHovering"
         :selected="selected"
-        @selectRom="selectRom()"
+        @selectRom="selectRom"
       />
       <action-bar :rom="rom" />
     </v-card>
