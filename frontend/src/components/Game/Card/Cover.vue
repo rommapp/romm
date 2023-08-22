@@ -1,21 +1,39 @@
 <script setup>
 import storeDownload from "@/stores/download";
+import storeRoms from "@/stores/roms";
 
 const downloadStore = storeDownload();
+const romsStore = storeRoms();
 
 // Props
 const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
 
 const emit = defineEmits(["selectRom"]);
-const selectRom = () => {
-  emit("selectRom");
-};
+function selectRom(event) {
+  if (!event.ctrlKey) {
+    event.preventDefault();
+    emit("selectRom");
+  }
+}
+
+function onNavigate(event) {
+  if (event.ctrlKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    emit("selectRom");
+  }
+}
 </script>
 
 <template>
   <router-link
     style="text-decoration: none; color: inherit"
-    :to="`/platform/${$route.params.platform}/${rom.id}`"
+    :to="
+      romsStore.length > 0
+        ? `#`
+        : `/platform/${$route.params.platform}/${rom.id}`
+    "
+    @click="onNavigate"
   >
     <v-progress-linear
       color="romm-accent-1"
@@ -60,7 +78,7 @@ const selectRom = () => {
         </v-chip-group>
         <v-icon
           v-show="isHoveringTop"
-          @click.prevent="selectRom"
+          @click="selectRom"
           size="small"
           class="position-absolute checkbox"
           :class="{ 'checkbox-selected': selected }"

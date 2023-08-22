@@ -155,6 +155,37 @@ function toTop() {
   });
 }
 
+function toggleRomSelected(event, rom) {
+  const isSelected = selectedRoms.value.includes(rom);
+
+  if (event.shiftKey && lastSelectedRom.value) {
+    const [startIndex, endIndex] = [
+      filteredRoms.value.indexOf(lastSelectedRom.value),
+      filteredRoms.value.indexOf(rom),
+    ].sort((a, b) => a - b);
+
+    for (let i = startIndex; i <= endIndex; i++) {
+      const currentRom = filteredRoms.value[i];
+      if (!selectedRoms.value.includes(currentRom)) {
+        selectedRoms.value.push(currentRom);
+      } else if (isSelected) {
+        selectedRoms.value.splice(selectedRoms.value.indexOf(currentRom), 1);
+      }
+
+      if (i === endIndex) {
+        lastSelectedRom.value = currentRom;
+      }
+    }
+  } else if (!isSelected) {
+    selectedRoms.value.push(rom);
+
+    // Allows to select multiple roms with shift key
+    lastSelectedRom.value = rom;
+  } else {
+    selectedRoms.value.splice(selectedRoms.value.indexOf(rom), 1);
+  }
+}
+
 onMounted(async () => {
   fetchRoms(route.params.platform);
 });
@@ -163,6 +194,7 @@ onBeforeUnmount(() => {
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
+  romsStore.updateSelectedRoms([]);
 });
 
 onBeforeRouteUpdate(async (to, _) => {
@@ -171,6 +203,7 @@ onBeforeRouteUpdate(async (to, _) => {
   roms.value = [];
   searchRoms.value = [];
   filteredRoms.value = [];
+  romsStore.updateSelectedRoms([]);
   fetchRoms(to.params.platform);
 });
 </script>

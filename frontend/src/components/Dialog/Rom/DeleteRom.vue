@@ -84,18 +84,19 @@ async function deleteRoms() {
       <v-divider class="border-opacity-25" :thickness="1" />
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <span>Deleting the following</span><span class="text-romm-accent-2 mx-1">{{ roms.length }}</span><span>games. Do you confirm?</span>
+          <span>Deleting the following</span>
+          <span class="text-romm-accent-2 mx-1">{{ roms.length }}</span>
+          <span>games. Do you confirm?</span>
         </v-row>
       </v-card-text>
       <v-card-text class="scroll bg-terciary py-0">
         <v-row class="justify-center pa-2" no-gutters>
           <v-list class="bg-terciary py-0">
-            <v-list-item
-              v-for="rom in roms"
-              class="justify-center bg-terciary"
-              >{{ rom.r_name }} - [
-              <span class="text-romm-accent-1">{{ rom.file_name }}</span>
-              ]</v-list-item
+            <v-list-item v-for="rom in roms" class="justify-center bg-terciary"
+              >{{ rom.r_name }} - [<span class="text-romm-accent-1">{{
+                rom.file_name
+              }}</span
+              >]</v-list-item
             >
           </v-list>
         </v-row>
