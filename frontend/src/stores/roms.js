@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 
 export default defineStore("roms", {
-  state: () => ({ selected: [] }),
+  state: () => ({ selected: [], lastSelected: -1 }),
 
   actions: {
     updateSelectedRoms(roms) {
@@ -15,5 +15,12 @@ export default defineStore("roms", {
         return value.id != rom.id;
       });
     },
+    updateLastSelectedRom(rom) {
+      this.lastSelected = rom;
+    },
+    reset(){
+      this.selected = [];
+      this.lastSelected = -1;
+    }
   },
 });

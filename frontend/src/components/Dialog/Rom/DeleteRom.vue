@@ -26,7 +26,7 @@ async function deleteRoms() {
         icon: "mdi-check-bold",
         color: "green",
       });
-      storeRoms.updateSelectedRoms([]);
+      storeRoms.reset();
     })
     .catch((error) => {
       console.log(error);

@@ -155,35 +155,23 @@ function toTop() {
   });
 }
 
-function toggleRomSelected(event, rom) {
-  const isSelected = selectedRoms.value.includes(rom);
-
-  if (event.shiftKey && lastSelectedRom.value) {
-    const [startIndex, endIndex] = [
-      filteredRoms.value.indexOf(lastSelectedRom.value),
-      filteredRoms.value.indexOf(rom),
-    ].sort((a, b) => a - b);
-
-    for (let i = startIndex; i <= endIndex; i++) {
-      const currentRom = filteredRoms.value[i];
-      if (!selectedRoms.value.includes(currentRom)) {
-        selectedRoms.value.push(currentRom);
-      } else if (isSelected) {
-        selectedRoms.value.splice(selectedRoms.value.indexOf(currentRom), 1);
+function selectRom(event, index, selected) {
+  if (event.ctrlKey) {
+    romsStore.updateLastSelectedRom(index);
+  } else if (event.shiftKey) {
+    if (selected) {
+      for (let i = romsStore.lastSelected + 1; i < index; i++) {
+        romsStore.addSelectedRoms(filteredRoms.value[i]);
+        romsStore.updateLastSelectedRom(index);
       }
-
-      if (i === endIndex) {
-        lastSelectedRom.value = currentRom;
+    } else {
+      for (let i = romsStore.lastSelected; i > index; i--) {
+        romsStore.removeSelectedRoms(filteredRoms.value[i]);
+        romsStore.updateLastSelectedRom(index - 1);
       }
     }
-  } else if (!isSelected) {
-    selectedRoms.value.push(rom);
-
-    // Allows to select multiple roms with shift key
-    lastSelectedRom.value = rom;
-  } else {
-    selectedRoms.value.splice(selectedRoms.value.indexOf(rom), 1);
   }
+  emitter.emit("refreshSelected");
 }
 
 onMounted(async () => {
@@ -194,7 +182,7 @@ onBeforeUnmount(() => {
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
-  romsStore.updateSelectedRoms([]);
+  romsStore.reset();
 });
 
 onBeforeRouteUpdate(async (to, _) => {
@@ -203,7 +191,7 @@ onBeforeRouteUpdate(async (to, _) => {
   roms.value = [];
   searchRoms.value = [];
   filteredRoms.value = [];
-  romsStore.updateSelectedRoms([]);
+  romsStore.reset();
   fetchRoms(to.params.platform);
 });
 </script>
@@ -235,7 +223,11 @@ onBeforeRouteUpdate(async (to, _) => {
         :md="views[galleryView.value]['size-md']"
         :lg="views[galleryView.value]['size-lg']"
       >
-        <game-card :rom="rom" />
+        <game-card
+          :rom="rom"
+          :index="filteredRoms.indexOf(rom)"
+          @selectRom="selectRom"
+        />
       </v-col>
 
       <!-- Gallery list view -->

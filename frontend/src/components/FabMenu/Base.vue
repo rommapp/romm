@@ -20,7 +20,7 @@ function selectAllRoms() {
       romsStore.selected.map((rom) => rom.id)
     )
   ) {
-    romsStore.updateSelectedRoms([]);
+    romsStore.reset();
     emitter.emit("openFabMenu", false);
   } else {
     romsStore.updateSelectedRoms(props.filteredRoms);

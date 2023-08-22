@@ -10,17 +10,17 @@ const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
 
 const emit = defineEmits(["selectRom"]);
 function selectRom(event) {
-  if (!event.ctrlKey) {
+  if (!event.ctrlKey && !event.shiftKey) {
     event.preventDefault();
-    emit("selectRom");
+    emit("selectRom", event);
   }
 }
 
 function onNavigate(event) {
-  if (event.ctrlKey) {
+  if (event.ctrlKey || event.shiftKey) {
     event.preventDefault();
     event.stopPropagation();
-    emit("selectRom");
+    emit("selectRom", event);
   }
 }
 </script>
