@@ -1,7 +1,6 @@
 <script setup>
 import { inject } from "vue";
 import storeAuth from "@/stores/auth";
-import { compareArrays } from "@/utils/utils";
 import storeRoms from "@/stores/roms";
 
 // Event listeners bus
@@ -14,12 +13,7 @@ const romsStore = storeRoms();
 
 // Functions
 function selectAllRoms() {
-  if (
-    compareArrays(
-      props.filteredRoms.map((rom) => rom.id),
-      romsStore.selected.map((rom) => rom.id)
-    )
-  ) {
+  if (props.filteredRoms.length === romsStore.selected.length) {
     romsStore.reset();
     emitter.emit("openFabMenu", false);
   } else {
@@ -34,10 +28,7 @@ function selectAllRoms() {
     color="terciary"
     elevation="8"
     :icon="
-      compareArrays(
-        filteredRoms.map((rom) => rom.id),
-        romsStore.selected.map((rom) => rom.id)
-      )
+      filteredRoms.length === romsStore.selected.length
         ? 'mdi-select'
         : 'mdi-select-all'
     "
