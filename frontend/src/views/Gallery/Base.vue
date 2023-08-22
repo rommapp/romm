@@ -2,14 +2,12 @@
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api";
-import { compareArrays } from "@/utils/utils";
 import socket from "@/services/socket";
 import { views, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
-import storeAuth from "@/stores/auth";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
@@ -18,10 +16,10 @@ import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import FabMenu from "@/components/FabMenu/Base.vue";
 
 // Props
 const route = useRoute();
-const auth = storeAuth();
 const roms = ref([]);
 const searchRoms = ref([]);
 const filteredRoms = ref([]);
@@ -154,21 +152,6 @@ function toTop() {
   });
 }
 
-function selectAllRoms() {
-  if (
-    compareArrays(
-      filteredRoms.value.map((rom) => rom.id),
-      romsStore.selected.map((rom) => rom.id)
-    )
-  ) {
-    romsStore.updateSelectedRoms([]);
-    openedFabMenu.value = false;
-  } else {
-    romsStore.updateSelectedRoms(filteredRoms.value);
-  }
-  emitter.emit("refreshSelected");
-}
-
 onMounted(async () => {
   fetchRoms(route.params.platform);
 });
@@ -279,52 +262,7 @@ onBeforeRouteUpdate(async (to, _) => {
           </v-fab-transition>
         </template>
 
-        <v-btn
-          color="terciary"
-          elevation="8"
-          :icon="
-            compareArrays(
-              filteredRoms.map((rom) => rom.id),
-              romsStore.selected.map((rom) => rom.id)
-            )
-              ? 'mdi-select'
-              : 'mdi-select-all'
-          "
-          size="large"
-          class="mb-2"
-          @click.stop="selectAllRoms"
-        />
-
-        <v-btn
-          color="terciary"
-          elevation="8"
-          icon
-          size="large"
-          class="mb-2"
-          @click=""
-          ><v-icon>mdi-magnify-scan</v-icon></v-btn
-        >
-
-        <v-btn
-          color="terciary"
-          elevation="8"
-          icon
-          size="large"
-          class="mb-2"
-          @click=""
-          ><v-icon>mdi-download</v-icon></v-btn
-        >
-
-        <v-btn
-          v-if="auth.scopes.includes('roms.write')"
-          color="terciary"
-          elevation="8"
-          icon
-          size="large"
-          class="mb-2"
-          @click="emitter.emit('showDeleteRomDialog', romsStore.selected)"
-          ><v-icon color="romm-red">mdi-delete</v-icon></v-btn
-        >
+        <fab-menu :filteredRoms="filteredRoms" />
       </v-menu>
     </div>
   </v-layout-item>
