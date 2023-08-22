@@ -19,7 +19,6 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
-
 // Props
 const route = useRoute();
 const auth = storeAuth();
@@ -33,7 +32,7 @@ const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
 const romsStore = storeRoms();
-const openedBulkMenu = ref(false);
+const openedFabMenu = ref(false);
 const scrolledToTop = ref(true);
 
 // Event listeners bus
@@ -163,7 +162,7 @@ function selectAllRoms() {
     )
   ) {
     romsStore.updateSelectedRoms([]);
-    openedBulkMenu.value = false;
+    openedFabMenu.value = false;
   } else {
     romsStore.updateSelectedRoms(filteredRoms.value);
   }
@@ -261,9 +260,9 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-scroll-y-reverse-transition>
       <v-menu
         location="top"
-        v-model="openedBulkMenu"
+        v-model="openedFabMenu"
         :transition="
-          openedBulkMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
+          openedFabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
         "
       >
         <template v-slot:activator="{ props }">
@@ -297,6 +296,27 @@ onBeforeRouteUpdate(async (to, _) => {
         />
 
         <v-btn
+          color="terciary"
+          elevation="8"
+          icon
+          size="large"
+          class="mb-2"
+          @click=""
+          ><v-icon>mdi-magnify-scan</v-icon></v-btn
+        >
+
+        <v-btn
+          color="terciary"
+          elevation="8"
+          icon
+          size="large"
+          class="mb-2"
+          @click=""
+          ><v-icon>mdi-download</v-icon></v-btn
+        >
+
+        <v-btn
+          v-if="auth.scopes.includes('roms.write')"
           color="terciary"
           elevation="8"
           icon
