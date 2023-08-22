@@ -30,12 +30,15 @@ const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
 const romsStore = storeRoms();
-const openedFabMenu = ref(false);
+const fabMenu = ref(false);
 const scrolledToTop = ref(true);
 
 // Event listeners bus
 const emitter = inject("emitter");
 emitter.on("filter", onFilterChange);
+emitter.on("openFabMenu", (open) => {
+  fabMenu.value = open;
+});
 
 socket.on("scan:done", () => {
   scanning.set(false);
@@ -243,9 +246,9 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-scroll-y-reverse-transition>
       <v-menu
         location="top"
-        v-model="openedFabMenu"
+        v-model="fabMenu"
         :transition="
-          openedFabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
+          fabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
         "
       >
         <template v-slot:activator="{ props }">
