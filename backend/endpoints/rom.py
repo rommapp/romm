@@ -171,39 +171,15 @@ async def update_rom(request: Request, p_slug: str, id: int) -> dict:
     }
 
 
-@protected_route(router.delete, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
-def delete_rom(
-    request: Request, p_slug: str, id: int, filesystem: bool = False
-) -> dict:
-    """Detele rom from database [and filesystem]"""
-
-    rom: Rom = dbh.get_rom(id)
-    log.info(f"Deleting {rom.file_name} from database")
-    dbh.delete_rom(id)
-    dbh.update_n_roms(p_slug)
-
-    if filesystem:
-        log.info(f"Deleting {rom.file_name} from filesystem")
-        try:
-            platform: Platform = dbh.get_platform(p_slug)
-            fs.remove_rom(platform.fs_slug, rom.file_name)
-        except RomNotFoundError as e:
-            error = f"Couldn't delete from filesystem: {str(e)}"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    return {"msg": f"{rom.file_name} deleted successfully!"}
-
-
-@router.delete("/platforms/{p_slug}/roms", status_code=200)
-async def bulk_delete_roms(
-    req: Request,
+@protected_route(router.delete, "/platforms/{p_slug}/roms", ["roms.write"])
+async def delete_roms(
+    request: Request,
     p_slug: str,
     filesystem: bool = False,
 ) -> dict:
     """Detele roms from database [and filesystem]"""
 
-    data: dict = await req.json()
+    data: dict = await request.json()
     roms_ids: list = data["roms"]
 
     for rom_id in roms_ids:

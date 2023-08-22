@@ -17,7 +17,6 @@ import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import BulkDeleteRomDialog from "@/components/Dialog/Rom/BulkDeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 
@@ -303,7 +302,7 @@ onBeforeRouteUpdate(async (to, _) => {
           icon
           size="large"
           class="mb-2"
-          @click="emitter.emit('showBulkDeleteRomDialog', romsStore.selected)"
+          @click="emitter.emit('showDeleteRomDialog', romsStore.selected)"
           ><v-icon color="romm-red">mdi-delete</v-icon></v-btn
         >
       </v-menu>
@@ -313,7 +312,6 @@ onBeforeRouteUpdate(async (to, _) => {
   <search-rom-dialog />
   <edit-rom-dialog />
   <delete-rom-dialog />
-  <bulk-delete-rom-dialog />
   <loading-dialog />
 </template>
 
