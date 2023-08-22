@@ -16,14 +16,14 @@ const romsStore = storeRoms();
 function selectAllRoms() {
   if (
     compareArrays(
-      filteredRoms.value.map((rom) => rom.id),
+      props.filteredRoms.map((rom) => rom.id),
       romsStore.selected.map((rom) => rom.id)
     )
   ) {
     romsStore.updateSelectedRoms([]);
-    openedFabMenu.value = false;
+    emitter.emit("openFabMenu", false);
   } else {
-    romsStore.updateSelectedRoms(filteredRoms.value);
+    romsStore.updateSelectedRoms(props.filteredRoms);
   }
   emitter.emit("refreshSelected");
 }
