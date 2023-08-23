@@ -5,7 +5,7 @@ from fastapi.exceptions import HTTPException
 from handler import dbh
 from ..oauth import (
     create_oauth_token,
-    get_current_active_user_from_token,
+    get_current_active_user_from_bearer_token,
     protected_route,
 )
 
@@ -16,7 +16,7 @@ def test_create_oauth_token():
     assert isinstance(token, str)
 
 
-async def test_get_current_active_user_from_token(admin_user):
+async def test_get_current_active_user_from_bearer_token(admin_user):
     token = create_oauth_token(
         {
             "sub": admin_user.username,
@@ -24,7 +24,7 @@ async def test_get_current_active_user_from_token(admin_user):
             "type": "access",
         },
     )
-    user, payload = await get_current_active_user_from_token(token)
+    user, payload = await get_current_active_user_from_bearer_token(token)
 
     assert user.id == admin_user.id
     assert payload["sub"] == admin_user.username
@@ -32,19 +32,19 @@ async def test_get_current_active_user_from_token(admin_user):
     assert payload["type"] == "access"
 
 
-async def test_get_current_active_user_from_token_invalid_token():
+async def test_get_current_active_user_from_bearer_token_invalid_token():
     with pytest.raises(HTTPException):
-        await get_current_active_user_from_token("invalid_token")
+        await get_current_active_user_from_bearer_token("invalid_token")
 
 
-async def test_get_current_active_user_from_token_invalid_user():
+async def test_get_current_active_user_from_bearer_token_invalid_user():
     token = create_oauth_token({"sub": "invalid_user"})
 
     with pytest.raises(HTTPException):
-        await get_current_active_user_from_token(token)
+        await get_current_active_user_from_bearer_token(token)
 
 
-async def test_get_current_active_user_from_token_disabled_user(admin_user):
+async def test_get_current_active_user_from_bearer_token_disabled_user(admin_user):
     token = create_oauth_token(
         {
             "sub": admin_user.username,
@@ -56,7 +56,7 @@ async def test_get_current_active_user_from_token_disabled_user(admin_user):
     dbh.update_user(admin_user.id, {"enabled": False})
 
     try:
-        await get_current_active_user_from_token(token)
+        await get_current_active_user_from_bearer_token(token)
     except HTTPException as e:
         assert e.status_code == 401
         assert e.detail == "Inactive user"

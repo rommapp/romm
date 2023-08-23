@@ -1,3 +1,5 @@
+import pytest
+from base64 import b64encode
 from fastapi.exceptions import HTTPException
 
 from models import User
@@ -143,7 +145,7 @@ async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
     assert creds.scopes == []
 
 
-async def test_hybrid_auth_backend_auth_header(editor_user):
+async def test_hybrid_auth_backend_bearer_auth_header(editor_user):
     access_token = create_oauth_token(
         data={
             "sub": editor_user.username,
@@ -166,11 +168,55 @@ async def test_hybrid_auth_backend_auth_header(editor_user):
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
 
 
+async def test_hybrid_auth_backend_bearer_invalid_token(editor_user):
+    class MockConnection:
+        def __init__(self):
+            self.session = {}
+            self.headers = {"Authorization": "Bearer invalid_token"}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    with pytest.raises(HTTPException):
+        await backend.authenticate(conn)
+
+
+async def test_hybrid_auth_backend_basic_auth_header(editor_user):
+    token = b64encode("test_editor:test_editor_password".encode()).decode()
+
+    class MockConnection:
+        def __init__(self):
+            self.session = {}
+            self.headers = {"Authorization": f"Basic {token}"}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    creds, user = await backend.authenticate(conn)
+
+    assert user.id == editor_user.id
+    assert creds.scopes == WRITE_SCOPES
+    assert set(creds.scopes).issubset(editor_user.oauth_scopes)
+
+
+async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user):
+    class MockConnection:
+        def __init__(self):
+            self.session = {}
+            self.headers = {"Authorization": "Basic test_editor:test_editor_password"}
+
+    backend = HybridAuthBackend()
+    conn = MockConnection()
+
+    with pytest.raises(HTTPException):
+        await backend.authenticate(conn)
+
+
 async def test_hybrid_auth_backend_invalid_scheme():
     class MockConnection:
         def __init__(self):
             self.session = {}
-            self.headers = {"Authorization": "Basic some_token"}
+            self.headers = {"Authorization": "Some invalid_scheme"}
 
     backend = HybridAuthBackend()
     conn = MockConnection()

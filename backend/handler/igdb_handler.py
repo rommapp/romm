@@ -222,8 +222,8 @@ class TwitchAuth:
             sys.exit(2)
 
         # Set token in redis to expire in <expires_in> seconds
-        cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore
-        cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore
+        cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
+        cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore[attr-defined]
 
         log.info("Twitch token fetched!")
 
@@ -235,8 +235,8 @@ class TwitchAuth:
             return "test_token"
 
         # Fetch the token cache
-        token = cache.get("romm:twitch_token")  # type: ignore
-        token_expires_at = cache.get("romm:twitch_token_expires_at")  # type: ignore
+        token = cache.get("romm:twitch_token")  # type: ignore[attr-defined]
+        token_expires_at = cache.get("romm:twitch_token_expires_at")  # type: ignore[attr-defined]
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
