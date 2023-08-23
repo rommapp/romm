@@ -126,7 +126,7 @@ async function scan() {
     >Scan
     <template v-slot:loader>
       <v-progress-circular
-        color="rommAccent1"
+        color="romm-accent-1"
         :width="2"
         :size="20"
         indeterminate
@@ -137,7 +137,7 @@ async function scan() {
 
   <v-divider
     class="border-opacity-100 ma-4"
-    color="rommAccent1"
+    color="romm-accent-1"
     :thickness="1"
   />
 

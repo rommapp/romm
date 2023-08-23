@@ -92,6 +92,13 @@ export async function deleteRomApi(rom, deleteFromFs) {
   );
 }
 
+export async function deleteRomsApi(roms, deleteFromFs) {
+  return axios.delete(
+    `/api/platforms/${roms[0].p_slug}/roms?filesystem=${deleteFromFs}`,
+    { data: { roms: roms.map((r) => r.id) } }
+  );
+}
+
 export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
   return api.put(
     `/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,

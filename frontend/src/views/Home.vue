@@ -45,7 +45,7 @@ onMounted(async () => {
 
   <v-progress-linear
     id="scan-progress-bar"
-    color="rommAccent1"
+    color="romm-accent-1"
     :active="scanning.value"
     :indeterminate="true"
     absolute

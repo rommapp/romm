@@ -148,7 +148,7 @@ async function updateRom(updatedData = { ...rom.value }) {
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
           <v-btn
             @click="updateRom()"
-            class="text-rommGreen ml-5 bg-terciary"
+            class="text-romm-green ml-5 bg-terciary"
             >Apply</v-btn
           >
         </v-row>

@@ -34,14 +34,12 @@ async function logout() {
 
 <template>
   <v-list-item height="60" class="bg-primary text-button" rounded="0">
-    <div class="text-no-wrap text-truncate text-subtitle-1">
-      {{ rail ? "" : auth.user?.username }}
-    </div>
-    <div class="text-no-wrap text-truncate text-caption">
-      {{ rail ? "" : auth.user?.role }}
-    </div>
+    <template v-if="!rail">
+      <div class="text-no-wrap text-truncate text-subtitle-1">{{ auth.user?.username }}</div>
+      <div class="text-no-wrap text-truncate text-caption">{{ auth.user?.role }}</div>
+    </template>
     <template v-slot:prepend>
-      <v-avatar :class="{ 'ml-4': rail, 'my-2': rail }">
+      <v-avatar :class="{ 'my-2': rail }">
         <v-img
           :src="
             auth.user?.avatar_path

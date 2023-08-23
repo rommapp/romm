@@ -70,7 +70,7 @@ onBeforeMount(async () => {
               elevation="2"
               :loading="
                 downloadStore.value.includes(rom.id)
-                  ? 'rommAccent1'
+                  ? 'romm-accent-1'
                   : null
               "
             >
@@ -82,7 +82,7 @@ onBeforeMount(async () => {
                 <template v-slot:placeholder>
                   <div class="d-flex align-center justify-center fill-height">
                     <v-progress-circular
-                      color="rommAccent1"
+                      color="romm-accent-1"
                       :width="2"
                       :size="20"
                       indeterminate
@@ -190,7 +190,7 @@ onBeforeMount(async () => {
             'details-content-mobile': xs,
           }"
         >
-          <v-tabs v-model="tab" slider-color="rommAccent1" rounded="0">
+          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0" disabled
               >Saves<span class="text-caption text-truncate ml-1"
@@ -326,7 +326,7 @@ onBeforeMount(async () => {
                 <v-carousel
                   hide-delimiter-background
                   delimiter-icon="mdi-square"
-                  class="bg-rommBlack"
+                  class="bg-romm-black"
                   show-arrows="hover"
                   height="400"
                 >

@@ -13,7 +13,7 @@ const ROMM_VERSION = version.version;
 <template>
   <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
-    <v-tabs v-model="tab" slider-color="rommAccent1" class="bg-primary">
+    <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
       <v-tab
         :disabled="!auth.scopes.includes('users.read')"
         value="users"
@@ -47,7 +47,7 @@ const ROMM_VERSION = version.version;
 
   <v-bottom-navigation :elevation="0" height="36" class="text-caption">
     <v-row class="align-center justify-center" no-gutters>
-      <span class="text-rommAccent1">RomM</span>
+      <span class="text-romm-accent-1">RomM</span>
       <span class="ml-1">{{ ROMM_VERSION }}</span>
     </v-row>
   </v-bottom-navigation>

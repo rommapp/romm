@@ -95,7 +95,7 @@ async function createUser() {
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
           <v-btn
             :disabled="!user.username || !user.password"
-            class="text-rommGreen bg-terciary ml-5"
+            class="text-romm-green bg-terciary ml-5"
             @click="createUser()"
           >
             Create
