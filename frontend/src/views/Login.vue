@@ -2,8 +2,6 @@
 import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
-
-import Notification from "@/components/Notification.vue";
 import storeAuth from "@/stores/auth";
 
 // Props
@@ -51,8 +49,6 @@ onBeforeMount(async () => {
 
 <template>
   <span id="bg"></span>
-
-  <notification class="mt-6" />
 
   <v-container class="fill-height justify-center">
     <v-card id="card" class="py-8 px-5" width="500">

@@ -7,7 +7,6 @@ import storeScanning from "@/stores/scanning";
 import storeAuth from "@/stores/auth";
 import Drawer from "@/components/Drawer/Base.vue";
 import AppBar from "@/components/AppBar/Base.vue";
-import Notification from "@/components/Notification.vue";
 
 // Props
 const { mdAndDown } = useDisplay();
@@ -41,8 +40,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <notification class="mt-6" />
-
   <v-progress-linear
     id="scan-progress-bar"
     color="romm-accent-1"

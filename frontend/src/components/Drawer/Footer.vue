@@ -18,7 +18,7 @@ async function logout() {
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
         msg: data.message,
-        icon: "mdi-close-circle",
+        icon: "mdi-check-bold",
         color: "green",
       });
       router.push("/login");
