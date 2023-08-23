@@ -23,10 +23,11 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("username", sa.String(length=255), nullable=True),
         sa.Column("hashed_password", sa.String(length=255), nullable=True),
-        sa.Column("disabled", sa.Boolean(), nullable=True),
+        sa.Column("enabled", sa.Boolean(), nullable=True),
         sa.Column(
             "role", sa.Enum("VIEWER", "EDITOR", "ADMIN", name="role"), nullable=True
         ),
+        sa.Column("avatar_path", sa.String(length=255), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("users", schema=None) as batch_op:

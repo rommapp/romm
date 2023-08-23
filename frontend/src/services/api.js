@@ -115,8 +115,26 @@ export async function createUserApi({ username, password, role }) {
   return api.post("/users", {}, { params: { username, password, role } });
 }
 
-export async function updateUserApi({ id, username, password, role }) {
-  return api.put(`/users/${id}`, {}, { params: { username, password, role } });
+export async function updateUserApi({
+  id,
+  username,
+  password,
+  role,
+  enabled,
+  avatar,
+}) {
+  return api.put(
+    `/users/${id}`,
+    {
+      avatar: avatar ? avatar[0] : null,
+    },
+    {
+      headers: {
+        "Content-Type": avatar ? "multipart/form-data" : "text/text",
+      },
+      params: { username, password, role, enabled },
+    }
+  );
 }
 
 export async function deleteUserApi(user) {

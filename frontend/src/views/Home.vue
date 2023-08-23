@@ -14,13 +14,16 @@ const { mdAndDown } = useDisplay();
 const platforms = storePlatforms();
 const scanning = storeScanning();
 const auth = storeAuth();
-const refreshDrawer = ref(false);
 const refreshView = ref(false);
+const refreshDrawer = ref(false);
 
 // Event listeners bus
 const emitter = inject("emitter");
 emitter.on("refreshView", () => {
   refreshView.value = !refreshView.value;
+});
+emitter.on("refreshDrawer", () => {
+  refreshDrawer.value = !refreshDrawer.value;
 });
 
 // Functions
@@ -28,9 +31,9 @@ onMounted(async () => {
   try {
     const { data: platformData } = await fetchPlatformsApi();
     platforms.set(platformData);
-
     const { data: userData } = await fetchCurrentUserApi();
     if (userData) auth.setUser(userData);
+    emitter.emit("refreshDrawer");
   } catch (error) {
     console.error(error);
   }

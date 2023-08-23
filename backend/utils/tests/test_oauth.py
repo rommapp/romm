@@ -53,7 +53,7 @@ async def test_get_current_active_user_from_token_disabled_user(admin_user):
         },
     )
 
-    dbh.update_user(admin_user.id, {"disabled": True})
+    dbh.update_user(admin_user.id, {"enabled": False})
 
     try:
         await get_current_active_user_from_token(token)

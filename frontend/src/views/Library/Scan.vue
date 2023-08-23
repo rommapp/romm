@@ -46,6 +46,7 @@ socket.on("scan:done", () => {
   scanning.set(false);
   
   emitter.emit("refreshDrawer");
+  emitter.emit("refreshView");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
