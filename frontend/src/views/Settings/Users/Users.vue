@@ -116,7 +116,7 @@ onMounted(() => {
           <v-switch
             :disabled="item.selectable.id == auth.user?.id"
             v-model="item.selectable.enabled"
-            :update:modelValue="disableUser(item.selectable)"
+            @change="disableUser(item.selectable)"
             hide-details
           />
         </template>
