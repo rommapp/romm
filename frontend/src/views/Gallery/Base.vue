@@ -1,11 +1,12 @@
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import { fetchRomsApi } from "@/services/api";
 import socket from "@/services/socket";
 import { views, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
+import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
@@ -15,6 +16,7 @@ import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import FabMenu from "@/components/FabMenu/Base.vue";
 
 // Props
 const route = useRoute();
@@ -27,11 +29,16 @@ const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
 const searchCursor = ref("");
+const romsStore = storeRoms();
+const fabMenu = ref(false);
 const scrolledToTop = ref(true);
 
 // Event listeners bus
 const emitter = inject("emitter");
 emitter.on("filter", onFilterChange);
+emitter.on("openFabMenu", (open) => {
+  fabMenu.value = open;
+});
 
 socket.on("scan:done", () => {
   scanning.set(false);
@@ -61,7 +68,7 @@ async function scan() {
   emitter.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
-    color: "rommAccent1",
+    color: "romm-accent-1",
   });
 
   if (!socket.connected) socket.connect();
@@ -148,8 +155,34 @@ function toTop() {
   });
 }
 
+function selectRom(event, index, selected) {
+  if (event.ctrlKey) {
+    romsStore.updateLastSelectedRom(index);
+  } else if (event.shiftKey) {
+    if (selected) {
+      for (let i = romsStore.lastSelected + 1; i < index; i++) {
+        romsStore.addSelectedRoms(filteredRoms.value[i]);
+        romsStore.updateLastSelectedRom(index);
+      }
+    } else {
+      for (let i = romsStore.lastSelected; i > index; i--) {
+        romsStore.removeSelectedRoms(filteredRoms.value[i]);
+        romsStore.updateLastSelectedRom(index - 1);
+      }
+    }
+  }
+  emitter.emit("refreshSelected");
+}
+
 onMounted(async () => {
   fetchRoms(route.params.platform);
+});
+
+onBeforeUnmount(() => {
+  socket.off("scan:scanning_rom");
+  socket.off("scan:done");
+  socket.off("scan:done_ko");
+  romsStore.reset();
 });
 
 onBeforeRouteUpdate(async (to, _) => {
@@ -158,6 +191,7 @@ onBeforeRouteUpdate(async (to, _) => {
   roms.value = [];
   searchRoms.value = [];
   filteredRoms.value = [];
+  romsStore.reset();
   fetchRoms(to.params.platform);
 });
 </script>
@@ -176,8 +210,8 @@ onBeforeRouteUpdate(async (to, _) => {
   </v-app-bar>
 
   <template v-if="filteredRoms.length > 0">
-    <!-- Gallery cards view -->
     <v-row no-gutters v-scroll="onScroll">
+      <!-- Gallery cards view -->
       <v-col
         v-show="galleryView.value != 2"
         v-for="rom in filteredRoms"
@@ -189,7 +223,11 @@ onBeforeRouteUpdate(async (to, _) => {
         :md="views[galleryView.value]['size-md']"
         :lg="views[galleryView.value]['size-lg']"
       >
-        <game-card :rom="rom" />
+        <game-card
+          :rom="rom"
+          :index="filteredRoms.indexOf(rom)"
+          @selectRom="selectRom"
+        />
       </v-col>
 
       <!-- Gallery list view -->
@@ -213,21 +251,47 @@ onBeforeRouteUpdate(async (to, _) => {
   <v-layout-item
     v-scroll="onScroll"
     class="text-end"
-    :model-value="!scrolledToTop"
+    :model-value="true"
     position="bottom"
     size="88"
   >
     <div class="ma-4">
-      <v-fab-transition>
+      <v-scroll-y-reverse-transition>
         <v-btn
-          v-show="true"
-          color="terciary"
+          id="scrollToTop"
+          v-show="!scrolledToTop"
+          color="primary"
           elevation="8"
-          icon="mdi-chevron-up"
+          icon
+          class="mr-2"
           size="large"
           @click="toTop"
-        />
-      </v-fab-transition>
+          ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn
+        >
+      </v-scroll-y-reverse-transition>
+      <v-menu
+        location="top"
+        v-model="fabMenu"
+        :transition="
+          fabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
+        "
+      >
+        <template v-slot:activator="{ props }">
+          <v-fab-transition>
+            <v-btn
+              v-show="romsStore.selected.length > 0"
+              color="romm-accent-1"
+              v-bind="props"
+              elevation="8"
+              icon
+              size="large"
+              >{{ romsStore.selected.length }}</v-btn
+            >
+          </v-fab-transition>
+        </template>
+
+        <fab-menu :filteredRoms="filteredRoms" />
+      </v-menu>
     </div>
   </v-layout-item>
 
@@ -240,5 +304,12 @@ onBeforeRouteUpdate(async (to, _) => {
 <style scoped>
 #gallery-app-bar {
   z-index: 999 !important;
+}
+.game-card.game-selected {
+  border: 2px solid rgba(var(--v-theme-romm-accent-2));
+  padding: 0;
+}
+#scrollToTop {
+  border: 1px solid rgba(var(--v-theme-romm-accent-2));
 }
 </style>

@@ -1,16 +1,19 @@
 <script setup>
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { downloadRomApi } from "@/services/api";
 import storeDownload from "@/stores/download";
+import useRomsStore from "@/stores/roms";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
 // Props
+const emitter = inject("emitter");
 const props = defineProps(["filteredRoms"]);
 const location = window.location.origin;
 const router = useRouter();
 const downloadStore = storeDownload();
+const romsStore = useRomsStore();
 const saveFiles = ref(false);
 const romsPerPage = ref(-1);
 const HEADERS = [
@@ -69,14 +72,17 @@ function rowClick(_, row) {
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
     :headers="HEADERS"
-    item-value="id"
+    :item-value="item => item"
     :items="filteredRoms"
     @click:row="rowClick"
+    show-select
+    v-model="romsStore.selected"
+    @update:model-value="emitter.emit('refreshSelected')"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
         <v-progress-linear
-          color="rommAccent1"
+          color="romm-accent-1"
           :active="downloadStore.value.includes(item.selectable.id)"
           :indeterminate="true"
           absolute

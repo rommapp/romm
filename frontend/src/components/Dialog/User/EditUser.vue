@@ -133,7 +133,7 @@ function editUser() {
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="text-rommGreen bg-terciary ml-5" @click="editUser()"
+          <v-btn class="text-romm-green bg-terciary ml-5" @click="editUser()"
             >Apply</v-btn
           >
         </v-row>
