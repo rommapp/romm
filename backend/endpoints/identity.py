@@ -10,7 +10,7 @@ from utils.cache import cache
 from utils.auth import authenticate_user, get_password_hash, clear_session
 from utils.oauth import protected_route
 from utils.fs import build_avatar_path
-from config import ROMM_AUTH_ENABLED, RESOURCES_BASE_PATH, DEFAULT_PATH_USER_AVATAR
+from config import ROMM_AUTH_ENABLED
 from exceptions.credentials_exceptions import credentials_exception, disabled_exception
 
 router = APIRouter()
@@ -33,13 +33,13 @@ def login(request: Request, credentials=Depends(HTTPBasic())):
     user = authenticate_user(credentials.username, credentials.password)
     if not user:
         raise credentials_exception
-    
+
     if not user.enabled:
         raise disabled_exception
 
     # Generate unique session key and store in cache
     request.session["session_id"] = secrets.token_hex(16)
-    cache.set(f'romm:{request.session["session_id"]}', user.username)
+    cache.set(f'romm:{request.session["session_id"]}', user.username)  # type: ignore[attr-defined]
 
     return {"message": "Successfully logged in"}
 
@@ -109,7 +109,7 @@ class UserUpdateForm:
         password: Optional[str] = None,
         role: Optional[str] = None,
         enabled: Optional[bool] = None,
-        avatar: Optional[UploadFile] = File(None)
+        avatar: Optional[UploadFile] = File(None),
     ):
         self.username = username
         self.password = password
@@ -134,7 +134,7 @@ def update_user(
 
     cleaned_data = {}
 
-    if form_data.username != user.username:
+    if form_data.username and form_data.username != user.username:
         existing_user = dbh.get_user_by_username(form_data.username.lower())
         if existing_user:
             raise HTTPException(
@@ -148,14 +148,16 @@ def update_user(
 
     # You can't change your own role
     if form_data.role and request.user.id != user_id:
-        cleaned_data["role"] = Role[form_data.role.upper()]
+        cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
 
     # You can't disable yourself
     if form_data.enabled is not None and request.user.id != user_id:
-        cleaned_data["enabled"] = form_data.enabled
+        cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        cleaned_data["avatar_path"], avatar_user_path = build_avatar_path(form_data.avatar.filename, form_data.username)
+        cleaned_data["avatar_path"], avatar_user_path = build_avatar_path(
+            form_data.avatar.filename, form_data.username
+        )
         file_location = f"{avatar_user_path}/{form_data.avatar.filename}"
         with open(file_location, "wb+") as file_object:
             file_object.write(form_data.avatar.file.read())
@@ -164,7 +166,9 @@ def update_user(
         dbh.update_user(user_id, cleaned_data)
 
         # Log out the current user if username or password changed
-        creds_updated = cleaned_data.get("username") or cleaned_data.get("hashed_password")
+        creds_updated = cleaned_data.get("username") or cleaned_data.get(
+            "hashed_password"
+        )
         if request.user.id == user_id and creds_updated:
             clear_session(request)
 

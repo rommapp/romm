@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, BaseConfig
 
 from stat import S_IFREG
-from stream_zip import ZIP_64, stream_zip
+from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 
 from logger.logger import log
 from handler import dbh

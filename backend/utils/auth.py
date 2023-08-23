@@ -1,5 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status, Request
+from fastapi.security.http import HTTPBasic
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 from starlette_csrf.middleware import CSRFMiddleware
@@ -20,7 +21,7 @@ from config import (
 
 from .oauth import (
     FULL_SCOPES,
-    get_current_active_user_from_token,
+    get_current_active_user_from_bearer_token,
 )
 
 
@@ -49,7 +50,7 @@ def authenticate_user(username: str, password: str):
 def clear_session(req: HTTPConnection | Request):
     session_id = req.session.get("session_id")
     if session_id:
-        cache.delete(f"romm:{session_id}")
+        cache.delete(f"romm:{session_id}")  # type: ignore[attr-defined]
         req.session["session_id"] = None
 
 
@@ -59,7 +60,7 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
     if not session_id:
         return None
 
-    username = cache.get(f"romm:{session_id}")
+    username = cache.get(f"romm:{session_id}")  # type: ignore[attr-defined]
     if not username:
         return None
 
@@ -113,22 +114,35 @@ class HybridAuthBackend(AuthenticationBackend):
         if "Authorization" not in conn.headers:
             return (AuthCredentials([]), None)
 
-        # Returns if Authorization header is not Bearer
         scheme, token = conn.headers["Authorization"].split()
-        if scheme.lower() != "bearer":
-            return (AuthCredentials([]), None)
 
-        user, payload = await get_current_active_user_from_token(token)
+        # Check if basic auth header is valid
+        if scheme.lower() == "basic":
+            credentials = await HTTPBasic().__call__(conn)  # type: ignore[arg-type]
+            if not credentials:
+                return (AuthCredentials([]), None)
 
-        # Only access tokens can request resources
-        if payload.get("type") != "access":
-            return (AuthCredentials([]), None)
+            user = authenticate_user(credentials.username, credentials.password)
+            if user is None:
+                return (AuthCredentials([]), None)
 
-        # Only grant access to resources with overlapping scopes
-        token_scopes = set(list(payload.get("scopes").split(" ")))
-        overlapping_scopes = list(token_scopes & set(user.oauth_scopes))
+            return (AuthCredentials(user.oauth_scopes), user)
 
-        return (AuthCredentials(overlapping_scopes), user)
+        # Check if bearer auth header is valid
+        if scheme.lower() == "bearer":
+            user, payload = await get_current_active_user_from_bearer_token(token)
+
+            # Only access tokens can request resources
+            if payload.get("type") != "access":
+                return (AuthCredentials([]), None)
+
+            # Only grant access to resources with overlapping scopes
+            token_scopes = set(list(payload.get("scopes").split(" ")))
+            overlapping_scopes = list(token_scopes & set(user.oauth_scopes))
+
+            return (AuthCredentials(overlapping_scopes), user)
+
+        return (AuthCredentials([]), None)
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):

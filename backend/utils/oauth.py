@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
-from typing import Optional, Callable, Final
+from typing import Optional, Final, Any
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Security
 from fastapi.param_functions import Form
 from fastapi.security.oauth2 import OAuth2PasswordBearer
+from fastapi.security.http import HTTPBasic
 from fastapi.types import DecoratedCallable
 from starlette.authentication import requires
 
@@ -52,7 +53,7 @@ def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
     return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
 
 
-async def get_current_active_user_from_token(token: str):
+async def get_current_active_user_from_bearer_token(token: str):
     from handler import dbh
 
     try:
@@ -60,7 +61,7 @@ async def get_current_active_user_from_token(token: str):
     except JWTError:
         raise credentials_exception
 
-    username: str = payload.get("sub")
+    username = payload.get("sub")
     if username is None:
         raise credentials_exception
 
@@ -108,7 +109,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 
 
 def protected_route(
-    method: Callable[[DecoratedCallable], DecoratedCallable],
+    method: Any,
     path: str,
     scopes: list[str] = [],
     **kwargs,
@@ -122,6 +123,7 @@ def protected_route(
                     dependency=oauth2_password_bearer,
                     scopes=scopes,
                 ),
+                Security(dependency=HTTPBasic(auto_error=False)),
             ],
             **kwargs,
         )(fn)
