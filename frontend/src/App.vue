@@ -5,6 +5,7 @@ import axios from "axios";
 import cookie from "js-cookie";
 import { themes } from "@/styles/themes";
 import storeAuth from "@/stores/auth";
+import Notification from "@/components/Notification.vue";
 
 // Props
 const auth = storeAuth();
@@ -23,6 +24,7 @@ useTheme().global.name.value =
 <template>
   <v-app>
     <v-main>
+      <notification class="mt-6" />
       <router-view />
     </v-main>
   </v-app>
