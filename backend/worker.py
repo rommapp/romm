@@ -1,7 +1,7 @@
 import sys
 from rq import Worker, Queue, Connection
 
-from utils.cache import redis_client, redis_connectable
+from utils.redis import redis_client, redis_connectable
 
 listen = ["high", "default", "low"]
 

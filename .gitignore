@@ -52,3 +52,6 @@ backend/romm_test/logs
 
 # service worker
 frontend/dev-dist
+
+# outside data
+switch_titledb.json

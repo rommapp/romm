@@ -4,23 +4,31 @@ import pydash
 import requests
 import re
 import time
+import os
+import json
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
-from typing import Optional
 
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
-from .ps2_opl_index import opl_index
 
 MAIN_GAME_CATEGORY = 0
 EXPANDED_GAME_CATEGORY = 10
-
 N_SCREENSHOTS = 5
+PS2_IGDB_ID = 8
+SWITCH_IGDB_ID = 130
 
 ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
-PS2_IGDB_ID = 8
+ps2_opl_index_file = os.path.join(
+    os.path.dirname(__file__), "fixtures", "ps2_opl_index.json"
+)
+
+switch_titledb_regex = r"^(70[0-9]{12})$"
+switch_titledb_index_file = os.path.join(
+    os.path.dirname(__file__), "fixtures", "switch_titledb.json"
+)
 
 
 class IGDBHandler:
@@ -125,9 +133,23 @@ class IGDBHandler:
         match = re.match(ps2_opl_regex, search_term)
         if p_igdb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
-            index_entry = opl_index.get(serial_code, None)
-            if index_entry:
-                search_term = index_entry["Name"]  # type: ignore
+
+            with open(ps2_opl_index_file, "r") as index_json:
+                opl_index = json.loads(index_json.read())
+                index_entry = opl_index.get(serial_code, None)
+                if index_entry:
+                    search_term = index_entry["Name"]  # type: ignore
+
+        # Patch support for switch titleID filename format
+        match = re.match(switch_titledb_regex, search_term)
+        if p_igdb_id == SWITCH_IGDB_ID and match:
+            title_id = match.group(1)
+
+            with open(switch_titledb_index_file, "r") as index_json:
+                titledb_index = json.loads(index_json.read())
+                index_entry = titledb_index.get(title_id, None)
+                if index_entry:
+                    search_term = index_entry["name"]  # type: ignore
 
         res = (
             self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)

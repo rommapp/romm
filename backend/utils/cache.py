@@ -1,15 +1,7 @@
-from redis import Redis, ConnectionError
+from redis import Redis
 
 from config import REDIS_HOST, REDIS_PORT
-
-redis_client = Redis(host=REDIS_HOST, port=int(REDIS_PORT), db=0)
-redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}"
-
-try:
-    redis_connectable = redis_client.ping()
-except ConnectionError:
-    redis_connectable = False
-
+from .redis import redis_connectable
 
 class FallbackCache:
     def __init__(self) -> None:

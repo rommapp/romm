@@ -34,6 +34,7 @@ types-requests = "^2.31.0.2"
 mypy = "^1.4.1"
 types-redis = "^4.6.0.3"
 stream-zip = "^0.0.67"
+rq-scheduler = "^0.13.1"
 
 [build-system]
 requires = ["poetry-core"]
