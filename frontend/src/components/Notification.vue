@@ -16,7 +16,7 @@ emitter.on("snackbarShow", (snackbar) => {
 <template>
   <v-snackbar
     v-model="snackbarShow"
-    :timeout="2000"
+    :timeout="snackbarStatus.timeout ? snackbarStatus.timeout : 2000"
     location="top"
     color="tooltip"
   >

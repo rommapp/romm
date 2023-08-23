@@ -1,6 +1,6 @@
 import secrets
 from typing import Optional, Annotated
-from fastapi import APIRouter, HTTPException, status, Request, Depends
+from fastapi import APIRouter, HTTPException, status, Request, Depends, File, UploadFile
 from fastapi.security.http import HTTPBasic
 from pydantic import BaseModel, BaseConfig
 
@@ -9,8 +9,9 @@ from models.user import User, Role
 from utils.cache import cache
 from utils.auth import authenticate_user, get_password_hash, clear_session
 from utils.oauth import protected_route
-from config import ROMM_AUTH_ENABLED
-from exceptions.credentials_exceptions import credentials_exception
+from utils.fs import build_avatar_path
+from config import ROMM_AUTH_ENABLED, RESOURCES_BASE_PATH, DEFAULT_PATH_USER_AVATAR
+from exceptions.credentials_exceptions import credentials_exception, disabled_exception
 
 router = APIRouter()
 
@@ -18,9 +19,10 @@ router = APIRouter()
 class UserSchema(BaseModel):
     id: int
     username: str
-    disabled: bool
+    enabled: bool
     role: Role
     oauth_scopes: list[str]
+    avatar_path: str
 
     class Config(BaseConfig):
         orm_mode = True
@@ -31,6 +33,9 @@ def login(request: Request, credentials=Depends(HTTPBasic())):
     user = authenticate_user(credentials.username, credentials.password)
     if not user:
         raise credentials_exception
+    
+    if not user.enabled:
+        raise disabled_exception
 
     # Generate unique session key and store in cache
     request.session["session_id"] = secrets.token_hex(16)
@@ -103,12 +108,14 @@ class UserUpdateForm:
         username: Optional[str] = None,
         password: Optional[str] = None,
         role: Optional[str] = None,
-        disabled: Optional[bool] = None,
+        enabled: Optional[bool] = None,
+        avatar: Optional[UploadFile] = File(None)
     ):
         self.username = username
         self.password = password
         self.role = role
-        self.disabled = disabled
+        self.enabled = enabled
+        self.avatar = avatar
 
 
 @protected_route(router.put, "/users/{user_id}", ["users.write"])
@@ -143,20 +150,23 @@ def update_user(
     if form_data.role and request.user.id != user_id:
         cleaned_data["role"] = Role[form_data.role.upper()]
 
-    if form_data.disabled is not None:
-        cleaned_data["disabled"] = form_data.disabled
+    # You can't disable yourself
+    if form_data.enabled is not None and request.user.id != user_id:
+        cleaned_data["enabled"] = form_data.enabled
 
-    if not cleaned_data:
-        raise HTTPException(
-            status_code=400, detail="No valid fields to update were provided"
-        )
+    if form_data.avatar is not None:
+        cleaned_data["avatar_path"], avatar_user_path = build_avatar_path(form_data.avatar.filename, form_data.username)
+        file_location = f"{avatar_user_path}/{form_data.avatar.filename}"
+        with open(file_location, "wb+") as file_object:
+            file_object.write(form_data.avatar.file.read())
 
-    dbh.update_user(user_id, cleaned_data)
+    if cleaned_data:
+        dbh.update_user(user_id, cleaned_data)
 
-    # Log out the current user if username or password changed
-    creds_updated = cleaned_data.get("username") or cleaned_data.get("hashed_password")
-    if request.user.id == user_id and creds_updated:
-        clear_session(request)
+        # Log out the current user if username or password changed
+        creds_updated = cleaned_data.get("username") or cleaned_data.get("hashed_password")
+        if request.user.id == user_id and creds_updated:
+            clear_session(request)
 
     return dbh.get_user(user_id)
 

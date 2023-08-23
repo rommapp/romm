@@ -85,7 +85,7 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user):
 
     conn = MockConnection()
 
-    dbh.update_user(editor_user.id, {"disabled": True})
+    dbh.update_user(editor_user.id, {"enabled": False})
 
     try:
         await get_current_active_user_from_session(conn)

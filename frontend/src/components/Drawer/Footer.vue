@@ -2,14 +2,16 @@
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
-
 import storeAuth from "@/stores/auth";
+import { defaultAvatarPath } from "@/utils/utils"
 
+// Props
 const props = defineProps(["rail"]);
 const router = useRouter();
 const emitter = inject("emitter");
 const auth = storeAuth();
 
+// Functions
 async function logout() {
   axios
     .post("/api/logout", {})
@@ -23,7 +25,8 @@ async function logout() {
     })
     .catch(() => {
       router.push("/login");
-    }).finally(() => {
+    })
+    .finally(() => {
       auth.setUser(null);
     });
 }
@@ -38,8 +41,14 @@ async function logout() {
       {{ rail ? "" : auth.user?.role }}
     </div>
     <template v-slot:prepend>
-      <v-avatar :class="{ 'ml-4': rail, 'my-2': rail }" >
-        <v-img src="/assets/default_user.png" />
+      <v-avatar :class="{ 'ml-4': rail, 'my-2': rail }">
+        <v-img
+          :src="
+            auth.user?.avatar_path
+              ? `/assets/romm/resources/${auth.user?.avatar_path}`
+              : defaultAvatarPath
+          "
+        />
       </v-avatar>
     </template>
     <template v-slot:append>

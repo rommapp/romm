@@ -1,11 +1,14 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { VDataTable } from "vuetify/labs/VDataTable";
-import { fetchUsersApi } from "@/services/api";
+import { fetchUsersApi, updateUserApi } from "@/services/api";
+import storeAuth from "@/stores/auth";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 
+
+const auth = storeAuth();
 const HEADERS = [
   {
     title: "Username",
@@ -18,6 +21,12 @@ const HEADERS = [
     align: "start",
     sortable: true,
     key: "role",
+  },
+  {
+    title: "Enabled",
+    align: "start",
+    sortable: true,
+    key: "enabled",
   },
   { align: "end", key: "actions", sortable: false },
 ];
@@ -35,12 +44,27 @@ const users = ref([]);
 const usersPerPage = ref(5);
 const userSearch = ref("");
 
-onMounted(() => {
-  fetchUsersApi().then(({ data }) => {
-    users.value = data;
-  }).catch((error) => {
-    console.log(error);
+function disableUser(user) {
+  updateUserApi(user).catch(({ response, message }) => {
+    emitter.emit("snackbarShow", {
+      msg: `Unable to disable/enable user: ${
+        response?.data?.detail || response?.statusText || message
+      }`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 5000,
+    });
   });
+}
+
+onMounted(() => {
+  fetchUsersApi()
+    .then(({ data }) => {
+      users.value = data;
+    })
+    .catch((error) => {
+      console.log(error);
+    });
 });
 </script>
 <template>
@@ -88,6 +112,14 @@ onMounted(() => {
         :items="users"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
+        <template v-slot:item.enabled="{ item }">
+          <v-switch
+            :disabled="item.selectable.id == auth.user?.id"
+            v-model="item.selectable.enabled"
+            :update:modelValue="disableUser(item.selectable)"
+            hide-details
+          />
+        </template>
         <template v-slot:item.actions="{ item }">
           <v-btn
             class="mr-2 bg-terciary"
@@ -98,8 +130,8 @@ onMounted(() => {
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
           <v-btn
-          size="small"
-          rounded="0"
+            size="small"
+            rounded="0"
             class="bg-terciary text-rommRed"
             @click="emitter.emit('showDeleteUserDialog', item.raw)"
             ><v-icon>mdi-delete</v-icon></v-btn

@@ -81,7 +81,7 @@ def test_users(admin_user):
     new_user = dbh.get_user_by_username("new_user")
     assert new_user.username == "new_user"
     assert new_user.role == Role.VIEWER
-    assert not new_user.disabled
+    assert new_user.enabled
 
     dbh.update_user(new_user.id, {"role": Role.EDITOR})
 

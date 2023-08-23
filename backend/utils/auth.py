@@ -73,7 +73,7 @@ async def get_current_active_user_from_session(conn: HTTPConnection):
             detail="User not found",
         )
 
-    if user.disabled:
+    if not user.enabled:
         clear_session(conn)
 
         raise HTTPException(
