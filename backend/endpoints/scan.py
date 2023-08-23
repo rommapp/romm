@@ -1,15 +1,12 @@
 import emoji
 import socketio  # type: ignore
-from rq import Queue
 
 from logger.logger import log
 from utils import fs, fastapi
 from utils.exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from utils.socket import socket_server
-from utils.cache import redis_client, redis_url, redis_connectable
-
-scan_queue = Queue(connection=redis_client)
+from utils.redis import high_prio_queue, redis_url, redis_connectable
 
 
 async def scan_platforms(paltforms: str, complete_rescan: bool):
@@ -83,6 +80,6 @@ async def scan_handler(_sid: str, platforms: str, complete_rescan: bool = True):
 
     # Run in worker if redis is available
     if redis_connectable:
-        return scan_queue.enqueue(scan_platforms, platforms, complete_rescan)
+        return high_prio_queue.enqueue(scan_platforms, platforms, complete_rescan)
     else:
         await scan_platforms(platforms, complete_rescan)

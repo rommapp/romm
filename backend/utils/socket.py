@@ -1,6 +1,6 @@
 import socketio  # type: ignore
 
-from utils.cache import redis_url, redis_connectable
+from utils.redis import redis_url, redis_connectable
 
 
 socket_server = socketio.AsyncServer(
