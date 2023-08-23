@@ -68,7 +68,7 @@ async def get_current_active_user_from_token(token: str):
     if user is None:
         raise credentials_exception
 
-    if user.disabled:
+    if not user.enabled:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
         )
