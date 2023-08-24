@@ -156,7 +156,13 @@ function toTop() {
 
 function selectRom({ event, index, selected }) {
   if (event.shiftKey) {
-    const [start, end] = [romsStore.lastSelectedIndex, index].sort();
+    const [start, end] = [romsStore.lastSelectedIndex, index].sort(function (
+      a,
+      b
+    ) {
+      return a - b;
+    });
+    console.log("start index: " + start + " - end index: " + end);
     const action = selected
       ? romsStore.addSelectedRoms
       : romsStore.removeSelectedRoms;
