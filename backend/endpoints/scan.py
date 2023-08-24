@@ -68,10 +68,6 @@ async def scan_platforms(
                 },
             )
 
-            if rom_id:
-                scanned_rom.id = rom_id
-
-            dbh.add_rom(scanned_rom)
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
         dbh.update_n_roms(scanned_platform.slug)
     dbh.purge_platforms(fs_platforms)
