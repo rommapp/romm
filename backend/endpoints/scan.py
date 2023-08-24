@@ -15,7 +15,7 @@ scan_queue = Queue(connection=redis_client)
 
 
 async def scan_platforms(
-    paltforms: list[str], complete_rescan: bool, selected_roms: list[str]
+    platform_slugs: list[str], complete_rescan: bool, selected_roms: list[str]
 ):
     # Connect to external socketio server
     sm = (
@@ -32,7 +32,8 @@ async def scan_platforms(
         await sm.emit("scan:done_ko", e.message)
         return
 
-    platform_list = paltforms or fs_platforms
+    platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
+    platform_list = platform_list or fs_platforms
     for p_slug in platform_list:
         try:
             # Verify that platform exists
@@ -82,14 +83,14 @@ async def scan_handler(_sid: str, options: dict):
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     fs.store_default_resources()
 
-    platforms = options.get("platforms", [])
+    platform_slugs = options.get("platforms", [])
     complete_rescan = options.get("rescan", False)
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
     if redis_connectable:
         return scan_queue.enqueue(
-            scan_platforms, platforms, complete_rescan, selected_roms
+            scan_platforms, platform_slugs, complete_rescan, selected_roms
         )
     else:
-        await scan_platforms(platforms, complete_rescan, selected_roms)
+        await scan_platforms(platform_slugs, complete_rescan, selected_roms)
