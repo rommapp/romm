@@ -75,6 +75,7 @@ def rom(request: Request, id: int) -> RomSchema:
 
 @protected_route(router.get, "/platforms/{p_slug}/roms/{id}/download", ["roms.read"])
 def download_rom(request: Request, id: int, files: str):
+    """Downloads a rom or a zip file with multiple roms"""
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
@@ -171,36 +172,54 @@ async def update_rom(request: Request, p_slug: str, id: int) -> dict:
     }
 
 
-@protected_route(router.delete, "/platforms/{p_slug}/roms", ["roms.write"])
-async def delete_roms(
+def _delete_single_rom(rom_id: int, p_slug: str, filesystem: bool = False):
+    rom = dbh.get_rom(rom_id)
+    if not rom:
+        error = f"Rom with id {rom_id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    log.info(f"Deleting {rom.file_name} from database")
+    dbh.delete_rom(rom_id)
+
+    if filesystem:
+        log.info(f"Deleting {rom.file_name} from filesystem")
+        try:
+            platform: Platform = dbh.get_platform(p_slug)
+            fs.remove_rom(platform.fs_slug, rom.file_name)
+        except RomNotFoundError as e:
+            error = f"Couldn't delete from filesystem: {str(e)}"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    return rom
+
+
+@protected_route(router.delete, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
+def delete_rom(
+    request: Request, p_slug: str, id: int, filesystem: bool = False
+) -> dict:
+    """Detele rom from database [and filesystem]"""
+
+    rom = _delete_single_rom(id, p_slug, filesystem)
+    dbh.update_n_roms(p_slug)
+
+    return {"msg": f"{rom.file_name} deleted successfully!"}
+
+
+@protected_route(router.post, "/platforms/{p_slug}/roms/delete", ["roms.write"])
+async def mass_delete_roms(
     request: Request,
     p_slug: str,
     filesystem: bool = False,
 ) -> dict:
-    """Detele roms from database [and filesystem]"""
+    """Detele multiple roms from database [and filesystem]"""
 
     data: dict = await request.json()
     roms_ids: list = data["roms"]
 
     for rom_id in roms_ids:
-        rom = dbh.get_rom(rom_id)
-        if not rom:
-            error = f"Rom with id {rom_id} not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-        log.info(f"Deleting {rom.file_name} from database")
-        dbh.delete_rom(rom.id)
-
-        if filesystem:
-            log.info(f"Deleting {rom.file_name} from filesystem")
-            try:
-                platform: Platform = dbh.get_platform(p_slug)
-                fs.remove_rom(platform.fs_slug, rom.file_name)
-            except RomNotFoundError as e:
-                error = f"Couldn't delete from filesystem: {str(e)}"
-                log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        _delete_single_rom(rom_id, p_slug, filesystem)
 
     dbh.update_n_roms(p_slug)
 

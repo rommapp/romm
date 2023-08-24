@@ -12,7 +12,7 @@ router = APIRouter()
 async def search_rom_igdb(
     request: Request, search_term: str = "", search_by: str = ""
 ) -> dict:
-    """Get all the roms matched from igdb."""
+    """Search IGDB for ROMs"""
 
     data: dict = await request.json()
     rom: dict = data["rom"]

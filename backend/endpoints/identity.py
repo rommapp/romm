@@ -30,6 +30,7 @@ class UserSchema(BaseModel):
 
 @router.post("/login")
 def login(request: Request, credentials=Depends(HTTPBasic())):
+    """Session login endpoint"""
     user = authenticate_user(credentials.username, credentials.password)
     if not user:
         raise credentials_exception
@@ -46,6 +47,7 @@ def login(request: Request, credentials=Depends(HTTPBasic())):
 
 @router.post("/logout")
 def logout(request: Request):
+    """Session logout endpoint"""
     # Check if session key already stored in cache
     session_id = request.session.get("session_id")
     if not session_id:
@@ -61,16 +63,19 @@ def logout(request: Request):
 
 @protected_route(router.get, "/users", ["users.read"])
 def users(request: Request) -> list[UserSchema]:
+    """Get all users"""
     return dbh.get_users()
 
 
 @protected_route(router.get, "/users/me", ["me.read"])
 def current_user(request: Request) -> UserSchema | None:
+    """Get current user"""
     return request.user
 
 
 @protected_route(router.get, "/users/{user_id}", ["users.read"])
 def get_user(request: Request, user_id: int) -> UserSchema:
+    """Get a specific user"""
     user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -87,6 +92,7 @@ def get_user(request: Request, user_id: int) -> UserSchema:
 def create_user(
     request: Request, username: str, password: str, role: str
 ) -> UserSchema:
+    """Create a new user"""
     if not ROMM_AUTH_ENABLED:
         raise HTTPException(
             status_code=400,
@@ -122,6 +128,7 @@ class UserUpdateForm:
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
 ) -> UserSchema:
+    """Update a specific user"""
     if not ROMM_AUTH_ENABLED:
         raise HTTPException(
             status_code=400,
@@ -177,6 +184,7 @@ def update_user(
 
 @protected_route(router.delete, "/users/{user_id}", ["users.write"])
 def delete_user(request: Request, user_id: int):
+    """Delete a specific user"""
     if not ROMM_AUTH_ENABLED:
         raise HTTPException(
             status_code=400,
