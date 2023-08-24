@@ -3,6 +3,7 @@ import socketio  # type: ignore
 from rq import Queue
 
 from logger.logger import log
+from config import ENABLE_EXPERIMENTAL_REDIS
 from utils import fs, fastapi
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
@@ -88,7 +89,7 @@ async def scan_handler(_sid: str, options: dict):
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
-    if redis_connectable:
+    if redis_connectable and ENABLE_EXPERIMENTAL_REDIS:
         return scan_queue.enqueue(
             scan_platforms, platform_slugs, complete_rescan, selected_roms
         )
