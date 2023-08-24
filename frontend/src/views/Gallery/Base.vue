@@ -73,7 +73,7 @@ async function scan() {
 
   if (!socket.connected) socket.connect();
   socket.emit("scan", {
-    platforms: route.params.platform,
+    platforms: [route.params.platform],
     rescan: false,
   });
 }
@@ -162,7 +162,6 @@ function selectRom({ event, index, selected }) {
     ) {
       return a - b;
     });
-    console.log("start index: " + start + " - end index: " + end);
     const action = selected
       ? romsStore.addSelectedRoms
       : romsStore.removeSelectedRoms;
