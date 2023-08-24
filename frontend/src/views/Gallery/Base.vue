@@ -6,7 +6,6 @@ import socket from "@/services/socket";
 import { views, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
@@ -26,7 +25,6 @@ const searchRoms = ref([]);
 const filteredRoms = ref([]);
 const galleryView = storeGalleryView();
 const galleryFilter = storeGalleryFilter();
-const platforms = storePlatforms();
 const gettingRoms = ref(false);
 const scanning = storeScanning();
 const cursor = ref("");
@@ -74,12 +72,8 @@ async function scan() {
   });
 
   if (!socket.connected) socket.connect();
-  // Check for custom system name
-  var platformCustomName = platforms.value.find((p) => {
-    return p.slug === route.params.platform;
-  })?.fs_slug
   socket.emit("scan", {
-    platforms: [platformCustomName ? platformCustomName : route.params.platform],
+    platforms: [route.params.platform],
     rescan: false,
   });
 }
@@ -162,10 +156,7 @@ function toTop() {
 
 function selectRom({ event, index, selected }) {
   if (event.shiftKey) {
-    const [start, end] = [romsStore.lastSelectedIndex, index].sort(function (
-      a,
-      b
-    ) {
+    const [start, end] = [romsStore.lastSelectedIndex, index].sort((a, b) => {
       return a - b;
     });
     const action = selected
