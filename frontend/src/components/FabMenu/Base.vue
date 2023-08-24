@@ -1,7 +1,8 @@
 <script setup>
-import { inject, onBeforeUnmount } from "vue";
+import { inject } from "vue";
 import { useRoute } from "vue-router";
 import storeAuth from "@/stores/auth";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
@@ -13,6 +14,7 @@ const emitter = inject("emitter");
 // Props
 const props = defineProps(["filteredRoms"]);
 const auth = storeAuth();
+const platforms = storePlatforms();
 const romsStore = storeRoms();
 const scanning = storeScanning();
 const route = useRoute();
@@ -52,10 +54,13 @@ async function onScan() {
   });
 
   if (!socket.connected) socket.connect();
+  // Check for custom system name
+  var platformCustomName = platforms.value.find((p) => {
+    return p.slug === route.params.platform;
+  })?.fs_slug
   socket.emit("scan", {
-    platforms: [route.params.platform],
+    platforms: [platformCustomName ? platformCustomName : route.params.platform],
     rescan: false,
-    roms: romsStore.selected.map((r) => r.id),
   });
 }
 
