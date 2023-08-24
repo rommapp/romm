@@ -7,8 +7,9 @@ const romsStore = storeRoms();
 
 // Props
 const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
-
 const emit = defineEmits(["selectRom"]);
+
+// Functions
 function selectRom(event) {
   if (!event.ctrlKey && !event.shiftKey) {
     event.preventDefault();

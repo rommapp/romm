@@ -18,7 +18,7 @@ function selectRom(event) {
   } else {
     romsStore.removeSelectedRoms(props.rom);
   }
-  emit("selectRom", event, props.index, selected.value);
+  emit("selectRom", { event, index: props.index, selected: selected.value });
 }
 
 const emitter = inject("emitter");
