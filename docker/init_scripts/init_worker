@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /back
-if [[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]]; then rq worker high default low --logging_level WARN; fi
+[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rq worker high default low --logging_level WARN || sleep infinity
