@@ -11,6 +11,7 @@ from starlette.authentication import requires
 from config import ROMM_AUTH_SECRET_KEY
 
 ALGORITHM: Final = "HS256"
+DEFAULT_OAUTH_TOKEN_EXPIRY: Final = 15
 
 DEFAULT_SCOPES_MAP: Final = {
     "me.read": "View your profile",
@@ -46,7 +47,7 @@ def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=DEFAULT_OAUTH_TOKEN_EXPIRY)
 
     to_encode.update({"exp": expire})
 

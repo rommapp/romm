@@ -20,11 +20,14 @@ LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
 HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/roms"
 
 # DEFAULT RESOURCES
-DEFAULT_URL_COVER_L: Final = "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
+DEFAULT_URL_COVER_L: Final = (
+    "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
+)
 DEFAULT_PATH_COVER_L: Final = "default/default/cover/big.png"
-DEFAULT_URL_COVER_S: Final = "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
+DEFAULT_URL_COVER_S: Final = (
+    "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
+)
 DEFAULT_PATH_COVER_S: Final = "default/default/cover/small.png"
-DEFAULT_PATH_USER_AVATAR: Final = f"users"
 
 # MARIADB
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
