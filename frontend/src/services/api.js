@@ -96,8 +96,8 @@ export async function deleteRomApi(rom, deleteFromFs) {
 }
 
 export async function deleteRomsApi(roms, deleteFromFs) {
-  return axios.delete(
-    `/api/platforms/${roms[0].p_slug}/roms?filesystem=${deleteFromFs}`,
+  return api.post(
+    `/platforms/${roms[0].p_slug}/roms/delete?filesystem=${deleteFromFs}`,
     { data: { roms: roms.map((r) => r.id) } }
   );
 }

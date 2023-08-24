@@ -19,6 +19,8 @@ router = APIRouter()
 
 @router.post("/token")
 async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
+    """OAuth2 token endpoint"""
+
     # Suppport refreshing access tokens
     if form_data.grant_type == "refresh_token":
         token = form_data.refresh_token

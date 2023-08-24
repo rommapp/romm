@@ -44,12 +44,12 @@ def test_update_rom(rename_rom, access_token, rom):
     assert rename_rom.called
 
 
-# def test_delete_roms(access_token, rom):
-#     response = client.delete(
-#         f"/platforms/{rom.p_slug}/roms",
-#         headers={"Authorization": f"Bearer {access_token}"},
-#     )
-#     assert response.status_code == 200
+def test_delete_roms(access_token, rom):
+    response = client.delete(
+        f"/platforms/{rom.p_slug}/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 200
 
-#     body = response.json()
-#     assert body["msg"] == f"{rom.file_name} deleted successfully!"
+    body = response.json()
+    assert body["msg"] == f"{rom.file_name} deleted successfully!"
