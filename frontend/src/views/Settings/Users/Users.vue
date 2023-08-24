@@ -3,13 +3,20 @@ import { ref, inject, onMounted } from "vue";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import { fetchUsersApi, updateUserApi } from "@/services/api";
 import storeAuth from "@/stores/auth";
+import { defaultAvatarPath } from "@/utils/utils";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 
-
 const auth = storeAuth();
 const HEADERS = [
+  {
+    title: "",
+    align: "start",
+    sortable: false,
+    key: "avatar_path",
+    width: "40px",
+  },
   {
     title: "Username",
     align: "start",
@@ -97,14 +104,7 @@ onMounted(() => {
         density="comfortable"
         class="bg-secondary"
       />
-
-      <create-user-dialog />
-
-      <edit-user-dialog />
-
-      <delete-user-dialog />
       <v-data-table
-        class="bg-background"
         :items-per-page-options="PER_PAGE_OPTIONS"
         v-model:items-per-page="usersPerPage"
         :search="userSearch"
@@ -112,6 +112,17 @@ onMounted(() => {
         :items="users"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
+        <template v-slot:item.avatar_path="{ item }">
+          <v-avatar>
+            <v-img
+              :src="
+                item.selectable.avatar_path
+                  ? `/assets/romm/resources/${item.selectable.avatar_path}`
+                  : defaultAvatarPath
+              "
+            />
+          </v-avatar>
+        </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
             :disabled="item.selectable.id == auth.user?.id"
@@ -139,5 +150,9 @@ onMounted(() => {
         </template>
       </v-data-table>
     </v-card-text>
+
+    <create-user-dialog />
+    <edit-user-dialog />
+    <delete-user-dialog />
   </v-card>
 </template>
