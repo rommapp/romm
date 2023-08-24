@@ -37,6 +37,7 @@ DB_PASSWD: Final = os.environ.get("DB_PASSWD")
 DB_NAME: Final = os.environ.get("DB_NAME", "romm")
 
 # REDIS
+ENABLE_EXPERIMENTAL_REDIS: Final = os.environ.get("ENABLE_EXPERIMENTAL_REDIS", "false") == "true"
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", "6379")
 
