@@ -53,19 +53,22 @@ export async function downloadRomApi(rom, files) {
   }
 
   const a = document.createElement("a");
-  a.href = `/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
+  a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
     files || rom.files
   }`;
   a.download = `${rom.r_name}.zip`;
   a.click();
 
-  if (!socket.connected) socket.connect();
-  storeDownload().add(rom.id);
+  // Only connect socket if multi-file download
+  if (rom.multi) {
+    if (!socket.connected) socket.connect();
+    storeDownload().add(rom.id);
 
-  // Clear download state after 60 seconds in case error/timeout
-  setTimeout(() => {
-    clearRomFromDownloads(rom);
-  }, 60 * 1000);
+    // Clear download state after 60 seconds in case error/timeout
+    setTimeout(() => {
+      clearRomFromDownloads(rom);
+    }, 60 * 1000);
+  }
 }
 
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {

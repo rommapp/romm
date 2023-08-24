@@ -72,7 +72,10 @@ async function scan() {
   });
 
   if (!socket.connected) socket.connect();
-  socket.emit("scan", route.params.platform, false);
+  socket.emit("scan", {
+    platforms: route.params.platform,
+    rescan: false,
+  });
 }
 
 async function fetchRoms(platform) {
@@ -133,17 +136,13 @@ function onFilterChange() {
 
 function onScroll() {
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  scrolledToTop.value = scrollTop == 0; // Check scroll position to show fab to top
+  scrolledToTop.value = scrollTop === 0;
 
-  if (cursor.value === null && searchCursor.value === null) return;
+  if (!cursor.value && !searchCursor.value) return;
 
   const scrollOffset = 60;
-
-  // If we are close at the bottom of the page, fetch more roms
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-    galleryFilter.value
-      ? fetchRoms(route.params.platform)
-      : fetchRoms(route.params.platform);
+    fetchRoms(route.params.platform);
   }
 }
 
@@ -155,21 +154,18 @@ function toTop() {
   });
 }
 
-function selectRom(event, index, selected) {
-  if (event.ctrlKey) {
-    romsStore.updateLastSelectedRom(index);
-  } else if (event.shiftKey) {
-    if (selected) {
-      for (let i = romsStore.lastSelected + 1; i < index; i++) {
-        romsStore.addSelectedRoms(filteredRoms.value[i]);
-        romsStore.updateLastSelectedRom(index);
-      }
-    } else {
-      for (let i = romsStore.lastSelected; i > index; i--) {
-        romsStore.removeSelectedRoms(filteredRoms.value[i]);
-        romsStore.updateLastSelectedRom(index - 1);
-      }
+function selectRom({ event, index, selected }) {
+  if (event.shiftKey) {
+    const [start, end] = [romsStore.lastSelectedIndex, index].sort();
+    const action = selected
+      ? romsStore.addSelectedRoms
+      : romsStore.removeSelectedRoms;
+    for (let i = start + 1; i < end; i++) {
+      action(filteredRoms.value[i]);
     }
+    romsStore.updateLastSelectedRom(selected ? index : index - 1);
+  } else {
+    romsStore.updateLastSelectedRom(index);
   }
   emitter.emit("refreshSelected");
 }

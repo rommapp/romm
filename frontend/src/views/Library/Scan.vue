@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject } from "vue";
+import { ref, inject, onBeforeUnmount } from "vue";
 import socket from "@/services/socket";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
@@ -15,12 +15,8 @@ const completeRescan = ref(false);
 // Event listeners bus
 const emitter = inject("emitter");
 
-socket.on("scan:scanning_platform", ({ p_name, p_slug }) => {
-  scannedPlatforms.value.push({
-    name: p_name,
-    slug: p_slug,
-    roms: [],
-  });
+socket.on("scan:scanning_platform", ({ name, slug }) => {
+  scannedPlatforms.value.push({ name, slug, roms: [] });
   window.setTimeout(scrollToBottom, 100);
 });
 
@@ -44,7 +40,7 @@ socket.on("scan:scanning_rom", ({ p_slug, p_name, ...rom }) => {
 
 socket.on("scan:done", () => {
   scanning.set(false);
-  
+
   emitter.emit("refreshDrawer");
   emitter.emit("refreshView");
   emitter.emit("snackbarShow", {
@@ -71,18 +67,24 @@ function scrollToBottom() {
   window.scrollTo(0, document.body.scrollHeight);
 }
 
-async function scan() {
+async function onScan() {
   scanning.set(true);
   scannedPlatforms.value = [];
 
   if (!socket.connected) socket.connect();
 
-  socket.emit(
-    "scan",
-    platformsToScan.value.map((p) => p.fs_slug).join(","),
-    completeRescan.value
-  );
+  socket.emit("scan", {
+    platforms: platformsToScan.value.map((p) => p.fs_slug),
+    rescan: completeRescan.value,
+  });
 }
+
+onBeforeUnmount(() => {
+  socket.off("scan:scanning_platform");
+  socket.off("scan:scanning_rom");
+  socket.off("scan:done");
+  socket.off("scan:done_ko");
+});
 </script>
 
 <template>
@@ -118,20 +120,20 @@ async function scan() {
   <!-- Scan button -->
   <v-row class="pa-4" no-gutters>
     <v-btn
-      @click="scan()"
+      @click="onScan()"
       :disabled="scanning.value"
       prepend-icon="mdi-magnify-scan"
       rounded="0"
       :loading="scanning.value"
-    >Scan
-    <template v-slot:loader>
-      <v-progress-circular
-        color="romm-accent-1"
-        :width="2"
-        :size="20"
-        indeterminate
-      />
-    </template>
+      >Scan
+      <template v-slot:loader>
+        <v-progress-circular
+          color="romm-accent-1"
+          :width="2"
+          :size="20"
+          indeterminate
+        />
+      </template>
     </v-btn>
   </v-row>
 
