@@ -1,9 +1,8 @@
 import pytest
 
-from utils.fastapi import scan_platform, scan_rom
-from utils.exceptions import RomsNotFoundException
-from models.platform import Platform
-from models.rom import Rom
+from ..fastapi import scan_platform, scan_rom
+from exceptions.fs_exceptions import RomsNotFoundException
+from models import Platform, Rom
 
 
 @pytest.mark.vcr()

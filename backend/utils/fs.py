@@ -14,7 +14,7 @@ from config import (
     DEFAULT_PATH_COVER_S,
 )
 from config.config_loader import config
-from utils.exceptions import (
+from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomsNotFoundException,
     RomNotFoundError,
@@ -300,3 +300,10 @@ def remove_rom(p_slug: str, file_name: str):
             shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
     except FileNotFoundError as exc:
         raise RomNotFoundError(file_name, p_slug) from exc
+
+
+# ========= Users utils =========
+def build_avatar_path(avatar_path, username):
+    avatar_user_path = f"{RESOURCES_BASE_PATH}/users/{username}"
+    Path(avatar_user_path).mkdir(parents=True, exist_ok=True)
+    return f"users/{username}/{avatar_path}", avatar_user_path

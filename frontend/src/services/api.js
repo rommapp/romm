@@ -1,9 +1,22 @@
 import axios from "axios";
-import useDownloadStore from "@/stores/download.js";
-import socket from "@/services/socket.js";
+import storeDownload from "@/stores/download";
+import socket from "@/services/socket";
+import router from "@/plugins/router";
+
+export const api = axios.create({ baseURL: "/api", timeout: 120000 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response.status === 403) {
+      router.push(`/login?next=${router.currentRoute.value.path}`);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export async function fetchPlatformsApi() {
-  return axios.get("/api/platforms");
+  return api.get("/platforms");
 }
 
 export async function fetchRomsApi({
@@ -12,17 +25,17 @@ export async function fetchRomsApi({
   size = 60,
   searchTerm = "",
 }) {
-  return axios.get(
-    `/api/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
+  return api.get(
+    `/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
   );
 }
 
 export async function fetchRomApi(platform, rom) {
-  return axios.get(`/api/platforms/${platform}/roms/${rom}`);
+  return api.get(`/platforms/${platform}/roms/${rom}`);
 }
 
 function clearRomFromDownloads({ id }) {
-  const downloadStore = useDownloadStore();
+  const downloadStore = storeDownload();
   downloadStore.remove(id);
 
   // Disconnect socket when no more downloads are in progress
@@ -46,13 +59,16 @@ export async function downloadRomApi(rom, files) {
   a.download = `${rom.r_name}.zip`;
   a.click();
 
-  if (!socket.connected) socket.connect();
-  useDownloadStore().add(rom.id);
+  // Only connect socket if multi-file download
+  if (rom.multi) {
+    if (!socket.connected) socket.connect();
+    storeDownload().add(rom.id);
 
-  // Clear download state after 60 seconds in case error/timeout
-  setTimeout(() => {
-    clearRomFromDownloads(rom);
-  }, 60 * 1000);
+    // Clear download state after 60 seconds in case error/timeout
+    setTimeout(() => {
+      clearRomFromDownloads(rom);
+    }, 60 * 1000);
+  }
 }
 
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {
@@ -67,20 +83,70 @@ export async function updateRomApi(rom, updatedData, renameAsIGDB) {
       ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
       : updatedData.file_name,
   };
-  return axios.patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
+
+  return api.patch(`/platforms/${rom.p_slug}/roms/${rom.id}`, {
     updatedRom,
   });
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {
-  return axios.delete(
-    `/api/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
+  return api.delete(
+    `/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
+  );
+}
+
+export async function deleteRomsApi(roms, deleteFromFs) {
+  return api.post(
+    `/platforms/${roms[0].p_slug}/roms/delete?filesystem=${deleteFromFs}`,
+    { roms: roms.map((r) => r.id) }
   );
 }
 
 export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
-  return axios.put(
-    `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
+  return api.put(
+    `/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
     { rom: rom }
   );
+}
+
+export async function fetchCurrentUserApi() {
+  return api.get("/users/me");
+}
+
+export async function fetchUsersApi() {
+  return api.get("/users");
+}
+
+export async function fetchUserApi(user) {
+  return api.get(`/users/${user.id}`);
+}
+
+export async function createUserApi({ username, password, role }) {
+  return api.post("/users", {}, { params: { username, password, role } });
+}
+
+export async function updateUserApi({
+  id,
+  username,
+  password,
+  role,
+  enabled,
+  avatar,
+}) {
+  return api.put(
+    `/users/${id}`,
+    {
+      avatar: avatar ? avatar[0] : null,
+    },
+    {
+      headers: {
+        "Content-Type": avatar ? "multipart/form-data" : "text/text",
+      },
+      params: { username, password, role, enabled },
+    }
+  );
+}
+
+export async function deleteUserApi(user) {
+  return api.delete(`/users/${user.id}`);
 }
