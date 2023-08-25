@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 volumes:
   mysql_data:
 services:
@@ -6,34 +6,40 @@ services:
     image: zurdi15/romm:latest
     container_name: romm
     environment:
-      - ROMM_DB_DRIVER=mariadb # mariadb | sqlite (defaults to sqlite)
-      - DB_HOST=mariadb # [Optional]
-      - DB_PORT=3306 # [Optional]
-      - DB_USER=romm-user # [Optional]
-      - DB_NAME=romm # [Optional] Should match the MYSQL_DATABASE value in the mariadb container
-      - DB_PASSWD=<database password> # [Optional]
-      # - REDIS_HOST=redis # [Optional] Enables running long tasks (full rescans) in the background
-      # - REDIS_PORT=6379 # [Optional]
-      - CLIENT_ID=<IGDB client id> # [Optional] Required to fetch metadata from IGDB
-      - CLIENT_SECRET=<IGDB client secret> # [Optional] 
-      - STEAMGRIDDB_API_KEY=<SteamGridDB api key> # [Optional] Only needed if you want to use SteamGridDB as a source for covers
-      - ROMM_AUTH_ENABLED=true # [Optional] Will enable user management and require authentication to access the interface (default to false)
-      - ROMM_AUTH_SECRET_KEY=<secret key> # [Optional]/[Mandatory if ROMM_AUTH_ENABLED=true] Used to encrypt user passwords, generate one with `openssl rand -hex 32`
-      - ROMM_AUTH_USERNAME=admin # [Optional] Username for default admin user
-      - ROMM_AUTH_PASSWORD=<admin password> # [Optional] Password for default admin user (defaults to admin)
+      - ROMM_DB_DRIVER=mariadb # mariadb | sqlite (default: sqlite)
+      # [Optional] Only required if using MariaDB as the database
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_USER=romm-user
+      - DB_NAME=romm # Should match the MYSQL_DATABASE value in the mariadb container
+      - DB_PASSWD=<database password>
+      # [Optional] Used to fetch metadata from IGDB
+      - CLIENT_ID=<IGDB client id>
+      - CLIENT_SECRET=<IGDB client secret>
+      # [Optional] Use SteamGridDB as a source for covers
+      - STEAMGRIDDB_API_KEY=<SteamGridDB api key>
+      # [Optional] Will enable user management and require authentication to access the interface (default to false)
+      - ROMM_AUTH_ENABLED=true # default: false
+      - ROMM_AUTH_SECRET_KEY=<secret key> # Generate a key with `openssl rand -hex 32`
+      - ROMM_AUTH_USERNAME=admin # default: admin
+      - ROMM_AUTH_PASSWORD=<admin password> # default: admin
+      # [Optional] Only required if authentication is enabled
+      - ENABLE_EXPERIMENTAL_REDIS=true # default: false
+      - REDIS_HOST=redis # default: localhost
+      - REDIS_PORT=6379 # default: 6379
     volumes:
-      - '/path/to/library:/romm/library'
-      - '/path/to/resources:/romm/resources' # [Optional] Path where roms metadata (covers) are stored
-      - '/path/to/config.yml:/romm/config.yml' # [Optional] Path where config is stored
-      - '/path/to/database:/romm/database' # [Optional] Only needed if ROMM_DB_DRIVER=sqlite or ROMM_DB_DRIVER not exists 
-      - '/path/to/logs:/romm/logs' # [Optional] Path where RomM logs are stored
+      - "/path/to/library:/romm/library"
+      - "/path/to/resources:/romm/resources" # [Optional] Path where roms metadata (covers) are stored
+      - "/path/to/config.yml:/romm/config.yml" # [Optional] Path where config is stored
+      - "/path/to/database:/romm/database" # [Optional] Only needed if ROMM_DB_DRIVER=sqlite or not set
+      - "/path/to/logs:/romm/logs" # [Optional] Path where logs are stored
     ports:
       - 80:80
     depends_on:
       - romm_db
     restart: "unless-stopped"
 
-  # [Optional] Only needed if ROMM_DB_DRIVER=mariadb
+  # [Optional] Only required if using MariaDB as the database
   mariadb:
     image: mariadb:latest
     container_name: mariadb
@@ -43,15 +49,15 @@ services:
       - MYSQL_USER=romm-user
       - MYSQL_PASSWORD=change-me
     volumes:
-      - mysql_data:/var/lib/mysql # Can also be mounted locally if preferred
+      - mysql_data:/var/lib/mysql # Can also be mounted locally
     ports:
       - 3306:3306
     restart: "unless-stopped"
 
-  # [Optional][Experimental]
-  # redis:
-  #   image: redis:alpine
-  #   container_name: redis
-  #   restart: unless-stopped
-  #   ports:
-  #     - 6379:6379
+  # [Optional] Only required if experimental Redis is enabled
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - 6379:6379
