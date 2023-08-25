@@ -156,14 +156,17 @@ function toTop() {
 
 function selectRom({ event, index, selected }) {
   if (event.shiftKey) {
-    const [start, end] = [romsStore.lastSelectedIndex, index].sort((a, b) => {
-      return a - b;
-    });
-    const action = selected
-      ? romsStore.addSelectedRoms
-      : romsStore.removeSelectedRoms;
-    for (let i = start + 1; i < end; i++) {
-      action(filteredRoms.value[i]);
+    const [start, end] = [romsStore.lastSelectedIndex, index].sort(
+      (a, b) => a - b
+    );
+    if (selected) {
+      for (let i = start + 1; i < end; i++) {
+        romsStore.addSelectedRoms(filteredRoms.value[i]);
+      }
+    } else {
+      for (let i = start; i <= end; i++) {
+        romsStore.removeSelectedRoms(filteredRoms.value[i]);
+      }
     }
     romsStore.updateLastSelectedRom(selected ? index : index - 1);
   } else {
