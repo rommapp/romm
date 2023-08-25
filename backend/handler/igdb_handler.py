@@ -8,7 +8,7 @@ from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
 
-from config import CLIENT_ID, CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
@@ -29,7 +29,7 @@ class IGDBHandler:
         self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
         self.twitch_auth = TwitchAuth()
         self.headers = {
-            "Client-ID": CLIENT_ID,
+            "Client-ID": IGDB_CLIENT_ID,
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
@@ -206,8 +206,8 @@ class TwitchAuth:
         res = requests.post(
             url="https://id.twitch.tv/oauth2/token",
             params={
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
+                "client_id": IGDB_CLIENT_ID,
+                "client_secret": IGDB_CLIENT_SECRET,
                 "grant_type": "client_credentials",
             },
             timeout=30,

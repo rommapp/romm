@@ -1,14 +1,13 @@
 import sys
 from rq import Worker, Queue, Connection
 
-from config import ENABLE_EXPERIMENTAL_REDIS
-from utils.cache import redis_client, redis_connectable
+from utils.cache import redis_client, use_redis_connection
 
 listen = ["high", "default", "low"]
 
 if __name__ == "__main__":
     # Exit if Redis is not connectable
-    if not redis_connectable or not ENABLE_EXPERIMENTAL_REDIS:
+    if not use_redis_connection:
         sys.exit(0)
 
     with Connection(redis_client):

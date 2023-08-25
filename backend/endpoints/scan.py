@@ -3,12 +3,11 @@ import socketio  # type: ignore
 from rq import Queue
 
 from logger.logger import log
-from config import ENABLE_EXPERIMENTAL_REDIS
 from utils import fs, fastapi
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from utils.socket import socket_server
-from utils.cache import redis_client, redis_url, redis_connectable
+from utils.cache import redis_client, redis_url, use_redis_connection
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
 
@@ -21,7 +20,7 @@ async def scan_platforms(
     # Connect to external socketio server
     sm = (
         socketio.AsyncRedisManager(redis_url, write_only=True)
-        if redis_connectable
+        if use_redis_connection
         else socket_server
     )
 
@@ -89,7 +88,7 @@ async def scan_handler(_sid: str, options: dict):
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
-    if redis_connectable and ENABLE_EXPERIMENTAL_REDIS:
+    if use_redis_connection:
         return scan_queue.enqueue(
             scan_platforms, platform_slugs, complete_rescan, selected_roms
         )

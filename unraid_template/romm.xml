@@ -33,8 +33,8 @@
    <Config Name="Resources" Target="/romm/resources/" Default="" Mode="rw" Description="Metadata storage (covers, screenshots, etc.)" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/romm/resources</Config>
    <Config Name="Logs" Target="/romm/logs" Default="" Mode="rw" Description="Log file storage" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/romm/logs</Config>
    <Config Name="Database" Target="/romm/database" Default="" Mode="rw" Description="Only needed if using SQLite" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/romm/database</Config>
-   <Config Name="CLIENT_ID" Target="CLIENT_ID" Default="" Mode="" Description="IGDB Client ID" Type="Variable" Display="always" Required="true" Mask="false"/>
-   <Config Name="CLIENT_SECRET" Target="CLIENT_SECRET" Default="" Mode="" Description="IGDB Client Secret" Type="Variable" Display="always" Required="true" Mask="true"/>
+   <Config Name="IGDB_CLIENT_ID" Target="IGDB_CLIENT_ID" Default="" Mode="" Description="IGDB Client ID" Type="Variable" Display="always" Required="true" Mask="false"/>
+   <Config Name="IGDB_CLIENT_SECRET" Target="IGDB_CLIENT_SECRET" Default="" Mode="" Description="IGDB Client Secret" Type="Variable" Display="always" Required="true" Mask="true"/>
    <Config Name="DB_DRIVER" Target="DB_DRIVER" Default="sqlite" Mode="" Description="Database driver (mariadb or sqlite)" Type="always" Display="always" Required="false" Mask="false"/>
    <Config Name="DB_HOST" Target="DB_HOST" Default="mariadb" Mode="" Description="Database host" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="DB_PORT" Target="DB_PORT" Default="3306" Mode="" Description="Database port" Type="Variable" Display="advanced" Required="false" Mask="false"/>
