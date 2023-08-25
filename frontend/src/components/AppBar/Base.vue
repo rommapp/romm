@@ -1,5 +1,5 @@
 <script setup>
-import storeScanning from "@/stores/scanning.js";
+import storeScanning from "@/stores/scanning";
 import DrawerToggle from "@/components/AppBar/DrawerToggle.vue";
 
 // Props
@@ -9,7 +9,7 @@ const scanning = storeScanning();
 <template>
   <v-app-bar elevation="1" density="comfortable">
     <v-progress-linear
-      color="rommAccent1"
+      color="romm-accent-1"
       :active="scanning.value"
       :indeterminate="true"
       absolute

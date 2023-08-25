@@ -11,8 +11,8 @@ const emitter = inject("emitter");
 <template>
   <v-btn
     @click="emitter.emit('toggleDrawerRail')"
-    rounded="0"
     color="primary"
+    elevation="0"
     block
   >
     <v-icon v-if="rail">mdi-arrow-collapse-right</v-icon>

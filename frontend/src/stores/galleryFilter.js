@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { normalizeString } from "@/utils/utils.js";
+import { normalizeString } from "@/utils/utils";
 
 export default defineStore("galleryFilter", {
   state: () => ({ value: "" }),

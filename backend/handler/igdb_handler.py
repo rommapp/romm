@@ -8,25 +8,26 @@ import os
 import json
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
+from typing import Final
 
 from config import CLIENT_ID, CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
 
-MAIN_GAME_CATEGORY = 0
-EXPANDED_GAME_CATEGORY = 10
-N_SCREENSHOTS = 5
-PS2_IGDB_ID = 8
-SWITCH_IGDB_ID = 130
+MAIN_GAME_CATEGORY: Final = 0
+EXPANDED_GAME_CATEGORY: Final = 10
+N_SCREENSHOTS: Final = 5
+PS2_IGDB_ID: Final = 8
+SWITCH_IGDB_ID: Final = 130
 
-ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
-ps2_opl_index_file = os.path.join(
+PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_OPL_INDEX_FILE: Final = os.path.join(
     os.path.dirname(__file__), "fixtures", "ps2_opl_index.json"
 )
 
-switch_titledb_regex = r"^(70[0-9]{12})$"
-switch_titledb_index_file = os.path.join(
+SWITCH_TITLEDB_REGEX: Final = r"^(70[0-9]{12})$"
+SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
     os.path.dirname(__file__), "fixtures", "switch_titledb.json"
 )
 
@@ -129,23 +130,23 @@ class IGDBHandler:
     def get_rom(self, file_name: str, p_igdb_id: int):
         search_term = get_search_term(file_name)
 
-        # Patch support for PS2 OPL filename format
-        match = re.match(ps2_opl_regex, search_term)
+        # Patch support for PS2 OPL flename format
+        match = re.match(PS2_OPL_REGEX, search_term)
         if p_igdb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
 
-            with open(ps2_opl_index_file, "r") as index_json:
+            with open(PS2_OPL_INDEX_FILE, "r") as index_json:
                 opl_index = json.loads(index_json.read())
                 index_entry = opl_index.get(serial_code, None)
                 if index_entry:
                     search_term = index_entry["Name"]  # type: ignore
 
         # Patch support for switch titleID filename format
-        match = re.match(switch_titledb_regex, search_term)
+        match = re.match(SWITCH_TITLEDB_REGEX, search_term)
         if p_igdb_id == SWITCH_IGDB_ID and match:
             title_id = match.group(1)
 
-            with open(switch_titledb_index_file, "r") as index_json:
+            with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
                 titledb_index = json.loads(index_json.read())
                 index_entry = titledb_index.get(title_id, None)
                 if index_entry:
@@ -246,8 +247,8 @@ class TwitchAuth:
             sys.exit(2)
 
         # Set token in redis to expire in <expires_in> seconds
-        cache.set("twitch_token", token, ex=expires_in - 10)  # type: ignore
-        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore
+        cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
+        cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore[attr-defined]
 
         log.info("Twitch token fetched!")
 
@@ -259,8 +260,8 @@ class TwitchAuth:
             return "test_token"
 
         # Fetch the token cache
-        token = cache.get("twitch_token")  # type: ignore
-        token_expires_at = cache.get("twitch_token_expires_at")  # type: ignore
+        token = cache.get("romm:twitch_token")  # type: ignore[attr-defined]
+        token_expires_at = cache.get("romm:twitch_token_expires_at")  # type: ignore[attr-defined]
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")

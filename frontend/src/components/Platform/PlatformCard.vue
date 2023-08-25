@@ -9,15 +9,16 @@ const props = defineProps(["platform"]);
     <v-hover v-slot="{ isHovering, props }">
       <v-card
         v-bind="props"
+        class="bg-terciary"
         :class="{ 'on-hover': isHovering }"
         :elevation="isHovering ? 20 : 3"
       >
         <v-card-text>
-          <v-row class="pa-1 justify-center bg-secondary">
-            <span class="text-truncate text-overline">{{ platform.slug }}</span>
+          <v-row class="pa-1 justify-center bg-primary">
+            <div class="px-2 text-truncate text-overline">{{ platform.slug }}</div>
           </v-row>
           <v-row class="pa-1 justify-center">
-            <v-avatar :rounded="0" size="100%" class="mt-2">
+            <v-avatar :rounded="0" size="105" class="mt-2">
               <platform-icon :platform="platform"></platform-icon>
             </v-avatar>
             <v-chip

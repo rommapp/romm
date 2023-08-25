@@ -1,7 +1,7 @@
 from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON
 
 from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONT_LIBRARY_PATH
-from models.base import BaseModel
+from .base import BaseModel
 
 class Rom(BaseModel):
     __tablename__ = "roms"
