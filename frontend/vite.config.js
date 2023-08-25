@@ -73,6 +73,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: false,
           ws: true,
         },
+        "/openapi.json": {
+          target: `http://localhost:${backendPort}`,
+          changeOrigin: false,
+          rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
+        },
       },
       port: 3000,
     },

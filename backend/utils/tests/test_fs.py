@@ -1,6 +1,6 @@
 import pytest
 
-from utils.fs import (
+from ..fs import (
     get_cover,
     get_platforms,
     get_roms_structure,

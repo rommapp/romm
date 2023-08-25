@@ -2,18 +2,20 @@
 import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { fetchRomApi, downloadRomApi } from "@/services/api.js";
-import useDownloadStore from "@/stores/download.js";
+import { fetchRomApi, downloadRomApi } from "@/services/api";
+import storeDownload from "@/stores/download";
+import storeAuth from "@/stores/auth";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
-import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
-import EditRomDialog from "@/components/Dialog/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const route = useRoute();
-const downloadStore = useDownloadStore();
+const downloadStore = storeDownload();
+const auth = storeAuth();
 const rom = ref();
 const updatedRom = ref();
 const saveFiles = ref(false);
@@ -68,7 +70,7 @@ onBeforeMount(async () => {
               elevation="2"
               :loading="
                 downloadStore.value.includes(rom.id)
-                  ? 'rommAccent1'
+                  ? 'romm-accent-1'
                   : null
               "
             >
@@ -80,7 +82,7 @@ onBeforeMount(async () => {
                 <template v-slot:placeholder>
                   <div class="d-flex align-center justify-center fill-height">
                     <v-progress-circular
-                      color="rommAccent1"
+                      color="romm-accent-1"
                       :width="2"
                       :size="20"
                       indeterminate
@@ -91,7 +93,7 @@ onBeforeMount(async () => {
             </v-card>
           </v-col>
         </v-row>
-        <v-row class="pl-3 pr-3 action-buttons">
+        <v-row class="px-3 action-buttons">
           <v-col class="pa-0">
             <template v-if="rom.multi">
               <v-btn
@@ -124,7 +126,7 @@ onBeforeMount(async () => {
           <v-col class="pa-0">
             <v-menu location="bottom">
               <template v-slot:activator="{ props }">
-                <v-btn v-bind="props" rounded="0" block>
+                <v-btn :disabled="!auth.scopes.includes('roms.write')" v-bind="props" rounded="0" block>
                   <v-icon icon="mdi-dots-vertical" size="large" />
                 </v-btn>
               </template>
@@ -188,7 +190,7 @@ onBeforeMount(async () => {
             'details-content-mobile': xs,
           }"
         >
-          <v-tabs v-model="tab" slider-color="rommAccent1" rounded="0">
+          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0" disabled
               >Saves<span class="text-caption text-truncate ml-1"
@@ -240,7 +242,7 @@ onBeforeMount(async () => {
                     item-title="file_name"
                     v-model="filesToDownload"
                     :items="rom.files"
-                    class="mt-2 mb-2"
+                    class="my-2"
                     density="compact"
                     variant="outlined"
                     return-object
@@ -324,7 +326,7 @@ onBeforeMount(async () => {
                 <v-carousel
                   hide-delimiter-background
                   delimiter-icon="mdi-square"
-                  class="bg-rommBlack"
+                  class="bg-romm-black"
                   show-arrows="hover"
                   height="400"
                 >

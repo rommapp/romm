@@ -9,6 +9,7 @@ RUN npm run build
 FROM ubuntu/nginx:1.18-22.04_edge as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
+COPY ./frontend/assets/default_avatar.png ${WEBSERVER_FOLDER}/assets/
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/library ${WEBSERVER_FOLDER}/assets/romm/library && \

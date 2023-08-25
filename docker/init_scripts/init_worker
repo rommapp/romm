@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /back
-nc -z ${REDIS_HOST:-localhost} ${REDIS_PORT:-6379} && rq worker high default low --logging_level WARN
+[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rq worker high default low --logging_level WARN || sleep infinity
