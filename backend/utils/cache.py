@@ -1,14 +1,9 @@
-from redis import Redis, ConnectionError
+from redis import Redis
 
 from config import REDIS_HOST, REDIS_PORT, ENABLE_EXPERIMENTAL_REDIS
 
 redis_client = Redis(host=REDIS_HOST, port=int(REDIS_PORT), db=0)
 redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}"
-
-try:
-    use_redis_connection = redis_client.ping() and ENABLE_EXPERIMENTAL_REDIS
-except ConnectionError:
-    use_redis_connection = False
 
 
 class FallbackCache:
@@ -42,4 +37,4 @@ _cache_client = Redis(
     host=REDIS_HOST, port=int(REDIS_PORT), db=0, decode_responses=True
 )
 _fallback_cache = FallbackCache()
-cache = _cache_client if use_redis_connection else _fallback_cache
+cache = _cache_client if ENABLE_EXPERIMENTAL_REDIS else _fallback_cache
