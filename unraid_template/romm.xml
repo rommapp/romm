@@ -41,4 +41,11 @@
    <Config Name="DB_USER" Target="DB_USER" Default="romm" Mode="" Description="Database user" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="DB_NAME" Target="DB_NAME" Default="romm" Mode="" Description="Database name" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="DB_PASSWD" Target="DB_PASSWD" Default="" Mode="" Description="Database password for DB_USER" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+   <Config Name="ENABLE_EXPERIMENTAL_REDIS" Target="ENABLE_EXPERIMENTAL_REDIS" Default="false" Mode="" Description="Enable Redis (experimental)" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="REDIS_HOST" Target="REDIS_HOST" Default="127.0.0.1" Mode="" Description="Redis host" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="REDIS_PORT" Target="REDIS_PORT" Default="6379" Mode="" Description="Redis port" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="ROMM_AUTH_ENABLED" Target="ROMM_AUTH_ENABLED" Default="false" Mode="" Description="Enable authentication" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="ROMM_AUTH_USERNAME" Target="ROMM_AUTH_USERNAME" Default="admin" Mode="" Description="Default admin username" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="ROMM_AUTH_PASSWORD" Target="ROMM_AUTH_PASSWORD" Default="" Mode="" Description="Default admin password" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+   <Config Name="ROMM_AUTH_SECRET_KEY" Target="ROMM_AUTH_SECRET_KEY" Default="" Mode="" Description="Generate a key with `openssl rand -hex 32`" Type="Variable" Display="advanced" Required="false" Mask="true"/>
 </Container>
