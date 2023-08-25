@@ -1,7 +1,7 @@
 from utils.redis import redis_connectable
 from logger.logger import log
+from .exceptions import SchedulerException
 from . import scheduler
-from utils.exceptions import SchedulerException
 
 
 async def run():
