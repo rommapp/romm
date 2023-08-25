@@ -1,8 +1,8 @@
 <script setup>
 import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
-import axios from "axios";
 import storeAuth from "@/stores/auth";
+import { api } from "@/services/api";
 
 // Props
 const auth = storeAuth();
@@ -13,9 +13,9 @@ const password = ref();
 const visiblePassword = ref(false);
 
 function login() {
-  axios
+  api
     .post(
-      "/api/login",
+      "/login",
       {},
       {
         auth: {

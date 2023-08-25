@@ -1,9 +1,9 @@
 <script setup>
 import { inject } from "vue";
 import { useRouter } from "vue-router";
-import axios from "axios";
 import storeAuth from "@/stores/auth";
 import { defaultAvatarPath } from "@/utils/utils"
+import { api } from "@/services/api";
 
 // Props
 const props = defineProps(["rail"]);
@@ -13,8 +13,8 @@ const auth = storeAuth();
 
 // Functions
 async function logout() {
-  axios
-    .post("/api/logout", {})
+  api
+    .post("/logout", {})
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
         msg: data.message,
