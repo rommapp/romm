@@ -71,6 +71,16 @@ export async function downloadRomApi(rom, files) {
   }
 }
 
+export async function uploadRomsApi(romsToUpload, platform) {
+  let formData = new FormData();
+  romsToUpload.map((rom) => formData.append("roms", rom))
+  return api.put(`/platforms/${platform}/roms/upload`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
 export async function updateRomApi(rom, updatedData, renameAsIGDB) {
   const updatedRom = {
     r_igdb_id: updatedData.r_igdb_id,

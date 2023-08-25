@@ -1,5 +1,6 @@
 from datetime import datetime
-from fastapi import APIRouter, Request, status, HTTPException
+from typing import Annotated
+from fastapi import APIRouter, Request, status, HTTPException, Depends, File, UploadFile
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
@@ -11,6 +12,7 @@ from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 from logger.logger import log
 from handler import dbh
 from utils import fs, get_file_name_with_no_tags
+from utils.fs import build_upload_roms_path
 from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
 from utils.oauth import protected_route
 from models import Rom, Platform
@@ -71,6 +73,21 @@ def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
     return dbh.get_rom(id)
+
+
+@protected_route(router.put, "/platforms/{p_slug}/roms/upload", ["roms.write"])
+def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = None):
+    platform_fs_slug = dbh.get_platform(p_slug).fs_slug
+    log.info(f"Uploading files to: {platform_fs_slug}")
+    if roms is not None:
+        roms_path = build_upload_roms_path(platform_fs_slug)
+        for rom in roms:
+            log.info(f" - Uploading {rom.filename}")
+            file_location = f"{roms_path}/{rom.filename}"
+            with open(file_location, "wb+") as file_object:
+                file_object.write(rom.file.read())
+        dbh.update_n_roms(p_slug)
+        return {"msg": f"{len(roms)} roms uploaded successfully!"}
 
 
 @protected_route(router.get, "/platforms/{p_slug}/roms/{id}/download", ["roms.read"])

@@ -5,7 +5,6 @@ import { defaultAvatarPath } from "@/utils/utils"
 
 const user = ref();
 const show = ref(false);
-const avatarFile = ref();
 
 const emitter = inject("emitter");
 emitter.on("showEditUserDialog", (userToEdit) => {

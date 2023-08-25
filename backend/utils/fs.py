@@ -300,6 +300,11 @@ def remove_rom(p_slug: str, file_name: str):
             shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
     except FileNotFoundError as exc:
         raise RomNotFoundError(file_name, p_slug) from exc
+    
+
+def build_upload_roms_path(p_slug: str):
+    rom_path = get_roms_structure(p_slug)
+    return f"{LIBRARY_BASE_PATH}/{rom_path}"
 
 
 # ========= Users utils =========
