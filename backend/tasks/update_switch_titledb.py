@@ -5,8 +5,8 @@ from pathlib import Path
 from utils.redis import redis_connectable
 from logger.logger import log
 from typing import Final
+from .exceptions import SchedulerException
 from . import scheduler
-from utils.exceptions import SchedulerException
 
 RAW_URL: Final = "https://raw.githubusercontent.com/blawar/titledb/master/US.en.json"
 FIXTURE_FILE_PATH = (
@@ -15,8 +15,6 @@ FIXTURE_FILE_PATH = (
     / "fixtures"
     / "switch_titledb.json"
 )
-
-print(FIXTURE_FILE_PATH)
 
 
 async def run():
