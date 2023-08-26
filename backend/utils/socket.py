@@ -1,6 +1,7 @@
 import socketio  # type: ignore
 
-from utils.redis import redis_url, redis_connectable
+from utils.redis import redis_url
+from config import ENABLE_EXPERIMENTAL_REDIS
 
 
 socket_server = socketio.AsyncServer(
@@ -8,7 +9,9 @@ socket_server = socketio.AsyncServer(
     async_mode="asgi",
     logger=False,
     engineio_logger=False,
-    client_manager=socketio.AsyncRedisManager(redis_url) if redis_connectable else None,
+    client_manager=socketio.AsyncRedisManager(redis_url)
+    if ENABLE_EXPERIMENTAL_REDIS
+    else None,
 )
 
 socket_app = socketio.ASGIApp(socket_server)
