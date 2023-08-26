@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cd /back
+[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rqscheduler --host ${REDIS_HOST} --port ${REDIS_PORT} || sleep infinity
