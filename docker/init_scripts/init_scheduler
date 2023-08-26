@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /back
-[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rqscheduler --host ${REDIS_HOST} --port ${REDIS_PORT} || sleep infinity
+[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && python3 scheduler.py || sleep infinity

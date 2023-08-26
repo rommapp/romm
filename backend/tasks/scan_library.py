@@ -4,6 +4,8 @@ from config import (
     ENABLE_SCHEDULED_RESCAN,
     SCHEDULED_RESCAN_CRON,
 )
+from endpoints.scan import scan_platforms
+from utils.redis import low_prio_queue
 from .exceptions import SchedulerException
 from . import tasks_scheduler
 
@@ -17,16 +19,14 @@ def _get_existing_job():
     return None
 
 
-async def run():
+def run():
     if not ENABLE_SCHEDULED_RESCAN:
         log.info("Scheduled library scan not enabled, unscheduling...")
         unschedule()
         return
 
-    from endpoints.scan import scan_platforms
-
     log.info("Scheduled library scan started...")
-    await scan_platforms("", False)
+    low_prio_queue.enqueue(scan_platforms, platform_slugs=[])
     log.info("Scheduled library scan done.")
 
 

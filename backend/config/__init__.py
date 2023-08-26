@@ -70,7 +70,7 @@ ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
     os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false") == "true"
 )
 RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final = int(
-    os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 seconds
+    os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 minutes
 )
 ENABLE_SCHEDULED_RESCAN: Final = (
     os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
