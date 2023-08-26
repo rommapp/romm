@@ -78,3 +78,9 @@ ENABLE_SCHEDULED_RESCAN: Final = (
 SCHEDULED_RESCAN_CRON: Final = os.environ.get(
     "SCHEDULED_RESCAN_CRON", "0 3 * * *"  # At 3:00 AM every day
 )
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
+)
+SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
+    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON", "0 3 * * *"  # At 3:00 AM every day
+)

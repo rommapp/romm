@@ -2,11 +2,15 @@ import requests
 import os
 from pathlib import Path
 
-from utils.redis import redis_connectable
 from logger.logger import log
 from typing import Final
+from config import (
+    ENABLE_EXPERIMENTAL_REDIS,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+)
 from .exceptions import SchedulerException
-from . import scheduler
+from . import tasks_scheduler
 
 RAW_URL: Final = "https://raw.githubusercontent.com/blawar/titledb/master/US.en.json"
 FIXTURE_FILE_PATH = (
@@ -17,7 +21,21 @@ FIXTURE_FILE_PATH = (
 )
 
 
+def _get_existing_job():
+    existing_jobs = tasks_scheduler.get_jobs()
+    for job in existing_jobs:
+        if job.func_name == "tasks.update_switch_titledb.run":
+            return job
+
+    return None
+
+
 async def run():
+    if not ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
+        log.info("Scheduled TitleDB update not enabled, unscheduling...")
+        unschedule()
+        return
+
     log.info("Scheduled TitleDB update started...")
 
     try:
@@ -34,24 +52,29 @@ async def run():
 
 
 def schedule():
-    if not redis_connectable:
+    if not ENABLE_EXPERIMENTAL_REDIS:
         raise SchedulerException("Redis not connectable, titleDB update not scheduled.")
 
-    existing_jobs = scheduler.get_jobs(func_name="tasks.update_switch_titledb.run")
-    if existing_jobs:
-        raise SchedulerException("TitleDB update already scheduled.")
+    if not ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
+        raise SchedulerException("Scheduled TitleDB update not enabled.")
 
-    return scheduler.cron(
-        "0 3 * * *",  # At 3:00 AM every day
+    if _get_existing_job():
+        log.info("TitleDB update already scheduled.")
+        return
+
+    return tasks_scheduler.cron(
+        SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
         func="tasks.update_switch_titledb.run",
         repeat=None,
     )
 
 
 def unschedule():
-    existing_jobs = scheduler.get_jobs(func_name="tasks.update_switch_titledb.run")
+    job = _get_existing_job()
 
-    if not existing_jobs:
-        raise SchedulerException("No TitleDB update scheduled.")
+    if not job:
+        log.info("TitleDB update not scheduled.")
+        return
 
-    scheduler.cancel(*existing_jobs)
+    tasks_scheduler.cancel(job)
+    log.info("TitleDB update unscheduled.")
