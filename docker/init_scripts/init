@@ -9,6 +9,9 @@
 # Start rq worker
 /init_worker &
 
+# Start rq scheduler
+/init_scheduler &
+
 # Wait for any process to exit
 wait -n
 
