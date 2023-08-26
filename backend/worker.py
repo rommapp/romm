@@ -11,6 +11,9 @@ if __name__ == "__main__":
     if not ENABLE_EXPERIMENTAL_REDIS:
         sys.exit(0)
 
+    # Start the worker
     with Connection(redis_client):
         worker = Worker(map(Queue, listen))
         worker.work()
+
+    
