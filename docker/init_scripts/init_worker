@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /back
-[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rq worker high default low --url redis://${REDIS_HOST}:${REDIS_PORT}/0 || sleep infinity
+[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && python3 worker.py || sleep infinity

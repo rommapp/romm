@@ -13,7 +13,9 @@ from config import ENABLE_EXPERIMENTAL_REDIS
 
 
 async def scan_platforms(
-    platform_slugs: list[str], complete_rescan: bool, selected_roms: list[str]
+    platform_slugs: list[str],
+    complete_rescan: bool = False,
+    selected_roms: list[str] = (),
 ):
     # Connect to external socketio server
     sm = (
