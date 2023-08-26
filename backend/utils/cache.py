@@ -1,7 +1,6 @@
 from redis import Redis
 
-from config import REDIS_HOST, REDIS_PORT
-from .redis import redis_connectable
+from config import REDIS_HOST, REDIS_PORT, ENABLE_EXPERIMENTAL_REDIS
 
 class FallbackCache:
     def __init__(self) -> None:
@@ -34,4 +33,4 @@ _cache_client = Redis(
     host=REDIS_HOST, port=int(REDIS_PORT), db=0, decode_responses=True
 )
 _fallback_cache = FallbackCache()
-cache = _cache_client if redis_connectable else _fallback_cache
+cache = _cache_client if ENABLE_EXPERIMENTAL_REDIS else _fallback_cache

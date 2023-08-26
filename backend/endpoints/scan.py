@@ -2,14 +2,14 @@ import emoji
 import socketio  # type: ignore
 
 from logger.logger import log
-from config import ENABLE_EXPERIMENTAL_REDIS
 from utils import fs, fastapi
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
 from utils.socket import socket_server
-from utils.redis import high_prio_queue, redis_url, redis_connectable
+from utils.redis import high_prio_queue, redis_url
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
+from config import ENABLE_EXPERIMENTAL_REDIS
 
 
 async def scan_platforms(
@@ -18,7 +18,7 @@ async def scan_platforms(
     # Connect to external socketio server
     sm = (
         socketio.AsyncRedisManager(redis_url, write_only=True)
-        if redis_connectable
+        if ENABLE_EXPERIMENTAL_REDIS
         else socket_server
     )
 
@@ -86,7 +86,7 @@ async def scan_handler(_sid: str, options: dict):
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
-    if redis_connectable and ENABLE_EXPERIMENTAL_REDIS:
+    if ENABLE_EXPERIMENTAL_REDIS:
         return high_prio_queue.enqueue(
             scan_platforms, platform_slugs, complete_rescan, selected_roms
         )

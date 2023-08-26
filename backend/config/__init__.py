@@ -44,8 +44,12 @@ REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", "6379")
 
 # IGDB
-CLIENT_ID: Final = os.environ.get("CLIENT_ID", "")
-CLIENT_SECRET: Final = os.environ.get("CLIENT_SECRET", "")
+IGDB_CLIENT_ID: Final = os.environ.get(
+    "IGDB_CLIENT_ID", os.environ.get("CLIENT_ID", "")
+)
+IGDB_CLIENT_SECRET: Final = os.environ.get(
+    "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
+)
 
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
