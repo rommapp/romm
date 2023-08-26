@@ -4,8 +4,9 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from endpoints.scan import scan_platforms
-from utils.redis import low_prio_queue
 from logger.logger import log
+from tasks import tasks_scheduler
+
 
 from config import (
     HIGH_PRIO_STRUCTURE_PATH,
@@ -40,16 +41,9 @@ class EventHandler(FileSystemEventHandler):
 
         log.info(f"Filesystem event: {event.event_type} {event_src}")
 
-        low_prio_queue.scheduled_job_registry.remove_jobs()
-
         # Skip if a scan is already scheduled
-        for job_id in low_prio_queue.scheduled_job_registry.get_job_ids():
-            job = low_prio_queue.fetch_job(job_id)
-            if (
-                job
-                and job.is_scheduled
-                and job.func_name == "endpoints.scan.scan_platforms"
-            ):
+        for job in tasks_scheduler.get_jobs():
+            if job.func_name == "endpoints.scan.scan_platforms":
                 if job.args[0] == []:
                     log.info("Full rescan already scheduled")
                     return
@@ -63,11 +57,11 @@ class EventHandler(FileSystemEventHandler):
         # # Any change to a platform directory should trigger a full rescan
         if event.is_directory and event_src.count("/") == 1:
             log.info(f"Platform directory changed, {rescan_in_msg}")
-            return low_prio_queue.enqueue_in(time_delta, scan_platforms, [])
+            return tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
 
         # Otherwise trigger a rescan for the specific platform
         log.info(f"Change detected in {platform_slug} folder, {rescan_in_msg}")
-        return low_prio_queue.enqueue_in(
+        return tasks_scheduler.enqueue_in(
             time_delta,
             scan_platforms,
             [platform_slug],
