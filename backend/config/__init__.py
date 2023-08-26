@@ -37,7 +37,9 @@ DB_PASSWD: Final = os.environ.get("DB_PASSWD")
 DB_NAME: Final = os.environ.get("DB_NAME", "romm")
 
 # REDIS
-ENABLE_EXPERIMENTAL_REDIS: Final = os.environ.get("ENABLE_EXPERIMENTAL_REDIS", "false") == "true"
+ENABLE_EXPERIMENTAL_REDIS: Final = (
+    os.environ.get("ENABLE_EXPERIMENTAL_REDIS", "false") == "true"
+)
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", "6379")
 
@@ -57,4 +59,18 @@ ROMM_AUTH_USERNAME: Final = os.environ.get("ROMM_AUTH_USERNAME", "admin")
 ROMM_AUTH_PASSWORD: Final = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
+)
+
+# TASKS
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
+    os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false") == "true"
+)
+RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final = int(
+    os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 seconds
+)
+ENABLE_SCHEDULED_RESCAN: Final = (
+    os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
+)
+SCHEDULED_RESCAN_CRON: Final = os.environ.get(
+    "SCHEDULED_RESCAN_CRON", "0 3 * * *"  # At 3:00 AM every day
 )
