@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 import { themes, autoThemeKey } from "@/styles/themes";
-import SettingsItem from "@/views/Settings/General/SettingsItem.vue";
+import ThemeOption from "@/views/Settings/General/ThemeOption.vue";
 
 // Props
 const theme = useTheme();
@@ -40,17 +40,17 @@ function toggleTheme() {
         @update:model-value="toggleTheme"
       >
         <v-row no-gutters>
-          <settings-item
+          <theme-option
             key="dark"
             value="dark"
             icon="mdi-moon-waning-crescent"
           />
-          <settings-item
+          <theme-option
             key="light"
             value="light"
             icon="mdi-white-balance-sunny"
           />
-          <settings-item key="auto" value="auto" icon="mdi-theme-light-dark" />
+          <theme-option key="auto" value="auto" icon="mdi-theme-light-dark" />
         </v-row>
       </v-item-group>
     </v-card-text>
