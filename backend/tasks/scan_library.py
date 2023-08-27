@@ -1,61 +1,30 @@
 from logger.logger import log
 from config import (
-    ENABLE_EXPERIMENTAL_REDIS,
     ENABLE_SCHEDULED_RESCAN,
     SCHEDULED_RESCAN_CRON,
 )
 from endpoints.scan import scan_platforms
-from utils.redis import low_prio_queue
-from .exceptions import SchedulerException
-from . import tasks_scheduler
+from .utils import PeriodicTask
 
 
-def _get_existing_job():
-    existing_jobs = tasks_scheduler.get_jobs()
-    for job in existing_jobs:
-        if job.func_name == "tasks.scan_library.run":
-            return job
+class ScanLibraryTask(PeriodicTask):
+    def __init__(self):
+        super().__init__(
+            func="tasks.scan_library.run",
+            description="library scan",
+            enabled=ENABLE_SCHEDULED_RESCAN,
+            cron_string=SCHEDULED_RESCAN_CRON,
+        )
 
-    return None
+    async def run(self):
+        if not ENABLE_SCHEDULED_RESCAN:
+            log.info("Scheduled library scan not enabled, unscheduling...")
+            self.unschedule()
+            return
 
-
-def run():
-    if not ENABLE_SCHEDULED_RESCAN:
-        log.info("Scheduled library scan not enabled, unscheduling...")
-        unschedule()
-        return
-
-    log.info("Scheduled library scan started...")
-    low_prio_queue.enqueue(scan_platforms, platform_slugs=[])
-    log.info("Scheduled library scan done.")
-
-
-def schedule():
-    if not ENABLE_EXPERIMENTAL_REDIS:
-        raise SchedulerException("Redis not connectable, library scan not scheduled.")
-
-    if not ENABLE_SCHEDULED_RESCAN:
-        raise SchedulerException("Scheduled library scan not enabled.")
-
-    if _get_existing_job():
-        log.info("Library scan already scheduled.")
-        return
-    
-    log.info("Scheduling library scan.")
-
-    tasks_scheduler.cron(
-        SCHEDULED_RESCAN_CRON,
-        func="tasks.scan_library.run",
-        repeat=None,
-    )
+        log.info("Scheduled library scan started...")
+        scan_platforms([])
+        log.info("Scheduled library scan done")
 
 
-def unschedule():
-    job = _get_existing_job()
-
-    if not job:
-        log.info("Library scan not scheduled.")
-        return
-
-    tasks_scheduler.cancel(job)
-    log.info("Library scan unscheduled.")
+scan_library_task = ScanLibraryTask()
