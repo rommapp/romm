@@ -10,7 +10,6 @@ const { xs, mdAndDown, lgAndUp } = useDisplay();
 const route = useRoute();
 const show = ref(false);
 const romsToUpload = ref([]);
-const scanAfterUpload = ref(true);
 const scanning = storeScanning();
 
 const emitter = inject("emitter");
@@ -65,14 +64,6 @@ async function uploadRoms() {
     .finally(() => {
       scanning.set(false);
     });
-  if (scanAfterUpload.value) {
-    if (!socket.connected) socket.connect();
-    scanning.set(true);
-    socket.emit("scan", {
-      platforms: [route.params.platform],
-      rescan: false,
-    });
-  }
 }
 </script>
 
@@ -129,17 +120,6 @@ async function uploadRoms() {
             hide-details
           />
         </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-file-input
-            @keyup.enter="uploadRoms()"
-            label="Custom artwork"
-            prepend-inner-icon="mdi-image"
-            prepend-icon=""
-            variant="outlined"
-            hide-details
-            :disabled="romsToUpload.length > 1"
-          />
-        </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary"
@@ -147,15 +127,6 @@ async function uploadRoms() {
           >
         </v-row>
       </v-card-text>
-      <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-terciary" density="compact">
-        <v-checkbox
-          v-model="scanAfterUpload"
-          label="Scan platform after upload"
-          class="ml-3"
-          hide-details
-        />
-      </v-toolbar>
     </v-card>
   </v-dialog>
 </template>

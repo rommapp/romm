@@ -49,8 +49,6 @@ function onNavigate(event) {
         v-bind="props"
         :src="`/assets/romm/resources/${rom.path_cover_l}`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
-        class="cover"
-        cover
       >
         <template v-slot:placeholder>
           <div class="d-flex align-center justify-center fill-height">

@@ -134,7 +134,7 @@ def update_user(
             status_code=400,
             detail="Cannot update user: ROMM_AUTH_ENABLED is set to False",
         )
-
+    print(form_data.username)
     user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

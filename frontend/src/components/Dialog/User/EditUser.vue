@@ -13,6 +13,7 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 });
 
 function editUser() {
+  console.log(user.value)
   updateUserApi(user.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
@@ -118,7 +119,6 @@ function editUser() {
               <v-col>
                 <v-file-input
                   class="text-truncate"
-                  @keyup.enter="updateRom()"
                   v-model="user.avatar"
                   label="Avatar"
                   prepend-inner-icon="mdi-image"

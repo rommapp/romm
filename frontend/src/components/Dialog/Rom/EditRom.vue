@@ -6,7 +6,6 @@ import { updateRomApi } from "@/services/api";
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
-const renameAsIGDB = ref(false);
 const fileNameInputRules = {
   required: (value) => !!value || "Required.",
   newFileName: (value) => !value.includes("/") || "Invalid characters",
@@ -18,15 +17,15 @@ emitter.on("showEditRomDialog", (romToEdit) => {
   rom.value = romToEdit;
 });
 
-async function updateRom(updatedData = { ...rom.value }) {
-  if (updatedData.file_name.includes("/")) {
+async function updateRom() {
+  if (rom.value.file_name.includes("/")) {
     emitter.emit("snackbarShow", {
       msg: "Couldn't edit rom: invalid file name characters",
       icon: "mdi-close-circle",
       color: "red",
     });
     return;
-  } else if (!updatedData.file_name) {
+  } else if (!rom.value.file_name) {
     emitter.emit("snackbarShow", {
       msg: "Couldn't edit rom: file name required",
       icon: "mdi-close-circle",
@@ -37,8 +36,7 @@ async function updateRom(updatedData = { ...rom.value }) {
 
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
-
-  await updateRomApi(rom.value, updatedData, renameAsIGDB.value)
+  await updateRomApi(rom.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
@@ -136,19 +134,17 @@ async function updateRom(updatedData = { ...rom.value }) {
         <v-row class="pa-2" no-gutters>
           <v-file-input
             @keyup.enter="updateRom()"
-            label="Custom cover [Coming soon]"
+            v-model="rom.artwork"
+            label="Custom artwork"
             prepend-inner-icon="mdi-image"
             prepend-icon=""
             variant="outlined"
-            disabled
             hide-details
           />
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn
-            @click="updateRom()"
-            class="text-romm-green ml-5 bg-terciary"
+          <v-btn @click="updateRom()" class="text-romm-green ml-5 bg-terciary"
             >Apply</v-btn
           >
         </v-row>

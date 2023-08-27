@@ -33,7 +33,6 @@ emitter.on("refreshSelected", () => {
   <v-hover v-slot="{ isHovering, props }">
     <v-card
       v-bind="props"
-      class="rom-card"
       :class="{ 'on-hover': isHovering, 'rom-selected': selected }"
       :elevation="isHovering ? 20 : 3"
     >

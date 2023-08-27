@@ -73,7 +73,7 @@ export async function downloadRomApi(rom, files) {
 
 export async function uploadRomsApi(romsToUpload, platform) {
   let formData = new FormData();
-  romsToUpload.map((rom) => formData.append("roms", rom))
+  romsToUpload.map((rom) => formData.append("roms", rom));
   return api.put(`/platforms/${platform}/roms/upload`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
@@ -81,22 +81,32 @@ export async function uploadRomsApi(romsToUpload, platform) {
   });
 }
 
-export async function updateRomApi(rom, updatedData, renameAsIGDB) {
-  const updatedRom = {
-    r_igdb_id: updatedData.r_igdb_id,
-    r_slug: updatedData.r_slug,
-    summary: updatedData.summary,
-    url_cover: updatedData.url_cover,
-    url_screenshots: updatedData.url_screenshots,
-    r_name: updatedData.r_name,
-    file_name: renameAsIGDB
-      ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
-      : updatedData.file_name,
-  };
-
-  return api.patch(`/platforms/${rom.p_slug}/roms/${rom.id}`, {
-    updatedRom,
-  });
+export async function updateRomApi(
+  {
+    id,
+    p_slug,
+    r_name,
+    file_name,
+    summary,
+    artwork
+  }
+) {
+  return api.patch(
+    `/platforms/${p_slug}/roms/${id}`,
+    {
+      artwork: artwork ? artwork[0] : null,
+    },
+    {
+      headers: {
+        "Content-Type": artwork ? "multipart/form-data" : "text/text",
+      },
+      params: {
+        r_name,
+        file_name,
+        summary
+      }
+    }
+  );
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {

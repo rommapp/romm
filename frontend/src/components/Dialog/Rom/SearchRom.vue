@@ -37,11 +37,18 @@ async function searchRomIGDB() {
   }
 }
 
-async function updateRom(updatedData = { ...rom.value }) {
+async function updateRom(matchedRom) {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  await updateRomApi(rom.value, updatedData, renameAsIGDB.value)
+  rom.value.file_name = renameAsIGDB.value
+    ? rom.value.file_name.replace(
+        rom.value.file_name_no_tags,
+        matchedRom.r_name
+      )
+    : rom.value.file_name;
+
+  await updateRomApi(rom.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
@@ -88,7 +95,6 @@ onBeforeUnmount(() => {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-
           <v-col cols="2" xs="2" sm="1" md="1" lg="1">
             <v-icon icon="mdi-search-web" class="ml-5" />
           </v-col>
@@ -133,7 +139,6 @@ onBeforeUnmount(() => {
               block
             />
           </v-col>
-
         </v-row>
       </v-toolbar>
 
@@ -205,24 +210,23 @@ onBeforeUnmount(() => {
             md="3"
             lg="2"
             v-show="!searching"
-            v-for="rom in matchedRoms"
-            :key="rom.file_name"
+            v-for="matchedRom in matchedRoms"
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
-                @click="updateRom((updatedData = rom))"
+                @click="updateRom(matchedRom)"
                 v-bind="props"
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
                 <v-tooltip activator="parent" location="top" class="tooltip">{{
-                  rom.r_name
+                  matchedRom.r_name
                 }}</v-tooltip>
-                <v-img v-bind="props" :src="rom.url_cover" cover />
+                <v-img v-bind="props" :src="matchedRom.url_cover" cover />
                 <v-card-text>
                   <v-row class="pa-1">
                     <span class="d-inline-block text-truncate">{{
-                      rom.r_name
+                      matchedRom.r_name
                     }}</span>
                   </v-row>
                 </v-card-text>

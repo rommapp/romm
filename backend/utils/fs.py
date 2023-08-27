@@ -307,8 +307,17 @@ def build_upload_roms_path(p_slug: str):
     return f"{LIBRARY_BASE_PATH}/{rom_path}"
 
 
+def build_artwork_path(r_name: str, p_slug: str, file_ext: str):
+    strtime = str(datetime.datetime.now().timestamp())
+    path_cover_l = f"{p_slug}/{r_name}/cover/big.{file_ext}?timestamp={strtime}"
+    path_cover_s = f"{p_slug}/{r_name}/cover/small.{file_ext}?timestamp={strtime}"
+    artwork_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{r_name}/cover"
+    Path(artwork_path).mkdir(parents=True, exist_ok=True)
+    return path_cover_l, path_cover_s, artwork_path
+
+
 # ========= Users utils =========
-def build_avatar_path(avatar_path, username):
+def build_avatar_path(avatar_path: str, username: str):
     avatar_user_path = f"{RESOURCES_BASE_PATH}/users/{username}"
     Path(avatar_user_path).mkdir(parents=True, exist_ok=True)
     return f"users/{username}/{avatar_path}", avatar_user_path
