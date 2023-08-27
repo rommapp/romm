@@ -5,7 +5,7 @@ from watchdog.events import FileSystemEventHandler
 
 from endpoints.scan import scan_platforms
 from logger.logger import log
-from tasks import tasks_scheduler
+from tasks.utils import tasks_scheduler
 
 
 from config import (
@@ -37,7 +37,6 @@ class EventHandler(FileSystemEventHandler):
 
         event_src = event.src_path.split(path)[-1]
         platform_slug = event_src.split("/")[1]
-        time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
 
         log.info(f"Filesystem event: {event.event_type} {event_src}")
 
@@ -52,20 +51,19 @@ class EventHandler(FileSystemEventHandler):
                     log.info(f"Scan already scheduled for {platform_slug}")
                     return
 
+        time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
         rescan_in_msg = f"rescanning in {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minutes."
 
-        # # Any change to a platform directory should trigger a full rescan
+        # Any change to a platform directory should trigger a full rescan
         if event.is_directory and event_src.count("/") == 1:
             log.info(f"Platform directory changed, {rescan_in_msg}")
-            return tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
-
-        # Otherwise trigger a rescan for the specific platform
-        log.info(f"Change detected in {platform_slug} folder, {rescan_in_msg}")
-        return tasks_scheduler.enqueue_in(
-            time_delta,
-            scan_platforms,
-            [platform_slug],
-        )
+            tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
+        else:
+            # Otherwise trigger a rescan for the specific platform
+            log.info(f"Change detected in {platform_slug} folder, {rescan_in_msg}")
+            return tasks_scheduler.enqueue_in(
+                time_delta, scan_platforms, [platform_slug]
+            )
 
 
 if __name__ == "__main__":
