@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 
 from config import LOGS_BASE_PATH
-from logger.stdout_formatter import StdoutFormatter
-from logger.file_formatter import FileFormatter
+from .stdout_formatter import StdoutFormatter
+from .file_formatter import FileFormatter
 
 # Create logs folder if not exists
 Path(LOGS_BASE_PATH).mkdir(parents=True, exist_ok=True)

@@ -71,6 +71,8 @@ if __name__ == "__main__":
     observer.schedule(EventHandler(), path, recursive=True)
     observer.start()
 
+    log.info(f"Watching {path} for changes")
+
     try:
         while observer.is_alive():
             observer.join(1)

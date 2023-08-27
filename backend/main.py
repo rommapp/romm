@@ -8,7 +8,18 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_ENABLED
+from config import (
+    DEV_PORT,
+    DEV_HOST,
+    ROMM_AUTH_SECRET_KEY,
+    ROMM_AUTH_ENABLED,
+    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    ENABLE_SCHEDULED_RESCAN,
+    SCHEDULED_RESCAN_CRON,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+)
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from handler import dbh
 from utils.socket import socket_app
@@ -63,7 +74,15 @@ app.mount("/ws", socket_app)
 # Endpoint to set the CSRF token in cache
 @app.get("/heartbeat")
 def heartbeat():
-    return {"ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED}
+    return {
+        "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
+        "ENABLE_RESCAN_ON_FILESYSTEM_CHANGE": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+        "RESCAN_ON_FILESYSTEM_CHANGE_DELAY": RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+        "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
+        "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,
+        "ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
+        "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    }
 
 
 @app.on_event("startup")

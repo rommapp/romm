@@ -3,7 +3,7 @@ import { onBeforeMount } from "vue";
 import cookie from "js-cookie";
 import storeAuth from "@/stores/auth";
 import Notification from "@/components/Notification.vue";
-import { api } from "./services/api";
+import { api } from "@/services/api";
 
 // Props
 const auth = storeAuth();
