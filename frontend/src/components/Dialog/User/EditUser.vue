@@ -13,7 +13,6 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 });
 
 function editUser() {
-  console.log(user.value)
   updateUserApi(user.value)
     .then((response) => {
       emitter.emit("snackbarShow", {

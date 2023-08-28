@@ -1,20 +1,20 @@
 <script setup>
 import { onBeforeMount } from "vue";
 import { useTheme } from "vuetify";
-import axios from "axios";
 import cookie from "js-cookie";
 import { themes } from "@/styles/themes";
 import storeAuth from "@/stores/auth";
 import Notification from "@/components/Notification.vue";
+import { api } from "./services/api";
 
 // Props
 const auth = storeAuth();
 
 onBeforeMount(async () => {
   // Set CSRF token for all requests
-  const { data } = await axios.get("/api/heartbeat");
+  const { data } = await api.get("/heartbeat");
   auth.setEnabled(data.ROMM_AUTH_ENABLED ?? false);
-  axios.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
+  api.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
 });
 
 useTheme().global.name.value =

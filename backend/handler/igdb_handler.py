@@ -8,7 +8,7 @@ from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
 
-from config import CLIENT_ID, CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
@@ -29,7 +29,7 @@ class IGDBHandler:
         self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
         self.twitch_auth = TwitchAuth()
         self.headers = {
-            "Client-ID": CLIENT_ID,
+            "Client-ID": IGDB_CLIENT_ID,
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
@@ -49,9 +49,23 @@ class IGDBHandler:
         try:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
             res.raise_for_status()
+            return res.json()
         except (HTTPError, Timeout) as err:
+            if err.response.status_code != 401:
+                log.error(err)
+                return []  # All requests to the IGDB API return a list
+
+        # Attempt to force a token refresh if the token is invalid
+        log.warning("Twitch token invalid: fetching a new one...")
+        token = self.twitch_auth._update_twitch_token()
+        self.headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            res = requests.post(url, data, headers=self.headers, timeout=timeout)
+            res.raise_for_status()
+        except (HTTPError, Timeout) as err:
+            # Log the error and return an empty list if the request fails again
             log.error(err)
-            # All requests to the IGDB API return a list
             return []
 
         return res.json()
@@ -206,8 +220,8 @@ class TwitchAuth:
         res = requests.post(
             url="https://id.twitch.tv/oauth2/token",
             params={
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
+                "client_id": IGDB_CLIENT_ID,
+                "client_secret": IGDB_CLIENT_SECRET,
                 "grant_type": "client_credentials",
             },
             timeout=30,
