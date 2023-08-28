@@ -19,6 +19,10 @@ emitter.on("showEditRomDialog", (romToEdit) => {
 
 async function updateRom() {
   if (rom.value.file_name.includes("/")) {
+    emitter.emit("snackbarShow", {
+      msg: "Couldn't edit rom: invalid file name characters",
+      icon: "mdi-close-circle",
+      color: "red",
     });
     return;
   } else if (!rom.value.file_name) {
