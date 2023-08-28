@@ -254,7 +254,6 @@ onBeforeRouteUpdate(async (to, _) => {
 </template>
 
 <style scoped>
-
 .game-card.game-selected {
   border: 2px solid rgba(var(--v-theme-romm-accent-2));
   padding: 0;
