@@ -49,11 +49,11 @@ emitter.on("refreshSelected", () => {
 
 <style scoped lang="scss">
 .v-card {
-  opacity: 0.85;
-  border: 3px solid rgba(var(--v-theme-primary));
   margin: 4px;
-  -webkit-transition-property: all;
-  -webkit-transition-duration: 0.1s;
+  border: 3px solid rgba(var(--v-theme-primary));
+  opacity: 0.85;
+  transition-property: all;
+  transition-duration: 0.1s;
 }
 .v-card.rom-selected {
   border: 3px solid rgba(var(--v-theme-romm-accent-2));
@@ -61,7 +61,7 @@ emitter.on("refreshSelected", () => {
 }
 .v-card.on-hover {
   z-index: 1000 !important;
-  transform: scale(1.05); 
   opacity: 1;
+  transform: scale(1.05); 
 }
 </style>
