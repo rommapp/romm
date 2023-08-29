@@ -51,9 +51,11 @@ emitter.on("refreshSelected", () => {
 .v-card {
   opacity: 0.85;
   border: 3px solid rgba(var(--v-theme-primary));
+  margin: 4px;
 }
 .v-card.on-hover {
   opacity: 1;
+  margin-top: 0px;
 }
 .v-card.rom-selected {
   border: 3px solid rgba(var(--v-theme-romm-accent-2));
