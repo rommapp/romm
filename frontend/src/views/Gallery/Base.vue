@@ -165,7 +165,7 @@ onBeforeRouteUpdate(async (to, _) => {
       <!-- Gallery cards view -->
       <v-col
         v-show="galleryView.value != 2"
-        v-for="rom in filteredRoms"romm_mock/library/roms/switch/romm 1.xci
+        v-for="rom in filteredRoms"
         :key="rom.id"
         :cols="views[galleryView.value]['size-cols']"
         :xs="views[galleryView.value]['size-xs']"
