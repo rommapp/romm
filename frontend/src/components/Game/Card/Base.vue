@@ -57,7 +57,7 @@ emitter.on("refreshSelected", () => {
 }
 .v-card.rom-selected {
   border: 3px solid rgba(var(--v-theme-romm-accent-2));
-  transform: scale(1.04); 
+  transform: scale(1.03); 
 }
 .v-card.on-hover {
   z-index: 1000 !important;
