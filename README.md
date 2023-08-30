@@ -7,6 +7,8 @@
   <a href="https://hub.docker.com/r/zurdi15/romm">
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
   <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm?style=flat-square">
+  <img alt="Discord" src="https://img.shields.io/discord/1138838206532554853?logo=discord&style=flat-square&label=discord&">
+  <iframe src="https://discord.com/widget?id=1138838206532554853&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
 </div>
 <br>
 <div align="center">
