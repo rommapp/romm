@@ -57,7 +57,7 @@ onBeforeMount(async () => {
   <v-card rounded="0">
     <v-toolbar class="bg-terciary" density="compact">
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-theme-light-dark</v-icon>
+        <v-icon class="mr-3">mdi-brush-variant</v-icon>
         Theme
       </v-toolbar-title>
     </v-toolbar>
