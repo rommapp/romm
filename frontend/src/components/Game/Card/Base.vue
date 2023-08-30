@@ -60,7 +60,7 @@ emitter.on("refreshSelected", () => {
   transform: scale(1.03); 
 }
 .v-card.on-hover {
-  z-index: 1000 !important;
+  z-index: 1 !important;
   opacity: 1;
   transform: scale(1.05); 
 }
