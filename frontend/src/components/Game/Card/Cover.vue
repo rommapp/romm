@@ -1,16 +1,18 @@
 <script setup>
+import { ref } from "vue";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
-
-const downloadStore = storeDownload();
-const romsStore = storeRoms();
 
 // Props
 const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
 const emit = defineEmits(["selectRom"]);
+const downloadStore = storeDownload();
+const romsStore = storeRoms();
+const card = ref();
+let timeout;
 
 // Functions
-function selectRom(event) {
+function onSelectRom(event) {
   if (!event.ctrlKey && !event.shiftKey) {
     event.preventDefault();
     emit("selectRom", event);
@@ -18,23 +20,40 @@ function selectRom(event) {
 }
 
 function onNavigate(event) {
-  if (event.ctrlKey || event.shiftKey) {
+  if (
+    event.ctrlKey ||
+    event.shiftKey ||
+    (romsStore.touchScreen && romsStore.selected.length > 0)
+  ) {
     event.preventDefault();
     event.stopPropagation();
     emit("selectRom", event);
   }
+}
+
+function onTouchStart(event) {
+  card.value.$el.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+  romsStore.isTouchScreen(true);
+  timeout = setTimeout(() => {
+    emit("selectRom", event);
+  }, 500);
+}
+
+function onTouchEnd(event) {
+  clearTimeout(timeout);
 }
 </script>
 
 <template>
   <router-link
     style="text-decoration: none; color: inherit"
-    :to="
-      romsStore.length > 0
-        ? `#`
-        : `/platform/${$route.params.platform}/${rom.id}`
-    "
+    :to="(romsStore.touchScreen && romsStore.selected.length > 0) ? '' : `/platform/${$route.params.platform}/${rom.id}`"
+    ref="card"
     @click="onNavigate"
+    @touchstart="onTouchStart"
+    @touchend="onTouchEnd"
   >
     <v-progress-linear
       color="romm-accent-1"
@@ -77,7 +96,7 @@ function onNavigate(event) {
         </v-chip-group>
         <v-icon
           v-show="isHoveringTop"
-          @click="selectRom"
+          @click="onSelectRom"
           size="small"
           class="position-absolute checkbox"
           :class="{ 'checkbox-selected': selected }"
