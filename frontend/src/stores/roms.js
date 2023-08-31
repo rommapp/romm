@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 
 export default defineStore("roms", {
-  state: () => ({ selected: [], lastSelectedIndex: -1 }),
+  state: () => ({ selected: [], lastSelectedIndex: -1, touchScreen: false }),
 
   actions: {
     updateSelectedRoms(roms) {
@@ -18,9 +18,12 @@ export default defineStore("roms", {
     updateLastSelectedRom(index) {
       this.lastSelectedIndex = index;
     },
-    reset(){
+    isTouchScreen(touchScreen) {
+      this.touchScreen = touchScreen;
+    },
+    reset() {
       this.selected = [];
       this.lastSelectedIndex = -1;
-    }
+    },
   },
 });
