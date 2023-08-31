@@ -41,7 +41,7 @@ function onTouchStart(event) {
   }, 500);
 }
 
-function onTouchEnd(event) {
+function onTouchEnd() {
   clearTimeout(timeout);
 }
 </script>
