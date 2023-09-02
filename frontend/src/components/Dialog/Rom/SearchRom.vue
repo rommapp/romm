@@ -2,10 +2,12 @@
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
 import { updateRomApi, searchRomIGDBApi } from "@/services/api";
+import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
+const romsStore = storeRoms();
 const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
@@ -48,7 +50,7 @@ async function updateRom(updatedData = { ...rom.value }) {
         icon: "mdi-check-bold",
         color: "green",
       });
-      emitter.emit("refreshView");
+      romsStore.update(data.rom);
     })
     .catch((error) => {
       emitter.emit("snackbarShow", {

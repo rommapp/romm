@@ -1,32 +1,22 @@
 <script setup>
-import { ref, inject } from "vue";
-import useRomsStore from "@/stores/roms.js";
+import storeRoms from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
 
 // Props
-const props = defineProps(["rom", "index"]);
+const props = defineProps(["rom", "index", "selected"]);
 const emit = defineEmits(["selectRom"]);
-const romsStore = useRomsStore();
-const selected = ref();
+const romsStore = storeRoms();
 
 // Functions
 function selectRom(event) {
-  selected.value = !selected.value;
-  if (selected.value) {
-    romsStore.addSelectedRoms(props.rom);
+  if (!props.selected) {
+    romsStore.addToSelection(props.rom);
   } else {
-    romsStore.removeSelectedRoms(props.rom);
+    romsStore.removeFromSelection(props.rom);
   }
-  emit("selectRom", { event, index: props.index, selected: selected.value });
+  emit("selectRom", { event, index: props.index, selected: !props.selected });
 }
-
-const emitter = inject("emitter");
-emitter.on("refreshSelected", () => {
-  selected.value = romsStore.selected
-    .map((rom) => rom.id)
-    .includes(props.rom.id);
-});
 </script>
 
 <template>
