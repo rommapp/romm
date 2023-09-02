@@ -10,10 +10,10 @@ export default defineStore("roms", {
   }),
 
   getters: {
-    all: (state) => state._all,
-    filtered: (state) => state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
-    search: (state) => state._all.filter((rom) => state._searchIDs.includes(rom.id)),
-    selected: (state) =>  state._all.filter((rom) => state._selectedIDs.includes(rom.id)),
+    allRoms: (state) => state._all,
+    filteredRoms: (state) => state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
+    searchRoms: (state) => state._all.filter((rom) => state._searchIDs.includes(rom.id)),
+    selectedRoms: (state) =>  state._all.filter((rom) => state._selectedIDs.includes(rom.id)),
   },
 
   actions: {

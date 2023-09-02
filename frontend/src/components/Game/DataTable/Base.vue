@@ -76,7 +76,7 @@ function rowClick(_, row) {
     :items="filteredRoms"
     @click:row="rowClick"
     show-select
-    v-model="romsStore.selected"
+    v-model="romsStore.selectedRoms"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">

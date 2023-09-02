@@ -9,7 +9,6 @@ import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 
-const auth = storeAuth();
 const HEADERS = [
   {
     title: "",
@@ -48,6 +47,7 @@ const PER_PAGE_OPTIONS = [
 
 // Props
 const emitter = inject("emitter");
+const auth = storeAuth();
 const usersStore = storeUsers();
 const usersPerPage = ref(5);
 const userSearch = ref("");
