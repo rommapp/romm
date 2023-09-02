@@ -6,7 +6,7 @@ export default defineStore("users", {
     }),
 
     getters: {
-        admins: (state) => state.all.filter((user) => user.role === "ADMIN"),
+        admins: (state) => state.all.filter((user) => user.role === "admin"),
     },
 
     actions: {
