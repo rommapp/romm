@@ -19,7 +19,7 @@ const route = useRoute();
 
 socket.on("scan:scanning_rom", ({ id }) => {
   const rom = romsStore.selected.find((r) => r.id === id);
-  romsStore.removeSelectedRoms(rom);
+  romsStore.removeFromSelection(rom);
 });
 
 socket.on("scan:done", () => {
@@ -60,12 +60,11 @@ async function onScan() {
 
 function selectAllRoms() {
   if (props.filteredRoms.length === romsStore.selected.length) {
-    romsStore.reset();
+    romsStore.resetSelection();
     emitter.emit("openFabMenu", false);
   } else {
-    romsStore.updateSelectedRoms(props.filteredRoms);
+    romsStore.setSelection(props.filteredRoms);
   }
-  emitter.emit("refreshSelected");
 }
 
 function onDownload() {

@@ -2,10 +2,12 @@
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
 import { updateRomApi } from "@/services/api";
+import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
+const romsStore = storeRoms();
 const renameAsIGDB = ref(false);
 const fileNameInputRules = {
   required: (value) => !!value || "Required.",
@@ -39,13 +41,13 @@ async function updateRom(updatedData = { ...rom.value }) {
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await updateRomApi(rom.value, updatedData, renameAsIGDB.value)
-    .then((response) => {
+    .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
-      emitter.emit("refreshView");
+      romsStore.update(data.rom);
     })
     .catch((error) => {
       emitter.emit("snackbarShow", {
