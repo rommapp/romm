@@ -14,6 +14,7 @@ from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
+from tasks.update_switch_titledb import update_switch_titledb_task
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
@@ -141,7 +142,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_rom(self, file_name: str, p_igdb_id: int):
+    async def get_rom(self, file_name: str, p_igdb_id: int):
         search_term = get_search_term(file_name)
 
         # Patch support for PS2 OPL flename format
@@ -160,8 +161,16 @@ class IGDBHandler:
         if p_igdb_id == SWITCH_IGDB_ID and match:
             title_id = match.group(1)
 
-            with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                titledb_index = json.loads(index_json.read())
+            try:
+                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                    titledb_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.warning("Fetching the Switch titleDB index file...")
+                await update_switch_titledb_task.run(force=True)
+
+                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                    titledb_index = json.loads(index_json.read())
+            finally:
                 index_entry = titledb_index.get(title_id, None)
                 if index_entry:
                     search_term = index_entry["name"]  # type: ignore
