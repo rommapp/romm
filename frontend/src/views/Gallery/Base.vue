@@ -281,13 +281,13 @@ onBeforeRouteUpdate(async (to, _) => {
         <template v-slot:activator="{ props }">
           <v-fab-transition>
             <v-btn
-              v-show="selectedRoms.length > 0"
+              v-show="romsStore._selectedIDs.length > 0"
               color="romm-accent-1"
               v-bind="props"
               elevation="8"
               icon
               size="large"
-              >{{ selectedRoms.length }}</v-btn
+              >{{ romsStore._selectedIDs.length }}</v-btn
             >
           </v-fab-transition>
         </template>
