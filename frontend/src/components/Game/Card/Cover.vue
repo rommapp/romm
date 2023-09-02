@@ -30,7 +30,7 @@ function onNavigate(event) {
   <router-link
     style="text-decoration: none; color: inherit"
     :to="
-      romsStore.length > 0
+      romsStore.selectedRoms.length > 0
         ? `#`
         : `/platform/${$route.params.platform}/${rom.id}`
     "
@@ -66,7 +66,7 @@ function onNavigate(event) {
             v-if="isHovering || !rom.has_cover"
             class="rom-title d-flex transition-fast-in-fast-out bg-tooltip text-caption"
           >
-            <v-list-item>{{ rom.file_name }}</v-list-item>
+            <v-list-item>{{ rom.r_name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
         <v-chip-group class="pl-1 pt-0">

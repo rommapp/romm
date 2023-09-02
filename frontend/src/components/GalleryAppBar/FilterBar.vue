@@ -10,7 +10,7 @@ const filterValue = ref("");
 // Event listeners bus
 const emitter = inject("emitter");
 onMounted(() => {
-  filterValue.value = galleryFilter.value;
+  filterValue.value = galleryFilter.filter;
 });
 
 function clearFilter() {
