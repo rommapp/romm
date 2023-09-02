@@ -10,7 +10,7 @@ from .utils import PeriodicTask
 class ScanLibraryTask(PeriodicTask):
     def __init__(self):
         super().__init__(
-            func="tasks.scan_library.run",
+            func="tasks.scan_library.scan_library_task.run",
             description="library scan",
             enabled=ENABLE_SCHEDULED_RESCAN,
             cron_string=SCHEDULED_RESCAN_CRON,

@@ -56,7 +56,7 @@ async def scan_platforms(
             if rom_id and rom_id not in selected_roms and not complete_rescan:
                 continue
 
-            scanned_rom = fastapi.scan_rom(scanned_platform, fs_rom)
+            scanned_rom = await fastapi.scan_rom(scanned_platform, fs_rom)
             if rom_id:
                 scanned_rom.id = rom_id
 

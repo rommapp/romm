@@ -22,14 +22,14 @@ FIXTURE_FILE_PATH = (
 class UpdateSwitchTitleDBTask(PeriodicTask):
     def __init__(self):
         super().__init__(
-            func="tasks.update_switch_titledb.run",
+            func="tasks.update_switch_titledb.update_switch_titledb_task.run",
             description="switch titledb update",
             enabled=ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
             cron_string=SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
         )
 
-    async def run(self):
-        if not ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
+    async def run(self, force: bool = False):
+        if not ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB and not force:
             log.info("Scheduled switch titledb update not enabled, unscheduling...")
             self.unschedule()
             return
