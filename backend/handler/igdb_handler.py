@@ -160,6 +160,7 @@ class IGDBHandler:
         match = re.match(SWITCH_TITLEDB_REGEX, search_term)
         if p_igdb_id == SWITCH_IGDB_ID and match:
             title_id = match.group(1)
+            titledb_index = {}
 
             try:
                 with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
