@@ -34,7 +34,7 @@ def test_update_rom(rename_rom, access_token, rom):
     response = client.patch(
         f"/platforms/{rom.p_slug}/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"updatedRom": {"file_name": "new_file_name"}},
+        params={"file_name": "new_file_name"},
     )
     assert response.status_code == 200
 
