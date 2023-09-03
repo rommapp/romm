@@ -81,7 +81,14 @@ class IGDBHandler:
             """,
         )
 
-        return pydash.get(roms, "[0]", {})
+        exact_matches = [
+            rom
+            for rom in roms
+            if rom["name"].lower() == search_term.lower()
+            or rom["slug"].lower() == search_term.lower()
+        ]
+
+        return pydash.get(exact_matches or roms, "[0]", {})
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
