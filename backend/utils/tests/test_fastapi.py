@@ -21,9 +21,9 @@ def test_scan_platform():
 
 
 @pytest.mark.vcr()
-def test_scan_rom():
+async def test_scan_rom():
     platform = Platform(slug="n64", igdb_id=4)
-    rom = scan_rom(
+    rom = await scan_rom(
         platform,
         {
             "file_name": "Paper Mario (USA).z64",
