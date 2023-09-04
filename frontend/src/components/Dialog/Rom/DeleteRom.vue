@@ -3,12 +3,12 @@ import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { deleteRomsApi } from "@/services/api";
-import romsStore from "@/stores/roms";
+import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
-const storeRoms = romsStore();
+const romsStore = storeRoms();
 const roms = ref();
 const deleteFromFs = ref(false);
 
@@ -26,7 +26,7 @@ async function deleteRoms() {
         icon: "mdi-check-bold",
         color: "green",
       });
-      storeRoms.reset();
+      romsStore.resetSelection();
     })
     .catch((error) => {
       console.log(error);
@@ -37,11 +37,13 @@ async function deleteRoms() {
       });
       return;
     });
+
   await router.push({
     name: "platform",
     params: { platform: roms.value[0].p_slug },
   });
-  emitter.emit("refreshView");
+
+  romsStore.remove(roms.value);
   emitter.emit("refreshDrawer");
   show.value = false;
 }
