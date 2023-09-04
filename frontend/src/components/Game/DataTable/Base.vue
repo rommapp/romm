@@ -52,12 +52,12 @@ const PER_PAGE_OPTIONS = [
 
 // Props
 const location = window.location.origin;
-const props = defineProps(["filteredRoms"]);
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const saveFiles = ref(false);
 const romsPerPage = ref(-1);
+const emitter = inject("emitter");
 
 // Functions
 function rowClick(_, row) {
@@ -73,12 +73,12 @@ function rowClick(_, row) {
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
     :headers="HEADERS"
-    :item-value="item => item"
-    :items="filteredRoms"
+    :item-value="item => item.id"
+    :items="romsStore.filteredRoms"
     @click:row="rowClick"
     show-select
     v-model="romsStore._selectedIDs"
-  >
+    >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
         <v-progress-linear
