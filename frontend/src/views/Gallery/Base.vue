@@ -186,7 +186,7 @@ onBeforeRouteUpdate(async (to, _) => {
     <v-row no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
-        v-show="galleryView.value != 2"
+        v-show="galleryView.current != 2"
         v-for="rom in romsStore.filteredRoms"
         :key="rom.id"
         :cols="views[galleryView.current]['size-cols']"
