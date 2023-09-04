@@ -1,6 +1,16 @@
 from datetime import datetime
+import json
 from typing import Optional, Annotated
-from fastapi import APIRouter, Request, status, HTTPException, Depends, File, UploadFile
+from fastapi import (
+    APIRouter,
+    Request,
+    status,
+    HTTPException,
+    Depends,
+    Body,
+    File,
+    UploadFile,
+)
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
@@ -145,36 +155,27 @@ def roms(
         return paginate(session, qq, cursor_params)
 
 
-class RomUpdateForm:
-    def __init__(
-        self,
-        r_name: Optional[str] = None,
-        file_name: Optional[str] = None,
-        summary: Optional[str] = None,
-        artwork: Optional[UploadFile] = File(None)
-    ):
-        self.r_name = r_name
-        self.file_name = file_name
-        self.summary = summary
-        self.artwork = artwork
-
-
-@protected_route(router.patch, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
+@protected_route(router.put, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
 async def update_rom(
     request: Request,
     p_slug: str,
     id: int,
-    form_data: Annotated[RomUpdateForm, Depends()],
-):
+    artwork: Optional[UploadFile] = File(None),
+ ) -> dict:
     """Updates rom details"""
 
+    data = await request.form()
+    cleaned_data = {}
+    cleaned_data["r_igdb_id"] = data["r_igdb_id"]
+    cleaned_data["r_name"] = data["r_name"]
+    cleaned_data["r_slug"] = data["r_slug"]
+    cleaned_data["file_name"] = data["file_name"]
+    cleaned_data["url_cover"] = data["url_cover"]
+    cleaned_data["summary"] = data["summary"]
+    cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
+    
     db_rom: Rom = dbh.get_rom(id)
     db_platform: Platform = dbh.get_platform(p_slug)
-
-    cleaned_data = {}
-    cleaned_data["r_name"] = form_data.r_name
-    cleaned_data["file_name"] = form_data.file_name
-    cleaned_data["summary"] = form_data.summary
 
     try:
         if cleaned_data["file_name"] != db_rom.file_name:
@@ -198,18 +199,20 @@ async def update_rom(
         fs.get_screenshots(
             p_slug=db_platform.slug,
             r_name=cleaned_data["file_name_no_tags"],
-            url_screenshots=cleaned_data.get("url_screenshots", ""),
+            url_screenshots=cleaned_data.get("url_screenshots", []),
         ),
     )
 
-    if form_data.artwork is not None:
-        file_ext = form_data.artwork.filename.split('.')[-1]
-        path_cover_l, path_cover_s, artwork_path = build_artwork_path(form_data.r_name, db_platform.fs_slug, file_ext)
-        cleaned_data['path_cover_l'] = path_cover_l
-        cleaned_data['path_cover_s'] = path_cover_s
+    if artwork is not None:
+        file_ext = artwork.filename.split(".")[-1]
+        path_cover_l, path_cover_s, artwork_path = build_artwork_path(
+            cleaned_data["r_name"], db_platform.fs_slug, file_ext
+        )
+        cleaned_data["path_cover_l"] = path_cover_l
+        cleaned_data["path_cover_s"] = path_cover_s
         file_location_l = f"{artwork_path}/big.{file_ext}"
         file_location_s = f"{artwork_path}/small.{file_ext}"
-        artwork_file = form_data.artwork.file.read()
+        artwork_file = artwork.file.read()
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
         with open(file_location_l, "wb+") as artwork_l:

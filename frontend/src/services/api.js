@@ -81,32 +81,30 @@ export async function uploadRomsApi(romsToUpload, platform) {
   });
 }
 
-export async function updateRomApi(
-  {
-    id,
-    p_slug,
-    r_name,
-    file_name,
-    summary,
-    artwork
+export async function updateRomApi({
+  id,
+  r_igdb_id,
+  p_slug,
+  r_name,
+  r_slug,
+  file_name,
+  summary,
+  artwork,
+  url_cover,
+  url_screenshots,
+}) {
+  var formData = new FormData();
+  formData.append("r_igdb_id", r_igdb_id);
+  formData.append("r_name", r_name);
+  formData.append("r_slug", r_slug);
+  formData.append("file_name", file_name);
+  formData.append("url_cover", url_cover);
+  formData.append("summary", summary);
+  formData.append("url_screenshots", JSON.stringify(url_screenshots));
+  if (artwork) {
+    formData.append("artwork", artwork[0]);
   }
-) {
-  return api.patch(
-    `/platforms/${p_slug}/roms/${id}`,
-    {
-      artwork: artwork ? artwork[0] : null,
-    },
-    {
-      headers: {
-        "Content-Type": artwork ? "multipart/form-data" : "text/text",
-      },
-      params: {
-        r_name,
-        file_name,
-        summary
-      }
-    }
-  );
+  return api.put(`/platforms/${p_slug}/roms/${id}`, formData);
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {
@@ -160,7 +158,7 @@ export async function updateUserApi({
     },
     {
       headers: {
-        "Content-Type": avatar ? "multipart/form-data" : "text/text",
+        "Content-Type": avatar ? "multipart/form-data" : "application/json",
       },
       params: { username, password, role, enabled },
     }
