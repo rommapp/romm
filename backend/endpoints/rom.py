@@ -155,7 +155,7 @@ def roms(
         return paginate(session, qq, cursor_params)
 
 
-@protected_route(router.put, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
+@protected_route(router.patch, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
 async def update_rom(
     request: Request,
     p_slug: str,
