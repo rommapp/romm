@@ -124,7 +124,7 @@ class UserUpdateForm:
         self.avatar = avatar
 
 
-@protected_route(router.put, "/users/{user_id}", ["users.write"])
+@protected_route(router.patch, "/users/{user_id}", ["users.write"])
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
 ) -> UserSchema:

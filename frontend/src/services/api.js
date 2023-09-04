@@ -104,7 +104,7 @@ export async function updateRomApi({
   if (artwork) {
     formData.append("artwork", artwork[0]);
   }
-  return api.put(`/platforms/${p_slug}/roms/${id}`, formData);
+  return api.patch(`/platforms/${p_slug}/roms/${id}`, formData);
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {
@@ -151,7 +151,7 @@ export async function updateUserApi({
   enabled,
   avatar,
 }) {
-  return api.put(
+  return api.patch(
     `/users/${id}`,
     {
       avatar: avatar ? avatar[0] : null,
