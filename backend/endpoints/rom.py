@@ -219,7 +219,7 @@ async def update_rom(
     dbh.update_rom(id, cleaned_data)
 
     return {
-        "rom": db_rom,
+        "rom": cleaned_data,
         "msg": f"Rom updated successfully!",
     }
 
