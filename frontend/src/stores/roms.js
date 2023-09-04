@@ -1,28 +1,83 @@
 import { defineStore } from "pinia";
 
 export default defineStore("roms", {
-  state: () => ({ selected: [], lastSelectedIndex: -1, touchScreen: false }),
+  state: () => ({
+    _all: [],
+    _filteredIDs: [],
+    _searchIDs: [],
+    _selectedIDs: [],
+    lastSelectedIndex: -1,
+    touchScreen: false
+  }),
+
+  getters: {
+    allRoms: (state) => state._all,
+    filteredRoms: (state) => state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
+    searchRoms: (state) => state._all.filter((rom) => state._searchIDs.includes(rom.id)),
+    selectedRoms: (state) =>  state._all.filter((rom) => state._selectedIDs.includes(rom.id)),
+  },
 
   actions: {
-    updateSelectedRoms(roms) {
-      this.selected = roms;
+    // All roms
+    set(roms) {
+      this._all = roms;
     },
-    addSelectedRoms(rom) {
-      this.selected.push(rom);
+    add(roms) {
+      this._all = this._all.concat(roms);
     },
-    removeSelectedRoms(rom) {
-      this.selected = this.selected.filter(function (value) {
-        return value.id != rom.id;
+    update(rom) {
+      this._all = this._all.map((value) => {
+        if (value.id === rom.id) {
+          return rom;
+        }
+        return value;
       });
     },
-    updateLastSelectedRom(index) {
+    remove(roms) {
+      this._all = this._all.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value.id;
+        });
+      });
+    },
+    reset() {
+      this._all = [];
+      this._filteredIDs = [];
+      this._searchIDs = [];
+      this._selectedIDs = [];
+      this.lastSelectedIndex = -1;
+    },
+
+    // Filtered roms
+    setFiltered(roms) {
+      this._filteredIDs = roms.map((rom) => rom.id);
+    },
+
+    // Search roms
+    setSearch(roms) {
+      this._searchIDs = roms.map((rom) => rom.id);
+    },
+
+    // Selected roms
+    setSelection(roms) {
+      this._selectedIDs =  roms.map((rom) => rom.id);
+    },
+    addToSelection(rom) {
+      this._selectedIDs.push(rom.id);
+    },
+    removeFromSelection(rom) {
+      this._selectedIDs = this._selectedIDs.filter((id) => {
+        return id !== rom.id;
+      });
+    },
+    updateLastSelected(index) {
       this.lastSelectedIndex = index;
     },
     isTouchScreen(touchScreen) {
       this.touchScreen = touchScreen;
     },
-    reset() {
-      this.selected = [];
+    resetSelection() {
+      this._selectedIDs = [];
       this.lastSelectedIndex = -1;
     },
   },

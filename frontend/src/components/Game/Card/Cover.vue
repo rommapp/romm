@@ -23,7 +23,7 @@ function onNavigate(event) {
   if (
     event.ctrlKey ||
     event.shiftKey ||
-    (romsStore.touchScreen && romsStore.selected.length > 0)
+    (romsStore.touchScreen && romsStore.selectedRoms.length > 0)
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -49,7 +49,11 @@ function onTouchEnd() {
 <template>
   <router-link
     style="text-decoration: none; color: inherit"
-    :to="(romsStore.touchScreen && romsStore.selected.length > 0) ? '' : `/platform/${$route.params.platform}/${rom.id}`"
+    :to="
+      romsStore.touchScreen && romsStore.selectedRoms.length > 0
+        ? ''
+        : `/platform/${$route.params.platform}/${rom.id}`
+    "
     ref="card"
     @click="onNavigate"
     @touchstart="onTouchStart"
@@ -83,7 +87,7 @@ function onTouchEnd() {
             v-if="isHovering || !rom.has_cover"
             class="rom-title d-flex transition-fast-in-fast-out bg-tooltip text-caption"
           >
-            <v-list-item>{{ rom.file_name }}</v-list-item>
+            <v-list-item>{{ rom.r_name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
         <v-chip-group class="pl-1 pt-0">

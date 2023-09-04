@@ -1,10 +1,11 @@
 <script setup>
 import { ref, inject } from "vue";
-
 import { deleteUserApi } from "@/services/api";
+import storeUsers from "@/stores/users";
 
 const user = ref();
 const show = ref(false);
+const usersStore = storeUsers();
 
 const emitter = inject("emitter");
 emitter.on("showDeleteUserDialog", (userToDelete) => {
@@ -13,17 +14,21 @@ emitter.on("showDeleteUserDialog", (userToDelete) => {
 });
 
 async function deleteUser() {
-  await deleteUserApi(user.value).catch(({ response, message }) => {
-    emitter.emit("snackbarShow", {
-      msg: `Unable to delete user: ${
-        response?.data?.detail || response?.statusText || message
-      }`,
-      icon: "mdi-close-circle",
-      color: "red",
+  await deleteUserApi(user.value)
+    .then(() => {
+      usersStore.remove(user.value);
+    })
+    .catch(({ response, message }) => {
+      emitter.emit("snackbarShow", {
+        msg: `Unable to delete user: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
     });
-  });
+
   show.value = false;
-  emitter.emit("refreshView");
 }
 </script>
 <template>
