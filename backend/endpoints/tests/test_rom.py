@@ -1,3 +1,4 @@
+import json
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -34,12 +35,25 @@ def test_update_rom(rename_rom, access_token, rom):
     response = client.patch(
         f"/platforms/{rom.p_slug}/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"file_name": "new_file_name"},
+        data={
+            "r_igdb_id": "236663",
+            "r_name": "Metroid Prime Remastered",
+            "r_slug": "metroid-prime-remastered",
+            "file_name": "Metroid Prime Remastered.xci",
+            "summary": "summary test",
+            "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
+            "url_screenshots": json.dumps(
+                [
+                    "https://images.igdb.com/igdb/image/upload/t_original/qhiqlmwvvuaqxxn4cxlr.jpg",
+                    "https://images.igdb.com/igdb/image/upload/t_original/kqkixazzsokqgoxmuish.jpg",
+                ]
+            ),
+        },
     )
     assert response.status_code == 200
 
     body = response.json()
-    assert body["rom"]["file_name"] == "new_file_name"
+    assert body["rom"]["file_name"] == "Metroid Prime Remastered.xci"
 
     assert rename_rom.called
 
