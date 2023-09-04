@@ -1,7 +1,6 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
-import { storeToRefs } from 'pinia'
 import { fetchRomsApi } from "@/services/api";
 import socket from "@/services/socket";
 import { views, normalizeString } from "@/utils/utils";
@@ -30,7 +29,6 @@ const searchCursor = ref("");
 const fabMenu = ref(false);
 const scrolledToTop = ref(true);
 const romsStore = storeRoms();
-const { allRoms, filteredRoms, selectedRoms, searchRoms } = storeToRefs(romsStore);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -106,12 +104,12 @@ async function fetchRoms(platform) {
     .then((response) => {
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        romsStore.setSearch([...searchRoms.value, ...response.data.items]);
-        romsStore.setFiltered(searchRoms.value);
+        romsStore.setSearch([...romsStore.searchRoms, ...response.data.items]);
+        romsStore.setFiltered(romsStore.searchRoms);
       } else {
         cursor.value = response.data.next_page;
-        romsStore.set([...allRoms.value, ...response.data.items]);
-        romsStore.setFiltered(allRoms.value);
+        romsStore.set([...romsStore.allRoms, ...response.data.items]);
+        romsStore.setFiltered(romsStore.allRoms);
       }
     })
     .catch((error) => {
@@ -131,7 +129,7 @@ function onFilterChange() {
   romsStore.setSearch([]);
 
   if (galleryFilter.filter === "") {
-    romsStore.setFiltered(allRoms.value);
+    romsStore.setFiltered(romsStore.allRoms);
     return;
   }
 
@@ -165,11 +163,11 @@ function selectRom({ event, index, selected }) {
     );
     if (selected) {
       for (let i = start + 1; i < end; i++) {
-        romsStore.addToSelection(filteredRoms.value[i]);
+        romsStore.addToSelection(romsStore.filteredRoms[i]);
       }
     } else {
       for (let i = start; i <= end; i++) {
-        romsStore.removeFromSelection(filteredRoms.value[i]);
+        romsStore.removeFromSelection(romsStore.filteredRoms[i]);
       }
     }
     romsStore.updateLastSelected(selected ? index : index - 1);
@@ -179,7 +177,7 @@ function selectRom({ event, index, selected }) {
 }
 
 onMounted(async () => {
-  if(filteredRoms.value.length == 0){
+  if(romsStore.filteredRoms.length == 0){
     fetchRoms(route.params.platform);
   }
 });
@@ -212,12 +210,12 @@ onBeforeRouteUpdate(async (to, _) => {
     />
   </v-app-bar>
 
-  <template v-if="filteredRoms.length > 0">
+  <template v-if="romsStore.filteredRoms.length > 0">
     <v-row no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
         v-show="galleryView.current != 2"
-        v-for="rom in filteredRoms"
+        v-for="rom in romsStore.filteredRoms"
         class="pa-1"
         :key="rom.id"
         :cols="views[galleryView.current]['size-cols']"
@@ -228,21 +226,21 @@ onBeforeRouteUpdate(async (to, _) => {
       >
         <game-card
           :rom="rom"
-          :index="filteredRoms.indexOf(rom)"
-          :selected="selectedRoms.includes(rom)"
+          :index="romsStore.filteredRoms.indexOf(rom)"
+          :selected="romsStore.selectedRoms.includes(rom)"
           @selectRom="selectRom"
         />
       </v-col>
 
       <!-- Gallery list view -->
       <v-col v-show="galleryView.current == 2">
-        <game-data-table :filteredRoms="filteredRoms" />
+        <game-data-table />
       </v-col>
     </v-row>
   </template>
 
   <!-- Empty gallery message -->
-  <template v-if="filteredRoms.length == 0 && !gettingRoms">
+  <template v-if="romsStore.filteredRoms.length == 0 && !gettingRoms">
     <v-row class="align-center justify-center" no-gutters>
       <v-col cols="6" md="2">
         <div class="mt-16">
@@ -283,7 +281,7 @@ onBeforeRouteUpdate(async (to, _) => {
         <template v-slot:activator="{ props }">
           <v-fab-transition>
             <v-btn
-              v-show="romsStore._selectedIDs.length > 0"
+              v-show="romsStore.selectedRoms.length > 0"
               color="romm-accent-1"
               v-bind="props"
               elevation="8"
@@ -294,7 +292,7 @@ onBeforeRouteUpdate(async (to, _) => {
           </v-fab-transition>
         </template>
 
-        <fab-menu :filteredRoms="filteredRoms" />
+        <fab-menu />
       </v-menu>
     </div>
   </v-layout-item>

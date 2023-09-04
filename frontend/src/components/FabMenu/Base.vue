@@ -11,7 +11,6 @@ import { downloadRomApi } from "@/services/api";
 const emitter = inject("emitter");
 
 // Props
-const props = defineProps(["filteredRoms"]);
 const auth = storeAuth();
 const romsStore = storeRoms();
 const scanning = storeScanning();
@@ -59,11 +58,11 @@ async function onScan() {
 }
 
 function selectAllRoms() {
-  if (props.filteredRoms.length === romsStore.selectedRoms.length) {
+  if (romsStore.filteredRoms.length === romsStore.selectedRoms.length) {
     romsStore.resetSelection();
     emitter.emit("openFabMenu", false);
   } else {
-    romsStore.setSelection(props.filteredRoms);
+    romsStore.setSelection(romsStore.filteredRoms);
   }
 }
 
@@ -79,7 +78,7 @@ function onDownload() {
     color="terciary"
     elevation="8"
     :icon="
-      filteredRoms.length === romsStore.selectedRoms.length
+      romsStore.filteredRoms.length === romsStore.selectedRoms.length
         ? 'mdi-select'
         : 'mdi-select-all'
     "
