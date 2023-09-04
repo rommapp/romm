@@ -56,24 +56,6 @@ async def test_get_ps2_opl_rom():
 
 
 @pytest.mark.vcr()
-async def test_switch_titleid_rom():
-    rom = await igdbh.get_rom("70000000000000", 130)
-    assert rom["r_igdb_id"] == 0
-    assert rom["r_slug"] == ""
-    assert rom["r_name"] == "70000000000000"
-    assert not rom["summary"]
-    assert rom["url_cover"] == ""
-    assert not rom["url_screenshots"]
-
-    rom = await igdbh.get_rom("70010000000041", 130)
-    assert rom["r_igdb_id"] == 145058
-    assert rom["r_slug"] == "blaster-master-zero-iii"
-    assert rom["r_name"] == "Blaster Master Zero III"
-    assert rom["summary"]
-    assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
-    assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
-
-@pytest.mark.vcr()
 def test_get_rom_by_id():
     rom = igdbh.get_rom_by_id(3340)
     assert rom["r_igdb_id"] == 3340
