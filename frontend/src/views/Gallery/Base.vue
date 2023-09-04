@@ -179,7 +179,9 @@ function selectRom({ event, index, selected }) {
 }
 
 onMounted(async () => {
-  fetchRoms(route.params.platform);
+  if(filteredRoms.value.length == 0){
+    fetchRoms(route.params.platform);
+  }
 });
 
 onBeforeUnmount(() => {
