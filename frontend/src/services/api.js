@@ -73,7 +73,7 @@ export async function downloadRomApi(rom, files) {
 
 export async function uploadRomsApi(romsToUpload, platform) {
   let formData = new FormData();
-  romsToUpload.map((rom) => formData.append("roms", rom));
+  romsToUpload.forEach((rom) => formData.append("roms", rom));
   return api.put(`/platforms/${platform}/roms/upload`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
