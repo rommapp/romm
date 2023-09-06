@@ -67,7 +67,7 @@ async function uploadRoms() {
         }`,
         icon: "mdi-close-circle",
         color: "red",
-        timeout: 2000,
+        timeout: 4000,
       });
     })
     .finally(() => {

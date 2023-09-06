@@ -20,7 +20,7 @@ from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 from logger.logger import log
 from handler import dbh
 from utils import fs, get_file_name_with_no_tags
-from utils.fs import build_artwork_path, build_upload_roms_path
+from utils.fs import _rom_exists, build_artwork_path, build_upload_roms_path
 from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
 from utils.oauth import protected_route
 from models import Rom, Platform
@@ -89,11 +89,22 @@ def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = File(...
     log.info(f"Uploading files to: {platform_fs_slug}")
     if roms is not None:
         roms_path = build_upload_roms_path(platform_fs_slug)
+        for rom in roms: #TODO: Refactor code to avoid double loop
+            if _rom_exists(p_slug, rom.filename):
+                error = f"{rom.filename} already exists"
+                log.error(error)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
+                )
         for rom in roms:
             log.info(f" - Uploading {rom.filename}")
             file_location = f"{roms_path}/{rom.filename}"
-            with open(file_location, "wb+") as file_object:
-                file_object.write(rom.file.read())
+            f = open(file_location, 'wb+')
+            while True:
+                chunk = rom.file.read(1024)  
+                if not chunk: break
+                f.write(chunk)
+            f.close()
         dbh.update_n_roms(p_slug)
         return {"msg": f"{len(roms)} roms uploaded successfully!"}
 
@@ -159,7 +170,7 @@ async def update_rom(
     p_slug: str,
     id: int,
     artwork: Optional[UploadFile] = File(None),
- ) -> dict:
+) -> dict:
     """Updates rom details"""
 
     data = await request.form()
@@ -171,20 +182,24 @@ async def update_rom(
     cleaned_data["url_cover"] = data["url_cover"]
     cleaned_data["summary"] = data["summary"]
     cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
-    
+
     db_rom: Rom = dbh.get_rom(id)
     db_platform: Platform = dbh.get_platform(p_slug)
 
     try:
         if cleaned_data["file_name"] != db_rom.file_name:
-            fs.rename_rom(db_platform.fs_slug, db_rom.file_name, cleaned_data["file_name"])
+            fs.rename_rom(
+                db_platform.fs_slug, db_rom.file_name, cleaned_data["file_name"]
+            )
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(cleaned_data["file_name"])
+    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(
+        cleaned_data["file_name"]
+    )
     cleaned_data.update(
         fs.get_cover(
             overwrite=True,
