@@ -39,7 +39,7 @@ async function updateRom() {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
   await updateRomApi(rom.value)
-    .then((response) => {
+    .then(({ data }) => {
       emitter.emit("snackbarShow", {
         msg: data.msg,
         icon: "mdi-check-bold",
@@ -48,6 +48,7 @@ async function updateRom() {
       romsStore.update(data.rom);
     })
     .catch((error) => {
+      console.log(error);
       emitter.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",

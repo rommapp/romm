@@ -1,13 +1,13 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { storeToRefs } from "pinia";
 import { fetchRomsApi } from "@/services/api";
-import socket from "@/services/socket";
 import { views, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import GalleryAppBar from "@/components/GalleryAppBar/Base.vue"
+import GalleryAppBar from "@/components/GalleryAppBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -22,44 +22,23 @@ const route = useRoute();
 const galleryView = storeGalleryView();
 const galleryFilter = storeGalleryFilter();
 const gettingRoms = ref(false);
-const cursor = ref("");
-const searchCursor = ref("");
 const fabMenu = ref(false);
 const scrolledToTop = ref(true);
 const romsStore = storeRoms();
+const {
+  allRoms,
+  filteredRoms,
+  selectedRoms,
+  searchRoms,
+  cursor,
+  searchCursor,
+} = storeToRefs(romsStore);
 
 // Event listeners bus
 const emitter = inject("emitter");
 emitter.on("filter", onFilterChange);
 emitter.on("openFabMenu", (open) => {
   fabMenu.value = open;
-});
-
-socket.on("scan:done", () => {
-  scanning.set(false);
-  socket.disconnect();
-
-  emitter.emit("refreshDrawer");
-  emitter.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
-    icon: "mdi-check-bold",
-    color: "green",
-  });
-
-  cursor.value = "";
-  searchCursor.value = "";
-  romsStore.reset();
-  fetchRoms(route.params.platform);
-});
-
-socket.on("scan:done_ko", (msg) => {
-  scanning.set(false);
-  emitter.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-    icon: "mdi-close-circle",
-    color: "red",
-  });
-  socket.disconnect();
 });
 
 // Functions
@@ -87,12 +66,12 @@ async function fetchRoms(platform) {
     .then((response) => {
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        romsStore.setSearch([...romsStore.searchRoms, ...response.data.items]);
-        romsStore.setFiltered(romsStore.searchRoms);
+        romsStore.setSearch([...searchRoms.value, ...response.data.items]);
+        romsStore.setFiltered(searchRoms.value);
       } else {
         cursor.value = response.data.next_page;
-        romsStore.set([...romsStore.allRoms, ...response.data.items]);
-        romsStore.setFiltered(romsStore.allRoms);
+        romsStore.set([...allRoms.value, ...response.data.items]);
+        romsStore.setFiltered(allRoms.value);
       }
     })
     .catch((error) => {
@@ -112,7 +91,7 @@ function onFilterChange() {
   romsStore.setSearch([]);
 
   if (galleryFilter.filter === "") {
-    romsStore.setFiltered(romsStore.allRoms);
+    romsStore.setFiltered(allRoms.value);
     return;
   }
 
@@ -146,11 +125,11 @@ function selectRom({ event, index, selected }) {
     );
     if (selected) {
       for (let i = start + 1; i < end; i++) {
-        romsStore.addToSelection(romsStore.filteredRoms[i]);
+        romsStore.addToSelection(filteredRoms.value[i]);
       }
     } else {
       for (let i = start; i <= end; i++) {
-        romsStore.removeFromSelection(romsStore.filteredRoms[i]);
+        romsStore.removeFromSelection(filteredRoms.value[i]);
       }
     }
     romsStore.updateLastSelected(selected ? index : index - 1);
@@ -160,15 +139,12 @@ function selectRom({ event, index, selected }) {
 }
 
 onMounted(async () => {
-  if(romsStore.filteredRoms.length == 0){
+  if (filteredRoms.value.length == 0) {
     fetchRoms(route.params.platform);
   }
 });
 
 onBeforeUnmount(() => {
-  socket.off("scan:scanning_rom");
-  socket.off("scan:done");
-  socket.off("scan:done_ko");
   romsStore.resetSelection();
 });
 
@@ -182,12 +158,12 @@ onBeforeRouteUpdate(async (to, _) => {
 
 <template>
   <gallery-app-bar />
-  <template v-if="romsStore.filteredRoms.length > 0">
+  <template v-if="filteredRoms.length > 0">
     <v-row no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
         v-show="galleryView.current != 2"
-        v-for="rom in romsStore.filteredRoms"
+        v-for="rom in filteredRoms"
         :key="rom.id"
         :cols="views[galleryView.current]['size-cols']"
         :xs="views[galleryView.current]['size-xs']"
@@ -197,8 +173,8 @@ onBeforeRouteUpdate(async (to, _) => {
       >
         <game-card
           :rom="rom"
-          :index="romsStore.filteredRoms.indexOf(rom)"
-          :selected="romsStore.selectedRoms.includes(rom)"
+          :index="filteredRoms.indexOf(rom)"
+          :selected="selectedRoms.includes(rom)"
           @selectRom="selectRom"
         />
       </v-col>
@@ -211,7 +187,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <!-- Empty gallery message -->
-  <template v-if="romsStore.filteredRoms.length == 0 && !gettingRoms">
+  <template v-if="filteredRoms.length == 0 && !gettingRoms">
     <v-row class="align-center justify-center" no-gutters>
       <v-col cols="6" md="2">
         <div class="mt-16">
@@ -252,7 +228,7 @@ onBeforeRouteUpdate(async (to, _) => {
         <template v-slot:activator="{ props }">
           <v-fab-transition>
             <v-btn
-              v-show="romsStore.selectedRoms.length > 0"
+              v-show="romsStore._selectedIDs.length > 0"
               color="romm-accent-1"
               v-bind="props"
               elevation="8"
