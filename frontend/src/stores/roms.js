@@ -7,14 +7,19 @@ export default defineStore("roms", {
     _searchIDs: [],
     _selectedIDs: [],
     lastSelectedIndex: -1,
-    touchScreen: false
+    cursor: "",
+    searchCursor: "",
+    touchScreen: false,
   }),
 
   getters: {
     allRoms: (state) => state._all,
-    filteredRoms: (state) => state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
-    searchRoms: (state) => state._all.filter((rom) => state._searchIDs.includes(rom.id)),
-    selectedRoms: (state) =>  state._all.filter((rom) => state._selectedIDs.includes(rom.id)),
+    filteredRoms: (state) =>
+      state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
+    searchRoms: (state) =>
+      state._all.filter((rom) => state._searchIDs.includes(rom.id)),
+    selectedRoms: (state) =>
+      state._all.filter((rom) => state._selectedIDs.includes(rom.id)),
   },
 
   actions: {
@@ -60,7 +65,7 @@ export default defineStore("roms", {
 
     // Selected roms
     setSelection(roms) {
-      this._selectedIDs =  roms.map((rom) => rom.id);
+      this._selectedIDs = roms.map((rom) => rom.id);
     },
     addToSelection(rom) {
       this._selectedIDs.push(rom.id);

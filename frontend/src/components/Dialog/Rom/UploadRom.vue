@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject } from "vue";
+import { ref, inject, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import socket from "@/services/socket";
@@ -21,7 +21,11 @@ socket.on("scan:done", () => {
   scanning.set(false);
   socket.disconnect();
   emitter.emit("refreshDrawer");
-  emitter.emit("refreshView");
+  emitter.emit("snackbarShow", {
+    msg: "Scan completed successfully!",
+    icon: "mdi-check-bold",
+    color: "green",
+  });
 });
 
 socket.on("scan:done_ko", (msg) => {
@@ -45,10 +49,15 @@ async function uploadRoms() {
   await uploadRomsApi(romsToUpload.value, route.params.platform)
     .then(() => {
       emitter.emit("snackbarShow", {
-        msg: `${romsToUpload.value.length} roms uploaded successfully`,
+        msg: `${romsToUpload.value.length} roms uploaded successfully, scanning...`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
+      });
+      if (!socket.connected) socket.connect();
+      socket.emit("scan", {
+        platforms: [route.params.platform],
+        rescan: false,
       });
     })
     .catch(({ response, message }) => {
@@ -65,6 +74,11 @@ async function uploadRoms() {
       scanning.set(false);
     });
 }
+
+onBeforeUnmount(() => {
+  socket.off("scan:done");
+  socket.off("scan:done_ko");
+});
 </script>
 
 <template>

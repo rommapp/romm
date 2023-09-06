@@ -1,5 +1,5 @@
 <script setup>
-import { inject } from "vue";
+import { inject, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
@@ -12,14 +12,13 @@ const scanning = storeScanning();
 // Functions
 socket.on("scan:done", () => {
   scanning.set(false);
+  socket.disconnect();
+  emitter.emit("refreshDrawer");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
   });
-  socket.disconnect();
-  emitter.emit("refreshDrawer");
-  emitter.emit("refreshView");
 });
 
 socket.on("scan:done_ko", (msg) => {
@@ -46,6 +45,11 @@ async function scan() {
     rescan: false,
   });
 }
+
+onBeforeUnmount(() => {
+  socket.off("scan:done");
+  socket.off("scan:done_ko");
+});
 </script>
 
 <template>

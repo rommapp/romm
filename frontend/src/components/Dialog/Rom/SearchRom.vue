@@ -57,9 +57,9 @@ async function updateRom(matchedRom) {
     : rom.value.file_name;
 
   await updateRomApi(rom.value)
-    .then((response) => {
+    .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
