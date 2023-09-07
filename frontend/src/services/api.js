@@ -71,22 +71,40 @@ export async function downloadRomApi(rom, files) {
   }
 }
 
-export async function updateRomApi(rom, updatedData, renameAsIGDB) {
-  const updatedRom = {
-    r_igdb_id: updatedData.r_igdb_id,
-    r_slug: updatedData.r_slug,
-    summary: updatedData.summary,
-    url_cover: updatedData.url_cover,
-    url_screenshots: updatedData.url_screenshots,
-    r_name: updatedData.r_name,
-    file_name: renameAsIGDB
-      ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
-      : updatedData.file_name,
-  };
-
-  return api.patch(`/platforms/${rom.p_slug}/roms/${rom.id}`, {
-    updatedRom,
+export async function uploadRomsApi(romsToUpload, platform) {
+  let formData = new FormData();
+  romsToUpload.forEach((rom) => formData.append("roms", rom));
+  return api.put(`/platforms/${platform}/roms/upload`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
   });
+}
+
+export async function updateRomApi({
+  id,
+  r_igdb_id,
+  p_slug,
+  r_name,
+  r_slug,
+  file_name,
+  summary,
+  artwork,
+  url_cover,
+  url_screenshots,
+}) {
+  var formData = new FormData();
+  formData.append("r_igdb_id", r_igdb_id);
+  formData.append("r_name", r_name);
+  formData.append("r_slug", r_slug);
+  formData.append("file_name", file_name);
+  formData.append("url_cover", url_cover);
+  formData.append("summary", summary);
+  formData.append("url_screenshots", JSON.stringify(url_screenshots));
+  if (artwork) {
+    formData.append("artwork", artwork[0]);
+  }
+  return api.patch(`/platforms/${p_slug}/roms/${id}`, formData);
 }
 
 export async function deleteRomApi(rom, deleteFromFs) {
@@ -133,14 +151,14 @@ export async function updateUserApi({
   enabled,
   avatar,
 }) {
-  return api.put(
+  return api.patch(
     `/users/${id}`,
     {
       avatar: avatar ? avatar[0] : null,
     },
     {
       headers: {
-        "Content-Type": avatar ? "multipart/form-data" : "text/text",
+        "Content-Type": avatar ? "multipart/form-data" : "application/json",
       },
       params: { username, password, role, enabled },
     }

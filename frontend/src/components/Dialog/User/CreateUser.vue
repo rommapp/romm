@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject } from "vue";
-
 import { createUserApi } from "@/services/api";
+import storeUsers from "@/stores/users";
 
 const user = ref({
   username: "",
@@ -9,6 +9,7 @@ const user = ref({
   role: "viewer",
 });
 const show = ref(false);
+const usersStore = storeUsers();
 
 const emitter = inject("emitter");
 emitter.on("showCreateUserDialog", () => {
@@ -16,17 +17,20 @@ emitter.on("showCreateUserDialog", () => {
 });
 
 async function createUser() {
-  await createUserApi(user.value).catch(({ response, message }) => {
-    emitter.emit("snackbarShow", {
-      msg: `Unable to create user: ${
-        response?.data?.detail || response?.statusText || message
-      }`,
-      icon: "mdi-close-circle",
-      color: "red",
+  await createUserApi(user.value)
+    .then(({ data }) => {
+      usersStore.add(data);
+    })
+    .catch(({ response, message }) => {
+      emitter.emit("snackbarShow", {
+        msg: `Unable to create user: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
     });
-  });
   show.value = false;
-  emitter.emit("refreshView");
 }
 </script>
 <template>

@@ -12,7 +12,7 @@ const galleryView = storeGalleryView();
     rounded="0"
     variant="text"
     class="mr-0"
-    :icon="views[galleryView.value]['icon']"
+    :icon="views[galleryView.current]['icon']"
   >
   </v-btn>
 </template>
