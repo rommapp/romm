@@ -84,7 +84,7 @@ def test_create_user(access_token):
 def test_update_user(access_token, editor_user):
     assert editor_user.role == Role.EDITOR
 
-    response = client.put(
+    response = client.patch(
         f"/users/{editor_user.id}",
         params={"username": "editor_user_new_username", "role": "viewer"},
         headers={"Authorization": f"Bearer {access_token}"},
