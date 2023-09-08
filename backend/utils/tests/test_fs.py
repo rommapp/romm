@@ -9,6 +9,9 @@ from ..fs import (
     # get_rom_files,  # TODO: write test
     # rename_rom,  # TODO: write test
     # remove_rom,  # TODO: write test
+    # build_upload_roms_path, # TODO: write test
+    # build_artwork_path, # TODO: write test
+    # build_avatar_path, # TODO: write test
 )
 
 from config import (

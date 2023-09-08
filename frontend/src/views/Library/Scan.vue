@@ -40,15 +40,14 @@ socket.on("scan:scanning_rom", ({ p_slug, p_name, ...rom }) => {
 
 socket.on("scan:done", () => {
   scanning.set(false);
+  socket.disconnect();
 
   emitter.emit("refreshDrawer");
-  emitter.emit("refreshView");
   emitter.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
   });
-  socket.disconnect();
 });
 
 socket.on("scan:done_ko", (msg) => {
