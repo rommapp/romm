@@ -3,12 +3,12 @@ import { ref, inject, onMounted } from "vue";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import { fetchUsersApi, updateUserApi } from "@/services/api";
 import storeAuth from "@/stores/auth";
+import storeUsers from "@/stores/users";
 import { defaultAvatarPath } from "@/utils/utils";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 
-const auth = storeAuth();
 const HEADERS = [
   {
     title: "",
@@ -47,7 +47,8 @@ const PER_PAGE_OPTIONS = [
 
 // Props
 const emitter = inject("emitter");
-const users = ref([]);
+const auth = storeAuth();
+const usersStore = storeUsers();
 const usersPerPage = ref(5);
 const userSearch = ref("");
 
@@ -67,7 +68,7 @@ function disableUser(user) {
 onMounted(() => {
   fetchUsersApi()
     .then(({ data }) => {
-      users.value = data;
+      usersStore.set(data)
     })
     .catch((error) => {
       console.log(error);
@@ -109,7 +110,7 @@ onMounted(() => {
         v-model:items-per-page="usersPerPage"
         :search="userSearch"
         :headers="HEADERS"
-        :items="users"
+        :items="usersStore.all"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
         <template v-slot:item.avatar_path="{ item }">

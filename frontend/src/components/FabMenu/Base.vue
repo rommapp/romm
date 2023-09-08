@@ -11,15 +11,14 @@ import { downloadRomApi } from "@/services/api";
 const emitter = inject("emitter");
 
 // Props
-const props = defineProps(["filteredRoms"]);
 const auth = storeAuth();
 const romsStore = storeRoms();
 const scanning = storeScanning();
 const route = useRoute();
 
 socket.on("scan:scanning_rom", ({ id }) => {
-  const rom = romsStore.selected.find((r) => r.id === id);
-  romsStore.removeSelectedRoms(rom);
+  const rom = romsStore.selectedRoms.find((r) => r.id === id);
+  romsStore.removeFromSelection(rom);
 });
 
 socket.on("scan:done", () => {
@@ -59,17 +58,16 @@ async function onScan() {
 }
 
 function selectAllRoms() {
-  if (props.filteredRoms.length === romsStore.selected.length) {
-    romsStore.reset();
+  if (romsStore.filteredRoms.length === romsStore.selectedRoms.length) {
+    romsStore.resetSelection();
     emitter.emit("openFabMenu", false);
   } else {
-    romsStore.updateSelectedRoms(props.filteredRoms);
+    romsStore.setSelection(romsStore.filteredRoms);
   }
-  emitter.emit("refreshSelected");
 }
 
 function onDownload() {
-  romsStore.selected.forEach((rom) => {
+  romsStore.selectedRoms.forEach((rom) => {
     downloadRomApi(rom);
   });
 }
@@ -80,7 +78,7 @@ function onDownload() {
     color="terciary"
     elevation="8"
     :icon="
-      filteredRoms.length === romsStore.selected.length
+      romsStore.filteredRoms.length === romsStore.selectedRoms.length
         ? 'mdi-select'
         : 'mdi-select-all'
     "
@@ -115,7 +113,7 @@ function onDownload() {
     elevation="8"
     icon
     class="mb-3 ml-1"
-    @click="emitter.emit('showDeleteRomDialog', romsStore.selected)"
+    @click="emitter.emit('showDeleteRomDialog', romsStore.selectedRoms)"
   >
     <v-icon color="romm-red">mdi-delete</v-icon>
   </v-btn>

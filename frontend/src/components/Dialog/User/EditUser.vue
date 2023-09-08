@@ -2,10 +2,11 @@
 import { ref, inject } from "vue";
 import { updateUserApi } from "@/services/api";
 import { defaultAvatarPath } from "@/utils/utils"
+import storeUsers from "@/stores/users";
 
 const user = ref();
 const show = ref(false);
-const avatarFile = ref();
+const usersStore = storeUsers();
 
 const emitter = inject("emitter");
 emitter.on("showEditUserDialog", (userToEdit) => {
@@ -15,13 +16,14 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 
 function editUser() {
   updateUserApi(user.value)
-    .then((response) => {
+    .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: `User ${response.data.username} updated successfully`,
+        msg: `User ${data.username} updated successfully`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 5000
       });
+      usersStore.update(data);
     })
     .catch(({ response, message }) => {
       emitter.emit("snackbarShow", {
@@ -33,8 +35,8 @@ function editUser() {
         timeout: 5000
       });
     });
+
   show.value = false;
-  emitter.emit("refreshView");
   emitter.emit("refreshDrawer");
 }
 </script>
@@ -119,7 +121,6 @@ function editUser() {
               <v-col>
                 <v-file-input
                   class="text-truncate"
-                  @keyup.enter="updateRom()"
                   v-model="user.avatar"
                   label="Avatar"
                   prepend-inner-icon="mdi-image"
