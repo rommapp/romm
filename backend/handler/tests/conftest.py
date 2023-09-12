@@ -21,15 +21,15 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
-        s.query(Platform).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
 
 
 @pytest.fixture
 def platform():
     platform = Platform(
-        name="test_platform", slug="test_platform_slug", fs_slug="test_platform"
+        name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
     )
     return dbh.add_platform(platform)
 
@@ -37,13 +37,15 @@ def platform():
 @pytest.fixture
 def rom(platform):
     rom = Rom(
-        r_name="test_rom",
-        r_slug="test_rom_slug",
-        p_name="test_platform",
-        p_slug="test_platform_slug",
+        name="test_rom",
+        slug="test_rom_slug",
+        platform_slug="test_platform_slug",
         file_name="test_rom",
         file_name_no_tags="test_rom",
+        file_extension="zip",
         file_path="test_platform_slug/roms",
+        file_size=1.0,
+        file_size_units="MB",
     )
     return dbh.add_rom(rom)
 

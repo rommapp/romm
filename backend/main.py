@@ -71,7 +71,7 @@ def startup() -> None:
     """Startup application."""
 
     # Create default admin user if no admin user exists
-    if len(dbh.get_admin_users()) == 0:
+    if len(dbh.get_admin_users()) == 0 and "pytest" not in sys.modules:
         create_default_admin_user()
 
 

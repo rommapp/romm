@@ -25,8 +25,8 @@ def test_get_cover():
     # Game: Paper Mario (USA).z64
     cover = get_cover(
         overwrite=False,
-        p_slug="n64",
-        r_name="Paper Mario",
+        fs_slug="n64",
+        rom_name="Paper Mario",
     )
 
     assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
@@ -36,8 +36,8 @@ def test_get_cover():
     # Game: Paper Mario (USA).z64
     cover = get_cover(
         overwrite=True,
-        p_slug="n64",
-        r_name="Paper Mario",
+        fs_slug="n64",
+        rom_name="Paper Mario",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
@@ -48,8 +48,8 @@ def test_get_cover():
     # Game: Super Mario 64 (J) (Rev A)
     cover = get_cover(
         overwrite=False,
-        p_slug="n64",
-        r_name="Super Mario 64",
+        fs_slug="n64",
+        rom_name="Super Mario 64",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
@@ -60,8 +60,8 @@ def test_get_cover():
     # Game: Fake Game.xyz
     cover = get_cover(
         overwrite=False,
-        p_slug="n64",
-        r_name="Fake Game",
+        fs_slug="n64",
+        rom_name="Fake Game",
     )
 
     assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
@@ -77,13 +77,13 @@ def test_get_platforms():
 
 
 def test_get_roms_structure():
-    roms_structure = get_roms_structure(p_slug="n64")
+    roms_structure = get_roms_structure(fs_slug="n64")
 
     assert roms_structure == "n64/roms"
 
 
 def test_get_roms():
-    roms = get_roms(p_slug="n64")
+    roms = get_roms(fs_slug="n64")
 
     assert len(roms) == 2
     assert roms[0]["file_name"] == "Paper Mario (USA).z64"
@@ -95,7 +95,7 @@ def test_get_roms():
 
 def test_rom_size():
     rom_size = get_rom_size(
-        roms_path=get_roms_structure(p_slug="n64"),
+        roms_path=get_roms_structure(fs_slug="n64"),
         file_name="Paper Mario (USA).z64",
         multi=False,
     )
@@ -103,7 +103,7 @@ def test_rom_size():
     assert rom_size == (1.0, "KB")
 
     rom_size = get_rom_size(
-        roms_path=get_roms_structure(p_slug="n64"),
+        roms_path=get_roms_structure(fs_slug="n64"),
         file_name="Super Mario 64 (J) (Rev A)",
         multi=True,
         multi_files=[
