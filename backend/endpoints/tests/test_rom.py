@@ -9,7 +9,7 @@ client = TestClient(app)
 
 def test_get_rom(access_token, rom):
     response = client.get(
-        f"/platforms/{rom.p_slug}/roms/{rom.id}",
+        f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
@@ -20,7 +20,7 @@ def test_get_rom(access_token, rom):
 
 def test_get_all_roms(access_token, rom):
     response = client.get(
-        f"/platforms/{rom.p_slug}/roms",
+        f"/platforms/{rom.platform_slug}/roms",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
@@ -33,12 +33,12 @@ def test_get_all_roms(access_token, rom):
 @patch("utils.fs.rename_rom")
 def test_update_rom(rename_rom, access_token, rom):
     response = client.patch(
-        f"/platforms/{rom.p_slug}/roms/{rom.id}",
+        f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         data={
-            "r_igdb_id": "236663",
-            "r_name": "Metroid Prime Remastered",
-            "r_slug": "metroid-prime-remastered",
+            "igdb_id": "236663",
+            "name": "Metroid Prime Remastered",
+            "slug": "metroid-prime-remastered",
             "file_name": "Metroid Prime Remastered.xci",
             "summary": "summary test",
             "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
@@ -60,7 +60,7 @@ def test_update_rom(rename_rom, access_token, rom):
 
 def test_delete_roms(access_token, rom):
     response = client.delete(
-        f"/platforms/{rom.p_slug}/roms/{rom.id}",
+        f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200

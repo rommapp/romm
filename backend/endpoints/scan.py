@@ -35,10 +35,10 @@ async def scan_platforms(
 
     platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
     platform_list = platform_list or fs_platforms
-    for p_slug in platform_list:
+    for platform_slug in platform_list:
         try:
             # Verify that platform exists
-            scanned_platform = fastapi.scan_platform(p_slug)
+            scanned_platform = fastapi.scan_platform(platform_slug)
         except RomsNotFoundException as e:
             log.error(e)
             continue

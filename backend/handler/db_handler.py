@@ -58,7 +58,7 @@ class DBHandler:
         try:
             with self.session.begin() as session:
                 session.query(Platform).filter(
-                    or_(Platform.fs_slug.not_in(platforms), Platform.fs_slug.is_(None))
+                    or_(Platform.slug.not_in(platforms), Platform.slug.is_(None))
                 ).delete(synchronize_session="evaluate")
         except ProgrammingError as e:
             self.raise_error(e)
@@ -71,9 +71,13 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def get_roms(self, p_slug: str):
+    def get_roms(self, platform_slug: str):
         try:
-            return select(Rom).filter_by(p_slug=p_slug).order_by(Rom.file_name.asc())
+            return (
+                select(Rom)
+                .filter_by(platform_slug=platform_slug)
+                .order_by(Rom.file_name.asc())
+            )
         except ProgrammingError as e:
             self.raise_error(e)
 
@@ -102,22 +106,24 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def purge_roms(self, p_slug: str, roms: list[list[str]]):
+    def purge_roms(self, platform_slug: str, roms: list[list[str]]):
         try:
             with self.session.begin() as session:
                 session.query(Rom).filter(
-                    Rom.p_slug == p_slug, Rom.file_name.not_in(roms)
+                    Rom.platform_slug == platform_slug, Rom.file_name.not_in(roms)
                 ).delete(synchronize_session="evaluate")
         except ProgrammingError as e:
             self.raise_error(e)
 
-    def update_n_roms(self, p_slug: str):
+    def update_n_roms(self, platform_slug: str):
         try:
             with self.session.begin() as session:
-                session.query(Platform).filter_by(slug=p_slug).update(
+                session.query(Platform).filter_by(slug=platform_slug).update(
                     {
                         Platform.n_roms: len(
-                            session.query(Rom).filter_by(p_slug=p_slug).all()
+                            session.query(Rom)
+                            .filter_by(platform_slug=platform_slug)
+                            .all()
                         )
                     },
                     synchronize_session="evaluate",
@@ -126,11 +132,13 @@ class DBHandler:
             self.raise_error(e)
 
     # ==== Utils ======
-    def rom_exists(self, p_slug: str, file_name: str):
+    def rom_exists(self, platform_slug: str, file_name: str):
         try:
             with self.session.begin() as session:
                 rom = session.scalar(
-                    select(Rom).filter_by(p_slug=p_slug, file_name=file_name)
+                    select(Rom).filter_by(
+                        platform_slug=platform_slug, file_name=file_name
+                    )
                 )
                 return rom.id if rom else 0
         except ProgrammingError as e:

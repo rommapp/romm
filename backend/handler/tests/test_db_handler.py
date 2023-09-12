@@ -10,17 +10,17 @@ dbh = DBHandler()
 
 def test_platforms():
     platform = Platform(
-        name="test_platform", slug="test_platform_slug", fs_slug="test_platform"
+        name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
     )
     dbh.add_platform(platform)
 
     platforms = dbh.get_platforms()
     assert len(platforms) == 1
 
-    platform = dbh.get_platform("test_platform_slug")
+    platform = dbh.get_platform(platform.slug)
     assert platform.name == "test_platform"
 
-    dbh.purge_platforms(["test_platform_slug"])
+    dbh.purge_platforms([])
     platforms = dbh.get_platforms()
     assert len(platforms) == 0
 
@@ -28,17 +28,20 @@ def test_platforms():
 def test_roms(rom):
     dbh.add_rom(
         Rom(
-            r_name="test_rom_2",
-            r_slug="test_rom_slug_2",
-            p_name="test_platform",
-            p_slug="test_platform_slug",
+            name="test_rom_2",
+            slug="test_rom_slug_2",
+            platform_slug=rom.platform_slug,
             file_name="test_rom_2",
             file_name_no_tags="test_rom_2",
+            file_extension="zip",
+            file_path=f"{rom.platform_slug}/roms",
+            file_size=1.0,
+            file_size_units="MB",
         )
     )
 
     with dbh.session.begin() as session:
-        roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
+        roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
         assert len(roms) == 2
 
     rom = dbh.get_rom(roms[0].id)
@@ -51,20 +54,20 @@ def test_roms(rom):
     dbh.delete_rom(rom.id)
 
     with dbh.session.begin() as session:
-        roms = session.scalars(dbh.get_roms(rom.p_slug)).all()
+        roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
         assert len(roms) == 1
 
-    dbh.purge_roms(rom_2.p_slug, [rom_2.r_slug])
+    dbh.purge_roms(rom_2.platform_slug, [rom_2.slug])
 
     with dbh.session.begin() as session:
-        roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
+        roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
         assert len(roms) == 0
 
 
 def test_utils(rom):
     with dbh.session.begin() as session:
-        roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
-        assert dbh.rom_exists("test_platform_slug", "test_rom") == roms[0].id
+        roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
+        assert dbh.rom_exists(rom.platform_slug, rom.file_name) == roms[0].id
 
 
 def test_users(admin_user):
