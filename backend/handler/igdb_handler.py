@@ -119,12 +119,12 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_platform(self, slug: str):
-        paltforms = self._request(
+        platforms = self._request(
             self.platform_url,
             data=f'fields id, name; where slug="{slug.lower()}";',
         )
 
-        platform = pydash.get(paltforms, "[0]", None)
+        platform = pydash.get(platforms, "[0]", None)
         if not platform:
             return {
                 "igdb_id": "",

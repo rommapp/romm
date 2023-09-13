@@ -17,7 +17,7 @@ class Rom(BaseModel):
         String(length=50), ForeignKey("platforms.slug"), nullable=False
     )
     platform: Mapped["Platform"] = relationship(  # noqa
-        "Platform", back_populates="roms", lazy="joined"
+        "Platform", back_populates="roms", lazy="subquery"
     )
 
     ### DEPRECATED ###
