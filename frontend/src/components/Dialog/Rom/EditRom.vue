@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
-import { updateRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -38,7 +38,8 @@ async function updateRom() {
 
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
-  await updateRomApi(rom.value)
+  await api
+    .updateRom({ rom: rom.value })
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
         msg: data.msg,
@@ -103,7 +104,7 @@ async function updateRom() {
         <v-row class="pa-2" no-gutters>
           <v-text-field
             @keyup.enter="updateRom()"
-            v-model="rom.r_name"
+            v-model="rom.name"
             label="Name"
             variant="outlined"
             required

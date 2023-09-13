@@ -3,11 +3,12 @@ import socketio  # type: ignore
 from rq import Queue
 
 from logger.logger import log
-from utils import fs, fastapi
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
+from utils.fastapi import scan_platform, scan_rom
 from utils.socket import socket_server
 from utils.cache import redis_client, redis_url
+from utils.fs import get_platforms, get_roms, store_default_resources
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
 from config import ENABLE_EXPERIMENTAL_REDIS
@@ -27,7 +28,7 @@ async def scan_platforms(
 
     # Scanning file system
     try:
-        fs_platforms: list[str] = fs.get_platforms()
+        fs_platforms: list[str] = get_platforms()
     except PlatformsNotFoundException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
@@ -38,7 +39,7 @@ async def scan_platforms(
     for platform_slug in platform_list:
         try:
             # Verify that platform exists
-            scanned_platform = fastapi.scan_platform(platform_slug)
+            scanned_platform = scan_platform(platform_slug)
         except RomsNotFoundException as e:
             log.error(e)
             continue
@@ -51,13 +52,13 @@ async def scan_platforms(
         dbh.add_platform(scanned_platform)
 
         # Scanning roms
-        fs_roms = fs.get_roms(scanned_platform.fs_slug)
+        fs_roms = get_roms(scanned_platform.fs_slug)
         for fs_rom in fs_roms:
             rom_id = dbh.rom_exists(scanned_platform.slug, fs_rom["file_name"])
             if rom_id and rom_id not in selected_roms and not complete_rescan:
                 continue
 
-            scanned_rom = fastapi.scan_rom(scanned_platform, fs_rom)
+            scanned_rom = scan_rom(scanned_platform, fs_rom)
             if rom_id:
                 scanned_rom.id = rom_id
 
@@ -82,7 +83,7 @@ async def scan_handler(_sid: str, options: dict):
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    fs.store_default_resources()
+    store_default_resources()
 
     platform_slugs = options.get("platforms", [])
     complete_rescan = options.get("rescan", False)

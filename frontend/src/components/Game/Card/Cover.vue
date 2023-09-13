@@ -87,7 +87,7 @@ function onTouchEnd() {
             v-if="isHovering || !rom.has_cover"
             class="rom-title d-flex transition-fast-in-fast-out bg-tooltip text-caption"
           >
-            <v-list-item>{{ rom.r_name || rom.file_name }}</v-list-item>
+            <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
         <v-chip-group class="pl-1 pt-0">

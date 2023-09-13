@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from "vue";
-import { downloadRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
@@ -19,7 +19,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
       <v-col class="pa-0">
         <template v-if="rom.multi">
           <v-btn
-            @click="downloadRomApi(rom)"
+            @click="api.downloadRom({ rom })"
             :disabled="downloadStore.value.includes(rom.id)"
             icon="mdi-download"
             size="x-small"

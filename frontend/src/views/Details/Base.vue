@@ -3,7 +3,7 @@ import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
-import { fetchRomApi, downloadRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
@@ -36,7 +36,7 @@ onBeforeMount(async () => {
   if (rom.value) {
     emitter.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
-    await fetchRomApi(route.params.platform, route.params.rom)
+    await api.fetchRom({ romId: route.params.rom })
       .then((response) => {
         rom.value = response.data;
         romsStore.update(response.data);
@@ -108,7 +108,7 @@ onBeforeMount(async () => {
           <v-col class="pa-0">
             <template v-if="rom.multi">
               <v-btn
-                @click="downloadRomApi(rom, filesToDownload)"
+                @click="api.downloadRom({ rom, files: filesToDownload })"
                 :disabled="downloadStore.value.includes(rom.id)"
                 rounded="0"
                 color="primary"
@@ -158,7 +158,7 @@ onBeforeMount(async () => {
         <div class="text-white">
           <v-row no-gutters>
             <span class="text-h4 font-weight-bold rom-name">{{
-              rom.r_name
+              rom.name
             }}</span>
             <v-chip-group class="ml-3 mt-1 hidden-xs">
               <v-chip
@@ -179,7 +179,7 @@ onBeforeMount(async () => {
           </v-row>
           <v-row no-gutters class="align-center">
             <span class="font-italic mt-1 rom-platform">{{
-              rom.p_name || rom.p_slug
+              rom.platform_name || rom.platform_slug
             }}</span>
             <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
               <v-chip
@@ -285,7 +285,7 @@ onBeforeMount(async () => {
                 >
               </v-row>
               <v-row
-                v-if="rom.r_igdb_id != ''"
+                v-if="rom.igdb_id != ''"
                 class="d-flex align-center text-body-1 mt-0"
               >
                 <v-col
@@ -300,9 +300,10 @@ onBeforeMount(async () => {
                 <v-col>
                   <v-chip
                     variant="outlined"
-                    :href="`https://www.igdb.com/games/${rom.r_slug}`"
+                    :href="`https://www.igdb.com/games/${rom.slug}`"
+                    target="_blank"
                     label
-                    >{{ rom.r_igdb_id }}</v-chip
+                    >{{ rom.igdb_id }}</v-chip
                   >
                 </v-col>
               </v-row>
