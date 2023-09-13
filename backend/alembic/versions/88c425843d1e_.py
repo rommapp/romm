@@ -32,7 +32,7 @@ def upgrade() -> None:
         )
 
         # Move primary key to slug
-        # batch_op.drop_constraint("PRIMARY", type_="primary")
+        batch_op.drop_constraint("PRIMARY", type_="primary")
         batch_op.create_primary_key(None, ["slug"])
 
     with op.batch_alter_table("roms", schema=None) as batch_op:

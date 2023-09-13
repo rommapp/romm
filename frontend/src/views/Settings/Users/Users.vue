@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { VDataTable } from "vuetify/labs/VDataTable";
-import { fetchUsersApi, updateUserApi } from "@/services/api";
+import api from "@/services/api";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import { defaultAvatarPath } from "@/utils/utils";
@@ -53,7 +53,7 @@ const usersPerPage = ref(5);
 const userSearch = ref("");
 
 function disableUser(user) {
-  updateUserApi(user).catch(({ response, message }) => {
+  api.updateUser(user).catch(({ response, message }) => {
     emitter.emit("snackbarShow", {
       msg: `Unable to disable/enable user: ${
         response?.data?.detail || response?.statusText || message
@@ -66,7 +66,7 @@ function disableUser(user) {
 }
 
 onMounted(() => {
-  fetchUsersApi()
+  api.fetchUsers()
     .then(({ data }) => {
       usersStore.set(data)
     })

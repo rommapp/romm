@@ -3,7 +3,7 @@ import { ref, inject, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import socket from "@/services/socket";
-import { uploadRomsApi } from "@/services/api";
+import api from "@/services/api";
 import storeScanning from "@/stores/scanning";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -46,7 +46,11 @@ async function uploadRoms() {
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
-  await uploadRomsApi(romsToUpload.value, route.params.platform)
+  await api
+    .uploadRoms({
+      romsToUpload: romsToUpload.value,
+      paltform: route.params.platform,
+    })
     .then(() => {
       emitter.emit("snackbarShow", {
         msg: `${romsToUpload.value.length} roms uploaded successfully, scanning...`,

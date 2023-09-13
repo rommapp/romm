@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
-import { downloadRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 import { VDataTable } from "vuetify/labs/VDataTable";
@@ -18,7 +18,7 @@ const HEADERS = [
     title: "Name",
     align: "start",
     sortable: true,
-    key: "r_name",
+    key: "name",
   },
   {
     title: "File",
@@ -62,7 +62,7 @@ const emitter = inject("emitter");
 // Functions
 function rowClick(_, row) {
   router.push(
-    `/platform/${row.item.selectable.p_slug}/${row.item.selectable.id}`
+    `/platform/${row.item.selectable.platform_slug}/${row.item.selectable.id}`
   );
 }
 </script>
@@ -105,7 +105,7 @@ function rowClick(_, row) {
         <v-btn
           class="my-1"
           rounded="0"
-          @click.stop="downloadRomApi(item.selectable)"
+          @click.stop="api.downloadRom({ rom: item.selectable })"
           :disabled="downloadStore.value.includes(item.selectable.id)"
           download
           size="small"
