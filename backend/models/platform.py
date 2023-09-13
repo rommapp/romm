@@ -18,7 +18,7 @@ class Platform(BaseModel):
     n_roms: int = Column(Integer, default=0)
 
     roms: Mapped[List["Rom"]] = relationship(  # noqa
-        "Rom", back_populates="platform", lazy="select"
+        "Rom", back_populates="platform", lazy="subquery"
     )
 
     def __repr__(self) -> str:

@@ -83,27 +83,42 @@ def upload_roms(
 ):
     platform_fs_slug = dbh.get_platform(platform_slug).fs_slug
     log.info(f"Uploading files to: {platform_fs_slug}")
-    if roms is not None:
-        roms_path = build_upload_roms_path(platform_fs_slug)
-        for rom in roms:  # TODO: Refactor code to avoid double loop
-            if _rom_exists(platform_slug, rom.filename):
-                error = f"{rom.filename} already exists"
-                log.error(error)
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
-                )
-        for rom in roms:
-            log.info(f" - Uploading {rom.filename}")
-            file_location = f"{roms_path}/{rom.filename}"
-            f = open(file_location, "wb+")
+    if roms is None:
+        log.error("No files were uploaded")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No files were uploaded",
+        )
+
+    roms_path = build_upload_roms_path(platform_fs_slug)
+
+    uploaded_roms = []
+    skipped_roms = []
+
+    for rom in roms:
+        if _rom_exists(platform_slug, rom.filename):
+            log.warning(f" - Skipping {rom.filename} since the file already exists")
+            skipped_roms.append(rom.filename)
+            continue
+
+        log.info(f" - Uploading {rom.filename}")
+        file_location = f"{roms_path}/{rom.filename}"
+
+        with open(file_location, "wb+") as f:
             while True:
                 chunk = rom.file.read(1024)
                 if not chunk:
                     break
                 f.write(chunk)
-            f.close()
-        dbh.update_n_roms(platform_slug)
-        return {"msg": f"{len(roms)} roms uploaded successfully!"}
+
+        uploaded_roms.append(rom.filename)
+
+    dbh.update_n_roms(platform_slug)
+
+    return {
+        "uploaded_roms": uploaded_roms,
+        "skipped_roms": skipped_roms,
+    }
 
 
 @protected_route(router.get, "/roms/{id}/download", ["roms.read"])
@@ -264,9 +279,7 @@ def _delete_single_rom(rom_id: int, deleteFromFs: bool = False):
 
 
 @protected_route(router.delete, "/roms/{id}", ["roms.write"])
-def delete_rom(
-    request: Request, id: int, deleteFromFs: bool = False
-) -> dict:
+def delete_rom(request: Request, id: int, deleteFromFs: bool = False) -> dict:
     """Detele rom from database [and filesystem]"""
 
     rom = _delete_single_rom(id, deleteFromFs)

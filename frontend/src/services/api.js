@@ -72,10 +72,12 @@ async function downloadRom({ rom, files = [] }) {
 async function uploadRoms({ platform, romsToUpload }) {
   let formData = new FormData();
   romsToUpload.forEach((rom) => formData.append("roms", rom));
-  return api.put(`/platforms/${platform}/roms/upload`, formData, {
+
+  return api.put("/roms/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
+    params: { platform_slug: platform },
   });
 }
 
@@ -90,17 +92,25 @@ async function updateRom({ rom, renameAsIGDB = false }) {
   formData.append("renameAsIGDB", renameAsIGDB);
   if (artwork) formData.append("artwork", rom.artwork[0]);
 
-  return api.patch(`roms/${rom.id}`, formData);
+  return api.patch(`/roms/${rom.id}`, formData);
 }
 
 async function deleteRom({ rom, deleteFromFs = false }) {
-  return api.delete(`/roms/${rom.id}?filesystem=${deleteFromFs}`);
+  return api.delete(`/roms/${rom.id}`, {
+    params: { filesystem: deleteFromFs },
+  });
 }
 
 async function deleteRoms({ roms, deleteFromFs = false }) {
-  return api.post(`/roms/delete?filesystem=${deleteFromFs}`, {
-    roms: roms.map((r) => r.id),
-  });
+  return api.post(
+    "/roms/delete",
+    {
+      roms: roms.map((r) => r.id),
+    },
+    {
+      params: { filesystem: deleteFromFs },
+    }
+  );
 }
 
 async function searchIGDB({ romId, query, field }) {
