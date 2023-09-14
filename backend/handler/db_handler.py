@@ -32,19 +32,19 @@ class DBHandler:
 
     # ========= Platforms =========
     @begin_session
-    def add_platform(self, platform: Platform, session: Session):
+    def add_platform(self, platform: Platform, session: Session = None):
         return session.merge(platform)
 
     @begin_session
-    def get_platforms(self, session: Session):
+    def get_platforms(self, session: Session = None):
         return session.scalars(select(Platform).order_by(Platform.slug.asc())).all()
 
     @begin_session
-    def get_platform(self, slug: str, session: Session):
+    def get_platform(self, slug: str, session: Session = None):
         return session.get(Platform, slug)
 
     @begin_session
-    def purge_platforms(self, platforms: list[str], session: Session):
+    def purge_platforms(self, platforms: list[str], session: Session = None):
         return session.execute(
             delete(Platform)
             .where(or_(Platform.slug.not_in(platforms), Platform.slug.is_(None)))
@@ -53,7 +53,7 @@ class DBHandler:
 
     # ========= Roms =========
     @begin_session
-    def add_rom(self, rom: Rom, session: Session):
+    def add_rom(self, rom: Rom, session: Session = None):
         return session.merge(rom)
 
     def get_roms(self, platform_slug: str):
@@ -64,11 +64,11 @@ class DBHandler:
         )
 
     @begin_session
-    def get_rom(self, id, session: Session):
+    def get_rom(self, id, session: Session = None):
         return session.get(Rom, id)
 
     @begin_session
-    def update_rom(self, id: int, data: dict, session: Session):
+    def update_rom(self, id: int, data: dict, session: Session = None):
         return session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -77,7 +77,7 @@ class DBHandler:
         )
 
     @begin_session
-    def delete_rom(self, id: int, session: Session):
+    def delete_rom(self, id: int, session: Session = None):
         return session.execute(
             delete(Rom)
             .where(Rom.id == id)
@@ -85,7 +85,7 @@ class DBHandler:
         )
 
     @begin_session
-    def purge_roms(self, platform_slug: str, roms: list[list[str]], session: Session):
+    def purge_roms(self, platform_slug: str, roms: list[str], session: Session = None):
         return session.execute(
             delete(Rom)
             .where(and_(Rom.platform_slug == platform_slug, Rom.file_name.not_in(roms)))
@@ -93,14 +93,16 @@ class DBHandler:
         )
 
     @begin_session
-    def get_rom_count(self, platform_slug: str, session: Session):
+    def get_rom_count(self, platform_slug: str, session: Session = None):
         return session.scalar(
             select(func.count()).select_from(Rom).filter_by(platform_slug=platform_slug)
         )
 
     # ==== Utils ======
     @begin_session
-    def get_rom_by_filename(self, platform_slug: str, file_name: str, session: Session):
+    def get_rom_by_filename(
+        self, platform_slug: str, file_name: str, session: Session = None
+    ):
         return session.scalars(
             select(Rom)
             .filter_by(platform_slug=platform_slug, file_name=file_name)
@@ -109,21 +111,21 @@ class DBHandler:
 
     # ========= Users =========
     @begin_session
-    def add_user(self, user: User, session: Session):
+    def add_user(self, user: User, session: Session = None):
         return session.merge(user)
 
     @begin_session
-    def get_user_by_username(self, username: str, session: Session):
+    def get_user_by_username(self, username: str, session: Session = None):
         return session.scalars(
             select(User).filter_by(username=username).limit(1)
         ).first()
 
     @begin_session
-    def get_user(self, id: int, session: Session):
+    def get_user(self, id: int, session: Session = None):
         return session.get(User, id)
 
     @begin_session
-    def update_user(self, id: int, data: dict, session: Session):
+    def update_user(self, id: int, data: dict, session: Session = None):
         session.execute(
             update(User)
             .where(User.id == id)
@@ -132,7 +134,7 @@ class DBHandler:
         )
 
     @begin_session
-    def delete_user(self, id: int, session: Session):
+    def delete_user(self, id: int, session: Session = None):
         return session.execute(
             delete(User)
             .where(User.id == id)
@@ -140,9 +142,9 @@ class DBHandler:
         )
 
     @begin_session
-    def get_users(self, session: Session):
+    def get_users(self, session: Session = None):
         return session.scalars(select(User)).all()
 
     @begin_session
-    def get_admin_users(self, session: Session):
+    def get_admin_users(self, session: Session = None):
         return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
