@@ -1,6 +1,6 @@
 """empty message
 
-Revision ID: 00e2b1d2d5ec
+Revision ID: 0010_igdb_id_integerr
 Revises: 0009_models_refactor
 Create Date: 2023-09-14 09:57:13.487331
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "00e2b1d2d5ec"
+revision = "0010_igdb_id_integerr"
 down_revision = "0009_models_refactor"
 branch_labels = None
 depends_on = None

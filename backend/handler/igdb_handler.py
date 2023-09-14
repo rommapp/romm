@@ -7,6 +7,7 @@ import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
+from typing_extensions import TypedDict
 
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
@@ -19,6 +20,20 @@ EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
 PS2_IGDB_ID: Final = 8
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+
+
+class IGDBPlatformType(TypedDict):
+    igdb_id: str
+    name: str
+
+
+class IGDBRomType(TypedDict):
+    igdb_id: str
+    slug: str
+    name: str
+    summary: str
+    url_cover: str
+    url_screenshots: list[str]
 
 
 class IGDBHandler:
@@ -118,7 +133,7 @@ class IGDBHandler:
         ]
 
     @check_twitch_token
-    def get_platform(self, slug: str):
+    def get_platform(self, slug: str) -> IGDBPlatformType:
         platforms = self._request(
             self.platform_url,
             data=f'fields id, name; where slug="{slug.lower()}";',
@@ -137,7 +152,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_rom(self, file_name: str, platform_idgb_id: int):
+    def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
         search_term = get_search_term(file_name)
 
         # Patch support for PS2 OPL flename format
@@ -171,7 +186,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_rom_by_id(self, igdb_id: int):
+    def get_rom_by_id(self, igdb_id: int) -> IGDBRomType:
         roms = self._request(
             self.games_url,
             f"fields slug, name, summary; where id={igdb_id};",
@@ -188,7 +203,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_matched_roms_by_id(self, igdb_id: int):
+    def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRomType]:
         matched_rom = self.get_rom_by_id(igdb_id)
         matched_rom.update(
             url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),
@@ -196,7 +211,9 @@ class IGDBHandler:
         return [matched_rom]
 
     @check_twitch_token
-    def get_matched_roms_by_name(self, search_term: str, platform_idgb_id: int):
+    def get_matched_roms_by_name(
+        self, search_term: str, platform_idgb_id: int
+    ) -> list[IGDBRomType]:
         if not platform_idgb_id:
             return []
 

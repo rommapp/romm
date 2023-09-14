@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 from typing import Optional
+from typing_extensions import TypedDict
 from fastapi import (
     APIRouter,
     Request,
@@ -76,7 +77,6 @@ class RomSchema(BaseModel):
     download_path: str
 
 
-
 @protected_route(router.get, "/roms/{id}", ["roms.read"])
 def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
@@ -84,10 +84,15 @@ def rom(request: Request, id: int) -> RomSchema:
     return dbh.get_rom(id)
 
 
+class UploadRomResponse(TypedDict):
+    uploaded_roms: list[str]
+    skipped_roms: list[str]
+
+
 @protected_route(router.put, "/roms/upload", ["roms.write"])
 def upload_roms(
     request: Request, platform_slug: str, roms: list[UploadFile] = File(...)
-):
+) -> UploadRomResponse:
     platform_fs_slug = dbh.get_platform(platform_slug).fs_slug
     log.info(f"Uploading files to: {platform_fs_slug}")
     if roms is None:
@@ -189,7 +194,7 @@ async def update_rom(
     id: int,
     rename_as_igdb: bool = False,
     artwork: Optional[UploadFile] = File(None),
-) -> dict:
+) -> RomSchema:
     """Updates rom details"""
 
     data = await request.form()
@@ -202,7 +207,7 @@ async def update_rom(
     cleaned_data["url_cover"] = data["url_cover"]
     cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
 
-    db_rom: Rom = dbh.get_rom(id)
+    db_rom = dbh.get_rom(id)
 
     file_name = (
         db_rom.file_name.replace(db_rom.file_name_no_tags, cleaned_data["name"])
@@ -254,10 +259,7 @@ async def update_rom(
 
     dbh.update_rom(id, cleaned_data)
 
-    return {
-        "rom": dbh.get_rom(id),
-        "msg": "Rom updated successfully!",
-    }
+    return dbh.get_rom(id)
 
 
 def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
@@ -282,8 +284,14 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
     return rom
 
 
+class DeleteRomResponse(TypedDict):
+    msg: str
+
+
 @protected_route(router.delete, "/roms/{id}", ["roms.write"])
-def delete_rom(request: Request, id: int, delete_from_fs: bool = False) -> dict:
+def delete_rom(
+    request: Request, id: int, delete_from_fs: bool = False
+) -> DeleteRomResponse:
     """Detele rom from database [and filesystem]"""
 
     rom = _delete_single_rom(id, delete_from_fs)
@@ -291,11 +299,15 @@ def delete_rom(request: Request, id: int, delete_from_fs: bool = False) -> dict:
     return {"msg": f"{rom.file_name} deleted successfully!"}
 
 
+class MassDeleteRomResponse(TypedDict):
+    msg: str
+
+
 @protected_route(router.post, "/roms/delete", ["roms.write"])
 async def mass_delete_roms(
     request: Request,
     delete_from_fs: bool = False,
-) -> dict:
+) -> MassDeleteRomResponse:
     """Detele multiple roms from database [and filesystem]"""
 
     data: dict = await request.json()
