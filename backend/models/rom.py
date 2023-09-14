@@ -11,8 +11,8 @@ class Rom(BaseModel):
     __tablename__ = "roms"
     id = Column(Integer(), primary_key=True, autoincrement=True)
 
-    igdb_id: str = Column(String(length=10))
-    sgdb_id: str = Column(String(length=10))
+    igdb_id: str = Column(Integer())
+    sgdb_id: str = Column(Integer())
 
     # Foreign key to platform
     platform_slug = Column(
