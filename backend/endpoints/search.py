@@ -9,15 +9,13 @@ router = APIRouter()
 
 
 @protected_route(router.put, "/search/roms/igdb", ["roms.read"])
-async def search_rom_igdb(request: Request) -> dict:
+async def search_rom_igdb(
+    request: Request, rom_id: str, query: str = None, field: str = "Name"
+) -> dict:
     """Search IGDB for ROMs"""
 
-    data: dict = await request.json()
-    romId: dict = data["romId"]
-    rom = dbh.get_rom(romId)
-
-    query: str = data.get("query", rom.file_name_no_tags)
-    field: str = data.get("field", "Name")
+    rom = dbh.get_rom(rom_id)
+    query = query or rom.file_name_no_tags
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
     matched_roms: list = []
