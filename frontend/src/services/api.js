@@ -97,7 +97,7 @@ async function updateRom({ rom, renameAsIGDB = false }) {
 
 async function deleteRom({ rom, deleteFromFs = false }) {
   return api.delete(`/roms/${rom.id}`, {
-    params: { filesystem: deleteFromFs },
+    params: { delete_from_fs: deleteFromFs },
   });
 }
 
@@ -108,13 +108,13 @@ async function deleteRoms({ roms, deleteFromFs = false }) {
       roms: roms.map((r) => r.id),
     },
     {
-      params: { filesystem: deleteFromFs },
+      params: { delete_from_fs: deleteFromFs },
     }
   );
 }
 
 async function searchIGDB({ romId, query, field }) {
-  return api.put("/search/roms/igdb", { romId, query, field });
+  return api.put("/search/roms/igdb", {}, { params: { rom_id: romId, query, field } });
 }
 
 async function fetchCurrentUser() {

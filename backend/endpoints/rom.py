@@ -254,7 +254,7 @@ async def update_rom(
     }
 
 
-def _delete_single_rom(rom_id: int, deleteFromFs: bool = False):
+def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
     rom = dbh.get_rom(rom_id)
     if not rom:
         error = f"Rom with id {rom_id} not found"
@@ -264,7 +264,7 @@ def _delete_single_rom(rom_id: int, deleteFromFs: bool = False):
     log.info(f"Deleting {rom.file_name} from database")
     dbh.delete_rom(rom_id)
 
-    if deleteFromFs:
+    if delete_from_fs:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
             fs.remove_rom(rom.platform_slug, rom.file_name)
@@ -277,10 +277,10 @@ def _delete_single_rom(rom_id: int, deleteFromFs: bool = False):
 
 
 @protected_route(router.delete, "/roms/{id}", ["roms.write"])
-def delete_rom(request: Request, id: int, deleteFromFs: bool = False) -> dict:
+def delete_rom(request: Request, id: int, delete_from_fs: bool = False) -> dict:
     """Detele rom from database [and filesystem]"""
 
-    rom = _delete_single_rom(id, deleteFromFs)
+    rom = _delete_single_rom(id, delete_from_fs)
 
     return {"msg": f"{rom.file_name} deleted successfully!"}
 
@@ -288,7 +288,7 @@ def delete_rom(request: Request, id: int, deleteFromFs: bool = False) -> dict:
 @protected_route(router.post, "/roms/delete", ["roms.write"])
 async def mass_delete_roms(
     request: Request,
-    deleteFromFs: bool = False,
+    delete_from_fs: bool = False,
 ) -> dict:
     """Detele multiple roms from database [and filesystem]"""
 
@@ -296,6 +296,6 @@ async def mass_delete_roms(
     roms_ids: list = data["roms"]
 
     for rom_id in roms_ids:
-        rom = _delete_single_rom(rom_id, deleteFromFs)
+        _delete_single_rom(rom_id, delete_from_fs)
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
