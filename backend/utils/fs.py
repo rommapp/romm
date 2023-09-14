@@ -70,10 +70,13 @@ def _get_cover_path(fs_slug: str, rom_name: str, size: str):
     return f"{fs_slug}/{rom_name}/cover/{size}.png?timestamp={strtime}"
 
 
-def get_cover(overwrite: bool, fs_slug: str, rom_name: str, url_cover: str = "") -> dict:
+def get_cover(
+    overwrite: bool, fs_slug: str, rom_name: str, url_cover: str = ""
+) -> dict:
     # Cover small
     if (overwrite or not _cover_exists(fs_slug, rom_name, "small")) and url_cover:
         _store_cover(fs_slug, rom_name, url_cover, "small")
+
     path_cover_s = (
         _get_cover_path(fs_slug, rom_name, "small")
         if _cover_exists(fs_slug, rom_name, "small")
@@ -300,7 +303,7 @@ def remove_rom(fs_slug: str, file_name: str):
             shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
     except FileNotFoundError as exc:
         raise RomNotFoundError(file_name, fs_slug) from exc
-    
+
 
 def build_upload_roms_path(fs_slug: str):
     rom_path = get_roms_structure(fs_slug)

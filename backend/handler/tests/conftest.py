@@ -40,7 +40,7 @@ def rom(platform):
         name="test_rom",
         slug="test_rom_slug",
         platform_slug="test_platform_slug",
-        file_name="test_rom",
+        file_name="test_rom.zip",
         file_name_no_tags="test_rom",
         file_extension="zip",
         file_path="test_platform_slug/roms",

@@ -30,16 +30,16 @@ def test_get_all_roms(access_token, rom):
     assert body["items"][0]["id"] == rom.id
 
 
-@patch("utils.fs.rename_rom")
+@patch("endpoints.rom.rename_rom")
 def test_update_rom(rename_rom, access_token, rom):
     response = client.patch(
         f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
+        params={"rename_as_igdb": True},
         data={
             "igdb_id": "236663",
             "name": "Metroid Prime Remastered",
             "slug": "metroid-prime-remastered",
-            "file_name": "Metroid Prime Remastered.xci",
             "summary": "summary test",
             "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
             "url_screenshots": json.dumps(
@@ -53,7 +53,7 @@ def test_update_rom(rename_rom, access_token, rom):
     assert response.status_code == 200
 
     body = response.json()
-    assert body["rom"]["file_name"] == "Metroid Prime Remastered.xci"
+    assert body["rom"]["file_name"] == "Metroid Prime Remastered.zip"
 
     assert rename_rom.called
 

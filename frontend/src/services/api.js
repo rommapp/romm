@@ -89,10 +89,11 @@ async function updateRom({ rom, renameAsIGDB = false }) {
   formData.append("url_cover", rom.url_cover);
   formData.append("summary", rom.summary);
   formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
-  formData.append("renameAsIGDB", renameAsIGDB);
   if (artwork) formData.append("artwork", rom.artwork[0]);
 
-  return api.patch(`/roms/${rom.id}`, formData);
+  return api.patch(`/roms/${rom.id}`, formData, {
+    params: { rename_as_igdb: renameAsIGDB },
+  });
 }
 
 async function deleteRom({ rom, deleteFromFs = false }) {
@@ -114,7 +115,11 @@ async function deleteRoms({ roms, deleteFromFs = false }) {
 }
 
 async function searchIGDB({ romId, query, field }) {
-  return api.put("/search/roms/igdb", {}, { params: { rom_id: romId, query, field } });
+  return api.put(
+    "/search/roms/igdb",
+    {},
+    { params: { rom_id: romId, query, field } }
+  );
 }
 
 async function fetchCurrentUser() {
