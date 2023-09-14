@@ -67,7 +67,9 @@ def test_roms(rom):
 def test_utils(rom):
     with dbh.session.begin() as session:
         roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
-        assert dbh.rom_exists(rom.platform_slug, rom.file_name) == roms[0].id
+        assert (
+            dbh.get_rom_by_filename(rom.platform_slug, rom.file_name).id == roms[0].id
+        )
 
 
 def test_users(admin_user):

@@ -15,7 +15,7 @@ class PlatformSchema(BaseModel):
     igdb_id: Optional[str]
     sgdb_id: Optional[str]
     logo_path: str
-    n_roms: int
+    rom_count: int
 
     class Config(BaseConfig):
         orm_mode = True

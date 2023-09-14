@@ -1,6 +1,4 @@
 from sqlalchemy import Column, String, Integer
-from sqlalchemy.orm import relationship, Mapped
-from typing import List
 
 from config import DEFAULT_PATH_COVER_S
 from .base import BaseModel
@@ -15,11 +13,16 @@ class Platform(BaseModel):
     igdb_id: str = Column(String(length=10))
     sgdb_id: str = Column(String(length=10))
     logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
-    n_roms: int = Column(Integer, default=0)
 
-    roms: Mapped[List["Rom"]] = relationship(  # noqa
-        "Rom", back_populates="platform", lazy="subquery"
-    )
+    ### DEPRECATED ###
+    n_roms: int = Column(Integer, default=0)
+    ### DEPRECATED ###
+
+    @property
+    def rom_count(self) -> int:
+        from handler import dbh
+
+        return dbh.get_rom_count(self.slug)
 
     def __repr__(self) -> str:
         return self.name

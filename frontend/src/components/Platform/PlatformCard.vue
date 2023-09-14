@@ -27,7 +27,7 @@ const props = defineProps(["platform"]);
               style="bottom: 1rem; right: 1rem"
               label
             >
-              {{ platform.n_roms }}
+              {{ platform.rom_count }}
             </v-chip>
           </v-row>
         </v-card-text>

@@ -6,6 +6,8 @@ from .base import BaseModel
 
 
 class Rom(BaseModel):
+    from .platform import Platform
+
     __tablename__ = "roms"
     id = Column(Integer(), primary_key=True, autoincrement=True)
 
@@ -16,8 +18,8 @@ class Rom(BaseModel):
     platform_slug = Column(
         String(length=50), ForeignKey("platforms.slug"), nullable=False
     )
-    platform: Mapped["Platform"] = relationship(  # noqa
-        "Platform", back_populates="roms", lazy="subquery"
+    platform: Mapped[Platform] = relationship(  # noqa
+        "Platform", lazy="joined", innerjoin=True
     )
 
     ### DEPRECATED ###

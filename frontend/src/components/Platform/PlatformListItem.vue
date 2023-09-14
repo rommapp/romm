@@ -19,7 +19,7 @@ import PlatformIcon from "./PlatformIcon.vue";
     </template>
     <template v-slot:append>
       <v-chip v-if="!rail" class="ml-4 bg-chip" size="x-small" label>{{
-        platform.n_roms
+        platform.rom_count
       }}</v-chip>
     </template>
   </v-list-item>
