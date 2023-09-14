@@ -1,4 +1,4 @@
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final
 from typing_extensions import TypedDict, NotRequired
 from datetime import timedelta
 from fastapi import Depends, APIRouter, HTTPException, status
