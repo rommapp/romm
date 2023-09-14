@@ -45,7 +45,7 @@ def test_roms(rom):
         assert len(roms) == 2
 
     rom = dbh.get_rom(roms[0].id)
-    assert rom.file_name == "test_rom"
+    assert rom.file_name == "test_rom.zip"
 
     dbh.update_rom(roms[1].id, {"file_name": "test_rom_2_updated"})
     rom_2 = dbh.get_rom(roms[1].id)

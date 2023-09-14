@@ -17,14 +17,22 @@ from pydantic import BaseModel, BaseConfig
 from stat import S_IFREG
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 
+from config import LIBRARY_BASE_PATH
 from logger.logger import log
+from models import Rom
 from handler import dbh
-from utils import fs, get_file_name_with_no_tags
-from utils.fs import _rom_exists, build_artwork_path, build_upload_roms_path
 from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
 from utils.oauth import protected_route
-from models import Rom
-from config import LIBRARY_BASE_PATH
+from utils import get_file_name_with_no_tags
+from utils.fs import (
+    _rom_exists,
+    build_artwork_path,
+    build_upload_roms_path,
+    rename_rom,
+    get_cover,
+    get_screenshots,
+    remove_rom,
+)
 
 from .utils import CustomStreamingResponse
 
@@ -180,12 +188,12 @@ def roms(
 async def update_rom(
     request: Request,
     id: int,
+    rename_as_igdb: bool = False,
     artwork: Optional[UploadFile] = File(None),
 ) -> dict:
     """Updates rom details"""
 
     data = await request.form()
-    rename_as_igdb: bool = data["renameAsIGDB"]
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data["igdb_id"]
@@ -205,18 +213,17 @@ async def update_rom(
 
     try:
         if file_name != db_rom.file_name:
-            fs.rename_rom(db_rom.platform_slug, db_rom.file_name, file_name)
+            rename_rom(db_rom.platform_slug, db_rom.file_name, file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(
-        cleaned_data["file_name"]
-    )
+    cleaned_data["file_name"] = file_name
+    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(file_name)
     cleaned_data.update(
-        fs.get_cover(
+        get_cover(
             overwrite=True,
             fs_slug=db_rom.platform_slug,
             rom_name=cleaned_data["file_name_no_tags"],
@@ -224,7 +231,7 @@ async def update_rom(
         )
     )
     cleaned_data.update(
-        fs.get_screenshots(
+        get_screenshots(
             fs_slug=db_rom.platform_slug,
             rom_name=cleaned_data["file_name_no_tags"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
@@ -267,7 +274,7 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
     if delete_from_fs:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
-            fs.remove_rom(rom.platform_slug, rom.file_name)
+            remove_rom(rom.platform_slug, rom.file_name)
         except RomNotFoundError as e:
             error = f"Couldn't delete from filesystem: {str(e)}"
             log.error(error)
