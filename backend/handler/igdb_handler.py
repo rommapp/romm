@@ -156,7 +156,7 @@ class IGDBHandler:
             or self._search_rom(uc(search_term), platform_idgb_id)
         )
 
-        igdb_id = res.get("id", 0)
+        igdb_id = res.get("id", None)
         slug = res.get("slug", "")
         name = res.get("name", search_term)
         summary = res.get("summary", "")

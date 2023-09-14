@@ -2,7 +2,7 @@ import secrets
 from typing import Optional, Annotated
 from fastapi import APIRouter, HTTPException, status, Request, Depends, File, UploadFile
 from fastapi.security.http import HTTPBasic
-from pydantic import BaseModel, BaseConfig
+from pydantic import BaseModel, ConfigDict
 
 from handler import dbh
 from models.user import User, Role
@@ -17,15 +17,14 @@ router = APIRouter()
 
 
 class UserSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     enabled: bool
     role: Role
     oauth_scopes: list[str]
     avatar_path: str
-
-    class Config(BaseConfig):
-        orm_mode = True
 
 
 @router.post("/login")

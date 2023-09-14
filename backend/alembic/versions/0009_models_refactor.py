@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "88c425843d1e"
+revision = "0009_models_refactor"
 down_revision = "1.9.2"
 branch_labels = None
 depends_on = None
