@@ -1,5 +1,6 @@
 import secrets
 from typing import Optional, Annotated
+from typing_extensions import TypedDict
 from fastapi import APIRouter, HTTPException, status, Request, Depends, File, UploadFile
 from fastapi.security.http import HTTPBasic
 from pydantic import BaseModel, ConfigDict
@@ -27,8 +28,12 @@ class UserSchema(BaseModel):
     avatar_path: str
 
 
+class MessageResponse(TypedDict):
+    message: str
+
+
 @router.post("/login")
-def login(request: Request, credentials=Depends(HTTPBasic())):
+def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse:
     """Session login endpoint"""
     user = authenticate_user(credentials.username, credentials.password)
     if not user:
@@ -45,7 +50,7 @@ def login(request: Request, credentials=Depends(HTTPBasic())):
 
 
 @router.post("/logout")
-def logout(request: Request):
+def logout(request: Request) -> MessageResponse:
     """Session logout endpoint"""
     # Check if session key already stored in cache
     session_id = request.session.get("session_id")
@@ -181,7 +186,7 @@ def update_user(
 
 
 @protected_route(router.delete, "/users/{user_id}", ["users.write"])
-def delete_user(request: Request, user_id: int):
+def delete_user(request: Request, user_id: int) -> MessageResponse:
     """Delete a specific user"""
     if not ROMM_AUTH_ENABLED:
         raise HTTPException(

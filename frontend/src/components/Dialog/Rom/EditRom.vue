@@ -42,11 +42,11 @@ async function updateRom() {
     .updateRom({ rom: rom.value })
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: data.msg,
+        msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data.rom);
+      romsStore.update(data);
     })
     .catch((error) => {
       console.log(error);

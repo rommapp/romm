@@ -53,7 +53,7 @@ def test_update_rom(rename_rom, access_token, rom):
     assert response.status_code == 200
 
     body = response.json()
-    assert body["rom"]["file_name"] == "Metroid Prime Remastered.zip"
+    assert body["file_name"] == "Metroid Prime Remastered.zip"
 
     assert rename_rom.called
 

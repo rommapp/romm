@@ -58,11 +58,11 @@ async function updateRom(matchedRom) {
   await api.updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: data.msg,
+        msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data.rom);
+      romsStore.update(data);
     })
     .catch((error) => {
       emitter.emit("snackbarShow", {

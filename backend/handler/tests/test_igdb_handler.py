@@ -27,7 +27,7 @@ def test_get_rom():
     assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
 
     rom = igdbh.get_rom("Not a real game title", 4)
-    assert rom["igdb_id"] == 0
+    assert not rom["igdb_id"]
     assert rom["slug"] == ""
     assert rom["name"] == "Not a real game title"
     assert not rom["summary"]
@@ -38,7 +38,7 @@ def test_get_rom():
 @pytest.mark.vcr()
 def test_get_ps2_opl_rom():
     rom = igdbh.get_rom("WWE Smack.iso", 8)
-    assert rom["igdb_id"] == 0
+    assert not rom["igdb_id"]
     assert rom["slug"] == ""
     assert rom["name"] == "WWE Smack"
     assert not rom["summary"]

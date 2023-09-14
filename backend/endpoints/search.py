@@ -1,17 +1,24 @@
 import emoji
 from fastapi import APIRouter, Request
+from typing_extensions import TypedDict
 
 from logger.logger import log
 from handler import igdbh, dbh
+from handler.igdb_handler import IGDBRomType
 from utils.oauth import protected_route
 
 router = APIRouter()
 
 
+class RomSearchResponse(TypedDict):
+    msg: str
+    roms: list[IGDBRomType]
+
+
 @protected_route(router.put, "/search/roms/igdb", ["roms.read"])
 async def search_rom_igdb(
     request: Request, rom_id: str, query: str = None, field: str = "Name"
-) -> dict:
+) -> RomSearchResponse:
     """Search IGDB for ROMs"""
 
     rom = dbh.get_rom(rom_id)
