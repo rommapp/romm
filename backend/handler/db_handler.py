@@ -72,7 +72,7 @@ class DBHandler:
         return session.execute(
             update(Rom)
             .where(Rom.id == id)
-            .values(*data)
+            .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
 
@@ -127,7 +127,7 @@ class DBHandler:
         session.execute(
             update(User)
             .where(User.id == id)
-            .values(*data)
+            .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
 
