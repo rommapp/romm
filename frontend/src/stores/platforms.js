@@ -7,7 +7,7 @@ export default defineStore("platforms", {
     };
   },
   getters: {
-    totalGames: ({ value }) => value.reduce((count, p) => count + p.n_roms, 0),
+    totalGames: ({ value }) => value.reduce((count, p) => count + p.rom_count, 0),
   },
   actions: {
     set(platforms) {

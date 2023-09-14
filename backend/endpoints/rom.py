@@ -113,8 +113,6 @@ def upload_roms(
 
         uploaded_roms.append(rom.filename)
 
-    dbh.update_n_roms(platform_slug)
-
     return {
         "uploaded_roms": uploaded_roms,
         "skipped_roms": skipped_roms,
@@ -283,7 +281,6 @@ def delete_rom(request: Request, id: int, deleteFromFs: bool = False) -> dict:
     """Detele rom from database [and filesystem]"""
 
     rom = _delete_single_rom(id, deleteFromFs)
-    dbh.update_n_roms(rom.platform_slug)
 
     return {"msg": f"{rom.file_name} deleted successfully!"}
 
@@ -298,13 +295,7 @@ async def mass_delete_roms(
     data: dict = await request.json()
     roms_ids: list = data["roms"]
 
-    platform_slug_set = set()
-
     for rom_id in roms_ids:
         rom = _delete_single_rom(rom_id, deleteFromFs)
-        platform_slug_set.add(rom.platform_slug)
-
-    for p_slug in platform_slug_set:
-        dbh.update_n_roms(p_slug)
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}

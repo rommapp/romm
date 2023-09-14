@@ -54,13 +54,13 @@ async def scan_platforms(
         # Scanning roms
         fs_roms = get_roms(scanned_platform.fs_slug)
         for fs_rom in fs_roms:
-            rom_id = dbh.rom_exists(scanned_platform.slug, fs_rom["file_name"])
-            if rom_id and rom_id not in selected_roms and not complete_rescan:
+            rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
+            if rom and rom.id not in selected_roms and not complete_rescan:
                 continue
 
             scanned_rom = scan_rom(scanned_platform, fs_rom)
-            if rom_id:
-                scanned_rom.id = rom_id
+            if rom:
+                scanned_rom.id = rom.id
 
             rom = dbh.add_rom(scanned_rom)
             await sm.emit(
@@ -72,7 +72,6 @@ async def scan_platforms(
             )
 
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
-        dbh.update_n_roms(scanned_platform.slug)
     dbh.purge_platforms(fs_platforms)
 
     await sm.emit("scan:done", {})
