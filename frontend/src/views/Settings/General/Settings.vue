@@ -46,10 +46,17 @@ onBeforeMount(async () => {
   switchUpdate =
     switchUpdate.charAt(0).toLocaleLowerCase() + switchUpdate.substr(1);
 
+  let mameUpdate = cronstrue.toString(
+    data.SCHEDULED_UPDATE_MAME_XML_CRON,
+    { verbose: true }
+  );
+  mameUpdate = mameUpdate.charAt(0).toLocaleLowerCase() + mameUpdate.substr(1);
+
   heartbeat.value = {
     ...data,
     SCHEDULED_RESCAN_CRON: rescan,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: switchUpdate,
+    SCHEDULED_UPDATE_MAME_XML_CRON: mameUpdate,
   };
 });
 </script>
@@ -172,6 +179,32 @@ onBeforeMount(async () => {
             <p class="mt-1">
               Updates the Nintedo Switch TitleDB file
               {{ heartbeat.SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON }}
+            </p>
+          </div>
+        </v-col>
+        <v-col
+          cols="12"
+          md="4"
+          sm="6"
+          :class="{
+            'status-item d-flex': true,
+            disabled: !heartbeat.ENABLE_SCHEDULED_UPDATE_MAME_XML,
+          }"
+        >
+          <v-icon
+            :icon="
+              heartbeat.ENABLE_SCHEDULED_UPDATE_MAME_XML
+                ? 'mdi-clock-check-outline'
+                : 'mdi-clock-remove-outline'
+            "
+          />
+          <div class="ml-3">
+            <v-label class="font-weight-bold">
+              Scheduled MAME XML update
+            </v-label>
+            <p class="mt-1">
+              Updates the Nintedo MAME XML file
+              {{ heartbeat.SCHEDULED_UPDATE_MAME_XML_CRON }}
             </p>
           </div>
         </v-col>

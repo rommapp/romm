@@ -6,6 +6,7 @@ import re
 import time
 import os
 import json
+import xmltodict
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
@@ -15,12 +16,14 @@ from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
 from tasks.update_switch_titledb import update_switch_titledb_task
+from tasks.update_mame_xml import update_mame_xml_task
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
 PS2_IGDB_ID: Final = 8
 SWITCH_IGDB_ID: Final = 130
+ARCADE_IGDB_ID: Final = 52
 
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 PS2_OPL_INDEX_FILE: Final = os.path.join(
@@ -31,6 +34,8 @@ SWITCH_TITLEDB_REGEX: Final = r"^(70[0-9]{12})$"
 SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
     os.path.dirname(__file__), "fixtures", "switch_titledb.json"
 )
+
+MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
 class IGDBHandler:
@@ -182,6 +187,27 @@ class IGDBHandler:
                 index_entry = titledb_index.get(title_id, None)
                 if index_entry:
                     search_term = index_entry["name"]  # type: ignore
+
+        if p_igdb_id == ARCADE_IGDB_ID:
+            mame_index = {}
+
+            try:
+                with open(MAME_XML_FILE, "r") as index_xml:
+                    mame_index = xmltodict.parse(index_xml.read())
+            except FileNotFoundError:
+                log.warning("Fetching the MAME XML file from HyperspinFE...")
+                await update_mame_xml_task.run(force=True)
+
+                with open(MAME_XML_FILE, "r") as index_xml:
+                    mame_index = xmltodict.parse(index_xml.read())
+            finally:
+                index_entry = [
+                    game
+                    for game in mame_index["menu"]["game"]
+                    if game["@name"] == search_term
+                ]
+                if index_entry:
+                    search_term = index_entry[0].get("description", search_term)
 
         res = (
             self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)

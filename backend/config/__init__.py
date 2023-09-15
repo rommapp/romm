@@ -82,5 +82,11 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
     os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
 )
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
-    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON", "0 3 * * *"  # At 3:00 AM every day
+    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON", "0 4 * * *"  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_UPDATE_MAME_XML: Final = (
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_MAME_XML", "false") == "true"
+)
+SCHEDULED_UPDATE_MAME_XML_CRON: Final = os.environ.get(
+    "SCHEDULED_UPDATE_MAME_XML_CRON", "0 4 * * *"  # At 4:00 AM every day
 )
