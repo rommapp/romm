@@ -1,3 +1,4 @@
+import requests
 from rq_scheduler import Scheduler
 from abc import ABC, abstractmethod
 
@@ -73,3 +74,31 @@ class PeriodicTask(ABC):
 
         tasks_scheduler.cancel(job)
         log.info(f"{self.description.capitalize()} unscheduled.")
+
+
+class RemoteFilePullTask(PeriodicTask):
+    def __init__(self, *args, url: str, file_path: str, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.url = url
+        self.file_path = file_path
+
+    async def run(self, force: bool = False):
+        if not self.enabled and not force:
+            log.info(f"Scheduled {self.description} not enabled, unscheduling...")
+            self.unschedule()
+            return
+
+        log.info(f"Scheduled {self.description} started...")
+
+        try:
+            response = requests.get(self.url)
+            response.raise_for_status()
+
+            with open(self.file_path, "wb") as fixture:
+                fixture.write(response.content)
+
+            log.info(f"Scheduled {self.description} done")
+        except requests.exceptions.RequestException as e:
+            log.error(f"Scheduled {self.description} failed", exc_info=True)
+            log.error(e)

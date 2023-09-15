@@ -45,6 +45,7 @@ python-multipart = "^0.0.6"
 types-python-jose = "^3.3.4.8"
 types-passlib = "^1.7.7.13"
 watchdog = "^3.0.0"
+xmltodict = "^0.13.0"
 
 [build-system]
 requires = ["poetry-core"]
