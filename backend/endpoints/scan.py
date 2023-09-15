@@ -90,7 +90,11 @@ async def scan_handler(_sid: str, options: dict):
     # Run in worker if redis is available
     if ENABLE_EXPERIMENTAL_REDIS:
         return high_prio_queue.enqueue(
-            scan_platforms, platform_slugs, complete_rescan, selected_roms
+            scan_platforms,
+            platform_slugs,
+            complete_rescan,
+            selected_roms,
+            job_timeout=14400,  # Timeout after 4 hours
         )
     else:
         await scan_platforms(platform_slugs, complete_rescan, selected_roms)
