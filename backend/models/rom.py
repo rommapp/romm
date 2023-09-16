@@ -1,5 +1,6 @@
 from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, ForeignKey
 from sqlalchemy.orm import relationship, Mapped
+from functools import cached_property
 
 from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONT_LIBRARY_PATH
 from .base import BaseModel
@@ -41,7 +42,6 @@ class Rom(BaseModel):
 
     path_cover_s: str = Column(Text, default=DEFAULT_PATH_COVER_S)
     path_cover_l: str = Column(Text, default=DEFAULT_PATH_COVER_L)
-    has_cover: bool = Column(Boolean, default=False)
     url_cover: str = Column(Text, default=DEFAULT_PATH_COVER_L)
 
     region: str = Column(String(20))
@@ -56,13 +56,20 @@ class Rom(BaseModel):
     def platform_name(self) -> str:
         return self.platform.name
 
-    @property
+    @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
 
-    @property
+    @cached_property
     def download_path(self) -> str:
         return f"{FRONT_LIBRARY_PATH}/{self.full_path}"
+
+    @property
+    def has_cover(self) -> bool:
+        return (
+            self.path_cover_s != DEFAULT_PATH_COVER_S
+            or self.path_cover_l != DEFAULT_PATH_COVER_L
+        )
 
     def __repr__(self) -> str:
         return self.file_name
