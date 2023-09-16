@@ -13,14 +13,10 @@ const { mdAndDown } = useDisplay();
 const platforms = storePlatforms();
 const scanning = storeScanning();
 const auth = storeAuth();
-const refreshView = ref(false);
 const refreshDrawer = ref(false);
 
 // Event listeners bus
 const emitter = inject("emitter");
-emitter.on("refreshView", () => {
-  refreshView.value = !refreshView.value;
-});
 emitter.on("refreshDrawer", () => {
   refreshDrawer.value = !refreshDrawer.value;
 });
@@ -54,7 +50,7 @@ onMounted(async () => {
   <app-bar v-if="mdAndDown" />
 
   <v-container class="pa-1" fluid>
-    <router-view :key="refreshView" />
+    <router-view />
   </v-container>
 </template>
 

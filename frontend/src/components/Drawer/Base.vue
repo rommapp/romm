@@ -76,15 +76,6 @@ emitter.on("toggleDrawerRail", () => {
             >
           </template>
         </v-list-item>
-        <v-list-item class="bg-terciary" disabled>
-          <span v-if="!rail" class="text-body-2 text-truncate">Upload</span>
-          <span v-if="!rail" class="text-caption text-truncate ml-1">[coming soon]</span>
-          <template v-slot:prepend>
-            <v-avatar :rounded="0" size="40"
-              ><v-icon>mdi-upload</v-icon></v-avatar
-            >
-          </template>
-        </v-list-item>
       </v-list-group>
 
       <v-list-group value="Settings" fluid>

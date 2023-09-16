@@ -2,19 +2,19 @@ import { defineStore } from "pinia";
 
 export default defineStore("galleryView", {
   state: () => ({
-    value: JSON.parse(localStorage.getItem("currentView")) || 0,
+    current: JSON.parse(localStorage.getItem("currentView")) || 0,
   }),
 
   actions: {
     set(view) {
-      this.value = view;
-      localStorage.setItem("currentView", this.value);
+      this.current = view;
+      localStorage.setItem("currentView", this.current);
     },
     next() {
-      if (this.value == 2) {
+      if (this.current == 2) {
         this.set(0);
       } else {
-        this.set(this.value + 1);
+        this.set(this.current + 1);
       }
     },
   },
