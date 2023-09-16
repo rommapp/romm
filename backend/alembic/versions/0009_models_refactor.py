@@ -142,13 +142,7 @@ def downgrade() -> None:
             "igdb_id", existing_type=mysql.VARCHAR(length=10), nullable=False
         )
         batch_op.alter_column(
-            "sgdb_id", existing_type=mysql.VARCHAR(length=10), nullable=False
-        )
-        batch_op.alter_column(
             "slug", existing_type=mysql.VARCHAR(length=50), nullable=True
-        )
-        batch_op.alter_column(
-            "name", existing_type=mysql.VARCHAR(length=400), nullable=False
         )
 
         # Move primary key to slug
