@@ -86,16 +86,16 @@ def get_cover(
     # Cover big
     if (overwrite or not _cover_exists(fs_slug, rom_name, "big")) and url_cover:
         _store_cover(fs_slug, rom_name, url_cover, "big")
-    (path_cover_l, has_cover) = (
-        (_get_cover_path(fs_slug, rom_name, "big"), 1)
+
+    path_cover_l = (
+        _get_cover_path(fs_slug, rom_name, "big")
         if _cover_exists(fs_slug, rom_name, "big")
-        else (DEFAULT_PATH_COVER_L, 0)
+        else DEFAULT_PATH_COVER_L
     )
 
     return {
         "path_cover_s": path_cover_s,
         "path_cover_l": path_cover_l,
-        "has_cover": has_cover,
     }
 
 

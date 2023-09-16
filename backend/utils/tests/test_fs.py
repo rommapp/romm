@@ -31,7 +31,6 @@ def test_get_cover():
 
     assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
     assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
-    assert cover["has_cover"] == 0
 
     # Game: Paper Mario (USA).z64
     cover = get_cover(
@@ -43,7 +42,6 @@ def test_get_cover():
 
     assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
     assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
-    assert cover["has_cover"] == 1
 
     # Game: Super Mario 64 (J) (Rev A)
     cover = get_cover(
@@ -55,7 +53,6 @@ def test_get_cover():
 
     assert "n64/Super Mario 64/cover/small.png" in cover["path_cover_s"]
     assert "n64/Super Mario 64/cover/big.png" in cover["path_cover_l"]
-    assert cover["has_cover"] == 1
 
     # Game: Fake Game.xyz
     cover = get_cover(
@@ -66,7 +63,6 @@ def test_get_cover():
 
     assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
     assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
-    assert cover["has_cover"] == 0
 
 
 def test_get_platforms():

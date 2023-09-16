@@ -13,7 +13,7 @@ from fastapi import (
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from stat import S_IFREG
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
@@ -41,8 +41,6 @@ router = APIRouter()
 
 
 class RomSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: int
     igdb_id: Optional[int]
     sgdb_id: Optional[int]
@@ -75,6 +73,9 @@ class RomSchema(BaseModel):
     path_screenshots: list
     full_path: str
     download_path: str
+
+    class Config:
+        orm_mode = True
 
 
 @protected_route(router.get, "/roms/{id}", ["roms.read"])
