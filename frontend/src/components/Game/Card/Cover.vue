@@ -1,16 +1,18 @@
 <script setup>
+import { ref } from "vue";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
-
-const downloadStore = storeDownload();
-const romsStore = storeRoms();
 
 // Props
 const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
 const emit = defineEmits(["selectRom"]);
+const downloadStore = storeDownload();
+const romsStore = storeRoms();
+const card = ref();
+let timeout;
 
 // Functions
-function selectRom(event) {
+function onSelectRom(event) {
   if (!event.ctrlKey && !event.shiftKey) {
     event.preventDefault();
     emit("selectRom", event);
@@ -18,11 +20,29 @@ function selectRom(event) {
 }
 
 function onNavigate(event) {
-  if (event.ctrlKey || event.shiftKey) {
+  if (
+    event.ctrlKey ||
+    event.shiftKey ||
+    (romsStore.touchScreen && romsStore.selectedRoms.length > 0)
+  ) {
     event.preventDefault();
     event.stopPropagation();
     emit("selectRom", event);
   }
+}
+
+function onTouchStart(event) {
+  card.value.$el.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+  romsStore.isTouchScreen(true);
+  timeout = setTimeout(() => {
+    emit("selectRom", event);
+  }, 500);
+}
+
+function onTouchEnd() {
+  clearTimeout(timeout);
 }
 </script>
 
@@ -30,11 +50,14 @@ function onNavigate(event) {
   <router-link
     style="text-decoration: none; color: inherit"
     :to="
-      romsStore.length > 0
-        ? `#`
+      romsStore.touchScreen && romsStore.selectedRoms.length > 0
+        ? ''
         : `/platform/${$route.params.platform}/${rom.id}`
     "
+    ref="card"
     @click="onNavigate"
+    @touchstart="onTouchStart"
+    @touchend="onTouchEnd"
   >
     <v-progress-linear
       color="romm-accent-1"
@@ -49,8 +72,6 @@ function onNavigate(event) {
         v-bind="props"
         :src="`/assets/romm/resources/${rom.path_cover_l}`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
-        class="cover"
-        cover
       >
         <template v-slot:placeholder>
           <div class="d-flex align-center justify-center fill-height">
@@ -66,7 +87,7 @@ function onNavigate(event) {
             v-if="isHovering || !rom.has_cover"
             class="rom-title d-flex transition-fast-in-fast-out bg-tooltip text-caption"
           >
-            <v-list-item>{{ rom.file_name }}</v-list-item>
+            <v-list-item>{{ rom.r_name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
         <v-chip-group class="pl-1 pt-0">
@@ -79,7 +100,7 @@ function onNavigate(event) {
         </v-chip-group>
         <v-icon
           v-show="isHoveringTop"
-          @click="selectRom"
+          @click="onSelectRom"
           size="small"
           class="position-absolute checkbox"
           :class="{ 'checkbox-selected': selected }"

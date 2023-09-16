@@ -124,7 +124,7 @@ class UserUpdateForm:
         self.avatar = avatar
 
 
-@protected_route(router.put, "/users/{user_id}", ["users.write"])
+@protected_route(router.patch, "/users/{user_id}", ["users.write"])
 def update_user(
     request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
 ) -> UserSchema:
@@ -134,7 +134,6 @@ def update_user(
             status_code=400,
             detail="Cannot update user: ROMM_AUTH_ENABLED is set to False",
         )
-
     user = dbh.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

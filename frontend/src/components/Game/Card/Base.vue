@@ -1,39 +1,28 @@
 <script setup>
-import { ref, inject } from "vue";
-import useRomsStore from "@/stores/roms.js";
+import storeRoms from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
 
 // Props
-const props = defineProps(["rom", "index"]);
+const props = defineProps(["rom", "index", "selected"]);
 const emit = defineEmits(["selectRom"]);
-const romsStore = useRomsStore();
-const selected = ref();
+const romsStore = storeRoms();
 
 // Functions
 function selectRom(event) {
-  selected.value = !selected.value;
-  if (selected.value) {
-    romsStore.addSelectedRoms(props.rom);
+  if (!props.selected) {
+    romsStore.addToSelection(props.rom);
   } else {
-    romsStore.removeSelectedRoms(props.rom);
+    romsStore.removeFromSelection(props.rom);
   }
-  emit("selectRom", { event, index: props.index, selected: selected.value });
+  emit("selectRom", { event, index: props.index, selected: !props.selected });
 }
-
-const emitter = inject("emitter");
-emitter.on("refreshSelected", () => {
-  selected.value = romsStore.selected
-    .map((rom) => rom.id)
-    .includes(props.rom.id);
-});
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props }">
     <v-card
       v-bind="props"
-      class="rom-card"
       :class="{ 'on-hover': isHovering, 'rom-selected': selected }"
       :elevation="isHovering ? 20 : 3"
     >
@@ -50,13 +39,19 @@ emitter.on("refreshSelected", () => {
 
 <style scoped lang="scss">
 .v-card {
-  opacity: 0.85;
+  margin: 4px;
   border: 3px solid rgba(var(--v-theme-primary));
-}
-.v-card.on-hover {
-  opacity: 1;
+  opacity: 0.85;
+  transition-property: all;
+  transition-duration: 0.1s;
 }
 .v-card.rom-selected {
   border: 3px solid rgba(var(--v-theme-romm-accent-2));
+  transform: scale(1.03); 
+}
+.v-card.on-hover {
+  z-index: 1 !important;
+  opacity: 1;
+  transform: scale(1.05); 
 }
 </style>
