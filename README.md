@@ -298,4 +298,4 @@ Games can be tagged with region, revision or other tags using parenthesis in the
 
 # 🎖 Credits
 
-* Pc icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
+* Pc and Mac icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
