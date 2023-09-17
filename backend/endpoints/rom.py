@@ -210,8 +210,9 @@ async def update_rom(
 
     db_rom = dbh.get_rom(id)
 
+    valid_filename = cleaned_data["name"].strip().replace("/", "-")
     file_name = (
-        db_rom.file_name.replace(db_rom.file_name_no_tags, cleaned_data["name"])
+        db_rom.file_name.replace(db_rom.file_name_no_tags, valid_filename)
         if rename_as_igdb
         else db_rom.file_name
     )
