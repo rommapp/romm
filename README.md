@@ -148,9 +148,7 @@ library/
 
 RomM can be configured through a YAML file. To apply configuration changes, you must restart RomM.
 
-Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/master/examples
-
-/config.example.yml) file and the [docker-compose.example.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) for guidance on how to configure it.
+Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/master/examples/config.example.yml) file and the [docker-compose.example.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) for guidance on how to configure it.
 
 # Naming Convention
 
