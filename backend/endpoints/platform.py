@@ -42,8 +42,23 @@ SUPPORTED_PLATFORM_SLUGS = [
 ]
 
 SLUG_TO_TYPE_MAP = {
+    "atari2600": "2600",
+    "atari5200": "5200",
+    "atari7800": "7800",
+    "lynx": "lnx",
+    "turbografx16--1": "pce",
+    "turbografx-16-slash-pc-engine-cd": "pce",
+    "supergrafx": "sgx",
+    "pc-fx": "pcfx",
+    "virtualboy": "vb",
+    "genesis-slash-megadrive": "genesis",
+    "gamegear": "gg",
     "neogeoaes": "neogeo",
     "neogeomvs": "neogeo",
+    "neo-geo-cd": "neogeocd",
+    "neo-geo-pocket": "ngp",
+    "neo-geo-pocket-color": "ngc",
+    "ps": "psx",
 }
 
 
