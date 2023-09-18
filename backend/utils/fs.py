@@ -7,6 +7,7 @@ import requests
 from config import (
     LIBRARY_BASE_PATH,
     HIGH_PRIO_STRUCTURE_PATH,
+    ROMS_FOLDER_NAME,
     RESOURCES_BASE_PATH,
     DEFAULT_URL_COVER_L,
     DEFAULT_PATH_COVER_L,
@@ -172,9 +173,9 @@ def get_platforms() -> list[str]:
 # ========= Roms utils =========
 def get_roms_structure(p_slug: str):
     return (
-        f"roms/{p_slug}"
+        f"{ROMS_FOLDER_NAME}/{p_slug}"
         if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
-        else f"{p_slug}/roms"
+        else f"{p_slug}/{ROMS_FOLDER_NAME}"
     )
 
 
