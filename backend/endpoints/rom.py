@@ -221,13 +221,17 @@ async def update_rom(
         path_cover_l, path_cover_s, artwork_path = build_artwork_path(
             cleaned_data["r_name"], db_platform.fs_slug, file_ext
         )
+
         cleaned_data["path_cover_l"] = path_cover_l
         cleaned_data["path_cover_s"] = path_cover_s
-        file_location_l = f"{artwork_path}/big.{file_ext}"
-        file_location_s = f"{artwork_path}/small.{file_ext}"
+        cleaned_data["has_cover"] = 1
+
         artwork_file = artwork.file.read()
+        file_location_s = f"{artwork_path}/small.{file_ext}"
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
+
+        file_location_l = f"{artwork_path}/big.{file_ext}"
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
 
@@ -235,7 +239,7 @@ async def update_rom(
 
     return {
         "rom": dbh.get_rom(id),
-        "msg": f"Rom updated successfully!",
+        "msg": "Rom updated successfully!",
     }
 
 
