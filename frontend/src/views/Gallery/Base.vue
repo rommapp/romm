@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { fetchRomsApi } from "@/services/api";
 import { views, normalizeString } from "@/utils/utils";
@@ -138,7 +138,7 @@ function selectRom({ event, index, selected }) {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   if (filteredRoms.value.length == 0) {
     fetchRoms(route.params.platform);
   }
@@ -148,7 +148,22 @@ onBeforeUnmount(() => {
   romsStore.resetSelection();
 });
 
-onBeforeRouteUpdate(async (to, _) => {
+onBeforeRouteLeave((to, from, next) => {
+  // Only reset selection if platform is the same
+  if (to.fullPath.includes(from.path)) {
+    romsStore.resetSelection();
+  // Otherwise reset store
+  } else {
+    cursor.value = "";
+    searchCursor.value = "";
+    romsStore.reset();
+  }
+
+  next();
+});
+
+onBeforeRouteUpdate((to, _) => {
+  // Reset store if switching to another platform
   cursor.value = "";
   searchCursor.value = "";
   romsStore.reset();
