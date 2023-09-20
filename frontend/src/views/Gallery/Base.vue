@@ -168,6 +168,7 @@ onBeforeRouteUpdate((to, _) => {
   searchCursor.value = "";
   romsStore.reset();
   fetchRoms(to.params.platform);
+  scrolledToTop.value = true;
 });
 </script>
 
