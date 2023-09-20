@@ -44,9 +44,10 @@ socket.on("scan:done", () => {
 
   emitter.emit("refreshDrawer");
   emitter.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
+    msg: "Scan completed successfully! Refresh to see the changes.",
     icon: "mdi-check-bold",
     color: "green",
+    timeout: 4000
   });
 });
 
