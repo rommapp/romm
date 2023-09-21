@@ -200,14 +200,16 @@ async def update_rom(
     cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(
         cleaned_data["file_name"]
     )
+
     cleaned_data.update(
         fs.get_cover(
-            overwrite=True,
+            overwrite=not db_rom.has_cover,
             p_slug=db_platform.slug,
             r_name=cleaned_data["file_name_no_tags"],
             url_cover=cleaned_data.get("url_cover", ""),
         )
     )
+
     cleaned_data.update(
         fs.get_screenshots(
             p_slug=db_platform.slug,
