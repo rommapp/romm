@@ -50,15 +50,19 @@ class IGDBHandler:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
             res.raise_for_status()
             return res.json()
-        except (HTTPError, Timeout) as err:
+        except HTTPError as err:
+            # Retry once if the auth token is invalid
             if err.response.status_code != 401:
                 log.error(err)
                 return []  # All requests to the IGDB API return a list
-
-        # Attempt to force a token refresh if the token is invalid
-        log.warning("Twitch token invalid: fetching a new one...")
-        token = self.twitch_auth._update_twitch_token()
-        self.headers["Authorization"] = f"Bearer {token}"
+            
+            # Attempt to force a token refresh if the token is invalid
+            log.warning("Twitch token invalid: fetching a new one...")
+            token = self.twitch_auth._update_twitch_token()
+            self.headers["Authorization"] = f"Bearer {token}"
+        except Timeout:
+            # Retry once the request if it times out
+            pass
 
         try:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
