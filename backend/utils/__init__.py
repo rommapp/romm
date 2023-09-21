@@ -98,7 +98,7 @@ def get_file_name_with_no_tags(file_name: str) -> str:
     # \[[^\]]+\]: Matches tags enclosed in square brackets, e.g., [rel-1]
     # \([^)]+\): Matches tags enclosed in parentheses, e.g., (USA)
     # (\.\w+)+$: Matches one or more file extensions, e.g., .zip or .nkit.iso
-    tags_extension_regex = r"(\s*\[[^\]]+\]\s*|\s*\([^)]+\)\s*)*(\.\w+)+$"
+    tags_extension_regex = r"(?:\s*(?:\[[^\]]+\]|\([^)]+\))\s*)*(?:\.\w+)+$"
 
     # The regex is aggressive and may remove some of the title,
     # but that's prefered over leaving tags/extensions in the title
@@ -106,9 +106,9 @@ def get_file_name_with_no_tags(file_name: str) -> str:
 
 
 def get_file_extension(rom: dict) -> str:
-    extension_regex = r"(\.\w+)+$"
+    extension_regex = r"\.((\.?\w+)+)$"
     return (
-        re.search(extension_regex, rom["file_name"]).group(0)
+        re.search(extension_regex, rom["file_name"]).group(1)
         if not rom["multi"]
         else ""
     )

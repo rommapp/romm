@@ -50,6 +50,16 @@ def test_get_file_name_with_no_tags():
     file_name = "Super Mario Bros. (Reg S) (Rev A).nes"
     assert gfnwt(file_name) == "Super Mario Bros."
 
+    file_name = "007 - Agent Under Fire.nkit.iso"
+    assert gfnwt(file_name) == "007 - Agent Under Fire"
+
+    file_name = "Jimmy Houston's Bass Tournament U.S.A..zip"
+    assert gfnwt(file_name) == "Jimmy Houston's Bass Tournament U.S.A."
+
+    # This is expected behavior, since the regex is aggressive
+    file_name = "Battle Stadium D.O.N.zip"
+    assert gfnwt(file_name) == "Battle Stadium D"
+
 
 def test_get_file_extension():
     rom = {"file_name": "Super Mario Bros. (World).nes", "multi": False}
@@ -57,3 +67,6 @@ def test_get_file_extension():
 
     rom = {"file_name": "Super Mario Bros. (World).nes", "multi": True}
     assert gfe(rom) == ""
+
+    rom = {"file_name": "007 - Agent Under Fire.nkit.iso", "multi": False}
+    assert gfe(rom) == "nkit.iso"
