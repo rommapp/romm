@@ -19,7 +19,7 @@ def test_parse_tags():
     assert parse_tags(file_name) == ("USA", "", ["Beta"])
 
     file_name = "Super Mario Bros. (CH) [!].nes"
-    assert parse_tags(file_name) == ("China", "", [])
+    assert parse_tags(file_name) == ("China", "", ["!"])
 
     file_name = "Super Mario Bros. (reg-T) (rev-1.2).nes"
     assert parse_tags(file_name) == ("Taiwan", "1.2", [])
