@@ -64,14 +64,19 @@ async function fetchRoms(platform) {
     searchTerm: normalizeString(galleryFilter.filter),
   })
     .then((response) => {
+      // Add any new roms to the store
+      const allRomsSet = [...allRoms.value, ...response.data.items];
+      romsStore.set(allRomsSet);
+      romsStore.setFiltered(allRomsSet);
+
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        romsStore.setSearch([...searchRoms.value, ...response.data.items]);
-        romsStore.setFiltered(searchRoms.value);
+        
+        const serchedRomsSet = [...searchRoms.value, ...response.data.items];
+        romsStore.setSearch(serchedRomsSet);
+        romsStore.setFiltered(serchedRomsSet);
       } else {
         cursor.value = response.data.next_page;
-        romsStore.set([...allRoms.value, ...response.data.items]);
-        romsStore.setFiltered(allRoms.value);
       }
     })
     .catch((error) => {

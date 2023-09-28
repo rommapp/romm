@@ -1,3 +1,4 @@
+import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 
 export default defineStore("roms", {
@@ -23,20 +24,27 @@ export default defineStore("roms", {
   },
 
   actions: {
+    _reorder() {
+      // Sort roms by name and remove duplicates
+      this._all = uniqBy(
+        this._all.sort((a, b) =>
+          a.file_name_no_tags.localeCompare(b.file_name_no_tags)
+        ),
+        "id"
+      );
+    },
     // All roms
     set(roms) {
       this._all = roms;
+      this._reorder();
     },
     add(roms) {
       this._all = this._all.concat(roms);
+      this._reorder();
     },
     update(rom) {
-      this._all = this._all.map((value) => {
-        if (value.id === rom.id) {
-          return rom;
-        }
-        return value;
-      });
+      this._all = this._all.map((value) => (value.id === rom.id ? rom : value));
+      this._reorder();
     },
     remove(roms) {
       this._all = this._all.filter((value) => {
