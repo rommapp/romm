@@ -76,20 +76,20 @@ def get_cover(overwrite: bool, p_slug: str, r_name: str, url_cover: str = "") ->
     rom_name = quote(r_name)
 
     # Cover small
-    if (overwrite or not _cover_exists(p_slug, rom_name, "small")) and url_cover:
-        _store_cover(p_slug, rom_name, url_cover, "small")
+    if (overwrite or not _cover_exists(p_slug, r_name, "small")) and url_cover:
+        _store_cover(p_slug, r_name, url_cover, "small")
     path_cover_s = (
         _get_cover_path(p_slug, rom_name, "small")
-        if _cover_exists(p_slug, rom_name, "small")
+        if _cover_exists(p_slug, r_name, "small")
         else DEFAULT_PATH_COVER_S
     )
 
     # Cover big
-    if (overwrite or not _cover_exists(p_slug, rom_name, "big")) and url_cover:
-        _store_cover(p_slug, rom_name, url_cover, "big")
+    if (overwrite or not _cover_exists(p_slug, r_name, "big")) and url_cover:
+        _store_cover(p_slug, r_name, url_cover, "big")
     (path_cover_l, has_cover) = (
         (_get_cover_path(p_slug, rom_name, "big"), 1)
-        if _cover_exists(p_slug, rom_name, "big")
+        if _cover_exists(p_slug, r_name, "big")
         else (DEFAULT_PATH_COVER_L, 0)
     )
 
@@ -133,7 +133,7 @@ def get_screenshots(p_slug: str, r_name: str, url_screenshots: list) -> dict:
 
     path_screenshots: list[str] = []
     for idx, url in enumerate(url_screenshots):
-        _store_screenshot(p_slug, rom_name, url, idx)
+        _store_screenshot(p_slug, r_name, url, idx)
         path_screenshots.append(_get_screenshot_path(p_slug, rom_name, str(idx)))
     return {"path_screenshots": path_screenshots}
 
@@ -319,7 +319,7 @@ def build_artwork_path(r_name: str, p_slug: str, file_ext: str):
 
     path_cover_l = f"{p_slug}/{rom_name}/cover/big.{file_ext}?timestamp={strtime}"
     path_cover_s = f"{p_slug}/{rom_name}/cover/small.{file_ext}?timestamp={strtime}"
-    artwork_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{rom_name}/cover"
+    artwork_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{r_name}/cover"
     Path(artwork_path).mkdir(parents=True, exist_ok=True)
     return path_cover_l, path_cover_s, artwork_path
 
