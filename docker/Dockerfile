@@ -6,7 +6,7 @@ RUN npm install
 RUN npm run build
 
 # Setup frontend
-FROM nginx:1.24-alpine3.17 as production-stage
+FROM nginx:1.24-alpine3.17-slim as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default_avatar.png ${WEBSERVER_FOLDER}/assets/
@@ -31,6 +31,6 @@ COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # Expose ports and start
-EXPOSE 80
+EXPOSE 8080
 WORKDIR /romm
 CMD ["/init"]
