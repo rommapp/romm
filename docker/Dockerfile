@@ -15,9 +15,8 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/library ${WEBSERVER_FOLDER}/assets/romm/library && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 
-# Setup backend
-RUN apk update && \
-    apk add \
+# install generall required packages
+RUN apk add --upgrade \
         bash \
         curl \
         gcc \
@@ -29,20 +28,44 @@ RUN apk update && \
         python3-dev \
         py3-pip
 
-WORKDIR /back
-COPY ./pyproject.toml ./poetry.lock ./
-RUN pip install --no-cache --upgrade pip && \
+# Install additional build dependencies
+RUN apk add --upgrade \
+        gcc \
+        musl-dev \
+        mariadb-connector-c-dev \
+        python3-dev \
+        py3-pip
+
+# Create python venv to not clash with OS python packages
+RUN python3 -m venv /backend/
+
+# move over project specific dependecy files
+COPY ./pyproject.toml ./poetry.lock /
+
+# Install poetry using pip
+RUN . /backend/bin/activate && \
+    pip install --no-cache --upgrade pip && \
     pip install --no-cache poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --only main && \
-    poetry cache clear --all .
-COPY ./backend .
+    pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt
+
+# Install project dependencies using poetry
+RUN . /backend/bin/activate && \
+    poetry config --no-cache virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi --no-cache --only main && \
+    poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
+
+# cleanup python dependencies that are not needed anymore
+RUN . /backend/bin/activate && \
+    grep -v -x -f /installed_poetry_requirements.txt /installed_pip_requirements.txt > /build_requirements.txt && \
+    pip uninstall -y -r /build_requirements.txt 
+
+COPY ./backend /backend
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
-# cleanup build deps
+# cleanup additional build dependencies
 RUN apk del \
         gcc \
         musl-dev \
@@ -50,7 +73,21 @@ RUN apk del \
         python3-dev \
         py3-pip
 
+# cleanup leftover files that are not needed at runtime
+RUN rm -r \
+    /pyproject.toml \
+    /poetry.lock \
+    /installed_pip_requirements.txt \
+    /installed_poetry_requirements.txt \
+    /build_requirements.txt \
+    /docker-entrypoint.sh \
+    /docker-entrypoint.d
+
+# Move everything we prepared over to our final docker image
 FROM scratch
+LABEL org.opencontainers.image.title="zurdi15/romm" \
+      org.opencontainers.image.description="RomM (stands for Rom Manager) is a game library manager focused in retro gaming. Manage and organize all of your games from a web browser" \
+      org.opencontainers.image.licenses="GPL-3.0"
 COPY --from=production-stage / /
 
 # Expose ports and start
