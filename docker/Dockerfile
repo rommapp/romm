@@ -34,7 +34,8 @@ COPY ./pyproject.toml ./poetry.lock ./
 RUN pip install --no-cache --upgrade pip && \
     pip install --no-cache poetry && \
     poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --only main
+    poetry install --no-interaction --no-ansi --only main && \
+    poetry cache clear --all .
 COPY ./backend .
 
 # Setup init script and config files
