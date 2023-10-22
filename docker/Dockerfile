@@ -16,8 +16,19 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 
 # Setup backend
-RUN apk update
-RUN apk add bash curl gnupg gcc musl-dev netcat-openbsd mariadb-connector-c mariadb-connector-c-dev python3 python3-dev py3-pip
+RUN apk update && \
+    apk add \
+        bash \
+        curl \
+        gcc \
+        musl-dev \
+        netcat-openbsd \
+        mariadb-connector-c \
+        mariadb-connector-c-dev \
+        python3 \
+        python3-dev \
+        py3-pip
+
 WORKDIR /back
 COPY ./pyproject.toml ./poetry.lock ./
 RUN pip install --no-cache --upgrade pip && \
@@ -29,6 +40,17 @@ COPY ./backend .
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
+
+# cleanup build deps
+RUN apk del \
+        gcc \
+        musl-dev \
+        mariadb-connector-c-dev \
+        python3-dev \
+        py3-pip
+
+FROM scratch
+COPY --from=production-stage / /
 
 # Expose ports and start
 EXPOSE 8080
