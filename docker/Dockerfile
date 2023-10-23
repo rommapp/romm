@@ -19,14 +19,9 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
 RUN apk add --upgrade \
         bash \
         curl \
-        gcc \
-        musl-dev \
         netcat-openbsd \
         mariadb-connector-c \
-        mariadb-connector-c-dev \
-        python3 \
-        python3-dev \
-        py3-pip
+        python3
 
 # Install additional build dependencies
 RUN apk add --upgrade \
