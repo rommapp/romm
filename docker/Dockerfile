@@ -6,7 +6,7 @@ RUN npm install
 RUN npm run build
 
 # Setup frontend
-FROM ubuntu/nginx:1.18-22.04_edge as production-stage
+FROM nginx:1.24-alpine3.17-slim as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default_avatar.png ${WEBSERVER_FOLDER}/assets/
@@ -16,31 +16,44 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
 
 # Setup backend
-RUN apt update && \
-    apt install -y --no-install-recommends ca-certificates curl gnupg && \
-      # add deadsnakes ppa for Python versions
-      echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" > /etc/apt/sources.list.d/deadsnakes-ubuntu-ppa-jammy.list && \
-      apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776 && \
-    apt update && \
-    apt install -y --no-install-recommends \
-      gcc netcat \
-      libmariadb3 libmariadb-dev \
-      python3.10 python3.10-dev python3-pip && \
-    apt autoremove && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+RUN apk update && \
+    apk add \
+        bash \
+        curl \
+        gcc \
+        musl-dev \
+        netcat-openbsd \
+        mariadb-connector-c \
+        mariadb-connector-c-dev \
+        python3 \
+        python3-dev \
+        py3-pip
+
 WORKDIR /back
 COPY ./pyproject.toml ./poetry.lock ./
 RUN pip install --no-cache --upgrade pip && \
     pip install --no-cache poetry && \
     poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --only main
+    poetry install --no-interaction --no-ansi --only main && \
+    poetry cache clear --all .
 COPY ./backend .
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
+# cleanup build deps
+RUN apk del \
+        gcc \
+        musl-dev \
+        mariadb-connector-c-dev \
+        python3-dev \
+        py3-pip
+
+FROM scratch
+COPY --from=production-stage / /
+
 # Expose ports and start
-EXPOSE 80
+EXPOSE 8080
 WORKDIR /romm
 CMD ["/init"]
