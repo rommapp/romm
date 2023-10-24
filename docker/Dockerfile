@@ -84,6 +84,7 @@ RUN rm -r \
 # Move everything we prepared over to our final docker image
 FROM scratch
 COPY --from=production-stage / /
+RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
 
 # Expose ports and start
 EXPOSE 8080
