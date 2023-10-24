@@ -1,4 +1,3 @@
 #!/bin/bash
 
-cd /back
 [[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rq worker high default low --logging_level WARN || sleep infinity
