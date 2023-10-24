@@ -80,9 +80,6 @@ RUN rm -r \
 
 # Move everything we prepared over to our final docker image
 FROM scratch
-LABEL org.opencontainers.image.title="zurdi15/romm" \
-      org.opencontainers.image.description="RomM (stands for Rom Manager) is a game library manager focused in retro gaming. Manage and organize all of your games from a web browser" \
-      org.opencontainers.image.licenses="GPL-3.0"
 COPY --from=production-stage / /
 
 # Expose ports and start
