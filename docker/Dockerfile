@@ -19,15 +19,17 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
 RUN apk add --upgrade \
         bash \
         curl \
-        netcat-openbsd \
+        libffi \
         mariadb-connector-c \
+        netcat-openbsd \
         python3
 
 # Install additional build dependencies
 RUN apk add --upgrade \
         gcc \
-        musl-dev \
+        libffi-dev \
         mariadb-connector-c-dev \
+        musl-dev \
         python3-dev \
         py3-pip
 
@@ -63,8 +65,9 @@ COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 # cleanup additional build dependencies
 RUN apk del \
         gcc \
-        musl-dev \
+        libffi-dev \
         mariadb-connector-c-dev \
+        musl-dev \
         python3-dev \
         py3-pip
 
