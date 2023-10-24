@@ -9,7 +9,7 @@ shopt -s inherit_errexit # inherit errexit
 source /backend/bin/activate
 
 # switch to backend directory
-cd /backend || { echo "/backend directory dosnt seem to exist"; exit 1; }
+cd /backend || { echo "/backend directory doesn't seem to exist"; exit 1; }
 
 # Run migrations and start uvicorn
 /init_back &
