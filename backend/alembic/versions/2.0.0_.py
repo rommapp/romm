@@ -1,6 +1,6 @@
-"""update to 1.9.2
+"""update to 2.0.0
 
-Revision ID: 1.9.2
+Revision ID: 2.0.0
 Revises: 1.8.3
 Create Date: 2023-08-10 22:18:24.012779
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "1.9.2"
+revision = "2.0.0"
 down_revision = "1.8.3"
 branch_labels = None
 depends_on = None
