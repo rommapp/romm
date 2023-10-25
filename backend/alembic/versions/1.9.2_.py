@@ -1,6 +1,6 @@
-"""empty message
+"""update to 1.9.2
 
-Revision ID: 583453a8a07f
+Revision ID: 1.9.2
 Revises: 1.8.3
 Create Date: 2023-08-10 22:18:24.012779
 
