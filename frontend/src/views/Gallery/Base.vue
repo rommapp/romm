@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { fetchRomsApi } from "@/services/api";
 import { views, normalizeString } from "@/utils/utils";
@@ -64,14 +64,19 @@ async function fetchRoms(platform) {
     searchTerm: normalizeString(galleryFilter.filter),
   })
     .then((response) => {
+      // Add any new roms to the store
+      const allRomsSet = [...allRoms.value, ...response.data.items];
+      romsStore.set(allRomsSet);
+      romsStore.setFiltered(allRomsSet);
+
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        romsStore.setSearch([...searchRoms.value, ...response.data.items]);
-        romsStore.setFiltered(searchRoms.value);
+        
+        const serchedRomsSet = [...searchRoms.value, ...response.data.items];
+        romsStore.setSearch(serchedRomsSet);
+        romsStore.setFiltered(serchedRomsSet);
       } else {
         cursor.value = response.data.next_page;
-        romsStore.set([...allRoms.value, ...response.data.items]);
-        romsStore.setFiltered(allRoms.value);
       }
     })
     .catch((error) => {
@@ -138,7 +143,7 @@ function selectRom({ event, index, selected }) {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   if (filteredRoms.value.length == 0) {
     fetchRoms(route.params.platform);
   }
@@ -148,11 +153,27 @@ onBeforeUnmount(() => {
   romsStore.resetSelection();
 });
 
-onBeforeRouteUpdate(async (to, _) => {
+onBeforeRouteLeave((to, from, next) => {
+  // Only reset selection if platform is the same
+  if (to.fullPath.includes(from.path)) {
+    romsStore.resetSelection();
+  // Otherwise reset store
+  } else {
+    cursor.value = "";
+    searchCursor.value = "";
+    romsStore.reset();
+  }
+
+  next();
+});
+
+onBeforeRouteUpdate((to, _) => {
+  // Reset store if switching to another platform
   cursor.value = "";
   searchCursor.value = "";
   romsStore.reset();
   fetchRoms(to.params.platform);
+  scrolledToTop.value = true;
 });
 </script>
 

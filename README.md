@@ -26,6 +26,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 * Scan your game library (all at once or by platform) and enriches it with IGDB metadata
 * Access your library via your web-browser
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
+* Upload games directly from your web-browser
+* Set a custom cover for each game
 * EmuDeck folder structure compatibility
 * Multiple files games support
 * Download games directly from your web-browser
@@ -34,12 +36,6 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 * Works with SQLite or MaridDB (SQLite by default)
 * Responsive design
 * Light and dark theme
-
-## 🛠 Roadmap
-
-* Upload games directly from your web-browser - [issue #54](https://github.com/zurdi15/romm/issues/54)
-* Manage save files directly from your web-browser - [issue #55](https://github.com/zurdi15/romm/issues/55)
-* Set a custom cover for each game - [issue #53](https://github.com/zurdi15/romm/issues/53)
 
 # Preview
 
@@ -139,6 +135,15 @@ Review the [Platforms support](#platform-support) section for device naming conv
   │     │
   │     ├─ rom_1.iso
   ```
+
+<h2 id="Authentication">🔒 Authentication</h2>
+
+If you want to enable the user management system, a redis container and some environment variables needs to be set. In the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) you will find the needed variables and an example of how to spin up a redis container:
+
+ - `ROMM_AUTH_ENABLED` and `ENABLE_EXPERIMENTAL_REDIS` must be set as `true`
+ - `ROMM_AUTH_SECRET_KEY` must be generated with `openssl rand -hex 32`
+ - `ROMM_AUTH_USERNAME` and `ROMM_AUTH_PASSWORD` can be set as wanted, being both `admin` by default.
+ - `REDIS_HOST` and `REDIS_PORT` must point to your redis instance
 
 <h2 id="configuration-file">⚙️ Configuration file</h2>
 
@@ -300,5 +305,5 @@ Games can be tagged with region, revision or other tags using parenthesis in the
 
 # 🎖 Credits
 
-* PC icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
+* Pc and Mac icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
 * Default user icon - <a target="_blank" href="https://icons8.com/icon/tZuAOUGm9AuS/user-default">User Default</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
