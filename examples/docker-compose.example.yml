@@ -14,8 +14,8 @@ services:
       - DB_NAME=romm # Should match the MYSQL_DATABASE value in the mariadb container
       - DB_PASSWD=<database password>
       # [Optional] Used to fetch metadata from IGDB
-      - CLIENT_ID=<IGDB client id>
-      - CLIENT_SECRET=<IGDB client secret>
+      - IGDB_CLIENT_ID=<IGDB client id>
+      - IGDB_CLIENT_SECRET=<IGDB client secret>
       # [Optional] Use SteamGridDB as a source for covers
       - STEAMGRIDDB_API_KEY=<SteamGridDB api key>
       # [Optional] Will enable user management and require authentication to access the interface (default to false)
