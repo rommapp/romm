@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer
 
 from config import DEFAULT_PATH_COVER_S
-from models.base import BaseModel
+from .base import BaseModel
 
 
 class Platform(BaseModel):

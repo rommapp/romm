@@ -1,9 +1,22 @@
 import axios from "axios";
-import useDownloadStore from "@/stores/download.js";
-import socket from "@/services/socket.js";
+import storeDownload from "@/stores/download";
+import socket from "@/services/socket";
+import router from "@/plugins/router";
+
+export const api = axios.create({ baseURL: "/api", timeout: 120000 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response.status === 403) {
+      router.push(`/login?next=${router.currentRoute.value.path}`);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export async function fetchPlatformsApi() {
-  return axios.get("/api/platforms");
+  return api.get("/platforms");
 }
 
 export async function fetchRomsApi({
@@ -12,17 +25,17 @@ export async function fetchRomsApi({
   size = 60,
   searchTerm = "",
 }) {
-  return axios.get(
-    `/api/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
+  return api.get(
+    `/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
   );
 }
 
 export async function fetchRomApi(platform, rom) {
-  return axios.get(`/api/platforms/${platform}/roms/${rom}`);
+  return api.get(`/platforms/${platform}/roms/${rom}`);
 }
 
 function clearRomFromDownloads({ id }) {
-  const downloadStore = useDownloadStore();
+  const downloadStore = storeDownload();
   downloadStore.remove(id);
 
   // Disconnect socket when no more downloads are in progress
@@ -46,41 +59,112 @@ export async function downloadRomApi(rom, files) {
   a.download = `${rom.r_name}.zip`;
   a.click();
 
-  if (!socket.connected) socket.connect();
-  useDownloadStore().add(rom.id);
+  // Only connect socket if multi-file download
+  if (rom.multi) {
+    if (!socket.connected) socket.connect();
+    storeDownload().add(rom.id);
 
-  // Clear download state after 60 seconds in case error/timeout
-  setTimeout(() => {
-    clearRomFromDownloads(rom);
-  }, 60 * 1000);
+    // Clear download state after 60 seconds in case error/timeout
+    setTimeout(() => {
+      clearRomFromDownloads(rom);
+    }, 60 * 1000);
+  }
 }
 
-export async function updateRomApi(rom, updatedData, renameAsIGDB) {
-  const updatedRom = {
-    r_igdb_id: updatedData.r_igdb_id,
-    r_slug: updatedData.r_slug,
-    summary: updatedData.summary,
-    url_cover: updatedData.url_cover,
-    url_screenshots: updatedData.url_screenshots,
-    r_name: updatedData.r_name,
-    file_name: renameAsIGDB
-      ? rom.file_name.replace(rom.file_name_no_tags, updatedData.r_name)
-      : updatedData.file_name,
-  };
-  return axios.patch(`/api/platforms/${rom.p_slug}/roms/${rom.id}`, {
-    updatedRom,
+export async function uploadRomsApi(romsToUpload, platform) {
+  let formData = new FormData();
+  romsToUpload.forEach((rom) => formData.append("roms", rom));
+  return api.put(`/platforms/${platform}/roms/upload`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
   });
 }
 
+export async function updateRomApi({
+  id,
+  r_igdb_id,
+  p_slug,
+  r_name,
+  r_slug,
+  file_name,
+  summary,
+  artwork,
+  url_cover,
+  url_screenshots,
+}) {
+  var formData = new FormData();
+  formData.append("r_igdb_id", r_igdb_id);
+  formData.append("r_name", r_name);
+  formData.append("r_slug", r_slug);
+  formData.append("file_name", file_name);
+  formData.append("url_cover", url_cover);
+  formData.append("summary", summary);
+  formData.append("url_screenshots", JSON.stringify(url_screenshots));
+  if (artwork) {
+    formData.append("artwork", artwork[0]);
+  }
+  return api.patch(`/platforms/${p_slug}/roms/${id}`, formData);
+}
+
 export async function deleteRomApi(rom, deleteFromFs) {
-  return axios.delete(
-    `/api/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
+  return api.delete(
+    `/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
+  );
+}
+
+export async function deleteRomsApi(roms, deleteFromFs) {
+  return api.post(
+    `/platforms/${roms[0].p_slug}/roms/delete?filesystem=${deleteFromFs}`,
+    { roms: roms.map((r) => r.id) }
   );
 }
 
 export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
-  return axios.put(
-    `/api/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
+  return api.put(
+    `/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
     { rom: rom }
   );
+}
+
+export async function fetchCurrentUserApi() {
+  return api.get("/users/me");
+}
+
+export async function fetchUsersApi() {
+  return api.get("/users");
+}
+
+export async function fetchUserApi(user) {
+  return api.get(`/users/${user.id}`);
+}
+
+export async function createUserApi({ username, password, role }) {
+  return api.post("/users", {}, { params: { username, password, role } });
+}
+
+export async function updateUserApi({
+  id,
+  username,
+  password,
+  role,
+  enabled,
+  avatar,
+}) {
+  return api.patch(
+    `/users/${id}`,
+    {
+      avatar: avatar ? avatar[0] : null,
+    },
+    {
+      headers: {
+        "Content-Type": avatar ? "multipart/form-data" : "application/json",
+      },
+      params: { username, password, role, enabled },
+    }
+  );
+}
+
+export async function deleteUserApi(user) {
+  return api.delete(`/users/${user.id}`);
 }

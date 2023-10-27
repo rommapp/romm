@@ -3,10 +3,12 @@ import shutil
 from pathlib import Path
 import datetime
 import requests
+from urllib.parse import quote
 
 from config import (
     LIBRARY_BASE_PATH,
     HIGH_PRIO_STRUCTURE_PATH,
+    ROMS_FOLDER_NAME,
     RESOURCES_BASE_PATH,
     DEFAULT_URL_COVER_L,
     DEFAULT_PATH_COVER_L,
@@ -14,7 +16,7 @@ from config import (
     DEFAULT_PATH_COVER_S,
 )
 from config.config_loader import config
-from utils.exceptions import (
+from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomsNotFoundException,
     RomNotFoundError,
@@ -63,7 +65,7 @@ def _get_cover_path(p_slug: str, r_name: str, size: str):
 
     Args:
         p_slug: short name of the platform
-        file_name: name of rom file
+        r_name: name of rom
         size: size of the cover -> big | small
     """
     strtime = str(datetime.datetime.now().timestamp())
@@ -71,11 +73,13 @@ def _get_cover_path(p_slug: str, r_name: str, size: str):
 
 
 def get_cover(overwrite: bool, p_slug: str, r_name: str, url_cover: str = "") -> dict:
+    rom_name = quote(r_name)
+
     # Cover small
     if (overwrite or not _cover_exists(p_slug, r_name, "small")) and url_cover:
         _store_cover(p_slug, r_name, url_cover, "small")
     path_cover_s = (
-        _get_cover_path(p_slug, r_name, "small")
+        _get_cover_path(p_slug, rom_name, "small")
         if _cover_exists(p_slug, r_name, "small")
         else DEFAULT_PATH_COVER_S
     )
@@ -84,7 +88,7 @@ def get_cover(overwrite: bool, p_slug: str, r_name: str, url_cover: str = "") ->
     if (overwrite or not _cover_exists(p_slug, r_name, "big")) and url_cover:
         _store_cover(p_slug, r_name, url_cover, "big")
     (path_cover_l, has_cover) = (
-        (_get_cover_path(p_slug, r_name, "big"), 1)
+        (_get_cover_path(p_slug, rom_name, "big"), 1)
         if _cover_exists(p_slug, r_name, "big")
         else (DEFAULT_PATH_COVER_L, 0)
     )
@@ -101,7 +105,7 @@ def _store_screenshot(p_slug: str, r_name: str, url: str, idx: int):
 
     Args:
         p_slug: short name of the platform
-        file_name: name of rom file
+        r_name: name of rom
         url: url to get the screenshot
     """
     screenshot_file: str = f"{idx}.jpg"
@@ -118,17 +122,19 @@ def _get_screenshot_path(p_slug: str, r_name: str, idx: str):
 
     Args:
         p_slug: short name of the platform
-        file_name: name of rom file
+        r_name: name of rom
         idx: index number of screenshot
     """
     return f"{p_slug}/{r_name}/screenshots/{idx}.jpg"
 
 
 def get_screenshots(p_slug: str, r_name: str, url_screenshots: list) -> dict:
+    rom_name = quote(r_name)
+
     path_screenshots: list[str] = []
     for idx, url in enumerate(url_screenshots):
         _store_screenshot(p_slug, r_name, url, idx)
-        path_screenshots.append(_get_screenshot_path(p_slug, r_name, str(idx)))
+        path_screenshots.append(_get_screenshot_path(p_slug, rom_name, str(idx)))
     return {"path_screenshots": path_screenshots}
 
 
@@ -172,9 +178,9 @@ def get_platforms() -> list[str]:
 # ========= Roms utils =========
 def get_roms_structure(p_slug: str):
     return (
-        f"roms/{p_slug}"
+        f"{ROMS_FOLDER_NAME}/{p_slug}"
         if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
-        else f"{p_slug}/roms"
+        else f"{p_slug}/{ROMS_FOLDER_NAME}"
     )
 
 
@@ -300,3 +306,26 @@ def remove_rom(p_slug: str, file_name: str):
             shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
     except FileNotFoundError as exc:
         raise RomNotFoundError(file_name, p_slug) from exc
+    
+
+def build_upload_roms_path(p_slug: str):
+    rom_path = get_roms_structure(p_slug)
+    return f"{LIBRARY_BASE_PATH}/{rom_path}"
+
+
+def build_artwork_path(r_name: str, p_slug: str, file_ext: str):
+    rom_name = quote(r_name)
+    strtime = str(datetime.datetime.now().timestamp())
+
+    path_cover_l = f"{p_slug}/{rom_name}/cover/big.{file_ext}?timestamp={strtime}"
+    path_cover_s = f"{p_slug}/{rom_name}/cover/small.{file_ext}?timestamp={strtime}"
+    artwork_path = f"{RESOURCES_BASE_PATH}/{p_slug}/{r_name}/cover"
+    Path(artwork_path).mkdir(parents=True, exist_ok=True)
+    return path_cover_l, path_cover_s, artwork_path
+
+
+# ========= Users utils =========
+def build_avatar_path(avatar_path: str, username: str):
+    avatar_user_path = f"{RESOURCES_BASE_PATH}/users/{username}"
+    Path(avatar_user_path).mkdir(parents=True, exist_ok=True)
+    return f"users/{username}/{avatar_path}", avatar_user_path

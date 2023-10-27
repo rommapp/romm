@@ -1,19 +1,22 @@
 <script setup>
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
-import { updateRomApi, searchRomIGDBApi } from "@/services/api.js";
+import { updateRomApi, searchRomIGDBApi } from "@/services/api";
+import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref();
+const romsStore = storeRoms();
 const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
 const matchedRoms = ref([]);
+const selectedScrapSource = ref(0);
 
 const emitter = inject("emitter");
-emitter.on("showSearchDialog", (romToSearch) => {
+emitter.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
@@ -36,18 +39,31 @@ async function searchRomIGDB() {
   }
 }
 
-async function updateRom(updatedData = { ...rom.value }) {
+async function updateRom(matchedRom) {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  await updateRomApi(rom.value, updatedData, renameAsIGDB.value)
-    .then((response) => {
+  rom.value.r_igdb_id = matchedRom.r_igdb_id;
+  rom.value.r_name = matchedRom.r_name;
+  rom.value.r_slug = matchedRom.r_slug;
+  rom.value.summay = matchedRom.summary;
+  rom.value.url_cover = matchedRom.url_cover;
+  rom.value.url_screenshots = matchedRom.url_screenshots;
+  rom.value.file_name = renameAsIGDB.value
+    ? rom.value.file_name.replace(
+        rom.value.file_name_no_tags,
+        matchedRom.r_name
+      )
+    : rom.value.file_name;
+
+  await updateRomApi(rom.value)
+    .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
-      emitter.emit("refreshGallery");
+      romsStore.update(data.rom);
     })
     .catch((error) => {
       emitter.emit("snackbarShow", {
@@ -62,7 +78,7 @@ async function updateRom(updatedData = { ...rom.value }) {
 }
 
 onBeforeUnmount(() => {
-  emitter.off("showSearchDialog");
+  emitter.off("showSearchRomDialog");
 });
 </script>
 
@@ -85,18 +101,46 @@ onBeforeUnmount(() => {
       }"
       rounded="0"
     >
-      <v-toolbar density="compact" class="bg-primary">
+      <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
             <v-icon icon="mdi-search-web" class="ml-5" />
-            <v-chip class="ml-5 text-rommAccent1" variant="outlined" label
-              >IGDB</v-chip
-            >
           </v-col>
-          <v-col>
+
+          <v-col cols="8" xs="8" sm="9" md="9" lg="10">
+            <v-item-group mandatory v-model="selectedScrapSource">
+              <v-item v-slot="{ isSelected, toggle }">
+                <v-chip
+                  class="mx-1"
+                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                  variant="outlined"
+                  label
+                  @click="toggle"
+                  >IGDB</v-chip
+                >
+              </v-item>
+              <!-- TODO: Ready item group to scrape from different sources -->
+              <!-- <v-item v-slot="{ isSelected, toggle }" disabled>
+                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'romm-gray'" variant="outlined" label @click="toggle"
+                  >ScreenScraper</v-chip
+                >
+              </v-item>
+              <v-item v-slot="{ isSelected, toggle }" disabled>
+                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'romm-gray'" variant="outlined" label @click="toggle"
+                  >MobyGames</v-chip
+                >
+              </v-item>
+              <v-item v-slot="{ isSelected, toggle }" disabled>
+                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'romm-gray'" variant="outlined" label @click="toggle"
+                  >RAWG</v-chip
+                >
+              </v-item> -->
+            </v-item-group>
+          </v-col>
+
+          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               @click="show = false"
-              class="bg-primary"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -105,6 +149,7 @@ onBeforeUnmount(() => {
           </v-col>
         </v-row>
       </v-toolbar>
+
       <v-divider class="border-opacity-25" :thickness="1" />
 
       <v-toolbar density="compact" class="bg-primary">
@@ -113,6 +158,7 @@ onBeforeUnmount(() => {
             <v-text-field
               @keyup.enter="searchRomIGDB()"
               @click:clear="searchTerm = ''"
+              class="bg-terciary"
               v-model="searchTerm"
               label="search"
               hide-details
@@ -122,6 +168,7 @@ onBeforeUnmount(() => {
           <v-col cols="3" xs="3" sm="2" md="2" lg="2">
             <v-select
               label="by"
+              class="bg-terciary"
               :items="['ID', 'Name']"
               v-model="searchBy"
               hide-details
@@ -131,7 +178,7 @@ onBeforeUnmount(() => {
             <v-btn
               type="submit"
               @click="searchRomIGDB()"
-              class="bg-primary"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-search-web"
@@ -142,7 +189,7 @@ onBeforeUnmount(() => {
         </v-row>
       </v-toolbar>
 
-      <v-card-text class="pa-1 scroll bg-secondary">
+      <v-card-text class="pa-1 scroll">
         <v-row
           class="justify-center loader-searching"
           v-show="searching"
@@ -151,7 +198,7 @@ onBeforeUnmount(() => {
           <v-progress-circular
             :width="2"
             :size="40"
-            color="rommAccent1"
+            color="romm-accent-1"
             indeterminate
           />
         </v-row>
@@ -171,24 +218,23 @@ onBeforeUnmount(() => {
             md="3"
             lg="2"
             v-show="!searching"
-            v-for="rom in matchedRoms"
-            :key="rom.file_name"
+            v-for="matchedRom in matchedRoms"
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
-                @click="updateRom((updatedData = rom))"
+                @click="updateRom(matchedRom)"
                 v-bind="props"
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
                 <v-tooltip activator="parent" location="top" class="tooltip">{{
-                  rom.r_name
+                  matchedRom.r_name
                 }}</v-tooltip>
-                <v-img v-bind="props" :src="rom.url_cover" cover />
+                <v-img v-bind="props" :src="matchedRom.url_cover" cover />
                 <v-card-text>
                   <v-row class="pa-1">
                     <span class="d-inline-block text-truncate">{{
-                      rom.r_name
+                      matchedRom.r_name
                     }}</span>
                   </v-row>
                 </v-card-text>
@@ -199,7 +245,8 @@ onBeforeUnmount(() => {
       </v-card-text>
 
       <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-primary" density="compact">
+
+      <v-toolbar class="bg-terciary" density="compact">
         <v-checkbox
           v-model="renameAsIGDB"
           label="Rename rom"

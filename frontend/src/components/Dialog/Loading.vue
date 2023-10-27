@@ -14,16 +14,20 @@ emitter.on("showLoadingDialog", (args) => {
 <template>
   <v-dialog
     :modelValue="show"
+    :scrim="false"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
     persistent
   >
-    <v-progress-circular
-      :width="3"
-      :size="70"
-      color="rommAccent1"
-      indeterminate
-    />
+    <v-card outlined color="transparent">
+      <v-card-text class="pa-4">
+        <v-progress-circular
+          :width="3"
+          :size="70"
+          color="romm-accent-1"
+          indeterminate
+        />
+      </v-card-text>
+    </v-card>
   </v-dialog>
 </template>
