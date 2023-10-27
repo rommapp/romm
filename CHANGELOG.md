@@ -1,7 +1,7 @@
 # v2.0.0 (_27-10-2023_)
 
 ## Added
- - User management system. Closes [#24](https://github.com/zurdi15/romm/issues/24)
+ - User management system. Check the [docker-compose.example.yml](docker/docker-compose.example.yml) for all the needed changes and environment variables. Closes [#24](https://github.com/zurdi15/romm/issues/24)
  - Gallery bulk selection. Closes [#50](https://github.com/zurdi15/romm/issues/50)
  - Roms upload feature.
  - Custom cover art.
