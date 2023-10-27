@@ -26,6 +26,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 * Scan your game library (all at once or by platform) and enriches it with IGDB metadata
 * Access your library via your web-browser
 * Possibility to select one of the matching IGDB results if the scan doesn't get the right one
+* Upload games directly from your web-browser
+* Set a custom cover for each game
 * EmuDeck folder structure compatibility
 * Multiple files games support
 * Download games directly from your web-browser
@@ -34,12 +36,6 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 * Works with SQLite or MaridDB (SQLite by default)
 * Responsive design
 * Light and dark theme
-
-## 🛠 Roadmap
-
-* Upload games directly from your web-browser - [issue #54](https://github.com/zurdi15/romm/issues/54)
-* Manage save files directly from your web-browser - [issue #55](https://github.com/zurdi15/romm/issues/55)
-* Set a custom cover for each game - [issue #53](https://github.com/zurdi15/romm/issues/53)
 
 # Preview
 
