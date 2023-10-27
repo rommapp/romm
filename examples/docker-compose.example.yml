@@ -34,7 +34,7 @@ services:
       - "/path/to/database:/romm/database" # [Optional] Only needed if ROMM_DB_DRIVER=sqlite or not set
       - "/path/to/logs:/romm/logs" # [Optional] Path where logs are stored
     ports:
-      - 80:80
+      - 80:8080
     depends_on:
       - romm_db
     restart: "unless-stopped"
