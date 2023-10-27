@@ -2,28 +2,31 @@
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { deleteRomApi } from "@/services/api.js";
+import { deleteRomsApi } from "@/services/api";
+import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
-const rom = ref();
+const romsStore = storeRoms();
+const roms = ref();
 const deleteFromFs = ref(false);
 
 const emitter = inject("emitter");
-emitter.on("showDeleteDialog", (romToDelete) => {
-  rom.value = romToDelete;
+emitter.on("showDeleteRomDialog", (romsToDelete) => {
+  roms.value = romsToDelete;
   show.value = true;
 });
 
-async function deleteRom() {
-  await deleteRomApi(rom.value, deleteFromFs.value)
+async function deleteRoms() {
+  await deleteRomsApi(roms.value, deleteFromFs.value)
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
+      romsStore.resetSelection();
     })
     .catch((error) => {
       console.log(error);
@@ -34,9 +37,14 @@ async function deleteRom() {
       });
       return;
     });
-  await router.push(`/platform/${rom.value.p_slug}`);
-  emitter.emit("refreshGallery");
-  emitter.emit("refreshPlatforms");
+
+  await router.push({
+    name: "platform",
+    params: { platform: roms.value[0].p_slug },
+  });
+
+  romsStore.remove(roms.value);
+  emitter.emit("refreshDrawer");
   show.value = false;
 }
 </script>
@@ -58,7 +66,7 @@ async function deleteRom() {
         'delete-content-mobile': xs,
       }"
     >
-      <v-toolbar density="compact" class="bg-primary">
+      <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
           <v-col cols="9" xs="9" sm="10" md="10" lg="11">
             <v-icon icon="mdi-delete" class="ml-5" />
@@ -66,7 +74,7 @@ async function deleteRom() {
           <v-col>
             <v-btn
               @click="show = false"
-              class="bg-primary"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -76,19 +84,36 @@ async function deleteRom() {
         </v-row>
       </v-toolbar>
       <v-divider class="border-opacity-25" :thickness="1" />
-
-      <v-card-text class="bg-secondary">
+      <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <span>Deleting {{ rom.file_name }}. Do you confirm?</span>
+          <span>Deleting the following</span>
+          <span class="text-romm-accent-2 mx-1">{{ roms.length }}</span>
+          <span>games. Do you confirm?</span>
         </v-row>
+      </v-card-text>
+      <v-card-text class="scroll bg-terciary py-0">
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false">Cancel</v-btn>
-          <v-btn @click="deleteRom()" class="text-red ml-5">Confirm</v-btn>
+          <v-list class="bg-terciary py-0">
+            <v-list-item v-for="rom in roms" class="justify-center bg-terciary"
+              >{{ rom.r_name }} - [<span class="text-romm-accent-1">{{
+                rom.file_name
+              }}</span
+              >]</v-list-item
+            >
+          </v-list>
+        </v-row>
+      </v-card-text>
+      <v-card-text>
+        <v-row class="justify-center pa-2" no-gutters>
+          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="deleteRoms()" class="text-romm-red bg-terciary ml-5"
+            >Confirm</v-btn
+          >
         </v-row>
       </v-card-text>
 
       <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-primary" density="compact">
+      <v-toolbar class="bg-terciary" density="compact">
         <v-checkbox
           v-model="deleteFromFs"
           label="Remove from filesystem"
@@ -103,13 +128,19 @@ async function deleteRom() {
 <style scoped>
 .delete-content {
   width: 900px;
+  max-height: 600px;
 }
 
 .delete-content-tablet {
   width: 570px;
+  max-height: 600px;
 }
 
 .delete-content-mobile {
   width: 85vw;
+  max-height: 600px;
+}
+.scroll {
+  overflow-y: scroll;
 }
 </style>

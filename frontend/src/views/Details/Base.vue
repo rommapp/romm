@@ -2,20 +2,25 @@
 import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { fetchRomApi, downloadRomApi } from "@/services/api.js";
-import useDownloadStore from "@/stores/download.js";
+import { storeToRefs } from "pinia";
+import { fetchRomApi, downloadRomApi } from "@/services/api";
+import storeRoms from "@/stores/roms";
+import storeDownload from "@/stores/download";
+import storeAuth from "@/stores/auth";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
-import SearchRomDialog from "@/components/Dialog/SearchRom.vue";
-import EditRomDialog from "@/components/Dialog/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/DeleteRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const route = useRoute();
-const downloadStore = useDownloadStore();
-const rom = ref();
-const updatedRom = ref();
+const romsStore = storeRoms();
+const { allRoms } = storeToRefs(romsStore);
+const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
+const downloadStore = storeDownload();
+const auth = storeAuth();
 const saveFiles = ref(false);
 const filesToDownload = ref();
 const tab = ref("details");
@@ -28,18 +33,27 @@ const emitter = inject("emitter");
 // Functions
 onBeforeMount(async () => {
   emitter.emit("showLoadingDialog", { loading: true, scrim: false });
-  await fetchRomApi(route.params.platform, route.params.rom)
-    .then((response) => {
-      rom.value = response.data;
-      updatedRom.value = response.data;
-      downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
-    })
-    .catch((error) => {
-      console.log(error);
-    })
-    .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
-    });
+  if (rom.value) {
+    emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+  } else {
+    await fetchRomApi(route.params.platform, route.params.rom)
+      .then((response) => {
+        rom.value = response.data;
+        romsStore.update(response.data);
+        downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
+      })
+      .catch((error) => {
+        console.log(error);
+        emitter.emit("snackbarShow", {
+          msg: error.response.data.detail,
+          icon: "mdi-close-circle",
+          color: "red",
+        });
+      })
+      .finally(() => {
+        emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      });
+  }
 });
 </script>
 
@@ -67,11 +81,10 @@ onBeforeMount(async () => {
             <v-card
               elevation="2"
               :loading="
-                downloadStore.value.includes(rom.id)
-                  ? 'rommAccent1'
-                  : null
+                downloadStore.value.includes(rom.id) ? 'romm-accent-1' : null
               "
             >
+              <!-- TODO: fix image reload when rom update -->
               <v-img
                 :src="`/assets/romm/resources/${rom.path_cover_l}`"
                 :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
@@ -80,7 +93,7 @@ onBeforeMount(async () => {
                 <template v-slot:placeholder>
                   <div class="d-flex align-center justify-center fill-height">
                     <v-progress-circular
-                      color="rommAccent1"
+                      color="romm-accent-1"
                       :width="2"
                       :size="20"
                       indeterminate
@@ -91,7 +104,7 @@ onBeforeMount(async () => {
             </v-card>
           </v-col>
         </v-row>
-        <v-row class="pl-3 pr-3 action-buttons">
+        <v-row class="px-3 action-buttons">
           <v-col class="pa-0">
             <template v-if="rom.multi">
               <v-btn
@@ -124,7 +137,12 @@ onBeforeMount(async () => {
           <v-col class="pa-0">
             <v-menu location="bottom">
               <template v-slot:activator="{ props }">
-                <v-btn v-bind="props" rounded="0" block>
+                <v-btn
+                  :disabled="!auth.scopes.includes('roms.write')"
+                  v-bind="props"
+                  rounded="0"
+                  block
+                >
                   <v-icon icon="mdi-dots-vertical" size="large" />
                 </v-btn>
               </template>
@@ -188,7 +206,7 @@ onBeforeMount(async () => {
             'details-content-mobile': xs,
           }"
         >
-          <v-tabs v-model="tab" slider-color="rommAccent1" rounded="0">
+          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0" disabled
               >Saves<span class="text-caption text-truncate ml-1"
@@ -240,7 +258,7 @@ onBeforeMount(async () => {
                     item-title="file_name"
                     v-model="filesToDownload"
                     :items="rom.files"
-                    class="mt-2 mb-2"
+                    class="my-2"
                     density="compact"
                     variant="outlined"
                     return-object
@@ -324,7 +342,7 @@ onBeforeMount(async () => {
                 <v-carousel
                   hide-delimiter-background
                   delimiter-icon="mdi-square"
-                  class="bg-rommBlack"
+                  class="bg-romm-black"
                   show-arrows="hover"
                   height="400"
                 >

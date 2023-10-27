@@ -1,7 +1,7 @@
 <script setup>
 import { inject, ref, onMounted } from "vue";
 import { debounce } from "lodash";
-import storeGalleryFilter from "@/stores/galleryFilter.js";
+import storeGalleryFilter from "@/stores/galleryFilter";
 
 // Props
 const galleryFilter = storeGalleryFilter();
@@ -10,7 +10,7 @@ const filterValue = ref("");
 // Event listeners bus
 const emitter = inject("emitter");
 onMounted(() => {
-  filterValue.value = galleryFilter.value;
+  filterValue.value = galleryFilter.filter;
 });
 
 function clearFilter() {
@@ -31,6 +31,7 @@ const filterRoms = debounce(() => {
     v-model="filterValue"
     prepend-inner-icon="mdi-magnify"
     label="search"
+    rounded="0"
     hide-details
     clearable
   />

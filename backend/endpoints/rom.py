@@ -1,19 +1,29 @@
 from datetime import datetime
-from fastapi import APIRouter, Request, status, HTTPException
+import json
+from typing import Optional
+from fastapi import (
+    APIRouter,
+    Request,
+    status,
+    HTTPException,
+    File,
+    UploadFile,
+)
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, BaseConfig
 
 from stat import S_IFREG
-from stream_zip import ZIP_64, stream_zip
+from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 
 from logger.logger import log
 from handler import dbh
 from utils import fs, get_file_name_with_no_tags
-from utils.exceptions import RomNotFoundError, RomAlreadyExistsException
-from models.rom import Rom
-from models.platform import Platform
+from utils.fs import _rom_exists, build_artwork_path, build_upload_roms_path
+from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
+from utils.oauth import protected_route
+from models import Rom, Platform
 from config import LIBRARY_BASE_PATH
 
 from .utils import CustomStreamingResponse
@@ -66,15 +76,42 @@ class RomSchema(BaseModel):
         orm_mode = True
 
 
-@router.get("/platforms/{p_slug}/roms/{id}", status_code=200)
-def rom(id: int) -> RomSchema:
+@protected_route(router.get, "/platforms/{p_slug}/roms/{id}", ["roms.read"])
+def rom(request: Request, id: int) -> RomSchema:
     """Returns one rom data of the desired platform"""
 
     return dbh.get_rom(id)
 
 
-@router.get("/platforms/{p_slug}/roms/{id}/download", status_code=200)
-def download_rom(id: int, files: str):
+@protected_route(router.put, "/platforms/{p_slug}/roms/upload", ["roms.write"])
+def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = File(...)):
+    platform_fs_slug = dbh.get_platform(p_slug).fs_slug
+    log.info(f"Uploading files to: {platform_fs_slug}")
+    if roms is not None:
+        roms_path = build_upload_roms_path(platform_fs_slug)
+        for rom in roms: #TODO: Refactor code to avoid double loop
+            if _rom_exists(p_slug, rom.filename):
+                error = f"{rom.filename} already exists"
+                log.error(error)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
+                )
+        for rom in roms:
+            log.info(f" - Uploading {rom.filename}")
+            file_location = f"{roms_path}/{rom.filename}"
+            f = open(file_location, 'wb+')
+            while True:
+                chunk = rom.file.read(1024)  
+                if not chunk: break
+                f.write(chunk)
+            f.close()
+        dbh.update_n_roms(p_slug)
+        return {"msg": f"{len(roms)} roms uploaded successfully!"}
+
+
+@protected_route(router.get, "/platforms/{p_slug}/roms/{id}/download", ["roms.read"])
+def download_rom(request: Request, id: int, files: str):
+    """Downloads a rom or a zip file with multiple roms"""
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
@@ -104,9 +141,13 @@ def download_rom(id: int, files: str):
     )
 
 
-@router.get("/platforms/{p_slug}/roms", status_code=200)
+@protected_route(router.get, "/platforms/{p_slug}/roms", ["roms.read"])
 def roms(
-    p_slug: str, size: int = 60, cursor: str = "", search_term: str = ""
+    request: Request,
+    p_slug: str,
+    size: int = 60,
+    cursor: str = "",
+    search_term: str = "",
 ) -> CursorPage[RomSchema]:
     """Returns all roms of the desired platform"""
     with dbh.session.begin() as session:
@@ -123,58 +164,96 @@ def roms(
         return paginate(session, qq, cursor_params)
 
 
-@router.patch("/platforms/{p_slug}/roms/{id}", status_code=200)
-async def updateRom(req: Request, p_slug: str, id: int) -> dict:
+@protected_route(router.patch, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
+async def update_rom(
+    request: Request,
+    p_slug: str,
+    id: int,
+    artwork: Optional[UploadFile] = File(None),
+) -> dict:
     """Updates rom details"""
 
-    data: dict = await req.json()
-    updated_rom: dict = data["updatedRom"]
-    db_rom: Rom = dbh.get_rom(id)
-    platform: Platform = dbh.get_platform(p_slug)
+    data = await request.form()
+    cleaned_data = {}
+    cleaned_data["r_igdb_id"] = data["r_igdb_id"]
+    cleaned_data["r_name"] = data["r_name"]
+    cleaned_data["r_slug"] = data["r_slug"]
+    cleaned_data["file_name"] = data["file_name"]
+    cleaned_data["url_cover"] = data["url_cover"]
+    cleaned_data["summary"] = data["summary"]
+    cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
 
-    file_name = updated_rom.get("file_name", db_rom.file_name)
+    db_rom: Rom = dbh.get_rom(id)
+    db_platform: Platform = dbh.get_platform(p_slug)
 
     try:
-        if file_name != db_rom.file_name:
-            fs.rename_rom(platform.fs_slug, db_rom.file_name, file_name)
+        if cleaned_data["file_name"] != db_rom.file_name:
+            fs.rename_rom(
+                db_platform.fs_slug, db_rom.file_name, cleaned_data["file_name"]
+            )
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    updated_rom["file_name_no_tags"] = get_file_name_with_no_tags(file_name)
-    updated_rom.update(
+    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(
+        cleaned_data["file_name"]
+    )
+
+    cleaned_data.update(
         fs.get_cover(
-            overwrite=True,
-            p_slug=platform.slug,
-            r_name=updated_rom["file_name_no_tags"],
-            url_cover=updated_rom["url_cover"],
+            overwrite=not db_rom.has_cover,
+            p_slug=db_platform.slug,
+            r_name=cleaned_data["file_name_no_tags"],
+            url_cover=cleaned_data.get("url_cover", ""),
         )
     )
-    updated_rom.update(
+
+    cleaned_data.update(
         fs.get_screenshots(
-            p_slug=platform.slug,
-            r_name=updated_rom["file_name_no_tags"],
-            url_screenshots=updated_rom["url_screenshots"],
+            p_slug=db_platform.slug,
+            r_name=cleaned_data["file_name_no_tags"],
+            url_screenshots=cleaned_data.get("url_screenshots", []),
         ),
     )
-    dbh.update_rom(id, updated_rom)
+
+    if artwork is not None:
+        file_ext = artwork.filename.split(".")[-1]
+        path_cover_l, path_cover_s, artwork_path = build_artwork_path(
+            cleaned_data["r_name"], db_platform.fs_slug, file_ext
+        )
+
+        cleaned_data["path_cover_l"] = path_cover_l
+        cleaned_data["path_cover_s"] = path_cover_s
+        cleaned_data["has_cover"] = 1
+
+        artwork_file = artwork.file.read()
+        file_location_s = f"{artwork_path}/small.{file_ext}"
+        with open(file_location_s, "wb+") as artwork_s:
+            artwork_s.write(artwork_file)
+
+        file_location_l = f"{artwork_path}/big.{file_ext}"
+        with open(file_location_l, "wb+") as artwork_l:
+            artwork_l.write(artwork_file)
+
+    dbh.update_rom(id, cleaned_data)
 
     return {
         "rom": dbh.get_rom(id),
-        "msg": f"{file_name} updated successfully!",
+        "msg": "Rom updated successfully!",
     }
 
 
-@router.delete("/platforms/{p_slug}/roms/{id}", status_code=200)
-def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
-    """Detele rom from database [and filesystem]"""
+def _delete_single_rom(rom_id: int, p_slug: str, filesystem: bool = False):
+    rom = dbh.get_rom(rom_id)
+    if not rom:
+        error = f"Rom with id {rom_id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    rom: Rom = dbh.get_rom(id)
     log.info(f"Deleting {rom.file_name} from database")
-    dbh.delete_rom(id)
-    dbh.update_n_roms(p_slug)
+    dbh.delete_rom(rom_id)
 
     if filesystem:
         log.info(f"Deleting {rom.file_name} from filesystem")
@@ -186,4 +265,35 @@ def delete_rom(p_slug: str, id: int, filesystem: bool = False) -> dict:
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+    return rom
+
+
+@protected_route(router.delete, "/platforms/{p_slug}/roms/{id}", ["roms.write"])
+def delete_rom(
+    request: Request, p_slug: str, id: int, filesystem: bool = False
+) -> dict:
+    """Detele rom from database [and filesystem]"""
+
+    rom = _delete_single_rom(id, p_slug, filesystem)
+    dbh.update_n_roms(p_slug)
+
     return {"msg": f"{rom.file_name} deleted successfully!"}
+
+
+@protected_route(router.post, "/platforms/{p_slug}/roms/delete", ["roms.write"])
+async def mass_delete_roms(
+    request: Request,
+    p_slug: str,
+    filesystem: bool = False,
+) -> dict:
+    """Detele multiple roms from database [and filesystem]"""
+
+    data: dict = await request.json()
+    roms_ids: list = data["roms"]
+
+    for rom_id in roms_ids:
+        _delete_single_rom(rom_id, p_slug, filesystem)
+
+    dbh.update_n_roms(p_slug)
+
+    return {"msg": f"{len(roms_ids)} roms deleted successfully!"}

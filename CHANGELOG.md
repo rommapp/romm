@@ -1,3 +1,27 @@
+# v2.0.0 (_27-10-2023_)
+
+## Added
+ - User management system. Closes [#24](https://github.com/zurdi15/romm/issues/24)
+ - Gallery bulk selection. Closes [#50](https://github.com/zurdi15/romm/issues/50)
+ - Roms upload feature.
+ - Custom cover art.
+ - Custom name for `roms` folder throught the `ROMS_FOLDER_NAME` environment variable. Closes [#356](https://github.com/zurdi15/romm/issues/356)
+ - Added `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` as environment variables. `CLIENT_ID` and `CLIENT_ID` are deprecated and will be removed in future versions.
+ - Added icons for more platforms: CD-i, 3DO, Neo Geo Pocket Color, Nintendo 64DD, Satellaview, Playdia, Pippin, Mac
+
+## Fixed
+ - Fixed some checks before renaming a rom to avoid breaking names. Closes [#348](https://github.com/zurdi15/romm/issues/348)
+ - A lot of other minor bugs.
+
+## Changed
+ - RomM internal port changed from `80` to `8080.
+ - RomM docker image size reduced significantly.
+ - Improved scanning and IGDB requests returning first the exact match.
+ - Scan now times out at 4 hours to improve scans for larger libraries.
+ - Other minimal changes in platform icons.
+
+<br>
+
 # v1.10 (_15-08-2023_)
 
 ## Added
@@ -11,8 +35,6 @@
 ## Changed
  - Improved scanning and IGDB requests logs. Fixes [#317](https://github.com/zurdi15/romm/issues/317)
  - Improved downloading process.  Fixes [#332](https://github.com/zurdi15/romm/issues/332)
-
-
 
 <!-- **_Note_**: Experimental support for redis in the backend was added for anyone that wants to test it (it's experimental so expect some bugs). It's not required yet (check docker-compose.example.yml to check how to set the needed environment variables) but it will likely be introduced in 2.0. -->
 

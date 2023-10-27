@@ -1,6 +1,9 @@
+from sqlalchemy.exc import IntegrityError
+
 from handler.db_handler import DBHandler
-from models.platform import Platform
-from models.rom import Rom
+from models import Platform, Rom, User
+from models.user import Role
+from utils.auth import get_password_hash
 
 dbh = DBHandler()
 
@@ -62,3 +65,41 @@ def test_utils(rom):
     with dbh.session.begin() as session:
         roms = session.scalars(dbh.get_roms("test_platform_slug")).all()
         assert dbh.rom_exists("test_platform_slug", "test_rom") == roms[0].id
+
+
+def test_users(admin_user):
+    dbh.add_user(
+        User(
+            username="new_user",
+            hashed_password=get_password_hash("new_password"),
+        )
+    )
+
+    all_users = dbh.get_users()
+    assert len(all_users) == 2
+
+    new_user = dbh.get_user_by_username("new_user")
+    assert new_user.username == "new_user"
+    assert new_user.role == Role.VIEWER
+    assert new_user.enabled
+
+    dbh.update_user(new_user.id, {"role": Role.EDITOR})
+
+    new_user = dbh.get_user(new_user.id)
+    assert new_user.role == Role.EDITOR
+
+    dbh.delete_user(new_user.id)
+
+    all_users = dbh.get_users()
+    assert len(all_users) == 1
+
+    try:
+        new_user = dbh.add_user(
+            User(
+                username="test_admin",
+                hashed_password=get_password_hash("new_password"),
+                role=Role.ADMIN,
+            )
+        )
+    except IntegrityError as e:
+        assert "Duplicate entry 'test_admin' for key" in str(e)

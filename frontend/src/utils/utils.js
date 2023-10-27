@@ -34,3 +34,5 @@ export function normalizeString(s) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
+
+export const defaultAvatarPath = "/assets/default_avatar.png";

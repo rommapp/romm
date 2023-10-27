@@ -1,13 +1,15 @@
 <script setup>
 import { ref } from "vue";
-import { downloadRomApi } from "@/services/api.js";
-import useDownloadStore from "@/stores/download.js";
+import { downloadRomApi } from "@/services/api";
+import storeDownload from "@/stores/download";
+import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
 // Props
 const props = defineProps(["rom"]);
 const saveFiles = ref(false);
-const downloadStore = useDownloadStore();
+const auth = storeAuth();
+const downloadStore = storeDownload();
 const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
 </script>
 
@@ -48,6 +50,7 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
         <template v-slot:activator="{ props }">
           <v-btn
             @click=""
+            :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             icon="mdi-dots-vertical"
             size="x-small"

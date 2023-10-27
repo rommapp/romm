@@ -6,21 +6,19 @@ import re
 import time
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
-from typing import Optional
+from typing import Final
 
-from config import CLIENT_ID, CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
 from .ps2_opl_index import opl_index
 
-MAIN_GAME_CATEGORY = 0
-EXPANDED_GAME_CATEGORY = 10
-
-N_SCREENSHOTS = 5
-
-ps2_opl_regex = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
-PS2_IGDB_ID = 8
+MAIN_GAME_CATEGORY: Final = 0
+EXPANDED_GAME_CATEGORY: Final = 10
+N_SCREENSHOTS: Final = 5
+PS2_IGDB_ID: Final = 8
+PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 
 
 class IGDBHandler:
@@ -31,7 +29,7 @@ class IGDBHandler:
         self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
         self.twitch_auth = TwitchAuth()
         self.headers = {
-            "Client-ID": CLIENT_ID,
+            "Client-ID": IGDB_CLIENT_ID,
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
@@ -51,9 +49,27 @@ class IGDBHandler:
         try:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
             res.raise_for_status()
+            return res.json()
+        except HTTPError as err:
+            # Retry once if the auth token is invalid
+            if err.response.status_code != 401:
+                log.error(err)
+                return []  # All requests to the IGDB API return a list
+            
+            # Attempt to force a token refresh if the token is invalid
+            log.warning("Twitch token invalid: fetching a new one...")
+            token = self.twitch_auth._update_twitch_token()
+            self.headers["Authorization"] = f"Bearer {token}"
+        except Timeout:
+            # Retry once the request if it times out
+            pass
+
+        try:
+            res = requests.post(url, data, headers=self.headers, timeout=timeout)
+            res.raise_for_status()
         except (HTTPError, Timeout) as err:
+            # Log the error and return an empty list if the request fails again
             log.error(err)
-            # All requests to the IGDB API return a list
             return []
 
         return res.json()
@@ -69,7 +85,14 @@ class IGDBHandler:
             """,
         )
 
-        return pydash.get(roms, "[0]", {})
+        exact_matches = [
+            rom
+            for rom in roms
+            if rom["name"].lower() == search_term.lower()
+            or rom["slug"].lower() == search_term.lower()
+        ]
+
+        return pydash.get(exact_matches or roms, "[0]", {})
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
@@ -121,8 +144,8 @@ class IGDBHandler:
     def get_rom(self, file_name: str, p_igdb_id: int):
         search_term = get_search_term(file_name)
 
-        # Patch support for PS2 OPL filename format
-        match = re.match(ps2_opl_regex, search_term)
+        # Patch support for PS2 OPL flename format
+        match = re.match(PS2_OPL_REGEX, search_term)
         if p_igdb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
             index_entry = opl_index.get(serial_code, None)
@@ -135,7 +158,7 @@ class IGDBHandler:
             or self._search_rom(uc(search_term), p_igdb_id)
         )
 
-        r_igdb_id = res.get("id", 0)
+        r_igdb_id = res.get("id", "")
         r_slug = res.get("slug", "")
         r_name = res.get("name", search_term)
         summary = res.get("summary", "")
@@ -208,8 +231,8 @@ class TwitchAuth:
         res = requests.post(
             url="https://id.twitch.tv/oauth2/token",
             params={
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
+                "client_id": IGDB_CLIENT_ID,
+                "client_secret": IGDB_CLIENT_SECRET,
                 "grant_type": "client_credentials",
             },
             timeout=30,
@@ -224,8 +247,8 @@ class TwitchAuth:
             sys.exit(2)
 
         # Set token in redis to expire in <expires_in> seconds
-        cache.set("twitch_token", token, ex=expires_in - 10)  # type: ignore
-        cache.set("twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore
+        cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
+        cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore[attr-defined]
 
         log.info("Twitch token fetched!")
 
@@ -237,8 +260,8 @@ class TwitchAuth:
             return "test_token"
 
         # Fetch the token cache
-        token = cache.get("twitch_token")  # type: ignore
-        token_expires_at = cache.get("twitch_token_expires_at")  # type: ignore
+        token = cache.get("romm:twitch_token")  # type: ignore[attr-defined]
+        token_expires_at = cache.get("romm:twitch_token_expires_at")  # type: ignore[attr-defined]
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
