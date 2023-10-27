@@ -140,6 +140,15 @@ Review the [Platforms support](#platform-support) section for device naming conv
   │     ├─ rom_1.iso
   ```
 
+<h2 id="Authentication">🔒 Authentication</h2>
+
+If you want to enable the user management system, a redis container and some environment variables needs to be set. In the [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) you will find the needed variables and an example of how to spin up a redis container:
+
+ - `ROMM_AUTH_ENABLED` and `ENABLE_EXPERIMENTAL_REDIS` must be set as `true`
+ - `ROMM_AUTH_SECRET_KEY` must be generated with `openssl rand -hex 32`
+ - `ROMM_AUTH_USERNAME` and `ROMM_AUTH_PASSWORD` can be set as wanted, being both `admin` by default.
+ - `REDIS_HOST` and `REDIS_PORT` must point to your redis instance
+
 <h2 id="configuration-file">⚙️ Configuration file</h2>
 
 RomM can be configured through a yml file.
