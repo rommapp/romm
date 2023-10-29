@@ -17,7 +17,7 @@ const platforms = storePlatforms();
     <v-card-text>
       <v-row>
         <v-col
-          v-for="platform in platforms.value"
+          v-for="platform in platforms.filledPlatforms"
           class="pa-1"
           :key="platform.slug"
           :cols="views[0]['size-cols']"

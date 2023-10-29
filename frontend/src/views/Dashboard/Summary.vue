@@ -10,7 +10,7 @@ const platforms = storePlatforms();
       <v-chip-group>
         <v-chip class="text-overline" variant="text" label>
           <v-icon class="mr-2">mdi-controller</v-icon
-          >{{ platforms.value.length }} Platforms
+          >{{ platforms.filledPlatforms.length }} Platforms
         </v-chip>
         <v-chip class="text-overline" variant="text" label>
           <v-icon class="mr-2">mdi-disc</v-icon>{{ platforms.totalGames }} Games
