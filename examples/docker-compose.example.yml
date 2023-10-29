@@ -40,9 +40,9 @@ services:
     restart: "unless-stopped"
 
   # [Optional] Only required if using MariaDB as the database
-  mariadb:
+  romm_db:
     image: mariadb:latest
-    container_name: mariadb
+    container_name: romm_db
     environment:
       - MYSQL_ROOT_PASSWORD=<root password>
       - MYSQL_DATABASE=romm
