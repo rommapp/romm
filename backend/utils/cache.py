@@ -3,7 +3,7 @@ from redis import Redis
 from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, ENABLE_EXPERIMENTAL_REDIS
 
 redis_client = Redis(host=REDIS_HOST, port=int(REDIS_PORT), password=REDIS_PASSWORD, db=0)
-redis_url = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+redis_url = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}" if REDIS_PASSWORD else f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
 
 class FallbackCache:
