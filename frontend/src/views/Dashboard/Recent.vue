@@ -1,6 +1,5 @@
 <script setup>
-import { onMounted } from "vue";
-import { storeToRefs } from "pinia";
+import { onMounted, ref } from "vue";
 import { views } from "@/utils/utils";
 import { fetchRecentRoms } from "@/services/api";
 import storeRoms from "@/stores/roms";
@@ -13,8 +12,14 @@ import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 // Props
 const romsStore = storeRoms();
-const { selectedRoms, searchRoms, cursor, searchCursor } =
-  storeToRefs(romsStore);
+const scroll_container = ref();
+
+// Methods
+function scrollX(e) {
+  // TODO: fix horizontal scroll with wheel
+  scroll_container.value.scrollLeft += e.deltaY;
+}
+
 onMounted(async () => {
   const { data: recentData } = await fetchRecentRoms();
   romsStore.setRecentRoms(recentData);
@@ -30,9 +35,13 @@ onMounted(async () => {
     >
     <v-divider class="border-opacity-25" />
     <v-card-text>
-      <v-row>
+      <v-row
+        ref="scroll_container"
+        @mousewheel="scrollX"
+        class="flex-nowrap overflow-x-auto"
+      >
         <v-col
-          class="pa-1"
+          class="pa-1 pb-2"
           v-for="rom in romsStore.recentRoms"
           :key="rom.id"
           :cols="views[0]['size-cols']"
@@ -44,6 +53,8 @@ onMounted(async () => {
           <game-card :rom="rom" :showSelector="false" />
         </v-col>
       </v-row>
+      <!-- TODO: Check recently added games in the last 30 days -->
+      <!-- TODO: Add a button to upload roms if no roms were uploaded in the last 30 days -->
     </v-card-text>
   </v-card>
 
