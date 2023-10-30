@@ -2,7 +2,7 @@
 const props = defineProps(["value", "icon"]);
 </script>
 <template>
-  <v-col :key="value" cols="6" sm="3" md="2" lg="2" class="px-2">
+  <v-col :key="value" cols="4" sm="3" md="2" lg="2" class="pa-1">
     <v-item v-slot="{ isSelected, toggle }">
       <v-card
         :color="isSelected ? 'romm-accent-1' : 'romm-gray'"

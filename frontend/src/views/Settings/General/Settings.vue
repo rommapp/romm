@@ -46,10 +46,9 @@ onBeforeMount(async () => {
   switchUpdate =
     switchUpdate.charAt(0).toLocaleLowerCase() + switchUpdate.substr(1);
 
-  let mameUpdate = cronstrue.toString(
-    data.SCHEDULED_UPDATE_MAME_XML_CRON,
-    { verbose: true }
-  );
+  let mameUpdate = cronstrue.toString(data.SCHEDULED_UPDATE_MAME_XML_CRON, {
+    verbose: true,
+  });
   mameUpdate = mameUpdate.charAt(0).toLocaleLowerCase() + mameUpdate.substr(1);
 
   heartbeat.value = {
@@ -71,7 +70,7 @@ onBeforeMount(async () => {
 
     <v-divider class="border-opacity-25" />
 
-    <v-card-text>
+    <v-card-text class="pa-3">
       <v-item-group
         mandatory
         v-model="selectedTheme"
@@ -116,6 +115,11 @@ onBeforeMount(async () => {
           }"
         >
           <v-icon
+            :class="
+              heartbeat.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE
+                ? 'text-romm-accent-1'
+                : ''
+            "
             :icon="
               heartbeat.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE
                 ? 'mdi-file-check-outline'
@@ -123,7 +127,13 @@ onBeforeMount(async () => {
             "
           />
           <div class="ml-3">
-            <v-label class="font-weight-bold"
+            <v-label
+              class="font-weight-bold"
+              :class="
+                heartbeat.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE
+                  ? 'text-romm-accent-1'
+                  : ''
+              "
               >Rescan on filesystem change</v-label
             >
             <p class="mt-1">
@@ -142,6 +152,9 @@ onBeforeMount(async () => {
           }"
         >
           <v-icon
+            :class="
+              heartbeat.ENABLE_SCHEDULED_RESCAN ? 'text-romm-accent-1' : ''
+            "
             :icon="
               heartbeat.ENABLE_SCHEDULED_RESCAN
                 ? 'mdi-clock-check-outline'
@@ -149,7 +162,13 @@ onBeforeMount(async () => {
             "
           />
           <div class="ml-3">
-            <v-label class="font-weight-bold">Scheduled rescan</v-label>
+            <v-label
+              class="font-weight-bold"
+              :class="
+                heartbeat.ENABLE_SCHEDULED_RESCAN ? 'text-romm-accent-1' : ''
+              "
+              >Scheduled rescan</v-label
+            >
             <p class="mt-1">
               Rescans the entire library
               {{ heartbeat.SCHEDULED_RESCAN_CRON }}
@@ -166,6 +185,11 @@ onBeforeMount(async () => {
           }"
         >
           <v-icon
+            :class="
+              heartbeat.ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
+                ? 'text-romm-accent-1'
+                : ''
+            "
             :icon="
               heartbeat.ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
                 ? 'mdi-clock-check-outline'
@@ -173,7 +197,14 @@ onBeforeMount(async () => {
             "
           />
           <div class="ml-3">
-            <v-label class="font-weight-bold">
+            <v-label
+              class="font-weight-bold"
+              :class="
+                heartbeat.ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
+                  ? 'text-romm-accent-1'
+                  : ''
+              "
+            >
               Scheduled Switch TitleDB update
             </v-label>
             <p class="mt-1">
@@ -192,6 +223,11 @@ onBeforeMount(async () => {
           }"
         >
           <v-icon
+            :class="
+              heartbeat.ENABLE_SCHEDULED_UPDATE_MAME_XML
+                ? 'text-romm-accent-1'
+                : ''
+            "
             :icon="
               heartbeat.ENABLE_SCHEDULED_UPDATE_MAME_XML
                 ? 'mdi-clock-check-outline'
@@ -199,7 +235,14 @@ onBeforeMount(async () => {
             "
           />
           <div class="ml-3">
-            <v-label class="font-weight-bold">
+            <v-label
+              class="font-weight-bold"
+              :class="
+                heartbeat.ENABLE_SCHEDULED_UPDATE_MAME_XML
+                  ? 'text-romm-accent-1'
+                  : ''
+              "
+            >
               Scheduled MAME XML update
             </v-label>
             <p class="mt-1">
