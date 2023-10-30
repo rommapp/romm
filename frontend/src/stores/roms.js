@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 
 export default defineStore("roms", {
   state: () => ({
+    _platform: "",
     _all: [],
     _filteredIDs: [],
     _searchIDs: [],
@@ -14,6 +15,7 @@ export default defineStore("roms", {
   }),
 
   getters: {
+    platform: (state) => state._platform,
     allRoms: (state) => state._all,
     filteredRoms: (state) =>
       state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
@@ -32,6 +34,9 @@ export default defineStore("roms", {
         ),
         "id"
       );
+    },
+    setPlatform(platform) {
+      this._platform = platform;
     },
     // All roms
     set(roms) {

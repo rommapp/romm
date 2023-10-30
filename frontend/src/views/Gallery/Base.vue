@@ -68,10 +68,11 @@ async function fetchRoms(platform) {
       const allRomsSet = [...allRoms.value, ...response.data.items];
       romsStore.set(allRomsSet);
       romsStore.setFiltered(allRomsSet);
+      romsStore.setPlatform(platform);
 
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        
+
         const serchedRomsSet = [...searchRoms.value, ...response.data.items];
         romsStore.setSearch(serchedRomsSet);
         romsStore.setFiltered(serchedRomsSet);
@@ -143,7 +144,23 @@ function selectRom({ event, index, selected }) {
   }
 }
 
+function resetGallery() {
+  cursor.value = "";
+  searchCursor.value = "";
+  romsStore.reset();
+  scrolledToTop.value = true;
+}
+
 onMounted(() => {
+  const platform = route.params.platform;
+
+  // If platform is different, reset store and fetch roms
+  if (platform != romsStore.platform) {
+    resetGallery();
+    fetchRoms(route.params.platform);
+  }
+
+  // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
     fetchRoms(route.params.platform);
   }
@@ -154,14 +171,12 @@ onBeforeUnmount(() => {
 });
 
 onBeforeRouteLeave((to, from, next) => {
-  // Only reset selection if platform is the same
+  // Reset only the selection if platform is the same
   if (to.fullPath.includes(from.path)) {
     romsStore.resetSelection();
-  // Otherwise reset store
+    // Otherwise reset the entire store
   } else {
-    cursor.value = "";
-    searchCursor.value = "";
-    romsStore.reset();
+    resetGallery();
   }
 
   next();
@@ -169,11 +184,8 @@ onBeforeRouteLeave((to, from, next) => {
 
 onBeforeRouteUpdate((to, _) => {
   // Reset store if switching to another platform
-  cursor.value = "";
-  searchCursor.value = "";
-  romsStore.reset();
+  resetGallery();
   fetchRoms(to.params.platform);
-  scrolledToTop.value = true;
 });
 </script>
 

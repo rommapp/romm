@@ -43,6 +43,7 @@ ENABLE_EXPERIMENTAL_REDIS: Final = (
 )
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", "6379")
+REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
