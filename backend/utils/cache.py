@@ -1,6 +1,16 @@
 from redis import Redis
 
-from config import REDIS_HOST, REDIS_PORT, ENABLE_EXPERIMENTAL_REDIS
+from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, ENABLE_EXPERIMENTAL_REDIS
+
+redis_client = Redis(
+    host=REDIS_HOST, port=int(REDIS_PORT), password=REDIS_PASSWORD, db=0
+)
+redis_url = (
+    f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+    if REDIS_PASSWORD
+    else f"redis://{REDIS_HOST}:{REDIS_PORT}"
+)
+
 
 class FallbackCache:
     def __init__(self) -> None:
@@ -30,7 +40,11 @@ class FallbackCache:
 
 # A seperate client that auto-decodes responses is needed
 _cache_client = Redis(
-    host=REDIS_HOST, port=int(REDIS_PORT), db=0, decode_responses=True
+    host=REDIS_HOST,
+    port=int(REDIS_PORT),
+    password=REDIS_PASSWORD,
+    db=0,
+    decode_responses=True,
 )
 _fallback_cache = FallbackCache()
 cache = _cache_client if ENABLE_EXPERIMENTAL_REDIS else _fallback_cache

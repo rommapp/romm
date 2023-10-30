@@ -75,16 +75,14 @@ Inspired by [Jellyfin](https://jellyfin.org/), allows you to manage all your gam
 
 Docker should be installed and set up before running the [image](https://hub.docker.com/r/zurdi15/romm/tags).
 
-1. Generate an API key for [IGDB](https://www.igdb.com/), and set the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables. _This is required to run a library scan._ Instructions on generating the ID and Secret are [here](https://api-docs.igdb.com/#about). Note that IDGB requires a Twitch account with 2FA enabled to generate the ID and Secret.
+1. Generate an API key for [IGDB](https://www.igdb.com/), and set the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables. _This is required to run a library scan._ Instructions on generating the ID and Secret are [here](https://api-docs.igdb.com/#about). Note that IGDB requires a Twitch account with 2FA enabled to generate the ID and Secret.
 2. Verify that your library folder structure matches one of the options listed in the [following section](#folder-structure).
-3. Create a docker-compose file. See the following example [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) file for reference. Customize for your setup and include the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` vareiables where indicated in the  environment section of the file.
+3. Create a docker-compose file. See the following example [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) file for reference. Customize for your setup and include the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables where indicated in the  environment section of the file.
 4. Launch the container:
   
   ```bash
   docker-compose up -d
   ```
-
- If configured correctly, Romm will automatically run an initial scan on your library.
   
   
 # Configuration
@@ -143,7 +141,7 @@ If you want to enable the user management system, a redis container and some env
  - `ROMM_AUTH_ENABLED` and `ENABLE_EXPERIMENTAL_REDIS` must be set as `true`
  - `ROMM_AUTH_SECRET_KEY` must be generated with `openssl rand -hex 32`
  - `ROMM_AUTH_USERNAME` and `ROMM_AUTH_PASSWORD` can be set as wanted, being both `admin` by default.
- - `REDIS_HOST` and `REDIS_PORT` must point to your redis instance
+ - `REDIS_HOST` and `REDIS_PORT` must point to your redis instance. Aditionally, if your redis is secured you can set `REDIS_PASSWORD`
 
 <h2 id="configuration-file">⚙️ Configuration file</h2>
 
