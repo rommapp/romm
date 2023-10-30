@@ -9,7 +9,6 @@ const platforms = storePlatforms();
 </script>
 
 <template>
-  <!-- Summary -->
   <v-row class="pa-1" no-gutters>
     <v-col>
       <dashboard-summary />
@@ -18,7 +17,6 @@ const platforms = storePlatforms();
 
   <v-row class="pa-1" no-gutters>
     <v-col>
-      <!-- TODO: Convert to carousel -->
       <recently-added />
     </v-col>
   </v-row>
