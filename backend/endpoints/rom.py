@@ -141,6 +141,12 @@ def download_rom(request: Request, id: int, files: str):
     )
 
 
+@protected_route(router.get, "/recent", ["roms.read"])
+def recentRoms(request: Request) -> list[RomSchema]:
+    """Returns the last 10 added roms"""
+    return dbh.get_recent_roms()
+
+
 @protected_route(router.get, "/platforms/{p_slug}/roms", ["roms.read"])
 def roms(
     request: Request,
@@ -203,7 +209,7 @@ async def update_rom(
 
     cleaned_data.update(
         fs.get_cover(
-            overwrite=not db_rom.has_cover,
+            overwrite=True,
             p_slug=db_platform.slug,
             r_name=cleaned_data["file_name_no_tags"],
             url_cover=cleaned_data.get("url_cover", ""),

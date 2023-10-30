@@ -41,4 +41,11 @@ const props = defineProps(["platform"]);
   text-decoration: none;
   color: inherit;
 }
+.v-card {
+  transition-property: all;
+  transition-duration: 0.1s;
+}
+.v-card.on-hover {
+  transform: scale(1.05); 
+}
 </style>
