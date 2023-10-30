@@ -4,7 +4,7 @@ import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 
 // Props
-const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
+const props = defineProps(["rom", "isHoveringTop", "showSelector", "size", "selected"]);
 const emit = defineEmits(["selectRom"]);
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
@@ -52,7 +52,7 @@ function onTouchEnd() {
     :to="
       romsStore.touchScreen && romsStore.selectedRoms.length > 0
         ? ''
-        : `/platform/${$route.params.platform}/${rom.id}`
+        : `/platform/${rom.p_slug}/${rom.id}`
     "
     ref="card"
     @click="onNavigate"
@@ -99,7 +99,7 @@ function onTouchEnd() {
           </v-chip>
         </v-chip-group>
         <v-icon
-          v-show="isHoveringTop"
+          v-show="isHoveringTop && showSelector"
           @click="onSelectRom"
           size="small"
           class="position-absolute checkbox"

@@ -4,6 +4,7 @@ import { defineStore } from "pinia";
 export default defineStore("roms", {
   state: () => ({
     _platform: "",
+    recentRoms: [],
     _all: [],
     _filteredIDs: [],
     _searchIDs: [],
@@ -37,6 +38,9 @@ export default defineStore("roms", {
     },
     setPlatform(platform) {
       this._platform = platform;
+    },
+    setRecentRoms(roms) {
+      this.recentRoms = roms;
     },
     // All roms
     set(roms) {

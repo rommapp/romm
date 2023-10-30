@@ -8,7 +8,7 @@ services:
     environment:
       - ROMM_DB_DRIVER=mariadb # mariadb | sqlite (default: sqlite)
       # [Optional] Only required if using MariaDB as the database
-      - DB_HOST=mariadb
+      - DB_HOST=romm_db
       - DB_PORT=3306
       - DB_USER=romm-user
       - DB_NAME=romm # Should match the MYSQL_DATABASE value in the mariadb container
