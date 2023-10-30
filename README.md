@@ -3,11 +3,7 @@
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
   <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/build.yml?style=flat-square&branch=master">
-</div>
 
-<br>
-
-<div align="center">
   <a href="https://hub.docker.com/r/zurdi15/romm">
     <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/zurdi15/romm?style=flat-square">
     <img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/zurdi15/romm?style=flat-square">
@@ -46,6 +42,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 - Works with SQLite or MaridDB.
 - Features a responsive design with dark mode support.
 
+<br/>
+
 # Preview
 
 ## 🖥 Desktop
@@ -72,10 +70,14 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 </details>
 
+<br/>
+
 # The RomM Community
 
 - [Wiki](https://github.com/zurdi15/romm/wiki)
 - [Discord](https://discord.gg/P5HtHnhUDH)
+
+<br/>
 
 # Installation
 
@@ -91,6 +93,8 @@ Before running the [image](https://hub.docker.com/r/zurdi15/romm/tags), ensure t
 ```bash
 docker-compose up -d
 ```
+
+<br/>
 
 # Configuration
 
@@ -158,6 +162,8 @@ Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/master/ex
 
 If you want to enable the user management system, a redis container and some environment variables needs to be set. Complete instructions are available in the [wiki](https://github.com/zurdi15/romm/wiki/Authentication).
 
+<br/>
+
 # Naming Convention
 
 ## 🎮 Platform Support
@@ -174,6 +180,8 @@ Games can be tagged with region, revision, or other tags by using parentheses in
 - Other tags will also be imported, for example: **my_game (E)(rev v1)(fav)(additional_tag).gba**
 
 **NOTE:** You can use these tags with the search bar to filter your library effectively.
+
+<br/>
 
 # 🎖 Credits
 
