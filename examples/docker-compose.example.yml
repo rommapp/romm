@@ -27,6 +27,7 @@ services:
       - ENABLE_EXPERIMENTAL_REDIS=true # default: false
       - REDIS_HOST=redis # default: localhost
       - REDIS_PORT=6379 # default: 6379
+      - REDIS_PASSWORD=<redis password> # [Optional] Support for secured redis
     volumes:
       - "/path/to/library:/romm/library"
       - "/path/to/resources:/romm/resources" # [Optional] Path where roms metadata (covers) are stored
@@ -34,15 +35,15 @@ services:
       - "/path/to/database:/romm/database" # [Optional] Only needed if ROMM_DB_DRIVER=sqlite or not set
       - "/path/to/logs:/romm/logs" # [Optional] Path where logs are stored
     ports:
-      - 80:80
+      - 80:8080
     depends_on:
       - romm_db
     restart: "unless-stopped"
 
   # [Optional] Only required if using MariaDB as the database
-  mariadb:
+  romm_db:
     image: mariadb:latest
-    container_name: mariadb
+    container_name: romm_db
     environment:
       - MYSQL_ROOT_PASSWORD=<root password>
       - MYSQL_DATABASE=romm

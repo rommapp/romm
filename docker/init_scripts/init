@@ -1,4 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -o errexit           # treat errors as fatal
+set -o nounset           # treat unset variables as an error
+set -o pipefail          # treat errors in pipes as fatal
+shopt -s inherit_errexit # inherit errexit
+
+# use virtualenvs
+source /backend/bin/activate
+
+# switch to backend directory
+cd /backend || { echo "/backend directory doesn't seem to exist"; exit 1; }
 
 # Run migrations and start uvicorn
 /init_back &

@@ -50,7 +50,7 @@ emitter.on("toggleDrawerRail", () => {
           </v-list-item>
         </template>
         <platform-list-item
-          v-for="platform in platforms.value"
+          v-for="platform in platforms.filledPlatforms"
           :platform="platform"
           :rail="rail"
           :key="platform.slug"

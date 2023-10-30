@@ -29,8 +29,8 @@ def test_get_cover():
         r_name="Paper Mario",
     )
 
-    assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Paper%20Mario/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
     # Game: Paper Mario (USA).z64
@@ -41,8 +41,8 @@ def test_get_cover():
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
-    assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Paper%20Mario/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
     assert cover["has_cover"] == 1
 
     # Game: Super Mario 64 (J) (Rev A)
@@ -53,8 +53,26 @@ def test_get_cover():
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
-    assert "n64/Super Mario 64/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Super Mario 64/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Super%20Mario%2064/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Super%20Mario%2064/cover/big.png" in cover["path_cover_l"]
+    assert cover["has_cover"] == 1
+
+    # Game: Disney's Kim Possible: What's the Switch?.zip
+    cover = get_cover(
+        overwrite=False,
+        p_slug="ps2",
+        r_name="Disney's Kim Possible: What's the Switch?",
+        url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
+    )
+
+    assert (
+        "ps2/Disney%27s%20Kim%20Possible%3A%20What%27s%20the%20Switch%3F/cover/small.png"
+        in cover["path_cover_s"]
+    )
+    assert (
+        "ps2/Disney%27s%20Kim%20Possible%3A%20What%27s%20the%20Switch%3F/cover/big.png"
+        in cover["path_cover_l"]
+    )
     assert cover["has_cover"] == 1
 
     # Game: Fake Game.xyz
