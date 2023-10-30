@@ -11,13 +11,14 @@ DEV_HOST: Final = "0.0.0.0"
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
+ROMS_FOLDER_NAME: Final = os.environ.get("ROMS_FOLDER_NAME", "roms")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 FRONT_LIBRARY_PATH: Final = "/assets/romm/library"
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
-HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/roms"
+HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/{ROMS_FOLDER_NAME}"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: Final = (
@@ -42,6 +43,7 @@ ENABLE_EXPERIMENTAL_REDIS: Final = (
 )
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", "6379")
+REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(

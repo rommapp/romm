@@ -51,8 +51,4 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from) => {
-  //TODO: check if authenticated/session expired
-})
-
 export default router;

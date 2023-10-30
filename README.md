@@ -51,10 +51,10 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 <details>
   <summary>Click to expand</summary>
 
-  ![Desktop home](.github/screenshots/home.png "RomM home")
-  ![Desktop gallery](.github/screenshots/gallery.png "RomM gallery")
-  ![Desktop details](.github/screenshots/details.png "RomM details")
-  ![Desktop search](.github/screenshots/search.png "RomM search")
+![Desktop home](.github/screenshots/home.png "RomM home")
+![Desktop gallery](.github/screenshots/gallery.png "RomM gallery")
+![Desktop details](.github/screenshots/details.png "RomM details")
+![Desktop search](.github/screenshots/search.png "RomM search")
 
 </details>
 
@@ -63,10 +63,10 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 <details>
   <summary>Click to expand</summary>
 
-  ![Mobile home](.github/screenshots/m_home.png "RomM home")
-  ![Mobile gallery](.github/screenshots/m_gallery.png "RomM gallery")
-  ![Mobile details](.github/screenshots/m_details.png "RomM details")
-  ![Mobile search](.github/screenshots/m_search.png "RomM search")
+![Mobile home](.github/screenshots/m_home.png "RomM home")
+![Mobile gallery](.github/screenshots/m_gallery.png "RomM gallery")
+![Mobile details](.github/screenshots/m_details.png "RomM details")
+![Mobile search](.github/screenshots/m_search.png "RomM search")
 
 </details>
 
@@ -90,8 +90,6 @@ Before running the [image](https://hub.docker.com/r/zurdi15/romm/tags), ensure t
 docker-compose up -d
 ```
 
-If configured correctly, RomM will automatically run an initial scan on your library.
-
 # Configuration
 
 ## 📁 Folder Structure
@@ -100,7 +98,9 @@ RomM accepts two different folder structures by priority. RomM will attempt to f
 
 For device naming conventions, review the [Platforms Support](#platform-support) section. To override default system names in the folder structure (if your directories are named differently), see the [Configuration File](#configuration-file) section.
 
-- Structure 1 (high priority) - roms folder at the root of the library folder:
+### Structure A (high-priority)
+
+Example: `library/roms/gbc/game.zip`
 
 ```
 library/
@@ -121,7 +121,9 @@ library/
 │     ├─ rom_1.iso
 ```
 
-- Structure 2 (low priority) - roms folder inside each platform folder:
+### Structure B (low-priority)
+
+Example: `library/gbc/roms/game.zip`
 
 ```
 library/
@@ -150,6 +152,10 @@ RomM can be configured through a YAML file. To apply configuration changes, you 
 
 Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/master/examples/config.example.yml) file and the [docker-compose.example.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) for guidance on how to configure it.
 
+## 🔒 Authentication
+
+If you want to enable the user management system, a redis container and some environment variables needs to be set. Complete instructions are available in the [wiki](https://github.com/zurdi15/romm/wiki/Authentication).
+
 # Naming Convention
 
 ## 🎮 Platform Support
@@ -160,45 +166,14 @@ If you adhere to the [RomM folder structure](#📁-folder-structure), RomM suppo
 
 Games can be tagged with region, revision, or other tags by using parentheses in the file name.
 
-- Regions will be recognized based on the following dictionary:
+\*Additionally, you can set the region by adding **"reg-"** as a prefix: (reg-E) / (reg-Spain) / (reg-USA)
 
-| Shortcode | Region        |
-|-----------|---------------|
-| A         | Australia     |
-| AS        | Asia          |
-| B         | Brazil        |
-| C         | Canada        |
-| CH        | China         |
-| E         | Europe        |
-| F         | France        |
-| FN        | Finland       |
-| G         | Germany       |
-| GR        | Greece        |
-| H         | Holland       |
-| HK        | Hong Kong     |
-| I         | Italy         |
-| J         | Japan         |
-| K         | Korea         |
-| NL        | Netherlands   |
-| NO        | Norway        |
-| PD        | Public Domain |
-| R         | Russia        |
-| S         | Spain         |
-| SW        | Sweden        |
-| T         | Taiwan        |
-| U         | USA           |
-| UK        | England       |
-| UNK       | Unknown       |
-| UNL       | Unlicensed    |
-| W         | World         |
-
-*Additionally, you can set the region by adding **"reg-"** as a prefix: (reg-E) / (reg-Spain) / (reg-USA)
-  - Revision tags must be prefixed with **"rev "** or **"rev-"**: (rev v1) / (rev-v1) / (rev-whatever)
-  - Other tags will also be imported, for example: **my_game (E)(rev v1)(fav)(additional_tag).gba**
+- Revision tags must be prefixed with **"rev "** or **"rev-"**: (rev v1) / (rev-v1) / (rev-whatever)
+- Other tags will also be imported, for example: **my_game (E)(rev v1)(fav)(additional_tag).gba**
 
 **NOTE:** You can use these tags with the search bar to filter your library effectively.
 
 # 🎖 Credits
 
-* PC icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
-* Default user icon - <a target="_blank" href="https://icons8.com/icon/tZuAOUGm9AuS/user-default">User Default</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
+- Pc and Mac icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
+- Default user icon - <a target="_blank" href="https://icons8.com/icon/tZuAOUGm9AuS/user-default">User Default</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>

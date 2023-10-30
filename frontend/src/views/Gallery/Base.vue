@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { fetchRomsApi } from "@/services/api";
 import { views, normalizeString } from "@/utils/utils";
@@ -64,14 +64,20 @@ async function fetchRoms(platform) {
     searchTerm: normalizeString(galleryFilter.filter),
   })
     .then((response) => {
+      // Add any new roms to the store
+      const allRomsSet = [...allRoms.value, ...response.data.items];
+      romsStore.set(allRomsSet);
+      romsStore.setFiltered(allRomsSet);
+      romsStore.setPlatform(platform);
+
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        romsStore.setSearch([...searchRoms.value, ...response.data.items]);
-        romsStore.setFiltered(searchRoms.value);
+
+        const serchedRomsSet = [...searchRoms.value, ...response.data.items];
+        romsStore.setSearch(serchedRomsSet);
+        romsStore.setFiltered(serchedRomsSet);
       } else {
         cursor.value = response.data.next_page;
-        romsStore.set([...allRoms.value, ...response.data.items]);
-        romsStore.setFiltered(allRoms.value);
       }
     })
     .catch((error) => {
@@ -138,7 +144,23 @@ function selectRom({ event, index, selected }) {
   }
 }
 
-onMounted(async () => {
+function resetGallery() {
+  cursor.value = "";
+  searchCursor.value = "";
+  romsStore.reset();
+  scrolledToTop.value = true;
+}
+
+onMounted(() => {
+  const platform = route.params.platform;
+
+  // If platform is different, reset store and fetch roms
+  if (platform != romsStore.platform) {
+    resetGallery();
+    fetchRoms(route.params.platform);
+  }
+
+  // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
     fetchRoms(route.params.platform);
   }
@@ -148,10 +170,21 @@ onBeforeUnmount(() => {
   romsStore.resetSelection();
 });
 
-onBeforeRouteUpdate(async (to, _) => {
-  cursor.value = "";
-  searchCursor.value = "";
-  romsStore.reset();
+onBeforeRouteLeave((to, from, next) => {
+  // Reset only the selection if platform is the same
+  if (to.fullPath.includes(from.path)) {
+    romsStore.resetSelection();
+    // Otherwise reset the entire store
+  } else {
+    resetGallery();
+  }
+
+  next();
+});
+
+onBeforeRouteUpdate((to, _) => {
+  // Reset store if switching to another platform
+  resetGallery();
   fetchRoms(to.params.platform);
 });
 </script>
