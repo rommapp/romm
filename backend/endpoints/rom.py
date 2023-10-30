@@ -141,7 +141,7 @@ def download_rom(request: Request, id: int, files: str):
     )
 
 
-@protected_route(router.get, "/recent", ["roms.read"])
+@protected_route(router.get, "/roms/recent", ["roms.read"])
 def recentRoms(request: Request) -> list[RomSchema]:
     """Returns the last 10 added roms"""
     return dbh.get_recent_roms()
