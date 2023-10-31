@@ -53,7 +53,7 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 ## 📱 Mobile
 
-<img style="height: 650px;" src=".github/resources/screenshots/romm-mobile-slider.gif" />
+<img style="height: 600px;" src=".github/resources/screenshots/romm-mobile-slider.gif" />
 
 # The RomM Community
 
