@@ -1,4 +1,3 @@
 #!/bin/bash
 
-cd /back
 [[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && python3 scheduler.py || sleep infinity
