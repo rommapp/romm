@@ -1,5 +1,5 @@
 <div align="center">
-  <h1><img src="romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
+  <h1><img src=".github/resources/romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
   <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/build.yml?style=flat-square&branch=master">
@@ -51,10 +51,10 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 <details>
   <summary>Click to expand</summary>
 
-![Desktop home](.github/screenshots/home.png "RomM home")
-![Desktop gallery](.github/screenshots/gallery.png "RomM gallery")
-![Desktop details](.github/screenshots/details.png "RomM details")
-![Desktop search](.github/screenshots/search.png "RomM search")
+![Desktop home](.github/resources/screenshots/home.png "RomM home")
+![Desktop gallery](.github/resources/screenshots/gallery.png "RomM gallery")
+![Desktop details](.github/resources/screenshots/details.png "RomM details")
+![Desktop search](.github/resources/screenshots/search.png "RomM search")
 
 </details>
 
@@ -63,10 +63,10 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 <details>
   <summary>Click to expand</summary>
 
-![Mobile home](.github/screenshots/m_home.png "RomM home")
-![Mobile gallery](.github/screenshots/m_gallery.png "RomM gallery")
-![Mobile details](.github/screenshots/m_details.png "RomM details")
-![Mobile search](.github/screenshots/m_search.png "RomM search")
+![Mobile home](.github/resources/screenshots/m_home.png "RomM home")
+![Mobile gallery](.github/resources/screenshots/m_gallery.png "RomM gallery")
+![Mobile details](.github/resources/screenshots/m_details.png "RomM details")
+![Mobile search](.github/resources/screenshots/m_search.png "RomM search")
 
 </details>
 
@@ -74,8 +74,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 # The RomM Community
 
-- [Wiki](https://github.com/zurdi15/romm/wiki)
-- [Discord](https://discord.gg/P5HtHnhUDH)
+<a href="https://discord.gg/P5HtHnhUDH"><img src=".github/resources/discord_banner.png" style="height: 90px; margin-top: 5px;" alt="discord-banner" /></a>
+<a href="https://github.com/zurdi15/romm/wiki"><img src=".github/resources/wiki_banner.png" style="height: 90px" alt="wiki-banner" /></a>
 
 <br/>
 
