@@ -77,6 +77,13 @@ class DBHandler:
         except ProgrammingError as e:
             self.raise_error(e)
 
+    def get_recent_roms(self):
+        try:
+            with self.session.begin() as session:
+                return session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15)).all()
+        except ProgrammingError as e:
+            self.raise_error(e)
+
     def get_rom(self, id):
         try:
             with self.session.begin() as session:
