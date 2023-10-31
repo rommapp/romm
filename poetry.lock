@@ -2,7 +2,7 @@
 
 [[package]]
 name = "aioredis"
-version = "2.0.1"
+version = "2.1.0"
 description = "asyncio (PEP 3156) Redis support"
 optional = false
 python-versions = ">=3.6"

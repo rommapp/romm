@@ -1,7 +1,30 @@
+# v2.1.0 (_31-10-2023_)
+
+## Added
+ - Added ``Scheduler`` to run scheduled scans and ``Watchdog`` to perform scans when adding/renamed/deleted any rom from the filesystem. Added a lot of new environment variables to configure both features. Check the [readme.md](README.md#📅-scheduler) for an explanation of how to configure them.
+ - Added new `REDIS_PASSWORD` environment variable to support secured redis with pasword. Closes [#412](https://github.com/zurdi15/romm/issues/412)
+ - New ``Recently Added`` section in the dashboard shows the last 15 added roms. Closes [#400](https://github.com/zurdi15/romm/issues/400)
+
+## Fixed
+ - Upload rom feature is now working properly.
+ - Fixed order roms by size in the gallery list view. Fixes [#423](https://github.com/zurdi15/romm/issues/423)
+
+## Changed
+ - Now platforms without roms will be hidden in the drawer and the dashboard. Closes [#396](https://github.com/zurdi15/romm/issues/396)
+
+<br>
+
+# v2.0.1 (_29-10-2023_)
+
+## Fixed
+ - Fixed an error that caused to show the wrong roms for one platform if user navigates directly to that platform from a rom details page. Fixes [#408](https://github.com/zurdi15/romm/issues/408)
+
+<br>
+
 # v2.0.0 (_27-10-2023_)
 
 ## Added
- - User management system. Check the [docker-compose.example.yml](docker/docker-compose.example.yml) for all the needed changes and environment variables. Closes [#24](https://github.com/zurdi15/romm/issues/24)
+ - User management system. Check the [docker-compose.example.yml](examples/docker-compose.example.yml) for all the needed changes and environment variables. Closes [#24](https://github.com/zurdi15/romm/issues/24)
  - Gallery bulk selection. Closes [#50](https://github.com/zurdi15/romm/issues/50)
  - Roms upload feature.
  - Custom cover art.
@@ -43,7 +66,7 @@
 # v1.9.1 (_01-08-2023_)
 
 ## Added
- - RomM logs are now stored in `/romm/logs` in docker and path can be binded in docker-compose. Check [docker-compose.example.yml](docker/docker-compose.example.yml). Solves [#303](https://github.com/zurdi15/romm/issues/303)
+ - RomM logs are now stored in `/romm/logs` in docker and path can be binded in docker-compose. Check [docker-compose.example.yml](examples/docker-compose.example.yml). Solves [#303](https://github.com/zurdi15/romm/issues/303)
 
 ## Fixed
  - Fixed multipart roms scanning.
@@ -190,14 +213,14 @@
 # v1.6.1 (_04-04-2023_)
 
 ## Added
- - Now sqlite database location needs to be binded to ``/romm/database``. Check [docker-compose](docker/docker-compose.example.yml) example.
- - Now resources location (games cover) needs to be binded to ``/romm/resources``. Check [docker-compose](docker/docker-compose.example.yml) example.
+ - Now sqlite database location needs to be binded to ``/romm/database``. Check [docker-compose](examples/docker-compose.example.yml) example.
+ - Now resources location (games cover) needs to be binded to ``/romm/resources``. Check [docker-compose](examples/docker-compose.example.yml) example.
  - More platforms support. Check [platforms support](https://github.com/zurdi15/romm#platforms-support)
  - Now RomM version appears in the bottom of the settings panel
 ## Fixed
  - Download feature is now fixed for RomM structucture 1
 ## Changed
- - Library path binding changed from ``/library`` to ``/romm/library``. Check [docker-compose](docker/docker-compose.example.yml) 
+ - Library path binding changed from ``/library`` to ``/romm/library``. Check [docker-compose](examples/docker-compose.example.yml) 
 
 <br>
 
@@ -280,7 +303,7 @@ Columns to modify (examples in case that you set it with database name as romm, 
 ## Added
  - Notification added when downloading a game
 ## Changed
- - Database name when using mariadb now can be changed with the new variable DB_NAME. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml)
+ - Database name when using mariadb now can be changed with the new variable DB_NAME. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml)
 ## Fixed
  - Potential password error when using mariadb if the password have special characters
  - Some other bugs
@@ -293,7 +316,7 @@ Columns to modify (examples in case that you set it with database name as romm, 
  - SQLite support
  - Dreamcast support (https://github.com/zurdi15/romm#platforms-support)
 ## Changed
- - SQLite is now the database by default if ROMM_DB_DRIVER is not set. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/docker/docker-compose.example.yml)
+ - SQLite is now the database by default if ROMM_DB_DRIVER is not set. Check [docker-compos.example.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml)
  - Platforms and games are now shown by alphabetical order
 
 <br>

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "RomM"
-version = "2.0.1"
+version = "2.1.0"
 description = "RomM (Rom Manager) is a web based retro roms manager integrated with IGDB."
 authors = ["zurdi <zurdizurdo25@gmail.com>"]
 readme = "README.md"
