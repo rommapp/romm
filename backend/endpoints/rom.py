@@ -48,6 +48,7 @@ class RomSchema(BaseModel):
     file_path: str
     file_size: float
     file_size_units: str
+    file_size_bytes: int
 
     r_name: str
     r_slug: str
@@ -89,7 +90,7 @@ def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = File(...
     log.info(f"Uploading files to: {platform_fs_slug}")
     if roms is not None:
         roms_path = build_upload_roms_path(platform_fs_slug)
-        for rom in roms: #TODO: Refactor code to avoid double loop
+        for rom in roms:  # TODO: Refactor code to avoid double loop
             if _rom_exists(p_slug, rom.filename):
                 error = f"{rom.filename} already exists"
                 log.error(error)
@@ -99,10 +100,11 @@ def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = File(...
         for rom in roms:
             log.info(f" - Uploading {rom.filename}")
             file_location = f"{roms_path}/{rom.filename}"
-            f = open(file_location, 'wb+')
+            f = open(file_location, "wb+")
             while True:
-                chunk = rom.file.read(1024)  
-                if not chunk: break
+                chunk = rom.file.read(1024)
+                if not chunk:
+                    break
                 f.write(chunk)
             f.close()
         dbh.update_n_roms(p_slug)

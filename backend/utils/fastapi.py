@@ -57,7 +57,7 @@ async def scan_rom(
             log.info(f"\t\t · {file}")
 
     # Update properties that don't require IGDB
-    file_size, file_size_units = fs.get_rom_size(
+    file_size, file_size_units = fs.get_rom_file_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
         multi_files=rom_attrs["files"],
