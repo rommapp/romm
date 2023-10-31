@@ -141,6 +141,52 @@ Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/master/ex
 
 If you want to enable the user management system, a redis container and some environment variables needs to be set. Complete instructions are available in the [wiki](https://github.com/zurdi15/romm/wiki/Authentication).
 
+## 📅 Scheduler
+
+The scheduler allows to scheduled async tasks that run in the Redis container at regular intervals. Jobs can be run at a specific time in the future, after a time delta, or at recurring internals using cron notation.
+
+Jobs can be toggled using these environment variables:
+
+```
+ENABLE_SCHEDULED_RESCAN: Whether to rescan on a schedule
+SCHEDULED_RESCAN_CRON: Cron expression for scheduled rescan
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Whether to update the switch title database on a schedule
+SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Cron expression for scheduled switch title database update
+ENABLE_SCHEDULED_UPDATE_MAME_XML: Whether to update the MAME XML on a schedule
+SCHEDULED_UPDATE_MAME_XML_CRON: Cron expression for scheduled MAME XML update
+```
+
+### Scheduled rescan
+
+Users can opt to enable scheduled rescans, and set the interval using cron notation. Not that the scan will **not completely rescan** every file, only catch those which have been added/updated.
+
+### Switch titleDB update
+
+Support was added for Nintendo Switch ROMs with filenames using the [titleid/programid format](https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop) (e.g. 0100000000010000.xci). If a file under the `switch` folder matches the regex, the scanner will use the index to attempt to match it to a game. If a match is found, the IGDB handler will use the matched name as the search term.
+
+The associated task updates the `/fixtures/switch_titledb.json` file at a regular interval to support new game releases.
+
+### MAME XML update
+
+Support was also added for MAME arcade games with shortcode names (e.g. `actionhw.zip` -> ACTION HOLLYWOOD), and works in the same way as the titleid matcher (without the regex).
+
+The associated task updates the `/fixtures/mame.xml` file at a regular interval to support updates to the library.
+
+## 🔍 Watchdog
+
+A watchdog was added which monitors the filesystem for events (files created/moved/deleted) and schedules a rescan of the platform (or entire library is a new platform was added).
+
+Jobs can be toggled using these environment variables:
+
+```
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Whether to rescan when the filesystem changes
+RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Delay in minutes before rescanning on filesystem change
+```
+
+The watcher will monitor the `/library/roms` folder for changes to the filesystem, such as files being added, moved or deleted. It will ignore certain events (like modifying the file content or metadata), and will skip default OS files (like `.DS_Store` on mac).
+
+When a change is detected, a scan will be scheduled for sometime in the future (default 5 minutes). If other events are triggered between now and the time at which the scan starts, more platforms will be added to the scan list (or the scan may switch to a full scan). This is done to reduce the number of tasks scheduled when many big changes happen to the library (mass upload, new mount, etc.)
+
 # Naming Convention
 
 ## 🎮 Platform Support
