@@ -8,26 +8,120 @@ shopt -s inherit_errexit # inherit errexit
 # use virtualenvs
 source /backend/bin/activate
 
+# Set redis to false if not set by docker env
+ENABLE_EXPERIMENTAL_REDIS="${ENABLE_EXPERIMENTAL_REDIS:="false"}"
+
+# Set INIT_DEBUG to false if not set by docker env
+# (this env var is currently undocumented and usually just needed for development purposes)
+INIT_DEBUG="${INIT_DEBUG:="false"}"
+
 # switch to backend directory
 cd /backend || { echo "/backend directory doesn't seem to exist"; exit 1; }
 
-# Run migrations and start uvicorn
-/init_back &
- 
-# Start nginx
-/init_front &
+debug_log () {
+    if [ "${INIT_DEBUG}" == "true" ]; then
+        echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+    fi
+}
 
-# Start rq worker
-/init_worker &
+# function that runs or main process and creates a corresponding PID file,
+# sadly uvicorn can not do that itself
+start_uvicorn () {
+    # Commands to start our main application and store its PID to check for crashes
+    debug_log "starting uvicorn"
+    uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000 --uds /tmp/uvicorn.sock --workers 2 &
+    UVICORN_PID=$!
+    echo $UVICORN_PID > /tmp/uvicorn.pid
+}
 
-# Start rq scheduler
-/init_scheduler &
+# Commands to start nginx (handling PID creation internally)
+start_nginx () {
+    debug_log "starting nginx"
+    if [ "$EUID" -ne 0 ]; then
+        nginx
+    else
+        # if container runs as root, drop permissions
+        nginx -g 'user romm;'
+    fi
+}
 
-# Start watchdog
-/init_watchdog &
+# function that runs our watcher process and creates a corresponding PID file,
+# we might be able to do that ourself in the future
+start_watcher () {
+    debug_log "starting watcher"
+    python3 watcher.py &
+    WATCHER_PID=$!
+    echo $WATCHER_PID > /tmp/watcher.pid
+}
 
-# Wait for any process to exit
-wait -n
+# function that runs our worker process and creates a corresponding PID file,
+# we might be able to do that ourself in the future
+start_worker () {
+    debug_log "starting worker"
+    python3 worker.py &
+    WORKER_PID=$!
+    echo $WORKER_PID > /tmp/worker.pid
+}
 
-# Exit with status of process that exited first
-exit $?
+# function that runs our scheduler process and creates a corresponding PID file,
+# we might be able to do that ourself in the future
+start_scheduler () {
+    debug_log "starting scheduler"
+    python3 scheduler.py &
+    SCHEDULER_PID=$!
+    echo $SCHEDULER_PID > /tmp/scheduler.pid
+}
+
+watchdog_process_pid () {
+    PROCESS=$1
+    PIDFILE=$2
+    if [ -f "${PIDFILE}" ]; then
+        # check if the pid we last wrote to our state file is actually active
+        if [ -d "/proc/$(cat "${PIDFILE}")" ]; then
+            debug_log "${PROCESS} still running, no need to start"
+        else
+            start_"${PROCESS}"
+        fi
+    else
+        start_"${PROCESS}"
+    fi
+}
+
+# function definition done, lets start our main loop
+while true; do
+    # Run needed database migrations on startup,
+    # but only if it was not successful since the last full docker container start
+    if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
+        if alembic upgrade head; then
+            debug_log "database schema migrations suceeded"
+            ALEMBIC_SUCCESS="true"
+        else
+            echo "Something went horribly wrong with our database"
+            exit 1
+        fi
+    else
+        debug_log "database schema already upgraded during current containerlifecycle"
+    fi
+
+    # Start nginx if we dont have a corresponding PID file
+    watchdog_process_pid nginx /tmp/nginx.pid
+
+    # Start uvicorn if we dont have a corresponding PID file
+    watchdog_process_pid uvicorn /tmp/uvicorn.pid
+
+    # Start watcher if we dont have a corresponding PID file
+    watchdog_process_pid watcher /tmp/watcher.pid
+
+    # Start background worker processes when we have a REDIS configured
+    # ENABLE_EXPERIMENTAL_REDIS is defaulted to false, unless its set from our docker env
+    if [[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]]; then
+        debug_log "REDIS true, starting worker and scheduler"
+        # Start worker if we dont have a corresponding PID file
+        watchdog_process_pid worker /tmp/worker.pid
+        # Start scheduler if we dont have a corresponding PID file
+        watchdog_process_pid scheduler /tmp/scheduler.pid
+    fi
+    
+    # check for died processes every 5 seconds
+    sleep 5
+done
