@@ -7,7 +7,7 @@ exclude:
   roms:
     ## Single file games section
     single_file:
-      # Exclude matched file names to be sanned
+      # Exclude matched file names to be scanned
       names:
         - 'info.txt'
       # Exclude all files with certain extensions to be scanned
