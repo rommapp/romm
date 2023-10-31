@@ -15,9 +15,6 @@ ENABLE_EXPERIMENTAL_REDIS="${ENABLE_EXPERIMENTAL_REDIS:="false"}"
 # (this env var is currently undocumented and usually just needed for development purposes)
 INIT_DEBUG="${INIT_DEBUG:="false"}"
 
-# switch to backend directory
-cd /backend || { echo "/backend directory doesn't seem to exist"; exit 1; }
-
 # print debug log output if enabled
 debug_log () {
     if [ "${INIT_DEBUG}" == "true" ]; then
@@ -28,6 +25,12 @@ debug_log () {
 # print debug log output if enabled
 info_log () {
     echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}"
+}
+
+# print debug log output if enabled
+error_log () {
+    echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+    exit 1
 }
 
 # function that runs or main process and creates a corresponding PID file,
@@ -83,6 +86,9 @@ watchdog_process_pid () {
     fi
 }
 
+# switch to backend directory
+cd /backend || { error_log "/backend directory doesn't seem to exist"; }
+
 # function definition done, lets start our main loop
 while true; do
     # Run needed database migrations on startup,
@@ -92,8 +98,7 @@ while true; do
             debug_log "database schema migrations suceeded"
             ALEMBIC_SUCCESS="true"
         else
-            echo "Something went horribly wrong with our database"
-            exit 1
+            error_log "Something went horribly wrong with our database"
         fi
     else
         debug_log "database schema already upgraded during current containerlifecycle"
