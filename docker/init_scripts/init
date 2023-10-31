@@ -20,6 +20,12 @@ cd /backend || { echo "/backend directory doesn't seem to exist"; exit 1; }
 # Start rq worker
 /init_worker &
 
+# Start rq scheduler
+/init_scheduler &
+
+# Start watchdog
+/init_watchdog &
+
 # Wait for any process to exit
 wait -n
 
