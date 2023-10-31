@@ -195,6 +195,7 @@ onBeforeRouteUpdate((to, _) => {
     <v-row no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
+        class="pa-1"
         v-show="galleryView.current != 2"
         v-for="rom in filteredRoms"
         :key="rom.id"
@@ -208,6 +209,7 @@ onBeforeRouteUpdate((to, _) => {
           :rom="rom"
           :index="filteredRoms.indexOf(rom)"
           :selected="selectedRoms.includes(rom)"
+          :showSelector="true"
           @selectRom="selectRom"
         />
       </v-col>
