@@ -61,7 +61,7 @@ class Rom(BaseModel):
     
     @property
     def file_size_bytes(self) -> int:
-        return int(self.file_size * SIZE_UNIT_TO_BYTES[self.file_size_units])
+        return int(self.file_size * SIZE_UNIT_TO_BYTES[self.file_size_units or 'B'])
 
     def __repr__(self) -> str:
         return self.file_name
