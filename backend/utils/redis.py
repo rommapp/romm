@@ -1,11 +1,18 @@
 from redis import Redis
 from rq import Queue
 
-from config import REDIS_HOST, REDIS_PORT
+from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 
-redis_client = Redis(host=REDIS_HOST, port=int(REDIS_PORT), db=0)
-redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+redis_client = Redis(
+    host=REDIS_HOST, port=int(REDIS_PORT), password=REDIS_PASSWORD, db=0
+)
+redis_url = (
+    f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+    if REDIS_PASSWORD
+    else f"redis://{REDIS_HOST}:{REDIS_PORT}"
+)
+
 
 high_prio_queue = Queue(name="high", connection=redis_client)
 default_queue = Queue(name="default", connection=redis_client)
