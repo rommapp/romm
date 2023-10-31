@@ -18,7 +18,7 @@ services:
       - IGDB_CLIENT_SECRET=<IGDB client secret>
       # [Optional] Use SteamGridDB as a source for covers
       - STEAMGRIDDB_API_KEY=<SteamGridDB api key>
-      # [Optional] Will enable user management and require authentication to access the interface (default to false)
+      # [Optional] Will enable user management and require authentication to access the interface (disabled by default)
       - ROMM_AUTH_ENABLED=true # default: false
       - ROMM_AUTH_SECRET_KEY=<secret key> # Generate a key with `openssl rand -hex 32`
       - ROMM_AUTH_USERNAME=admin # default: admin
@@ -28,6 +28,15 @@ services:
       - REDIS_HOST=redis # default: localhost
       - REDIS_PORT=6379 # default: 6379
       - REDIS_PASSWORD=<redis password> # [Optional] Support for secured redis
+      # [Optional] Will enable asynchronous tasks (all disabled by default)
+      - ENABLE_RESCAN_ON_FILESYSTEM_CHANGE=true # Runs a quick scan on the library when a file is added or removed 
+      - RESCAN_ON_FILESYSTEM_CHANGE_DELAY=5 # Delay in seconds before running the quick scan (default: 5)
+      - ENABLE_SCHEDULED_RESCAN=true # Runs a quick scan on the library at a given time
+      - SCHEDULED_RESCAN_CRON=0 3 * * * # Cron expression for the scheduled scan (default: 0 3 * * * - At 3:00 AM every day)
+      - ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB=true # Updates the Switch TitleDB database at a given time
+      - SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON=0 4 * * * # Cron expression for the scheduled update (default: 0 4 * * * - At 4:00 AM every day)
+      - ENABLE_SCHEDULED_UPDATE_MAME_XML=true # Updates the MAME XML database at a given time
+      - SCHEDULED_UPDATE_MAME_XML_CRON=0 5 * * * # Cron expression for the scheduled update (default: 0 5 * * * - At 5:00 AM every day)
     volumes:
       - "/path/to/library:/romm/library"
       - "/path/to/resources:/romm/resources" # [Optional] Path where roms metadata (covers) are stored
