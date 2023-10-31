@@ -66,3 +66,29 @@ ROMM_AUTH_PASSWORD: Final = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
+
+# TASKS
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
+    os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false") == "true"
+)
+RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final = int(
+    os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 minutes
+)
+ENABLE_SCHEDULED_RESCAN: Final = (
+    os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
+)
+SCHEDULED_RESCAN_CRON: Final = os.environ.get(
+    "SCHEDULED_RESCAN_CRON", "0 3 * * *"  # At 3:00 AM every day
+)
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
+)
+SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
+    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON", "0 4 * * *"  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_UPDATE_MAME_XML: Final = (
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_MAME_XML", "false") == "true"
+)
+SCHEDULED_UPDATE_MAME_XML_CRON: Final = os.environ.get(
+    "SCHEDULED_UPDATE_MAME_XML_CRON", "0 4 * * *"  # At 4:00 AM every day
+)

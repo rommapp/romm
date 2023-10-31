@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cd /back
+python3 watcher.py
