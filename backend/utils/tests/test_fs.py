@@ -5,7 +5,7 @@ from ..fs import (
     get_platforms,
     get_roms_structure,
     get_roms,
-    get_rom_size,
+    get_rom_file_size,
     # get_rom_files,  # TODO: write test
     # rename_rom,  # TODO: write test
     # remove_rom,  # TODO: write test
@@ -112,7 +112,7 @@ def test_get_roms():
 
 
 def test_rom_size():
-    rom_size = get_rom_size(
+    rom_size = get_rom_file_size(
         roms_path=get_roms_structure(p_slug="n64"),
         file_name="Paper Mario (USA).z64",
         multi=False,
@@ -120,7 +120,7 @@ def test_rom_size():
 
     assert rom_size == (1.0, "KB")
 
-    rom_size = get_rom_size(
+    rom_size = get_rom_file_size(
         roms_path=get_roms_structure(p_slug="n64"),
         file_name="Super Mario 64 (J) (Rev A)",
         multi=True,
