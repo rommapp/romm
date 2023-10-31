@@ -49,27 +49,11 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 ## 🖥 Desktop
 
-<details>
-  <summary>Click to expand</summary>
-
-![Desktop home](.github/resources/screenshots/home.png "RomM home")
-![Desktop gallery](.github/resources/screenshots/gallery.png "RomM gallery")
-![Desktop details](.github/resources/screenshots/details.png "RomM details")
-![Desktop search](.github/resources/screenshots/search.png "RomM search")
-
-</details>
+<img src=".github/resources/screenshots/romm-desktop-slider.gif" />
 
 ## 📱 Mobile
 
-<details>
-  <summary>Click to expand</summary>
-
-![Mobile home](.github/resources/screenshots/m_home.png "RomM home")
-![Mobile gallery](.github/resources/screenshots/m_gallery.png "RomM gallery")
-![Mobile details](.github/resources/screenshots/m_details.png "RomM details")
-![Mobile search](.github/resources/screenshots/m_search.png "RomM search")
-
-</details>
+<img style="height: 650px;" src=".github/resources/screenshots/romm-mobile-slider.gif" />
 
 # The RomM Community
 
