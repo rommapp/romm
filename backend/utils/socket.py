@@ -1,6 +1,6 @@
 import socketio  # type: ignore
 
-from utils.cache import redis_url
+from utils.redis import redis_url
 from config import ENABLE_EXPERIMENTAL_REDIS
 
 

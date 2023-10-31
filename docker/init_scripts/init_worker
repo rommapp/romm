@@ -1,3 +1,3 @@
 #!/bin/bash
 
-[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && rq worker high default low --logging_level WARN || sleep infinity
+[[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]] && python3 worker.py || sleep infinity

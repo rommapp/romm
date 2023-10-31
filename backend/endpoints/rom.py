@@ -48,6 +48,7 @@ class RomSchema(BaseModel):
     file_path: str
     file_size: float
     file_size_units: str
+    file_size_bytes: int
 
     r_name: str
     r_slug: str
@@ -89,7 +90,7 @@ def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = File(...
     log.info(f"Uploading files to: {platform_fs_slug}")
     if roms is not None:
         roms_path = build_upload_roms_path(platform_fs_slug)
-        for rom in roms: #TODO: Refactor code to avoid double loop
+        for rom in roms:  # TODO: Refactor code to avoid double loop
             if _rom_exists(p_slug, rom.filename):
                 error = f"{rom.filename} already exists"
                 log.error(error)
@@ -99,10 +100,11 @@ def upload_roms(request: Request, p_slug: str, roms: list[UploadFile] = File(...
         for rom in roms:
             log.info(f" - Uploading {rom.filename}")
             file_location = f"{roms_path}/{rom.filename}"
-            f = open(file_location, 'wb+')
+            f = open(file_location, "wb+")
             while True:
-                chunk = rom.file.read(1024)  
-                if not chunk: break
+                chunk = rom.file.read(1024)
+                if not chunk:
+                    break
                 f.write(chunk)
             f.close()
         dbh.update_n_roms(p_slug)
@@ -139,6 +141,12 @@ def download_rom(request: Request, id: int, files: str):
         headers={"Content-Disposition": f"attachment; filename={rom.r_name}.zip"},
         emit_body={"id": rom.id},
     )
+
+
+@protected_route(router.get, "/roms/recent", ["roms.read"])
+def recentRoms(request: Request) -> list[RomSchema]:
+    """Returns the last 10 added roms"""
+    return dbh.get_recent_roms()
 
 
 @protected_route(router.get, "/platforms/{p_slug}/roms", ["roms.read"])
@@ -203,7 +211,7 @@ async def update_rom(
 
     cleaned_data.update(
         fs.get_cover(
-            overwrite=not db_rom.has_cover,
+            overwrite=True,
             p_slug=db_platform.slug,
             r_name=cleaned_data["file_name_no_tags"],
             url_cover=cleaned_data.get("url_cover", ""),
