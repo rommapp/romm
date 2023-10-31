@@ -254,7 +254,7 @@ def get_roms(p_slug: str):
     ]
 
 
-def get_rom_size(roms_path: str, file_name: str, multi: bool, multi_files: list = []):
+def get_rom_file_size(roms_path: str, file_name: str, multi: bool, multi_files: list = []):
     files = (
         [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
         if not multi

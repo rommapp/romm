@@ -30,7 +30,7 @@ const HEADERS = [
     title: "Size",
     align: "start",
     sortable: true,
-    key: "file_size",
+    key: "file_size_bytes",
   },
   {
     title: "Reg",
@@ -73,12 +73,12 @@ function rowClick(_, row) {
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
     :headers="HEADERS"
-    :item-value="item => item.id"
+    :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
     @click:row="rowClick"
     show-select
     v-model="romsStore._selectedIDs"
-    >
+  >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
         <v-progress-linear
@@ -94,11 +94,11 @@ function rowClick(_, row) {
         />
       </v-avatar>
     </template>
-    <template v-slot:item.file_size="{ item }">
-      <span
-        >{{ item.selectable.file_size }}
-        {{ item.selectable.file_size_units }}</span
-      >
+    <template v-slot:item.file_size_bytes="{ item }">
+      <span>
+        {{ item.selectable.file_size }}
+        {{ item.selectable.file_size_units }}
+      </span>
     </template>
     <template v-slot:item.actions="{ item }">
       <template v-if="item.selectable.multi">

@@ -185,15 +185,18 @@ class IGDBHandler:
                 log.warning("Fetching the Switch titleDB index file...")
                 await update_switch_titledb_task.run(force=True)
 
-                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                    titledb_index = json.loads(index_json.read())
+                try:
+                    with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                        titledb_index = json.loads(index_json.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the Switch titleDB index file")
             finally:
                 index_entry = titledb_index.get(title_id, None)
                 if index_entry:
                     search_term = index_entry["name"]  # type: ignore
 
         if p_igdb_id == ARCADE_IGDB_ID:
-            mame_index = {}
+            mame_index = { "menu": { "game": [] } }
 
             try:
                 with open(MAME_XML_FILE, "r") as index_xml:
@@ -202,8 +205,11 @@ class IGDBHandler:
                 log.warning("Fetching the MAME XML file from HyperspinFE...")
                 await update_mame_xml_task.run(force=True)
 
-                with open(MAME_XML_FILE, "r") as index_xml:
-                    mame_index = xmltodict.parse(index_xml.read())
+                try:
+                    with open(MAME_XML_FILE, "r") as index_xml:
+                        mame_index = xmltodict.parse(index_xml.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the MAME XML file from HyperspinFE")
             finally:
                 index_entry = [
                     game
