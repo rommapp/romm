@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "RomM"
-version = "2.0.1"
+version = "2.1.0"
 description = "RomM (Rom Manager) is a web based retro roms manager integrated with IGDB."
 authors = ["zurdi <zurdizurdo25@gmail.com>"]
 readme = "README.md"
@@ -33,11 +33,14 @@ python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 itsdangerous = "^2.1.2"
 stream-zip = "^0.0.67"
+rq-scheduler = "^0.13.1"
 starlette-csrf = "^3.0.0"
 httpx = "^0.24.1"
 python-multipart = "^0.0.6"
 types-python-jose = "^3.3.4.8"
 types-passlib = "^1.7.7.13"
+watchdog = "^3.0.0"
+xmltodict = "^0.13.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.0"

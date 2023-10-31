@@ -41,7 +41,7 @@ def scan_platform(fs_slug: str) -> Platform:
     return Platform(**platform_attrs)
 
 
-def scan_rom(
+async def scan_rom(
     platform: Platform,
     rom_attrs: dict,
     r_igbd_id_search: str = "",
@@ -57,7 +57,7 @@ def scan_rom(
             log.info(f"\t\t · {file}")
 
     # Update properties that don't require IGDB
-    file_size, file_size_units = fs.get_rom_size(
+    file_size, file_size_units = fs.get_rom_file_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
         multi_files=rom_attrs["files"],
@@ -86,7 +86,7 @@ def scan_rom(
     igdbh_rom = (
         igdbh.get_rom_by_id(int(r_igbd_id_search))
         if r_igbd_id_search
-        else igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
+        else await igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
     )
 
     rom_attrs.update(igdbh_rom)
