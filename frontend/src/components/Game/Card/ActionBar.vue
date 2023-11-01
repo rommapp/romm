@@ -49,7 +49,6 @@ const downloadUrl = `${window.location.origin}${props.rom.download_path}`;
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
-            @click=""
             :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             icon="mdi-dots-vertical"
