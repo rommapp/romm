@@ -27,7 +27,7 @@ info_log () {
     echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}"
 }
 
-# print debug log output if enabled
+# print error log output if enabled
 error_log () {
     echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
     exit 1
