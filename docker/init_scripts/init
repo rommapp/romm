@@ -101,7 +101,7 @@ while true; do
             error_log "Something went horribly wrong with our database"
         fi
     else
-        debug_log "database schema already upgraded during current containerlifecycle"
+        debug_log "database schema already upgraded during current container lifecycle"
     fi
 
     # Start nginx if we dont have a corresponding PID file
