@@ -57,8 +57,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 # The RomM Community
 
-<a href="https://discord.gg/P5HtHnhUDH"><img src=".github/resources/discord_banner.png" style="height: 10%; margin-top: 5px;" alt="discord-banner" /></a>
-<a href="https://github.com/zurdi15/romm/wiki"><img src=".github/resources/wiki_banner.png" style="height: 10%" alt="wiki-banner" /></a>
+<a href="https://discord.gg/P5HtHnhUDH"><img src=".github/resources/discord_banner.png" height="100px" width="auto" style="margin-top: 5px;" alt="discord-banner" /></a>
+<a href="https://github.com/zurdi15/romm/wiki"><img src=".github/resources/wiki_banner.png" height="100px" width="auto" alt="wiki-banner" /></a>
 
 # Installation
 
