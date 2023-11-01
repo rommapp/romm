@@ -87,7 +87,7 @@ async function deleteRoms() {
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <span>Deleting the following</span>
-          <span class="text-romm-accent-2 mx-1">{{ roms.length }}</span>
+          <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
           <span>games. Do you confirm?</span>
         </v-row>
       </v-card-text>
