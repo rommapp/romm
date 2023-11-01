@@ -57,8 +57,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 # The RomM Community
 
-<a href="https://discord.gg/P5HtHnhUDH"><img src=".github/resources/discord_banner.png" style="height: 90px; margin-top: 5px;" alt="discord-banner" /></a>
-<a href="https://github.com/zurdi15/romm/wiki"><img src=".github/resources/wiki_banner.png" style="height: 90px" alt="wiki-banner" /></a>
+<a href="https://discord.gg/P5HtHnhUDH"><img src=".github/resources/discord_banner.png" height="100px" width="auto" style="margin-top: 5px;" alt="discord-banner" /></a>
+<a href="https://github.com/zurdi15/romm/wiki"><img src=".github/resources/wiki_banner.png" height="100px" width="auto" alt="wiki-banner" /></a>
 
 # Installation
 
@@ -67,8 +67,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 Before running the [image](https://hub.docker.com/r/zurdi15/romm/tags), ensure that Docker is installed and set up.
 
 1. Generate an API key for [IGDB](https://www.igdb.com/) and set the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables. This step is essential for running a library scan. Instructions for generating the ID and Secret can be found [here](https://api-docs.igdb.com/#about). Note that IGDB requires a Twitch account with 2FA enabled to generate the ID and Secret.
-2. Verify that your library folder structure matches one of the options listed in the [following section](#folder-structure).
-3. Create a docker-compose file. Refer to the example [docker-compose.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) file for guidance. Customize it for your setup and include the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables in the environment section of the file.
+2. Verify that your library folder structure matches one of the options listed in the [folder structure](#-folder-structure) section.
+3. Create a docker-compose file. Refer to the example [docker-compose.yml](examples/docker-compose.example.yml) file for guidance. Customize it for your setup and include the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables in the environment section of the file.
 4. Launch the container:
 
 ```bash
@@ -81,7 +81,7 @@ docker-compose up -d
 
 RomM accepts two different folder structures by priority. RomM will attempt to find structure 1, and if it doesn't exist, it will look for structure 2.
 
-For device naming conventions, review the [Platforms Support](#platform-support) section. To override default system names in the folder structure (if your directories are named differently), see the [Configuration File](#configuration-file) section.
+For device naming conventions, review the [Platforms Support](#-platform-support) section. To override default system names in the folder structure (if your directories are named differently), see the [Configuration File](#%EF%B8%8F-configuration-file) section.
 
 ### Structure A (high-priority)
 
@@ -135,7 +135,7 @@ library/
 
 RomM can be configured through a YAML file. To apply configuration changes, you must restart RomM.
 
-Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/master/examples/config.example.yml) file and the [docker-compose.example.yml](https://github.com/zurdi15/romm/blob/master/examples/docker-compose.example.yml) for guidance on how to configure it.
+Refer to the [config.example.yml](examples/config.example.yml) file and the [docker-compose.example.yml](examples/docker-compose.example.yml) for guidance on how to configure it.
 
 ## 🔒 Authentication
 
@@ -191,7 +191,7 @@ When a change is detected, a scan will be scheduled for sometime in the future (
 
 ## 🎮 Platform Support
 
-If you adhere to the [RomM folder structure](#📁-folder-structure), RomM supports any platform listed in the [IGDB platforms list](https://www.igdb.com/platforms). RomM will retrieve game information, metadata, and covers for platforms in that list. Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki](https://github.com/zurdi15/romm/wiki/Custom-Platform-Icons)).
+If you adhere to the [RomM folder structure](#-folder-structure), RomM supports any platform listed in the [IGDB platforms list](https://www.igdb.com/platforms). RomM will retrieve game information, metadata, and covers for platforms in that list. Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki](https://github.com/zurdi15/romm/wiki/Custom-Platform-Icons)).
 
 ## 📑 Tag Support
 
