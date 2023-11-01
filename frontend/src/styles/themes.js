@@ -29,14 +29,14 @@ export const dark = {
 export const light = {
   dark: false,
   colors: {
-    primary: "#fefdfe",
-    secondary: "#fefdfe",
-    terciary: "#fefdfe",
-    background: "#fefdfe",
+    primary: "#ECEFF4",
+    secondary: "#ECEFF4",
+    terciary: "#ECEFF4",
+    background: "#ECEFF4",
 
-    surface: "#fefdfe",
-    tooltip: "#fefdfe",
-    chip: "#fefdfe",
+    surface: "#ECEFF4",
+    tooltip: "#ECEFF4",
+    chip: "#ECEFF4",
 
     ...commonColors,
   },
