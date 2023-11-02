@@ -3,7 +3,7 @@ import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { fetchRomsApi } from "@/services/api";
-import { views, normalizeString } from "@/utils/utils";
+import { views, toTop, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
@@ -114,14 +114,6 @@ function onScroll() {
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
     fetchRoms(route.params.platform);
   }
-}
-
-function toTop() {
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "smooth",
-  });
 }
 
 function selectRom({ event, index, selected }) {
@@ -239,7 +231,7 @@ onBeforeRouteUpdate((to, _) => {
           icon
           class="mr-2"
           size="large"
-          @click="toTop"
+          @click="toTop()"
           ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
         >
       </v-scroll-y-reverse-transition>

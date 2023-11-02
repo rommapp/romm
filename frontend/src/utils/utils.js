@@ -35,6 +35,14 @@ export const views = {
 
 export const defaultAvatarPath = "/assets/default_avatar.png";
 
+export function toTop() {
+  window.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: "smooth",
+  });
+}
+
 export function normalizeString(s) {
   return s
     .toLowerCase()
