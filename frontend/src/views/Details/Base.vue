@@ -114,6 +114,9 @@ onBeforeMount(async () => {
             >Screenshots</v-tab
           >
         </v-tabs>
+      </v-row>
+      <v-row no-gutters>
+        <v-col cols="12">
         <v-window v-model="tab" class="mt-2">
           <v-window-item value="details">
             <details-info :rom="rom" />
@@ -125,6 +128,7 @@ onBeforeMount(async () => {
             <v-row class="d-flex mt-2" no-gutters></v-row>
           </v-window-item>
         </v-window>
+        </v-col>
       </v-row>
     </v-col>
   </v-row>
