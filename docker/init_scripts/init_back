@@ -1,3 +1,0 @@
-#!/bin/bash
-
-alembic upgrade head && uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000 --uds /tmp/uvicorn.sock --workers 2
