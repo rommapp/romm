@@ -78,14 +78,32 @@ app.mount("/ws", socket_app)
 def heartbeat():
     return {
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
-        "ENABLE_RESCAN_ON_FILESYSTEM_CHANGE": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-        "RESCAN_ON_FILESYSTEM_CHANGE_DELAY": RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-        "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
-        "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,
-        "ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
-        "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-        "ENABLE_SCHEDULED_UPDATE_MAME_XML": ENABLE_SCHEDULED_UPDATE_MAME_XML,
-        "SCHEDULED_UPDATE_MAME_XML_CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
+        "WATCHER": {
+            "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+            "TITLE": "Rescan on filesystem change",
+            "MESSAGE": f"Runs a scan when a change is detected in the library path, \
+                with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minutes delay",
+        },
+        "SCHEDULER": {
+            "RESCAN": {
+                "ENABLED": ENABLE_SCHEDULED_RESCAN,
+                "CRON": SCHEDULED_RESCAN_CRON,
+                "TITLE": "Scheduled rescan",
+                "MESSAGE": "Rescans the entire library",
+            },
+            "SWITCH_TITLEDB": {
+                "ENABLED": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
+                "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+                "TITLE": "Scheduled Switch TitleDB update",
+                "MESSAGE": "Updates the Nintedo Switch TitleDB file",
+            },
+            "MAME_XML": {
+                "ENABLED": ENABLE_SCHEDULED_UPDATE_MAME_XML,
+                "CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
+                "TITLE": "Scheduled MAME XML update",
+                "MESSAGE": "Updates the Nintedo MAME XML file",
+            },
+        },
     }
 
 

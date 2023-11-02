@@ -4,7 +4,13 @@ import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 
 // Props
-const props = defineProps(["rom", "isHoveringTop", "showSelector", "size", "selected"]);
+const props = defineProps([
+  "rom",
+  "isHoveringTop",
+  "showSelector",
+  "size",
+  "selected",
+]);
 const emit = defineEmits(["selectRom"]);
 const downloadStore = storeDownload();
 const romsStore = storeRoms();

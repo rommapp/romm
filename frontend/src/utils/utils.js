@@ -1,3 +1,5 @@
+import cronstrue from "cronstrue";
+
 export const views = {
   0: {
     view: "small",
@@ -28,6 +30,8 @@ export const views = {
   },
 };
 
+export const defaultAvatarPath = "/assets/default_avatar.png";
+
 export function normalizeString(s) {
   return s
     .toLowerCase()
@@ -35,4 +39,10 @@ export function normalizeString(s) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export const defaultAvatarPath = "/assets/default_avatar.png";
+export function convertCronExperssion(expression) {
+  let convertedExpression = cronstrue.toString(expression, { verbose: true });
+  convertedExpression =
+    convertedExpression.charAt(0).toLocaleLowerCase() +
+    convertedExpression.substr(1);
+  return convertedExpression;
+}
