@@ -204,6 +204,7 @@ onBeforeRouteUpdate((to, _) => {
         :sm="views[galleryView.current]['size-sm']"
         :md="views[galleryView.current]['size-md']"
         :lg="views[galleryView.current]['size-lg']"
+        :xl="views[galleryView.current]['size-xl']"
       >
         <game-card
           :rom="rom"
