@@ -1,9 +1,9 @@
 <script setup>
 import storeAuth from "@/stores/auth";
-import FilterBar from "@/components/GalleryAppBar/FilterBar.vue";
-import GalleryViewBtn from "@/components/GalleryAppBar/GalleryViewBtn.vue";
-import ScanBtn from "@/components/GalleryAppBar/ScanBtn.vue";
-import UploadRomBtn from "@/components/GalleryAppBar/UploadRomBtn.vue";
+import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
+import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
+import ScanBtn from "@/components/Gallery/AppBar/ScanBtn.vue";
+import UploadRomBtn from "@/components/Gallery/AppBar/UploadRomBtn.vue";
 
 // Props
 const auth = storeAuth();

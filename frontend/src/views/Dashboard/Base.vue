@@ -1,11 +1,10 @@
 <script setup>
 import storePlatforms from "@/stores/platforms";
-import dashboardSummary from "@/views/Dashboard/Summary.vue";
-import recentlyAdded from "@/views/Dashboard/Recent.vue";
-import dashboardPlatforms from "@/views/Dashboard/Platforms.vue";
+import dashboardSummary from "@/components/Dashboard/Summary.vue";
+import recentlyAdded from "@/components/Dashboard/Recent.vue";
+import dashboardPlatforms from "@/components/Dashboard/Platforms.vue";
 
 // Props
-const platforms = storePlatforms();
 </script>
 
 <template>

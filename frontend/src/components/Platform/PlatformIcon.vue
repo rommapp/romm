@@ -3,7 +3,7 @@ import { ref } from "vue";
 
 const props = defineProps(["platform"]);
 const platformIconUrl = ref(
-  `/assets/platforms/${props.platform.slug.toLowerCase()}.ico`
+  `/assets/platforms/${props.platform.toLowerCase()}.ico`
 );
 
 function onImageError() {
