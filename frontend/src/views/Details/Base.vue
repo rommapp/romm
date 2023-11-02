@@ -178,9 +178,9 @@ onBeforeMount(async () => {
             </v-chip-group>
           </v-row>
           <v-row no-gutters class="align-center">
-            <span class="font-italic mt-1 rom-platform">{{
+            <v-chip class="font-italic mt-1 rom-platform" :to="`/platform/${rom.p_slug}`">{{
               rom.p_name || rom.p_slug
-            }}</span>
+            }}</v-chip>
             <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
               <v-chip
                 v-show="rom.region"
@@ -386,7 +386,7 @@ onBeforeMount(async () => {
 
 .content,
 .content-tablet {
-  margin-top: 64px;
+  margin-top: 56px;
   margin-left: 100px;
   margin-right: 100px;
 }
