@@ -32,16 +32,16 @@ onBeforeMount(async () => {
         <v-divider class="border-opacity-25" />
 
         <v-col
-          v-for="s in scheduler"
+          v-for="task in scheduler"
           cols="12"
           md="4"
           sm="6"
           :class="{
             'status-item d-flex': true,
-            disabled: !s.ENABLED,
+            disabled: !task.ENABLED,
           }"
         >
-          <task-scheduler :scheduler="s" />
+          <task-scheduler :task="task" />
         </v-col>
       </v-row>
     </v-card-text>
