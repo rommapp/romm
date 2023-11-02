@@ -8,7 +8,6 @@ client = TestClient(app)
 def test_heartbeat():
     response = client.get("/heartbeat")
     assert response.status_code == 200
-    print(response.json())
     assert response.json() == {
         "ROMM_AUTH_ENABLED": True,
         "WATCHER": {
