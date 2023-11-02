@@ -81,8 +81,7 @@ def heartbeat():
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",
-            "MESSAGE": f"Runs a scan when a change is detected in the library path, \
-                with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minutes delay",
+            "MESSAGE": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minutes delay",
         },
         "SCHEDULER": {
             "RESCAN": {
