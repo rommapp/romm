@@ -250,7 +250,7 @@ onBeforeRouteUpdate((to, _) => {
           class="mr-2"
           size="large"
           @click="toTop"
-          ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn
+          ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
         >
       </v-scroll-y-reverse-transition>
       <v-menu
@@ -288,10 +288,10 @@ onBeforeRouteUpdate((to, _) => {
 
 <style scoped>
 .game-card.game-selected {
-  border: 2px solid rgba(var(--v-theme-romm-accent-2));
+  border: 2px solid rgba(var(--v-theme-romm-accent-1));
   padding: 0;
 }
 #scrollToTop {
-  border: 1px solid rgba(var(--v-theme-romm-accent-2));
+  border: 1px solid rgba(var(--v-theme-romm-accent-1));
 }
 </style>
