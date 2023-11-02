@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { downloadRomApi } from "@/services/api";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import storeAuth from "@/stores/auth";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
@@ -56,8 +57,8 @@ const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const saveFiles = ref(false);
+const auth = storeAuth();
 const romsPerPage = ref(-1);
-const emitter = inject("emitter");
 
 // Functions
 function rowClick(_, row) {
@@ -137,6 +138,7 @@ function rowClick(_, row) {
         <template v-slot:activator="{ props }">
           <v-btn
             rounded="0"
+            :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             size="small"
             variant="text"
