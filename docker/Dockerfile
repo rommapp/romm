@@ -85,6 +85,7 @@ RUN rm -r \
 FROM scratch
 COPY --from=production-stage / /
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
+RUN mkdir /romm && chown 1000:1000 /romm -R
 
 # Expose ports and start
 EXPOSE 8080
