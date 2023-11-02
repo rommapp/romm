@@ -96,7 +96,7 @@ function onTouchEnd() {
             <v-list-item>{{ rom.r_name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="pl-1 pt-0">
+        <v-chip-group class="pl-1 pt-0 text-white text-shadow">
           <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
             {{ rom.region }}
           </v-chip>
@@ -127,5 +127,8 @@ function onTouchEnd() {
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
+}
+.text-shadow {
+  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>

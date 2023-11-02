@@ -1,23 +1,25 @@
 <script setup>
+import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 
 const props = defineProps(["rom"]);
+const { xs, sm, md, smAndUp } = useDisplay();
 </script>
 <template>
   <v-row no-gutters>
-    <div class="text-h4 text-white font-weight-bold title text-truncate">
+    <div class="text-h5 text-white text-shadow font-weight-bold title" :class="{'text-truncate': smAndUp }">
       {{ rom.r_name }}
     </div>
   </v-row>
   <v-row no-gutters class="align-center mt-2">
     <v-chip
-      class="font-italic text-white title py-5 px-3"
+      class="font-italic text-white text-shadow title pa-3"
       :to="`/platform/${rom.p_slug}`"
       >{{ rom.p_name || rom.p_slug
       }}<v-avatar :rounded="0" size="43" class="ml-2 pa-1">
         <platform-icon :platform="rom.p_slug"></platform-icon></v-avatar
     ></v-chip>
-    <v-chip-group v-if="rom.region || rom.revision" class="ml-3">
+    <v-chip-group v-if="rom.region || rom.revision" class="ml-3 text-white text-shadow">
       <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>{{
         rom.region
       }}</v-chip>
@@ -29,7 +31,7 @@ const props = defineProps(["rom"]);
 </template>
 
 <style scoped>
-.title {
+.text-shadow {
   text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>
