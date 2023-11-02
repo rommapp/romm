@@ -8,26 +8,129 @@ shopt -s inherit_errexit # inherit errexit
 # use virtualenvs
 source /backend/bin/activate
 
+# make it possible to disable the inotify watcher process
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="true"}"
+
+# Set redis to false if not set by docker env
+ENABLE_EXPERIMENTAL_REDIS="${ENABLE_EXPERIMENTAL_REDIS:="false"}"
+
+# Set INIT_DEBUG to false if not set by docker env
+# (this env var is currently undocumented and usually just needed for development purposes)
+INIT_DEBUG="${INIT_DEBUG:="false"}"
+
+# print debug log output if enabled
+debug_log () {
+    if [ "${INIT_DEBUG}" == "true" ]; then
+        echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+    fi
+}
+
+# print debug log output if enabled
+info_log () {
+    echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}"
+}
+
+# print error log output if enabled
+error_log () {
+    echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+    exit 1
+}
+
+# function that runs or main process and creates a corresponding PID file,
+# sadly uvicorn can not do that itself
+start_bin_uvicorn () {
+    # cleanup potentially leftover socket
+    rm /tmp/uvicorn.sock -f
+    # Commands to start our main application and store its PID to check for crashes
+    info_log "starting uvicorn"
+    uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000 --uds /tmp/uvicorn.sock --workers 2 &
+    UVICORN_PID=$!
+    echo $UVICORN_PID > /tmp/uvicorn.pid
+}
+
+# Commands to start nginx (handling PID creation internally)
+start_bin_nginx () {
+    info_log "starting nginx"
+    if [ "$EUID" -ne 0 ]; then
+        nginx
+    else
+        # if container runs as root, drop permissions
+        nginx -g 'user romm;'
+    fi
+}
+
+# function that runs our independent python scripts and creates corresponding PID files,
+start_python () {
+    SCRIPT="${1}"
+    info_log "starting ${SCRIPT}.py"
+    python3 "${SCRIPT}.py" &
+    WATCHER_PID=$!
+    echo $WATCHER_PID > "/tmp/${SCRIPT}.pid"
+}
+
+watchdog_process_pid () {
+    TYPE=$1
+    PROCESS=$2
+    if [ -f "/tmp/${PROCESS}.pid" ]; then
+        # check if the pid we last wrote to our state file is actually active
+        if [ -d "/proc/$(cat "/tmp/${PROCESS}.pid")" ]; then
+            debug_log "${PROCESS} still running, no need to start"
+        else
+            if [ "${TYPE}" == "bin" ]; then
+                start_bin_"${PROCESS}"
+            elif [ "${TYPE}" == "python" ]; then
+                start_python "${PROCESS}"
+            fi
+        fi
+    else
+            if [ "${TYPE}" == "bin" ]; then
+                start_bin_"${PROCESS}"
+            elif [ "${TYPE}" == "python" ]; then
+                start_python "${PROCESS}"
+            fi
+    fi
+}
+
 # switch to backend directory
-cd /backend || { echo "/backend directory doesn't seem to exist"; exit 1; }
+cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
-# Run migrations and start uvicorn
-/init_back &
- 
-# Start nginx
-/init_front &
+# function definition done, lets start our main loop
+while true; do
+    # Run needed database migrations on startup,
+    # but only if it was not successful since the last full docker container start
+    if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
+        if alembic upgrade head; then
+            debug_log "database schema migrations suceeded"
+            ALEMBIC_SUCCESS="true"
+        else
+            error_log "Something went horribly wrong with our database"
+        fi
+    else
+        debug_log "database schema already upgraded during current container lifecycle"
+    fi
 
-# Start rq worker
-/init_worker &
+    # Start nginx if we dont have a corresponding PID file
+    watchdog_process_pid bin nginx
 
-# Start rq scheduler
-/init_scheduler &
+    # Start uvicorn if we dont have a corresponding PID file
+    watchdog_process_pid bin uvicorn
 
-# Start watchdog
-/init_watchdog &
+    # only start the watcher.py if we actually want to use the rescan on fs change feature
+    if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
+        # Start watcher if we dont have a corresponding PID file
+        watchdog_process_pid python watcher
+    fi
 
-# Wait for any process to exit
-wait -n
-
-# Exit with status of process that exited first
-exit $?
+    # Start background worker processes when we have a REDIS configured
+    # ENABLE_EXPERIMENTAL_REDIS is defaulted to false, unless its set from our docker env
+    if [[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]]; then
+        debug_log "ENABLE_EXPERIMENTAL_REDIS true, starting worker and scheduler"
+        # Start worker if we dont have a corresponding PID file
+        watchdog_process_pid python worker
+        # Start scheduler if we dont have a corresponding PID file
+        watchdog_process_pid python scheduler
+    fi
+    
+    # check for died processes every 5 seconds
+    sleep 5
+done
