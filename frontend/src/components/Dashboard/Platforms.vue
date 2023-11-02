@@ -25,6 +25,7 @@ const platforms = storePlatforms();
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
+          :xl="views[0]['size-xl']"
         >
           <platform-card :platform="platform" :key="platform.slug" />
         </v-col>
