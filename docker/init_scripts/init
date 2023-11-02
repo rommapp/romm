@@ -36,6 +36,8 @@ error_log () {
 # function that runs or main process and creates a corresponding PID file,
 # sadly uvicorn can not do that itself
 start_bin_uvicorn () {
+    # cleanup potentially leftover socket
+    rm /tmp/uvicorn.sock -f
     # Commands to start our main application and store its PID to check for crashes
     info_log "starting uvicorn"
     uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000 --uds /tmp/uvicorn.sock --workers 2 &
