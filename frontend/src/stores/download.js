@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 
 export default defineStore("download", {
-  state: () => ({ value: [] }),
+  state: () => ({ value: [], filesToDownloadMultiFileRom: [] }),
 
   actions: {
     add(id) {

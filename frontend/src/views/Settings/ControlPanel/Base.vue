@@ -1,9 +1,9 @@
 <script setup>
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import Users from "@/views/Settings/Users/Users.vue";
-import Settings from "@/views/Settings/General/Settings.vue";
-import version from "../../../package";
+import Settings from "@/views/Settings/ControlPanel/General/Base.vue";
+import Users from "@/views/Settings/ControlPanel/Users/Base.vue";
+import version from "../../../../package";
 
 // Props
 const auth = storeAuth();

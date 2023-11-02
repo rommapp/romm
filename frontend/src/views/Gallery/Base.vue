@@ -7,7 +7,7 @@ import { views, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import GalleryAppBar from "@/components/GalleryAppBar/Base.vue";
+import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -15,7 +15,7 @@ import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import FabMenu from "@/components/FabMenu/Base.vue";
+import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 
 // Props
 const route = useRoute();
@@ -217,17 +217,6 @@ onBeforeRouteUpdate((to, _) => {
       <!-- Gallery list view -->
       <v-col v-show="galleryView.current == 2">
         <game-data-table />
-      </v-col>
-    </v-row>
-  </template>
-
-  <!-- Empty gallery message -->
-  <template v-if="filteredRoms.length == 0 && !gettingRoms">
-    <v-row class="align-center justify-center" no-gutters>
-      <v-col cols="6" md="2">
-        <div class="mt-16">
-          Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
-        </div>
       </v-col>
     </v-row>
   </template>

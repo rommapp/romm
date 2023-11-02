@@ -30,12 +30,12 @@ const routes = [
       {
         path: "/library/scan",
         name: "scan",
-        component: () => import("@/views/Library/Scan.vue"),
+        component: () => import("@/views/Library/Scan/Base.vue"),
       },
       {
         path: "/settings/control-panel",
         name: "controlPanel",
-        component: () => import("@/views/Settings/ControlPanel.vue"),
+        component: () => import("@/views/Settings/ControlPanel/Base.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
