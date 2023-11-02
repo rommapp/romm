@@ -23,7 +23,7 @@ const { allRoms } = storeToRefs(romsStore);
 const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
 const tab = ref("details");
 const downloadUrl = ref();
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs, sm, md, lgAndUp } = useDisplay();
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -63,7 +63,8 @@ onBeforeMount(async () => {
     class="justify-center"
     :class="{
       content: lgAndUp,
-      'content-tablet': mdAndDown,
+      'content-tablet-md': md,
+      'content-tablet-sm': sm,
       'content-mobile': xs,
     }"
     no-gutters
@@ -71,25 +72,33 @@ onBeforeMount(async () => {
     <v-col
       :class="{
         cover: lgAndUp,
-        'cover-tablet': mdAndDown,
+        'cover-tablet-md': md,
+        'cover-tablet-sm': sm,
         'cover-mobile': xs,
       }"
-      class="pa-3 mr-2"
+      class="pa-3"
     >
       <cover :rom="rom" />
       <action-bar :rom="rom" :downloadUrl="downloadUrl" />
     </v-col>
     <v-col
-      class="mt-14"
-      :class="{ info: lgAndUp, 'info-tablet': mdAndDown, 'info-mobile': xs }"
+      class="mt-14 ml-2"
+      :class="{
+        info: lgAndUp,
+        'info-tablet-md': md,
+        'info-tablet-sm': sm,
+        'info-mobile': xs,
+      }"
     >
       <title-info :rom="rom" />
-      <div
+      <v-row
         :class="{
           'details-content': lgAndUp,
-          'details-content-tablet': mdAndDown,
+          'details-content-tablet-md': md,
+          'details-content-tablet-sm': sm,
           'details-content-mobile': xs,
         }"
+        no-gutters
       >
         <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
           <v-tab value="details" rounded="0">Details</v-tab>
@@ -116,7 +125,7 @@ onBeforeMount(async () => {
             <v-row class="d-flex mt-2" no-gutters></v-row>
           </v-window-item>
         </v-window>
-      </div>
+      </v-row>
     </v-col>
   </v-row>
 
@@ -127,61 +136,69 @@ onBeforeMount(async () => {
 </template>
 
 <style scoped>
-.scroll {
-  overflow-y: scroll;
-}
-
 .content,
-.content-tablet,
+.content-tablet-md,
+.content-tablet-sm,
 .content-mobile {
   /* Needed to put elements on top of the header background */
   position: relative;
 }
 
 .content,
-.content-tablet {
+.content-tablet-md {
   margin-top: 88px;
   margin-left: 100px;
   margin-right: 100px;
 }
 
+.content-tablet-sm,
 .content-mobile {
-  margin-top: 64px;
+  margin-top: 20px;
   margin-left: 20px;
   margin-right: 20px;
 }
 
 .cover,
-.cover-tablet {
+.cover-tablet-md {
   min-width: 295px;
-  min-height: 396px;
+  min-height: 420px;
   max-width: 295px;
-  max-height: 396px;
+  max-height: 420px;
 }
+.cover-tablet-sm,
 .cover-mobile {
-  min-width: 265px;
-  min-height: 346px;
-  max-width: 265px;
-  max-height: 346px;
+  min-width: 295px;
+  min-height: 390px;
+  max-width: 295px;
+  max-height: 390px;
+}
+
+.info,
+.info-tablet-md {
+  min-width: 480px;
 }
 
 .details,
-.details-tablet,
+.details-tablet-md,
+.details-tablet-sm,
 .details-mobile {
+  position: relative;
   padding-left: 25px;
   padding-right: 25px;
 }
 
 .details-content {
-  margin-top: 98px;
+  margin-top: 94px;
   max-width: 700px;
 }
 
-.details-content-tablet {
-  margin-top: 66px;
+.details-content-tablet-md {
+  margin-top: 38px;
+  max-width: 700px;
 }
 
+.details-content-tablet-sm,
 .details-content-mobile {
-  margin-top: 30px;
+  margin-top: 14px;
 }
 </style>
