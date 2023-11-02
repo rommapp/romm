@@ -150,7 +150,7 @@ onBeforeMount(async () => {
 
 .content,
 .content-tablet-md {
-  margin-top: 88px;
+  margin-top: 90px;
   margin-left: 100px;
   margin-right: 100px;
 }
@@ -192,12 +192,12 @@ onBeforeMount(async () => {
 }
 
 .details-content {
-  margin-top: 94px;
+  margin-top: 104px;
   max-width: 700px;
 }
 
 .details-content-tablet-md {
-  margin-top: 38px;
+  margin-top: 48px;
   max-width: 700px;
 }
 
