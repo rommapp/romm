@@ -49,6 +49,7 @@ onMounted(async () => {
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
+          :xl="views[0]['size-xl']"
         >
           <game-card :rom="rom" :showSelector="false" />
         </v-col>
