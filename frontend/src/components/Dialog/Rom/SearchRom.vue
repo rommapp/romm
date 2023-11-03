@@ -226,13 +226,14 @@ onBeforeUnmount(() => {
               <v-card
                 @click="updateRom(matchedRom)"
                 v-bind="props"
+                class="matched-rom"
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
                 <v-tooltip activator="parent" location="top" class="tooltip">{{
                   matchedRom.r_name
                 }}</v-tooltip>
-                <v-img v-bind="props" :src="matchedRom.url_cover" cover />
+                <v-img v-bind="props" :src="matchedRom.url_cover" :aspect-ratio="3 / 4" />
                 <v-card-text>
                   <v-row class="pa-1">
                     <span class="d-inline-block text-truncate">{{
@@ -286,5 +287,14 @@ onBeforeUnmount(() => {
 .search-content-mobile {
   width: 85vw;
   height: 640px;
+}
+.matched-rom {
+  transition-property: all;
+  transition-duration: 0.1s;
+}
+.matched-rom.on-hover {
+  z-index: 1 !important;
+  opacity: 1;
+  transform: scale(1.05); 
 }
 </style>
