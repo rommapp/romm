@@ -11,7 +11,7 @@ from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
 
-from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, DEFAULT_URL_COVER_L
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
@@ -122,7 +122,7 @@ class IGDBHandler:
         )
 
         cover = pydash.get(covers, "[0]", None)
-        return "" if not cover else self._normalize_cover_url(cover["url"])
+        return DEFAULT_URL_COVER_L if not cover else self._normalize_cover_url(cover["url"])
 
     def _search_screenshots(self, rom_id: int) -> list:
         screenshots = self._request(
