@@ -42,7 +42,7 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 - Upload games directly from your web-browser
 - Set a custom cover for each game
 - Includes region, revision/version, and extra tags support.
-- Works with SQLite or MaridDB.
+- Works with SQLite or MariaDB.
 - Features a responsive design with dark mode support.
 
 # Preview
