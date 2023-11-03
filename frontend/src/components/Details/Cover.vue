@@ -14,7 +14,7 @@ const props = defineProps(["rom"]);
         <v-img
           :src="`/assets/romm/resources/${rom.path_cover_l}`"
           :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
-          cover
+          :aspect-ratio="3 / 4"
         >
           <template v-slot:placeholder>
             <div class="d-flex align-center justify-center fill-height">

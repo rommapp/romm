@@ -82,7 +82,7 @@ onBeforeMount(async () => {
       <action-bar :rom="rom" :downloadUrl="downloadUrl" />
     </v-col>
     <v-col
-      class="mt-14 ml-2"
+      class="mt-14"
       :class="{
         info: lgAndUp,
         'info-tablet-md': md,
@@ -179,6 +179,7 @@ onBeforeMount(async () => {
 
 .info,
 .info-tablet-md {
+  margin-left: 15px;
   min-width: 480px;
 }
 
