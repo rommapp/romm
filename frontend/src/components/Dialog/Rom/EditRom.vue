@@ -139,7 +139,8 @@ async function updateRom() {
           <v-file-input
             @keyup.enter="updateRom()"
             v-model="rom.artwork"
-            label="Custom artwork"
+            label="Custom artwork (.png)"
+            accept=".png"
             prepend-inner-icon="mdi-image"
             prepend-icon=""
             variant="outlined"

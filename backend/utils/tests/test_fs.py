@@ -5,7 +5,9 @@ from ..fs import (
     get_platforms,
     get_roms_structure,
     get_roms,
-    get_rom_size,
+    get_rom_file_size,
+    # get_screenshots # TODO: write test
+    # store_default_resources # TODO: write test
     # get_rom_files,  # TODO: write test
     # rename_rom,  # TODO: write test
     # remove_rom,  # TODO: write test
@@ -29,8 +31,8 @@ def test_get_cover():
         rom_name="Paper Mario",
     )
 
-    assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
-    assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
+    assert "n64/Paper%20Mario/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
 
     # Game: Paper Mario (USA).z64
     cover = get_cover(
@@ -40,8 +42,8 @@ def test_get_cover():
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
-    assert "n64/Paper Mario/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper Mario/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Paper%20Mario/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
 
     # Game: Super Mario 64 (J) (Rev A)
     cover = get_cover(
@@ -51,8 +53,25 @@ def test_get_cover():
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
-    assert "n64/Super Mario 64/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Super Mario 64/cover/big.png" in cover["path_cover_l"]
+    assert "n64/Super%20Mario%2064/cover/small.png" in cover["path_cover_s"]
+    assert "n64/Super%20Mario%2064/cover/big.png" in cover["path_cover_l"]
+
+    # Game: Disney's Kim Possible: What's the Switch?.zip
+    cover = get_cover(
+        overwrite=False,
+        p_slug="ps2",
+        r_name="Disney's Kim Possible: What's the Switch?",
+        url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
+    )
+
+    assert (
+        "ps2/Disney%27s%20Kim%20Possible%3A%20What%27s%20the%20Switch%3F/cover/small.png"
+        in cover["path_cover_s"]
+    )
+    assert (
+        "ps2/Disney%27s%20Kim%20Possible%3A%20What%27s%20the%20Switch%3F/cover/big.png"
+        in cover["path_cover_l"]
+    )
 
     # Game: Fake Game.xyz
     cover = get_cover(
@@ -90,7 +109,7 @@ def test_get_roms():
 
 
 def test_rom_size():
-    rom_size = get_rom_size(
+    rom_size = get_rom_file_size(
         roms_path=get_roms_structure(fs_slug="n64"),
         file_name="Paper Mario (USA).z64",
         multi=False,
@@ -98,7 +117,7 @@ def test_rom_size():
 
     assert rom_size == (1.0, "KB")
 
-    rom_size = get_rom_size(
+    rom_size = get_rom_file_size(
         roms_path=get_roms_structure(fs_slug="n64"),
         file_name="Super Mario 64 (J) (Rev A)",
         multi=True,

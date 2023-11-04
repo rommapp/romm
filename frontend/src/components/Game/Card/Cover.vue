@@ -4,7 +4,13 @@ import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 
 // Props
-const props = defineProps(["rom", "isHoveringTop", "size", "selected"]);
+const props = defineProps([
+  "rom",
+  "isHoveringTop",
+  "showSelector",
+  "size",
+  "selected",
+]);
 const emit = defineEmits(["selectRom"]);
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
@@ -52,7 +58,7 @@ function onTouchEnd() {
     :to="
       romsStore.touchScreen && romsStore.selectedRoms.length > 0
         ? ''
-        : `/platform/${$route.params.platform}/${rom.id}`
+        : `/platform/${rom.p_slug}/${rom.id}`
     "
     ref="card"
     @click="onNavigate"
@@ -72,6 +78,7 @@ function onTouchEnd() {
         v-bind="props"
         :src="`/assets/romm/resources/${rom.path_cover_l}`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
+        :aspect-ratio="3/4"
       >
         <template v-slot:placeholder>
           <div class="d-flex align-center justify-center fill-height">
@@ -90,7 +97,7 @@ function onTouchEnd() {
             <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="pl-1 pt-0">
+        <v-chip-group class="pl-1 pt-0 text-white text-shadow">
           <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
             {{ rom.region }}
           </v-chip>
@@ -99,7 +106,7 @@ function onTouchEnd() {
           </v-chip>
         </v-chip-group>
         <v-icon
-          v-show="isHoveringTop"
+          v-show="isHoveringTop && showSelector"
           @click="onSelectRom"
           size="small"
           class="position-absolute checkbox"
@@ -121,5 +128,8 @@ function onTouchEnd() {
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
+}
+.text-shadow {
+  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>

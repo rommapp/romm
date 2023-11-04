@@ -1,6 +1,7 @@
 import pytest
 from urllib.parse import urlparse
 
+from config import DEFAULT_URL_COVER_L
 from handler.igdb_handler import IGDBHandler
 
 igdbh = IGDBHandler()
@@ -17,8 +18,8 @@ def test_get_platform():
 
 
 @pytest.mark.vcr()
-def test_get_rom():
-    rom = igdbh.get_rom("Paper Mario (USA).n64", 4)
+async def test_get_rom():
+    rom = await igdbh.get_rom("Paper Mario (USA).n64", 4)
     assert rom["igdb_id"] == 3340
     assert rom["slug"] == "paper-mario"
     assert rom["name"] == "Paper Mario"
@@ -26,26 +27,26 @@ def test_get_rom():
     assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
     assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
 
-    rom = igdbh.get_rom("Not a real game title", 4)
+    rom = await igdbh.get_rom("Not a real game title", 4)
     assert not rom["igdb_id"]
     assert rom["slug"] == ""
     assert rom["name"] == "Not a real game title"
     assert not rom["summary"]
-    assert rom["url_cover"] == ""
+    assert rom["url_cover"] == DEFAULT_URL_COVER_L
     assert not rom["url_screenshots"]
 
 
 @pytest.mark.vcr()
-def test_get_ps2_opl_rom():
-    rom = igdbh.get_rom("WWE Smack.iso", 8)
+async def test_get_ps2_opl_rom():
+    rom = await igdbh.get_rom("WWE Smack.iso", 8)
     assert not rom["igdb_id"]
     assert rom["slug"] == ""
     assert rom["name"] == "WWE Smack"
     assert not rom["summary"]
-    assert rom["url_cover"] == ""
+    assert rom["url_cover"] == DEFAULT_URL_COVER_L
     assert not rom["url_screenshots"]
 
-    rom = igdbh.get_rom("SLUS_210.60.WWE Smack.iso", 8)
+    rom = await igdbh.get_rom("SLUS_210.60.WWE Smack.iso", 8)
     assert rom["igdb_id"] == 80852
     assert rom["slug"] == "wwe-smackdown-vs-raw"
     assert rom["name"] == "WWE Smackdown! vs. Raw"

@@ -68,6 +68,10 @@ class DBHandler:
         return session.get(Rom, id)
 
     @begin_session
+    def get_recent_roms(self, session: Session = None):
+        return session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15)).all()
+
+    @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None):
         return session.execute(
             update(Rom)

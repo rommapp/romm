@@ -4,22 +4,39 @@ import pydash
 import requests
 import re
 import time
+import os
+import json
+import xmltodict
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
 from typing_extensions import TypedDict
 
-from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, DEFAULT_URL_COVER_L
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
-from .ps2_opl_index import opl_index
+from tasks.update_switch_titledb import update_switch_titledb_task
+from tasks.update_mame_xml import update_mame_xml_task
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
 PS2_IGDB_ID: Final = 8
+SWITCH_IGDB_ID: Final = 130
+ARCADE_IGDB_ID: Final = 52
+
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_OPL_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "ps2_opl_index.json"
+)
+
+SWITCH_TITLEDB_REGEX: Final = r"^(70[0-9]{12})$"
+SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "switch_titledb.json"
+)
+
+MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
 class IGDBPlatformType(TypedDict):
@@ -65,15 +82,19 @@ class IGDBHandler:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
             res.raise_for_status()
             return res.json()
-        except (HTTPError, Timeout) as err:
+        except HTTPError as err:
+            # Retry once if the auth token is invalid
             if err.response.status_code != 401:
                 log.error(err)
                 return []  # All requests to the IGDB API return a list
-
-        # Attempt to force a token refresh if the token is invalid
-        log.warning("Twitch token invalid: fetching a new one...")
-        token = self.twitch_auth._update_twitch_token()
-        self.headers["Authorization"] = f"Bearer {token}"
+            
+            # Attempt to force a token refresh if the token is invalid
+            log.warning("Twitch token invalid: fetching a new one...")
+            token = self.twitch_auth._update_twitch_token()
+            self.headers["Authorization"] = f"Bearer {token}"
+        except Timeout:
+            # Retry once the request if it times out
+            pass
 
         try:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
@@ -118,7 +139,7 @@ class IGDBHandler:
         )
 
         cover = pydash.get(covers, "[0]", None)
-        return "" if not cover else self._normalize_cover_url(cover["url"])
+        return DEFAULT_URL_COVER_L if not cover else self._normalize_cover_url(cover["url"])
 
     def _search_screenshots(self, rom_id: int) -> list:
         screenshots = self._request(
@@ -152,16 +173,66 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
+    async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
         search_term = get_search_term(file_name)
 
         # Patch support for PS2 OPL flename format
         match = re.match(PS2_OPL_REGEX, search_term)
         if platform_idgb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
-            index_entry = opl_index.get(serial_code, None)
-            if index_entry:
-                search_term = index_entry["Name"]  # type: ignore
+
+            with open(PS2_OPL_INDEX_FILE, "r") as index_json:
+                opl_index = json.loads(index_json.read())
+                index_entry = opl_index.get(serial_code, None)
+                if index_entry:
+                    search_term = index_entry["Name"]  # type: ignore
+
+        # Patch support for switch titleID filename format
+        match = re.match(SWITCH_TITLEDB_REGEX, search_term)
+        if platform_idgb_id == SWITCH_IGDB_ID and match:
+            title_id = match.group(1)
+            titledb_index = {}
+
+            try:
+                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                    titledb_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.warning("Fetching the Switch titleDB index file...")
+                await update_switch_titledb_task.run(force=True)
+
+                try:
+                    with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                        titledb_index = json.loads(index_json.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the Switch titleDB index file")
+            finally:
+                index_entry = titledb_index.get(title_id, None)
+                if index_entry:
+                    search_term = index_entry["name"]  # type: ignore
+
+        if platform_idgb_id == ARCADE_IGDB_ID:
+            mame_index = { "menu": { "game": [] } }
+
+            try:
+                with open(MAME_XML_FILE, "r") as index_xml:
+                    mame_index = xmltodict.parse(index_xml.read())
+            except FileNotFoundError:
+                log.warning("Fetching the MAME XML file from HyperspinFE...")
+                await update_mame_xml_task.run(force=True)
+
+                try:
+                    with open(MAME_XML_FILE, "r") as index_xml:
+                        mame_index = xmltodict.parse(index_xml.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the MAME XML file from HyperspinFE")
+            finally:
+                index_entry = [
+                    game
+                    for game in mame_index["menu"]["game"]
+                    if game["@name"] == search_term
+                ]
+                if index_entry:
+                    search_term = index_entry[0].get("description", search_term)
 
         res = (
             self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)

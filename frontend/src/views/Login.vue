@@ -11,8 +11,10 @@ const router = useRouter();
 const username = ref();
 const password = ref();
 const visiblePassword = ref(false);
+const logging = ref(false);
 
 function login() {
+  logging.value = true;
   api
     .post(
       "/login",
@@ -36,6 +38,9 @@ function login() {
         icon: "mdi-close-circle",
         color: "red",
       });
+    })
+    .finally(() => {
+      logging.value = false;
     });
 }
 
@@ -88,10 +93,20 @@ onBeforeMount(async () => {
             <v-col cols="10" md="8">
               <v-btn
                 @click="login()"
+                :disabled="logging"
                 append-icon="mdi-chevron-right-circle-outline"
                 block
-                >Login</v-btn
-              >
+                :loading="logging"
+                >Login
+                <template v-slot:loader>
+                  <v-progress-circular
+                    color="romm-accent-1"
+                    :width="2"
+                    :size="20"
+                    indeterminate
+                  />
+                </template>
+              </v-btn>
             </v-col>
           </v-row>
         </v-col>

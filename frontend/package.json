@@ -1,6 +1,6 @@
 {
   "name": "romm",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "vite --host",
@@ -12,6 +12,7 @@
     "@mdi/font": "7.0.96",
     "axios": "^1.3.4",
     "core-js": "^3.8.3",
+    "cronstrue": "^2.31.0",
     "file-saver": "^2.0.5",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",

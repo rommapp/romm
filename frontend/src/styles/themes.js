@@ -10,7 +10,7 @@ const commonColors = {
   "romm-black": "#000000",
 };
 
-export const rommDark = {
+export const dark = {
   dark: true,
   colors: {
     primary: "#161b22",
@@ -26,23 +26,28 @@ export const rommDark = {
   },
 };
 
-export const rommLight = {
+export const light = {
   dark: false,
   colors: {
-    primary: "#fefdfe",
-    secondary: "#fefdfe",
-    terciary: "#fefdfe",
-    background: "#fefdfe",
+    primary: "#ECEFF4",
+    secondary: "#ECEFF4",
+    terciary: "#ECEFF4",
+    background: "#ECEFF4",
 
-    surface: "#fefdfe",
-    tooltip: "#fefdfe",
-    chip: "#fefdfe",
+    surface: "#ECEFF4",
+    tooltip: "#ECEFF4",
+    chip: "#ECEFF4",
 
     ...commonColors,
   },
 };
 
+export const darkThemeKey = 0;
+export const lightThemeKey = 1;
+export const autoThemeKey = 2;
+
 export const themes = {
-  0: "rommDark",
-  1: "rommLight",
+  [darkThemeKey]: "dark",
+  [lightThemeKey]: "light",
+  [autoThemeKey]: "auto",
 };

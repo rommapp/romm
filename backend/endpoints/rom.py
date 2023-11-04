@@ -54,6 +54,7 @@ class RomSchema(BaseModel):
     file_path: str
     file_size: float
     file_size_units: str
+    file_size_bytes: int
 
     name: Optional[str]
     slug: Optional[str]
@@ -166,6 +167,12 @@ def download_rom(request: Request, id: int, files: str):
     )
 
 
+@protected_route(router.get, "/roms/recent", ["roms.read"])
+def recentRoms(request: Request) -> list[RomSchema]:
+    """Returns the last 10 added roms"""
+    return dbh.get_recent_roms()
+
+
 @protected_route(router.get, "/platforms/{platform_slug}/roms", ["roms.read"])
 def roms(
     request: Request,
@@ -236,6 +243,7 @@ async def update_rom(
             url_cover=cleaned_data.get("url_cover", ""),
         )
     )
+
     cleaned_data.update(
         get_screenshots(
             fs_slug=db_rom.platform_slug,
@@ -249,13 +257,17 @@ async def update_rom(
         path_cover_l, path_cover_s, artwork_path = build_artwork_path(
             cleaned_data["name"], db_rom.platform_slug, file_ext
         )
+
         cleaned_data["path_cover_l"] = path_cover_l
         cleaned_data["path_cover_s"] = path_cover_s
-        file_location_l = f"{artwork_path}/big.{file_ext}"
-        file_location_s = f"{artwork_path}/small.{file_ext}"
+        cleaned_data["has_cover"] = 1
+
         artwork_file = artwork.file.read()
+        file_location_s = f"{artwork_path}/small.{file_ext}"
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
+
+        file_location_l = f"{artwork_path}/big.{file_ext}"
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
 
