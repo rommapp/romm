@@ -58,7 +58,7 @@ function onTouchEnd() {
     :to="
       romsStore.touchScreen && romsStore.selectedRoms.length > 0
         ? ''
-        : `/platform/${rom.p_slug}/${rom.id}`
+        : `/platform/${rom.platform_slug}/${rom.id}`
     "
     ref="card"
     @click="onNavigate"

@@ -59,8 +59,8 @@ def test_get_cover():
     # Game: Disney's Kim Possible: What's the Switch?.zip
     cover = get_cover(
         overwrite=False,
-        p_slug="ps2",
-        r_name="Disney's Kim Possible: What's the Switch?",
+        fs_slug="ps2",
+        rom_name="Disney's Kim Possible: What's the Switch?",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
