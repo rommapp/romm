@@ -86,6 +86,12 @@ def rom(request: Request, id: int) -> RomSchema:
     return dbh.get_rom(id)
 
 
+@protected_route(router.get, "/roms-recent", ["roms.read"])
+def recent_roms(request: Request) -> list[RomSchema]:
+    """Returns the last 15 added roms"""
+    return dbh.get_recent_roms()
+
+
 class UploadRomResponse(TypedDict):
     uploaded_roms: list[str]
     skipped_roms: list[str]
@@ -165,12 +171,6 @@ def download_rom(request: Request, id: int, files: str):
         headers={"Content-Disposition": f"attachment; filename={rom.name}.zip"},
         emit_body={"id": rom.id},
     )
-
-
-@protected_route(router.get, "/roms/recent", ["roms.read"])
-def recentRoms(request: Request) -> list[RomSchema]:
-    """Returns the last 10 added roms"""
-    return dbh.get_recent_roms()
 
 
 @protected_route(router.get, "/platforms/{platform_slug}/roms", ["roms.read"])

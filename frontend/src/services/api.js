@@ -16,7 +16,7 @@ api.interceptors.response.use(
 );
 
 export async function fetchRecentRoms() {
-  return api.get("/roms/recent");
+  return api.get("/roms-recent");
 }
 
 async function fetchPlatforms() {
