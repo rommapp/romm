@@ -1,7 +1,7 @@
 """empty message
 
 Revision ID: 0009_models_refactor
-Revises: 1.9.2
+Revises: 2.0.0
 Create Date: 2023-09-12 18:18:27.158732
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0009_models_refactor"
-down_revision = "1.9.2"
+down_revision = "2.0.0"
 branch_labels = None
 depends_on = None
 
