@@ -19,7 +19,7 @@ const props = defineProps(["platform"]);
           </v-row>
           <v-row class="pa-1 justify-center">
             <v-avatar :rounded="0" size="105" class="mt-2">
-              <platform-icon :platform="platform"></platform-icon>
+              <platform-icon :platform="platform.slug"></platform-icon>
             </v-avatar>
             <v-chip
               class="bg-chip position-absolute"
@@ -40,5 +40,12 @@ const props = defineProps(["platform"]);
 #router-link {
   text-decoration: none;
   color: inherit;
+}
+.v-card {
+  transition-property: all;
+  transition-duration: 0.1s;
+}
+.v-card.on-hover {
+  transform: scale(1.05); 
 }
 </style>

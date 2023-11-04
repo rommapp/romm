@@ -58,14 +58,19 @@ REGIONS = [
 REGIONS_BY_SHORTCODE = {region[0].lower(): region[1] for region in REGIONS}
 REGIONS_NAME_KEYS = [region[1].lower() for region in REGIONS]
 
+TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
+EXTENSION_REGEX = r"\.(\w+(\.\w+)*)$"
+
 
 def parse_tags(file_name: str) -> tuple:
     reg = ""
     rev = ""
     other_tags = []
-    tags = re.findall(r"\(([^)]+)", file_name)
+    tags = re.findall(TAG_REGEX, file_name)
 
-    for tag in tags:
+    for p_tag, s_tag in tags:
+        tag = p_tag or s_tag
+
         if tag.lower() in REGIONS_BY_SHORTCODE.keys():
             reg = REGIONS_BY_SHORTCODE[tag.lower()]
             continue
@@ -95,9 +100,13 @@ def parse_tags(file_name: str) -> tuple:
 
 
 def get_file_name_with_no_tags(file_name: str) -> str:
-    # Use .rsplit to remove only the file extension
-    return re.sub(r"[\(\[].*?[\)\]]", "", file_name.rsplit(".", 1)[0]).strip()
+    file_name_no_extension = re.sub(EXTENSION_REGEX, "", file_name).strip()
+    return re.sub(TAG_REGEX, "", file_name_no_extension).strip()
 
 
 def get_file_extension(rom: dict) -> str:
-    return rom["file_name"].split(".")[-1] if not rom["multi"] else ""
+    return (
+        re.search(EXTENSION_REGEX, rom["file_name"]).group(1)
+        if not rom["multi"]
+        else ""
+    )

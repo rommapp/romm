@@ -4,7 +4,7 @@ import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
 
 // Props
-const props = defineProps(["rom", "index", "selected"]);
+const props = defineProps(["rom", "index", "selected", "showSelector"]);
 const emit = defineEmits(["selectRom"]);
 const romsStore = storeRoms();
 
@@ -28,6 +28,7 @@ function selectRom(event) {
     >
       <cover
         :rom="rom"
+        :showSelector="showSelector"
         :isHoveringTop="isHovering"
         :selected="selected"
         @selectRom="selectRom"
@@ -39,14 +40,13 @@ function selectRom(event) {
 
 <style scoped lang="scss">
 .v-card {
-  margin: 4px;
   border: 3px solid rgba(var(--v-theme-primary));
   opacity: 0.85;
   transition-property: all;
   transition-duration: 0.1s;
 }
 .v-card.rom-selected {
-  border: 3px solid rgba(var(--v-theme-romm-accent-2));
+  border: 3px solid rgba(var(--v-theme-romm-accent-1));
   transform: scale(1.03); 
 }
 .v-card.on-hover {

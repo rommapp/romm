@@ -1,5 +1,6 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
+import { toTop } from "@/utils/utils";
 
 const routes = [
   {
@@ -30,12 +31,12 @@ const routes = [
       {
         path: "/library/scan",
         name: "scan",
-        component: () => import("@/views/Library/Scan.vue"),
+        component: () => import("@/views/Library/Scan/Base.vue"),
       },
       {
         path: "/settings/control-panel",
         name: "controlPanel",
-        component: () => import("@/views/Settings/ControlPanel.vue"),
+        component: () => import("@/views/Settings/ControlPanel/Base.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
@@ -51,8 +52,9 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from) => {
-  //TODO: check if authenticated/session expired
-})
+router.afterEach(() => {
+  // Scroll to top to avoid annoying behaviour in mobile
+  window.scrollTo({ top: 0, left: 0 });
+});
 
 export default router;
