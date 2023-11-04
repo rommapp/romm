@@ -21,7 +21,7 @@ const { xs, sm, md, smAndUp } = useDisplay();
           <platform-icon :platform="rom.platform_slug"></platform-icon>
       </v-avatar>
     </v-chip>
-    <v-chip-group v-if="rom.region || rom.revision" class="ml-3 text-white text-shadow">
+    <v-chip-group v-if="rom.region || rom.revision" class="ml-3 pa-0 text-white text-shadow">
       <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
         {{ rom.region }}
       </v-chip>
