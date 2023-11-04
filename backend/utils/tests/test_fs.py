@@ -31,8 +31,8 @@ def test_get_cover():
         rom_name="Paper Mario",
     )
 
-    assert "n64/Paper%20Mario/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
+    assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
+    assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
 
     # Game: Paper Mario (USA).z64
     cover = get_cover(
