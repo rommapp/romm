@@ -23,7 +23,7 @@ const { allRoms } = storeToRefs(romsStore);
 const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
 const tab = ref("details");
 const downloadUrl = ref();
-const { xs, sm, md, lgAndUp } = useDisplay();
+const { xs, sm, md, lgAndUp, name } = useDisplay();
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -117,17 +117,17 @@ onBeforeMount(async () => {
       </v-row>
       <v-row no-gutters>
         <v-col cols="12">
-        <v-window v-model="tab" class="mt-2">
-          <v-window-item value="details">
-            <details-info :rom="rom" />
-          </v-window-item>
-          <v-window-item value="screenshots">
-            <screenshots-carousel :rom="rom" />
-          </v-window-item>
-          <v-window-item value="saves">
-            <v-row class="d-flex mt-2" no-gutters></v-row>
-          </v-window-item>
-        </v-window>
+          <v-window v-model="tab" class="mt-2">
+            <v-window-item value="details">
+              <details-info :rom="rom" />
+            </v-window-item>
+            <v-window-item value="screenshots">
+              <screenshots-carousel :rom="rom" />
+            </v-window-item>
+            <v-window-item value="saves">
+              <v-row class="d-flex mt-2" no-gutters></v-row>
+            </v-window-item>
+          </v-window>
         </v-col>
       </v-row>
     </v-col>
@@ -152,10 +152,20 @@ onBeforeMount(async () => {
 .content-tablet-md {
   margin-top: 90px;
   margin-left: 100px;
+}
+
+.content {
+  margin-right: 250px;
+}
+.content-tablet-md {
   margin-right: 100px;
 }
 
-.content-tablet-sm,
+.content-tablet-sm {
+  margin-top: 20px;
+  margin-left: 50px;
+  margin-right: 50px;
+}
 .content-mobile {
   margin-top: 20px;
   margin-left: 20px;
@@ -193,17 +203,17 @@ onBeforeMount(async () => {
 }
 
 .details-content {
-  margin-top: 104px;
+  margin-top: 108px;
   max-width: 700px;
 }
 
 .details-content-tablet-md {
-  margin-top: 48px;
+  margin-top: 52px;
   max-width: 700px;
 }
 
 .details-content-tablet-sm,
 .details-content-mobile {
-  margin-top: 14px;
+  margin-top: 18px;
 }
 </style>
