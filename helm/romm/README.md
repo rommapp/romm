@@ -180,11 +180,11 @@ The command removes all the Kubernetes components associated with the chart and 
 | `mariadb.auth.username` | username to connect to the database | `"romm"` |
 | `mariadb.enabled` | provision an instance of the mariadb sub-chart | `false` |
 | `mariadb.primary.persistence.enabled` | enable to not loose your database contents on updates | `false` |
-| `redis.architecture` |  | `"standalone"` |
-| `redis.auth.enabled` |  | `true` |
-| `redis.auth.password` |  | `"changeme"` |
+| `redis.architecture` | can be set to replication to spawn a full redis cluster with 3 nodes instead | `"standalone"` |
+| `redis.auth.enabled` | enable redis authentication mode | `true` |
+| `redis.auth.password` | password that gets used for the connection between romm and redis | `"changeme"` |
 | `redis.enabled` | provision an instance of the redis sub-chart | `true` |
-| `redis.redisPort` |  | `6379` |
+| `redis.redisPort` | default port for redis to listen on | `6379` |
 | `romm.config.auth.enabled` | enable romm's integrated authentication mechanics (this requires redis to be available) | `false` |
 | `romm.config.auth.password` | default password for the admin user | `"admin"` |
 | `romm.config.auth.username` | default username for the admin user | `"admin"` |

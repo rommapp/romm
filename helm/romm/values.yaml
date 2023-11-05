@@ -107,16 +107,18 @@ affinity: {}
 # Enable and configure redis subchart under this key.
 # If enabled, the app's redis envs will be set for you.
 # [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/redis)
-# -- @default -- See [values.yaml](./values.yaml)
+# -- @default -- See https://github.com/bitnami/charts/tree/master/bitnami/redis#parameters for more options
 redis:
   # -- provision an instance of the redis sub-chart
   enabled: true
-  # Redis specific helm chart settings, please see:
-  # https://github.com/bitnami/charts/tree/master/bitnami/redis#parameters
+  # -- default port for redis to listen on
   redisPort: 6379
+  # -- can be set to replication to spawn a full redis cluster with 3 nodes instead
   architecture: standalone
   auth:
+    # -- enable redis authentication mode
     enabled: true
+    # -- password that gets used for the connection between romm and redis
     password: "changeme"
 
 # Enable and configure mariadb database subchart under this key.
