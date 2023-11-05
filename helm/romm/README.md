@@ -127,6 +127,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | `podSecurityContext.runAsNonRoot` | ensure the container dosnt run with not-needed root permissions | `true` |
 | `podSecurityContext.runAsUser` | run the deployment as a user with this UID | `1000` |
 | `podSecurityContext.seccompProfile.type` | secure computing mode - see: [kubernetes.io/docs](https://kubernetes.io/docs/tutorials/security/seccomp/) | `"RuntimeDefault"` |
+| `securityContext.allowPrivilegeEscalation` | Controls whether a process can gain more privileges than its parent process | `false` |
+| `securityContext.capabilities.drop` | drop unneccessary permissions | `["ALL"]` |
+| `securityContext.readOnlyRootFilesystem` | mount / as readonly, writeable directorys are explicitely mounted | `true` |
 
 ### Deployment/Statefulset parameters
 
@@ -213,9 +216,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.settings.exclude.roms.single_file.names` | Exclude matched file names to be scanned | `["info.txt"]` |
 | `romm.settings.system.platforms.gc` | [your custom platform folder name]: [RomM platform name] | `"ngc"` |
 | `romm.settings.system.platforms.psx` |  | `"ps"` |
-| `securityContext.allowPrivilegeEscalation` | Controls whether a process can gain more privileges than its parent process | `false` |
-| `securityContext.capabilities.drop` | drop unneccessary permissions | `["ALL"]` |
-| `securityContext.readOnlyRootFilesystem` | mount / as readonly, writeable directorys are explicitely mounted | `true` |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 

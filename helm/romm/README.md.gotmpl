@@ -155,7 +155,7 @@ The command removes all the Kubernetes components associated with the chart and 
       (not (has .Key $params))
       (or
         (hasPrefix "podSecurityContext" .Key)
-        (hasPrefix "containerSecurityContext" .Key)
+        (hasPrefix "securityContext" .Key)
       )
     }}
         {{- $params = append $params .Key }}
