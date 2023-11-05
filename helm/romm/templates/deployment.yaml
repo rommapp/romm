@@ -1,0 +1,171 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "romm.fullname" . }}
+  labels:
+    {{- include "romm.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "romm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "romm.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+          {{- if and (.Values.redis.enabled) (.Values.romm.config.auth.enabled) }}
+          - name: ROMM_AUTH_ENABLED
+            value: "true"
+          - name: ROMM_AUTH_USERNAME
+            value: {{ .Values.romm.config.auth.username }}
+          - name: ROMM_AUTH_PASSWORD
+            value: {{ .Values.romm.config.auth.password }}
+          - name: ROMM_AUTH_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: romm-secret
+                key: auth-secret
+          {{- end }}
+          - name: ROMM_DB_DRIVER
+            value: {{ .Values.romm.config.database.type | quote }}
+          {{- if contains "mariadb" .Values.romm.config.database.type }}
+          - name: DB_HOST
+            value: {{ .Values.romm.config.database.mariadb.host | quote }}
+          - name: DB_PORT
+            value: {{ .Values.romm.config.database.mariadb.port | quote }}
+          - name: DB_USER
+            value: {{ .Values.romm.config.database.mariadb.user | quote }}
+          - name: DB_NAME
+            value: {{ .Values.romm.config.database.mariadb.schema | quote }}
+          - name: DB_PASSWD
+            value: {{ .Values.romm.config.database.mariadb.pass | quote }}
+          {{- end }}
+          {{- if .Values.redis.enabled }}
+          - name: ENABLE_EXPERIMENTAL_REDIS
+            value: "true"
+          - name: REDIS_HOST
+            value: {{ printf "%s-redis-headless" .Release.Name | quote }}
+          - name: REDIS_PORT
+            value: {{ .Values.redis.redisPort | quote }}
+          {{- if .Values.redis.auth.enabled }}
+          - name: REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: romm-redis
+                key: redis-password
+          {{- end }}
+          {{- end }}
+          {{- if .Values.romm.config.filesystem_watcher.enabled }}
+          - name: ENABLE_RESCAN_ON_FILESYSTEM_CHANGE
+            value: "true"
+          - name: RESCAN_ON_FILESYSTEM_CHANGE_DELAY
+            value: {{ .Values.romm.config.filesystem_watcher.scan_delay | default 5 | quote }}
+          {{- end }}
+          {{- if .Values.romm.config.scheduled_tasks.filesystem_scan.enabled }}
+          - name: ENABLE_SCHEDULED_RESCAN
+            value: "true"
+          - name: SCHEDULED_RESCAN_CRON
+            value: {{ .Values.romm.config.scheduled_tasks.filesystem_scan.cron | quote }}
+          {{- end }}
+          {{- if .Values.romm.config.scheduled_tasks.switch_titledb_update.enabled }}
+          - name: ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
+            value: "true"
+          - name: SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON
+            value: {{ .Values.romm.config.scheduled_tasks.switch_titledb_update.cron | quote }}
+          {{- end }}
+          {{- if .Values.romm.config.scheduled_tasks.mame_xml_update.enabled }}
+          - name: ENABLE_SCHEDULED_UPDATE_MAME_XML
+            value: "true"
+          - name: SCHEDULED_UPDATE_MAME_XML_CRON
+            value: {{ .Values.romm.config.scheduled_tasks.mame_xml_update.cron | quote }}
+          {{- end }}
+          - name: IGDB_CLIENT_ID
+            value: {{ .Values.romm.config.igdb_api.client_id | quote }}
+          - name: IGDB_CLIENT_SECRET
+            value: {{ .Values.romm.config.igdb_api.client_secret | quote }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: resources
+              mountPath: /romm/resources
+            - name: logs
+              mountPath: /romm/logs
+            - name: database
+              mountPath: /romm/database
+            - name: temp
+              mountPath: /tmp/
+            - name: romm-config
+              mountPath: /romm/config.yml
+              subPath: config.yml
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: romm-config
+          configMap:
+            name: {{ include "romm.fullname" . }}-config
+            items:
+            - key: config.yml
+              path: config.yml
+        - name: resources
+          {{- if .Values.persistence.resources.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "romm.fullname" . }}-resources
+          {{- else }}
+          emptyDir: { }
+          {{- end }}
+        - name: logs
+          {{- if .Values.persistence.logs.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "romm.fullname" . }}-logs
+          {{- else }}
+          emptyDir: { }
+          {{- end }}
+        - name: database
+          {{- if .Values.persistence.database.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "romm.fullname" . }}-database
+          {{- else }}
+          emptyDir: { }
+          {{- end }}
+        - name: temp
+          emptyDir: { }

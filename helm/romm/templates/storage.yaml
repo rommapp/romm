@@ -1,0 +1,16 @@
+{{- range $name, $volume := .Values.persistence }}
+{{- if $volume.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "romm.fullname" $ }}-{{ $name }}
+  {{- with $volume.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "romm.labels" $ | nindent 4 }}
+    {{- with $.Values.global.commonLabels }}{{ toYaml . | nindent 4 }}{{ end }}
+spec: {{ toYaml $volume.volumeClaimSpec | nindent 2 }}
+{{- end }}
+{{- end }}

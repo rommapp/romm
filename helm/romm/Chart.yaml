@@ -1,0 +1,22 @@
+---
+apiVersion: v2
+description: RomM (Rom Manager) is a web based retro roms manager integrated with IGDB.
+name: romm
+type: application
+version: 0.1.0
+appVersion: "2.1.0"
+kubeVersion: ">=1.22.0-0"
+maintainers:
+  - name: psych0d0g
+    email: h@xx0r.eu
+dependencies:
+  - name: redis
+    version: ~18.2.0
+    repository: https://charts.bitnami.com/bitnami
+    alias: redis
+    condition: redis.enabled
+  - name: mariadb
+    version: ~11.1.2
+    repository: https://charts.bitnami.com/bitnami
+    alias: mariadb
+    condition: mariadb.enabled

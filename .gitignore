@@ -56,3 +56,6 @@ frontend/dev-dist
 # outside data
 switch_titledb.json
 mame.xml
+
+# helm ignore
+helm/romm/charts/*.tgz
