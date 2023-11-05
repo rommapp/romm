@@ -65,9 +65,17 @@ This chart bootstraps a RomM deployment on a [Kubernetes](kubernetes.io) cluster
 
 ## Prerequisites
 
-- Kubernetes >=1.22.0-0
 - Helm 3+
 - PV provisioner support in the underlying infrastructure
+
+## Requirements
+
+Kubernetes: `>=1.22.0-0`
+
+| Repository | Name | Version |
+|------------|------|---------|
+| https://charts.bitnami.com/bitnami | mariadb(mariadb) | ~11.1.2 |
+| https://charts.bitnami.com/bitnami | redis(redis) | ~18.2.0 |
 
 ## Installing the Chart
 

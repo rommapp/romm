@@ -68,9 +68,10 @@ This chart bootstraps a {{ template "chart.title" . }} deployment on a [Kubernet
 
 ## Prerequisites
 
-- Kubernetes {{ template "chart.kubeVersion" . }}
 - Helm 3+
 - PV provisioner support in the underlying infrastructure
+
+{{ template "chart.requirementsSection" . }}
 
 ## Installing the Chart
 
