@@ -8,7 +8,7 @@
     </a>
 </h1>
 
-<h4 align="center">Romm - RomM (Rom Manager) is a web based retro roms manager integrated with IGDB.</h4>
+<h4 align="center">RomM - RomM (Rom Manager) is a web based retro roms manager integrated with IGDB.</h4>
 
 <div align="center">
   <br/>
@@ -25,9 +25,9 @@
 
 ---
 
-## [Romm](https://github.com/zurdi15/romm)
+## [RomM](https://github.com/zurdi15/romm)
 
-> _Disclaimer: This application has been developed by the [Romm](https://github.com/zurdi15/romm) community._
+> _Disclaimer: This application has been developed by the [RomM](https://github.com/zurdi15/romm) community._
 
 RomM (**ROM M**anager) is a game library manager focused on retro gaming. It enables you to efficiently manage and organize all your games from a web browser.
 
@@ -48,7 +48,7 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 - Works with SQLite or MariaDB.
 - Features a responsive design with dark mode support.
 
-[> More about Romm](https://github.com/zurdi15/romm)
+[> More about RomM](https://github.com/zurdi15/romm)
 
 ---
 
@@ -56,12 +56,12 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 ```shell
 helm repo add romm https://romm.github.io/charts
-helm install my-release romm/romm
+helm install my-release romm/RomM
 ```
 
 ## Introduction
 
-This chart bootstraps a Romm deployment on a [Kubernetes](kubernetes.io) cluster using the [Helm](helm.sh) package manager.
+This chart bootstraps a RomM deployment on a [Kubernetes](kubernetes.io) cluster using the [Helm](helm.sh) package manager.
 
 ## Prerequisites
 
@@ -75,10 +75,10 @@ To install the chart with the release name `my-release`:
 
 ```shell
 helm repo add romm https://romm.github.io/charts
-helm install my-release romm/romm
+helm install my-release romm/RomM
 ```
 
-These commands deploy romm on the Kubernetes cluster in the default configuration.
+These commands deploy RomM on the Kubernetes cluster in the default configuration.
 The Parameters section lists the parameters that can be configured during installation.
 
 > **Tip:** List all releases using `helm list`
@@ -109,43 +109,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | `fullnameOverride` | String to fully override `common.names.fullname` template | `""` |
 | `nameOverride` | String to partially override `common.names.fullname` template (will maintain the release name) | `""` |
 
-### Romm parameters
+### RomM parameters
 
 | Key | Description | Default |
 |-----|-------------|---------|
 | `image.pullPolicy` |  | `"IfNotPresent"` |
 | `image.repository` |  | `"zurdi15/romm"` |
 | `image.tag` |  | `"dev-2.1.1-rc.1"` |
-| `romm.config.auth.enabled` |  | `false` |
-| `romm.config.auth.password` |  | `"admin"` |
-| `romm.config.auth.username` |  | `"admin"` |
-| `romm.config.database.mariadb.host` |  | `"localhost"` |
-| `romm.config.database.mariadb.pass` |  | `"password"` |
-| `romm.config.database.mariadb.port` |  | `3306` |
-| `romm.config.database.mariadb.schema` |  | `"romm"` |
-| `romm.config.database.mariadb.user` |  | `"romm-user"` |
-| `romm.config.database.type` |  | `"sqlite"` |
-| `romm.config.filesystem_watcher.enabled` |  | `true` |
-| `romm.config.filesystem_watcher.scan_delay` |  | `5` |
-| `romm.config.igdb_api.client_id` |  | `"CHANGEME_IGDB_CLIENT_ID"` |
-| `romm.config.igdb_api.client_secret` |  | `"CHANGEME_IGDB_CLIENT_SECRET"` |
-| `romm.config.scheduled_tasks.filesystem_scan.cron` |  | `"0 3 * * *"` |
-| `romm.config.scheduled_tasks.filesystem_scan.enabled` |  | `true` |
-| `romm.config.scheduled_tasks.mame_xml_update.cron` |  | `"0 5 * * *"` |
-| `romm.config.scheduled_tasks.mame_xml_update.enabled` |  | `true` |
-| `romm.config.scheduled_tasks.switch_titledb_update.cron` |  | `"0 4 * * *"` |
-| `romm.config.scheduled_tasks.switch_titledb_update.enabled` |  | `true` |
-| `romm.config.steamgriddb_api.api_key` |  | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
-| `romm.mediaVolumes` | The list of volumes that will be mounted inside romm pod, to `/romm/library`. | `[]` |
-| `romm.settings.exclude.platforms[0]` |  | `"romm"` |
-| `romm.settings.exclude.roms.multi_file.names[0]` |  | `"my_multi_file_game"` |
-| `romm.settings.exclude.roms.multi_file.names[1]` |  | `"DLC"` |
-| `romm.settings.exclude.roms.multi_file.parts.extensions[0]` |  | `"txt"` |
-| `romm.settings.exclude.roms.multi_file.parts.names[0]` |  | `"data.xml"` |
-| `romm.settings.exclude.roms.single_file.extensions[0]` |  | `"xml"` |
-| `romm.settings.exclude.roms.single_file.names[0]` |  | `"info.txt"` |
-| `romm.settings.system.platforms.gc` |  | `"ngc"` |
-| `romm.settings.system.platforms.psx` |  | `"ps"` |
 
 ### Security parameters
 
@@ -205,6 +175,36 @@ The command removes all the Kubernetes components associated with the chart and 
 |-----|-------------|---------|
 | `mariadb` | Enable and configure mariadb database subchart under this key.    If enabled, the app's db envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)) TODO: currently bitnami has a bug where redis and mariadb can not be       enabled at the same time ([github.com/bitnami](https://github.com/bitnami/charts/issues/20504)) | See [values.yaml](./values.yaml) |
 | `redis` | Enable and configure redis subchart under this key.    If enabled, the app's redis envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/redis)) | See [values.yaml](./values.yaml) |
+| `romm.config.auth.enabled` |  | `false` |
+| `romm.config.auth.password` |  | `"admin"` |
+| `romm.config.auth.username` |  | `"admin"` |
+| `romm.config.database.mariadb.host` |  | `"localhost"` |
+| `romm.config.database.mariadb.pass` |  | `"password"` |
+| `romm.config.database.mariadb.port` |  | `3306` |
+| `romm.config.database.mariadb.schema` |  | `"romm"` |
+| `romm.config.database.mariadb.user` |  | `"romm-user"` |
+| `romm.config.database.type` |  | `"sqlite"` |
+| `romm.config.filesystem_watcher.enabled` |  | `true` |
+| `romm.config.filesystem_watcher.scan_delay` |  | `5` |
+| `romm.config.igdb_api.client_id` |  | `"CHANGEME_IGDB_CLIENT_ID"` |
+| `romm.config.igdb_api.client_secret` |  | `"CHANGEME_IGDB_CLIENT_SECRET"` |
+| `romm.config.scheduled_tasks.filesystem_scan.cron` |  | `"0 3 * * *"` |
+| `romm.config.scheduled_tasks.filesystem_scan.enabled` |  | `true` |
+| `romm.config.scheduled_tasks.mame_xml_update.cron` |  | `"0 5 * * *"` |
+| `romm.config.scheduled_tasks.mame_xml_update.enabled` |  | `true` |
+| `romm.config.scheduled_tasks.switch_titledb_update.cron` |  | `"0 4 * * *"` |
+| `romm.config.scheduled_tasks.switch_titledb_update.enabled` |  | `true` |
+| `romm.config.steamgriddb_api.api_key` |  | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
+| `romm.mediaVolumes` | The list of volumes that will be mounted inside romm pod, to `/romm/library`. | `[]` |
+| `romm.settings.exclude.platforms[0]` |  | `"romm"` |
+| `romm.settings.exclude.roms.multi_file.names[0]` |  | `"my_multi_file_game"` |
+| `romm.settings.exclude.roms.multi_file.names[1]` |  | `"DLC"` |
+| `romm.settings.exclude.roms.multi_file.parts.extensions[0]` |  | `"txt"` |
+| `romm.settings.exclude.roms.multi_file.parts.names[0]` |  | `"data.xml"` |
+| `romm.settings.exclude.roms.single_file.extensions[0]` |  | `"xml"` |
+| `romm.settings.exclude.roms.single_file.names[0]` |  | `"info.txt"` |
+| `romm.settings.system.platforms.gc` |  | `"ngc"` |
+| `romm.settings.system.platforms.psx` |  | `"ps"` |
 | `securityContext.allowPrivilegeEscalation` |  | `false` |
 | `securityContext.capabilities.drop[0]` |  | `"ALL"` |
 | `securityContext.readOnlyRootFilesystem` |  | `true` |
@@ -212,13 +212,13 @@ The command removes all the Kubernetes components associated with the chart and 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```shell
-helm install my-release --set fullnameOverride=my-romm romm/romm
+helm install my-release --set fullnameOverride=my-RomM romm/RomM
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
 
 ```shell
-helm install my-release -f values.yaml romm/romm
+helm install my-release -f values.yaml romm/RomM
 ```
 
 > **Tip:** You can use the default values.yaml

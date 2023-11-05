@@ -1,7 +1,7 @@
 ---
 apiVersion: v2
 description: RomM (Rom Manager) is a web based retro roms manager integrated with IGDB.
-name: romm
+name: RomM
 type: application
 home: https://github.com/zurdi15/romm
 version: 0.1.0
