@@ -59,7 +59,7 @@ REGIONS_BY_SHORTCODE = {region[0].lower(): region[1] for region in REGIONS}
 REGIONS_NAME_KEYS = [region[1].lower() for region in REGIONS]
 
 TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
-EXTENSION_REGEX = r"\.([a-z]+(\.\w+)*)$"
+EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
 
 
 def parse_tags(file_name: str) -> tuple:

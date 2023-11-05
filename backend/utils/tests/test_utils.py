@@ -58,7 +58,7 @@ def test_get_file_name_with_no_tags():
 
     # This is expected behavior, since the regex is aggressive
     file_name = "Battle Stadium D.O.N.zip"
-    assert gfnwt(file_name) == "Battle Stadium D"
+    assert gfnwt(file_name) == "Battle Stadium D.O.N"
 
 
 def test_get_file_extension():
