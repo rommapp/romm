@@ -1,0 +1,283 @@
+{{- define "chart.title" }}{{ .Name | replace "-" " " | title }}{{- end }}
+{{- define "chart.icon" }}https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/romm.svg{{- end }}
+{{- define "parameter.description" }}{{ regexReplaceAll "(https?://)([^/]+(?:/[^/]+)?)([^\\s]+)" (.Description | default .AutoDescription) "[$2]($1$2$3)" }}{{- end }}
+
+<!-- markdownlint-disable MD033 -->
+
+<h1 align="center">
+    <a href="{{ template "chart.homepage" . }}">
+        <img src="{{ template "chart.icon" . }}" alt="Logo" style="max-height: 150px">
+    </a>
+</h1>
+
+<h4 align="center">{{ template "chart.title" . }} - {{ template "chart.description" . }}</h4>
+
+<div align="center">
+  <br/>
+
+  [
+    ![License](https://img.shields.io/github/license/zurdi15/romm?logo=git&logoColor=white&logoWidth=20)
+  ](LICENSE)
+  <br/>
+  {{ template "chart.typeBadge" . }}
+  {{ template "chart.versionBadge" . }}
+  {{ template "chart.appVersionBadge" . }}
+
+</div>
+
+
+---
+
+## [{{ template "chart.title" . }}]({{ template "chart.homepage" . }})
+
+> _Disclaimer: This application has been developed by the [{{ template "chart.title" . }}]({{ template "chart.homepage" . }}) community._
+
+RomM (**ROM M**anager) is a game library manager focused on retro gaming. It enables you to efficiently manage and organize all your games from a web browser.
+
+Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all your games through a modern interface while enhancing them with IGDB metadata.
+
+## ⚡ Features
+
+- Scan your game library (all at once or by platform) and enrich it with IGDB metadata.
+- Access your library via your web browser.
+- Easily choose from matching IGDB results if the scan doesn't find the right one.
+- Compatible with EmuDeck folder structures.
+- Supports games with multiple files.
+- Download games directly from your web browser.
+- Edit your game files directly from your web browser.
+- Upload games directly from your web-browser
+- Set a custom cover for each game
+- Includes region, revision/version, and extra tags support.
+- Works with SQLite or MariaDB.
+- Features a responsive design with dark mode support.
+
+[> More about {{ template "chart.title" . }}]({{ template "chart.homepage" . }})
+
+---
+
+## TL;DR
+
+```shell
+helm repo add romm https://romm.github.io/charts
+helm install my-release romm/{{ template "chart.name" . }}
+```
+
+## Introduction
+
+This chart bootstraps a {{ template "chart.title" . }} deployment on a [Kubernetes](kubernetes.io) cluster using the [Helm](helm.sh) package manager.
+
+## Prerequisites
+
+- Kubernetes {{ template "chart.kubeVersion" . }}
+- Helm 3+
+- PV provisioner support in the underlying infrastructure
+
+## Installing the Chart
+
+To install the chart with the release name `my-release`:
+
+```shell
+helm repo add romm https://romm.github.io/charts
+helm install my-release romm/{{ template "chart.name" . }}
+```
+
+These commands deploy {{ template "chart.name" . }} on the Kubernetes cluster in the default configuration.
+The Parameters section lists the parameters that can be configured during installation.
+
+> **Tip:** List all releases using `helm list`
+
+## Uninstalling the Chart
+
+To uninstall/delete the `my-release` deployment:
+
+```shell
+helm delete my-release
+```
+
+The command removes all the Kubernetes components associated with the chart and deletes the release.
+
+## Parameters
+{{- $params := list }}
+
+### Global parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if hasPrefix "global." .Key }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` |  {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### Common parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "commonAnnotations" .Key)
+        (hasPrefix "commonLabels" .Key)
+        (hasPrefix "fullnameOverride" .Key)
+        (hasPrefix "nameOverride" .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### {{ template "chart.title" . }} parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "image" .Key)
+        (hasPrefix ($.Name | snakecase) .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### Security parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "podSecurityContext" .Key)
+        (hasPrefix "containerSecurityContext" .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### Deployment/Statefulset parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "affinity" .Key)
+        (hasPrefix "container" .Key)
+        (hasPrefix "deployment" .Key)
+        (hasPrefix "nodeSelector" .Key)
+        (hasPrefix "pod" .Key)
+        (hasPrefix "priorityClassName" .Key)
+        (hasPrefix "provisioning" .Key)
+        (hasPrefix "replicaCount" .Key)
+        (hasPrefix "resources" .Key)
+        (hasPrefix "statefulset" .Key)
+        (hasPrefix "strategy" .Key)
+        (hasPrefix "tolerations" .Key)
+        (hasPrefix "topologySpreadConstraints" .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### Network parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "service" .Key)
+        (hasPrefix "ingress" .Key)
+        (hasPrefix "networkPolicy" .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### Persistence parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "persistence" .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+### RBAC parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if and
+      (not (has .Key $params))
+      (or
+        (hasPrefix "rbac" .Key)
+      )
+    }}
+        {{- $params = append $params .Key }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+
+{{- if not (eq (len .Values) (len $params)) }}
+### Other parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+{{- range .Values }}
+    {{- if not (has .Key $params) }}
+| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
+    {{- end }}
+{{- end }}
+{{- end }}
+
+Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
+
+```shell
+helm install my-release --set fullnameOverride=my-{{ template "chart.name" . }} romm/{{ template "chart.name" . }}
+```
+
+Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
+
+```shell
+helm install my-release -f values.yaml romm/{{ template "chart.name" . }}
+```
+
+> **Tip:** You can use the default values.yaml
+
+## License
+
+Licensed under the GNU General Public License v3.0 (the "License"); you may not use this file except in compliance with
+the License. You may obtain a copy of the License at
+
+```
+https://github.com/zurdi15/romm/blob/release/LICENSE
+```
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+{{ template "helm-docs.versionFooter" . }}

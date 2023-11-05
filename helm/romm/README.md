@@ -1,0 +1,240 @@
+
+
+<!-- markdownlint-disable MD033 -->
+
+<h1 align="center">
+    <a href="https://github.com/zurdi15/romm">
+        <img src="https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/romm.svg" alt="Logo" style="max-height: 150px">
+    </a>
+</h1>
+
+<h4 align="center">Romm - RomM (Rom Manager) is a web based retro roms manager integrated with IGDB.</h4>
+
+<div align="center">
+  <br/>
+
+  [
+    ![License](https://img.shields.io/github/license/zurdi15/romm?logo=git&logoColor=white&logoWidth=20)
+  ](LICENSE)
+  <br/>
+  ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+  ![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square)
+  ![AppVersion: 2.1.0](https://img.shields.io/badge/AppVersion-2.1.0-informational?style=flat-square)
+
+</div>
+
+---
+
+## [Romm](https://github.com/zurdi15/romm)
+
+> _Disclaimer: This application has been developed by the [Romm](https://github.com/zurdi15/romm) community._
+
+RomM (**ROM M**anager) is a game library manager focused on retro gaming. It enables you to efficiently manage and organize all your games from a web browser.
+
+Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all your games through a modern interface while enhancing them with IGDB metadata.
+
+## ⚡ Features
+
+- Scan your game library (all at once or by platform) and enrich it with IGDB metadata.
+- Access your library via your web browser.
+- Easily choose from matching IGDB results if the scan doesn't find the right one.
+- Compatible with EmuDeck folder structures.
+- Supports games with multiple files.
+- Download games directly from your web browser.
+- Edit your game files directly from your web browser.
+- Upload games directly from your web-browser
+- Set a custom cover for each game
+- Includes region, revision/version, and extra tags support.
+- Works with SQLite or MariaDB.
+- Features a responsive design with dark mode support.
+
+[> More about Romm](https://github.com/zurdi15/romm)
+
+---
+
+## TL;DR
+
+```shell
+helm repo add romm https://romm.github.io/charts
+helm install my-release romm/romm
+```
+
+## Introduction
+
+This chart bootstraps a Romm deployment on a [Kubernetes](kubernetes.io) cluster using the [Helm](helm.sh) package manager.
+
+## Prerequisites
+
+- Kubernetes >=1.22.0-0
+- Helm 3+
+- PV provisioner support in the underlying infrastructure
+
+## Installing the Chart
+
+To install the chart with the release name `my-release`:
+
+```shell
+helm repo add romm https://romm.github.io/charts
+helm install my-release romm/romm
+```
+
+These commands deploy romm on the Kubernetes cluster in the default configuration.
+The Parameters section lists the parameters that can be configured during installation.
+
+> **Tip:** List all releases using `helm list`
+
+## Uninstalling the Chart
+
+To uninstall/delete the `my-release` deployment:
+
+```shell
+helm delete my-release
+```
+
+The command removes all the Kubernetes components associated with the chart and deletes the release.
+
+## Parameters
+
+### Global parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `global.commonLabels` |  Labels to apply to all resources. | `{}` |
+| `global.imagePullSecrets` |  Reference to one or more secrets to be used when pulling images    ([kubernetes.io/docs](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)) | `[]` |
+
+### Common parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `fullnameOverride` | String to fully override `common.names.fullname` template | `""` |
+| `nameOverride` | String to partially override `common.names.fullname` template (will maintain the release name) | `""` |
+
+### Romm parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `image.pullPolicy` |  | `"IfNotPresent"` |
+| `image.repository` |  | `"zurdi15/romm"` |
+| `image.tag` |  | `"dev-2.1.1-rc.1"` |
+| `romm.config.auth.enabled` |  | `false` |
+| `romm.config.auth.password` |  | `"admin"` |
+| `romm.config.auth.username` |  | `"admin"` |
+| `romm.config.database.mariadb.host` |  | `"localhost"` |
+| `romm.config.database.mariadb.pass` |  | `"password"` |
+| `romm.config.database.mariadb.port` |  | `3306` |
+| `romm.config.database.mariadb.schema` |  | `"romm"` |
+| `romm.config.database.mariadb.user` |  | `"romm-user"` |
+| `romm.config.database.type` |  | `"sqlite"` |
+| `romm.config.filesystem_watcher.enabled` |  | `true` |
+| `romm.config.filesystem_watcher.scan_delay` |  | `5` |
+| `romm.config.igdb_api.client_id` |  | `"CHANGEME_IGDB_CLIENT_ID"` |
+| `romm.config.igdb_api.client_secret` |  | `"CHANGEME_IGDB_CLIENT_SECRET"` |
+| `romm.config.scheduled_tasks.filesystem_scan.cron` |  | `"0 3 * * *"` |
+| `romm.config.scheduled_tasks.filesystem_scan.enabled` |  | `true` |
+| `romm.config.scheduled_tasks.mame_xml_update.cron` |  | `"0 5 * * *"` |
+| `romm.config.scheduled_tasks.mame_xml_update.enabled` |  | `true` |
+| `romm.config.scheduled_tasks.switch_titledb_update.cron` |  | `"0 4 * * *"` |
+| `romm.config.scheduled_tasks.switch_titledb_update.enabled` |  | `true` |
+| `romm.config.steamgriddb_api.api_key` |  | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
+| `romm.mediaVolumes` | The list of volumes that will be mounted inside romm pod, to `/romm/library`. | `[]` |
+| `romm.settings.exclude.platforms[0]` |  | `"romm"` |
+| `romm.settings.exclude.roms.multi_file.names[0]` |  | `"my_multi_file_game"` |
+| `romm.settings.exclude.roms.multi_file.names[1]` |  | `"DLC"` |
+| `romm.settings.exclude.roms.multi_file.parts.extensions[0]` |  | `"txt"` |
+| `romm.settings.exclude.roms.multi_file.parts.names[0]` |  | `"data.xml"` |
+| `romm.settings.exclude.roms.single_file.extensions[0]` |  | `"xml"` |
+| `romm.settings.exclude.roms.single_file.names[0]` |  | `"info.txt"` |
+| `romm.settings.system.platforms.gc` |  | `"ngc"` |
+| `romm.settings.system.platforms.psx` |  | `"ps"` |
+
+### Security parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `podSecurityContext.fsGroup` |  | `1000` |
+| `podSecurityContext.fsGroupChangePolicy` |  | `"OnRootMismatch"` |
+| `podSecurityContext.runAsGroup` |  | `1000` |
+| `podSecurityContext.runAsNonRoot` |  | `true` |
+| `podSecurityContext.runAsUser` |  | `1000` |
+| `podSecurityContext.seccompProfile.type` |  | `"RuntimeDefault"` |
+
+### Deployment/Statefulset parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `affinity` |  | `{}` |
+| `nodeSelector` |  | `{}` |
+| `podAnnotations` |  | `{}` |
+| `resources` |  | `{}` |
+| `tolerations` |  | `[]` |
+
+### Network parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `ingress.annotations."nginx.ingress.kubernetes.io/proxy-body-size"` |  | `"256m"` |
+| `ingress.className` |  | `""` |
+| `ingress.enabled` |  | `false` |
+| `ingress.hosts[0].host` |  | `"chart-example.local"` |
+| `ingress.hosts[0].paths[0].path` |  | `"/"` |
+| `ingress.hosts[0].paths[0].pathType` |  | `"ImplementationSpecific"` |
+| `ingress.tls` |  | `[]` |
+| `service.type` |  | `"ClusterIP"` |
+| `serviceAccount.annotations` |  | `{}` |
+| `serviceAccount.create` |  | `true` |
+| `serviceAccount.name` |  | `""` |
+
+### Persistence parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `persistence.database.enabled` | Enable roms database persistence using `PVC`. only needed when database backend is sqlite | `true` |
+| `persistence.database.volumeClaimSpec` | Claims that pods are allowed to reference (see    [kubernetes.io/docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core)    for structural reference) | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"2Gi"}}}` |
+| `persistence.logs.enabled` | Enable logs persistence using `PVC`. If false, use emptyDir | `false` |
+| `persistence.logs.volumeClaimSpec` | Claims that pods are allowed to reference (see    [kubernetes.io/docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core)    for structural reference) | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"256Mi"}}}` |
+| `persistence.resources.enabled` | Enable roms metadata (covers) persistence using `PVC`. If false, use emptyDir | `true` |
+| `persistence.resources.volumeClaimSpec` | Claims that pods are allowed to reference (see    [kubernetes.io/docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core)    for structural reference) | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"2Gi"}}}` |
+
+### RBAC parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+### Other parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `mariadb` | Enable and configure mariadb database subchart under this key.    If enabled, the app's db envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)) TODO: currently bitnami has a bug where redis and mariadb can not be       enabled at the same time ([github.com/bitnami](https://github.com/bitnami/charts/issues/20504)) | See [values.yaml](./values.yaml) |
+| `redis` | Enable and configure redis subchart under this key.    If enabled, the app's redis envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/redis)) | See [values.yaml](./values.yaml) |
+| `securityContext.allowPrivilegeEscalation` |  | `false` |
+| `securityContext.capabilities.drop[0]` |  | `"ALL"` |
+| `securityContext.readOnlyRootFilesystem` |  | `true` |
+
+Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
+
+```shell
+helm install my-release --set fullnameOverride=my-romm romm/romm
+```
+
+Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
+
+```shell
+helm install my-release -f values.yaml romm/romm
+```
+
+> **Tip:** You can use the default values.yaml
+
+## License
+
+Licensed under the GNU General Public License v3.0 (the "License"); you may not use this file except in compliance with
+the License. You may obtain a copy of the License at
+
+```
+https://github.com/zurdi15/romm/blob/release/LICENSE
+```
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+language governing permissions and limitations under the License.
+
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs v1.11.3](https://github.com/norwoodj/helm-docs/releases/v1.11.3)
