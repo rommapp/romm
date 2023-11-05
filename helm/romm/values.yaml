@@ -11,10 +11,12 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
+  # -- referencing the docker image to use for the deployment
   repository: zurdi15/romm
+  # -- pull policy, if you set tag to latest, this should be set to Always to not end up with stale builds
   pullPolicy: IfNotPresent
   # -- Overrides the image tag whose default is the chart appVersion.
-  tag: "dev-2.1.1-rc.1"
+  tag: ""
 
 serviceAccount:
   # -- Specifies whether a service account should be created
@@ -25,21 +27,29 @@ serviceAccount:
   #    If not set and create is true, a name is generated using the fullname template
   name: ""
 
+# -- If needed, set some annotations to the deployed pods
 podAnnotations: {}
 
 podSecurityContext:
+  # -- set filesystem group access to the same as runAsGroup
   fsGroup: 1000
+  # -- ensure the container dosnt run with not-needed root permissions
   runAsNonRoot: true
+  # -- run the deployment as a user with this UID
   runAsUser: 1000
+  # -- run the deployment as a group with this GID, should match fsGroup above
   runAsGroup: 1000
+  # -- change fs mount permissions if they are not matching desired fsGroup
   fsGroupChangePolicy: "OnRootMismatch"
   seccompProfile:
     type: RuntimeDefault
 
 securityContext:
+  # -- drop unneccessary permissions
   capabilities:
     drop:
     - ALL
+  # -- mount / as readonly, writeable directorys are explicitely mounted
   readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
 
@@ -87,7 +97,7 @@ affinity: {}
 #    [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/redis)
 # @default -- See [values.yaml](./values.yaml)
 redis:
-  # provision an instance of the redis sub-chart
+  # -- provision an instance of the redis sub-chart
   enabled: true
   # Redis specific helm chart settings, please see:
   # https://github.com/bitnami/charts/tree/master/bitnami/redis#parameters
@@ -104,6 +114,7 @@ redis:
 # TODO: currently bitnami has a bug where redis and mariadb can not be
 #       enabled at the same time (https://github.com/bitnami/charts/issues/20504)
 mariadb:
+  # -- provision an instance of the mariadb sub-chart
   enabled: false
   auth:
     database: romm
@@ -157,30 +168,34 @@ persistence:
 romm:
   config:
     auth:
+      # -- enable romm's integrated authentication mechanics (this requires redis to be available)
       enabled: false
+      # -- default username for the admin user
       username: admin
+      # -- default password for the admin user
       password: admin
     filesystem_watcher:
+      # -- enable inotify filesystem watcher mechanics to automatically add new roms and pick up changes as they happen
       enabled: true
       scan_delay: 5
     scheduled_tasks:
       filesystem_scan:
         enabled: true
-        # Cron expression for the scheduled scan (default: 0 3 * * * - At 3:00 AM every day)
+        # -- Cron expression for the scheduled scan (default: 0 3 * * * - At 3:00 AM every day)
         cron: 0 3 * * *
       switch_titledb_update:
         enabled: true
-        # Cron expression to update switch titledb (default: 0 4 * * * - At 4:00 AM every day)
+        # -- Cron expression to update switch titledb (default: 0 4 * * * - At 4:00 AM every day)
         cron: 0 4 * * *
       mame_xml_update:
         enabled: true
-        # Cron expression to update mame xml database (default: 0 5 * * * - At 5:00 AM every day)
+        # -- Cron expression to update mame xml database (default: 0 5 * * * - At 5:00 AM every day)
         cron: 0 5 * * *
     database: 
-      # type can either be mariadb or sqlite
+      # -- type can either be mariadb or sqlite
       type: sqlite
-      # only needed when you are using an external shared mariadb
-      # that is already existing and not the romm integrated one
+      # -- only needed when you are using an external shared mariadb
+      #    that is already existing and not the romm integrated one
       mariadb:
         host: localhost 
         port: 3306
@@ -194,43 +209,43 @@ romm:
       api_key: CHANGEME_STEAMGRIDDB_API_KEY
   settings:
     exclude:
-      # Exclude platforms to be scanned
+      # -- Exclude platforms to be scanned
       platforms:
         - 'romm'
 
-      # Exclude roms or parts of roms to be scanned
+      # -- Exclude roms or parts of roms to be scanned
       roms:
-        ## Single file games section
+        # -- Single file games section
         single_file:
-          # Exclude matched file names to be scanned
+          # -- Exclude matched file names to be scanned
           names:
             - 'info.txt'
-          # Exclude all files with certain extensions to be scanned
+          # -- Exclude all files with certain extensions to be scanned
           extensions:
             - 'xml'
 
-        ## Multi files games section
+        # -- Multi files games section
         multi_file:
-          # Exclude matched 'folder' (RomM identifies folders as multi file games) names to be scanned
+          # -- Exclude matched 'folder' (RomM identifies folders as multi file games) names to be scanned
           names:
             - 'my_multi_file_game'
             - 'DLC'
           parts:
-            # Exclude matched file names to be scanned from multi file roms
-            # Keep in mind that RomM doesn't scan folders inside multi files games,
-            # so there is no need to exclude folders from inside of multi files games.
+            # -- Exclude matched file names to be scanned from multi file roms
+            #    Keep in mind that RomM doesn't scan folders inside multi files games,
+            #    so there is no need to exclude folders from inside of multi files games.
             names:
               - 'data.xml'
-            # Exclude all files with certain extensions to be scanned from multi file roms
+            # -- Exclude all files with certain extensions to be scanned from multi file roms
             extensions:
               - 'txt'
 
     # Asociate different platform names to your current file system platform names
     system:
       platforms:
-        # [your custom platform folder name]: [RomM platform name]
-        gc: 'ngc' # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
-        psx: 'ps' # In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
+        # -- [your custom platform folder name]: [RomM platform name]
+        gc: 'ngc' # -- In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+        psx: 'ps' # -- In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
 
   # -- The list of volumes that will be mounted inside romm pod, to `/romm/library`.
   mediaVolumes: []

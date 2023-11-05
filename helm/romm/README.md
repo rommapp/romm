@@ -113,19 +113,19 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `image.pullPolicy` |  | `"IfNotPresent"` |
-| `image.repository` |  | `"zurdi15/romm"` |
-| `image.tag` | Overrides the image tag whose default is the chart appVersion. | `"dev-2.1.1-rc.1"` |
+| `image.pullPolicy` | pull policy, if you set tag to latest, this should be set to Always to not end up with stale builds | `"IfNotPresent"` |
+| `image.repository` | referencing the docker image to use for the deployment | `"zurdi15/romm"` |
+| `image.tag` | Overrides the image tag whose default is the chart appVersion. | `""` |
 
 ### Security parameters
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `podSecurityContext.fsGroup` |  | `1000` |
-| `podSecurityContext.fsGroupChangePolicy` |  | `"OnRootMismatch"` |
-| `podSecurityContext.runAsGroup` |  | `1000` |
-| `podSecurityContext.runAsNonRoot` |  | `true` |
-| `podSecurityContext.runAsUser` |  | `1000` |
+| `podSecurityContext.fsGroup` | set filesystem group access to the same as runAsGroup | `1000` |
+| `podSecurityContext.fsGroupChangePolicy` | change fs mount permissions if they are not matching desired fsGroup | `"OnRootMismatch"` |
+| `podSecurityContext.runAsGroup` | run the deployment as a group with this GID, should match fsGroup above | `1000` |
+| `podSecurityContext.runAsNonRoot` | ensure the container dosnt run with not-needed root permissions | `true` |
+| `podSecurityContext.runAsUser` | run the deployment as a user with this UID | `1000` |
 | `podSecurityContext.seccompProfile.type` |  | `"RuntimeDefault"` |
 
 ### Deployment/Statefulset parameters
@@ -134,7 +134,7 @@ The command removes all the Kubernetes components associated with the chart and 
 |-----|-------------|---------|
 | `affinity` |  | `{}` |
 | `nodeSelector` |  | `{}` |
-| `podAnnotations` |  | `{}` |
+| `podAnnotations` | If needed, set some annotations to the deployed pods | `{}` |
 | `resources` |  | `{}` |
 | `tolerations` |  | `[]` |
 
@@ -174,40 +174,40 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Description | Default |
 |-----|-------------|---------|
 | `mariadb` | Enable and configure mariadb database subchart under this key.    If enabled, the app's db envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)) TODO: currently bitnami has a bug where redis and mariadb can not be       enabled at the same time ([github.com/bitnami](https://github.com/bitnami/charts/issues/20504)) | See [values.yaml](./values.yaml) |
+| `mariadb.enabled` | provision an instance of the mariadb sub-chart | `false` |
 | `redis` | Enable and configure redis subchart under this key.    If enabled, the app's redis envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/redis)) | See [values.yaml](./values.yaml) |
-| `romm.config.auth.enabled` |  | `false` |
-| `romm.config.auth.password` |  | `"admin"` |
-| `romm.config.auth.username` |  | `"admin"` |
-| `romm.config.database.mariadb.host` |  | `"localhost"` |
-| `romm.config.database.mariadb.pass` |  | `"password"` |
-| `romm.config.database.mariadb.port` |  | `3306` |
-| `romm.config.database.mariadb.schema` |  | `"romm"` |
-| `romm.config.database.mariadb.user` |  | `"romm-user"` |
-| `romm.config.database.type` |  | `"sqlite"` |
-| `romm.config.filesystem_watcher.enabled` |  | `true` |
+| `redis.enabled` | provision an instance of the redis sub-chart | `true` |
+| `romm.config.auth.enabled` | enable romm's integrated authentication mechanics (this requires redis to be available) | `false` |
+| `romm.config.auth.password` | default password for the admin user | `"admin"` |
+| `romm.config.auth.username` | default username for the admin user | `"admin"` |
+| `romm.config.database.mariadb` | only needed when you are using an external shared mariadb    that is already existing and not the romm integrated one | `{"host":"localhost","pass":"password","port":3306,"schema":"romm","user":"romm-user"}` |
+| `romm.config.database.type` | type can either be mariadb or sqlite | `"sqlite"` |
+| `romm.config.filesystem_watcher.enabled` | enable inotify filesystem watcher mechanics to automatically add new roms and pick up changes as they happen | `true` |
 | `romm.config.filesystem_watcher.scan_delay` |  | `5` |
 | `romm.config.igdb_api.client_id` |  | `"CHANGEME_IGDB_CLIENT_ID"` |
 | `romm.config.igdb_api.client_secret` |  | `"CHANGEME_IGDB_CLIENT_SECRET"` |
-| `romm.config.scheduled_tasks.filesystem_scan.cron` |  | `"0 3 * * *"` |
+| `romm.config.scheduled_tasks.filesystem_scan.cron` | Cron expression for the scheduled scan (default: 0 3 * * * - At 3:00 AM every day) | `"0 3 * * *"` |
 | `romm.config.scheduled_tasks.filesystem_scan.enabled` |  | `true` |
-| `romm.config.scheduled_tasks.mame_xml_update.cron` |  | `"0 5 * * *"` |
+| `romm.config.scheduled_tasks.mame_xml_update.cron` | Cron expression to update mame xml database (default: 0 5 * * * - At 5:00 AM every day) | `"0 5 * * *"` |
 | `romm.config.scheduled_tasks.mame_xml_update.enabled` |  | `true` |
-| `romm.config.scheduled_tasks.switch_titledb_update.cron` |  | `"0 4 * * *"` |
+| `romm.config.scheduled_tasks.switch_titledb_update.cron` | Cron expression to update switch titledb (default: 0 4 * * * - At 4:00 AM every day) | `"0 4 * * *"` |
 | `romm.config.scheduled_tasks.switch_titledb_update.enabled` |  | `true` |
 | `romm.config.steamgriddb_api.api_key` |  | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
 | `romm.mediaVolumes` | The list of volumes that will be mounted inside romm pod, to `/romm/library`. | `[]` |
-| `romm.settings.exclude.platforms[0]` |  | `"romm"` |
-| `romm.settings.exclude.roms.multi_file.names[0]` |  | `"my_multi_file_game"` |
-| `romm.settings.exclude.roms.multi_file.names[1]` |  | `"DLC"` |
-| `romm.settings.exclude.roms.multi_file.parts.extensions[0]` |  | `"txt"` |
-| `romm.settings.exclude.roms.multi_file.parts.names[0]` |  | `"data.xml"` |
-| `romm.settings.exclude.roms.single_file.extensions[0]` |  | `"xml"` |
-| `romm.settings.exclude.roms.single_file.names[0]` |  | `"info.txt"` |
-| `romm.settings.system.platforms.gc` |  | `"ngc"` |
+| `romm.settings.exclude.platforms` | Exclude platforms to be scanned | `["romm"]` |
+| `romm.settings.exclude.roms` | Exclude roms or parts of roms to be scanned | `{"multi_file":{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}},"single_file":{"extensions":["xml"],"names":["info.txt"]}}` |
+| `romm.settings.exclude.roms.multi_file` | Multi files games section | `{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}}` |
+| `romm.settings.exclude.roms.multi_file.names` | Exclude matched 'folder' (RomM identifies folders as multi file games) names to be scanned | `["my_multi_file_game","DLC"]` |
+| `romm.settings.exclude.roms.multi_file.parts.extensions` | Exclude all files with certain extensions to be scanned from multi file roms | `["txt"]` |
+| `romm.settings.exclude.roms.multi_file.parts.names` | Exclude matched file names to be scanned from multi file roms    Keep in mind that RomM doesn't scan folders inside multi files games,    so there is no need to exclude folders from inside of multi files games. | `["data.xml"]` |
+| `romm.settings.exclude.roms.single_file` | Single file games section | `{"extensions":["xml"],"names":["info.txt"]}` |
+| `romm.settings.exclude.roms.single_file.extensions` | Exclude all files with certain extensions to be scanned | `["xml"]` |
+| `romm.settings.exclude.roms.single_file.names` | Exclude matched file names to be scanned | `["info.txt"]` |
+| `romm.settings.system.platforms.gc` | [your custom platform folder name]: [RomM platform name] | `"ngc"` |
 | `romm.settings.system.platforms.psx` |  | `"ps"` |
 | `securityContext.allowPrivilegeEscalation` |  | `false` |
-| `securityContext.capabilities.drop[0]` |  | `"ALL"` |
-| `securityContext.readOnlyRootFilesystem` |  | `true` |
+| `securityContext.capabilities` | drop unneccessary permissions | `{"drop":["ALL"]}` |
+| `securityContext.readOnlyRootFilesystem` | mount / as readonly, writeable directorys are explicitely mounted | `true` |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
