@@ -42,29 +42,37 @@ podSecurityContext:
   # -- change fs mount permissions if they are not matching desired fsGroup
   fsGroupChangePolicy: "OnRootMismatch"
   seccompProfile:
+    # -- secure computing mode - see: https://kubernetes.io/docs/tutorials/security/seccomp/
     type: RuntimeDefault
 
 securityContext:
-  # -- drop unneccessary permissions
   capabilities:
+    # -- drop unneccessary permissions
     drop:
     - ALL
   # -- mount / as readonly, writeable directorys are explicitely mounted
   readOnlyRootFilesystem: true
+  # -- Controls whether a process can gain more privileges than its parent process
   allowPrivilegeEscalation: false
 
 service:
+  # -- usually ClusterIP if you have an ingress in place,
+  #    could also be set to LoadBalancer if for example metallb is in place
   type: ClusterIP
 
 ingress:
+  # -- Enable creation of an ingress object for the deployment
   enabled: false
+  # -- uses the default ingress class if not set
   className: ""
+  # -- add annotations to the ingress object (for example to have certificates managed by cert-manager)
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: 256m
     # cert-manager.io/cluster-issuer: "letsencrypt-prod"
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
+    # -- Hostname the ingress should react for
     - host: chart-example.local
       paths:
         - path: /
@@ -74,6 +82,7 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+# -- Limit the pods ressources if needed
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -86,16 +95,19 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+# -- Define a subset of worker nodes where the deployment can be scheduled on
 nodeSelector: {}
 
+# -- setup tolerations if you for example want to have a dedicated worker node that only runs romm
 tolerations: []
 
+# -- define affinity, to have the pod run on the same node as other specific things
 affinity: {}
 
-# -- Enable and configure redis subchart under this key.
-#    If enabled, the app's redis envs will be set for you.
-#    [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/redis)
-# @default -- See [values.yaml](./values.yaml)
+# Enable and configure redis subchart under this key.
+# If enabled, the app's redis envs will be set for you.
+# [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/redis)
+# -- @default -- See [values.yaml](./values.yaml)
 redis:
   # -- provision an instance of the redis sub-chart
   enabled: true
@@ -107,22 +119,27 @@ redis:
     enabled: true
     password: "changeme"
 
-# -- Enable and configure mariadb database subchart under this key.
-#    If enabled, the app's db envs will be set for you.
-#    [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)
-# @default -- See [values.yaml](./values.yaml)
+# Enable and configure mariadb database subchart under this key.
+# If enabled, the app's db envs will be set for you.
+# [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)
+# -- @default -- See [values.yaml](./values.yaml)
 # TODO: currently bitnami has a bug where redis and mariadb can not be
 #       enabled at the same time (https://github.com/bitnami/charts/issues/20504)
 mariadb:
   # -- provision an instance of the mariadb sub-chart
   enabled: false
   auth:
+    # -- define database schema name that should be available
     database: romm
+    # -- username to connect to the database
     username: romm
+    # -- password to connect to the database
     password: changeme
+    # -- dedicated root password for the database (normally not used but needed for creation of schemas etc.)
     rootPassword: changeme
   primary:
     persistence:
+      # -- enable to not loose your database contents on updates
       enabled: false
       # storageClass: ""
       # size: 8Gi
@@ -131,9 +148,9 @@ persistence:
   resources:
     # -- Enable roms metadata (covers) persistence using `PVC`. If false, use emptyDir
     enabled: true
-    # -- Claims that pods are allowed to reference (see
-    #    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core
-    #    for structural reference)
+    # Claims that pods are allowed to reference (see
+    # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core
+    # for structural reference)
     volumeClaimSpec:
       accessModes:
         - ReadWriteOnce
@@ -143,9 +160,9 @@ persistence:
   database:
     # -- Enable roms database persistence using `PVC`. only needed when database backend is sqlite
     enabled: true
-    # -- Claims that pods are allowed to reference (see
-    #    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core
-    #    for structural reference)
+    # Claims that pods are allowed to reference (see
+    # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core
+    # for structural reference)
     volumeClaimSpec:
       accessModes:
         - ReadWriteOnce
@@ -155,9 +172,9 @@ persistence:
   logs:
     # -- Enable logs persistence using `PVC`. If false, use emptyDir
     enabled: false
-    # -- Claims that pods are allowed to reference (see
-    #    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core
-    #    for structural reference)
+    # Claims that pods are allowed to reference (see
+    # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core
+    # for structural reference)
     volumeClaimSpec:
       accessModes:
         - ReadWriteOnce
@@ -203,9 +220,12 @@ romm:
         user: romm-user
         pass: password
     igdb_api:
+      # -- setup your igdb api client_id, get one from https://api-docs.igdb.com/#getting-started
       client_id: CHANGEME_IGDB_CLIENT_ID
+      # -- setup your igdb api client_secret, get it from https://api-docs.igdb.com/#getting-started
       client_secret: CHANGEME_IGDB_CLIENT_SECRET
     steamgriddb_api:
+      # -- work in progress and not fully implemented yet
       api_key: CHANGEME_STEAMGRIDDB_API_KEY
   settings:
     exclude:
@@ -247,7 +267,8 @@ romm:
         gc: 'ngc' # -- In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
         psx: 'ps' # -- In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
 
-  # -- The list of volumes that will be mounted inside romm pod, to `/romm/library`.
+  # -- The list of additional volumes that will be mounted inside romm pod, this one to `/romm/library`.
+  # -- @default -- See [values.yaml](./values.yaml)
   mediaVolumes: []
   # - name: library # this volume will be mounted into `/romm/library`
   #   readOnly: false # is this volume readonly ? (optional, default true)

@@ -126,30 +126,28 @@ The command removes all the Kubernetes components associated with the chart and 
 | `podSecurityContext.runAsGroup` | run the deployment as a group with this GID, should match fsGroup above | `1000` |
 | `podSecurityContext.runAsNonRoot` | ensure the container dosnt run with not-needed root permissions | `true` |
 | `podSecurityContext.runAsUser` | run the deployment as a user with this UID | `1000` |
-| `podSecurityContext.seccompProfile.type` |  | `"RuntimeDefault"` |
+| `podSecurityContext.seccompProfile.type` | secure computing mode - see: [kubernetes.io/docs](https://kubernetes.io/docs/tutorials/security/seccomp/) | `"RuntimeDefault"` |
 
 ### Deployment/Statefulset parameters
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `affinity` |  | `{}` |
-| `nodeSelector` |  | `{}` |
+| `affinity` | define affinity, to have the pod run on the same node as other specific things | `{}` |
+| `nodeSelector` | Define a subset of worker nodes where the deployment can be scheduled on | `{}` |
 | `podAnnotations` | If needed, set some annotations to the deployed pods | `{}` |
-| `resources` |  | `{}` |
-| `tolerations` |  | `[]` |
+| `resources` | Limit the pods ressources if needed | `{}` |
+| `tolerations` | setup tolerations if you for example want to have a dedicated worker node that only runs romm | `[]` |
 
 ### Network parameters
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `ingress.annotations."nginx.ingress.kubernetes.io/proxy-body-size"` |  | `"256m"` |
-| `ingress.className` |  | `""` |
-| `ingress.enabled` |  | `false` |
-| `ingress.hosts[0].host` |  | `"chart-example.local"` |
-| `ingress.hosts[0].paths[0].path` |  | `"/"` |
-| `ingress.hosts[0].paths[0].pathType` |  | `"ImplementationSpecific"` |
+| `ingress.annotations` | add annotations to the ingress object (for example to have certificates managed by cert-manager) | `{"nginx.ingress.kubernetes.io/proxy-body-size":"256m"}` |
+| `ingress.className` | uses the default ingress class if not set | `""` |
+| `ingress.enabled` | Enable creation of an ingress object for the deployment | `false` |
+| `ingress.hosts[0]` | Hostname the ingress should react for | `{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}` |
 | `ingress.tls` |  | `[]` |
-| `service.type` |  | `"ClusterIP"` |
+| `service.type` | usually ClusterIP if you have an ingress in place,    could also be set to LoadBalancer if for example metallb is in place | `"ClusterIP"` |
 | `serviceAccount.annotations` | Annotations to add to the service account | `{}` |
 | `serviceAccount.create` | Specifies whether a service account should be created | `true` |
 | `serviceAccount.name` | The name of the service account to use.    If not set and create is true, a name is generated using the fullname template | `""` |
@@ -159,11 +157,14 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Description | Default |
 |-----|-------------|---------|
 | `persistence.database.enabled` | Enable roms database persistence using `PVC`. only needed when database backend is sqlite | `true` |
-| `persistence.database.volumeClaimSpec` | Claims that pods are allowed to reference (see    [kubernetes.io/docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core)    for structural reference) | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"2Gi"}}}` |
+| `persistence.database.volumeClaimSpec.accessModes[0]` |  | `"ReadWriteOnce"` |
+| `persistence.database.volumeClaimSpec.resources.requests.storage` |  | `"2Gi"` |
 | `persistence.logs.enabled` | Enable logs persistence using `PVC`. If false, use emptyDir | `false` |
-| `persistence.logs.volumeClaimSpec` | Claims that pods are allowed to reference (see    [kubernetes.io/docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core)    for structural reference) | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"256Mi"}}}` |
+| `persistence.logs.volumeClaimSpec.accessModes[0]` |  | `"ReadWriteOnce"` |
+| `persistence.logs.volumeClaimSpec.resources.requests.storage` |  | `"256Mi"` |
 | `persistence.resources.enabled` | Enable roms metadata (covers) persistence using `PVC`. If false, use emptyDir | `true` |
-| `persistence.resources.volumeClaimSpec` | Claims that pods are allowed to reference (see    [kubernetes.io/docs](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#persistentvolumeclaim-v1-core)    for structural reference) | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"2Gi"}}}` |
+| `persistence.resources.volumeClaimSpec.accessModes[0]` |  | `"ReadWriteOnce"` |
+| `persistence.resources.volumeClaimSpec.resources.requests.storage` |  | `"2Gi"` |
 
 ### RBAC parameters
 
@@ -173,10 +174,17 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `mariadb` | Enable and configure mariadb database subchart under this key.    If enabled, the app's db envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)) TODO: currently bitnami has a bug where redis and mariadb can not be       enabled at the same time ([github.com/bitnami](https://github.com/bitnami/charts/issues/20504)) | See [values.yaml](./values.yaml) |
+| `mariadb.auth.database` | define database schema name that should be available | `"romm"` |
+| `mariadb.auth.password` | password to connect to the database | `"changeme"` |
+| `mariadb.auth.rootPassword` | dedicated root password for the database (normally not used but needed for creation of schemas etc.) | `"changeme"` |
+| `mariadb.auth.username` | username to connect to the database | `"romm"` |
 | `mariadb.enabled` | provision an instance of the mariadb sub-chart | `false` |
-| `redis` | Enable and configure redis subchart under this key.    If enabled, the app's redis envs will be set for you.    [[ref]]([github.com/bitnami](https://github.com/bitnami/charts/tree/main/bitnami/redis)) | See [values.yaml](./values.yaml) |
+| `mariadb.primary.persistence.enabled` | enable to not loose your database contents on updates | `false` |
+| `redis.architecture` |  | `"standalone"` |
+| `redis.auth.enabled` |  | `true` |
+| `redis.auth.password` |  | `"changeme"` |
 | `redis.enabled` | provision an instance of the redis sub-chart | `true` |
+| `redis.redisPort` |  | `6379` |
 | `romm.config.auth.enabled` | enable romm's integrated authentication mechanics (this requires redis to be available) | `false` |
 | `romm.config.auth.password` | default password for the admin user | `"admin"` |
 | `romm.config.auth.username` | default username for the admin user | `"admin"` |
@@ -184,16 +192,16 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.config.database.type` | type can either be mariadb or sqlite | `"sqlite"` |
 | `romm.config.filesystem_watcher.enabled` | enable inotify filesystem watcher mechanics to automatically add new roms and pick up changes as they happen | `true` |
 | `romm.config.filesystem_watcher.scan_delay` |  | `5` |
-| `romm.config.igdb_api.client_id` |  | `"CHANGEME_IGDB_CLIENT_ID"` |
-| `romm.config.igdb_api.client_secret` |  | `"CHANGEME_IGDB_CLIENT_SECRET"` |
+| `romm.config.igdb_api.client_id` | setup your igdb api client_id, get one from [api-docs.igdb.com/#getting-starte](https://api-docs.igdb.com/#getting-started) | `"CHANGEME_IGDB_CLIENT_ID"` |
+| `romm.config.igdb_api.client_secret` | setup your igdb api client_secret, get it from [api-docs.igdb.com/#getting-starte](https://api-docs.igdb.com/#getting-started) | `"CHANGEME_IGDB_CLIENT_SECRET"` |
 | `romm.config.scheduled_tasks.filesystem_scan.cron` | Cron expression for the scheduled scan (default: 0 3 * * * - At 3:00 AM every day) | `"0 3 * * *"` |
 | `romm.config.scheduled_tasks.filesystem_scan.enabled` |  | `true` |
 | `romm.config.scheduled_tasks.mame_xml_update.cron` | Cron expression to update mame xml database (default: 0 5 * * * - At 5:00 AM every day) | `"0 5 * * *"` |
 | `romm.config.scheduled_tasks.mame_xml_update.enabled` |  | `true` |
 | `romm.config.scheduled_tasks.switch_titledb_update.cron` | Cron expression to update switch titledb (default: 0 4 * * * - At 4:00 AM every day) | `"0 4 * * *"` |
 | `romm.config.scheduled_tasks.switch_titledb_update.enabled` |  | `true` |
-| `romm.config.steamgriddb_api.api_key` |  | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
-| `romm.mediaVolumes` | The list of volumes that will be mounted inside romm pod, to `/romm/library`. | `[]` |
+| `romm.config.steamgriddb_api.api_key` | work in progress and not fully implemented yet | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
+| `romm.mediaVolumes` |  | `[]` |
 | `romm.settings.exclude.platforms` | Exclude platforms to be scanned | `["romm"]` |
 | `romm.settings.exclude.roms` | Exclude roms or parts of roms to be scanned | `{"multi_file":{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}},"single_file":{"extensions":["xml"],"names":["info.txt"]}}` |
 | `romm.settings.exclude.roms.multi_file` | Multi files games section | `{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}}` |
@@ -205,8 +213,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.settings.exclude.roms.single_file.names` | Exclude matched file names to be scanned | `["info.txt"]` |
 | `romm.settings.system.platforms.gc` | [your custom platform folder name]: [RomM platform name] | `"ngc"` |
 | `romm.settings.system.platforms.psx` |  | `"ps"` |
-| `securityContext.allowPrivilegeEscalation` |  | `false` |
-| `securityContext.capabilities` | drop unneccessary permissions | `{"drop":["ALL"]}` |
+| `securityContext.allowPrivilegeEscalation` | Controls whether a process can gain more privileges than its parent process | `false` |
+| `securityContext.capabilities.drop` | drop unneccessary permissions | `["ALL"]` |
 | `securityContext.readOnlyRootFilesystem` | mount / as readonly, writeable directorys are explicitely mounted | `true` |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
