@@ -115,7 +115,7 @@ The command removes all the Kubernetes components associated with the chart and 
 |-----|-------------|---------|
 | `image.pullPolicy` |  | `"IfNotPresent"` |
 | `image.repository` |  | `"zurdi15/romm"` |
-| `image.tag` |  | `"dev-2.1.1-rc.1"` |
+| `image.tag` | Overrides the image tag whose default is the chart appVersion. | `"dev-2.1.1-rc.1"` |
 
 ### Security parameters
 
@@ -150,9 +150,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | `ingress.hosts[0].paths[0].pathType` |  | `"ImplementationSpecific"` |
 | `ingress.tls` |  | `[]` |
 | `service.type` |  | `"ClusterIP"` |
-| `serviceAccount.annotations` |  | `{}` |
-| `serviceAccount.create` |  | `true` |
-| `serviceAccount.name` |  | `""` |
+| `serviceAccount.annotations` | Annotations to add to the service account | `{}` |
+| `serviceAccount.create` | Specifies whether a service account should be created | `true` |
+| `serviceAccount.name` | The name of the service account to use.    If not set and create is true, a name is generated using the fullname template | `""` |
 
 ### Persistence parameters
 

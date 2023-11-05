@@ -5,24 +5,24 @@ global:
   #    (https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
   imagePullSecrets: []
 
-image:
-  repository: zurdi15/romm
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "dev-2.1.1-rc.1"
-
 # -- String to partially override `common.names.fullname` template (will maintain the release name)
 nameOverride: ""
 # -- String to fully override `common.names.fullname` template
 fullnameOverride: ""
 
+image:
+  repository: zurdi15/romm
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag: "dev-2.1.1-rc.1"
+
 serviceAccount:
-  # Specifies whether a service account should be created
+  # -- Specifies whether a service account should be created
   create: true
-  # Annotations to add to the service account
+  # -- Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # -- The name of the service account to use.
+  #    If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations: {}
