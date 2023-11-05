@@ -55,8 +55,8 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 ## TL;DR
 
 ```shell
-helm repo add romm https://romm.github.io/charts
-helm install my-release romm/RomM
+helm repo add zurdi15 https://zurdi15.github.io/romm
+helm install my-release zurdi15/RomM
 ```
 
 ## Introduction
@@ -74,8 +74,8 @@ This chart bootstraps a RomM deployment on a [Kubernetes](kubernetes.io) cluster
 To install the chart with the release name `my-release`:
 
 ```shell
-helm repo add romm https://romm.github.io/charts
-helm install my-release romm/RomM
+helm repo add zurdi15 https://zurdi15.github.io/romm
+helm install my-release zurdi15/RomM
 ```
 
 These commands deploy RomM on the Kubernetes cluster in the default configuration.
@@ -212,13 +212,13 @@ The command removes all the Kubernetes components associated with the chart and 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```shell
-helm install my-release --set fullnameOverride=my-RomM romm/RomM
+helm install my-release --set fullnameOverride=my-RomM zurdi15/RomM
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
 
 ```shell
-helm install my-release -f values.yaml romm/RomM
+helm install my-release -f values.yaml zurdi15/RomM
 ```
 
 > **Tip:** You can use the default values.yaml
