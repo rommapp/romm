@@ -169,6 +169,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | `persistence.resources.volumeClaimSpec.accessModes[0]` |  | `"ReadWriteOnce"` |
 | `persistence.resources.volumeClaimSpec.resources.requests.storage` |  | `"2Gi"` |
 
+### Database parameters
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `romm.config.database.mariadb` | only needed when you are using an external shared mariadb    that is already existing and not the romm integrated one | `{"host":"localhost","pass":"password","port":3306,"schema":"romm","user":"romm-user"}` |
+| `romm.config.database.type` | type can either be mariadb or sqlite | `"sqlite"` |
+
 ### RBAC parameters
 
 | Key | Description | Default |
@@ -191,8 +198,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.config.auth.enabled` | enable romm's integrated authentication mechanics (this requires redis to be available) | `false` |
 | `romm.config.auth.password` | default password for the admin user | `"admin"` |
 | `romm.config.auth.username` | default username for the admin user | `"admin"` |
-| `romm.config.database.mariadb` | only needed when you are using an external shared mariadb    that is already existing and not the romm integrated one | `{"host":"localhost","pass":"password","port":3306,"schema":"romm","user":"romm-user"}` |
-| `romm.config.database.type` | type can either be mariadb or sqlite | `"sqlite"` |
 | `romm.config.filesystem_watcher.enabled` | enable inotify filesystem watcher mechanics to automatically add new roms and pick up changes as they happen | `true` |
 | `romm.config.filesystem_watcher.scan_delay` |  | `5` |
 | `romm.config.igdb_api.client_id` | setup your igdb api client_id, get one from [api-docs.igdb.com/#getting-starte](https://api-docs.igdb.com/#getting-started) | `"CHANGEME_IGDB_CLIENT_ID"` |
