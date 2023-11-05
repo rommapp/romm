@@ -273,9 +273,7 @@ romm:
       # @default -- See [values.yaml](./values.yaml)
       platforms:
         # [your custom platform folder name]: [RomM platform name]
-        # -- In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
         gc: 'ngc'
-        # -- In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
         psx: 'ps' 
 
   # -- The list of additional volumes that will be mounted inside romm pod, this one to `/romm/library`.
