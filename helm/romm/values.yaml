@@ -124,9 +124,9 @@ redis:
 # Enable and configure mariadb database subchart under this key.
 # If enabled, the app's db envs will be set for you.
 # [[ref]](https://github.com/bitnami/charts/tree/main/bitnami/mariadb)
-# -- @default -- See [values.yaml](./values.yaml)
-# TODO: currently bitnami has a bug where redis and mariadb can not be
-#       enabled at the same time (https://github.com/bitnami/charts/issues/20504)
+# -- TODO: currently bitnami has a bug where redis and mariadb can not be
+#    enabled at the same time (https://github.com/bitnami/charts/issues/20504)
+# @default -- See [values.yaml](./values.yaml)
 mariadb:
   # -- provision an instance of the mariadb sub-chart
   enabled: false
@@ -213,6 +213,8 @@ romm:
     database: 
       # -- type can either be mariadb or sqlite
       type: sqlite
+      # -- only needed when type is mariadb and mariadb.enabled is set to false
+      # @default -- See [values.yaml](./values.yaml)
       mariadb:
         # -- hostname where your external mariadb is reachable
         host: localhost 
