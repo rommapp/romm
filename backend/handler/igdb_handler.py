@@ -225,11 +225,7 @@ class IGDBHandler:
             finally:
                 index_entry = product_id_index.get(product_id, None)
                 if index_entry:
-                    with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                        titledb_index = json.loads(index_json.read())
-                        index_entry = titledb_index.get(index_entry, None)
-                        if index_entry:
-                            search_term = index_entry["name"]  # type: ignore
+                    search_term = index_entry["name"]  # type: ignore
 
         # Support for MAME arcade filename format
         if p_igdb_id == ARCADE_IGDB_ID:
