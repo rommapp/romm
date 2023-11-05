@@ -258,22 +258,6 @@ The command removes all the Kubernetes components associated with the chart and 
     {{- end }}
 {{- end }}
 
-### RBAC parameters
-
-| Key | Description | Default |
-|-----|-------------|---------|
-{{- range .Values }}
-    {{- if and
-      (not (has .Key $params))
-      (or
-        (hasPrefix "rbac" .Key)
-      )
-    }}
-        {{- $params = append $params .Key }}
-| `{{ .Key }}` | {{ template "parameter.description" . }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} |
-    {{- end }}
-{{- end }}
-
 {{- if not (eq (len .Values) (len $params)) }}
 ### Other parameters
 

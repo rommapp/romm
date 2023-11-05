@@ -221,11 +221,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | `redis.enabled` | provision an instance of the redis sub-chart | `true` |
 | `redis.redisPort` | default port for redis to listen on | `6379` |
 
-### RBAC parameters
-
-| Key | Description | Default |
-|-----|-------------|---------|
-
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```shell
