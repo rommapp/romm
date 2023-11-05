@@ -138,7 +138,7 @@ The command removes all the Kubernetes components associated with the chart and 
       (not (has .Key $params))
       (or
         (hasPrefix "image" .Key)
-        (hasPrefix ($.Name | snakecase) .Key)
+        (hasPrefix "romm" .Key)
       )
     }}
         {{- $params = append $params .Key }}
