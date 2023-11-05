@@ -83,11 +83,11 @@ class RemoteFilePullTask(PeriodicTask):
         self.url = url
         self.file_path = file_path
 
-    async def run(self, force: bool = False):
+    async def run(self, force: bool = False) -> bytes | None:
         if not self.enabled and not force:
             log.info(f"Scheduled {self.description} not enabled, unscheduling...")
             self.unschedule()
-            return
+            return None
 
         log.info(f"Scheduled {self.description} started...")
 
@@ -99,6 +99,8 @@ class RemoteFilePullTask(PeriodicTask):
                 fixture.write(response.content)
 
             log.info(f"Scheduled {self.description} done")
+            return response.content
         except requests.exceptions.RequestException as e:
             log.error(f"Scheduled {self.description} failed", exc_info=True)
             log.error(e)
+            return None
