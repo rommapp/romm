@@ -132,12 +132,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.config.steamgriddb_api.api_key` | work in progress and not fully implemented yet | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
 | `romm.mediaVolumes` | The list of additional volumes that will be mounted inside romm pod, this one to `/romm/library`. | See [values.yaml](./values.yaml) |
 | `romm.settings.exclude.platforms` | Exclude platforms to be scanned | `["romm"]` |
-| `romm.settings.exclude.roms` | Exclude roms or parts of roms to be scanned | `{"multi_file":{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}},"single_file":{"extensions":["xml"],"names":["info.txt"]}}` |
-| `romm.settings.exclude.roms.multi_file` | Multi files games section | `{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}}` |
+| `romm.settings.exclude.roms` | Exclude roms or parts of roms to be scanned | See [values.yaml](./values.yaml) |
 | `romm.settings.exclude.roms.multi_file.names` | Exclude matched 'folder' (RomM identifies folders as multi file games) names to be scanned | `["my_multi_file_game","DLC"]` |
 | `romm.settings.exclude.roms.multi_file.parts.extensions` | Exclude all files with certain extensions to be scanned from multi file roms | `["txt"]` |
 | `romm.settings.exclude.roms.multi_file.parts.names` | Exclude matched file names to be scanned from multi file roms    Keep in mind that RomM doesn't scan folders inside multi files games,    so there is no need to exclude folders from inside of multi files games. | `["data.xml"]` |
-| `romm.settings.exclude.roms.single_file` | Single file games section | `{"extensions":["xml"],"names":["info.txt"]}` |
 | `romm.settings.exclude.roms.single_file.extensions` | Exclude all files with certain extensions to be scanned | `["xml"]` |
 | `romm.settings.exclude.roms.single_file.names` | Exclude matched file names to be scanned | `["info.txt"]` |
 | `romm.settings.system.platforms` | use to overwrite romm's expected folder names for platforms with your own custom names | See [values.yaml](./values.yaml) |

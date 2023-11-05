@@ -241,8 +241,9 @@ romm:
         - 'romm'
 
       # -- Exclude roms or parts of roms to be scanned
+      # @default -- See [values.yaml](./values.yaml)
       roms:
-        # -- Single file games section
+        # Single file games section
         single_file:
           # -- Exclude matched file names to be scanned
           names:
@@ -251,7 +252,7 @@ romm:
           extensions:
             - 'xml'
 
-        # -- Multi files games section
+        # Multi files games section
         multi_file:
           # -- Exclude matched 'folder' (RomM identifies folders as multi file games) names to be scanned
           names:
