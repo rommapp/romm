@@ -130,7 +130,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.config.scheduled_tasks.switch_titledb_update.cron` | Cron expression to update switch titledb (default: 0 4 * * * - At 4:00 AM every day) | `"0 4 * * *"` |
 | `romm.config.scheduled_tasks.switch_titledb_update.enabled` |  | `true` |
 | `romm.config.steamgriddb_api.api_key` | work in progress and not fully implemented yet | `"CHANGEME_STEAMGRIDDB_API_KEY"` |
-| `romm.mediaVolumes` |  | `[]` |
+| `romm.mediaVolumes` | The list of additional volumes that will be mounted inside romm pod, this one to `/romm/library`. | See [values.yaml](./values.yaml) |
 | `romm.settings.exclude.platforms` | Exclude platforms to be scanned | `["romm"]` |
 | `romm.settings.exclude.roms` | Exclude roms or parts of roms to be scanned | `{"multi_file":{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}},"single_file":{"extensions":["xml"],"names":["info.txt"]}}` |
 | `romm.settings.exclude.roms.multi_file` | Multi files games section | `{"names":["my_multi_file_game","DLC"],"parts":{"extensions":["txt"],"names":["data.xml"]}}` |

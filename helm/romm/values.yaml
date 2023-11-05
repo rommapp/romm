@@ -275,7 +275,7 @@ romm:
         psx: 'ps' # -- In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
 
   # -- The list of additional volumes that will be mounted inside romm pod, this one to `/romm/library`.
-  # -- @default -- See [values.yaml](./values.yaml)
+  # @default -- See [values.yaml](./values.yaml)
   mediaVolumes: []
   # - name: library # this volume will be mounted into `/romm/library`
   #   readOnly: false # is this volume readonly ? (optional, default true)
