@@ -179,7 +179,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | `mariadb.auth.username` | username to connect to the database | `"romm"` |
 | `mariadb.enabled` | provision an instance of the mariadb sub-chart | `false` |
 | `mariadb.primary.persistence.enabled` | enable to not loose your database contents on updates | `false` |
-| `romm.config.database.mariadb` | only needed when you are using an external shared mariadb    that is already existing and not the romm integrated one | `{"host":"localhost","pass":"password","port":3306,"schema":"romm","user":"romm-user"}` |
 | `romm.config.database.mariadb.host` | hostname where your external mariadb is reachable | `"localhost"` |
 | `romm.config.database.mariadb.pass` | mariadb password to use for our connection | `"password"` |
 | `romm.config.database.mariadb.port` | port to connect to | `3306` |

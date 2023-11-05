@@ -213,8 +213,6 @@ romm:
     database: 
       # -- type can either be mariadb or sqlite
       type: sqlite
-      # -- only needed when you are using an external shared mariadb
-      #    that is already existing and not the romm integrated one
       mariadb:
         # -- hostname where your external mariadb is reachable
         host: localhost 
