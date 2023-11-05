@@ -216,10 +216,15 @@ romm:
       # -- only needed when you are using an external shared mariadb
       #    that is already existing and not the romm integrated one
       mariadb:
+        # -- hostname where your external mariadb is reachable
         host: localhost 
+        # -- port to connect to
         port: 3306
+        # -- database schema that holds the romm tables
         schema: romm
+        # -- mariadb user to use for our connection
         user: romm-user
+        # -- mariadb password to use for our connection
         pass: password
     igdb_api:
       # -- setup your igdb api client_id, get one from https://api-docs.igdb.com/#getting-started

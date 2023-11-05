@@ -173,7 +173,18 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Description | Default |
 |-----|-------------|---------|
+| `mariadb.auth.database` | define database schema name that should be available | `"romm"` |
+| `mariadb.auth.password` | password to connect to the database | `"changeme"` |
+| `mariadb.auth.rootPassword` | dedicated root password for the database (normally not used but needed for creation of schemas etc.) | `"changeme"` |
+| `mariadb.auth.username` | username to connect to the database | `"romm"` |
+| `mariadb.enabled` | provision an instance of the mariadb sub-chart | `false` |
+| `mariadb.primary.persistence.enabled` | enable to not loose your database contents on updates | `false` |
 | `romm.config.database.mariadb` | only needed when you are using an external shared mariadb    that is already existing and not the romm integrated one | `{"host":"localhost","pass":"password","port":3306,"schema":"romm","user":"romm-user"}` |
+| `romm.config.database.mariadb.host` | hostname where your external mariadb is reachable | `"localhost"` |
+| `romm.config.database.mariadb.pass` | mariadb password to use for our connection | `"password"` |
+| `romm.config.database.mariadb.port` | port to connect to | `3306` |
+| `romm.config.database.mariadb.schema` | database schema that holds the romm tables | `"romm"` |
+| `romm.config.database.mariadb.user` | mariadb user to use for our connection | `"romm-user"` |
 | `romm.config.database.type` | type can either be mariadb or sqlite | `"sqlite"` |
 
 ### RBAC parameters
@@ -184,12 +195,6 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `mariadb.auth.database` | define database schema name that should be available | `"romm"` |
-| `mariadb.auth.password` | password to connect to the database | `"changeme"` |
-| `mariadb.auth.rootPassword` | dedicated root password for the database (normally not used but needed for creation of schemas etc.) | `"changeme"` |
-| `mariadb.auth.username` | username to connect to the database | `"romm"` |
-| `mariadb.enabled` | provision an instance of the mariadb sub-chart | `false` |
-| `mariadb.primary.persistence.enabled` | enable to not loose your database contents on updates | `false` |
 | `redis.architecture` | can be set to replication to spawn a full redis cluster with 3 nodes instead | `"standalone"` |
 | `redis.auth.enabled` | enable redis authentication mode | `true` |
 | `redis.auth.password` | password that gets used for the connection between romm and redis | `"changeme"` |

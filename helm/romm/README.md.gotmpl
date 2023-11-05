@@ -233,7 +233,7 @@ The command removes all the Kubernetes components associated with the chart and 
     {{- if and
       (not (has .Key $params))
       (or
-        (hasPrefix "mediadb" .Key)
+        (hasPrefix "mariadb" .Key)
         (hasPrefix "romm.config.database" .Key)
       )
     }}
