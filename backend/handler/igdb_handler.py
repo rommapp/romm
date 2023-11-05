@@ -171,7 +171,7 @@ class IGDBHandler:
         search_term = get_search_term(file_name)
 
         # Support for PS2 OPL flename format
-        match = re.match(PS2_OPL_REGEX, search_term)
+        match = re.match(PS2_OPL_REGEX, file_name)
         if p_igdb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
 
