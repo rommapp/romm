@@ -29,7 +29,7 @@
 
 > _Disclaimer: This application has been developed by the [RomM](https://github.com/zurdi15/romm) community._
 
-RomM (**ROM M**anager) is a game library manager focused on retro gaming. It enables you to efficiently manage and organize all your games from a web browser.
+(**ROM M**anager) is a game library manager focused on retro gaming. It enables you to efficiently manage and organize all your games from a web browser.
 
 Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all your games through a modern interface while enhancing them with IGDB metadata.
 
