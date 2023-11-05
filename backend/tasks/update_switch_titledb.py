@@ -41,8 +41,8 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             return
 
         index_json = json.loads(content)
-        product_ids = dict((v['id'],k) for k,v in index_json.items())
-        
+        product_ids = dict((v["id"], v) for _k, v in index_json.items())
+
         with open(SWITCH_PRODUCT_ID_FILE_PATH, "wb") as fixture:
             fixture.write(json.dumps(product_ids).encode())
 
