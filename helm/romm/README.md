@@ -141,8 +141,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | `romm.settings.exclude.roms.single_file.extensions` | Exclude all files with certain extensions to be scanned | `["xml"]` |
 | `romm.settings.exclude.roms.single_file.names` | Exclude matched file names to be scanned | `["info.txt"]` |
 | `romm.settings.system.platforms` | use to overwrite romm's expected folder names for platforms with your own custom names | See [values.yaml](./values.yaml) |
-| `romm.settings.system.platforms.gc` | In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder | `"ngc"` |
-| `romm.settings.system.platforms.psx` | In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder | `"ps"` |
 
 ### Security parameters
 
