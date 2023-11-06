@@ -16,26 +16,26 @@ api.interceptors.response.use(
 );
 
 export async function fetchRecentRoms() {
-  return api.get("/roms/recent");
+  return api.get("/roms-recent");
 }
 
-export async function fetchPlatformsApi() {
+async function fetchPlatforms() {
   return api.get("/platforms");
 }
 
-export async function fetchRomsApi({
+async function fetchRoms({
   platform,
   cursor = "",
   size = 60,
   searchTerm = "",
 }) {
-  return api.get(
-    `/platforms/${platform}/roms?cursor=${cursor}&size=${size}&search_term=${searchTerm}`
-  );
+  return api.get(`/platforms/${platform}/roms`, {
+    params: { cursor, size, searchTerm },
+  });
 }
 
-export async function fetchRomApi(platform, rom) {
-  return api.get(`/platforms/${platform}/roms/${rom}`);
+async function fetchRom({ romId }) {
+  return api.get(`/roms/${romId}`);
 }
 
 function clearRomFromDownloads({ id }) {
@@ -50,17 +50,15 @@ function clearRomFromDownloads({ id }) {
 socket.on("download:complete", clearRomFromDownloads);
 
 // Used only for multi-file downloads
-export async function downloadRomApi(rom, files) {
+async function downloadRom({ rom, files = [] }) {
   // Force download of all multirom-parts when no part is selected
   if (files != undefined && files.length == 0) {
     files = undefined;
   }
 
   const a = document.createElement("a");
-  a.href = `/api/platforms/${rom.p_slug}/roms/${rom.id}/download?files=${
-    files || rom.files
-  }`;
-  a.download = `${rom.r_name}.zip`;
+  a.href = `/api/roms/${rom.id}/download?files=${files}`;
+  a.download = `${rom.name}.zip`;
   a.click();
 
   // Only connect socket if multi-file download
@@ -75,86 +73,76 @@ export async function downloadRomApi(rom, files) {
   }
 }
 
-export async function uploadRomsApi(romsToUpload, platform) {
+async function uploadRoms({ platform, romsToUpload }) {
   let formData = new FormData();
   romsToUpload.forEach((rom) => formData.append("roms", rom));
-  return api.put(`/platforms/${platform}/roms/upload`, formData, {
+
+  return api.put("/roms/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
+    params: { platform_slug: platform },
   });
 }
 
-export async function updateRomApi({
-  id,
-  r_igdb_id,
-  p_slug,
-  r_name,
-  r_slug,
-  file_name,
-  summary,
-  artwork,
-  url_cover,
-  url_screenshots,
-}) {
+async function updateRom({ rom, renameAsIGDB = false }) {
   var formData = new FormData();
-  formData.append("r_igdb_id", r_igdb_id);
-  formData.append("r_name", r_name);
-  formData.append("r_slug", r_slug);
-  formData.append("file_name", file_name);
-  formData.append("url_cover", url_cover);
-  formData.append("summary", summary);
-  formData.append("url_screenshots", JSON.stringify(url_screenshots));
-  if (artwork) {
-    formData.append("artwork", artwork[0]);
-  }
-  return api.patch(`/platforms/${p_slug}/roms/${id}`, formData);
+  formData.append("igdb_id", rom.igdb_id);
+  formData.append("name", rom.name);
+  formData.append("slug", rom.slug);
+  formData.append("url_cover", rom.url_cover);
+  formData.append("summary", rom.summary);
+  formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
+  if (artwork) formData.append("artwork", rom.artwork[0]);
+
+  return api.patch(`/roms/${rom.id}`, formData, {
+    params: { rename_as_igdb: renameAsIGDB },
+  });
 }
 
-export async function deleteRomApi(rom, deleteFromFs) {
-  return api.delete(
-    `/platforms/${rom.p_slug}/roms/${rom.id}?filesystem=${deleteFromFs}`
-  );
+async function deleteRom({ rom, deleteFromFs = false }) {
+  return api.delete(`/roms/${rom.id}`, {
+    params: { delete_from_fs: deleteFromFs },
+  });
 }
 
-export async function deleteRomsApi(roms, deleteFromFs) {
+async function deleteRoms({ roms, deleteFromFs = false }) {
   return api.post(
-    `/platforms/${roms[0].p_slug}/roms/delete?filesystem=${deleteFromFs}`,
-    { roms: roms.map((r) => r.id) }
+    "/roms/delete",
+    {
+      roms: roms.map((r) => r.id),
+    },
+    {
+      params: { delete_from_fs: deleteFromFs },
+    }
   );
 }
 
-export async function searchRomIGDBApi(searchTerm, searchBy, rom) {
+async function searchIGDB({ romId, query, field }) {
   return api.put(
-    `/search/roms/igdb?search_term=${searchTerm}&search_by=${searchBy}`,
-    { rom: rom }
+    "/search/roms/igdb",
+    {},
+    { params: { rom_id: romId, query, field } }
   );
 }
 
-export async function fetchCurrentUserApi() {
+async function fetchCurrentUser() {
   return api.get("/users/me");
 }
 
-export async function fetchUsersApi() {
+async function fetchUsers() {
   return api.get("/users");
 }
 
-export async function fetchUserApi(user) {
+async function fetchUser(user) {
   return api.get(`/users/${user.id}`);
 }
 
-export async function createUserApi({ username, password, role }) {
+async function createUser({ username, password, role }) {
   return api.post("/users", {}, { params: { username, password, role } });
 }
 
-export async function updateUserApi({
-  id,
-  username,
-  password,
-  role,
-  enabled,
-  avatar,
-}) {
+async function updateUser({ id, username, password, role, enabled, avatar }) {
   return api.patch(
     `/users/${id}`,
     {
@@ -169,6 +157,24 @@ export async function updateUserApi({
   );
 }
 
-export async function deleteUserApi(user) {
+async function deleteUser(user) {
   return api.delete(`/users/${user.id}`);
 }
+
+export default {
+  fetchPlatforms,
+  fetchRoms,
+  fetchRom,
+  downloadRom,
+  uploadRoms,
+  updateRom,
+  deleteRom,
+  deleteRoms,
+  searchIGDB,
+  fetchCurrentUser,
+  fetchUsers,
+  fetchUser,
+  createUser,
+  updateUser,
+  deleteUser,
+};

@@ -2,10 +2,11 @@ import emoji
 import socketio  # type: ignore
 
 from logger.logger import log
-from utils import fs, fastapi
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
+from utils.fastapi import scan_platform, scan_rom
 from utils.socket import socket_server
+from utils.fs import get_platforms, get_roms, store_default_resources
 from utils.redis import high_prio_queue, redis_url
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
@@ -26,7 +27,7 @@ async def scan_platforms(
 
     # Scanning file system
     try:
-        fs_platforms: list[str] = fs.get_platforms()
+        fs_platforms: list[str] = get_platforms()
     except PlatformsNotFoundException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
@@ -34,10 +35,10 @@ async def scan_platforms(
 
     platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
     platform_list = platform_list or fs_platforms
-    for p_slug in platform_list:
+    for platform_slug in platform_list:
         try:
             # Verify that platform exists
-            scanned_platform = fastapi.scan_platform(p_slug)
+            scanned_platform = scan_platform(platform_slug)
         except RomsNotFoundException as e:
             log.error(e)
             continue
@@ -50,15 +51,15 @@ async def scan_platforms(
         dbh.add_platform(scanned_platform)
 
         # Scanning roms
-        fs_roms = fs.get_roms(scanned_platform.fs_slug)
+        fs_roms = get_roms(scanned_platform.fs_slug)
         for fs_rom in fs_roms:
-            rom_id = dbh.rom_exists(scanned_platform.slug, fs_rom["file_name"])
-            if rom_id and rom_id not in selected_roms and not complete_rescan:
+            rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
+            if rom and rom.id not in selected_roms and not complete_rescan:
                 continue
 
-            scanned_rom = await fastapi.scan_rom(scanned_platform, fs_rom)
-            if rom_id:
-                scanned_rom.id = rom_id
+            scanned_rom = await scan_rom(scanned_platform, fs_rom)
+            if rom:
+                scanned_rom.id = rom.id
 
             rom = dbh.add_rom(scanned_rom)
             await sm.emit(
@@ -70,7 +71,6 @@ async def scan_platforms(
             )
 
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
-        dbh.update_n_roms(scanned_platform.slug)
     dbh.purge_platforms(fs_platforms)
 
     await sm.emit("scan:done", {})
@@ -81,7 +81,7 @@ async def scan_handler(_sid: str, options: dict):
     """Scan platforms and roms and write them in database."""
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    fs.store_default_resources()
+    store_default_resources()
 
     platform_slugs = options.get("platforms", [])
     complete_rescan = options.get("rescan", False)

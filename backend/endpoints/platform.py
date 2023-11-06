@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, BaseConfig
+from pydantic import BaseModel
+from typing import Optional
 
 from handler import dbh
 from utils.oauth import protected_route
@@ -8,18 +9,15 @@ router = APIRouter()
 
 
 class PlatformSchema(BaseModel):
-    igdb_id: str
-    sgdb_id: str
-
     slug: str
-    name: str
-
-    logo_path: str
     fs_slug: str
+    igdb_id: Optional[int] = None
+    sgdb_id: Optional[int] = None
+    name: Optional[str]
+    logo_path: str
+    rom_count: int
 
-    n_roms: int
-
-    class Config(BaseConfig):
+    class Config:
         orm_mode = True
 
 
