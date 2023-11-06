@@ -31,9 +31,14 @@ PS2_OPL_INDEX_FILE: Final = os.path.join(
     os.path.dirname(__file__), "fixtures", "ps2_opl_index.json"
 )
 
-SWITCH_TITLEDB_REGEX: Final = r"^(70[0-9]{12})$"
+SWITCH_TITLEDB_REGEX: Final = r"(70[0-9]{12})"
 SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
     os.path.dirname(__file__), "fixtures", "switch_titledb.json"
+)
+
+SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
+SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "switch_product_ids.json"
 )
 
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
@@ -178,7 +183,7 @@ class IGDBHandler:
         search_term = get_search_term(file_name)
 
         # Patch support for PS2 OPL flename format
-        match = re.match(PS2_OPL_REGEX, search_term)
+        match = re.match(PS2_OPL_REGEX, file_name)
         if platform_idgb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
 
@@ -189,7 +194,7 @@ class IGDBHandler:
                     search_term = index_entry["Name"]  # type: ignore
 
         # Patch support for switch titleID filename format
-        match = re.match(SWITCH_TITLEDB_REGEX, search_term)
+        match = re.match(SWITCH_TITLEDB_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
             title_id = match.group(1)
             titledb_index = {}
@@ -211,6 +216,30 @@ class IGDBHandler:
                 if index_entry:
                     search_term = index_entry["name"]  # type: ignore
 
+        # Support for switch productID filename format
+        match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
+        if platform_idgb_id == SWITCH_IGDB_ID and match:
+            product_id = match.group(1)
+            product_id_index = {}
+
+            try:
+                with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
+                    product_id_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.warning("Fetching the Switch titleDB index file...")
+                await update_switch_titledb_task.run(force=True)
+
+                try:
+                    with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
+                        product_id_index = json.loads(index_json.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the Switch titleDB index file")
+            finally:
+                index_entry = product_id_index.get(product_id, None)
+                if index_entry:
+                    search_term = index_entry["name"]  # type: ignore
+
+        # Support for MAME arcade filename format
         if platform_idgb_id == ARCADE_IGDB_ID:
             mame_index = {"menu": {"game": []}}
 
@@ -234,6 +263,14 @@ class IGDBHandler:
                 ]
                 if index_entry:
                     search_term = index_entry[0].get("description", search_term)
+
+        search_term = (
+            search_term.replace("\u2122", "") # Remove trademark symbol
+            .replace("\u00ae", "") # Remove registered symbol
+            .replace("\u00a9", "") # Remove copywrite symbol
+            .replace("\u2120", "") # Remove service mark symbol
+            .strip() # Remove leading and trailing spaces
+        )
 
         res = (
             self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)
