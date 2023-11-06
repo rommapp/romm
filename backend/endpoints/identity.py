@@ -26,7 +26,7 @@ class UserSchema(BaseModel):
     avatar_path: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MessageResponse(TypedDict):
