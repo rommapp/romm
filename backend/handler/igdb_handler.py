@@ -87,7 +87,7 @@ class IGDBHandler:
             if err.response.status_code != 401:
                 log.error(err)
                 return []  # All requests to the IGDB API return a list
-            
+
             # Attempt to force a token refresh if the token is invalid
             log.warning("Twitch token invalid: fetching a new one...")
             token = self.twitch_auth._update_twitch_token()
@@ -139,7 +139,11 @@ class IGDBHandler:
         )
 
         cover = pydash.get(covers, "[0]", None)
-        return DEFAULT_URL_COVER_L if not cover else self._normalize_cover_url(cover["url"])
+        return (
+            DEFAULT_URL_COVER_L
+            if not cover
+            else self._normalize_cover_url(cover["url"])
+        )
 
     def _search_screenshots(self, rom_id: int) -> list:
         screenshots = self._request(
@@ -162,15 +166,12 @@ class IGDBHandler:
 
         platform = pydash.get(platforms, "[0]", None)
         if not platform:
-            return {
-                "igdb_id": "",
-                "name": slug,
-            }
+            return IGDBPlatformType(igdb_id="", name=slug)
 
-        return {
-            "igdb_id": platform["id"],
-            "name": platform["name"],
-        }
+        return IGDBPlatformType(
+            igdb_id=platform["id"],
+            name=platform["name"],
+        )
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
@@ -211,7 +212,7 @@ class IGDBHandler:
                     search_term = index_entry["name"]  # type: ignore
 
         if platform_idgb_id == ARCADE_IGDB_ID:
-            mame_index = { "menu": { "game": [] } }
+            mame_index = {"menu": {"game": []}}
 
             try:
                 with open(MAME_XML_FILE, "r") as index_xml:
@@ -247,14 +248,14 @@ class IGDBHandler:
         name = res.get("name", search_term)
         summary = res.get("summary", "")
 
-        return {
-            "igdb_id": igdb_id,
-            "slug": slug,
-            "name": name,
-            "summary": summary,
-            "url_cover": self._search_cover(igdb_id),
-            "url_screenshots": self._search_screenshots(igdb_id),
-        }
+        return IGDBRomType(
+            igdb_id=igdb_id,
+            slug=slug,
+            name=name,
+            summary=summary,
+            url_cover=self._search_cover(igdb_id),
+            url_screenshots=self._search_screenshots(igdb_id),
+        )
 
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRomType:
@@ -298,15 +299,15 @@ class IGDBHandler:
         )
 
         return [
-            dict(
-                rom,
+            IGDBRomType(
+                igdb_id=rom["id"],
+                slug=rom["slug"],
+                name=rom["name"],
+                summary=rom["summary"],
                 url_cover=self._search_cover(rom["id"]).replace(
                     "t_thumb", "t_cover_big"
                 ),
                 url_screenshots=self._search_screenshots(rom["id"]),
-                igdb_id=rom.pop("id"),
-                slug=rom.pop("slug"),
-                name=rom.pop("name"),
             )
             for rom in matched_roms
         ]
