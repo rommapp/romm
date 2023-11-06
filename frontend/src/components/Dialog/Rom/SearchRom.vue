@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
-import { updateRomApi, searchRomIGDBApi } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -20,13 +20,18 @@ emitter.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
-  searchRomIGDB();
+  searchIGDB();
 });
 
-async function searchRomIGDB() {
+async function searchIGDB() {
   if (!searching.value) {
     searching.value = true;
-    await searchRomIGDBApi(searchTerm.value, searchBy.value, rom.value)
+    await api
+      .searchIGDB({
+        romId: rom.value.id,
+        query: searchTerm.value,
+        field: searchBy.value,
+      })
       .then((response) => {
         matchedRoms.value = response.data.roms;
       })
@@ -43,27 +48,21 @@ async function updateRom(matchedRom) {
   show.value = false;
   emitter.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  rom.value.r_igdb_id = matchedRom.r_igdb_id;
-  rom.value.r_name = matchedRom.r_name;
-  rom.value.r_slug = matchedRom.r_slug;
+  rom.value.igdb_id = matchedRom.igdb_id;
+  rom.value.name = matchedRom.name;
+  rom.value.slug = matchedRom.slug;
   rom.value.summay = matchedRom.summary;
   rom.value.url_cover = matchedRom.url_cover;
   rom.value.url_screenshots = matchedRom.url_screenshots;
-  rom.value.file_name = renameAsIGDB.value
-    ? rom.value.file_name.replace(
-        rom.value.file_name_no_tags,
-        matchedRom.r_name
-      )
-    : rom.value.file_name;
 
-  await updateRomApi(rom.value)
+  await api.updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
-        msg: data.msg,
+        msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data.rom);
+      romsStore.update(data);
     })
     .catch((error) => {
       emitter.emit("snackbarShow", {
@@ -156,7 +155,7 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="7" xs="7" sm="8" md="8" lg="9">
             <v-text-field
-              @keyup.enter="searchRomIGDB()"
+              @keyup.enter="searchIGDB()"
               @click:clear="searchTerm = ''"
               class="bg-terciary"
               v-model="searchTerm"
@@ -177,7 +176,7 @@ onBeforeUnmount(() => {
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"
-              @click="searchRomIGDB()"
+              @click="searchIGDB()"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -231,13 +230,13 @@ onBeforeUnmount(() => {
                 :elevation="isHovering ? 20 : 3"
               >
                 <v-tooltip activator="parent" location="top" class="tooltip">{{
-                  matchedRom.r_name
+                  matchedRom.name
                 }}</v-tooltip>
                 <v-img v-bind="props" :src="matchedRom.url_cover" :aspect-ratio="3 / 4" />
                 <v-card-text>
                   <v-row class="pa-1">
                     <span class="d-inline-block text-truncate">{{
-                      matchedRom.r_name
+                      matchedRom.name
                     }}</span>
                   </v-row>
                 </v-card-text>

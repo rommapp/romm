@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from "vue";
-import { updateUserApi } from "@/services/api";
+import api from "@/services/api";
 import { defaultAvatarPath } from "@/utils/utils"
 import storeUsers from "@/stores/users";
 
@@ -15,7 +15,7 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 });
 
 function editUser() {
-  updateUserApi(user.value)
+  api.updateUser(user.value)
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
         msg: `User ${data.username} updated successfully`,

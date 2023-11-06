@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import { downloadRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
@@ -17,7 +17,7 @@ const saveFiles = ref(false);
       <template v-if="rom.multi">
         <v-btn
           @click="
-            downloadRomApi(rom, downloadStore.filesToDownloadMultiFileRom)
+            api.downloadRom(rom, downloadStore.filesToDownloadMultiFileRom)
           "
           :disabled="downloadStore.value.includes(rom.id)"
           rounded="0"

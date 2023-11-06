@@ -2,7 +2,7 @@
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { deleteRomsApi } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -19,7 +19,8 @@ emitter.on("showDeleteRomDialog", (romsToDelete) => {
 });
 
 async function deleteRoms() {
-  await deleteRomsApi(roms.value, deleteFromFs.value)
+  await api
+    .deleteRoms({ roms: roms.value, deleteFromFs: deleteFromFs.value })
     .then((response) => {
       emitter.emit("snackbarShow", {
         msg: response.data.msg,
@@ -40,7 +41,7 @@ async function deleteRoms() {
 
   await router.push({
     name: "platform",
-    params: { platform: roms.value[0].p_slug },
+    params: { platform: roms.value[0].platform_slug },
   });
 
   romsStore.remove(roms.value);
@@ -95,7 +96,7 @@ async function deleteRoms() {
         <v-row class="justify-center pa-2" no-gutters>
           <v-list class="bg-terciary py-0">
             <v-list-item v-for="rom in roms" class="justify-center bg-terciary"
-              >{{ rom.r_name }} - [<span class="text-romm-accent-1">{{
+              >{{ rom.name }} - [<span class="text-romm-accent-1">{{
                 rom.file_name
               }}</span
               >]</v-list-item

@@ -12,7 +12,7 @@ def scan_platform(fs_slug: str) -> Platform:
     """Get platform details
 
     Args:
-        p_slug: short name of the platform
+        fs_slug: short name of the platform
     Returns
         Platform object
     """
@@ -34,7 +34,7 @@ def scan_platform(fs_slug: str) -> Platform:
     if platform["igdb_id"]:
         log.info(emoji.emojize(f"  Identified as {platform['name']} :video_game:"))
     else:
-        log.warning(f"  {fs_slug} not found in IGDB")
+        log.warning(f'  {platform_attrs["slug"]} not found in IGDB')
 
     platform_attrs.update(platform)
 
@@ -47,8 +47,7 @@ async def scan_rom(
     r_igbd_id_search: str = "",
     overwrite: bool = False,
 ) -> Rom:
-    p_slug = platform.fs_slug or platform.slug or ""
-    roms_path = fs.get_roms_structure(p_slug)
+    roms_path = fs.get_roms_structure(platform.fs_slug)
 
     log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
 
@@ -78,9 +77,7 @@ async def scan_rom(
             "tags": other_tags,
         }
     )
-    rom_attrs["p_igdb_id"] = platform.igdb_id
-    rom_attrs["p_slug"] = platform.slug
-    rom_attrs["p_name"] = platform.name
+    rom_attrs["platform_slug"] = platform.slug
 
     # Search in IGDB
     igdbh_rom = (
@@ -92,27 +89,27 @@ async def scan_rom(
     rom_attrs.update(igdbh_rom)
 
     # Return early if not found in IGDB
-    if not igdbh_rom["r_igdb_id"]:
+    if not igdbh_rom["igdb_id"]:
         log.warning(
             f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB"
         )
         return Rom(**rom_attrs)
 
-    log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['r_name']} :alien_monster:"))
+    log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['name']} :alien_monster:"))
 
     # Update properties from IGDB
     rom_attrs.update(
         fs.get_cover(
             overwrite=overwrite,
-            p_slug=platform.slug,
-            r_name=rom_attrs["r_name"],
+            fs_slug=platform.slug,
+            rom_name=rom_attrs["name"],
             url_cover=rom_attrs["url_cover"],
         )
     )
     rom_attrs.update(
         fs.get_screenshots(
-            p_slug=platform.slug,
-            r_name=rom_attrs["r_name"],
+            fs_slug=platform.slug,
+            rom_name=rom_attrs["name"],
             url_screenshots=rom_attrs["url_screenshots"],
         )
     )
