@@ -76,7 +76,7 @@ class RomSchema(BaseModel):
     download_path: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 @protected_route(router.get, "/roms/{id}", ["roms.read"])
