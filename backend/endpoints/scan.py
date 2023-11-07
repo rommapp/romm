@@ -61,14 +61,15 @@ async def scan_platforms(
             if rom:
                 scanned_rom.id = rom.id
 
-            rom = dbh.add_rom(scanned_rom)
-            await sm.emit(
-                "scan:scanning_rom",
-                {
-                    "p_name": scanned_platform.name,
-                    **RomSchema.from_orm(rom).dict(),
-                },
-            )
+            with dbh.session.begin() as session:
+                dbh.add_rom(scanned_rom, session=session)
+                await sm.emit(
+                    "scan:scanning_rom",
+                    {
+                        "p_name": scanned_platform.name,
+                        **RomSchema.from_orm(rom).dict(),
+                    },
+                )
 
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
