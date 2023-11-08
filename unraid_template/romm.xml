@@ -13,7 +13,7 @@
    <Beta>False</Beta>
    <Category>MediaApp:Other</Category>
    <Date>2023-08-06</Date>
-   <WebUI>http://[IP]:[PORT:8091]</WebUI>
+   <WebUI>http://[IP]:[PORT:80]</WebUI>
    <TemplateURL/>
    <Icon>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/romm.png</Icon>
    <ExtraParams/>
@@ -49,4 +49,12 @@
    <Config Name="ROMM_AUTH_USERNAME" Target="ROMM_AUTH_USERNAME" Default="admin" Mode="" Description="Default admin username" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="ROMM_AUTH_PASSWORD" Target="ROMM_AUTH_PASSWORD" Default="" Mode="" Description="Default admin password" Type="Variable" Display="advanced" Required="false" Mask="true"/>
    <Config Name="ROMM_AUTH_SECRET_KEY" Target="ROMM_AUTH_SECRET_KEY" Default="" Mode="" Description="Generate a key with `openssl rand -hex 32`" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+   <Config Name="ENABLE_RESCAN_ON_FILESYSTEM_CHANGE" Target="ENABLE_RESCAN_ON_FILESYSTEM_CHANGE" Default="false" Mode="" Description="Run a scan when the filesystem changes" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="RESCAN_ON_FILESYSTEM_CHANGE_DELAY" Target="RESCAN_ON_FILESYSTEM_CHANGE_DELAY" Default="5" Mode="" Description="Delay in seconds before running a scan" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="ENABLE_SCHEDULED_RESCAN" Target="ENABLE_SCHEDULED_RESCAN" Default="false" Mode="" Description="Run a scan on a schedule" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="SCHEDULED_RESCAN_CRON" Target="SCHEDULED_RESCAN_CRON" Default="0 3 * * *" Mode="" Description="Cron expression for scheduled scan" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB" Target="ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB" Default="false" Mode="" Description="Update Switch TitleDB on a schedule" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON" Target="SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON" Default="0 4 * * *" Mode="" Description="Cron expression for scheduled Switch TitleDB update" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="ENABLE_SCHEDULED_UPDATE_MAME_XML" Target="ENABLE_SCHEDULED_UPDATE_MAME_XML" Default="false" Mode="" Description="Update MAME XML on a schedule" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="SCHEDULED_UPDATE_MAME_XML_CRON" Target="SCHEDULED_UPDATE_MAME_XML_CRON" Default="0 4 * * *" Mode="" Description="Cron expression for scheduled MAME XML update" Type="Variable" Display="advanced" Required="false" Mask="false"/>
 </Container>

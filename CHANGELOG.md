@@ -37,7 +37,7 @@
  - A lot of other minor bugs.
 
 ## Changed
- - RomM internal port changed from `80` to `8080.
+ - RomM internal port changed from `80` to `8080`.
  - RomM docker image size reduced significantly.
  - Improved scanning and IGDB requests returning first the exact match.
  - Scan now times out at 4 hours to improve scans for larger libraries.
