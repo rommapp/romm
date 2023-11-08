@@ -45,12 +45,12 @@ MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame
 
 
 class IGDBPlatformType(TypedDict):
-    igdb_id: str
+    igdb_id: int
     name: str
 
 
 class IGDBRomType(TypedDict):
-    igdb_id: str
+    igdb_id: int
     slug: str
     name: str
     summary: str
