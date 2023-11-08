@@ -47,7 +47,8 @@ async def scan_platforms(
         new_platform = dbh.get_platform(_new_platform.slug)
 
         await sm.emit(
-            "scan:scanning_platform", PlatformSchema.model_validate(new_platform).model_dump()
+            "scan:scanning_platform",
+            PlatformSchema.model_validate(new_platform).model_dump(),
         )
 
         dbh.add_platform(scanned_platform)
@@ -65,7 +66,7 @@ async def scan_platforms(
 
             _new_rom = dbh.add_rom(scanned_rom)
             new_rom = dbh.get_rom(_new_rom.id)
-            
+
             await sm.emit(
                 "scan:scanning_rom",
                 {

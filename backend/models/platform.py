@@ -10,8 +10,8 @@ class Platform(BaseModel):
     slug: str = Column(String(length=50), primary_key=True)
     fs_slug: str = Column(String(length=50), nullable=False)
     name: str = Column(String(length=400))
-    igdb_id: str = Column(Integer())
-    sgdb_id: str = Column(Integer())
+    igdb_id: int = Column(Integer())
+    sgdb_id: int = Column(Integer())
     logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
 
     ### DEPRECATED ###
