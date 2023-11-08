@@ -260,7 +260,6 @@ async def update_rom(
 
         cleaned_data["path_cover_l"] = path_cover_l
         cleaned_data["path_cover_s"] = path_cover_s
-        cleaned_data["has_cover"] = 1
 
         artwork_file = artwork.file.read()
         file_location_s = f"{artwork_path}/small.{file_ext}"
