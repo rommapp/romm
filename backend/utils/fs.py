@@ -356,8 +356,8 @@ def build_artwork_path(rom_name: str, fs_slug: str, file_ext: str):
     q_rom_name = quote(rom_name)
     strtime = str(datetime.datetime.now().timestamp())
 
-    path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG}.{file_ext}?timestamp={strtime}"
-    path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL}.{file_ext}?timestamp={strtime}"
+    path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}?timestamp={strtime}"
+    path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}?timestamp={strtime}"
     artwork_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
     Path(artwork_path).mkdir(parents=True, exist_ok=True)
     return path_cover_l, path_cover_s, artwork_path
