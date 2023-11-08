@@ -87,7 +87,7 @@ async function uploadRoms({ platform, romsToUpload }) {
 
 async function updateRom({ rom, renameAsIGDB = false }) {
   var formData = new FormData();
-  formData.append("igdb_id", rom.igdb_id);
+  formData.append("igdb_id", rom.igdb_id || "");
   formData.append("name", rom.name);
   formData.append("slug", rom.slug);
   formData.append("url_cover", rom.url_cover);

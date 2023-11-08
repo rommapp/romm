@@ -208,11 +208,11 @@ async def update_rom(
     data = await request.form()
 
     cleaned_data = {}
-    cleaned_data["igdb_id"] = data["igdb_id"]
-    cleaned_data["name"] = data["name"]
-    cleaned_data["slug"] = data["slug"]
-    cleaned_data["summary"] = data["summary"]
-    cleaned_data["url_cover"] = data["url_cover"]
+    cleaned_data["igdb_id"] = data.get("igdb_id") or None
+    cleaned_data["name"] = data.get("name", "")
+    cleaned_data["slug"] = data.get("slug", "")
+    cleaned_data["summary"] = data.get("summary", "")
+    cleaned_data["url_cover"] = data.get("url_cover", "")
     cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
 
     db_rom = dbh.get_rom(id)
