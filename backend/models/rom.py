@@ -20,8 +20,8 @@ class Rom(BaseModel):
     __tablename__ = "roms"
     id = Column(Integer(), primary_key=True, autoincrement=True)
 
-    igdb_id: str = Column(Integer())
-    sgdb_id: str = Column(Integer())
+    igdb_id: int = Column(Integer())
+    sgdb_id: int = Column(Integer())
 
     # Foreign key to platform
     platform_slug = Column(
