@@ -18,7 +18,7 @@ class PlatformSchema(BaseModel):
     rom_count: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])
