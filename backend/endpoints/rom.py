@@ -239,7 +239,7 @@ async def update_rom(
         get_cover(
             overwrite=True,
             fs_slug=db_rom.platform_slug,
-            rom_name=cleaned_data["file_name_no_tags"],
+            rom_name=cleaned_data["name"],
             url_cover=cleaned_data.get("url_cover", ""),
         )
     )
@@ -247,7 +247,7 @@ async def update_rom(
     cleaned_data.update(
         get_screenshots(
             fs_slug=db_rom.platform_slug,
-            rom_name=cleaned_data["file_name_no_tags"],
+            rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
         ),
     )
