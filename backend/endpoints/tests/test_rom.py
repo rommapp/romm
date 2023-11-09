@@ -40,6 +40,7 @@ def test_update_rom(rename_rom, access_token, rom):
             "igdb_id": "236663",
             "name": "Metroid Prime Remastered",
             "slug": "metroid-prime-remastered",
+            "file_name": "Metroid Prime Remastered.zip",
             "summary": "summary test",
             "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
             "url_screenshots": json.dumps(
