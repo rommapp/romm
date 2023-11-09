@@ -51,12 +51,6 @@ async function updateRom(matchedRom) {
   rom.value.igdb_id = matchedRom.igdb_id;
   rom.value.name = matchedRom.name;
   rom.value.slug = matchedRom.slug;
-  rom.value.file_name = renameAsIGDB.value
-    ? rom.value.file_name.replace(
-        rom.value.file_name_no_tags,
-        matchedRom.name
-      )
-    : rom.value.file_name;
   rom.value.summay = matchedRom.summary;
   rom.value.url_cover = matchedRom.url_cover;
   rom.value.url_screenshots = matchedRom.url_screenshots;
