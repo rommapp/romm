@@ -51,11 +51,18 @@ async function updateRom(matchedRom) {
   rom.value.igdb_id = matchedRom.igdb_id;
   rom.value.name = matchedRom.name;
   rom.value.slug = matchedRom.slug;
+  rom.value.file_name = renameAsIGDB.value
+    ? rom.value.file_name.replace(
+        rom.value.file_name_no_tags,
+        matchedRom.name
+      )
+    : rom.value.file_name;
   rom.value.summay = matchedRom.summary;
   rom.value.url_cover = matchedRom.url_cover;
   rom.value.url_screenshots = matchedRom.url_screenshots;
 
-  await api.updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
+  await api
+    .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -232,7 +239,11 @@ onBeforeUnmount(() => {
                 <v-tooltip activator="parent" location="top" class="tooltip">{{
                   matchedRom.name
                 }}</v-tooltip>
-                <v-img v-bind="props" :src="matchedRom.url_cover" :aspect-ratio="3 / 4" />
+                <v-img
+                  v-bind="props"
+                  :src="matchedRom.url_cover"
+                  :aspect-ratio="3 / 4"
+                />
                 <v-card-text>
                   <v-row class="pa-1">
                     <span class="d-inline-block text-truncate">{{
@@ -294,6 +305,6 @@ onBeforeUnmount(() => {
 .matched-rom.on-hover {
   z-index: 1 !important;
   opacity: 1;
-  transform: scale(1.05); 
+  transform: scale(1.05);
 }
 </style>
