@@ -14,7 +14,7 @@ def test_get_platform():
     assert platform["name"] == "Nintendo 64"
 
     platform = igdbh.get_platform("not_real")
-    assert platform == {"igdb_id": "", "name": "not_real"}
+    assert platform == {"igdb_id": None, "name": "not_real"}
 
 
 @pytest.mark.vcr()

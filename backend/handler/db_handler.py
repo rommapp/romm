@@ -18,10 +18,13 @@ class DBHandler:
     @staticmethod
     def begin_session(func):
         @functools.wraps(func)
-        def wrapper(*args):
+        def wrapper(*args, **kwargs):
+            if hasattr(kwargs, 'session'):
+                return func(*args, session=kwargs.get('session'))
+
             try:
-                with args[0].session.begin() as session:
-                    return func(*args, session=session)
+                with args[0].session.begin() as s:
+                    return func(*args, session=s)
             except ProgrammingError as e:
                 log.critical(str(e))
                 raise HTTPException(

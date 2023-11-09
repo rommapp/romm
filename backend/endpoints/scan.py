@@ -43,9 +43,12 @@ async def scan_platforms(
             log.error(e)
             continue
 
-        new_platform = dbh.add_platform(scanned_platform)
+        _new_platform = dbh.add_platform(scanned_platform)
+        new_platform = dbh.get_platform(_new_platform.slug)
+
         await sm.emit(
-            "scan:scanning_platform", PlatformSchema.from_orm(new_platform).dict()
+            "scan:scanning_platform",
+            PlatformSchema.model_validate(new_platform).model_dump(),
         )
 
         dbh.add_platform(scanned_platform)
@@ -61,12 +64,14 @@ async def scan_platforms(
             if rom:
                 scanned_rom.id = rom.id
 
-            rom = dbh.add_rom(scanned_rom)
+            _new_rom = dbh.add_rom(scanned_rom)
+            new_rom = dbh.get_rom(_new_rom.id)
+
             await sm.emit(
                 "scan:scanning_rom",
                 {
                     "p_name": scanned_platform.name,
-                    **RomSchema.from_orm(rom).dict(),
+                    **RomSchema.model_validate(new_rom).model_dump(),
                 },
             )
 
