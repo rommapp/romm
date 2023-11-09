@@ -207,34 +207,37 @@ async def update_rom(
 
     data = await request.form()
 
-    cleaned_data = {}
-    cleaned_data["igdb_id"] = data.get("igdb_id") or None
-    cleaned_data["name"] = data.get("name", "")
-    cleaned_data["slug"] = data.get("slug", "")
-    cleaned_data["file_name"] = data.get("file_name", "")
-    cleaned_data["summary"] = data.get("summary", "")
-    cleaned_data["url_cover"] = data.get("url_cover", "")
-    cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
-
     db_rom = dbh.get_rom(id)
 
-    valid_filename = cleaned_data["file_name"].strip().replace("/", "-")
-    file_name = (
-        valid_filename
-        if rename_as_igdb or db_rom.file_name != valid_filename
-        else db_rom.file_name
+    cleaned_data = {}
+    cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
+    cleaned_data["name"] = data.get("name", db_rom.name)
+    cleaned_data["slug"] = data.get("slug", db_rom.slug)
+    cleaned_data["summary"] = data.get("summary", db_rom.summary)
+    cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
+    cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
+
+    fs_safe_file_name = (
+        data.get("file_name", db_rom.file_name).strip().replace("/", "-")
     )
+    fs_safe_name = cleaned_data["name"].strip().replace("/", "-")
+
+    if rename_as_igdb:
+        fs_safe_file_name = db_rom.file_name.replace(
+            db_rom.file_name_no_tags, fs_safe_name
+        )
 
     try:
-        rename_rom(db_rom.platform_slug, db_rom.file_name, file_name)
+        if db_rom.file_name != fs_safe_file_name:
+            rename_rom(db_rom.platform_slug, db_rom.file_name, fs_safe_file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-    cleaned_data["file_name"] = file_name
-    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(file_name)
+    cleaned_data["file_name"] = fs_safe_file_name
+    cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(fs_safe_file_name)
     cleaned_data.update(
         get_cover(
             overwrite=True,
