@@ -63,7 +63,7 @@ class DBHandler:
         return (
             select(Rom)
             .filter_by(platform_slug=platform_slug)
-            .order_by(Rom.file_name.asc())
+            .order_by(func.lower(Rom.name).asc())
         )
 
     @begin_session
