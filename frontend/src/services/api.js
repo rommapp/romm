@@ -30,7 +30,7 @@ async function fetchRoms({
   searchTerm = "",
 }) {
   return api.get(`/platforms/${platform}/roms`, {
-    params: { cursor, size, searchTerm },
+    params: { cursor, size, search_term: searchTerm },
   });
 }
 
