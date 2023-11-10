@@ -89,14 +89,15 @@ class Rom(BaseModel):
 
     @cached_property
     def sort_comparator(self) -> str:
-        if self.name:
-            return (
-                re.sub(SORT_COMPARE_REGEX, "", self.name, flags=re.MULTILINE)
-                .strip()
-                .lower()
+        return (
+            re.sub(
+                SORT_COMPARE_REGEX,
+                "",
+                self.name or self.file_name_no_tags,
             )
-
-        return self.file_name_no_tags.strip().lower()
+            .strip()
+            .lower()
+        )
 
     def __repr__(self) -> str:
         return self.file_name
