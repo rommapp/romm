@@ -29,7 +29,7 @@ jobs:
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
-          changed=$(ct list-changed --chart-dirs helm/romm/ --target-branch helm)
+          changed=$(ct list-changed --chart-dirs helm/romm/ --target-branch master)
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
