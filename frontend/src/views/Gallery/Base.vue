@@ -2,7 +2,7 @@
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
-import { fetchRomsApi } from "@/services/api";
+import api from "@/services/api";
 import { views, toTop, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
@@ -58,7 +58,7 @@ async function fetchRoms(platform) {
     scrim: false,
   });
 
-  await fetchRomsApi({
+  await api.fetchRoms({
     platform: platform,
     cursor: isFiltered ? searchCursor.value : cursor.value,
     searchTerm: normalizeString(galleryFilter.filter),

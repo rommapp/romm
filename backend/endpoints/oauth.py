@@ -1,4 +1,5 @@
 from typing import Annotated, Final
+from typing_extensions import TypedDict, NotRequired
 from datetime import timedelta
 from fastapi import Depends, APIRouter, HTTPException, status
 
@@ -17,8 +18,15 @@ REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 router = APIRouter()
 
 
+class TokenResponse(TypedDict):
+    access_token: str
+    refresh_token: NotRequired[str]
+    token_type: str
+    expires: int
+
+
 @router.post("/token")
-async def token(form_data: Annotated[OAuth2RequestForm, Depends()]):
+async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
     """OAuth2 token endpoint"""
 
     # Suppport refreshing access tokens

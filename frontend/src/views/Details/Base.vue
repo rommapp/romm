@@ -3,7 +3,7 @@ import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
-import { fetchRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import TitleInfo from "@/components/Details/Title.vue";
@@ -34,7 +34,7 @@ onBeforeMount(async () => {
   if (rom.value) {
     emitter.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
-    await fetchRomApi(route.params.platform, route.params.rom)
+    await api.fetchRom({ romId: route.params.rom })
       .then((response) => {
         rom.value = response.data;
         romsStore.update(response.data);

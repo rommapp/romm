@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "2.31.0"
-fastapi = "0.95.1"
+fastapi = "0.103.1"
 uvicorn = "0.22.0"
 websockets = "11.0.3"
 python-socketio = "5.8.0"

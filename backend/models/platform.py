@@ -6,17 +6,23 @@ from .base import BaseModel
 
 class Platform(BaseModel):
     __tablename__ = "platforms"
-    igdb_id: str = Column(String(length=10), default="")
-    sgdb_id: str = Column(String(length=10), default="")
 
-    slug: str = Column(String(length=50), default="")
-    name: str = Column(String(length=400), default="")
-
+    slug: str = Column(String(length=50), primary_key=True)
+    fs_slug: str = Column(String(length=50), nullable=False)
+    name: str = Column(String(length=400))
+    igdb_id: int = Column(Integer())
+    sgdb_id: int = Column(Integer())
     logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
 
+    ### DEPRECATED ###
     n_roms: int = Column(Integer, default=0)
+    ### DEPRECATED ###
 
-    fs_slug: str = Column(String(length=50), primary_key=True)
+    @property
+    def rom_count(self) -> int:
+        from handler import dbh
+
+        return dbh.get_rom_count(self.slug)
 
     def __repr__(self) -> str:
         return self.name

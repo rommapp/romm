@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from "vue";
-import { createUserApi } from "@/services/api";
+import api from "@/services/api";
 import storeUsers from "@/stores/users";
 
 const user = ref({
@@ -17,7 +17,7 @@ emitter.on("showCreateUserDialog", () => {
 });
 
 async function createUser() {
-  await createUserApi(user.value)
+  await api.createUser(user.value)
     .then(({ data }) => {
       usersStore.add(data);
     })

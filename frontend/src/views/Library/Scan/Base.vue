@@ -20,14 +20,14 @@ socket.on("scan:scanning_platform", ({ name, slug }) => {
   window.setTimeout(scrollToBottom, 100);
 });
 
-socket.on("scan:scanning_rom", ({ p_slug, p_name, ...rom }) => {
-  let platform = scannedPlatforms.value.find((p) => p.slug === p_slug);
+socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
+  let platform = scannedPlatforms.value.find((p) => p.slug === platform_slug);
 
   // Add the platform if the socket dropped and it's missing
   if (!platform) {
     scannedPlatforms.value.push({
-      name: p_name,
-      slug: p_slug,
+      name: platform_name,
+      slug: platform_slug,
       roms: [],
     });
 
@@ -74,7 +74,7 @@ async function onScan() {
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.fs_slug),
+    platforms: platformsToScan.value.map((p) => p.slug),
     rescan: completeRescan.value,
   });
 }
@@ -151,12 +151,12 @@ onBeforeUnmount(() => {
   >
     <v-col>
       <v-avatar :rounded="0" size="40">
-        <platform-icon :platform="platform"></platform-icon>
+        <platform-icon :platform="platform.slug"></platform-icon>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
       <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
-        <span v-if="rom.r_igdb_id" class="ml-10">
-          • Identified <b>{{ rom.r_name }} 👾</b>
+        <span v-if="rom.igdb_id" class="ml-10">
+          • Identified <b>{{ rom.name }} 👾</b>
         </span>
         <span v-else class="ml-10">
           • {{ rom.file_name }} not found in IGDB
