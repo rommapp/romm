@@ -59,6 +59,7 @@ class RomSchema(BaseModel):
     name: Optional[str]
     slug: Optional[str]
     summary: Optional[str]
+    sort_comparator: str
 
     path_cover_s: str
     path_cover_l: str

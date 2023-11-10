@@ -1,3 +1,4 @@
+import re
 from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, ForeignKey
 from sqlalchemy.orm import relationship, Mapped
 from functools import cached_property
@@ -8,11 +9,14 @@ from .base import BaseModel
 SIZE_UNIT_TO_BYTES = {
     "B": 1,
     "KB": 1024,
-    "MB": 1024^2,
-    "GB": 1024^3,
-    "TB": 1024^4,
-    "PB": 1024^5,
+    "MB": 1024 ^ 2,
+    "GB": 1024 ^ 3,
+    "TB": 1024 ^ 4,
+    "PB": 1024 ^ 5,
 }
+
+SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
+
 
 class Rom(BaseModel):
     from .platform import Platform
@@ -71,16 +75,28 @@ class Rom(BaseModel):
     @cached_property
     def download_path(self) -> str:
         return f"{FRONT_LIBRARY_PATH}/{self.full_path}"
-    
+
     @property
     def file_size_bytes(self) -> int:
-        return int(self.file_size * SIZE_UNIT_TO_BYTES[self.file_size_units or 'B'])
+        return int(self.file_size * SIZE_UNIT_TO_BYTES[self.file_size_units or "B"])
 
     @property
     def has_cover(self) -> bool:
         return (
             self.path_cover_s != DEFAULT_PATH_COVER_S
             or self.path_cover_l != DEFAULT_PATH_COVER_L
+        )
+
+    @cached_property
+    def sort_comparator(self) -> str:
+        return (
+            re.sub(
+                SORT_COMPARE_REGEX,
+                "",
+                self.name or self.file_name_no_tags,
+            )
+            .strip()
+            .lower()
         )
 
     def __repr__(self) -> str:
