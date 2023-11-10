@@ -9,7 +9,7 @@ const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 function getTheme() {
   const storedTheme = parseInt(localStorage.getItem("settings.theme"));
 
-  if (storedTheme && storedTheme !== autoThemeKey) {
+  if (storedTheme !== null && storedTheme !== autoThemeKey) {
     return themes[storedTheme];
   }
 
