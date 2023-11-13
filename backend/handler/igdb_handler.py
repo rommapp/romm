@@ -13,7 +13,7 @@ from typing import Final
 from typing_extensions import TypedDict
 
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, DEFAULT_URL_COVER_L
-from utils import get_file_name_with_no_tags as get_search_term
+from utils import get_file_name_with_no_tags
 from logger.logger import log
 from utils.cache import cache
 from tasks.update_switch_titledb import update_switch_titledb_task
@@ -180,7 +180,7 @@ class IGDBHandler:
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
-        search_term = get_search_term(file_name)
+        search_term = get_file_name_with_no_tags(file_name)
 
         # Patch support for PS2 OPL flename format
         match = re.match(PS2_OPL_REGEX, file_name)

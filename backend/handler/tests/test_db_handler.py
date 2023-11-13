@@ -57,7 +57,7 @@ def test_roms(rom):
         roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
         assert len(roms) == 1
 
-    dbh.purge_roms(rom_2.platform_slug, [rom_2.slug])
+    dbh.purge_roms(rom_2.platform_slug, [rom_2.id])
 
     with dbh.session.begin() as session:
         roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
