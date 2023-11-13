@@ -10,10 +10,15 @@ DEV_PORT: Final = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
 DEV_HOST: Final = "0.0.0.0"
 
 # PATHS
-ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
 ROMS_FOLDER_NAME: Final = os.environ.get("ROMS_FOLDER_NAME", "roms")
 SAVES_FOLDER_NAME: Final = os.environ.get("SAVES_FOLDER_NAME", "saves")
 STATES_FOLDER_NAME: Final = os.environ.get("STATES_FOLDER_NAME", "states")
+SCREENSHOTS_FOLDER_NAME: Final = os.environ.get(
+    "SCREENSHOTS_FOLDER_NAME", "screenshots"
+)
+BIOS_FOLDER_NAME: Final = os.environ.get("BIOS_FOLDER_NAME", "bios")
+
+ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/{ROMS_FOLDER_NAME}"
 

@@ -1,12 +1,12 @@
 import pytest
 
 from ..fs import (
-    get_cover,
+    get_rom_cover,
     get_platforms,
-    get_roms_structure,
+    get_fs_structure,
     get_roms,
     get_rom_file_size,
-    # get_screenshots # TODO: write test
+    # get_rom_screenshots # TODO: write test
     # store_default_resources # TODO: write test
     # get_rom_files,  # TODO: write test
     # rename_rom,  # TODO: write test
@@ -23,9 +23,9 @@ from config import (
 
 
 @pytest.mark.vcr
-def test_get_cover():
+def test_get_rom_cover():
     # Game: Paper Mario (USA).z64
-    cover = get_cover(
+    cover = get_rom_cover(
         overwrite=False,
         fs_slug="n64",
         rom_name="Paper Mario",
@@ -35,7 +35,7 @@ def test_get_cover():
     assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
 
     # Game: Paper Mario (USA).z64
-    cover = get_cover(
+    cover = get_rom_cover(
         overwrite=True,
         fs_slug="n64",
         rom_name="Paper Mario",
@@ -46,7 +46,7 @@ def test_get_cover():
     assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
 
     # Game: Super Mario 64 (J) (Rev A)
-    cover = get_cover(
+    cover = get_rom_cover(
         overwrite=False,
         fs_slug="n64",
         rom_name="Super Mario 64",
@@ -57,7 +57,7 @@ def test_get_cover():
     assert "n64/Super%20Mario%2064/cover/big.png" in cover["path_cover_l"]
 
     # Game: Disney's Kim Possible: What's the Switch?.zip
-    cover = get_cover(
+    cover = get_rom_cover(
         overwrite=False,
         fs_slug="ps2",
         rom_name="Disney's Kim Possible: What's the Switch?",
@@ -74,7 +74,7 @@ def test_get_cover():
     )
 
     # Game: Fake Game.xyz
-    cover = get_cover(
+    cover = get_rom_cover(
         overwrite=False,
         fs_slug="n64",
         rom_name="Fake Game",
@@ -91,8 +91,8 @@ def test_get_platforms():
     assert "psx" in platforms
 
 
-def test_get_roms_structure():
-    roms_structure = get_roms_structure(fs_slug="n64")
+def test_get_fs_structure():
+    roms_structure = get_fs_structure(fs_slug="n64")
 
     assert roms_structure == "n64/roms"
 
@@ -110,7 +110,7 @@ def test_get_roms():
 
 def test_rom_size():
     rom_size = get_rom_file_size(
-        roms_path=get_roms_structure(fs_slug="n64"),
+        roms_path=get_fs_structure(fs_slug="n64"),
         file_name="Paper Mario (USA).z64",
         multi=False,
     )
@@ -118,7 +118,7 @@ def test_rom_size():
     assert rom_size == (1.0, "KB")
 
     rom_size = get_rom_file_size(
-        roms_path=get_roms_structure(fs_slug="n64"),
+        roms_path=get_fs_structure(fs_slug="n64"),
         file_name="Super Mario 64 (J) (Rev A)",
         multi=True,
         multi_files=[

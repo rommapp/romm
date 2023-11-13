@@ -22,6 +22,8 @@ from config import (
     DEFAULT_HEIGHT_COVER_S,
     SAVES_FOLDER_NAME,
     STATES_FOLDER_NAME,
+    SCREENSHOTS_FOLDER_NAME,
+    BIOS_FOLDER_NAME,
 )
 from config.config_loader import config
 from exceptions.fs_exceptions import (
@@ -113,7 +115,7 @@ def _get_cover_path(fs_slug: str, rom_name: str, size: CoverSize):
     return f"{fs_slug}/{rom_name}/cover/{size.value}.png?timestamp={strtime}"
 
 
-def get_cover(
+def get_rom_cover(
     overwrite: bool, fs_slug: str, rom_name: str, url_cover: str = ""
 ) -> dict:
     q_rom_name = quote(rom_name)
@@ -171,13 +173,14 @@ def _get_screenshot_path(fs_slug: str, rom_name: str, idx: str):
     return f"{fs_slug}/{rom_name}/screenshots/{idx}.jpg"
 
 
-def get_screenshots(fs_slug: str, rom_name: str, url_screenshots: list) -> dict:
+def get_rom_screenshots(fs_slug: str, rom_name: str, url_screenshots: list) -> dict:
     q_rom_name = quote(rom_name)
 
     path_screenshots: list[str] = []
     for idx, url in enumerate(url_screenshots):
         _store_screenshot(fs_slug, rom_name, url, idx)
         path_screenshots.append(_get_screenshot_path(fs_slug, q_rom_name, str(idx)))
+    
     return {"path_screenshots": path_screenshots}
 
 
@@ -303,6 +306,7 @@ def get_assets(fs_slug: str):
 
     fs_saves: list[str] = []
     fs_states: list[str] = []
+    fs_bios: list[str] = []
 
     try:
         fs_saves = list(os.walk(saves_file_path))[0][2]
@@ -317,10 +321,30 @@ def get_assets(fs_slug: str):
     except IndexError:
         pass
 
+    bios_path = get_fs_structure(fs_slug, folder=BIOS_FOLDER_NAME)
+    bios_file_path = f"{LIBRARY_BASE_PATH}/{bios_path}"
+
+    try:
+        fs_bios = list(os.walk(bios_file_path))[0][2]
+    except IndexError:
+        pass
+
     return {
         "saves": fs_saves,
         "states": fs_states,
+        "bios": fs_bios,
     }
+
+
+def get_screenshots():
+    screenshots_path = f"{LIBRARY_BASE_PATH}/{SCREENSHOTS_FOLDER_NAME}"
+
+    try:
+        fs_screenshots = list(os.walk(screenshots_path))[0][2]
+    except IndexError:
+        pass
+
+    return fs_screenshots
 
 
 def get_rom_file_size(

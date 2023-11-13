@@ -30,8 +30,8 @@ from utils.fs import (
     build_artwork_path,
     build_upload_roms_path,
     rename_rom,
-    get_cover,
-    get_screenshots,
+    get_rom_cover,
+    get_rom_screenshots,
     remove_rom,
 )
 
@@ -240,7 +240,7 @@ async def update_rom(
     cleaned_data["file_name"] = fs_safe_file_name
     cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(fs_safe_file_name)
     cleaned_data.update(
-        get_cover(
+        get_rom_cover(
             overwrite=True,
             fs_slug=db_rom.platform_slug,
             rom_name=cleaned_data["name"],
@@ -249,7 +249,7 @@ async def update_rom(
     )
 
     cleaned_data.update(
-        get_screenshots(
+        get_rom_screenshots(
             fs_slug=db_rom.platform_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),

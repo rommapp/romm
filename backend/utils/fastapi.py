@@ -3,9 +3,14 @@ from typing import Any
 
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
-from config import SAVES_FOLDER_NAME, STATES_FOLDER_NAME
+from config import (
+    SAVES_FOLDER_NAME,
+    STATES_FOLDER_NAME,
+    BIOS_FOLDER_NAME,
+    SCREENSHOTS_FOLDER_NAME,
+)
 from config.config_loader import config
-from models import Platform, Rom, Save, State
+from models import Platform, Rom, Save, State, Bios, Screenshot
 from logger.logger import log
 
 
@@ -100,7 +105,7 @@ async def scan_rom(
 
     # Update properties from IGDB
     rom_attrs.update(
-        fs.get_cover(
+        fs.get_rom_cover(
             overwrite=overwrite,
             fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
@@ -108,7 +113,7 @@ async def scan_rom(
         )
     )
     rom_attrs.update(
-        fs.get_screenshots(
+        fs.get_rom_screenshots(
             fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
             url_screenshots=rom_attrs["url_screenshots"],
@@ -118,33 +123,34 @@ async def scan_rom(
     return Rom(**rom_attrs)
 
 
-async def scan_save(platform: Platform, file_name: str) -> Save:
+def _scan_asset(file_name: str, path: str):
+    log.info(f"\t\t · {file_name}")
+
+    file_size = fs.get_fs_file_size(file_name=file_name, asset_path=path)
+
+    return {
+        "file_path": path,
+        "file_name": file_name,
+        "file_name_no_tags": get_file_name_with_no_tags(file_name),
+        "file_extension": get_file_extension(file_name),
+        "file_size_bytes": file_size,
+    }
+
+
+def scan_save(platform: Platform, file_name: str) -> Save:
     saves_path = fs.get_fs_structure(platform.fs_slug, folder=SAVES_FOLDER_NAME)
-
-    log.info(f"\t · {file_name}")
-
-    file_size = fs.get_fs_file_size(file_name=file_name, asset_path=saves_path)
-
-    return Save(
-        file_path=saves_path,
-        file_name=file_name,
-        file_name_no_tags=get_file_name_with_no_tags(file_name),
-        file_extension=get_file_extension(file_name),
-        file_size_bytes=file_size,
-    )
+    return Save(**_scan_asset(file_name, saves_path))
 
 
-async def scan_state(platform: Platform, file_name: str) -> State:
+def scan_state(platform: Platform, file_name: str) -> State:
     states_path = fs.get_fs_structure(platform.fs_slug, folder=STATES_FOLDER_NAME)
+    return State(**_scan_asset(file_name, states_path))
 
-    log.info(f"\t · {file_name}")
 
-    file_size = fs.get_fs_file_size(file_name=file_name, asset_path=states_path)
+def scan_bios(platform: Platform, file_name: str) -> State:
+    bios_path = fs.get_fs_structure(platform.fs_slug, folder=BIOS_FOLDER_NAME)
+    return Bios(**_scan_asset(file_name, bios_path))
 
-    return State(
-        file_path=states_path,
-        file_name=file_name,
-        file_name_no_tags=get_file_name_with_no_tags(file_name),
-        file_extension=get_file_extension(file_name),
-        file_size_bytes=file_size,
-    )
+
+def scan_screenshot(file_name: str) -> State:
+    return Screenshot(**_scan_asset(file_name, SCREENSHOTS_FOLDER_NAME))

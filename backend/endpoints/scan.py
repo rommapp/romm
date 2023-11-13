@@ -4,10 +4,22 @@ import socketio  # type: ignore
 from logger.logger import log
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from utils import get_file_name_with_no_tags
-from utils.fastapi import scan_platform, scan_rom, scan_save, scan_state
+from utils.fastapi import (
+    scan_platform,
+    scan_rom,
+    scan_save,
+    scan_state,
+    scan_bios,
+    scan_screenshot,
+)
 from utils.socket import socket_server
-from utils.fs import get_platforms, get_roms, store_default_resources, get_assets
+from utils.fs import (
+    get_platforms,
+    get_roms,
+    store_default_resources,
+    get_assets,
+    get_screenshots,
+)
 from utils.redis import high_prio_queue, redis_url
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
@@ -76,39 +88,74 @@ async def scan_platforms(
                 },
             )
 
-        # Scanning assets
         fs_assets = get_assets(scanned_platform.fs_slug)
-        for fs_save in fs_assets["saves"]:
-            scanned_save = await scan_save(
+
+        # Scanning saves
+        log.info("\t · Saves")
+        for fs_save_filename in fs_assets["saves"]:
+            save = dbh.get_save_by_filename(scanned_platform.slug, fs_save_filename)
+            if save:
+                continue
+
+            scanned_save = scan_save(
                 scanned_platform,
-                fs_save,
+                fs_save_filename,
             )
+            scanned_save.platform_slug = scanned_platform.slug
 
-            file_name_no_tags = get_file_name_with_no_tags(scanned_save.file_name)
-            rom = dbh.get_rom_by_filename_no_tags(
-                scanned_platform.slug, file_name_no_tags
-            )
-
+            rom = dbh.get_rom_by_filename_no_tags(scanned_save.file_name_no_tags)
             if rom:
                 scanned_save.rom_id = rom.id
+                dbh.add_save(scanned_save)
 
-            dbh.add_save(scanned_save)
+        # Scanning states
+        log.info("\t · States")
+        for fs_state_filename in fs_assets["states"]:
+            state = dbh.get_state_by_filename(scanned_platform.slug, fs_state_filename)
+            if state:
+                continue
 
-        for state in fs_assets["states"]:
-            scanned_state = await scan_state(scanned_platform, state)
+            scanned_state = scan_state(scanned_platform, fs_state_filename)
+            scanned_state.platform_slug = scanned_platform.slug
 
-            file_name_no_tags = get_file_name_with_no_tags(scanned_state.file_name)
-            rom = dbh.get_rom_by_filename_no_tags(
-                scanned_platform.slug, file_name_no_tags
-            )
-
+            rom = dbh.get_rom_by_filename_no_tags(scanned_state.file_name_no_tags)
             if rom:
                 scanned_state.rom_id = rom.id
+                dbh.add_state(scanned_state)
 
-            dbh.add_state(scanned_state)
+        # Scanning bios
+        log.info("\t · Firmware")
+        for fs_bios_filename in fs_assets["bios"]:
+            bios = dbh.get_bios_by_filename(scanned_platform.slug, fs_bios_filename)
+            if bios:
+                continue
 
+            scanned_bios = scan_bios(scanned_platform, fs_bios_filename)
+            scanned_bios.platform_slug = scanned_platform.slug
+            dbh.add_bios(scanned_bios)
+
+        dbh.purge_saves(scanned_platform.slug, fs_assets["saves"])
+        dbh.purge_states(scanned_platform.slug, fs_assets["states"])
+        dbh.purge_bios(scanned_platform.slug, fs_assets["bios"])
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
+
+    # Scanning screenshots
+    log.info("\t · Screenshots")
+    fs_screenshots = get_screenshots()
+    for fs_screenshot_filename in fs_screenshots:
+        screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
+        if screenshot:
+            continue
+
+        scanned_screenshot = scan_screenshot(fs_screenshot_filename)
+
+        rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+        if rom:
+            scanned_screenshot.rom_id = rom.id
+            dbh.add_screenshot(scanned_screenshot)
+
     dbh.purge_platforms(fs_platforms)
+    dbh.purge_screenshots(fs_screenshots)
 
     await sm.emit("scan:done", {})
 

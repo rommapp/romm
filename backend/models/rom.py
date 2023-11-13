@@ -1,6 +1,6 @@
 import re
 from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, ForeignKey
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship, Mapped, backref
 from functools import cached_property
 
 from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONT_LIBRARY_PATH
@@ -29,10 +29,15 @@ class Rom(BaseModel):
 
     # Foreign key to platform
     platform_slug = Column(
-        String(length=50), ForeignKey("platforms.slug"), nullable=False
+        String(length=50),
+        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        nullable=False,
     )
     platform: Mapped[Platform] = relationship(  # noqa
-        "Platform", lazy="joined", innerjoin=True
+        "Platform",
+        lazy="joined",
+        innerjoin=True,
+        backref=backref("roms", passive_deletes=True),
     )
 
     ### DEPRECATED ###

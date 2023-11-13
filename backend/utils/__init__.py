@@ -105,8 +105,7 @@ def get_file_name_with_no_extension(file_name: str) -> str:
 
 def get_file_name_with_no_tags(file_name: str) -> str:
     file_name_no_extension = get_file_name_with_no_extension(file_name)
-    return re.sub(TAG_REGEX, "", file_name_no_extension).strip()
-
+    return re.split(TAG_REGEX, file_name_no_extension)[0].strip()
 
 def get_file_extension(file_name: str) -> str:
     return re.search(EXTENSION_REGEX, file_name).group(1)
