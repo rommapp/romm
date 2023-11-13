@@ -7,7 +7,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from logger.logger import log
 from config.config_loader import ConfigLoader
-from models import Platform, Rom, User, Role
+from models import Platform, Rom, User, Role, Save, State
 
 
 class DBHandler:
@@ -19,8 +19,8 @@ class DBHandler:
     def begin_session(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            if hasattr(kwargs, 'session'):
-                return func(*args, session=kwargs.get('session'))
+            if hasattr(kwargs, "session"):
+                return func(*args, session=kwargs.get("session"))
 
             try:
                 with args[0].session.begin() as s:
@@ -115,6 +115,34 @@ class DBHandler:
             .filter_by(platform_slug=platform_slug, file_name=file_name)
             .limit(1)
         ).first()
+
+    @begin_session
+    def get_rom_by_filename_no_tags(
+        self, platform_slug: str, file_name_no_tags: str, session: Session = None
+    ):
+        return session.scalars(
+            select(Rom)
+            .filter_by(platform_slug=platform_slug, file_name_no_tags=file_name_no_tags)
+            .limit(1)
+        ).first()
+    
+    # ========= Saves =========
+    @begin_session
+    def add_save(self, save: Rom, session: Session = None):
+        return session.merge(save)
+    
+    @begin_session
+    def get_save(self, id, session: Session = None):
+        return session.get(Save, id)
+    
+    # ========= States =========
+    @begin_session
+    def add_state(self, state: Rom, session: Session = None):
+        return session.merge(state)
+    
+    @begin_session
+    def get_state(self, id, session: Session = None):
+        return session.get(State, id)
 
     # ========= Users =========
     @begin_session

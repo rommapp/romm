@@ -99,14 +99,14 @@ def parse_tags(file_name: str) -> tuple:
     return reg, rev, other_tags
 
 
+def get_file_name_with_no_extension(file_name: str) -> str:
+    return re.sub(EXTENSION_REGEX, "", file_name).strip()
+
+
 def get_file_name_with_no_tags(file_name: str) -> str:
-    file_name_no_extension = re.sub(EXTENSION_REGEX, "", file_name).strip()
+    file_name_no_extension = get_file_name_with_no_extension(file_name)
     return re.sub(TAG_REGEX, "", file_name_no_extension).strip()
 
 
-def get_file_extension(rom: dict) -> str:
-    return (
-        re.search(EXTENSION_REGEX, rom["file_name"]).group(1)
-        if not rom["multi"]
-        else ""
-    )
+def get_file_extension(file_name: str) -> str:
+    return re.search(EXTENSION_REGEX, file_name).group(1)

@@ -3,8 +3,9 @@ from typing import Any
 
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
+from config import SAVES_FOLDER_NAME, STATES_FOLDER_NAME
 from config.config_loader import config
-from models import Platform, Rom
+from models import Platform, Rom, Save, State
 from logger.logger import log
 
 
@@ -47,7 +48,7 @@ async def scan_rom(
     r_igbd_id_search: str = "",
     overwrite: bool = False,
 ) -> Rom:
-    roms_path = fs.get_roms_structure(platform.fs_slug)
+    roms_path = fs.get_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
 
@@ -68,7 +69,7 @@ async def scan_rom(
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
             "file_name_no_tags": get_file_name_with_no_tags(rom_attrs["file_name"]),
-            "file_extension": get_file_extension(rom_attrs),
+            "file_extension": get_file_extension(rom_attrs["file_name"]),
             "file_size": file_size,
             "file_size_units": file_size_units,
             "multi": rom_attrs["multi"],
@@ -115,3 +116,35 @@ async def scan_rom(
     )
 
     return Rom(**rom_attrs)
+
+
+async def scan_save(platform: Platform, file_name: str) -> Save:
+    saves_path = fs.get_fs_structure(platform.fs_slug, folder=SAVES_FOLDER_NAME)
+
+    log.info(f"\t · {file_name}")
+
+    file_size = fs.get_fs_file_size(file_name=file_name, asset_path=saves_path)
+
+    return Save(
+        file_path=saves_path,
+        file_name=file_name,
+        file_name_no_tags=get_file_name_with_no_tags(file_name),
+        file_extension=get_file_extension(file_name),
+        file_size_bytes=file_size,
+    )
+
+
+async def scan_state(platform: Platform, file_name: str) -> State:
+    states_path = fs.get_fs_structure(platform.fs_slug, folder=STATES_FOLDER_NAME)
+
+    log.info(f"\t · {file_name}")
+
+    file_size = fs.get_fs_file_size(file_name=file_name, asset_path=states_path)
+
+    return State(
+        file_path=states_path,
+        file_name=file_name,
+        file_name_no_tags=get_file_name_with_no_tags(file_name),
+        file_extension=get_file_extension(file_name),
+        file_size_bytes=file_size,
+    )

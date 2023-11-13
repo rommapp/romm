@@ -19,7 +19,9 @@ from config import (
     DEFAULT_URL_COVER_S,
     DEFAULT_PATH_COVER_S,
     DEFAULT_WIDTH_COVER_S,
-    DEFAULT_HEIGHT_COVER_S
+    DEFAULT_HEIGHT_COVER_S,
+    SAVES_FOLDER_NAME,
+    STATES_FOLDER_NAME,
 )
 from config.config_loader import config
 from exceptions.fs_exceptions import (
@@ -30,12 +32,10 @@ from exceptions.fs_exceptions import (
 )
 
 
-
-
 # ========= Resources utils =========
 class CoverSize(Enum):
-    SMALL = 'small'
-    BIG = 'big'
+    SMALL = "small"
+    BIG = "big"
 
 
 def _cover_exists(fs_slug: str, rom_name: str, size: CoverSize):
@@ -49,13 +49,15 @@ def _cover_exists(fs_slug: str, rom_name: str, size: CoverSize):
         True if cover exists in filesystem else False
     """
     return bool(
-        os.path.exists(f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover/{size.value}.png")
+        os.path.exists(
+            f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover/{size.value}.png"
+        )
     )
 
 
 def _resize_cover(cover_path: str, size: CoverSize) -> None:
     """Resizes the cover image to the standard size
-    
+
     Args:
         cover_path: path where the original cover were stored
         size: size of the cover
@@ -64,12 +66,12 @@ def _resize_cover(cover_path: str, size: CoverSize) -> None:
     if cover.size[1] > DEFAULT_HEIGHT_COVER_L:
         if size == CoverSize.BIG:
             big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
-            background = Image.new('RGBA', big_dimensions, (0, 0, 0, 0))
+            background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
             cover.thumbnail(big_dimensions)
             offset = (int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)), 0)
         elif size == CoverSize.SMALL:
             small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
-            background = Image.new('RGBA', small_dimensions, (0, 0, 0, 0))
+            background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
             cover.thumbnail(small_dimensions)
             offset = (int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)), 0)
         else:
@@ -116,7 +118,9 @@ def get_cover(
 ) -> dict:
     q_rom_name = quote(rom_name)
     # Cover small
-    if (overwrite or not _cover_exists(fs_slug, rom_name, CoverSize.SMALL)) and url_cover:
+    if (
+        overwrite or not _cover_exists(fs_slug, rom_name, CoverSize.SMALL)
+    ) and url_cover:
         _store_cover(fs_slug, rom_name, url_cover, CoverSize.SMALL)
     path_cover_s = (
         _get_cover_path(fs_slug, q_rom_name, CoverSize.SMALL)
@@ -215,11 +219,11 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def get_roms_structure(fs_slug: str):
+def get_fs_structure(fs_slug: str, folder: str = ROMS_FOLDER_NAME):
     return (
-        f"{ROMS_FOLDER_NAME}/{fs_slug}"
+        f"{folder}/{fs_slug}"
         if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
-        else f"{fs_slug}/{ROMS_FOLDER_NAME}"
+        else f"{fs_slug}/{folder}"
     )
 
 
@@ -264,7 +268,7 @@ def get_roms(fs_slug: str):
     Returns:
         list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
     """
-    roms_path = get_roms_structure(fs_slug)
+    roms_path = get_fs_structure(fs_slug)
     roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
 
     try:
@@ -293,7 +297,35 @@ def get_roms(fs_slug: str):
     ]
 
 
-def get_rom_file_size(roms_path: str, file_name: str, multi: bool, multi_files: list = []):
+def get_assets(fs_slug: str):
+    saves_path = get_fs_structure(fs_slug, folder=SAVES_FOLDER_NAME)
+    saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
+
+    fs_saves: list[str] = []
+    fs_states: list[str] = []
+
+    try:
+        fs_saves = list(os.walk(saves_file_path))[0][2]
+    except IndexError:
+        pass
+
+    states_path = get_fs_structure(fs_slug, folder=STATES_FOLDER_NAME)
+    states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
+
+    try:
+        fs_states = list(os.walk(states_file_path))[0][2]
+    except IndexError:
+        pass
+
+    return {
+        "saves": fs_saves,
+        "states": fs_states,
+    }
+
+
+def get_rom_file_size(
+    roms_path: str, file_name: str, multi: bool, multi_files: list = []
+):
     files = (
         [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
         if not multi
@@ -312,6 +344,10 @@ def get_rom_file_size(roms_path: str, file_name: str, multi: bool, multi_files: 
     return round(total_size, 2), unit
 
 
+def get_fs_file_size(asset_path: str, file_name: str):
+    return os.stat(f"{LIBRARY_BASE_PATH}/{asset_path}/{file_name}").st_size
+
+
 def _rom_exists(fs_slug: str, file_name: str):
     """Check if rom exists in filesystem
 
@@ -321,13 +357,13 @@ def _rom_exists(fs_slug: str, file_name: str):
     Returns
         True if rom exists in filesystem else False
     """
-    rom_path = get_roms_structure(fs_slug)
+    rom_path = get_fs_structure(fs_slug)
     return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}"))
 
 
 def rename_rom(fs_slug: str, old_name: str, new_name: str):
     if new_name != old_name:
-        rom_path = get_roms_structure(fs_slug)
+        rom_path = get_fs_structure(fs_slug)
         if _rom_exists(fs_slug, new_name):
             raise RomAlreadyExistsException(new_name)
         os.rename(
@@ -337,7 +373,7 @@ def rename_rom(fs_slug: str, old_name: str, new_name: str):
 
 
 def remove_rom(fs_slug: str, file_name: str):
-    rom_path = get_roms_structure(fs_slug)
+    rom_path = get_fs_structure(fs_slug)
     try:
         try:
             os.remove(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
@@ -348,7 +384,7 @@ def remove_rom(fs_slug: str, file_name: str):
 
 
 def build_upload_roms_path(fs_slug: str):
-    rom_path = get_roms_structure(fs_slug)
+    rom_path = get_fs_structure(fs_slug)
     return f"{LIBRARY_BASE_PATH}/{rom_path}"
 
 
