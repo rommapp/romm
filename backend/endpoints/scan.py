@@ -4,9 +4,10 @@ import socketio  # type: ignore
 from logger.logger import log
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from utils.fastapi import scan_platform, scan_rom
+from utils import get_file_name_with_no_tags
+from utils.fastapi import scan_platform, scan_rom, scan_save, scan_state
 from utils.socket import socket_server
-from utils.fs import get_platforms, get_roms, store_default_resources
+from utils.fs import get_platforms, get_roms, store_default_resources, get_assets
 from utils.redis import high_prio_queue, redis_url
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
@@ -74,6 +75,37 @@ async def scan_platforms(
                     **RomSchema.model_validate(new_rom).model_dump(),
                 },
             )
+
+        # Scanning assets
+        fs_assets = get_assets(scanned_platform.fs_slug)
+        for fs_save in fs_assets["saves"]:
+            scanned_save = await scan_save(
+                scanned_platform,
+                fs_save,
+            )
+
+            file_name_no_tags = get_file_name_with_no_tags(scanned_save.file_name)
+            rom = dbh.get_rom_by_filename_no_tags(
+                scanned_platform.slug, file_name_no_tags
+            )
+
+            if rom:
+                scanned_save.rom_id = rom.id
+
+            dbh.add_save(scanned_save)
+
+        for state in fs_assets["states"]:
+            scanned_state = await scan_state(scanned_platform, state)
+
+            file_name_no_tags = get_file_name_with_no_tags(scanned_state.file_name)
+            rom = dbh.get_rom_by_filename_no_tags(
+                scanned_platform.slug, file_name_no_tags
+            )
+
+            if rom:
+                scanned_state.rom_id = rom.id
+
+            dbh.add_state(scanned_state)
 
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)

@@ -62,11 +62,5 @@ def test_get_file_name_with_no_tags():
 
 
 def test_get_file_extension():
-    rom = {"file_name": "Super Mario Bros. (World).nes", "multi": False}
-    assert gfe(rom) == "nes"
-
-    rom = {"file_name": "Super Mario Bros. (World).nes", "multi": True}
-    assert gfe(rom) == ""
-
-    rom = {"file_name": "007 - Agent Under Fire.nkit.iso", "multi": False}
-    assert gfe(rom) == "nkit.iso"
+    assert gfe("Super Mario Bros. (World).nes") == "nes"
+    assert gfe("007 - Agent Under Fire.nkit.iso") == "nkit.iso"
