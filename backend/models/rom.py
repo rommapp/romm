@@ -1,6 +1,6 @@
 import re
 from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, ForeignKey
-from sqlalchemy.orm import relationship, Mapped, backref
+from sqlalchemy.orm import relationship, Mapped
 from functools import cached_property
 
 from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONT_LIBRARY_PATH
@@ -19,25 +19,35 @@ SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
 
 class Rom(BaseModel):
-    from .platform import Platform
+    from .assets import Save, State, Screenshot
 
     __tablename__ = "roms"
+
     id = Column(Integer(), primary_key=True, autoincrement=True)
 
     igdb_id: int = Column(Integer())
     sgdb_id: int = Column(Integer())
 
-    # Foreign key to platform
     platform_slug = Column(
         String(length=50),
         ForeignKey("platforms.slug", ondelete="CASCADE"),
         nullable=False,
     )
-    platform: Mapped[Platform] = relationship(  # noqa
-        "Platform",
+    platform = relationship(
+        "Platform", lazy="joined", innerjoin=True, back_populates="roms"
+    )
+
+    saves: Mapped[list[Save]] = relationship(
+        "Save",
         lazy="joined",
         innerjoin=True,
-        backref=backref("roms", passive_deletes=True),
+        back_populates="rom",
+    )
+    states: Mapped[list[State]] = relationship(
+        "State", lazy="joined", innerjoin=True, back_populates="rom"
+    )
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        "Screenshot", lazy="joined", innerjoin=True, back_populates="rom"
     )
 
     ### DEPRECATED ###
@@ -91,6 +101,10 @@ class Rom(BaseModel):
             self.path_cover_s != DEFAULT_PATH_COVER_S
             or self.path_cover_l != DEFAULT_PATH_COVER_L
         )
+
+    # @property
+    # def screenshots(self) -> list[str]:
+    #     return self.path_screenshots
 
     @cached_property
     def sort_comparator(self) -> str:

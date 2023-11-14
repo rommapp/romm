@@ -40,7 +40,11 @@ class DBHandler:
 
     @begin_session
     def get_platforms(self, session: Session = None):
-        return session.scalars(select(Platform).order_by(Platform.slug.asc())).all()
+        return (
+            session.scalars(select(Platform).order_by(Platform.slug.asc()))
+            .unique()
+            .all()
+        )
 
     @begin_session
     def get_platform(self, slug: str, session: Session = None):
@@ -87,7 +91,11 @@ class DBHandler:
 
     @begin_session
     def get_recent_roms(self, session: Session = None):
-        return session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15)).all()
+        return (
+            session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15))
+            .unique()
+            .all()
+        )
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None):
@@ -289,8 +297,8 @@ class DBHandler:
 
     @begin_session
     def get_users(self, session: Session = None):
-        return session.scalars(select(User)).all()
+        return session.scalars(select(User)).unique().all()
 
     @begin_session
     def get_admin_users(self, session: Session = None):
-        return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
+        return session.scalars(select(User).filter_by(role=Role.ADMIN)).unique().all()

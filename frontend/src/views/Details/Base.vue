@@ -11,6 +11,8 @@ import Cover from "@/components/Details/Cover.vue";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import DetailsInfo from "@/components/Details/Info.vue";
 import ScreenshotsCarousel from "@/components/Details/ScreenshotsCarousel.vue";
+import Saves from "@/components/Details/Saves.vue";
+import States from "@/components/Details/States.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
@@ -102,14 +104,14 @@ onBeforeMount(async () => {
       >
         <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
           <v-tab value="details" rounded="0">Details</v-tab>
-          <v-tab value="saves" rounded="0" disabled>
+          <v-tab value="saves" rounded="0">
             Saves
           </v-tab>
-          <v-tab value="states" rounded="0" disabled>
+          <v-tab value="states" rounded="0">
             States
           </v-tab>
           <v-tab
-            v-if="rom.path_screenshots.length > 0"
+            v-if="rom.screenshots.length > 0"
             value="screenshots"
             rounded="0"
           >
@@ -123,11 +125,14 @@ onBeforeMount(async () => {
             <v-window-item value="details">
               <details-info :rom="rom" />
             </v-window-item>
+            <v-window-item value="saves">
+              <saves :rom="rom" />
+            </v-window-item>
+            <v-window-item value="states">
+              <states :rom="rom" />
+            </v-window-item>
             <v-window-item value="screenshots">
               <screenshots-carousel :rom="rom" />
-            </v-window-item>
-            <v-window-item value="saves">
-              <v-row class="d-flex mt-2" no-gutters></v-row>
             </v-window-item>
           </v-window>
         </v-col>

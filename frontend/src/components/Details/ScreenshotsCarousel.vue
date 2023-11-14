@@ -11,8 +11,8 @@ const props = defineProps(["rom"]);
       height="400"
     >
       <v-carousel-item
-        v-for="screenshot in rom.path_screenshots"
-        :src="`/assets/romm/resources/${screenshot}`"
+        v-for="screenshot in rom.screenshots"
+        :src="`/assets/romm/library/${screenshot.full_path}`"
       />
     </v-carousel>
   </v-row>
