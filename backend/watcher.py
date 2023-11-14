@@ -9,15 +9,15 @@ from tasks.utils import tasks_scheduler
 
 
 from config import (
-    HIGH_PRIO_STRUCTURE_PATH,
     LIBRARY_BASE_PATH,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
+from config.config_loader import config
 
 path = (
-    HIGH_PRIO_STRUCTURE_PATH
-    if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
+    config.HIGH_PRIO_STRUCTURE_PATH
+    if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
     else LIBRARY_BASE_PATH
 )
 

@@ -2,10 +2,13 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Final
 
-from config import LOGS_BASE_PATH
+from config import ROMM_BASE_PATH
 from .stdout_formatter import StdoutFormatter
 from .file_formatter import FileFormatter
+
+LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
 
 # Create logs folder if not exists
 Path(LOGS_BASE_PATH).mkdir(parents=True, exist_ok=True)

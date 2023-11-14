@@ -4,11 +4,12 @@ import yaml
 import pydash
 from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
+from typing import Final
 
 from config import (
     ROMM_DB_DRIVER,
-    SQLITE_DB_BASE_PATH,
-    ROMM_USER_CONFIG_PATH,
+    ROMM_BASE_PATH,
+    LIBRARY_BASE_PATH,
     DB_HOST,
     DB_PORT,
     DB_USER,
@@ -17,15 +18,40 @@ from config import (
 )
 from logger.logger import log
 
+ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
+SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
+
+
+class Config:
+    EXCLUDED_PLATFORMS: list[str]
+    EXCLUDED_SINGLE_EXT: list[str]
+    EXCLUDED_SINGLE_FILES: list[str]
+    EXCLUDED_MULTI_FILES: list[str]
+    EXCLUDED_MULTI_PARTS_EXT: list[str]
+    EXCLUDED_MULTI_PARTS_FILES: list[str]
+    PLATFORMS_BINDING: dict[str, str]
+    ROMS_FOLDER_NAME: str
+    SAVES_FOLDER_NAME: str
+    STATES_FOLDER_NAME: str
+    SCREENSHOTS_FOLDER_NAME: str
+    BIOS_FOLDER_NAME: str
+    HIGH_PRIO_STRUCTURE_PATH: str
+
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+        self.HIGH_PRIO_STRUCTURE_PATH = (
+            f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}",
+        )
+
 
 class ConfigLoader:
     # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         try:
             with open(config_path) as config_file:
-                self.config = yaml.load(config_file, Loader=SafeLoader) or {}
+                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
         except FileNotFoundError:
-            self.config = {}
+            self.config = Config()
         finally:
             self._parse_config()
 
@@ -52,26 +78,39 @@ class ConfigLoader:
         sys.exit(3)
 
     def _parse_config(self):
-        self.config["EXCLUDED_PLATFORMS"] = pydash.get(
-            self.config, "exclude.platforms", []
-        )
-        self.config["EXCLUDED_SINGLE_EXT"] = pydash.get(
-            self.config, "exclude.roms.single_file.extensions", []
-        )
-        self.config["EXCLUDED_SINGLE_FILES"] = pydash.get(
-            self.config, "exclude.roms.single_file.names", []
-        )
-        self.config["EXCLUDED_MULTI_FILES"] = pydash.get(
-            self.config, "exclude.roms.multi_file.names", []
-        )
-        self.config["EXCLUDED_MULTI_PARTS_EXT"] = pydash.get(
-            self.config, "exclude.roms.multi_file.parts.extensions", []
-        )
-        self.config["EXCLUDED_MULTI_PARTS_FILES"] = pydash.get(
-            self.config, "exclude.roms.multi_file.parts.names", []
-        )
-        self.config["PLATFORMS_BINDING"] = pydash.get(
-            self.config, "system.platforms", {}
+        self.config = Config(
+            EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
+            EXCLUDED_SINGLE_EXT=pydash.get(
+                self._raw_config, "exclude.roms.single_file.extensions", []
+            ),
+            EXCLUDED_SINGLE_FILES=pydash.get(
+                self._raw_config, "exclude.roms.single_file.names", []
+            ),
+            EXCLUDED_MULTI_FILES=pydash.get(
+                self._raw_config, "exclude.roms.multi_file.names", []
+            ),
+            EXCLUDED_MULTI_PARTS_EXT=pydash.get(
+                self._raw_config, "exclude.roms.multi_file.parts.extensions", []
+            ),
+            EXCLUDED_MULTI_PARTS_FILES=pydash.get(
+                self._raw_config, "exclude.roms.multi_file.parts.names", []
+            ),
+            PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
+            ROMS_FOLDER_NAME=pydash.get(
+                self._raw_config, "filesystem.roms_folder", "roms"
+            ),
+            SAVES_FOLDER_NAME=pydash.get(
+                self._raw_config, "filesystem.saves_folder", "saves"
+            ),
+            STATES_FOLDER_NAME=pydash.get(
+                self._raw_config, "filesystem.states_folder", "states"
+            ),
+            SCREENSHOTS_FOLDER_NAME=pydash.get(
+                self._raw_config, "filesystem.screenshots_folder", "screenshots"
+            ),
+            BIOS_FOLDER_NAME=pydash.get(
+                self._raw_config, "filesystem.bios_folder", "bios"
+            ),
         )
 
 

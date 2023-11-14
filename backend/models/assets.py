@@ -2,7 +2,7 @@ from sqlalchemy import Integer, Column, ForeignKey, String
 from sqlalchemy.orm import relationship
 from functools import cached_property
 
-from config import FRONT_LIBRARY_PATH
+from config import FRONTEND_LIBRARY_PATH
 from .base import BaseModel
 
 
@@ -23,7 +23,7 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"{FRONT_LIBRARY_PATH}/{self.full_path}"
+        return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
 
 
 class Save(BaseAsset):
