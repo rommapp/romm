@@ -22,6 +22,7 @@ from config import LIBRARY_BASE_PATH
 from logger.logger import log
 from models import Rom
 from handler import dbh
+from endpoints.assets import SaveSchema, StateSchema, ScreenshotSchema
 from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
 from utils.oauth import protected_route
 from utils import get_file_name_with_no_tags
@@ -71,8 +72,9 @@ class RomSchema(BaseModel):
     tags: list
     multi: bool
     files: list
-    url_screenshots: list
-    path_screenshots: list
+    saves: list[SaveSchema]
+    states: list[StateSchema]
+    screenshots: list[ScreenshotSchema]
     full_path: str
     download_path: str
 

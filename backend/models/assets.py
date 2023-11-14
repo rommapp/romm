@@ -1,5 +1,5 @@
 from sqlalchemy import Integer, Column, ForeignKey, String
-from sqlalchemy.orm import relationship, Mapped, backref
+from sqlalchemy.orm import relationship
 from functools import cached_property
 
 from config import FRONT_LIBRARY_PATH
@@ -27,41 +27,35 @@ class BaseAsset(BaseModel):
 
 
 class Save(BaseAsset):
-    from .rom import Rom
-
     __tablename__ = "saves"
+    __table_args__ = {'extend_existing': True}
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
-    rom: Mapped[Rom] = relationship("Rom", lazy="joined", innerjoin=True, backref=backref('saves', passive_deletes=True))
+    rom = relationship("Rom", lazy="joined", innerjoin=True, back_populates="saves")
 
     platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
-    platform = relationship("Platform", lazy="joined", innerjoin=True, backref=backref('saves', passive_deletes=True))
+    platform = relationship("Platform", lazy="joined", innerjoin=True, back_populates="saves")
 
 class State(BaseAsset):
-    from .rom import Rom
-
     __tablename__ = "states"
+    __table_args__ = {'extend_existing': True}
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
-    rom: Mapped[Rom] = relationship("Rom", lazy="joined", innerjoin=True, backref=backref('states', passive_deletes=True))
+    rom = relationship("Rom", lazy="joined", innerjoin=True, back_populates="states")
 
     platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
-    platform = relationship("Platform", lazy="joined", innerjoin=True, backref=backref('states', passive_deletes=True))
-
+    platform = relationship("Platform", lazy="joined", innerjoin=True, back_populates="states")
 
 class Screenshot(BaseAsset):
-    from .rom import Rom
-
     __tablename__ = "screenshots"
+    __table_args__ = {'extend_existing': True}
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
-    rom: Mapped[Rom] = relationship("Rom", lazy="joined", innerjoin=True, backref=backref('screenshots', passive_deletes=True))
-
+    rom = relationship("Rom", lazy="joined", innerjoin=True, back_populates="screenshots")
 
 class Bios(BaseAsset):
-    from .platform import Platform
-
     __tablename__ = "bios"
+    __table_args__ = {'extend_existing': True}
 
     platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
-    platform: Mapped[Platform] = relationship("Platform", lazy="joined", innerjoin=True, backref=backref('bios', passive_deletes=True))
+    platform = relationship("Platform", lazy="joined", innerjoin=True, back_populates="bios")

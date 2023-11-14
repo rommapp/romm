@@ -14,6 +14,8 @@ class Role(enum.Enum):
 
 class User(BaseModel, SimpleUser):
     __tablename__ = "users"
+    __table_args__ = {'extend_existing': True}
+
     id = Column(Integer(), primary_key=True, autoincrement=True)
     username: str = Column(String(length=255), unique=True, index=True)
     hashed_password: str = Column(String(length=255))
