@@ -1,5 +1,5 @@
 <div align="center">
-  <h1><img src=".github/resources/romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
+  <h1><img src="https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/romm.svg" height="220px" width="auto" alt="RomM Logo"></h1>
   <img alt="GitHub" src="https://img.shields.io/github/license/zurdi15/romm?style=flat-square">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/zurdi15/romm?style=flat-square">
   <img alt="GitHub Workflow Status (with branch)" src="https://img.shields.io/github/actions/workflow/status/zurdi15/romm/build.yml?style=flat-square&branch=master">
@@ -49,16 +49,16 @@ Inspired by [Jellyfin](https://jellyfin.org/), RomM allows you to handle all you
 
 ## 🖥 Desktop
 
-<img src=".github/resources/screenshots/romm-desktop-slider.gif" />
+<img src="https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/screenshots/romm-desktop-slider.gif" />
 
 ## 📱 Mobile
 
-<img style="height: 600px;" src=".github/resources/screenshots/romm-mobile-slider.gif" />
+<img style="height: 600px;" src="https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/screenshots/romm-mobile-slider.gif" />
 
 # The RomM Community
 
-<a href="https://discord.gg/P5HtHnhUDH"><img src=".github/resources/discord_banner.png" height="100px" width="auto" style="margin-top: 5px;" alt="discord-banner" /></a>
-<a href="https://github.com/zurdi15/romm/wiki"><img src=".github/resources/wiki_banner.png" height="100px" width="auto" alt="wiki-banner" /></a>
+<a href="https://discord.gg/P5HtHnhUDH"><img src="https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/discord_banner.png" height="100px" width="auto" style="margin-top: 5px;" alt="discord-banner" /></a>
+<a href="https://github.com/zurdi15/romm/wiki"><img src="https://raw.githubusercontent.com/zurdi15/romm/release/.github/resources/wiki_banner.png" height="100px" width="auto" alt="wiki-banner" /></a>
 
 # Installation
 
@@ -135,7 +135,7 @@ library/
 
 RomM can be configured through a YAML file. To apply configuration changes, you must restart RomM.
 
-Refer to the [config.example.yml](examples/config.example.yml) file and the [docker-compose.example.yml](examples/docker-compose.example.yml) for guidance on how to configure it.
+Refer to the [config.example.yml](https://github.com/zurdi15/romm/blob/release/examples/config.example.yml) file and the [docker-compose.example.yml](https://github.com/zurdi15/romm/blob/release/examples/docker-compose.example.yml) for guidance on how to configure it.
 
 ## 🔒 Authentication
 
