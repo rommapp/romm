@@ -3,7 +3,7 @@ from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, Fore
 from sqlalchemy.orm import relationship, Mapped
 from functools import cached_property
 
-from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONT_LIBRARY_PATH
+from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONTEND_LIBRARY_PATH
 from .base import BaseModel
 
 SIZE_UNIT_TO_BYTES = {
@@ -89,7 +89,7 @@ class Rom(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"{FRONT_LIBRARY_PATH}/{self.full_path}"
+        return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
 
     @property
     def file_size_bytes(self) -> int:

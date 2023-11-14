@@ -3,12 +3,6 @@ from typing import Any
 
 from handler import igdbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
-from config import (
-    SAVES_FOLDER_NAME,
-    STATES_FOLDER_NAME,
-    BIOS_FOLDER_NAME,
-    SCREENSHOTS_FOLDER_NAME,
-)
 from config.config_loader import config
 from models import Platform, Rom, Save, State, Bios, Screenshot
 from logger.logger import log
@@ -138,19 +132,21 @@ def _scan_asset(file_name: str, path: str):
 
 
 def scan_save(platform: Platform, file_name: str) -> Save:
-    saves_path = fs.get_fs_structure(platform.fs_slug, folder=SAVES_FOLDER_NAME)
+    saves_path = fs.get_fs_structure(platform.fs_slug, folder=config.SAVES_FOLDER_NAME)
     return Save(**_scan_asset(file_name, saves_path))
 
 
 def scan_state(platform: Platform, file_name: str) -> State:
-    states_path = fs.get_fs_structure(platform.fs_slug, folder=STATES_FOLDER_NAME)
+    states_path = fs.get_fs_structure(
+        platform.fs_slug, folder=config.STATES_FOLDER_NAME
+    )
     return State(**_scan_asset(file_name, states_path))
 
 
 def scan_bios(platform: Platform, file_name: str) -> State:
-    bios_path = fs.get_fs_structure(platform.fs_slug, folder=BIOS_FOLDER_NAME)
+    bios_path = fs.get_fs_structure(platform.fs_slug, folder=config.BIOS_FOLDER_NAME)
     return Bios(**_scan_asset(file_name, bios_path))
 
 
 def scan_screenshot(file_name: str) -> State:
-    return Screenshot(**_scan_asset(file_name, SCREENSHOTS_FOLDER_NAME))
+    return Screenshot(**_scan_asset(file_name, config.SCREENSHOTS_FOLDER_NAME))

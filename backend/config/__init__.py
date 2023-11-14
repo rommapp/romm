@@ -10,37 +10,19 @@ DEV_PORT: Final = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
 DEV_HOST: Final = "0.0.0.0"
 
 # PATHS
-ROMS_FOLDER_NAME: Final = os.environ.get("ROMS_FOLDER_NAME", "roms")
-SAVES_FOLDER_NAME: Final = os.environ.get("SAVES_FOLDER_NAME", "saves")
-STATES_FOLDER_NAME: Final = os.environ.get("STATES_FOLDER_NAME", "states")
-SCREENSHOTS_FOLDER_NAME: Final = os.environ.get(
-    "SCREENSHOTS_FOLDER_NAME", "screenshots"
-)
-BIOS_FOLDER_NAME: Final = os.environ.get("BIOS_FOLDER_NAME", "bios")
-
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
-HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/{ROMS_FOLDER_NAME}"
-
-FRONT_LIBRARY_PATH: Final = "/assets/romm/library"
-ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
-SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
-RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
-LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
+FRONTEND_LIBRARY_PATH: Final = "/assets/romm/library"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
 )
 DEFAULT_PATH_COVER_L: Final = "default/default/cover/big.png"
-DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
-DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
 DEFAULT_URL_COVER_S: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
 )
 DEFAULT_PATH_COVER_S: Final = "default/default/cover/small.png"
-DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
-DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
 
 # MARIADB
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")

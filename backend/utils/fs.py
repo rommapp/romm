@@ -6,24 +6,15 @@ import datetime
 import requests
 from urllib.parse import quote
 from PIL import Image
+from typing import Final
 
 from config import (
     LIBRARY_BASE_PATH,
-    HIGH_PRIO_STRUCTURE_PATH,
-    ROMS_FOLDER_NAME,
-    RESOURCES_BASE_PATH,
+    ROMM_BASE_PATH,
     DEFAULT_URL_COVER_L,
     DEFAULT_PATH_COVER_L,
-    DEFAULT_WIDTH_COVER_L,
-    DEFAULT_HEIGHT_COVER_L,
     DEFAULT_URL_COVER_S,
     DEFAULT_PATH_COVER_S,
-    DEFAULT_WIDTH_COVER_S,
-    DEFAULT_HEIGHT_COVER_S,
-    SAVES_FOLDER_NAME,
-    STATES_FOLDER_NAME,
-    SCREENSHOTS_FOLDER_NAME,
-    BIOS_FOLDER_NAME,
 )
 from config.config_loader import config
 from exceptions.fs_exceptions import (
@@ -32,6 +23,12 @@ from exceptions.fs_exceptions import (
     RomNotFoundError,
     RomAlreadyExistsException,
 )
+
+RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
+DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
+DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
+DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
+DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
 
 
 # ========= Resources utils =========
@@ -180,7 +177,7 @@ def get_rom_screenshots(fs_slug: str, rom_name: str, url_screenshots: list) -> d
     for idx, url in enumerate(url_screenshots):
         _store_screenshot(fs_slug, rom_name, url, idx)
         path_screenshots.append(_get_screenshot_path(fs_slug, q_rom_name, str(idx)))
-    
+
     return {"path_screenshots": path_screenshots}
 
 
@@ -212,8 +209,8 @@ def get_platforms() -> list[str]:
     """
     try:
         platforms: list[str] = (
-            list(os.walk(HIGH_PRIO_STRUCTURE_PATH))[0][1]
-            if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
+            list(os.walk(config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
+            if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
             else list(os.walk(LIBRARY_BASE_PATH))[0][1]
         )
         return _exclude_platforms(platforms)
@@ -222,10 +219,10 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def get_fs_structure(fs_slug: str, folder: str = ROMS_FOLDER_NAME):
+def get_fs_structure(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
     return (
         f"{folder}/{fs_slug}"
-        if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
+        if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
         else f"{fs_slug}/{folder}"
     )
 
@@ -301,7 +298,7 @@ def get_roms(fs_slug: str):
 
 
 def get_assets(fs_slug: str):
-    saves_path = get_fs_structure(fs_slug, folder=SAVES_FOLDER_NAME)
+    saves_path = get_fs_structure(fs_slug, folder=config.SAVES_FOLDER_NAME)
     saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
 
     fs_saves: list[str] = []
@@ -313,7 +310,7 @@ def get_assets(fs_slug: str):
     except IndexError:
         pass
 
-    states_path = get_fs_structure(fs_slug, folder=STATES_FOLDER_NAME)
+    states_path = get_fs_structure(fs_slug, folder=config.STATES_FOLDER_NAME)
     states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
 
     try:
@@ -321,7 +318,7 @@ def get_assets(fs_slug: str):
     except IndexError:
         pass
 
-    bios_path = get_fs_structure(fs_slug, folder=BIOS_FOLDER_NAME)
+    bios_path = get_fs_structure(fs_slug, folder=config.BIOS_FOLDER_NAME)
     bios_file_path = f"{LIBRARY_BASE_PATH}/{bios_path}"
 
     try:
@@ -337,7 +334,7 @@ def get_assets(fs_slug: str):
 
 
 def get_screenshots():
-    screenshots_path = f"{LIBRARY_BASE_PATH}/{SCREENSHOTS_FOLDER_NAME}"
+    screenshots_path = f"{LIBRARY_BASE_PATH}/{config.SCREENSHOTS_FOLDER_NAME}"
 
     try:
         fs_screenshots = list(os.walk(screenshots_path))[0][2]
