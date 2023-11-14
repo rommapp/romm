@@ -25,7 +25,6 @@ class BaseAsset(BaseModel):
     def download_path(self) -> str:
         return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
 
-
 class Save(BaseAsset):
     __tablename__ = "saves"
     __table_args__ = {'extend_existing': True}

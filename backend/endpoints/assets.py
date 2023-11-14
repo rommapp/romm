@@ -9,6 +9,7 @@ class BaseAsset(BaseModel):
     file_path: str
     file_size_bytes: int
     full_path: str
+    download_path: str
 
     class Config:
         from_attributes = True

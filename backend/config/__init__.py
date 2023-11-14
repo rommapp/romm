@@ -13,6 +13,7 @@ DEV_HOST: Final = "0.0.0.0"
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 FRONTEND_LIBRARY_PATH: Final = "/assets/romm/library"
+FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: Final = (

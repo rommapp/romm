@@ -3,7 +3,12 @@ from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, Fore
 from sqlalchemy.orm import relationship, Mapped
 from functools import cached_property
 
-from config import DEFAULT_PATH_COVER_S, DEFAULT_PATH_COVER_L, FRONTEND_LIBRARY_PATH
+from config import (
+    DEFAULT_PATH_COVER_S,
+    DEFAULT_PATH_COVER_L,
+    FRONTEND_LIBRARY_PATH,
+    FRONTEND_RESOURCES_PATH,
+)
 from .base import BaseModel
 
 SIZE_UNIT_TO_BYTES = {
@@ -102,9 +107,11 @@ class Rom(BaseModel):
             or self.path_cover_l != DEFAULT_PATH_COVER_L
         )
 
-    # @property
-    # def screenshots(self) -> list[str]:
-    #     return self.path_screenshots
+    @cached_property
+    def merged_screenshost(self) -> list[str]:
+        return [s.download_path for s in self.screenshots] + [
+            f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
+        ]
 
     @cached_property
     def sort_comparator(self) -> str:
