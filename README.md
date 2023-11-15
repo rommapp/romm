@@ -209,7 +209,7 @@ Games can be tagged with region, revision, or other tags by using parentheses in
 Here are a few projects maintained by members of our community. As they are not regularly reviewed by the RomM team, **we recommend you closely review them before use**.
 
 * CasaOS app via the [BigBear App Store](https://github.com/bigbeartechworld/big-bear-casaos)
-* [Heml config to deploy on Kubernetes](https://github.com/psych0d0g/helm-charts/blob/main/charts/romm/README.md) by @psych0d0g
+* [Helm Chart to deploy on Kubernetes](https://github.com/psych0d0g/helm-charts/blob/main/charts/romm/README.md) by @psych0d0g
 
 # 🎖 Credits
 
