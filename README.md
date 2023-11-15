@@ -204,6 +204,13 @@ Games can be tagged with region, revision, or other tags by using parentheses in
 
 **NOTE:** You can use these tags with the search bar to filter your library effectively.
 
+# Community
+
+Here are a few projects maintained by members of our community. As they are not regularly reviewed by the RomM team, **we recommend you closely review them before use**.
+
+* CasaOS app via the [BigBear App Store](https://github.com/bigbeartechworld/big-bear-casaos)
+* [Heml config to deploy on Kubernetes](https://github.com/psych0d0g/helm-charts/blob/main/charts/romm/README.md) by @psych0d0g
+
 # 🎖 Credits
 
 - Pc and Mac icon support - <a href="https://www.flaticon.com/free-icons/keyboard-and-mouse" title="Keyboard and mouse icons">Keyboard and mouse icons created by Flat Icons - Flaticon</a>
