@@ -19,16 +19,16 @@ class Platform(BaseModel):
     logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
 
     roms: Mapped[set[Rom]] = relationship(
-        "Rom", lazy="joined", innerjoin=True, back_populates="platform"
+        "Rom", lazy="selectin", back_populates="platform"
     )
     saves: Mapped[set[Save]] = relationship(
-        "Save", lazy="joined", innerjoin=True, back_populates="platform"
+        "Save", lazy="selectin", back_populates="platform"
     )
     states: Mapped[set[State]] = relationship(
-        "State", lazy="joined", innerjoin=True, back_populates="platform"
+        "State", lazy="selectin", back_populates="platform"
     )
     bios: Mapped[set[Bios]] = relationship(
-        "Bios", lazy="joined", innerjoin=True, back_populates="platform"
+        "Bios", lazy="selectin", back_populates="platform"
     )
 
     ### DEPRECATED ###

@@ -93,7 +93,6 @@ class DBHandler:
     def get_recent_roms(self, session: Session = None):
         return (
             session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15))
-            .unique()
             .all()
         )
 
@@ -297,8 +296,8 @@ class DBHandler:
 
     @begin_session
     def get_users(self, session: Session = None):
-        return session.scalars(select(User)).unique().all()
+        return session.scalars(select(User)).all()
 
     @begin_session
     def get_admin_users(self, session: Session = None):
-        return session.scalars(select(User).filter_by(role=Role.ADMIN)).unique().all()
+        return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
