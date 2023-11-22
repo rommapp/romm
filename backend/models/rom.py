@@ -39,20 +39,19 @@ class Rom(BaseModel):
         nullable=False,
     )
     platform = relationship(
-        "Platform", lazy="joined", innerjoin=True, back_populates="roms"
+        "Platform", lazy="selectin", back_populates="roms"
     )
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
-        lazy="joined",
-        innerjoin=True,
+        lazy="selectin",
         back_populates="rom",
     )
     states: Mapped[list[State]] = relationship(
-        "State", lazy="joined", innerjoin=True, back_populates="rom"
+        "State", lazy="selectin", back_populates="rom"
     )
     screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", lazy="joined", innerjoin=True, back_populates="rom"
+        "Screenshot", lazy="selectin", back_populates="rom"
     )
 
     ### DEPRECATED ###
@@ -108,7 +107,7 @@ class Rom(BaseModel):
         )
 
     @cached_property
-    def merged_screenshost(self) -> list[str]:
+    def merged_screenshots(self) -> list[str]:
         return [s.download_path for s in self.screenshots] + [
             f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
         ]

@@ -30,31 +30,31 @@ class Save(BaseAsset):
     __table_args__ = {'extend_existing': True}
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
-    rom = relationship("Rom", lazy="joined", innerjoin=True, back_populates="saves")
+    rom = relationship("Rom", lazy="selectin", back_populates="saves")
 
     platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
-    platform = relationship("Platform", lazy="joined", innerjoin=True, back_populates="saves")
+    platform = relationship("Platform", lazy="selectin", back_populates="saves")
 
 class State(BaseAsset):
     __tablename__ = "states"
     __table_args__ = {'extend_existing': True}
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
-    rom = relationship("Rom", lazy="joined", innerjoin=True, back_populates="states")
+    rom = relationship("Rom", lazy="selectin", back_populates="states")
 
     platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
-    platform = relationship("Platform", lazy="joined", innerjoin=True, back_populates="states")
+    platform = relationship("Platform", lazy="selectin", back_populates="states")
 
 class Screenshot(BaseAsset):
     __tablename__ = "screenshots"
     __table_args__ = {'extend_existing': True}
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
-    rom = relationship("Rom", lazy="joined", innerjoin=True, back_populates="screenshots")
+    rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
 
 class Bios(BaseAsset):
     __tablename__ = "bios"
     __table_args__ = {'extend_existing': True}
 
     platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
-    platform = relationship("Platform", lazy="joined", innerjoin=True, back_populates="bios")
+    platform = relationship("Platform", lazy="selectin", back_populates="bios")

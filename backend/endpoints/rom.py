@@ -75,7 +75,7 @@ class RomSchema(BaseModel):
     saves: list[SaveSchema]
     states: list[StateSchema]
     screenshots: list[ScreenshotSchema]
-    merged_screenshost: list[str]
+    merged_screenshots: list[str]
     full_path: str
     download_path: str
 

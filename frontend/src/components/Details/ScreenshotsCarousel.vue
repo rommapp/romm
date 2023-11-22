@@ -11,7 +11,7 @@ const props = defineProps(["rom"]);
       height="400"
     >
       <v-carousel-item
-        v-for="screenshot_url in rom.merged_screenshost"
+        v-for="screenshot_url in rom.merged_screenshots"
         :src="screenshot_url"
       />
     </v-carousel>
