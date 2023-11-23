@@ -29,7 +29,7 @@ from utils import get_file_name_with_no_tags
 from utils.fs import (
     _rom_exists,
     build_artwork_path,
-    build_upload_roms_path,
+    build_upload_file_path,
     rename_rom,
     get_rom_cover,
     get_rom_screenshots,
@@ -106,15 +106,15 @@ def upload_roms(
     request: Request, platform_slug: str, roms: list[UploadFile] = File(...)
 ) -> UploadRomResponse:
     platform_fs_slug = dbh.get_platform(platform_slug).fs_slug
-    log.info(f"Uploading files to: {platform_fs_slug}")
+    log.info(f"Uploading roms to {platform_fs_slug}")
     if roms is None:
-        log.error("No files were uploaded")
+        log.error("No roms were uploaded")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No files were uploaded",
+            detail="No roms were uploaded",
         )
 
-    roms_path = build_upload_roms_path(platform_fs_slug)
+    roms_path = build_upload_file_path(platform_fs_slug)
 
     uploaded_roms = []
     skipped_roms = []

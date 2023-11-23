@@ -404,10 +404,9 @@ def remove_rom(fs_slug: str, file_name: str):
         raise RomNotFoundError(file_name, fs_slug) from exc
 
 
-def build_upload_roms_path(fs_slug: str):
-    rom_path = get_fs_structure(fs_slug)
+def build_upload_file_path(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
+    rom_path = get_fs_structure(fs_slug, folder=folder)
     return f"{LIBRARY_BASE_PATH}/{rom_path}"
-
 
 def build_artwork_path(rom_name: str, fs_slug: str, file_ext: str):
     q_rom_name = quote(rom_name)

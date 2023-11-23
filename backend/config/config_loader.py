@@ -39,9 +39,7 @@ class Config:
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
-        self.HIGH_PRIO_STRUCTURE_PATH = (
-            f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}",
-        )
+        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
 
 
 class ConfigLoader:

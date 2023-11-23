@@ -18,11 +18,13 @@ DEFAULT_SCOPES_MAP: Final = {
     "me.write": "Modify your profile",
     "roms.read": "View ROMs",
     "platforms.read": "View platforms",
+    "assets.read": "View assets",
 }
 
 WRITE_SCOPES_MAP: Final = {
     "roms.write": "Modify ROMs",
     "platforms.write": "Modify platforms",
+    "assets.write": "Modify assets",
 }
 
 FULL_SCOPES_MAP: Final = {
