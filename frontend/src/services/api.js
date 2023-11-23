@@ -162,6 +162,54 @@ async function deleteUser(user) {
   return api.delete(`/users/${user.id}`);
 }
 
+async function uploadSaves({ rom, savesToUpload }) {
+  let formData = new FormData();
+  savesToUpload.forEach((save) => formData.append("saves", save));
+
+  return api.put("/saves/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: { rom_id: rom.id },
+  });
+}
+
+async function deleteSaves({ saves, deleteFromFs = false }) {
+  return api.post(
+    "/saves/delete",
+    {
+      saves: saves.map((s) => s.id),
+    },
+    {
+      params: { delete_from_fs: deleteFromFs },
+    }
+  );
+}
+
+async function uploadStates({ rom, statesToUpload }) {
+  let formData = new FormData();
+  statesToUpload.forEach((state) => formData.append("states", state));
+
+  return api.put("/states/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: { rom_id: rom.id },
+  });
+}
+
+async function deleteStates({ states, deleteFromFs = false }) {
+  return api.post(
+    "/saves/delete",
+    {
+      states: states.map((s) => s.id),
+    },
+    {
+      params: { delete_from_fs: deleteFromFs },
+    }
+  );
+}
+
 export default {
   fetchPlatforms,
   fetchRoms,
@@ -178,4 +226,8 @@ export default {
   createUser,
   updateUser,
   deleteUser,
+  uploadSaves,
+  deleteSaves,
+  uploadStates,
+  deleteStates,
 };

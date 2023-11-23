@@ -22,7 +22,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_MAME_XML,
     SCHEDULED_UPDATE_MAME_XML_CRON,
 )
-from endpoints import search, platform, rom, identity, oauth, scan  # noqa
+from endpoints import search, platform, rom, identity, oauth, assets, scan  # noqa
 from handler import dbh
 from utils.socket import socket_app
 from utils.auth import (
@@ -68,6 +68,7 @@ app.include_router(identity.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
 app.include_router(search.router)
+app.include_router(assets.router)
 
 add_pagination(app)
 app.mount("/ws", socket_app)

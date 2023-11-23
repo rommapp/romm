@@ -93,14 +93,13 @@ async def scan_platforms(
         # Scanning saves
         log.info("\t · Saves")
         for fs_save_filename in fs_assets["saves"]:
+            scanned_save = scan_save(scanned_platform, fs_save_filename)
+            
             save = dbh.get_save_by_filename(scanned_platform.slug, fs_save_filename)
             if save:
+                dbh.update_save(save.id, { "file_size_bytes": scanned_save.file_size_bytes })
                 continue
 
-            scanned_save = scan_save(
-                scanned_platform,
-                fs_save_filename,
-            )
             scanned_save.platform_slug = scanned_platform.slug
 
             rom = dbh.get_rom_by_filename_no_tags(scanned_save.file_name_no_tags)
@@ -111,11 +110,13 @@ async def scan_platforms(
         # Scanning states
         log.info("\t · States")
         for fs_state_filename in fs_assets["states"]:
+            scanned_state = scan_state(scanned_platform, fs_state_filename)
+            
             state = dbh.get_state_by_filename(scanned_platform.slug, fs_state_filename)
             if state:
+                dbh.update_state(state.id, { "file_size_bytes": scanned_state.file_size_bytes })
                 continue
 
-            scanned_state = scan_state(scanned_platform, fs_state_filename)
             scanned_state.platform_slug = scanned_platform.slug
 
             rom = dbh.get_rom_by_filename_no_tags(scanned_state.file_name_no_tags)
@@ -126,11 +127,13 @@ async def scan_platforms(
         # Scanning bios
         log.info("\t · Firmware")
         for fs_bios_filename in fs_assets["bios"]:
+            scanned_bios = scan_bios(scanned_platform, fs_bios_filename)
+            
             bios = dbh.get_bios_by_filename(scanned_platform.slug, fs_bios_filename)
             if bios:
+                dbh.update_bios(bios.id, { "file_size_bytes": scanned_bios.file_size_bytes })
                 continue
 
-            scanned_bios = scan_bios(scanned_platform, fs_bios_filename)
             scanned_bios.platform_slug = scanned_platform.slug
             dbh.add_bios(scanned_bios)
 
@@ -143,11 +146,12 @@ async def scan_platforms(
     log.info("\t · Screenshots")
     fs_screenshots = get_screenshots()
     for fs_screenshot_filename in fs_screenshots:
+        scanned_screenshot = scan_screenshot(fs_screenshot_filename)
+        
         screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
         if screenshot:
+            dbh.update_screenshot(screenshot.id, { "file_size_bytes": scanned_screenshot.file_size_bytes })
             continue
-
-        scanned_screenshot = scan_screenshot(fs_screenshot_filename)
 
         rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
         if rom:
