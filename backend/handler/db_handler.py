@@ -91,10 +91,7 @@ class DBHandler:
 
     @begin_session
     def get_recent_roms(self, session: Session = None):
-        return (
-            session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15))
-            .all()
-        )
+        return session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15)).all()
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None):
@@ -148,21 +145,12 @@ class DBHandler:
 
     # ========= Saves =========
     @begin_session
-    def add_save(self, save: Rom, session: Session = None):
+    def add_save(self, save: Save, session: Session = None):
         return session.merge(save)
 
     @begin_session
     def get_save(self, id, session: Session = None):
         return session.get(Save, id)
-    
-    @begin_session
-    def update_save(self, id: int, data: dict, session: Session = None):
-        session.execute(
-            update(Save)
-            .where(Save.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
 
     @begin_session
     def get_save_by_filename(
@@ -173,6 +161,23 @@ class DBHandler:
             .filter_by(platform_slug=platform_slug, file_name=file_name)
             .limit(1)
         ).first()
+
+    @begin_session
+    def update_save(self, id: int, data: dict, session: Session = None):
+        session.execute(
+            update(Save)
+            .where(Save.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def delete_save(self, id: int, session: Session = None):
+        return session.execute(
+            delete(Save)
+            .where(Save.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def purge_saves(
@@ -188,21 +193,12 @@ class DBHandler:
 
     # ========= States =========
     @begin_session
-    def add_state(self, state: Rom, session: Session = None):
+    def add_state(self, state: State, session: Session = None):
         return session.merge(state)
 
     @begin_session
     def get_state(self, id, session: Session = None):
         return session.get(State, id)
-    
-    @begin_session
-    def update_state(self, id: int, data: dict, session: Session = None):
-        session.execute(
-            update(State)
-            .where(State.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
 
     @begin_session
     def get_state_by_filename(
@@ -213,6 +209,23 @@ class DBHandler:
             .filter_by(platform_slug=platform_slug, file_name=file_name)
             .limit(1)
         ).first()
+
+    @begin_session
+    def update_state(self, id: int, data: dict, session: Session = None):
+        session.execute(
+            update(State)
+            .where(State.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def delete_state(self, id: int, session: Session = None):
+        return session.execute(
+            delete(State)
+            .where(State.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def purge_states(
@@ -230,21 +243,12 @@ class DBHandler:
 
     # ========= Bios =========
     @begin_session
-    def add_bios(self, bios: Rom, session: Session = None):
+    def add_bios(self, bios: Bios, session: Session = None):
         return session.merge(bios)
 
     @begin_session
     def get_bios(self, id, session: Session = None):
         return session.get(Bios, id)
-    
-    @begin_session
-    def update_bios(self, id: int, data: dict, session: Session = None):
-        session.execute(
-            update(Bios)
-            .where(Bios.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
 
     @begin_session
     def get_bios_by_filename(
@@ -255,6 +259,23 @@ class DBHandler:
             .filter_by(platform_slug=platform_slug, file_name=file_name)
             .limit(1)
         ).first()
+
+    @begin_session
+    def update_bios(self, id: int, data: dict, session: Session = None):
+        session.execute(
+            update(Bios)
+            .where(Bios.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def delete_bios(self, id: int, session: Session = None):
+        return session.execute(
+            delete(Bios)
+            .where(Bios.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def purge_bios(self, platform_slug: str, bios: list[str], session: Session = None):
@@ -268,13 +289,19 @@ class DBHandler:
 
     # ========= Screenshots =========
     @begin_session
-    def add_screenshot(self, screenshot: Rom, session: Session = None):
+    def add_screenshot(self, screenshot: Screenshot, session: Session = None):
         return session.merge(screenshot)
 
     @begin_session
     def get_screenshot(self, id, session: Session = None):
         return session.get(Screenshot, id)
-    
+
+    @begin_session
+    def get_screenshot_by_filename(self, file_name: str, session: Session = None):
+        return session.scalars(
+            select(Screenshot).filter_by(file_name=file_name).limit(1)
+        ).first()
+
     @begin_session
     def update_screenshot(self, id: int, data: dict, session: Session = None):
         session.execute(
@@ -285,10 +312,12 @@ class DBHandler:
         )
 
     @begin_session
-    def get_screenshot_by_filename(self, file_name: str, session: Session = None):
-        return session.scalars(
-            select(Screenshot).filter_by(file_name=file_name).limit(1)
-        ).first()
+    def delete_screenshot(self, id: int, session: Session = None):
+        return session.execute(
+            delete(Screenshot)
+            .where(Screenshot.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def purge_screenshots(self, screenshots: list[str], session: Session = None):

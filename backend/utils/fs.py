@@ -20,7 +20,6 @@ from config.config_loader import config
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomsNotFoundException,
-    RomNotFoundError,
     RomAlreadyExistsException,
 )
 
@@ -197,7 +196,7 @@ def _exclude_platforms(platforms: list):
     return [
         platform
         for platform in platforms
-        if platform not in config["EXCLUDED_PLATFORMS"]
+        if platform not in config.EXCLUDED_PLATFORMS
     ]
 
 
@@ -228,8 +227,8 @@ def get_fs_structure(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
 
 
 def _exclude_files(files, filetype) -> list[str]:
-    excluded_extensions = config[f"EXCLUDED_{filetype.upper()}_EXT"]
-    excluded_names = config[f"EXCLUDED_{filetype.upper()}_FILES"]
+    excluded_extensions = getattr(config, f"EXCLUDED_{filetype.upper()}_EXT")
+    excluded_names = getattr(config, f"EXCLUDED_{filetype.upper()}_FILES")
     filtered_files: list = []
 
     for file in files:
@@ -240,7 +239,7 @@ def _exclude_files(files, filetype) -> list[str]:
 
 
 def _exclude_multi_roms(roms) -> list[str]:
-    excluded_names = config["EXCLUDED_MULTI_FILES"]
+    excluded_names = config.EXCLUDED_MULTI_FILES
     filtered_files: list = []
 
     for rom in roms:
@@ -369,40 +368,36 @@ def get_fs_file_size(asset_path: str, file_name: str):
     return os.stat(f"{LIBRARY_BASE_PATH}/{asset_path}/{file_name}").st_size
 
 
-def _rom_exists(fs_slug: str, file_name: str):
-    """Check if rom exists in filesystem
+def _file_exists(path: str, file_name: str):
+    """Check if file exists in filesystem
 
     Args:
-        fs_slug: short name of the platform
-        file_name: rom file_name
+        path: path to file
+        file_name: name of file
     Returns
-        True if rom exists in filesystem else False
+        True if file exists in filesystem else False
     """
-    rom_path = get_fs_structure(fs_slug)
-    return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}"))
+    return bool(os.path.exists(f'{LIBRARY_BASE_PATH}/{path}/{file_name}'))
 
 
-def rename_rom(fs_slug: str, old_name: str, new_name: str):
+def rename_file(fs_slug: str, old_name: str, new_name: str, folder: str = config.ROMS_FOLDER_NAME):
     if new_name != old_name:
-        rom_path = get_fs_structure(fs_slug)
-        if _rom_exists(fs_slug, new_name):
+        files_path = get_fs_structure(fs_slug, folder=folder)
+        if _file_exists(path=files_path, file_name=new_name):
             raise RomAlreadyExistsException(new_name)
+        
         os.rename(
-            f"{LIBRARY_BASE_PATH}/{rom_path}/{old_name}",
-            f"{LIBRARY_BASE_PATH}/{rom_path}/{new_name}",
+            f"{LIBRARY_BASE_PATH}/{files_path}/{old_name}",
+            f"{LIBRARY_BASE_PATH}/{files_path}/{new_name}",
         )
 
 
-def remove_rom(fs_slug: str, file_name: str):
-    rom_path = get_fs_structure(fs_slug)
+def remove_file(fs_slug: str, file_name: str, folder: str = config.ROMS_FOLDER_NAME):
+    files_path = get_fs_structure(fs_slug, folder=folder)
     try:
-        try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
-        except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
-    except FileNotFoundError as exc:
-        raise RomNotFoundError(file_name, fs_slug) from exc
-
+        os.remove(f"{LIBRARY_BASE_PATH}/{files_path}/{file_name}")
+    except IsADirectoryError:
+        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{files_path}/{file_name}")
 
 def build_upload_file_path(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
     rom_path = get_fs_structure(fs_slug, folder=folder)

@@ -162,9 +162,9 @@ async function deleteUser(user) {
   return api.delete(`/users/${user.id}`);
 }
 
-async function uploadSaves({ rom, savesToUpload }) {
+async function uploadSaves({ rom, saves }) {
   let formData = new FormData();
-  savesToUpload.forEach((save) => formData.append("saves", save));
+  saves.forEach((save) => formData.append("saves", save));
 
   return api.put("/saves/upload", formData, {
     headers: {
@@ -174,21 +174,15 @@ async function uploadSaves({ rom, savesToUpload }) {
   });
 }
 
-async function deleteSaves({ saves, deleteFromFs = false }) {
-  return api.post(
-    "/saves/delete",
-    {
-      saves: saves.map((s) => s.id),
-    },
-    {
-      params: { delete_from_fs: deleteFromFs },
-    }
-  );
+async function deleteSaves({ saves }) {
+  return api.post("/saves/delete", {
+    saves: saves.map((s) => s.id),
+  });
 }
 
-async function uploadStates({ rom, statesToUpload }) {
+async function uploadStates({ rom, states }) {
   let formData = new FormData();
-  statesToUpload.forEach((state) => formData.append("states", state));
+  states.forEach((state) => formData.append("states", state));
 
   return api.put("/states/upload", formData, {
     headers: {
@@ -198,16 +192,10 @@ async function uploadStates({ rom, statesToUpload }) {
   });
 }
 
-async function deleteStates({ states, deleteFromFs = false }) {
-  return api.post(
-    "/saves/delete",
-    {
-      states: states.map((s) => s.id),
-    },
-    {
-      params: { delete_from_fs: deleteFromFs },
-    }
-  );
+async function deleteStates({ states }) {
+  return api.post("/states/delete", {
+    states: states.map((s) => s.id),
+  });
 }
 
 export default {

@@ -23,8 +23,8 @@ def scan_platform(fs_slug: str) -> Platform:
     platform_attrs["fs_slug"] = fs_slug
 
     try:
-        if fs_slug in config["PLATFORMS_BINDING"].keys():
-            platform_attrs["slug"] = config["PLATFORMS_BINDING"][fs_slug]
+        if fs_slug in config.PLATFORMS_BINDING.keys():
+            platform_attrs["slug"] = config.PLATFORMS_BINDING[fs_slug]
         else:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
