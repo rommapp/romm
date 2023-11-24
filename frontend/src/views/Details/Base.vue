@@ -43,7 +43,6 @@ onBeforeMount(async () => {
         downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
       })
       .catch((error) => {
-        console.log(error);
         emitter.emit("snackbarShow", {
           msg: error.response.data.detail,
           icon: "mdi-close-circle",

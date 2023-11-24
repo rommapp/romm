@@ -23,17 +23,18 @@ from logger.logger import log
 from models import Rom
 from handler import dbh
 from endpoints.assets import SaveSchema, StateSchema, ScreenshotSchema
-from exceptions.fs_exceptions import RomNotFoundError, RomAlreadyExistsException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from utils.oauth import protected_route
 from utils import get_file_name_with_no_tags
 from utils.fs import (
-    _rom_exists,
+    _file_exists,
     build_artwork_path,
     build_upload_file_path,
-    rename_rom,
+    rename_file,
     get_rom_cover,
     get_rom_screenshots,
-    remove_rom,
+    remove_file,
+    get_fs_structure,
 )
 
 from .utils import CustomStreamingResponse
@@ -120,7 +121,8 @@ def upload_roms(
     skipped_roms = []
 
     for rom in roms:
-        if _rom_exists(platform_slug, rom.filename):
+        roms_path = get_fs_structure(platform_fs_slug)
+        if _file_exists(roms_path, rom.filename):
             log.warning(f" - Skipping {rom.filename} since the file already exists")
             skipped_roms.append(rom.filename)
             continue
@@ -233,7 +235,7 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            rename_rom(db_rom.platform_slug, db_rom.file_name, fs_safe_file_name)
+            rename_file(db_rom.platform_slug, db_rom.file_name, fs_safe_file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
@@ -295,9 +297,9 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
     if delete_from_fs:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
-            remove_rom(rom.platform_slug, rom.file_name)
-        except RomNotFoundError as e:
-            error = f"Couldn't delete from filesystem: {str(e)}"
+            remove_file(rom.platform_slug, rom.file_name)
+        except FileNotFoundError:
+            error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
@@ -324,7 +326,7 @@ class MassDeleteRomResponse(TypedDict):
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])
-async def mass_delete_roms(
+async def delete_roms(
     request: Request,
     delete_from_fs: bool = False,
 ) -> MassDeleteRomResponse:

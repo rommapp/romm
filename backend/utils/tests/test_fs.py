@@ -9,8 +9,8 @@ from ..fs import (
     # get_rom_screenshots # TODO: write test
     # store_default_resources # TODO: write test
     # get_rom_files,  # TODO: write test
-    # rename_rom,  # TODO: write test
-    # remove_rom,  # TODO: write test
+    # rename_file,  # TODO: write test
+    # remove_file,  # TODO: write test
     # build_upload_file_path, # TODO: write test
     # build_artwork_path, # TODO: write test
     # build_avatar_path, # TODO: write test
