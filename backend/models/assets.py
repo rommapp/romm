@@ -29,6 +29,8 @@ class Save(BaseAsset):
     __tablename__ = "saves"
     __table_args__ = {'extend_existing': True}
 
+    emulator = Column(String(length=50), nullable=False)
+
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
     rom = relationship("Rom", lazy="selectin", back_populates="saves")
 
@@ -38,6 +40,8 @@ class Save(BaseAsset):
 class State(BaseAsset):
     __tablename__ = "states"
     __table_args__ = {'extend_existing': True}
+
+    emulator = Column(String(length=50), nullable=False)
 
     rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
     rom = relationship("Rom", lazy="selectin", back_populates="states")
