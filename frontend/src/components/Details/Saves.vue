@@ -91,7 +91,7 @@ async function uploadSaves() {
       v-for="save in rom.saves"
       :key="save.id"
       :title="save.file_name"
-      :subtitle="formatBytes(save.file_size_bytes)"
+      :subtitle="`${save.emulator} - ${formatBytes(save.file_size_bytes)}`"
     >
       <template v-slot:append>
         <v-btn icon :href="save.download_path" download>

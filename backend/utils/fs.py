@@ -194,9 +194,7 @@ def store_default_resources():
 # ========= Platforms utils =========
 def _exclude_platforms(platforms: list):
     return [
-        platform
-        for platform in platforms
-        if platform not in config.EXCLUDED_PLATFORMS
+        platform for platform in platforms if platform not in config.EXCLUDED_PLATFORMS
     ]
 
 
@@ -305,7 +303,12 @@ def get_assets(fs_slug: str):
     fs_bios: list[str] = []
 
     try:
-        fs_saves = list(os.walk(saves_file_path))[0][2]
+        emulators = list(os.walk(saves_file_path))[0][1]
+        for emulator in emulators:
+            fs_saves += [
+                (emulator, file)
+                for file in list(os.walk(f"{saves_file_path}/{emulator}"))[0][2]
+            ]
     except IndexError:
         pass
 
@@ -313,7 +316,12 @@ def get_assets(fs_slug: str):
     states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
 
     try:
-        fs_states = list(os.walk(states_file_path))[0][2]
+        emulators = list(os.walk(states_file_path))[0][1]
+        for emulator in emulators:
+            fs_states += [
+                (emulator, file)
+                for file in list(os.walk(f"{states_file_path}/{emulator}"))[0][2]
+            ]
     except IndexError:
         pass
 
@@ -377,15 +385,17 @@ def _file_exists(path: str, file_name: str):
     Returns
         True if file exists in filesystem else False
     """
-    return bool(os.path.exists(f'{LIBRARY_BASE_PATH}/{path}/{file_name}'))
+    return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
 
 
-def rename_file(fs_slug: str, old_name: str, new_name: str, folder: str = config.ROMS_FOLDER_NAME):
+def rename_file(
+    fs_slug: str, old_name: str, new_name: str, folder: str = config.ROMS_FOLDER_NAME
+):
     if new_name != old_name:
         files_path = get_fs_structure(fs_slug, folder=folder)
         if _file_exists(path=files_path, file_name=new_name):
             raise RomAlreadyExistsException(new_name)
-        
+
         os.rename(
             f"{LIBRARY_BASE_PATH}/{files_path}/{old_name}",
             f"{LIBRARY_BASE_PATH}/{files_path}/{new_name}",
@@ -399,9 +409,11 @@ def remove_file(fs_slug: str, file_name: str, folder: str = config.ROMS_FOLDER_N
     except IsADirectoryError:
         shutil.rmtree(f"{LIBRARY_BASE_PATH}/{files_path}/{file_name}")
 
+
 def build_upload_file_path(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
     rom_path = get_fs_structure(fs_slug, folder=folder)
     return f"{LIBRARY_BASE_PATH}/{rom_path}"
+
 
 def build_artwork_path(rom_name: str, fs_slug: str, file_ext: str):
     q_rom_name = quote(rom_name)

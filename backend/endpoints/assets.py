@@ -31,11 +31,13 @@ class BaseAsset(BaseModel):
 class SaveSchema(BaseAsset):
     rom_id: int
     platform_slug: str
+    emulator: str
 
 
 class StateSchema(BaseAsset):
     rom_id: int
     platform_slug: str
+    emulator: str
 
 
 class ScreenshotSchema(BaseAsset):

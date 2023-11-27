@@ -1,4 +1,5 @@
 import emoji
+import os
 from typing import Any
 
 from handler import igdbh
@@ -131,16 +132,17 @@ def _scan_asset(file_name: str, path: str):
     }
 
 
-def scan_save(platform: Platform, file_name: str) -> Save:
+def scan_save(platform: Platform, emulator: str, file_name: str) -> Save:
     saves_path = fs.get_fs_structure(platform.fs_slug, folder=config.SAVES_FOLDER_NAME)
-    return Save(**_scan_asset(file_name, saves_path))
+    # Scan asset with the sames path and emulator folder name
+    return Save(**_scan_asset(file_name, os.path.join(saves_path, emulator)))
 
 
-def scan_state(platform: Platform, file_name: str) -> State:
+def scan_state(platform: Platform, emulator: str, file_name: str) -> State:
     states_path = fs.get_fs_structure(
         platform.fs_slug, folder=config.STATES_FOLDER_NAME
     )
-    return State(**_scan_asset(file_name, states_path))
+    return State(**_scan_asset(file_name, os.path.join(states_path, emulator)))
 
 
 def scan_bios(platform: Platform, file_name: str) -> State:
