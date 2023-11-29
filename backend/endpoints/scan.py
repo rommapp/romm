@@ -155,9 +155,29 @@ async def scan_platforms(
             scanned_bios.platform_slug = scanned_platform.slug
             dbh.add_bios(scanned_bios)
 
+        # Scanning emulators
+        log.info("\t · Emulators")
+        for fs_emulator_filename in fs_assets["emulators"]:
+            scanned_emulator = scan_bios(
+                platform=scanned_platform, file_name=fs_emulator_filename
+            )
+
+            emulator = dbh.get_emulator_by_filename(
+                scanned_platform.slug, fs_emulator_filename
+            )
+            if emulator:
+                dbh.update_emulator(
+                    emulator.id, {"file_size_bytes": scanned_emulator.file_size_bytes}
+                )
+                continue
+
+            scanned_emulator.platform_slug = scanned_platform.slug
+            dbh.add_emulator(scanned_emulator)
+
         dbh.purge_saves(scanned_platform.slug, [s for e, s in fs_assets["saves"]])
         dbh.purge_states(scanned_platform.slug, [s for e, s in fs_assets["states"]])
         dbh.purge_bios(scanned_platform.slug, fs_assets["bios"])
+        dbh.purge_emulators(scanned_platform.slug, fs_assets["emulators"])
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots

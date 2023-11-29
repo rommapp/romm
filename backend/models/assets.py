@@ -25,40 +25,74 @@ class BaseAsset(BaseModel):
     def download_path(self) -> str:
         return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
 
+
 class Save(BaseAsset):
     __tablename__ = "saves"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
     emulator = Column(String(length=50), nullable=False)
 
-    rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
+    rom_id = Column(
+        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
+    )
     rom = relationship("Rom", lazy="selectin", back_populates="saves")
 
-    platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
+    platform_slug = Column(
+        String(length=50),
+        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        nullable=False,
+    )
     platform = relationship("Platform", lazy="selectin", back_populates="saves")
+
 
 class State(BaseAsset):
     __tablename__ = "states"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
     emulator = Column(String(length=50), nullable=False)
 
-    rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
+    rom_id = Column(
+        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
+    )
     rom = relationship("Rom", lazy="selectin", back_populates="states")
 
-    platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
+    platform_slug = Column(
+        String(length=50),
+        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        nullable=False,
+    )
     platform = relationship("Platform", lazy="selectin", back_populates="states")
+
 
 class Screenshot(BaseAsset):
     __tablename__ = "screenshots"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
-    rom_id = Column(Integer(), ForeignKey("roms.id", ondelete='CASCADE'), nullable=False)
+    rom_id = Column(
+        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
+    )
     rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
+
 
 class Bios(BaseAsset):
     __tablename__ = "bios"
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {"extend_existing": True}
 
-    platform_slug = Column(String(length=50), ForeignKey("platforms.slug", ondelete='CASCADE'), nullable=False)
+    platform_slug = Column(
+        String(length=50),
+        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        nullable=False,
+    )
     platform = relationship("Platform", lazy="selectin", back_populates="bios")
+
+
+class Emulator(BaseAsset):
+    __tablename__ = "emulators"
+    __table_args__ = {"extend_existing": True}
+
+    platform_slug = Column(
+        String(length=50),
+        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        nullable=False,
+    )
+    platform = relationship("Platform", lazy="selectin", back_populates="emulators")
