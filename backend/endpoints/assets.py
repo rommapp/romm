@@ -48,6 +48,10 @@ class BiosSchema(BaseAsset):
     platform_slug: str
 
 
+class EmulatorSchema(BaseAsset):
+    platform_slug: str
+
+
 class UploadedSavesResponse(TypedDict):
     uploaded: int
     saves: list[SaveSchema]
@@ -106,6 +110,7 @@ def upload_saves(
     rom = dbh.get_rom(rom_id)
     return {"uploaded": len(saves), "saves": rom.saves}
 
+
 @protected_route(router.post, "/saves/delete", ["assets.write"])
 async def delete_saves(request: Request) -> list[SaveSchema]:
     data: dict = await request.json()
@@ -127,7 +132,9 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
         dbh.delete_save(save_id)
 
         try:
-            remove_file(save.platform_slug, save.file_name, folder=config.SAVES_FOLDER_NAME)
+            remove_file(
+                save.platform_slug, save.file_name, folder=config.SAVES_FOLDER_NAME
+            )
         except FileNotFoundError:
             error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
             log.error(error)
@@ -173,6 +180,7 @@ def upload_states(
     rom = dbh.get_rom(rom_id)
     return {"uploaded": len(states), "states": rom.states}
 
+
 @protected_route(router.post, "/states/delete", ["assets.write"])
 async def delete_states(request: Request) -> list[StateSchema]:
     data: dict = await request.json()
@@ -194,7 +202,9 @@ async def delete_states(request: Request) -> list[StateSchema]:
         dbh.delete_state(state_id)
 
         try:
-            remove_file(state.platform_slug, state.file_name, folder=config.STATES_FOLDER_NAME)
+            remove_file(
+                state.platform_slug, state.file_name, folder=config.STATES_FOLDER_NAME
+            )
         except FileNotFoundError:
             error = f"Save file {state.file_name} not found for platform {state.platform_slug}"
             log.error(error)
