@@ -1,6 +1,11 @@
 version: "3"
+
 volumes:
-  mysql_data:
+  database:
+    name: "romm-db"
+  session:
+    name: "romm-session"
+    
 services:
   romm:
     image: zurdi15/romm:latest
@@ -45,7 +50,17 @@ services:
     ports:
       - 80:8080
     depends_on:
-      - romm_db
+      # [Optional] Only required if using MariaDB as the database
+      romm_db:
+        condition: service_healthy
+      # [Optional] Only required if experimental Redis is enabled
+      romm_session:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8080 || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 10
     restart: "unless-stopped"
 
   # [Optional] Only required if using MariaDB as the database
@@ -58,15 +73,34 @@ services:
       - MYSQL_USER=romm-user
       - MYSQL_PASSWORD=<database password>
     volumes:
-      - mysql_data:/var/lib/mysql # Can also be mounted locally
+      - database:/var/lib/mysql # Can also be mounted locally
     ports:
       - 3306:3306
+    healthcheck:
+      test: [
+        "CMD", 
+        "mysqladmin",
+        "ping", 
+        "-h", "localhost",
+        '-u', 'root', 
+        '-p$$MYSQL_ROOT_PASSWORD'
+      ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
     restart: "unless-stopped"
 
   # [Optional] Only required if experimental Redis is enabled
-  redis:
+  romm_session:
     image: redis:alpine
-    container_name: redis
+    container_name: romm_session
     restart: unless-stopped
+    volumes:
+      - session:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
     ports:
       - 6379:6379
