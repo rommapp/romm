@@ -49,6 +49,9 @@ services:
       - "/path/to/logs:/romm/logs" # [Optional] Path where logs are stored
     ports:
       - 80:8080
+    networks:
+      romm:
+      romm-backend:
     depends_on:
       # [Optional] Only required if using MariaDB as the database
       romm_db:
@@ -76,6 +79,8 @@ services:
       - database:/var/lib/mysql # Can also be mounted locally
     ports:
       - 3306:3306
+    networks:
+      romm-backend:
     healthcheck:
       test: [
         "CMD", 
@@ -95,6 +100,8 @@ services:
     image: redis:alpine
     container_name: romm_session
     restart: unless-stopped
+    networks:
+      romm-backend:
     volumes:
       - session:/data
     healthcheck:
@@ -104,3 +111,9 @@ services:
       retries: 10
     ports:
       - 6379:6379
+
+networks:
+  romm:
+    name: romm
+  romm-backend:
+    name: romm-backend
