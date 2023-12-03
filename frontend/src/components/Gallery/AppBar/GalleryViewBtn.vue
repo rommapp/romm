@@ -13,6 +13,7 @@ const galleryView = storeGalleryView();
     variant="text"
     class="mr-0"
     :icon="views[galleryView.current]['icon']"
+    title="Change view"
   >
   </v-btn>
 </template>

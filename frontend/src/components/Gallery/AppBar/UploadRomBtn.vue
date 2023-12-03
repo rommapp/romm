@@ -12,5 +12,6 @@ const emitter = inject("emitter");
       variant="text"
       class="mr-0"
       icon="mdi-upload"
+      title="Upload ROM"
     />
 </template>

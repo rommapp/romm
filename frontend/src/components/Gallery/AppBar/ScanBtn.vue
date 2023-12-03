@@ -60,5 +60,6 @@ onBeforeUnmount(() => {
       variant="text"
       class="mr-0"
       icon="mdi-magnify-scan"
+      title="Scan platform"
     />
 </template>
