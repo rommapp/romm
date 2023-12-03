@@ -1,9 +1,11 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import { regionToEmoji } from "@/utils/utils";
 
 const props = defineProps(["rom"]);
 const { xs, sm, md, smAndUp } = useDisplay();
+const regionEmoji = regionToEmoji(props.rom.region);
 </script>
 <template>
   <v-row no-gutters>
@@ -22,11 +24,12 @@ const { xs, sm, md, smAndUp } = useDisplay();
       </v-avatar>
     </v-chip>
     <v-chip-group v-if="rom.region || rom.revision" class="ml-3 pa-0 text-white text-shadow">
-      <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
-        {{ rom.region }}
+      <v-chip v-if="regionEmoji">{{ regionEmoji }}</v-chip>
+      <v-chip v-if="!regionEmoji" v-show="rom.region">
+        {{ regionEmoji || rom.region }}
       </v-chip>
-      <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>
-        {{ rom.revision }}
+      <v-chip v-show="rom.revision">
+        Rev {{ rom.revision }}
       </v-chip>
     </v-chip-group>
   </v-row>
