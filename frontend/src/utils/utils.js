@@ -57,3 +57,64 @@ export function convertCronExperssion(expression) {
     convertedExpression.substr(1);
   return convertedExpression;
 }
+
+export function regionToEmoji(region) {
+  switch (region) {
+    case "AS", "Australia":
+      return "🇦🇺";
+    case "A", "Asia":
+      return "🌏";
+    case "B", "BRA", "Brazil":
+      return "🇧🇷";
+    case "C", "Canada":
+      return "🇨🇦";
+    case "CH", "CHN", "China":
+      return "🇨🇳";
+    case "E", "EU", "Europe":
+      return "🇪🇺";
+    case "F", "France":
+      return "🇫🇷";
+    case "FN", "Finland":
+      return "🇫🇮";
+    case "G", "Germany":
+      return "🇩🇪";
+    case "GR", "Greece":
+      return "🇬🇷";
+    case "H", "Holland":
+      return "🇳🇱";
+    case "HK", "Hong Kong":
+      return "🇭🇰";
+    case "I", "Italy":
+      return "🇮🇹";
+    case "J", "JP", "Japan":
+      return "🇯🇵";
+    case "K", "Korea":
+      return "🇰🇷";
+    case "NL", "Netherlands":
+      return "🇳🇱";
+    case "NO", "Norway":
+      return "🇳🇴";
+    case "PD", "Public Domain":
+      return "🇵🇱";
+    case "R", "Russia":
+      return "🇷🇺";
+    case "S", "Spain":
+      return "🇪🇸";
+    case "SW", "Sweden":
+      return "🇸🇪";
+    case "T", "Taiwan":
+      return "🇹🇼";
+    case "U", "US", "USA":
+      return "🇺🇸";
+    case "UK", "England":
+      return "🇬🇧";
+    case "UNK", "Unknown":
+      return "🌎";
+    case "UNL", "Unlicensed":
+      return "🌎";
+    case "W", "Global", "World":
+      return "🌎";
+    default:
+      return undefined;
+  }
+}
