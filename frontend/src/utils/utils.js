@@ -60,61 +60,104 @@ export function convertCronExperssion(expression) {
 
 export function regionToEmoji(region) {
   switch (region) {
-    case "AS", "Australia":
+    case ("AS", "Australia"):
       return "🇦🇺";
-    case "A", "Asia":
+    case ("A", "Asia"):
       return "🌏";
-    case "B", "BRA", "Brazil":
+    case ("B", "BRA", "Brazil"):
       return "🇧🇷";
-    case "C", "Canada":
+    case ("C", "Canada"):
       return "🇨🇦";
-    case "CH", "CHN", "China":
+    case ("CH", "CHN", "China"):
       return "🇨🇳";
-    case "E", "EU", "Europe":
+    case ("E", "EU", "Europe"):
       return "🇪🇺";
-    case "F", "France":
+    case ("F", "France"):
       return "🇫🇷";
-    case "FN", "Finland":
+    case ("FN", "Finland"):
       return "🇫🇮";
-    case "G", "Germany":
+    case ("G", "Germany"):
       return "🇩🇪";
-    case "GR", "Greece":
+    case ("GR", "Greece"):
       return "🇬🇷";
-    case "H", "Holland":
+    case ("H", "Holland"):
       return "🇳🇱";
-    case "HK", "Hong Kong":
+    case ("HK", "Hong Kong"):
       return "🇭🇰";
-    case "I", "Italy":
+    case ("I", "Italy"):
       return "🇮🇹";
-    case "J", "JP", "Japan":
+    case ("J", "JP", "Japan"):
       return "🇯🇵";
-    case "K", "Korea":
+    case ("K", "Korea"):
       return "🇰🇷";
-    case "NL", "Netherlands":
+    case ("NL", "Netherlands"):
       return "🇳🇱";
-    case "NO", "Norway":
+    case ("NO", "Norway"):
       return "🇳🇴";
-    case "PD", "Public Domain":
+    case ("PD", "Public Domain"):
       return "🇵🇱";
-    case "R", "Russia":
+    case ("R", "Russia"):
       return "🇷🇺";
-    case "S", "Spain":
+    case ("S", "Spain"):
       return "🇪🇸";
-    case "SW", "Sweden":
+    case ("SW", "Sweden"):
       return "🇸🇪";
-    case "T", "Taiwan":
+    case ("T", "Taiwan"):
       return "🇹🇼";
-    case "U", "US", "USA":
+    case ("U", "US", "USA"):
       return "🇺🇸";
-    case "UK", "England":
+    case ("UK", "England"):
       return "🇬🇧";
-    case "UNK", "Unknown":
+    case ("UNK", "Unknown"):
       return "🌎";
-    case "UNL", "Unlicensed":
+    case ("UNL", "Unlicensed"):
       return "🌎";
-    case "W", "Global", "World":
+    case ("W", "Global", "World"):
       return "🌎";
     default:
-      return undefined;
+      return region;
+  }
+}
+
+export function languageToEmoji(language) {
+  switch (language) {
+    case ("Ar", "Arabic"):
+      return "🇦🇪";
+    case ("Da", "Danish"):
+      return "🇩🇰";
+    case ("De", "German"):
+      return "🇩🇪";
+    case ("En", "English"):
+      return "🇬🇧";
+    case ("Es", "Spanish"):
+      return "🇪🇸";
+    case ("Fi", "Finnish"):
+      return "🇫🇮";
+    case ("Fr", "French"):
+      return "🇫🇷";
+    case ("It", "Italian"):
+      return "🇮🇹";
+    case ("Ja", "Japanese"):
+      return "🇯🇵";
+    case ("Ko", "Korean"):
+      return "🇰🇷";
+    case ("Nl", "Dutch"):
+      return "🇳🇱";
+    case ("No", "Norwegian"):
+      return "🇳🇴";
+    case ("Pl", "Polish"):
+      return "🇵🇱";
+    case ("Pt", "Portuguese"):
+      return "🇵🇹";
+    case ("Ru", "Russian"):
+      return "🇷🇺";
+    case ("Sv", "Swedish"):
+      return "🇸🇪";
+    case ("Zh", "Chinese"):
+      return "🇨🇳";
+    case ("nolang", "No Language"):
+      return "🌎";
+    default:
+      return language;
   }
 }
