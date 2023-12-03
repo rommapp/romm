@@ -1,6 +1,5 @@
 <script setup>
 import storeDownload from "@/stores/download";
-import { regionToEmoji } from "@/utils/utils";
 
 const props = defineProps(["rom"]);
 const downloadStore = storeDownload();

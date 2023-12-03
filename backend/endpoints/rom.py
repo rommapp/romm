@@ -66,13 +66,14 @@ class RomSchema(BaseModel):
     has_cover: bool
     url_cover: str
 
-    region: Optional[str]
     revision: Optional[str]
-    tags: list
+    regions: list[str]
+    languages: list[str]
+    tags: list[str]
     multi: bool
-    files: list
-    url_screenshots: list
-    path_screenshots: list
+    files: list[str]
+    url_screenshots: list[str]
+    path_screenshots: list[str]
     full_path: str
     download_path: str
 

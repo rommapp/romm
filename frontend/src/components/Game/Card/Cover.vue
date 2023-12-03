@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
-import { regionToEmoji } from "@/utils/utils";
+import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 // Props
 const props = defineProps([
@@ -100,14 +100,28 @@ function onTouchEnd() {
         </v-expand-transition>
         <v-chip-group class="pl-1 pt-0 text-black position-absolute chips">
           <v-chip
-            v-show="rom.region"
+            v-if="rom.regions.length > 0"
             title="Region"
             size="large"
             class="pr-2 pl-2 bg-chip"
             density="compact"
             label
           >
-            {{ regionToEmoji(rom.region) || rom.region }}
+            <span v-for="region in rom.regions">
+              {{ regionToEmoji(region) }}&nbsp;
+            </span>
+          </v-chip>
+          <v-chip
+            v-if="rom.languages.length > 0"
+            title="Language"
+            size="large"
+            class="pr-2 pl-2 bg-chip"
+            density="compact"
+            label
+          >
+            <span v-for="language in rom.languages">
+              {{ languageToEmoji(language) }}&nbsp;
+            </span>
           </v-chip>
         </v-chip-group>
         <v-icon
