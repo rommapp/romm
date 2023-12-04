@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject } from "vue";
+import { ref, inject, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import api from "@/services/api";
@@ -46,16 +46,21 @@ async function deleteRoms() {
 
   romsStore.remove(roms.value);
   emitter.emit("refreshDrawer");
-  show.value = false;
+  closeDialog()
 }
+
+function closeDialog() {
+  deleteFromFs.value = false;
+  show.value = false;
+};
 </script>
 
 <template>
   <v-dialog
     :modelValue="show"
     width="auto"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
   >
