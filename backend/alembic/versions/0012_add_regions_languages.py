@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = '0012_'
+revision = '0012_add_regions_languages'
 down_revision = '0011_drop_has_cover'
 branch_labels = None
 depends_on = None
