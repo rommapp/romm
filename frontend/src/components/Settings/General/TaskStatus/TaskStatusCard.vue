@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeMount } from "vue";
+import { ref, onBeforeMount, inject } from "vue";
 import { api } from "@/services/api";
 import TaskWatcher from "@/components/Settings/General/TaskStatus/TaskWatcher.vue";
 import TaskScheduler from "@/components/Settings/General/TaskStatus/TaskScheduler.vue";
@@ -7,6 +7,25 @@ import TaskScheduler from "@/components/Settings/General/TaskStatus/TaskSchedule
 // Props
 const watcher = ref({});
 const scheduler = ref({});
+const emitter = inject("emitter");
+
+// Methods
+const runAllTasks = async () => {
+  const result = await api.post("/tasks/run");
+  if (result.status !== 200) {
+    return emitter.emit("snackbarShow", {
+      msg: "Error running tasks",
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  }
+
+  emitter.emit("snackbarShow", {
+    msg: result.data.message,
+    icon: "mdi-check-circle",
+    color: "green",
+  });
+};
 
 onBeforeMount(async () => {
   const { data } = await api.get("/heartbeat");
@@ -21,6 +40,9 @@ onBeforeMount(async () => {
         <v-icon class="mr-3">mdi-pulse</v-icon>
         Task Status
       </v-toolbar-title>
+      <v-toolbar-items>
+        <v-btn @click="runAllTasks"> Run all </v-btn>
+      </v-toolbar-items>
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />

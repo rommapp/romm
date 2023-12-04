@@ -20,7 +20,7 @@ class UpdateMAMEXMLTask(RemoteFilePullTask):
             description="mame xml update",
             enabled=ENABLE_SCHEDULED_UPDATE_MAME_XML,
             cron_string=SCHEDULED_UPDATE_MAME_XML_CRON,
-            url="https://hyperlist.hyperspin-fe.com/genall.php?system=6",
+            url="https://gist.githubusercontent.com/gantoine/0e2b9e25962bfd661ad2fe0ba0e72766/raw/59133cc98fa4c58992e4a789db394a85953b24df/gistfile1.txt",
             file_path=FIXTURE_FILE_PATH,
         )
 

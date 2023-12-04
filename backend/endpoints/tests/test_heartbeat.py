@@ -13,7 +13,7 @@ def test_heartbeat():
         "WATCHER": {
             "ENABLED": True,
             "TITLE": "Rescan on filesystem change",
-            "MESSAGE": "Runs a scan when a change is detected in the library path, with a 5 minutes delay",
+            "MESSAGE": "Runs a scan when a change is detected in the library path, with a 5 minute delay",
         },
         "SCHEDULER": {
             "RESCAN": {
@@ -32,7 +32,7 @@ def test_heartbeat():
                 "ENABLED": True,
                 "CRON": "0 5 * * *",
                 "TITLE": "Scheduled MAME XML update",
-                "MESSAGE": "Updates the Nintedo MAME XML file",
+                "MESSAGE": "Updates the MAME XML file",
             },
         },
     }
