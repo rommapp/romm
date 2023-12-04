@@ -101,7 +101,7 @@ function onTouchEnd() {
         <v-chip-group class="pl-1 pt-0 text-black position-absolute chips">
           <v-chip
             v-if="rom.regions.length > 0"
-            title="Region"
+            :title="`Regions: ${rom.regions.join(', ')}`"
             size="large"
             class="pr-2 pl-2 bg-chip"
             density="compact"
@@ -113,7 +113,7 @@ function onTouchEnd() {
           </v-chip>
           <v-chip
             v-if="rom.languages.length > 0"
-            title="Language"
+            :title="`Languages: ${rom.languages.join(', ')}`"
             size="large"
             class="pr-2 pl-2 bg-chip"
             density="compact"
