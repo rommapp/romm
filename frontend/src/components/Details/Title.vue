@@ -1,13 +1,17 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 const props = defineProps(["rom"]);
-const { xs, sm, md, smAndUp } = useDisplay();
+const { smAndUp } = useDisplay();
 </script>
 <template>
   <v-row no-gutters>
-    <div class="text-h5 text-white text-shadow font-weight-bold title" :class="{'text-truncate': smAndUp }">
+    <div
+      class="text-h5 text-white text-shadow font-weight-bold title"
+      :class="{ 'text-truncate': smAndUp }"
+    >
       {{ rom.name }}
     </div>
   </v-row>
@@ -16,18 +20,29 @@ const { xs, sm, md, smAndUp } = useDisplay();
       class="font-italic text-white text-shadow title pa-3"
       :to="`/platform/${rom.platform_slug}`"
     >
-    {{ rom.platform_name || rom.platform_slug }}
+      {{ rom.platform_name || rom.platform_slug }}
       <v-avatar :rounded="0" size="43" class="ml-2 pa-1">
-          <platform-icon :platform="rom.platform_slug"></platform-icon>
+        <platform-icon :platform="rom.platform_slug"></platform-icon>
       </v-avatar>
     </v-chip>
-    <v-chip-group v-if="rom.region || rom.revision" class="ml-3 pa-0 text-white text-shadow">
-      <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
-        {{ rom.region }}
+    <v-chip-group class="ml-3 pa-0 text-white text-shadow">
+      <v-chip
+        v-if="rom.regions.length > 0"
+        :title="`Regions: ${rom.regions.join(', ')}`"
+      >
+        <span v-for="region in rom.regions"
+          >{{ regionToEmoji(region) }}&nbsp;</span
+        >
       </v-chip>
-      <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>
-        {{ rom.revision }}
+      <v-chip
+        v-if="rom.languages.length > 0"
+        :title="`Languages: ${rom.languages.join(', ')}`"
+      >
+        <span v-for="language in rom.languages"
+          >{{ languageToEmoji(language) }}&nbsp;</span
+        >
       </v-chip>
+      <v-chip v-show="rom.revision"> Rev {{ rom.revision }} </v-chip>
     </v-chip-group>
   </v-row>
 </template>
