@@ -56,8 +56,9 @@ class Rom(BaseModel):
     path_cover_l: str = Column(Text, default=DEFAULT_PATH_COVER_L)
     url_cover: str = Column(Text, default=DEFAULT_PATH_COVER_L)
 
-    region: str = Column(String(20))
     revision: str = Column(String(20))
+    regions: JSON = Column(JSON, default=[])
+    languages: JSON = Column(JSON, default=[])
     tags: JSON = Column(JSON, default=[])
     multi: bool = Column(Boolean, default=False)
     files: JSON = Column(JSON, default=[])
