@@ -3,11 +3,26 @@ import { inject, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
+import storeRoms from "@/stores/roms";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import { normalizeString } from "@/utils/utils";
 
 // Props
 const emitter = inject("emitter");
 const route = useRoute();
 const scanning = storeScanning();
+const romsStore = storeRoms();
+const galleryFilter = storeGalleryFilter();
+const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
+
+socket.on("scan:scanning_rom", (rom) => {
+  romsStore.add([rom]);
+  if (isFiltered) {
+    romsStore.setFiltered(romsStore.filteredRoms);
+  } else {
+    romsStore.setFiltered(romsStore.allRoms);
+  }
+});
 
 // Functions
 socket.on("scan:done", () => {
@@ -15,7 +30,7 @@ socket.on("scan:done", () => {
   socket.disconnect();
   emitter.emit("refreshDrawer");
   emitter.emit("snackbarShow", {
-    msg: "Scan completed successfully! Refresh to see the changes.",
+    msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
     timeout: 4000
