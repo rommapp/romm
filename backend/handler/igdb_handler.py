@@ -171,7 +171,7 @@ class IGDBHandler:
 
         platform = pydash.get(platforms, "[0]", None)
         if not platform:
-            return IGDBPlatformType(igdb_id=None, name=slug)
+            return IGDBPlatformType(igdb_id=None, name=slug.replace("-", " ").title())
 
         return IGDBPlatformType(
             igdb_id=platform["id"],
