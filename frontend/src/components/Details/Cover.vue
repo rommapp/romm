@@ -10,7 +10,7 @@ const props = defineProps(["rom"]);
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : null"
   >
     <v-img
-      :src="`/assets/romm/resources/${rom.path_cover_l}`"
+      :src="`/assets/romm/resources/${rom.path_cover_l || rom.path_screenshots[0]}`"
       :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
       :aspect-ratio="3 / 4"
     >
