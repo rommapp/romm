@@ -27,7 +27,7 @@ const { smAndUp } = useDisplay();
     </v-chip>
     <v-chip-group class="ml-3 pa-0 text-white text-shadow">
       <v-chip
-        v-if="rom.regions.length > 0"
+        v-if="rom.regions.filter(i => i).length > 0"
         :title="`Regions: ${rom.regions.join(', ')}`"
       >
         <span v-for="region in rom.regions"
@@ -35,7 +35,7 @@ const { smAndUp } = useDisplay();
         >
       </v-chip>
       <v-chip
-        v-if="rom.languages.length > 0"
+        v-if="rom.languages.filter(i => i).length > 0"
         :title="`Languages: ${rom.languages.join(', ')}`"
       >
         <span v-for="language in rom.languages"
