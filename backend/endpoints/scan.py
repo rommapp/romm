@@ -35,6 +35,9 @@ async def scan_platforms(
 
     platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
     platform_list = platform_list or fs_platforms
+
+    log.info(f"Found {len(platform_list)} platforms ")
+
     for platform_slug in platform_list:
         scanned_platform = scan_platform(platform_slug)
         _new_platform = dbh.add_platform(scanned_platform)
@@ -76,6 +79,8 @@ async def scan_platforms(
 
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
+
+    log.info(emoji.emojize(":check_mark: Scan completed "))
 
     await sm.emit("scan:done", {})
 
