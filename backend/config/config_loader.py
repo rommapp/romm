@@ -23,20 +23,20 @@ SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 
 
 class Config:
-    EXCLUDED_PLATFORMS: list[str]
-    EXCLUDED_SINGLE_EXT: list[str]
-    EXCLUDED_SINGLE_FILES: list[str]
-    EXCLUDED_MULTI_FILES: list[str]
-    EXCLUDED_MULTI_PARTS_EXT: list[str]
-    EXCLUDED_MULTI_PARTS_FILES: list[str]
-    PLATFORMS_BINDING: dict[str, str]
-    ROMS_FOLDER_NAME: str
-    SAVES_FOLDER_NAME: str
-    STATES_FOLDER_NAME: str
-    SCREENSHOTS_FOLDER_NAME: str
-    BIOS_FOLDER_NAME: str
-    EMULATORS_FOLDER_NAME: str
-    HIGH_PRIO_STRUCTURE_PATH: str
+    EXCLUDED_PLATFORMS: list[str] = []
+    EXCLUDED_SINGLE_EXT: list[str] = []
+    EXCLUDED_SINGLE_FILES: list[str] = []
+    EXCLUDED_MULTI_FILES: list[str] = []
+    EXCLUDED_MULTI_PARTS_EXT: list[str] = []
+    EXCLUDED_MULTI_PARTS_FILES: list[str] = []
+    PLATFORMS_BINDING: dict[str, str] = {}
+    ROMS_FOLDER_NAME: str = "roms"
+    SAVES_FOLDER_NAME: str = "saves"
+    STATES_FOLDER_NAME: str = "states"
+    SCREENSHOTS_FOLDER_NAME: str = "screenshots"
+    BIOS_FOLDER_NAME: str = "bios"
+    EMULATORS_FOLDER_NAME: str = "emulators"
+    HIGH_PRIO_STRUCTURE_PATH: str = ""
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -49,10 +49,9 @@ class ConfigLoader:
         try:
             with open(config_path) as config_file:
                 self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+                self._parse_config()
         except FileNotFoundError:
             self.config = Config()
-        finally:
-            self._parse_config()
 
     @staticmethod
     def get_db_engine() -> str:

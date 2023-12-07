@@ -23,3 +23,11 @@ exclude:
 system:
   platforms:
     gc: 'ngc'
+
+filesystem:
+  roms_folder: 'ROMS'
+  saves_folder: 'SAVES'
+  states_folder: 'STATES'
+  screenshots_folder: 'SCREENSHOTS'
+  bios_folder: 'BIOS'
+  emulators_folder: 'EMULATORS'
