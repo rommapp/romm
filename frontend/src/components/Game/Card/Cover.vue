@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 // Props
 const props = defineProps([
@@ -76,9 +77,9 @@ function onTouchEnd() {
         :value="rom.id"
         :key="rom.id"
         v-bind="props"
-        :src="`/assets/romm/resources/${rom.path_cover_l}`"
+        :src="`/assets/romm/resources/${rom.path_cover_l || rom.path_screenshots[0]}`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
-        :aspect-ratio="3/4"
+        :aspect-ratio="3 / 4"
       >
         <template v-slot:placeholder>
           <div class="d-flex align-center justify-center fill-height">
@@ -97,12 +98,30 @@ function onTouchEnd() {
             <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="pl-1 pt-0 text-white text-shadow">
-          <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
-            {{ rom.region }}
+        <v-chip-group class="pl-1 pt-0 text-black position-absolute chips">
+          <v-chip
+            v-if="rom.regions.filter(i => i).length > 0"
+            :title="`Regions: ${rom.regions.join(', ')}`"
+            size="large"
+            class="pr-2 pl-2 bg-chip"
+            density="compact"
+            label
+          >
+            <span v-for="region in rom.regions">
+              {{ regionToEmoji(region) }}&nbsp;
+            </span>
           </v-chip>
-          <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>
-            {{ rom.revision }}
+          <v-chip
+            v-if="rom.languages.filter(i => i).length > 0"
+            :title="`Languages: ${rom.languages.join(', ')}`"
+            size="large"
+            class="pr-2 pl-2 bg-chip"
+            density="compact"
+            label
+          >
+            <span v-for="language in rom.languages">
+              {{ languageToEmoji(language) }}&nbsp;
+            </span>
           </v-chip>
         </v-chip-group>
         <v-icon
@@ -128,6 +147,11 @@ function onTouchEnd() {
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
+}
+
+.chips {
+  bottom: -0.25rem;
+  left: 0;
 }
 .text-shadow {
   text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;

@@ -5,7 +5,7 @@ import api from "@/services/api";
 import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
 
-const props = defineProps(["rom", "downloadUrl"]);
+const props = defineProps(["rom"]);
 const downloadStore = storeDownload();
 const auth = storeAuth();
 const saveFiles = ref(false);
@@ -14,24 +14,20 @@ const saveFiles = ref(false);
 <template>
   <v-row class="my-3" no-gutters>
     <v-col class="pa-0">
-      <template v-if="rom.multi">
-        <v-btn
-          @click="
-            api.downloadRom(rom, downloadStore.filesToDownloadMultiFileRom)
-          "
-          :disabled="downloadStore.value.includes(rom.id)"
-          rounded="0"
-          color="primary"
-          block
-        >
-          <v-icon icon="mdi-download" size="large" />
-        </v-btn>
-      </template>
-      <template v-else>
-        <v-btn :href="downloadUrl" download rounded="0" color="primary" block>
-          <v-icon icon="mdi-download" size="large" />
-        </v-btn>
-      </template>
+      <v-btn
+        @click="
+          api.downloadRom({
+            rom,
+            files: downloadStore.filesToDownloadMultiFileRom,
+          })
+        "
+        :disabled="downloadStore.value.includes(rom.id)"
+        rounded="0"
+        color="primary"
+        block
+      >
+        <v-icon icon="mdi-download" size="large" />
+      </v-btn>
     </v-col>
     <v-col class="pa-0">
       <v-btn rounded="0" block :disabled="!saveFiles"

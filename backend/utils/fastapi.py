@@ -63,7 +63,7 @@ async def scan_rom(
         multi_files=rom_attrs["files"],
         roms_path=roms_path,
     )
-    reg, rev, other_tags = parse_tags(rom_attrs["file_name"])
+    regs, rev, langs, other_tags = parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
             "file_path": roms_path,
@@ -73,8 +73,9 @@ async def scan_rom(
             "file_size": file_size,
             "file_size_units": file_size_units,
             "multi": rom_attrs["multi"],
-            "region": reg,
+            "regions": regs,
             "revision": rev,
+            "languages": langs,
             "tags": other_tags,
         }
     )
