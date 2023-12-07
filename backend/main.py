@@ -22,7 +22,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_MAME_XML,
     SCHEDULED_UPDATE_MAME_XML_CRON,
 )
-from endpoints import search, platform, rom, identity, oauth, assets, scan  # noqa
+from endpoints import search, platform, rom, identity, oauth, assets, scan, tasks  # noqa
 from handler import dbh
 from utils.socket import socket_app
 from utils.auth import (
@@ -69,6 +69,7 @@ app.include_router(platform.router)
 app.include_router(rom.router)
 app.include_router(search.router)
 app.include_router(assets.router)
+app.include_router(tasks.router)
 
 add_pagination(app)
 app.mount("/ws", socket_app)
@@ -82,7 +83,7 @@ def heartbeat():
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",
-            "MESSAGE": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minutes delay",
+            "MESSAGE": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
         },
         "SCHEDULER": {
             "RESCAN": {
@@ -101,7 +102,7 @@ def heartbeat():
                 "ENABLED": ENABLE_SCHEDULED_UPDATE_MAME_XML,
                 "CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
                 "TITLE": "Scheduled MAME XML update",
-                "MESSAGE": "Updates the Nintedo MAME XML file",
+                "MESSAGE": "Updates the MAME XML file",
             },
         },
     }

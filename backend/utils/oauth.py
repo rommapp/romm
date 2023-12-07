@@ -30,6 +30,7 @@ WRITE_SCOPES_MAP: Final = {
 FULL_SCOPES_MAP: Final = {
     "users.read": "View users",
     "users.write": "Modify users",
+    "tasks.run": "Run tasks",
 }
 
 DEFAULT_SCOPES: Final = list(DEFAULT_SCOPES_MAP.keys())

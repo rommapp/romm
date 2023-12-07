@@ -24,7 +24,6 @@ const romsStore = storeRoms();
 const { allRoms } = storeToRefs(romsStore);
 const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
 const tab = ref("details");
-const downloadUrl = ref();
 const { xs, sm, md, lgAndUp, name } = useDisplay();
 
 // Event listeners bus
@@ -40,7 +39,6 @@ onBeforeMount(async () => {
       .then((response) => {
         rom.value = response.data;
         romsStore.update(response.data);
-        downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
       })
       .catch((error) => {
         emitter.emit("snackbarShow", {
@@ -80,7 +78,7 @@ onBeforeMount(async () => {
       class="pa-3"
     >
       <cover :rom="rom" />
-      <action-bar :rom="rom" :downloadUrl="downloadUrl" />
+      <action-bar :rom="rom" />
     </v-col>
     <v-col
       class="mt-14"
