@@ -92,3 +92,9 @@ ENABLE_SCHEDULED_UPDATE_MAME_XML: Final = (
 SCHEDULED_UPDATE_MAME_XML_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_MAME_XML_CRON", "0 5 * * *"  # At 5:00 AM every day
 )
+
+# RUNR
+RUNR_ENABLED: Final = (
+    os.environ.get("RUNR_ENABLED", "false") == "true"
+)
+RUNR_URL: Final = os.environ.get('RUNR_URL', None)

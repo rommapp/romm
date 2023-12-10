@@ -21,6 +21,8 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     ENABLE_SCHEDULED_UPDATE_MAME_XML,
     SCHEDULED_UPDATE_MAME_XML_CRON,
+    RUNR_ENABLED,
+    RUNR_URL,
 )
 from endpoints import search, platform, rom, identity, oauth, scan  # noqa
 from handler import dbh
@@ -86,6 +88,8 @@ def heartbeat():
         "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
         "ENABLE_SCHEDULED_UPDATE_MAME_XML": ENABLE_SCHEDULED_UPDATE_MAME_XML,
         "SCHEDULED_UPDATE_MAME_XML_CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
+        "RUNR_ENABLED": RUNR_ENABLED,
+        "RUNR_URL": RUNR_URL,
     }
 
 

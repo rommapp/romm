@@ -3,7 +3,7 @@ import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
-import { fetchRomApi, downloadRomApi } from "@/services/api";
+import { api, fetchRomApi, downloadRomApi } from "@/services/api";
 import storeRoms from "@/stores/roms";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
@@ -22,6 +22,7 @@ const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
 const downloadStore = storeDownload();
 const auth = storeAuth();
 const saveFiles = ref(false);
+const config = ref();
 const filesToDownload = ref();
 const tab = ref("details");
 const downloadUrl = ref();
@@ -32,6 +33,8 @@ const emitter = inject("emitter");
 
 // Functions
 onBeforeMount(async () => {
+  const { data: cfg } = await api.get("/heartbeat");
+  config.value = cfg;
   emitter.emit("showLoadingDialog", { loading: true, scrim: false });
   if (rom.value) {
     emitter.emit("showLoadingDialog", { loading: false, scrim: false });
@@ -55,6 +58,15 @@ onBeforeMount(async () => {
       });
   }
 });
+
+const canBePlayed = () => {
+  return config?.value?.RUNR_ENABLED
+}
+const openWindow = (rom) => {
+  console.log(rom)
+  //TODO evaluate rom.p_slug to avoid launching non supported platforms
+  window.open(`${config?.value?.RUNR_URL}?rom=${rom.download_path}`)
+}
 </script>
 
 <template>
@@ -148,6 +160,22 @@ onBeforeMount(async () => {
               </template>
               <admin-menu :rom="rom" />
             </v-menu>
+          </v-col>
+        </v-row>
+        <v-row class="px-3 action-buttons">
+          <v-col class="pa-0">
+            <template v-if="canBePlayed()">
+              <v-btn
+                  @click="openWindow(rom)"
+                  :disabled="downloadStore.value.includes(rom.id)"
+                  rounded="0"
+                  color="primary"
+                  title="Play Game!"
+                  block
+                >
+                  <v-icon icon="mdi-play" size="large" />
+                </v-btn>
+              </template>
           </v-col>
         </v-row>
       </v-col>
