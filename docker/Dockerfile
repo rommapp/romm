@@ -31,7 +31,8 @@ RUN apk add --upgrade \
         mariadb-connector-c-dev \
         musl-dev \
         python3-dev \
-        py3-pip
+        py3-pip \
+        git
 
 # Create python venv to not clash with OS python packages
 RUN python3 -m venv /backend/
@@ -42,14 +43,14 @@ COPY ./pyproject.toml ./poetry.lock /
 # Install poetry using pip
 RUN . /backend/bin/activate && \
     pip install --no-cache --upgrade pip && \
-    pipx install --no-cache --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode && \
+    pip install --no-cache git+https://github.com/radoering/poetry.git@non-package-mode && \
     pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt
 
 # Install project dependencies using poetry
 RUN . /backend/bin/activate && \
-    poetry_npm config --no-cache virtualenvs.create false && \
-    poetry_npm install --no-interaction --no-ansi --no-cache --only main && \
-    poetry_npm export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
+    python3 -m poetry config --no-cache virtualenvs.create false && \
+    python3 -m poetry install --no-interaction --no-ansi --no-cache --only main && \
+    python3 -m poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
 
 # cleanup python dependencies that are not needed anymore
 RUN . /backend/bin/activate && \
@@ -69,7 +70,8 @@ RUN apk del \
         mariadb-connector-c-dev \
         musl-dev \
         python3-dev \
-        py3-pip
+        py3-pip \
+        git
 
 # cleanup leftover files that are not needed at runtime
 RUN rm -r \
