@@ -56,7 +56,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry_npm install --sync
+          poetry install --sync
 
       - name: Initiate database
         run: |
@@ -68,7 +68,7 @@ jobs:
           DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
         run: |
           cd backend
-          poetry_npm run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
+          poetry run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
