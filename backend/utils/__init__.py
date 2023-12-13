@@ -68,7 +68,7 @@ def parse_tags(file_name: str) -> tuple:
     langs = []
     other_tags = []
     tags = [tag[0] or tag[1] for tag in re.findall(TAG_REGEX, file_name)]
-    tags = np.array([tag.split(",") for tag in tags]).flatten()
+    tags = [tag for subtags in tags for tag in subtags.split(",")]
     tags = [tag.strip() for tag in tags]
 
     for tag in tags:
