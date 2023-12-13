@@ -38,7 +38,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "export $(cat .env | xargs); docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
+			"command": "export $(cat .env | xargs); docker exec -i mariadb mysql -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
 			"label": "Setup development environment migrations [docker] (2)",
 			"problemMatcher": []
 		},

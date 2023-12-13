@@ -3,10 +3,11 @@ import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import Settings from "@/views/Settings/ControlPanel/General/Base.vue";
 import Users from "@/views/Settings/ControlPanel/Users/Base.vue";
-import version from "../../../../package";
+import storeHeartbeat from "@/stores/heartbeat";
 
 // Props
 const auth = storeAuth();
+const heartbeat = storeHeartbeat();
 const tab = ref("general");
 </script>
 <template>
@@ -47,7 +48,7 @@ const tab = ref("general");
   <v-bottom-navigation :elevation="0" height="36" class="text-caption">
     <v-row class="align-center justify-center" no-gutters>
       <span class="text-romm-accent-1">RomM</span>
-      <span class="ml-1">{{ version.version }}</span>
+      <span class="ml-1">{{ heartbeat.data.VERSION }}</span>
     </v-row>
   </v-bottom-navigation>
 </template>

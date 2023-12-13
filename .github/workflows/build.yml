@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'romm version'
+        description: "romm version"
         required: true
         type: string
 
@@ -18,23 +18,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Set environment variables
         run: echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      - name: Set version
+        run: sed -i 's/<version>/'"${{ inputs.version }}"'/' backend/__version__.py
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate Docker metadata
         id: meta
         uses: docker/metadata-action@v4

@@ -3,11 +3,11 @@ import { ref, onBeforeMount, inject } from "vue";
 import { api } from "@/services/api";
 import TaskWatcher from "@/components/Settings/General/TaskStatus/TaskWatcher.vue";
 import TaskScheduler from "@/components/Settings/General/TaskStatus/TaskScheduler.vue";
+import storeHeartbeat from "@/stores/heartbeat";
 
 // Props
-const watcher = ref({});
-const scheduler = ref({});
 const emitter = inject("emitter");
+const heartbeat = storeHeartbeat();
 
 // Methods
 const runAllTasks = async () => {
@@ -26,12 +26,6 @@ const runAllTasks = async () => {
     color: "green",
   });
 };
-
-onBeforeMount(async () => {
-  const { data } = await api.get("/heartbeat");
-  watcher.value = data.WATCHER;
-  scheduler.value = data.SCHEDULER;
-});
 </script>
 <template>
   <v-card rounded="0">
@@ -41,7 +35,7 @@ onBeforeMount(async () => {
         Task Status
       </v-toolbar-title>
       <v-toolbar-items>
-        <v-btn @click="runAllTasks"> Run all </v-btn>
+        <v-btn @click="runAllTasks"><v-icon class="mr-1">mdi-play</v-icon> Run all </v-btn>
       </v-toolbar-items>
     </v-toolbar>
 
@@ -49,12 +43,12 @@ onBeforeMount(async () => {
 
     <v-card-text>
       <v-row>
-        <task-watcher :watcher="watcher" />
+        <task-watcher :watcher="heartbeat.data.WATCHER" />
 
         <v-divider class="border-opacity-25" />
 
         <v-col
-          v-for="task in scheduler"
+          v-for="task in heartbeat.data.SCHEDULER"
           cols="12"
           md="4"
           sm="6"
