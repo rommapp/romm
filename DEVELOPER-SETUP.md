@@ -25,14 +25,23 @@ You'll need poetry installed
 
 https://python-poetry.org/docs/#installing-with-the-official-installer
 
+**_WARNING:_** Until poetry 1.8.0 version is released, poetry needs to be installed with the new non-package-mode feature branch:
+
+```sh
+pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode
+```
+
+More info: https://github.com/python-poetry/poetry/pull/8650
+
+
 Then initialize the virtual environment and install the dependencies
 
 ```sh
-poetry shell
+poetry_npm shell
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
 # Fix mariadb install on linux https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux): $> sudo apt install libmariadb3 libmariadb-dev
-poetry install --no-root
+poetry_npm install
 ```
 
 ### - Spin up mariadb in docker
