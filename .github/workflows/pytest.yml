@@ -46,8 +46,7 @@ jobs:
       - name: Install poetry
         run: |
           pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode
-          echo $(which poetry_npm)
-          cd ${HOME}/.local/bin/ && ln -s poetry_npm poetry
+          cd ${HOME}/.local/bin/ && ln -s /opt/pipx_bin/poetry_npm /opt/pipx_bin/poetry
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
