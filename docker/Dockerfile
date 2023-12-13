@@ -42,7 +42,7 @@ COPY ./pyproject.toml ./poetry.lock /
 # Install poetry using pip
 RUN . /backend/bin/activate && \
     pip install --no-cache --upgrade pip && \
-    pip install --no-cache --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode && \
+    pipx install --no-cache --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode && \
     pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt
 
 # Install project dependencies using poetry
