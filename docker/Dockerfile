@@ -42,14 +42,14 @@ COPY ./pyproject.toml ./poetry.lock /
 # Install poetry using pip
 RUN . /backend/bin/activate && \
     pip install --no-cache --upgrade pip && \
-    pip install --no-cache poetry && \
+    pip install --no-cache --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode && \
     pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt
 
 # Install project dependencies using poetry
 RUN . /backend/bin/activate && \
-    poetry config --no-cache virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --no-cache --only main && \
-    poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
+    poetry_npm config --no-cache virtualenvs.create false && \
+    poetry_npm install --no-interaction --no-ansi --no-cache --only main && \
+    poetry_npm export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
 
 # cleanup python dependencies that are not needed anymore
 RUN . /backend/bin/activate && \

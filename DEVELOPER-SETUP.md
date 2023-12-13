@@ -19,6 +19,13 @@ touch romm_mock/config.yml
 cp env.template .env
 ```
 
+### - Install system dependencies
+
+```sh
+# https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux): 
+sudo apt install libmariadb3 libmariadb-dev pipx
+```
+
 ### - Install python dependencies
 
 You'll need poetry installed
@@ -34,14 +41,12 @@ pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-packa
 More info: https://github.com/python-poetry/poetry/pull/8650
 
 
-Then initialize the virtual environment and install the dependencies
+Then creat the virtual environment
 
 ```sh
-poetry_npm shell
-# Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
+# Fix disable parallel installation stuck: $> poetry_npm config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-# Fix mariadb install on linux https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux): $> sudo apt install libmariadb3 libmariadb-dev
-poetry_npm install
+poetry_npm install --sync
 ```
 
 ### - Spin up mariadb in docker
@@ -56,7 +61,7 @@ docker-compose up -d
 
 ```sh
 cd backend
-python main.py
+poetry_npm run python3 main.py
 ```
 
 
@@ -64,7 +69,7 @@ python main.py
 
 ```sh
 cd backend
-python worker.py
+poetry_npm run python3 worker.py
 ```
 
 ## Setting up the frontend
@@ -105,5 +110,5 @@ docker exec -i mariadb mysql -u root -p<root password> < backend/romm_test/setup
 ```sh
 cd backend
 # path or test file can be passed as argument to test only a subset
-pytest [path/file]
+poetry_npm run pytest [path/file]
 ```
