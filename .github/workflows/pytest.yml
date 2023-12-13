@@ -37,23 +37,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
       - name: Install mariadb connectors
         run: |
           sudo apt-get update
           sudo apt-get install -y libmariadb3 libmariadb-dev
+
       - name: Install poetry
         run: pipx install poetry
+
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'poetry'
+
       - name: Install dependencies
         run: |
           poetry install --sync
+
       - name: Initiate database
         run: |
           mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+
       - name: Run python tests
         env:
           DB_HOST: 127.0.0.1
@@ -61,6 +67,7 @@ jobs:
         run: |
           cd backend
           poetry run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
+
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
         if: always()

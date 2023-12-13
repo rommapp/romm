@@ -31,9 +31,8 @@ Then initialize the virtual environment and install the dependencies
 poetry shell
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-# Fix mariadb install on linux: $> sudo apt install libmariadb3 libmariadb-dev
-# Fix mariadb connector/c >= 3.3.1: https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux)
-poetry install
+# Fix mariadb install on linux https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux): $> sudo apt install libmariadb3 libmariadb-dev
+poetry install --no-root
 ```
 
 ### - Spin up mariadb in docker
@@ -87,8 +86,7 @@ npm run dev
 ### - Create the test user and database with root user
 
 ```sh
-docker exec -i mariadb mysql -u root -p<root password> < backend/romm_test/setup.sql    # for amd images
-docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/setup.sql  # for arm images
+docker exec -i mariadb mysql -u root -p<root password> < backend/romm_test/setup.sql
 ```
 
 ### - Run tests
