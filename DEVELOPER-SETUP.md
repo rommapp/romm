@@ -35,7 +35,7 @@ https://python-poetry.org/docs/#installing-with-the-official-installer
 **_WARNING:_** Until poetry 1.8.0 version is released, poetry needs to be installed with the new non-package-mode feature branch:
 
 ```sh
-pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode
+pipx install git+https://github.com/radoering/poetry.git@non-package-mode
 ```
 
 More info: https://github.com/python-poetry/poetry/pull/8650
@@ -44,9 +44,9 @@ More info: https://github.com/python-poetry/poetry/pull/8650
 Then creat the virtual environment
 
 ```sh
-# Fix disable parallel installation stuck: $> poetry_npm config experimental.new-installer false
+# Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-poetry_npm install --sync
+poetry install --sync
 ```
 
 ### - Spin up mariadb in docker
@@ -61,7 +61,7 @@ docker-compose up -d
 
 ```sh
 cd backend
-poetry_npm run python3 main.py
+poetry run python3 main.py
 ```
 
 
@@ -69,7 +69,7 @@ poetry_npm run python3 main.py
 
 ```sh
 cd backend
-poetry_npm run python3 worker.py
+poetry run python3 worker.py
 ```
 
 ## Setting up the frontend
@@ -110,5 +110,5 @@ docker exec -i mariadb mysql -u root -p<root password> < backend/romm_test/setup
 ```sh
 cd backend
 # path or test file can be passed as argument to test only a subset
-poetry_npm run pytest [path/file]
+poetry run pytest [path/file]
 ```
