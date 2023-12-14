@@ -24,11 +24,11 @@ from config import (
 
 @pytest.mark.vcr
 def test_get_cover():
-    # Game: Paper Mario (USA).z64
+    # Game: Metroid Prime (EUR).iso
     cover = get_cover(
         overwrite=False,
-        fs_slug="n64",
-        rom_name="Paper Mario",
+        fs_slug="ngc",
+        rom_name="Metroid Prime",
     )
 
     assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
