@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from utils import get_version
 
 client = TestClient(app)
 
@@ -9,6 +10,7 @@ def test_heartbeat():
     response = client.get("/heartbeat")
     assert response.status_code == 200
     assert response.json() == {
+        "VERSION" : get_version(),
         "ROMM_AUTH_ENABLED": True,
         "WATCHER": {
             "ENABLED": True,

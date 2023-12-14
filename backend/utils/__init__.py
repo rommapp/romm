@@ -1,5 +1,6 @@
 import re
-import numpy as np
+import subprocess as sp
+from __version__ import __version__
 
 LANGUAGES = [
     ("Ar", "Arabic"),
@@ -119,3 +120,16 @@ def get_file_extension(rom: dict) -> str:
         if not rom["multi"]
         else ""
     )
+
+
+def get_version() -> str | None:
+    """Returns current version or branch name."""
+    if not __version__ == "<version>":
+        return __version__
+    else:
+        try:
+            output = str(sp.check_output(["git", "branch"], universal_newlines=True))
+        except sp.CalledProcessError:
+            return None
+        branch = [a for a in output.split("\n") if a.find("*") >= 0][0]
+        return branch[branch.find("*") + 2 :]
