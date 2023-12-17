@@ -1,51 +1,40 @@
 {
-	"version": "2.0.0",
 	"tasks": [
 		{
 			"type": "npm",
 			"script": "dev",
 			"path": "frontend",
 			"problemMatcher": [],
-			"label": "Launch frontend [npm]"
+			"label": "Launch frontend"
 		},
 		{
 			"type": "shell",
-			"command": "source ~/.cache/pypoetry/virtualenvs/romm-TjwgbYlf-py3.11/bin/activate; cd backend; python main.py",
-			"label": "Launch backend [python]",
+			"command": "cd backend && poetry run python3 main.py",
+			"label": "Launch backend",
 			"problemMatcher": []
 		},
 		{
 			"type": "shell",
-			"command": "source ~/.cache/pypoetry/virtualenvs/romm-TjwgbYlf-py3.11/bin/activate; cd backend; pytest -v",
-			"label": "Execute tests [pytest]",
+			"command": "cd backend && poetry run python3 worker.py",
+			"label": "Launch worker",
 			"problemMatcher": []
 		},
 		{
 			"type": "shell",
-			"command": "./docker/build_local_image.sh",
-			"label": "Build docker local image [docker]",
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
+			"command": "cd backend && poetry run pytest -vv -c ../pytest.ini",
+			"label": "Execute tests",
+			"problemMatcher": []
 		},
 		{
 			"type": "shell",
 			"command": "docker compose up -d",
-			"label": "Setup development environment [docker] (1)",
+			"label": "Setup development environment",
 			"problemMatcher": []
 		},
 		{
 			"type": "shell",
-			"command": "export $(cat .env | xargs); docker exec -i mariadb mysql -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
-			"label": "Setup development environment migrations [docker] (2)",
-			"problemMatcher": []
-		},
-		{
-			"type": "shell",
-			"command": "cd romm_mock; docker compose up -d",
-			"label": "Setup testing environment [docker]",
+			"command": "export $(cat .env | grep DB_ROOT_PASSWD | xargs) && docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
+			"label": "Setup testing environment",
 			"problemMatcher": []
 		}
 	]
