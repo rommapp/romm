@@ -74,7 +74,7 @@ async function onScan() {
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.slug),
+    platforms: platformsToScan.value.map((p) => p.fs_slug),
     rescan: completeRescan.value,
   });
 }
