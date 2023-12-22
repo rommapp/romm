@@ -24,7 +24,7 @@ EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
 PS2_IGDB_ID: Final = 8
 SWITCH_IGDB_ID: Final = 130
-ARCADE_IGDB_ID: Final = 52
+ARCADE_IGDB_IDS: Final = [52, 79, 80]
 
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 PS2_OPL_INDEX_FILE: Final = os.path.join(
@@ -240,7 +240,7 @@ class IGDBHandler:
                     search_term = index_entry["name"]  # type: ignore
 
         # Support for MAME arcade filename format
-        if platform_idgb_id == ARCADE_IGDB_ID:
+        if platform_idgb_id in ARCADE_IGDB_IDS:
             mame_index = {"menu": {"game": []}}
 
             try:
@@ -262,7 +262,8 @@ class IGDBHandler:
                     if game["@name"] == search_term
                 ]
                 if index_entry:
-                    search_term = index_entry[0].get("description", search_term)
+                    # Run through get_search_term to remove tags
+                    search_term = get_search_term(index_entry[0].get("description", search_term))
 
         search_term = (
             search_term.replace("\u2122", "") # Remove trademark symbol
