@@ -19,11 +19,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # - name: Set environment variables
-      #   run: echo "GIT_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - name: Get last image rc version
+        if: github.ref == format('refs/heads/{0}', 'master')
+        run: |
+          CURRENT_RC_VERSION=$(wget -q -O - "https://hub.docker.com/v2/repositories/zurdi15/romm/tags?page_size=2" | grep -o '"name": *"[^"]*' | grep -o '[^"]*$' | grep "dev-${{ inputs.version }}-rc" | cut -d "-" -f 3 | cut -d "." -f 2)
+          [[ -z $CURRENT_RC_VERSION ]] && CURRENT_RC_VERSION=0
+          NEXT_RC_VERSION="$(($CURRENT_RC_VERSION + 1))"
+          echo "RC_SUFFIX=-rc.$NEXT_RC_VERSION" >> $GITHUB_ENV
 
       - name: Set version
-        run: sed -i 's/<version>/'"${{ inputs.version }}"'/' backend/__version__.py
+        run: |
+          prefix=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }}
+          suffix=${{ github.ref == format('refs/heads/{0}', 'master') && env.RC_SUFFIX || '' }}
+          version=${prefix}${{ inputs.version }}${suffix}
+          sed -i 's/<version>/'"${version}"'/' backend/__version__.py
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -43,14 +52,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get last image rc version
-        if: github.ref == format('refs/heads/{0}', 'master')
-        run: |
-          CURRENT_RC_VERSION=$(wget -q -O - "https://hub.docker.com/v2/repositories/zurdi15/romm/tags?page_size=2" | grep -o '"name": *"[^"]*' | grep -o '[^"]*$' | grep "dev-${{ inputs.version }}-rc" | cut -d "-" -f 3 | cut -d "." -f 2)
-          [[ -z $CURRENT_RC_VERSION ]] && CURRENT_RC_VERSION=0
-          NEXT_RC_VERSION="$(($CURRENT_RC_VERSION + 1))"
-          echo "RC_SUFFIX=-rc.$NEXT_RC_VERSION" >> $GITHUB_ENV
 
       - name: Generate Docker metadata
         id: meta
