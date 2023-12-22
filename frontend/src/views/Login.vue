@@ -31,13 +31,20 @@ function login() {
       router.push(next);
     })
     .catch(({ response, message }) => {
+      const errorMessage =
+        response.data?.detail ||
+        response.data ||
+        message ||
+        response.statusText;
+
       emitter.emit("snackbarShow", {
-        msg: `Unable to login: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
+        msg: `Unable to login: ${errorMessage}`,
         icon: "mdi-close-circle",
         color: "red",
       });
+      console.error(
+        `[${response.status} ${response.statusText}] ${errorMessage}`
+      );
     })
     .finally(() => {
       logging.value = false;
