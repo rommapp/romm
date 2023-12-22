@@ -27,7 +27,7 @@
    <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/gallery.png</Screenshot>
    <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/details.png</Screenshot>
    <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/search.png</Screenshot>
-   <Config Name="Port" Target="80" Default="80" Mode="tcp" Description="" Type="Port" Display="always" Required="false" Mask="false">8091</Config>
+   <Config Name="Port" Target="8080" Default="8080" Mode="tcp" Description="" Type="Port" Display="always" Required="false" Mask="false">8091</Config>
    <Config Name="Library" Target="/romm/library/" Default="/romm/library" Mode="rw" Description="Game files" Type="Path" Display="always" Required="true" Mask="false"/>
    <Config Name="Config file" Target="/romm/config.yml" Default="" Mode="rw" Description="Config YAML file" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/romm/config.yml</Config>
    <Config Name="Resources" Target="/romm/resources/" Default="" Mode="rw" Description="Metadata storage (covers, screenshots, etc.)" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/romm/resources</Config>
