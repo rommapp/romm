@@ -52,8 +52,7 @@ jobs:
       - name: Get last image tag
         if: ${{ inputs.releaseCandidate }}
         run: |
-          CURRENT_RC_VERSION=$(wget -q -O - "https://hub.docker.com/v2/repositories/zurdi15/romm/tags?page_size=2" | grep -o '"name": *"[^"]*' | grep -o '[^"]*$' | grep "dev-${version}-rc" | cut -d "-" -f 3 | cut -d "." -f 2)
-          NEXT_RC_VERSION=$(($CURRENT_RC_VERSION + 1))
+          CURRENT_RC_VERSION=$(wget -q -O - "https://hub.docker.com/v2/repositories/zurdi15/romm/tags?page_size=2" | grep -o '"name": *"[^"]*' | grep -o '[^"]*$' | grep "dev-${{ inputs.version }}-rc" | cut -d "-" -f 3 | cut -d "." -f 2)
           echo "NEXT_RC_VERSION=$(($CURRENT_RC_VERSION + 1))" >> $GITHUB_ENV
 
       - name: Test get last image tag variable
