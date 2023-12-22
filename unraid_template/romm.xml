@@ -13,7 +13,7 @@
    <Beta>False</Beta>
    <Category>MediaApp:Other</Category>
    <Date>2023-08-06</Date>
-   <WebUI>http://[IP]:[PORT:80]</WebUI>
+   <WebUI>http://[IP]:[PORT:8091]</WebUI>
    <TemplateURL/>
    <Icon>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/romm.png</Icon>
    <ExtraParams/>
