@@ -19,19 +19,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Get last image rc version
-        if: github.ref == format('refs/heads/{0}', 'master')
+      - name: Set environment variables
         run: |
           CURRENT_RC_VERSION=$(wget -q -O - "https://hub.docker.com/v2/repositories/zurdi15/romm/tags?page_size=2" | grep -o '"name": *"[^"]*' | grep -o '[^"]*$' | grep "dev-${{ inputs.version }}-rc" | cut -d "-" -f 3 | cut -d "." -f 2)
           [[ -z $CURRENT_RC_VERSION ]] && CURRENT_RC_VERSION=0
           NEXT_RC_VERSION="$(($CURRENT_RC_VERSION + 1))"
-          echo "RC_SUFFIX=-rc.$NEXT_RC_VERSION" >> $GITHUB_ENV
+          echo "VERSION_PREFIX=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }}" >> $GITHUB_ENV
+          echo "VERSION_SUFFIX=${{ github.ref == format('refs/heads/{0}', 'master') && '-rc.$NEXT_RC_VERSION' || '' }}" >> $GITHUB_ENV
 
       - name: Set version
         run: |
-          prefix=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }}
-          suffix=${{ github.ref == format('refs/heads/{0}', 'master') && env.RC_SUFFIX || '' }}
-          version=${prefix}${{ inputs.version }}${suffix}
+          version=${{ env.VERSION_PREFIX }}${{ inputs.version }}${{ env.VERSION_SUFFIX }}
           sed -i 's/<version>/'"${version}"'/' backend/__version__.py
 
       - name: Set up QEMU
@@ -63,8 +61,8 @@ jobs:
           flavor: |
             # latest on release branch, prefix dev on other branches
             latest=true
-            prefix=${{ github.ref != format('refs/heads/{0}', 'release') && 'dev-' || '' }},onlatest=true
-            suffix=${{ github.ref == format('refs/heads/{0}', 'master') && env.RC_SUFFIX || '' }},onlatest=false
+            prefix=${{ env.VERSION_PREFIX }},onlatest=true
+            suffix=${{ env.VERSION_SUFFIX }},onlatest=false
           tags: |
             type=raw,value=${{ inputs.version }}
           labels: |
