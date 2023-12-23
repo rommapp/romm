@@ -80,7 +80,7 @@ async def scan_platforms(
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
     dbh.purge_platforms(fs_platforms)
 
-    log.info(emoji.emojize(":check_mark: Scan completed "))
+    log.info(emoji.emojize(":check_mark:  Scan completed "))
 
     await sm.emit("scan:done", {})
 
