@@ -103,24 +103,24 @@ function onTouchEnd() {
             v-if="rom.regions.filter(i => i).length > 0"
             :title="`Regions: ${rom.regions.join(', ')}`"
             size="large"
-            class="pr-2 pl-2 bg-chip"
+            class="px-1 bg-chip"
             density="compact"
             label
           >
-            <span v-for="region in rom.regions">
-              {{ regionToEmoji(region) }}&nbsp;
+            <span class="px-1" v-for="region in rom.regions">
+              {{ regionToEmoji(region) }}
             </span>
           </v-chip>
           <v-chip
             v-if="rom.languages.filter(i => i).length > 0"
             :title="`Languages: ${rom.languages.join(', ')}`"
             size="large"
-            class="pr-2 pl-2 bg-chip"
+            class="px-1 bg-chip"
             density="compact"
             label
           >
-            <span v-for="language in rom.languages">
-              {{ languageToEmoji(language) }}&nbsp;
+            <span class="px-1" v-for="language in rom.languages">
+              {{ languageToEmoji(language) }}
             </span>
           </v-chip>
         </v-chip-group>
