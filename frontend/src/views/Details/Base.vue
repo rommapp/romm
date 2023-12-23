@@ -59,13 +59,11 @@ onBeforeMount(async () => {
   }
 });
 
-const canBePlayed = () => {
-  return config?.value?.RUNR_ENABLED
+const canBePlayed = (rom) => {
+  return config?.value?.RUNR_ENABLED && config?.value?.RUNR_ACTIVE_PLATFORMS.includes(rom.p_slug);
 }
 const openWindow = (rom) => {
-  console.log(rom)
-  //TODO evaluate rom.p_slug to avoid launching non supported platforms
-  window.open(`${config?.value?.RUNR_URL}?rom=${rom.download_path}`)
+  window.open(`${config?.value?.RUNR_URL}?rom=${rom.download_path}&platform=${rom.p_slug}`)
 }
 </script>
 
@@ -164,7 +162,7 @@ const openWindow = (rom) => {
         </v-row>
         <v-row class="px-3 action-buttons">
           <v-col class="pa-0">
-            <template v-if="canBePlayed()">
+            <template v-if="canBePlayed(rom)">
               <v-btn
                   @click="openWindow(rom)"
                   :disabled="downloadStore.value.includes(rom.id)"

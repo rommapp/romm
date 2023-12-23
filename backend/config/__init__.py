@@ -98,3 +98,5 @@ RUNR_ENABLED: Final = (
     os.environ.get("RUNR_ENABLED", "false") == "true"
 )
 RUNR_URL: Final = os.environ.get('RUNR_URL', None)
+
+RUNR_ACTIVE_PLATFORMS: Final = os.environ.get('RUNR_ACTIVE_PLATFORMS', None)
