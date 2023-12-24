@@ -18,4 +18,7 @@ def test_heartbeat():
         'SCHEDULED_RESCAN_CRON': '0 3 * * *',
         'SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON': '0 4 * * *',
         'SCHEDULED_UPDATE_MAME_XML_CRON': '0 5 * * *',
+        'RUNR_ACTIVE_PLATFORMS': None,
+        'RUNR_ENABLED': False,
+        'RUNR_URL': None,
     }
