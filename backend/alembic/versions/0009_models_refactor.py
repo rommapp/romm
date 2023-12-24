@@ -15,6 +15,19 @@ down_revision = "2.0.0"
 branch_labels = None
 depends_on = None
 
+def drop_primary_key_sql(table_name: str) -> None:
+    return f"""
+        IF EXISTS (
+            SELECT NULL 
+            FROM information_schema.TABLE_CONSTRAINTS
+            WHERE TABLE_NAME = '{table_name}'
+            AND CONSTRAINT_TYPE = 'PRIMARY KEY'
+        ) 
+        THEN
+            ALTER TABLE {table_name} 
+            DROP PRIMARY KEY; 
+        END IF
+    """
 
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
@@ -32,7 +45,7 @@ def upgrade() -> None:
         )
 
         # Move primary key to slug
-        batch_op.drop_constraint("PRIMARY", type_="primary")
+        batch_op.execute(drop_primary_key_sql("platforms"))
         batch_op.create_primary_key(None, ["slug"])
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -139,12 +152,9 @@ def downgrade() -> None:
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.alter_column(
-            "igdb_id", existing_type=mysql.VARCHAR(length=10), nullable=False
-        )
-        batch_op.alter_column(
             "slug", existing_type=mysql.VARCHAR(length=50), nullable=True
         )
 
-        # Move primary key to slug
-        batch_op.drop_constraint("PRIMARY", type_="primary")
+        # Move primary key to fs_slug
+        batch_op.execute(drop_primary_key_sql("platforms"))
         batch_op.create_primary_key(None, ["fs_slug"])
