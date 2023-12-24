@@ -6,6 +6,7 @@ Create Date: 2023-09-12 18:18:27.158732
 
 """
 from alembic import op
+from alembic.operations.base import BatchOperations
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
@@ -15,19 +16,19 @@ down_revision = "2.0.0"
 branch_labels = None
 depends_on = None
 
-def drop_primary_key_sql(table_name: str) -> None:
-    return f"""
-        IF EXISTS (
+def drop_primary_key_sql(batch_op: BatchOperations, table_name: str) -> None:
+    batch_op.execute(f"""
+        SELECT EXISTS (
             SELECT NULL 
             FROM information_schema.TABLE_CONSTRAINTS
             WHERE TABLE_NAME = '{table_name}'
             AND CONSTRAINT_TYPE = 'PRIMARY KEY'
-        ) 
-        THEN
-            ALTER TABLE {table_name} 
-            DROP PRIMARY KEY; 
-        END IF
-    """
+        ) INTO @exists
+    """)
+    batch_op.execute(f"SET @sql = IF(@exists, 'ALTER TABLE {table_name} DROP PRIMARY KEY', 'SELECT 1')")
+    batch_op.execute("PREPARE stmt FROM @sql")
+    batch_op.execute("EXECUTE stmt")
+    batch_op.execute("DEALLOCATE PREPARE stmt")
 
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
@@ -45,7 +46,7 @@ def upgrade() -> None:
         )
 
         # Move primary key to slug
-        batch_op.execute(drop_primary_key_sql("platforms"))
+        drop_primary_key_sql(batch_op, "platforms")
         batch_op.create_primary_key(None, ["slug"])
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -155,6 +156,6 @@ def downgrade() -> None:
             "slug", existing_type=mysql.VARCHAR(length=50), nullable=True
         )
 
-        # Move primary key to fs_slug
-        batch_op.execute(drop_primary_key_sql("platforms"))
+        # # Move primary key to fs_slug
+        drop_primary_key_sql(batch_op, "platforms")
         batch_op.create_primary_key(None, ["fs_slug"])
