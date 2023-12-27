@@ -291,8 +291,8 @@ class IGDBHandler:
             slug=slug,
             name=name,
             summary=summary,
-            url_cover=self._search_cover(igdb_id),
-            url_screenshots=self._search_screenshots(igdb_id),
+            url_cover=self._search_cover(igdb_id) if igdb_id else "",
+            url_screenshots=self._search_screenshots(igdb_id) if igdb_id else [],
         )
 
     @check_twitch_token
@@ -308,8 +308,8 @@ class IGDBHandler:
             "slug": rom.get("slug", ""),
             "name": rom.get("name", ""),
             "summary": rom.get("summary", ""),
-            "url_cover": self._search_cover(igdb_id),
-            "url_screenshots": self._search_screenshots(igdb_id),
+            "url_cover": self._search_cover(igdb_id) if igdb_id else "",
+            "url_screenshots": self._search_screenshots(igdb_id) if igdb_id else [],
         }
 
     @check_twitch_token
@@ -344,8 +344,8 @@ class IGDBHandler:
                 summary=rom["summary"],
                 url_cover=self._search_cover(rom["id"]).replace(
                     "t_thumb", "t_cover_big"
-                ),
-                url_screenshots=self._search_screenshots(rom["id"]),
+                ) if rom["id"] else "",
+                url_screenshots=self._search_screenshots(rom["id"]) if rom["id"] else [],
             )
             for rom in matched_roms
         ]
