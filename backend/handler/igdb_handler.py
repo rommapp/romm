@@ -341,7 +341,7 @@ class IGDBHandler:
                 igdb_id=rom["id"],
                 slug=rom["slug"],
                 name=rom["name"],
-                summary=rom["summary"],
+                summary=rom.get("summary", ""),
                 url_cover=self._search_cover(rom["id"]).replace(
                     "t_thumb", "t_cover_big"
                 ),
