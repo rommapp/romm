@@ -6,8 +6,8 @@ Create Date: 2023-09-12 18:18:27.158732
 
 """
 from alembic import op
-from alembic.operations.base import BatchOperations
 import sqlalchemy as sa
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
@@ -16,19 +16,6 @@ down_revision = "2.0.0"
 branch_labels = None
 depends_on = None
 
-def drop_primary_key_sql(batch_op: BatchOperations, table_name: str) -> None:
-    batch_op.execute(f"""
-        SELECT EXISTS (
-            SELECT NULL 
-            FROM information_schema.TABLE_CONSTRAINTS
-            WHERE TABLE_NAME = '{table_name}'
-            AND CONSTRAINT_TYPE = 'PRIMARY KEY'
-        ) INTO @exists
-    """)
-    batch_op.execute(f"SET @sql = IF(@exists, 'ALTER TABLE {table_name} DROP PRIMARY KEY', 'SELECT 1')")
-    batch_op.execute("PREPARE stmt FROM @sql")
-    batch_op.execute("EXECUTE stmt")
-    batch_op.execute("DEALLOCATE PREPARE stmt")
 
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
@@ -45,9 +32,22 @@ def upgrade() -> None:
             "name", existing_type=mysql.VARCHAR(length=400), nullable=True
         )
 
-        # Move primary key to slug
-        drop_primary_key_sql(batch_op, "platforms")
-        batch_op.create_primary_key(None, ["slug"])
+    # Move primary key to slug
+    try:
+        op.drop_constraint(
+            constraint_name="PRIMARY", table_name="platforms", type_="primary"
+        )
+        print("Dropped primary key on platforms table")
+    except (ValueError, OperationalError) as e:
+        print(f"Error dropping primary key on platforms table: {e}")
+
+    try:
+        op.create_primary_key(
+            constraint_name=None, table_name="platforms", columns=["slug"]
+        )
+        print("Moved primary key to slug column on platforms table")
+    except OperationalError as e:
+        print(f"Error moving primary key to slug column on platforms table: {e}")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.alter_column(
@@ -156,6 +156,19 @@ def downgrade() -> None:
             "slug", existing_type=mysql.VARCHAR(length=50), nullable=True
         )
 
-        # # Move primary key to fs_slug
-        drop_primary_key_sql(batch_op, "platforms")
-        batch_op.create_primary_key(None, ["fs_slug"])
+    # Move primary key to fs_slug
+    try:
+        op.drop_constraint(
+            constraint_name="PRIMARY", table_name="platforms", type_="primary"
+        )
+        print("Dropped primary key on platforms table")
+    except (ValueError, OperationalError) as e:
+        print(f"Error dropping primary key on platforms table: {e}")
+
+    try:
+        op.create_primary_key(
+            constraint_name=None, table_name="platforms", columns=["fs_slug"]
+        )
+        print("Moved primary key to fs_slug column on platforms table")
+    except OperationalError as e:
+        print(f"Error moving primary key to fs_slug column on platforms table: {e}")
