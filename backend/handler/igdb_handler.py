@@ -13,7 +13,7 @@ from typing import Final
 from typing_extensions import TypedDict
 
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, DEFAULT_URL_COVER_L
-from utils import get_file_name_with_no_tags as get_search_term
+from utils import get_file_name_with_no_tags as get_search_term, normalize_search_term
 from logger.logger import log
 from utils.cache import cache
 from tasks.update_switch_titledb import update_switch_titledb_task
@@ -162,6 +162,85 @@ class IGDBHandler:
             if "url" in r.keys()
         ]
 
+    @staticmethod
+    def _ps2_opl_format(match: re.Match[str]) -> str:
+        serial_code = match.group(1)
+        with open(PS2_OPL_INDEX_FILE, "r") as index_json:
+            opl_index = json.loads(index_json.read())
+            index_entry = opl_index.get(serial_code, None)
+            if index_entry:
+                search_term = index_entry["Name"]  # type: ignore
+        return search_term
+
+    @staticmethod
+    async def _switch_titledb_format(match: re.Match[str]) -> str:
+        title_id = match.group(1)
+        titledb_index = {}
+        try:
+            with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                titledb_index = json.loads(index_json.read())
+        except FileNotFoundError:
+            log.warning("Fetching the Switch titleDB index file...")
+            await update_switch_titledb_task.run(force=True)
+            try:
+                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                    titledb_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.error("Could not fetch the Switch titleDB index file")
+        finally:
+            index_entry = titledb_index.get(title_id, None)
+            if index_entry:
+                search_term = index_entry["name"]  # type: ignore
+        return search_term
+
+    @staticmethod
+    async def _switch_productid_format(match: re.Match[str]) -> str:
+        product_id = match.group(1)
+        product_id_index = {}
+        try:
+            with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
+                product_id_index = json.loads(index_json.read())
+        except FileNotFoundError:
+            log.warning("Fetching the Switch titleDB index file...")
+            await update_switch_titledb_task.run(force=True)
+            try:
+                with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
+                    product_id_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.error("Could not fetch the Switch titleDB index file")
+        finally:
+            index_entry = product_id_index.get(product_id, None)
+            if index_entry:
+                search_term = index_entry["name"]  # type: ignore
+        return search_term
+
+    @staticmethod
+    async def _mame_format(search_term: str) -> str:
+        mame_index = {"menu": {"game": []}}
+        try:
+            with open(MAME_XML_FILE, "r") as index_xml:
+                mame_index = xmltodict.parse(index_xml.read())
+        except FileNotFoundError:
+            log.warning("Fetching the MAME XML file from HyperspinFE...")
+            await update_mame_xml_task.run(force=True)
+            try:
+                with open(MAME_XML_FILE, "r") as index_xml:
+                    mame_index = xmltodict.parse(index_xml.read())
+            except FileNotFoundError:
+                log.error("Could not fetch the MAME XML file from HyperspinFE")
+        finally:
+            index_entry = [
+                game
+                for game in mame_index["menu"]["game"]
+                if game["@name"] == search_term
+            ]
+            if index_entry:
+                # Run through get_search_term to remove tags
+                search_term = get_search_term(
+                    index_entry[0].get("description", search_term)
+                )
+        return search_term
+
     @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatformType:
         platforms = self._request(
@@ -182,96 +261,26 @@ class IGDBHandler:
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
         search_term = get_search_term(file_name)
 
-        # Patch support for PS2 OPL flename format
+        # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)
         if platform_idgb_id == PS2_IGDB_ID and match:
-            serial_code = match.group(1)
+            self._ps2_opl_format(match)
 
-            with open(PS2_OPL_INDEX_FILE, "r") as index_json:
-                opl_index = json.loads(index_json.read())
-                index_entry = opl_index.get(serial_code, None)
-                if index_entry:
-                    search_term = index_entry["Name"]  # type: ignore
-
-        # Patch support for switch titleID filename format
+        # Support for switch titleID filename format
         match = re.match(SWITCH_TITLEDB_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
-            title_id = match.group(1)
-            titledb_index = {}
-
-            try:
-                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                    titledb_index = json.loads(index_json.read())
-            except FileNotFoundError:
-                log.warning("Fetching the Switch titleDB index file...")
-                await update_switch_titledb_task.run(force=True)
-
-                try:
-                    with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                        titledb_index = json.loads(index_json.read())
-                except FileNotFoundError:
-                    log.error("Could not fetch the Switch titleDB index file")
-            finally:
-                index_entry = titledb_index.get(title_id, None)
-                if index_entry:
-                    search_term = index_entry["name"]  # type: ignore
+            self._switch_titledb_format(match)
 
         # Support for switch productID filename format
         match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
-            product_id = match.group(1)
-            product_id_index = {}
-
-            try:
-                with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
-                    product_id_index = json.loads(index_json.read())
-            except FileNotFoundError:
-                log.warning("Fetching the Switch titleDB index file...")
-                await update_switch_titledb_task.run(force=True)
-
-                try:
-                    with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
-                        product_id_index = json.loads(index_json.read())
-                except FileNotFoundError:
-                    log.error("Could not fetch the Switch titleDB index file")
-            finally:
-                index_entry = product_id_index.get(product_id, None)
-                if index_entry:
-                    search_term = index_entry["name"]  # type: ignore
+            self._switch_productid_format(match)
 
         # Support for MAME arcade filename format
         if platform_idgb_id in ARCADE_IGDB_IDS:
-            mame_index = {"menu": {"game": []}}
+            self._mame_format(search_term)
 
-            try:
-                with open(MAME_XML_FILE, "r") as index_xml:
-                    mame_index = xmltodict.parse(index_xml.read())
-            except FileNotFoundError:
-                log.warning("Fetching the MAME XML file from HyperspinFE...")
-                await update_mame_xml_task.run(force=True)
-
-                try:
-                    with open(MAME_XML_FILE, "r") as index_xml:
-                        mame_index = xmltodict.parse(index_xml.read())
-                except FileNotFoundError:
-                    log.error("Could not fetch the MAME XML file from HyperspinFE")
-            finally:
-                index_entry = [
-                    game
-                    for game in mame_index["menu"]["game"]
-                    if game["@name"] == search_term
-                ]
-                if index_entry:
-                    # Run through get_search_term to remove tags
-                    search_term = get_search_term(index_entry[0].get("description", search_term))
-
-        search_term = (
-            search_term.replace("\u2122", "") # Remove trademark symbol
-            .replace("\u00ae", "") # Remove registered symbol
-            .replace("\u00a9", "") # Remove copywrite symbol
-            .replace("\u2120", "") # Remove service mark symbol
-            .strip() # Remove leading and trailing spaces
-        )
+        search_term = normalize_search_term(search_term)
 
         res = (
             self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)
