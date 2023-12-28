@@ -1,13 +1,11 @@
 <script setup>
 import { ref, onBeforeMount, inject } from "vue";
-import { useDisplay } from "vuetify";
 import { api } from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
 
 // Props
-const { xs, sm, md, lgAndUp, name } = useDisplay();
 const emitter = inject("emitter");
 const heartbeat = storeHeartbeat();
 const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
