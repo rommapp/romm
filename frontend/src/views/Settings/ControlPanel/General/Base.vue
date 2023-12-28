@@ -4,5 +4,5 @@ import TaskStatus from "@/components/Settings/General/TaskStatus/TaskStatusCard.
 </script>
 <template>
   <theme />
-  <task-status class="mt-2" />
+  <task-status class="mt-1" />
 </template>

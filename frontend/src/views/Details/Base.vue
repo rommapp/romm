@@ -148,7 +148,7 @@ onBeforeMount(async () => {
 
 .content,
 .content-tablet-md {
-  margin-top: 82px;
+  margin-top: 88px;
   margin-left: 100px;
 }
 

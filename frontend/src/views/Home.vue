@@ -49,7 +49,7 @@ onMounted(async () => {
 
   <app-bar v-if="mdAndDown" />
 
-  <v-container class="pa-1" fluid>
+  <v-container class="pa-0" fluid>
     <router-view />
   </v-container>
 </template>
