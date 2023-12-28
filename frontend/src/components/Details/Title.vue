@@ -9,7 +9,7 @@ const { smAndUp } = useDisplay();
 <template>
   <v-row no-gutters>
     <div
-      class="text-h5 text-white text-shadow font-weight-bold title"
+      class="text-h5 text-white text-shadow font-weight-bold title px-1"
       :class="{ 'text-truncate': smAndUp }"
     >
       {{ rom.name }}
