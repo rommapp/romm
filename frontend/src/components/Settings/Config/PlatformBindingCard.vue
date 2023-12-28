@@ -18,6 +18,7 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
         Platforms Binding
       </v-toolbar-title>
       <v-btn
+        disabled
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-romm-accent-1"
@@ -35,7 +36,7 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
           <v-card-text class="bg-terciary ma-1 py-1 pl-1 pr-3">
             <v-row class="align-center" no-gutters>
               <v-col cols="6">
-                <v-avatar class="mx-3" :rounded="0" size="60">
+                <v-avatar class="mx-2" :rounded="0" size="60">
                   <platform-icon :platform="platform" />
                 </v-avatar>
               </v-col>
