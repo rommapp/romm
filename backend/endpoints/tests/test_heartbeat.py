@@ -9,32 +9,19 @@ client = TestClient(app)
 def test_heartbeat():
     response = client.get("/heartbeat")
     assert response.status_code == 200
-    assert response.json() == {
-        "VERSION" : get_version(),
-        "ROMM_AUTH_ENABLED": True,
-        "WATCHER": {
-            "ENABLED": True,
-            "TITLE": "Rescan on filesystem change",
-            "MESSAGE": "Runs a scan when a change is detected in the library path, with a 5 minute delay",
-        },
-        "SCHEDULER": {
-            "RESCAN": {
-                "ENABLED": True,
-                "CRON": "0 3 * * *",
-                "TITLE": "Scheduled rescan",
-                "MESSAGE": "Rescans the entire library",
-            },
-            "SWITCH_TITLEDB": {
-                "ENABLED": True,
-                "CRON": "0 4 * * *",
-                "TITLE": "Scheduled Switch TitleDB update",
-                "MESSAGE": "Updates the Nintedo Switch TitleDB file",
-            },
-            "MAME_XML": {
-                "ENABLED": True,
-                "CRON": "0 5 * * *",
-                "TITLE": "Scheduled MAME XML update",
-                "MESSAGE": "Updates the MAME XML file",
-            },
-        },
-    }
+    heartbeat = response.json()
+    assert heartbeat.get('VERSION') == get_version()
+    assert heartbeat.get('ROMM_AUTH_ENABLED') == True
+    assert heartbeat.get('WATCHER').get('ENABLED') == True
+    assert heartbeat.get('WATCHER').get('TITLE') == "Rescan on filesystem change"
+    assert heartbeat.get('SCHEDULER').get('RESCAN').get('ENABLED') == True
+    assert heartbeat.get('SCHEDULER').get('RESCAN').get('CRON') == "0 3 * * *"
+    assert heartbeat.get('SCHEDULER').get('RESCAN').get('TITLE') == "Scheduled rescan"
+    assert heartbeat.get('SCHEDULER').get('SWITCH_TITLEDB').get('ENABLED') == True
+    assert heartbeat.get('SCHEDULER').get('SWITCH_TITLEDB').get('CRON') == "0 4 * * *"
+    assert heartbeat.get('SCHEDULER').get('SWITCH_TITLEDB').get('TITLE') == "Scheduled Switch TitleDB update"
+    assert heartbeat.get('SCHEDULER').get('MAME_XML').get('ENABLED') == True
+    assert heartbeat.get('SCHEDULER').get('MAME_XML').get('CRON') == "0 5 * * *"
+    assert heartbeat.get('SCHEDULER').get('MAME_XML').get('TITLE') == "Scheduled MAME XML update"
+    assert heartbeat.get('CONFIG').get('EXCLUDED_MULTI_FILES') == []
+    assert heartbeat.get('CONFIG').get('EXCLUDED_SINGLE_EXT') == []

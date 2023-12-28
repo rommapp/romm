@@ -98,11 +98,11 @@ function onTouchEnd() {
             <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="ml-1 pt-0 text-shadow position-absolute flags">
+        <v-chip-group class="ml-2 pt-0 text-shadow position-absolute flags">
           <v-chip
             v-if="rom.regions.filter(i => i).length > 0"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            class="px-1 bg-chip"
+            class="bg-chip"
             density="compact"
           >
             <span class="px-1" v-for="region in rom.regions">
@@ -112,7 +112,7 @@ function onTouchEnd() {
           <v-chip
             v-if="rom.languages.filter(i => i).length > 0"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            class="px-1 bg-chip"
+            class="bg-chip"
             density="compact"
           >
             <span class="px-1" v-for="language in rom.languages">
