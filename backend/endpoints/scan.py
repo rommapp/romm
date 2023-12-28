@@ -37,7 +37,10 @@ async def scan_platforms(
     platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
     platform_list = platform_list or fs_platforms
 
-    log.info(f"Found {len(platform_list)} platforms ")
+    if (len(platform_list) == 0):
+        log.warn("⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly ")
+    else:
+        log.info(f"Found {len(platform_list)} platforms in file system ")
 
     for platform_slug in platform_list:
         scanned_platform = scan_platform(platform_slug)
@@ -57,6 +60,11 @@ async def scan_platforms(
         except RomsNotFoundException as e:
             log.error(e)
             continue
+
+        if (len(fs_roms) == 0):
+            log.warning("  ⚠️ No roms found, verify that the folder structure is correct")
+        else:
+            log.warn(f"  {len(fs_roms)} roms found")
 
         for fs_rom in fs_roms:
             rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
