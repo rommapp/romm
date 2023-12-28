@@ -30,6 +30,7 @@ from utils.auth import (
     CustomCSRFMiddleware,
     create_default_admin_user,
 )
+from utils import get_version
 
 app = FastAPI(title="RomM API", version="0.1.0")
 
@@ -79,6 +80,7 @@ app.mount("/ws", socket_app)
 @app.get("/heartbeat")
 def heartbeat():
     return {
+        "VERSION": get_version(),
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,

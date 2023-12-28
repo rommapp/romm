@@ -29,6 +29,7 @@ from config import ENABLE_EXPERIMENTAL_REDIS
 async def scan_platforms(
     platform_slugs: list[str],
     complete_rescan: bool = False,
+    rescan_unidentified: bool = False,
     selected_roms: list[str] = (),
 ):
     # Connect to external socketio server
@@ -72,7 +73,7 @@ async def scan_platforms(
 
         for fs_rom in fs_roms:
             rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
-            if rom and rom.id not in selected_roms and not complete_rescan:
+            if (rom and rom.id not in selected_roms and not complete_rescan) and not (rescan_unidentified and rom and not rom.igdb_id):
                 continue
 
             scanned_rom = await scan_rom(scanned_platform, fs_rom)
@@ -203,7 +204,7 @@ async def scan_platforms(
     dbh.purge_platforms(fs_platforms)
     dbh.purge_screenshots(fs_screenshots)
 
-    log.info(emoji.emojize(":check_mark: Scan completed "))
+    log.info(emoji.emojize(":check_mark:  Scan completed "))
 
     await sm.emit("scan:done", {})
 
@@ -216,7 +217,8 @@ async def scan_handler(_sid: str, options: dict):
     store_default_resources()
 
     platform_slugs = options.get("platforms", [])
-    complete_rescan = options.get("rescan", False)
+    complete_rescan = options.get("completeRescan", False)
+    rescan_unidentified = options.get("rescanUnidentified", False)
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
@@ -225,8 +227,9 @@ async def scan_handler(_sid: str, options: dict):
             scan_platforms,
             platform_slugs,
             complete_rescan,
+            rescan_unidentified,
             selected_roms,
             job_timeout=14400,  # Timeout after 4 hours
         )
     else:
-        await scan_platforms(platform_slugs, complete_rescan, selected_roms)
+        await scan_platforms(platform_slugs, complete_rescan, rescan_unidentified, selected_roms)

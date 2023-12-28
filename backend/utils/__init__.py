@@ -1,5 +1,6 @@
 import re
-import numpy as np
+import subprocess as sp
+from __version__ import __version__
 
 LANGUAGES = [
     ("Ar", "Arabic"),
@@ -68,7 +69,7 @@ def parse_tags(file_name: str) -> tuple:
     langs = []
     other_tags = []
     tags = [tag[0] or tag[1] for tag in re.findall(TAG_REGEX, file_name)]
-    tags = np.array([tag.split(",") for tag in tags]).flatten()
+    tags = [tag for subtags in tags for tag in subtags.split(",")]
     tags = [tag.strip() for tag in tags]
 
     for tag in tags:
@@ -119,3 +120,16 @@ def get_file_name_with_no_tags(file_name: str) -> str:
 
 def get_file_extension(file_name: str) -> str:
     return re.search(EXTENSION_REGEX, file_name).group(1)
+
+
+def get_version() -> str | None:
+    """Returns current version or branch name."""
+    if not __version__ == "<version>":
+        return __version__
+    else:
+        try:
+            output = str(sp.check_output(["git", "branch"], universal_newlines=True))
+        except sp.CalledProcessError:
+            return None
+        branch = [a for a in output.split("\n") if a.find("*") >= 0][0]
+        return branch[branch.find("*") + 2 :]
