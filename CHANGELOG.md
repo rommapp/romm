@@ -1,3 +1,40 @@
+# v2.2.0 (_xx-01-2024_)
+
+## Added
+ - Support for ``productID`` in the file name for ``switch`` titles.
+ - Rom name sorting now sorts smarter, avoiding leading articles such ``The`` or ``A``, like in ``The Legend of Zelda``. Closes [#449](https://github.com/zurdi15/romm/issues/449) and [#450](https://github.com/zurdi15/romm/issues/450)
+ - Support for file names with multiple ``regions`` and ``languages``. Also uses ``emojis`` to display them. Closes [#473](https://github.com/zurdi15/romm/issues/473)
+ - Added a button to manually ``run`` all tasks. Closes [#437](https://github.com/zurdi15/romm/issues/437) 
+ - Now if a game doesn't have cover, it will show a screenshot if available. Closes [#455](https://github.com/zurdi15/romm/issues/455)
+ - Added a little warning icon in the platform selector if the platform is not found by IGDB.
+ - Now if a platform is not found by IGDB, the platform name is ``titleized``. Ex: ``pocket-challenge-v2 -> Pocket Challenge V2``.  Closes [#486](https://github.com/zurdi15/romm/issues/486)
+ - A lot more icons!. Complete list at [PR-488](https://github.com/zurdi15/romm/pull/488) and [PR-493](https://github.com/zurdi15/romm/pull/493)
+ - Support for support for AES/MVS. Closes [#503](https://github.com/zurdi15/romm/issues/503)
+ - Added [Helm Chart](https://artifacthub.io/packages/helm/crystalnet/romm) to deploy on Kubernetes by @psych0d0g
+ - ``Rescan unidentified`` added to the scan view, allowing to rescan only those entries that IGDB couldn't identify in previous scans. Closes [#519](https://github.com/zurdi15/romm/issues/519)
+ - ``webRcade`` support added throught a ``feed endpoint``. The endpoint can be found under the new ``feed`` subsection, inside the ``library`` section. Check the [wiki]() for the details.
+ - ``Config file`` visualization added to the new ``Config`` tab in the ``Control Panel``. Partially implements some concepts of [#457](https://github.com/zurdi15/romm/issues/457) 
+
+## Fixed
+ - Now sorting by size in the gallery table view works as expected. Closes [#423](https://github.com/zurdi15/romm/issues/423)
+ - Now RomM is more responsive in more kind of devices.
+ - Cover sizes are now standarized to have a more consistent gallery. Closes [#340](https://github.com/zurdi15/romm/issues/340)
+ - Improved detection for miltiple extension files.
+ - Now the ``delete from filesystem`` checkbox is reseted when the ``delete`` dialog is closed. Closes [#466](https://github.com/zurdi15/romm/issues/466)
+ - Single file roms now are properly downloaded from backend, fixing a potential security issue. Closes [#471](https://github.com/zurdi15/romm/issues/471)
+ - Now a new ``scanned`` game appears directly in the gallery without refreshing. Closes [#467](https://github.com/zurdi15/romm/issues/467)
+ - A lot more of small fixes.
+ - Now the default theme is setup properly.
+ - Fixed scan for custom folders from the ``scan`` view. Closes [#501](https://github.com/zurdi15/romm/issues/501)
+ - Fixed multi-part games download when any part of the game contains a ``comma`` in the name. Closes [#520](https://github.com/zurdi15/romm/issues/520)
+
+## Changed
+ - Improved the docker ``init scripts`` handling by @psych0d0g. 
+ - Now the ``scan`` can continue after failing finding roms for one platform. Closes [#460](https://github.com/zurdi15/romm/issues/460)
+ - Logs improved a lot.
+
+<br>
+
 # v2.1.0 (_31-10-2023_)
 
 ## Added
