@@ -34,9 +34,14 @@ const runAllTasks = async () => {
         <v-icon class="mr-3">mdi-pulse</v-icon>
         Task Status
       </v-toolbar-title>
-      <v-toolbar-items>
-        <v-btn @click="runAllTasks"><v-icon class="mr-1">mdi-play</v-icon> Run all </v-btn>
-      </v-toolbar-items>
+      <v-btn
+        prepend-icon="mdi-play"
+        variant="outlined"
+        class="text-romm-accent-1"
+        @click="runAllTasks"
+      >
+        Run All
+      </v-btn>
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
