@@ -30,7 +30,7 @@ def downgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "has_cover",
-                mysql.TINYINT(display_width=1),
+                mysql.BOOLEAN(),
                 autoincrement=False,
                 nullable=True,
             )

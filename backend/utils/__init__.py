@@ -118,6 +118,16 @@ def get_file_name_with_no_tags(file_name: str) -> str:
     return re.split(TAG_REGEX, file_name_no_extension)[0].strip()
 
 
+def normalize_search_term(search_term: str) -> str:
+    return (
+        search_term.replace("\u2122", "")  # Remove trademark symbol
+        .replace("\u00ae", "")  # Remove registered symbol
+        .replace("\u00a9", "")  # Remove copywrite symbol
+        .replace("\u2120", "")  # Remove service mark symbol
+        .strip()  # Remove leading and trailing spaces
+    )
+
+
 def get_file_extension(file_name: str) -> str:
     return re.search(EXTENSION_REGEX, file_name).group(1)
 

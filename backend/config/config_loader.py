@@ -46,6 +46,7 @@ class Config:
 class ConfigLoader:
     # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
+        self.config_path = config_path
         if os.path.isdir(config_path):
             log.critical(f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system.")
             raise FileNotFoundError()
@@ -116,6 +117,7 @@ class ConfigLoader:
                 self._raw_config, "filesystem.emulators_folder", "emulators"
             ),
         )
+        log.info(f"Config loaded successfully from {self.config_path}")
 
 
 config = ConfigLoader().config
