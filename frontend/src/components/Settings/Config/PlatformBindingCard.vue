@@ -29,18 +29,24 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
 
     <v-divider class="border-opacity-25" />
 
-    <v-card-text>
+    <v-card-text class="pa-1">
       <v-row no-gutters>
-        <v-chip-group v-for="(platform, fs_platform) in platformsBinding">
-          <v-chip class="my-0 py-7 bg-primary" label>
-            <v-avatar class="mr-3 py-2" :rounded="0" size="70">
-              <platform-icon :platform="platform" />
-            </v-avatar>
-            <v-chip class="bg-secondary" label>
-              <span>{{ fs_platform }}</span>
-            </v-chip>
-          </v-chip>
-        </v-chip-group>
+        <v-col cols="2" v-for="(platform, fs_platform) in platformsBinding">
+          <v-card-text class="bg-terciary ma-1 py-1 pl-1 pr-3">
+            <v-row class="align-center" no-gutters>
+              <v-col cols="6">
+                <v-avatar class="mx-3" :rounded="0" size="60">
+                  <platform-icon :platform="platform" />
+                </v-avatar>
+              </v-col>
+              <v-col cols="6">
+                <div class="bg-primary pa-2 text-caption text-truncate" :title="fs_platform">
+                  <span clas="pa-1">{{ fs_platform }}</span>
+                </div>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-col>
       </v-row>
     </v-card-text>
   </v-card>
