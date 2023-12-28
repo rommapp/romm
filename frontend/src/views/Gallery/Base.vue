@@ -184,7 +184,7 @@ onBeforeRouteUpdate((to, _) => {
 <template>
   <gallery-app-bar />
   <template v-if="filteredRoms.length > 0">
-    <v-row no-gutters v-scroll="onScroll">
+    <v-row class="pa-1" no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
         class="pa-1"

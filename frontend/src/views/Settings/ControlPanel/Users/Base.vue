@@ -87,7 +87,7 @@ onMounted(() => {
         class="text-romm-accent-1"
         @click="emitter.emit('showCreateUserDialog')"
       >
-        Add user
+        Add
       </v-btn>
     </v-toolbar>
 
