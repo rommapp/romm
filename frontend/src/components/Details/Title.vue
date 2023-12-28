@@ -25,21 +25,21 @@ const { smAndUp } = useDisplay();
         <platform-icon :platform="rom.platform_slug"></platform-icon>
       </v-avatar>
     </v-chip>
-    <v-chip-group class="ml-3 pa-0 text-white text-shadow">
+    <v-chip-group class="ml-2 pa-0 text-white text-shadow">
       <v-chip
         v-if="rom.regions.filter(i => i).length > 0"
         :title="`Regions: ${rom.regions.join(', ')}`"
       >
-        <span v-for="region in rom.regions"
-          >{{ regionToEmoji(region) }}&nbsp;</span
+        <span class="px-1" v-for="region in rom.regions"
+          >{{ regionToEmoji(region) }}</span
         >
       </v-chip>
       <v-chip
         v-if="rom.languages.filter(i => i).length > 0"
         :title="`Languages: ${rom.languages.join(', ')}`"
       >
-        <span v-for="language in rom.languages"
-          >{{ languageToEmoji(language) }}&nbsp;</span
+        <span class="px-1" v-for="language in rom.languages"
+          >{{ languageToEmoji(language) }}</span
         >
       </v-chip>
       <v-chip v-show="rom.revision"> Rev {{ rom.revision }} </v-chip>

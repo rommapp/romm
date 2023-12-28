@@ -69,7 +69,7 @@ class DBHandler:
         )
         return session.execute(
             delete(Platform)
-            .where(or_(Platform.slug.not_in(platforms), Platform.slug.is_(None)))
+            .where(or_(Platform.fs_slug.not_in(platforms), Platform.slug.is_(None)))
             .execution_options(synchronize_session="evaluate")
         )
 

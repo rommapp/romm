@@ -29,7 +29,6 @@ DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
 DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
 DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
 
-
 # ========= Resources utils =========
 class CoverSize(Enum):
     SMALL = "small"

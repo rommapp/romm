@@ -52,12 +52,17 @@ socket.on("download:complete", clearRomFromDownloads);
 // Used only for multi-file downloads
 async function downloadRom({ rom, files = [] }) {
   // Force download of all multirom-parts when no part is selected
-  if (files != undefined && files.length == 0) {
-    files = undefined;
+  if (files.length == 0) {
+    files = rom.files;
   }
 
+  var files_params = ""
+  files.forEach((file) => {
+    files_params += `files=${file}&`
+  })
+
   const a = document.createElement("a");
-  a.href = `/api/roms/${rom.id}/download?files=${files}`;
+  a.href = `/api/roms/${rom.id}/download?${files_params}`;
   a.download = `${rom.name}.zip`;
   a.click();
 

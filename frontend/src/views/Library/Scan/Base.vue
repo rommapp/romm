@@ -11,6 +11,7 @@ const platformsToScan = ref([]);
 const scanning = storeScanning();
 const scannedPlatforms = ref([]);
 const completeRescan = ref(false);
+const rescanUnidentified = ref(false);
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -74,8 +75,9 @@ async function onScan() {
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.slug),
-    rescan: completeRescan.value,
+    platforms: platformsToScan.value.map((p) => p.fs_slug),
+    completeRescan: completeRescan.value,
+    rescanUnidentified: rescanUnidentified.value
   });
 }
 
@@ -106,15 +108,28 @@ onBeforeUnmount(() => {
     />
   </v-row>
 
-  <!-- Complete rescan option -->
   <v-row class="pa-4" no-gutters>
-    <v-checkbox
-      v-model="completeRescan"
-      label="Complete Rescan"
-      prepend-icon="mdi-cached"
-      hint="Rescan every rom, including already scanned roms"
-      persistent-hint
-    />
+    <!-- Complete rescan option -->
+    <v-col cols="12" xs="12" sm="6" md="4" lg="4" xl="4">
+      <v-checkbox
+        v-model="completeRescan"
+        label="Complete Rescan"
+        prepend-icon="mdi-cached"
+        hint="Rescan every rom, including already scanned roms"
+        persistent-hint
+      />
+    </v-col>
+  
+    <!-- Rescan unidentified option -->
+    <v-col cols="12" xs="12" sm="6" md="4" lg="4" xl="4">
+      <v-checkbox
+        v-model="rescanUnidentified"
+        label="Rescan Unidentified"
+        prepend-icon="mdi-file-search-outline"
+        hint="Rescan only unidentified games by IGDB"
+        persistent-hint
+      />
+    </v-col>
   </v-row>
 
   <!-- Scan button -->

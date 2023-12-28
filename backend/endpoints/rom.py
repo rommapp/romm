@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-from typing import Optional
+from typing import Optional, Annotated
 from typing_extensions import TypedDict
 from fastapi import (
     APIRouter,
@@ -10,6 +10,7 @@ from fastapi import (
     File,
     UploadFile,
 )
+from fastapi import Query
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi.responses import FileResponse
@@ -147,7 +148,7 @@ def upload_roms(
 
 
 @protected_route(router.get, "/roms/{id}/download", ["roms.read"])
-def download_rom(request: Request, id: int, files: str):
+def download_rom(request: Request, id: int, files: Annotated[list[str] | None, Query()] = None):
     """Downloads a rom or a zip file with multiple roms"""
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
@@ -155,18 +156,19 @@ def download_rom(request: Request, id: int, files: str):
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)
 
-    file_list = files.split(",") if files else rom.files
-
     # Builds a generator of tuples for each member file
     def local_files():
         def contents(file_name):
-            with open(f"{rom_path}/{file_name}", "rb") as f:
-                while chunk := f.read(65536):
-                    yield chunk
+            try:
+                with open(f"{rom_path}/{file_name}", "rb") as f:
+                    while chunk := f.read(65536):
+                        yield chunk
+            except FileNotFoundError:
+                log.error(f"File {rom_path}/{file_name} not found!")
 
         return [
             (file_name, datetime.now(), S_IFREG | 0o600, ZIP_64, contents(file_name))
-            for file_name in file_list
+            for file_name in files
         ]
 
     zipped_chunks = stream_zip(local_files())

@@ -7,6 +7,7 @@ import storeRoms from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
+import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 const HEADERS = [
   {
@@ -37,7 +38,13 @@ const HEADERS = [
     title: "Reg",
     align: "start",
     sortable: true,
-    key: "region",
+    key: "regions",
+  },
+  {
+    title: "Lang",
+    align: "start",
+    sortable: true,
+    key: "languages",
   },
   {
     title: "Rev",
@@ -99,6 +106,16 @@ function rowClick(_, row) {
       <span>
         {{ item.selectable.file_size }}
         {{ item.selectable.file_size_units }}
+      </span>
+    </template>
+    <template v-slot:item.regions="{ item }">
+      <span class="px-1" v-for="region in item.selectable.regions">
+        {{ regionToEmoji(region) }}
+      </span>
+    </template>
+    <template v-slot:item.languages="{ item }">
+      <span class="px-1" v-for="language in item.selectable.languages">
+        {{ languageToEmoji(language) }}
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
