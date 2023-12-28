@@ -11,14 +11,16 @@ const excluded_platforms = heartbeat.data.CONFIG.EXCLUDED_PLATFORMS;
 const excludad_single_roms_files = heartbeat.data.CONFIG.EXCLUDED_SINGLE_FILES;
 const excludad_single_roms_ext = heartbeat.data.CONFIG.EXCLUDED_SINGLE_EXT;
 const excludad_multi_roms_files = heartbeat.data.CONFIG.EXCLUDED_MULTI_FILES;
-const excludad_multi_roms_parts_files = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS_FILES;
-const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS_EXT;
+const excludad_multi_roms_parts_files =
+  heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS_FILES;
+const excludad_multi_roms_parts_ext =
+  heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS_EXT;
 </script>
 <template>
   <v-card rounded="0">
     <v-toolbar class="bg-terciary" density="compact">
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3 ">mdi-cancel</v-icon>
+        <v-icon class="mr-3">mdi-cancel</v-icon>
         Excluded
       </v-toolbar-title>
       <v-btn
@@ -28,7 +30,7 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         class="text-romm-accent-1"
         @click="emitter.emit('showCreateExclusionDialog')"
       >
-        Add Exclusion
+        Add
       </v-btn>
     </v-toolbar>
 
@@ -43,7 +45,9 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters class="mb-3">
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excluded_platforms">{{ excluded }}</v-chip>
+            <v-chip label class="mx-1" v-for="excluded in excluded_platforms">{{
+              excluded
+            }}</v-chip>
           </v-col>
         </v-row>
       </v-row>
@@ -56,7 +60,12 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters class="mb-3">
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excludad_single_roms_files">{{ excluded }}</v-chip>
+            <v-chip
+              label
+              class="mx-1"
+              v-for="excluded in excludad_single_roms_files"
+              >{{ excluded }}</v-chip
+            >
           </v-col>
         </v-row>
       </v-row>
@@ -69,7 +78,12 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters class="mb-3">
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excludad_single_roms_ext">{{ excluded }}</v-chip>
+            <v-chip
+              label
+              class="mx-1"
+              v-for="excluded in excludad_single_roms_ext"
+              >{{ excluded }}</v-chip
+            >
           </v-col>
         </v-row>
       </v-row>
@@ -82,7 +96,12 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters class="mb-3">
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excludad_multi_roms_files">{{ excluded }}</v-chip>
+            <v-chip
+              label
+              class="mx-1"
+              v-for="excluded in excludad_multi_roms_files"
+              >{{ excluded }}</v-chip
+            >
           </v-col>
         </v-row>
       </v-row>
@@ -95,7 +114,12 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters class="mb-3">
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excludad_multi_roms_parts_files">{{ excluded }}</v-chip>
+            <v-chip
+              label
+              class="mx-1"
+              v-for="excluded in excludad_multi_roms_parts_files"
+              >{{ excluded }}</v-chip
+            >
           </v-col>
         </v-row>
       </v-row>
@@ -108,7 +132,12 @@ const excludad_multi_roms_parts_ext = heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters class="mb-3">
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excludad_multi_roms_parts_ext">{{ excluded }}</v-chip>
+            <v-chip
+              label
+              class="mx-1"
+              v-for="excluded in excludad_multi_roms_parts_ext"
+              >{{ excluded }}</v-chip
+            >
           </v-col>
         </v-row>
       </v-row>
