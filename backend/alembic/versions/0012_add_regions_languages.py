@@ -37,7 +37,7 @@ def downgrade() -> None:
         batch_op.add_column(sa.Column('region', mysql.VARCHAR(length=20), nullable=True))
 
     with op.batch_alter_table('roms', schema=None) as batch_op:
-        batch_op.execute("UPDATE roms SET region = JSON_UNQUOTE(JSON_EXTRACT(regions, '$[0]'))")
+        batch_op.execute("UPDATE roms SET region = JSON_EXTRACT(regions, '$[0]')")
         batch_op.drop_column('languages')
         batch_op.drop_column('regions')
 
