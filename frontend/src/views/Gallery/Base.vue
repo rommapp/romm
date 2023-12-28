@@ -1,13 +1,13 @@
 <script setup>
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
-import { fetchRomsApi } from "@/services/api";
-import { views, normalizeString } from "@/utils/utils";
+import api from "@/services/api";
+import { views, toTop, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import GalleryAppBar from "@/components/GalleryAppBar/Base.vue";
+import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -15,7 +15,7 @@ import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import FabMenu from "@/components/FabMenu/Base.vue";
+import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 
 // Props
 const route = useRoute();
@@ -58,20 +58,26 @@ async function fetchRoms(platform) {
     scrim: false,
   });
 
-  await fetchRomsApi({
+  await api.fetchRoms({
     platform: platform,
     cursor: isFiltered ? searchCursor.value : cursor.value,
     searchTerm: normalizeString(galleryFilter.filter),
   })
     .then((response) => {
+      // Add any new roms to the store
+      const allRomsSet = [...allRoms.value, ...response.data.items];
+      romsStore.set(allRomsSet);
+      romsStore.setFiltered(allRomsSet);
+      romsStore.setPlatform(platform);
+
       if (isFiltered) {
         searchCursor.value = response.data.next_page;
-        romsStore.setSearch([...searchRoms.value, ...response.data.items]);
-        romsStore.setFiltered(searchRoms.value);
+
+        const serchedRomsSet = [...searchRoms.value, ...response.data.items];
+        romsStore.setSearch(serchedRomsSet);
+        romsStore.setFiltered(serchedRomsSet);
       } else {
         cursor.value = response.data.next_page;
-        romsStore.set([...allRoms.value, ...response.data.items]);
-        romsStore.setFiltered(allRoms.value);
       }
     })
     .catch((error) => {
@@ -110,14 +116,6 @@ function onScroll() {
   }
 }
 
-function toTop() {
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "smooth",
-  });
-}
-
 function selectRom({ event, index, selected }) {
   if (event.shiftKey) {
     const [start, end] = [romsStore.lastSelectedIndex, index].sort(
@@ -138,7 +136,23 @@ function selectRom({ event, index, selected }) {
   }
 }
 
-onMounted(async () => {
+function resetGallery() {
+  cursor.value = "";
+  searchCursor.value = "";
+  romsStore.reset();
+  scrolledToTop.value = true;
+}
+
+onMounted(() => {
+  const platform = route.params.platform;
+
+  // If platform is different, reset store and fetch roms
+  if (platform != romsStore.platform) {
+    resetGallery();
+    fetchRoms(route.params.platform);
+  }
+
+  // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
     fetchRoms(route.params.platform);
   }
@@ -148,10 +162,21 @@ onBeforeUnmount(() => {
   romsStore.resetSelection();
 });
 
-onBeforeRouteUpdate(async (to, _) => {
-  cursor.value = "";
-  searchCursor.value = "";
-  romsStore.reset();
+onBeforeRouteLeave((to, from, next) => {
+  // Reset only the selection if platform is the same
+  if (to.fullPath.includes(from.path)) {
+    romsStore.resetSelection();
+    // Otherwise reset the entire store
+  } else {
+    resetGallery();
+  }
+
+  next();
+});
+
+onBeforeRouteUpdate((to, _) => {
+  // Reset store if switching to another platform
+  resetGallery();
   fetchRoms(to.params.platform);
 });
 </script>
@@ -162,6 +187,7 @@ onBeforeRouteUpdate(async (to, _) => {
     <v-row no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
+        class="pa-1"
         v-show="galleryView.current != 2"
         v-for="rom in filteredRoms"
         :key="rom.id"
@@ -170,11 +196,13 @@ onBeforeRouteUpdate(async (to, _) => {
         :sm="views[galleryView.current]['size-sm']"
         :md="views[galleryView.current]['size-md']"
         :lg="views[galleryView.current]['size-lg']"
+        :xl="views[galleryView.current]['size-xl']"
       >
         <game-card
           :rom="rom"
           :index="filteredRoms.indexOf(rom)"
           :selected="selectedRoms.includes(rom)"
+          :showSelector="true"
           @selectRom="selectRom"
         />
       </v-col>
@@ -182,17 +210,6 @@ onBeforeRouteUpdate(async (to, _) => {
       <!-- Gallery list view -->
       <v-col v-show="galleryView.current == 2">
         <game-data-table />
-      </v-col>
-    </v-row>
-  </template>
-
-  <!-- Empty gallery message -->
-  <template v-if="filteredRoms.length == 0 && !gettingRoms">
-    <v-row class="align-center justify-center" no-gutters>
-      <v-col cols="6" md="2">
-        <div class="mt-16">
-          Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
-        </div>
       </v-col>
     </v-row>
   </template>
@@ -214,8 +231,8 @@ onBeforeRouteUpdate(async (to, _) => {
           icon
           class="mr-2"
           size="large"
-          @click="toTop"
-          ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn
+          @click="toTop()"
+          ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
         >
       </v-scroll-y-reverse-transition>
       <v-menu
@@ -253,10 +270,10 @@ onBeforeRouteUpdate(async (to, _) => {
 
 <style scoped>
 .game-card.game-selected {
-  border: 2px solid rgba(var(--v-theme-romm-accent-2));
+  border: 2px solid rgba(var(--v-theme-romm-accent-1));
   padding: 0;
 }
 #scrollToTop {
-  border: 1px solid rgba(var(--v-theme-romm-accent-2));
+  border: 1px solid rgba(var(--v-theme-romm-accent-1));
 }
 </style>

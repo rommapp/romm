@@ -8,8 +8,21 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from config import DEV_PORT, DEV_HOST, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_ENABLED
-from endpoints import search, platform, rom, identity, oauth, scan  # noqa
+from config import (
+    DEV_PORT,
+    DEV_HOST,
+    ROMM_AUTH_SECRET_KEY,
+    ROMM_AUTH_ENABLED,
+    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    ENABLE_SCHEDULED_RESCAN,
+    SCHEDULED_RESCAN_CRON,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    ENABLE_SCHEDULED_UPDATE_MAME_XML,
+    SCHEDULED_UPDATE_MAME_XML_CRON,
+)
+from endpoints import search, platform, rom, identity, oauth, scan, tasks  # noqa
 from handler import dbh
 from utils.socket import socket_app
 from utils.auth import (
@@ -17,6 +30,7 @@ from utils.auth import (
     CustomCSRFMiddleware,
     create_default_admin_user,
 )
+from utils import get_version
 
 app = FastAPI(title="RomM API", version="0.1.0")
 
@@ -55,6 +69,7 @@ app.include_router(identity.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
 app.include_router(search.router)
+app.include_router(tasks.router)
 
 add_pagination(app)
 app.mount("/ws", socket_app)
@@ -63,7 +78,35 @@ app.mount("/ws", socket_app)
 # Endpoint to set the CSRF token in cache
 @app.get("/heartbeat")
 def heartbeat():
-    return {"ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED}
+    return {
+        "VERSION": get_version(),
+        "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
+        "WATCHER": {
+            "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+            "TITLE": "Rescan on filesystem change",
+            "MESSAGE": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
+        },
+        "SCHEDULER": {
+            "RESCAN": {
+                "ENABLED": ENABLE_SCHEDULED_RESCAN,
+                "CRON": SCHEDULED_RESCAN_CRON,
+                "TITLE": "Scheduled rescan",
+                "MESSAGE": "Rescans the entire library",
+            },
+            "SWITCH_TITLEDB": {
+                "ENABLED": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
+                "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+                "TITLE": "Scheduled Switch TitleDB update",
+                "MESSAGE": "Updates the Nintedo Switch TitleDB file",
+            },
+            "MAME_XML": {
+                "ENABLED": ENABLE_SCHEDULED_UPDATE_MAME_XML,
+                "CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
+                "TITLE": "Scheduled MAME XML update",
+                "MESSAGE": "Updates the MAME XML file",
+            },
+        },
+    }
 
 
 @app.on_event("startup")
@@ -71,7 +114,7 @@ def startup() -> None:
     """Startup application."""
 
     # Create default admin user if no admin user exists
-    if len(dbh.get_admin_users()) == 0:
+    if len(dbh.get_admin_users()) == 0 and "pytest" not in sys.modules:
         create_default_admin_user()
 
 

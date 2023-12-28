@@ -4,21 +4,58 @@ import pydash
 import requests
 import re
 import time
+import os
+import json
+import xmltodict
 from unidecode import unidecode as uc
 from requests.exceptions import HTTPError, Timeout
 from typing import Final
+from typing_extensions import TypedDict
 
-from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, DEFAULT_URL_COVER_L
 from utils import get_file_name_with_no_tags as get_search_term
 from logger.logger import log
 from utils.cache import cache
-from .ps2_opl_index import opl_index
+from tasks.update_switch_titledb import update_switch_titledb_task
+from tasks.update_mame_xml import update_mame_xml_task
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
 PS2_IGDB_ID: Final = 8
+SWITCH_IGDB_ID: Final = 130
+ARCADE_IGDB_IDS: Final = [52, 79, 80]
+
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_OPL_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "ps2_opl_index.json"
+)
+
+SWITCH_TITLEDB_REGEX: Final = r"(70[0-9]{12})"
+SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "switch_titledb.json"
+)
+
+SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
+SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "switch_product_ids.json"
+)
+
+MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
+
+
+class IGDBPlatformType(TypedDict):
+    igdb_id: int
+    name: str
+
+
+class IGDBRomType(TypedDict):
+    igdb_id: int
+    slug: str
+    name: str
+    summary: str
+    url_cover: str
+    url_screenshots: list[str]
 
 
 class IGDBHandler:
@@ -50,15 +87,19 @@ class IGDBHandler:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
             res.raise_for_status()
             return res.json()
-        except (HTTPError, Timeout) as err:
+        except HTTPError as err:
+            # Retry once if the auth token is invalid
             if err.response.status_code != 401:
                 log.error(err)
                 return []  # All requests to the IGDB API return a list
 
-        # Attempt to force a token refresh if the token is invalid
-        log.warning("Twitch token invalid: fetching a new one...")
-        token = self.twitch_auth._update_twitch_token()
-        self.headers["Authorization"] = f"Bearer {token}"
+            # Attempt to force a token refresh if the token is invalid
+            log.warning("Twitch token invalid: fetching a new one...")
+            token = self.twitch_auth._update_twitch_token()
+            self.headers["Authorization"] = f"Bearer {token}"
+        except Timeout:
+            # Retry once the request if it times out
+            pass
 
         try:
             res = requests.post(url, data, headers=self.headers, timeout=timeout)
@@ -70,14 +111,16 @@ class IGDBHandler:
 
         return res.json()
 
-    def _search_rom(self, search_term: str, p_igdb_id: int, category: int = 0) -> dict:
+    def _search_rom(
+        self, search_term: str, platform_idgb_id: int, category: int = 0
+    ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
             self.games_url,
             data=f"""
                 search "{search_term}";
                 fields id, slug, name, summary, screenshots;
-                where platforms=[{p_igdb_id}] {category_filter};
+                where platforms=[{platform_idgb_id}] {category_filter};
             """,
         )
 
@@ -101,7 +144,11 @@ class IGDBHandler:
         )
 
         cover = pydash.get(covers, "[0]", None)
-        return "" if not cover else self._normalize_cover_url(cover["url"])
+        return (
+            DEFAULT_URL_COVER_L
+            if not cover
+            else self._normalize_cover_url(cover["url"])
+        )
 
     def _search_screenshots(self, rom_id: int) -> list:
         screenshots = self._request(
@@ -116,86 +163,168 @@ class IGDBHandler:
         ]
 
     @check_twitch_token
-    def get_platform(self, p_slug: str):
-        paltforms = self._request(
+    def get_platform(self, slug: str) -> IGDBPlatformType:
+        platforms = self._request(
             self.platform_url,
-            data=f'fields id, name; where slug="{p_slug.lower()}";',
+            data=f'fields id, name; where slug="{slug.lower()}";',
         )
 
-        platform = pydash.get(paltforms, "[0]", None)
+        platform = pydash.get(platforms, "[0]", None)
         if not platform:
-            return {
-                "igdb_id": "",
-                "name": p_slug,
-                "slug": p_slug,
-            }
+            return IGDBPlatformType(igdb_id=None, name=slug.replace("-", " ").title())
 
-        return {
-            "igdb_id": platform["id"],
-            "name": platform["name"],
-            "slug": p_slug,
-        }
+        return IGDBPlatformType(
+            igdb_id=platform["id"],
+            name=platform["name"],
+        )
 
     @check_twitch_token
-    def get_rom(self, file_name: str, p_igdb_id: int):
+    async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
         search_term = get_search_term(file_name)
 
         # Patch support for PS2 OPL flename format
-        match = re.match(PS2_OPL_REGEX, search_term)
-        if p_igdb_id == PS2_IGDB_ID and match:
+        match = re.match(PS2_OPL_REGEX, file_name)
+        if platform_idgb_id == PS2_IGDB_ID and match:
             serial_code = match.group(1)
-            index_entry = opl_index.get(serial_code, None)
-            if index_entry:
-                search_term = index_entry["Name"]  # type: ignore
 
-        res = (
-            self._search_rom(uc(search_term), p_igdb_id, MAIN_GAME_CATEGORY)
-            or self._search_rom(uc(search_term), p_igdb_id, EXPANDED_GAME_CATEGORY)
-            or self._search_rom(uc(search_term), p_igdb_id)
+            with open(PS2_OPL_INDEX_FILE, "r") as index_json:
+                opl_index = json.loads(index_json.read())
+                index_entry = opl_index.get(serial_code, None)
+                if index_entry:
+                    search_term = index_entry["Name"]  # type: ignore
+
+        # Patch support for switch titleID filename format
+        match = re.match(SWITCH_TITLEDB_REGEX, file_name)
+        if platform_idgb_id == SWITCH_IGDB_ID and match:
+            title_id = match.group(1)
+            titledb_index = {}
+
+            try:
+                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                    titledb_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.warning("Fetching the Switch titleDB index file...")
+                await update_switch_titledb_task.run(force=True)
+
+                try:
+                    with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
+                        titledb_index = json.loads(index_json.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the Switch titleDB index file")
+            finally:
+                index_entry = titledb_index.get(title_id, None)
+                if index_entry:
+                    search_term = index_entry["name"]  # type: ignore
+
+        # Support for switch productID filename format
+        match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
+        if platform_idgb_id == SWITCH_IGDB_ID and match:
+            product_id = match.group(1)
+            product_id_index = {}
+
+            try:
+                with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
+                    product_id_index = json.loads(index_json.read())
+            except FileNotFoundError:
+                log.warning("Fetching the Switch titleDB index file...")
+                await update_switch_titledb_task.run(force=True)
+
+                try:
+                    with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
+                        product_id_index = json.loads(index_json.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the Switch titleDB index file")
+            finally:
+                index_entry = product_id_index.get(product_id, None)
+                if index_entry:
+                    search_term = index_entry["name"]  # type: ignore
+
+        # Support for MAME arcade filename format
+        if platform_idgb_id in ARCADE_IGDB_IDS:
+            mame_index = {"menu": {"game": []}}
+
+            try:
+                with open(MAME_XML_FILE, "r") as index_xml:
+                    mame_index = xmltodict.parse(index_xml.read())
+            except FileNotFoundError:
+                log.warning("Fetching the MAME XML file from HyperspinFE...")
+                await update_mame_xml_task.run(force=True)
+
+                try:
+                    with open(MAME_XML_FILE, "r") as index_xml:
+                        mame_index = xmltodict.parse(index_xml.read())
+                except FileNotFoundError:
+                    log.error("Could not fetch the MAME XML file from HyperspinFE")
+            finally:
+                index_entry = [
+                    game
+                    for game in mame_index["menu"]["game"]
+                    if game["@name"] == search_term
+                ]
+                if index_entry:
+                    # Run through get_search_term to remove tags
+                    search_term = get_search_term(index_entry[0].get("description", search_term))
+
+        search_term = (
+            search_term.replace("\u2122", "") # Remove trademark symbol
+            .replace("\u00ae", "") # Remove registered symbol
+            .replace("\u00a9", "") # Remove copywrite symbol
+            .replace("\u2120", "") # Remove service mark symbol
+            .strip() # Remove leading and trailing spaces
         )
 
-        r_igdb_id = res.get("id", 0)
-        r_slug = res.get("slug", "")
-        r_name = res.get("name", search_term)
+        res = (
+            self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)
+            or self._search_rom(
+                uc(search_term), platform_idgb_id, EXPANDED_GAME_CATEGORY
+            )
+            or self._search_rom(uc(search_term), platform_idgb_id)
+        )
+
+        igdb_id = res.get("id", None)
+        slug = res.get("slug", "")
+        name = res.get("name", search_term)
         summary = res.get("summary", "")
 
-        return {
-            "r_igdb_id": r_igdb_id,
-            "r_slug": r_slug,
-            "r_name": r_name,
-            "summary": summary,
-            "url_cover": self._search_cover(r_igdb_id),
-            "url_screenshots": self._search_screenshots(r_igdb_id),
-        }
+        return IGDBRomType(
+            igdb_id=igdb_id,
+            slug=slug,
+            name=name,
+            summary=summary,
+            url_cover=self._search_cover(igdb_id),
+            url_screenshots=self._search_screenshots(igdb_id),
+        )
 
     @check_twitch_token
-    def get_rom_by_id(self, r_igdb_id: int):
+    def get_rom_by_id(self, igdb_id: int) -> IGDBRomType:
         roms = self._request(
             self.games_url,
-            f"fields slug, name, summary; where id={r_igdb_id};",
+            f"fields slug, name, summary; where id={igdb_id};",
         )
         rom = pydash.get(roms, "[0]", {})
 
         return {
-            "r_igdb_id": r_igdb_id,
-            "r_slug": rom.get("slug", ""),
-            "r_name": rom.get("name", ""),
+            "igdb_id": igdb_id,
+            "slug": rom.get("slug", ""),
+            "name": rom.get("name", ""),
             "summary": rom.get("summary", ""),
-            "url_cover": self._search_cover(r_igdb_id),
-            "url_screenshots": self._search_screenshots(r_igdb_id),
+            "url_cover": self._search_cover(igdb_id),
+            "url_screenshots": self._search_screenshots(igdb_id),
         }
 
     @check_twitch_token
-    def get_matched_roms_by_id(self, r_igdb_id: int):
-        matched_rom = self.get_rom_by_id(r_igdb_id)
+    def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRomType]:
+        matched_rom = self.get_rom_by_id(igdb_id)
         matched_rom.update(
             url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),
         )
         return [matched_rom]
 
     @check_twitch_token
-    def get_matched_roms_by_name(self, search_term: str, p_igdb_id: int):
-        if not p_igdb_id:
+    def get_matched_roms_by_name(
+        self, search_term: str, platform_idgb_id: int
+    ) -> list[IGDBRomType]:
+        if not platform_idgb_id:
             return []
 
         matched_roms = self._request(
@@ -203,20 +332,20 @@ class IGDBHandler:
             data=f"""
                 search "{uc(search_term)}";
                 fields id, slug, name, summary;
-                where platforms=[{p_igdb_id}];
+                where platforms=[{platform_idgb_id}];
             """,
         )
 
         return [
-            dict(
-                rom,
+            IGDBRomType(
+                igdb_id=rom["id"],
+                slug=rom["slug"],
+                name=rom["name"],
+                summary=rom.get("summary", ""),
                 url_cover=self._search_cover(rom["id"]).replace(
                     "t_thumb", "t_cover_big"
                 ),
                 url_screenshots=self._search_screenshots(rom["id"]),
-                r_igdb_id=rom.pop("id"),
-                r_slug=rom.pop("slug"),
-                r_name=rom.pop("name"),
             )
             for rom in matched_roms
         ]

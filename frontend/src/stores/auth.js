@@ -9,6 +9,7 @@ const FULL_SCOPES_LIST = [
   "platforms.write",
   "users.read",
   "users.write",
+  "tasks.run",
 ];
 
 export default defineStore("auth", {

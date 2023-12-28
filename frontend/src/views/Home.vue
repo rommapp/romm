@@ -1,7 +1,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
-import { fetchPlatformsApi, fetchCurrentUserApi } from "@/services/api";
+import api from "@/services/api";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import storeAuth from "@/stores/auth";
@@ -24,9 +24,9 @@ emitter.on("refreshDrawer", () => {
 // Functions
 onMounted(async () => {
   try {
-    const { data: platformData } = await fetchPlatformsApi();
+    const { data: platformData } = await api.fetchPlatforms();
     platforms.set(platformData);
-    const { data: userData } = await fetchCurrentUserApi();
+    const { data: userData } = await api.fetchCurrentUser();
     if (userData) auth.setUser(userData);
     emitter.emit("refreshDrawer");
   } catch (error) {

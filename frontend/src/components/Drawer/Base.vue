@@ -34,9 +34,9 @@ emitter.on("toggleDrawerRail", () => {
   >
     <template v-slot:prepend>
       <drawer-header :rail="rail" />
+      <v-divider />
     </template>
     <v-list v-model:opened="open" class="pa-0">
-      <v-divider />
 
       <v-list-group value="Platforms" fluid>
         <template v-slot:activator="{ props }">
@@ -50,7 +50,7 @@ emitter.on("toggleDrawerRail", () => {
           </v-list-item>
         </template>
         <platform-list-item
-          v-for="platform in platforms.value"
+          v-for="platform in platforms.filledPlatforms"
           :platform="platform"
           :rail="rail"
           :key="platform.slug"
