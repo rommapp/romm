@@ -8,7 +8,7 @@ from config import ROMM_HOST
 
 router = APIRouter()
 
-SUPPORTED_PLATFORM_SLUGS = [
+WEBRCADE_SUPPORTED_PLATFORM_SLUGS = [
     "3do",
     "arcade",
     "atari2600",
@@ -42,7 +42,7 @@ SUPPORTED_PLATFORM_SLUGS = [
     "ps",
 ]
 
-SLUG_TO_TYPE_MAP = {
+WEBRCADE_SLUG_TO_TYPE_MAP = {
     "atari2600": "2600",
     "atari5200": "5200",
     "atari7800": "7800",
@@ -83,7 +83,7 @@ def platforms(request: Request) -> list[PlatformSchema]:
 
 
 @protected_route(router.get, "/platforms/feed", [])
-def platforms_feed(request: Request):
+def webrcade_platforms_feed(request: Request):
     """Returns platforms data"""
     platforms = dbh.get_platforms()
 
@@ -103,9 +103,9 @@ def platforms_feed(request: Request):
                     "description": "",
                     "items": [
                         {
-                            "title": rom.r_name,
+                            "title": rom.name,
                             "description": rom.summary,
-                            "type": SLUG_TO_TYPE_MAP.get(p.slug, p.slug),
+                            "type": WEBRCADE_SLUG_TO_TYPE_MAP.get(p.slug, p.slug),
                             "thumbnail": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_s}",
                             "background": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_l}",
                             "props": {"rom": f"{ROMM_HOST}{rom.download_path}"},
@@ -114,6 +114,6 @@ def platforms_feed(request: Request):
                     ],
                 }
                 for p in platforms
-                if p.slug in SUPPORTED_PLATFORM_SLUGS
+                if p.slug in WEBRCADE_SUPPORTED_PLATFORM_SLUGS
             ],
         }
