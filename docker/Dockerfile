@@ -11,7 +11,7 @@ ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default_avatar.png ${WEBSERVER_FOLDER}/assets/
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
-COPY ./frontend/assets/feed ${WEBSERVER_FOLDER}/assets/feed
+COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/library ${WEBSERVER_FOLDER}/assets/romm/library && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources

@@ -82,8 +82,8 @@ def platforms(request: Request) -> list[PlatformSchema]:
     return dbh.get_platforms()
 
 
-@protected_route(router.get, "/platforms/feed", [])
-def webrcade_platforms_feed(request: Request):
+@protected_route(router.get, "/platforms/webrcade/feed", [])
+def platforms_webrcade_feed(request: Request):
     """Returns platforms data"""
     platforms = dbh.get_platforms()
 
@@ -98,8 +98,8 @@ def webrcade_platforms_feed(request: Request):
                 {
                     "title": p.name,
                     "longTitle": f"{p.name} Games",
-                    "background": f"{ROMM_HOST}/assets/feed/{p.slug.lower()}-background.png",
-                    "thumbnail": f"{ROMM_HOST}/assets/feed/{p.slug.lower()}-thumb.png",
+                    "background": f"{ROMM_HOST}/assets/webrcade/feed/{p.slug.lower()}-background.png",
+                    "thumbnail": f"{ROMM_HOST}/assets/webrcade/feed/{p.slug.lower()}-thumb.png",
                     "description": "",
                     "items": [
                         {
