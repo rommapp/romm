@@ -70,7 +70,7 @@ interactions:
       code: 200
       message: OK
 - request:
-    body: fields id, name; where slug="not_real";
+    body: fields id, name; where slug="not-real";
     headers:
       Accept:
       - application/json

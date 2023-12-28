@@ -21,6 +21,9 @@ from logger.logger import log
 class ConfigLoader:
     # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
+        if os.path.isdir(config_path):
+            log.critical(f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system.")
+            raise FileNotFoundError()
         try:
             with open(config_path) as config_file:
                 self.config = yaml.load(config_file, Loader=SafeLoader) or {}
