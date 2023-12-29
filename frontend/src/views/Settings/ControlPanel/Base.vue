@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import Settings from "@/views/Settings/ControlPanel/General/Base.vue";
+import Config from "@/views/Settings/ControlPanel/Config/Base.vue";
 import Users from "@/views/Settings/ControlPanel/Users/Base.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
@@ -15,6 +16,7 @@ const tab = ref("general");
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
       <v-tab value="general" rounded="0">General</v-tab>
+      <v-tab value="config" rounded="0">Config</v-tab>
       <v-tab
         :disabled="!auth.scopes.includes('users.read')"
         value="users"
@@ -31,6 +33,15 @@ const tab = ref("general");
       <v-row class="pa-1">
         <v-col>
           <settings />
+        </v-col>
+      </v-row>
+    </v-window-item>
+
+    <!-- Config tab -->
+    <v-window-item value="config">
+      <v-row class="pa-1">
+        <v-col>
+          <config />
         </v-col>
       </v-row>
     </v-window-item>

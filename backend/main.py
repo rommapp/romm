@@ -31,6 +31,7 @@ from utils.auth import (
     create_default_admin_user,
 )
 from utils import get_version
+from config.config_loader import config
 
 app = FastAPI(title="RomM API", version="0.1.0")
 
@@ -106,6 +107,7 @@ def heartbeat():
                 "MESSAGE": "Updates the MAME XML file",
             },
         },
+        "CONFIG": config
     }
 
 
