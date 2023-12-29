@@ -22,7 +22,7 @@ const romsStore = storeRoms();
 const { allRoms } = storeToRefs(romsStore);
 const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
 const tab = ref("details");
-const { xs, sm, md, lgAndUp, name } = useDisplay();
+const { xs, sm, md, lgAndUp } = useDisplay();
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -148,7 +148,7 @@ onBeforeMount(async () => {
 
 .content,
 .content-tablet-md {
-  margin-top: 82px;
+  margin-top: 86px;
   margin-left: 100px;
 }
 
