@@ -12,7 +12,6 @@
  - Support for support for AES/MVS. Closes [#503](https://github.com/zurdi15/romm/issues/503)
  - Added [Helm Chart](https://artifacthub.io/packages/helm/crystalnet/romm) to deploy on Kubernetes by @psych0d0g
  - ``Rescan unidentified`` added to the scan view, allowing to rescan only those entries that IGDB couldn't identify in previous scans. Closes [#519](https://github.com/zurdi15/romm/issues/519)
- - ``webRcade`` support added throught a ``feed endpoint``. The endpoint can be found under the new ``feed`` subsection, inside the ``library`` section. Check the [wiki]() for the details.
  - ``Config file`` visualization added to the new ``Config`` tab in the ``Control Panel``. Partially implements some concepts of [#457](https://github.com/zurdi15/romm/issues/457) 
 
 ## Fixed
