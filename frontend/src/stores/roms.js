@@ -1,4 +1,4 @@
-import { uniqBy } from "lodash";
+import { uniqBy, groupBy } from "lodash";
 import { defineStore } from "pinia";
 
 export default defineStore("roms", {
@@ -35,6 +35,10 @@ export default defineStore("roms", {
         }),
         "id"
       );
+      this._all = Object.values(groupBy(this._all, "igdb_id")).map((games) => ({
+        ...games.shift(),
+        siblings: games,
+      }));
     },
     setPlatform(platform) {
       this._platform = platform;
