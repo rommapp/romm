@@ -100,7 +100,8 @@ class Rom(BaseModel):
             .lower()
         )
 
-    @property
+    # This is an expensive operation so don't call it on a list of roms
+    @cached_property
     def sibling_roms(self) -> list["Rom"]:
         from handler import dbh
 
