@@ -35,6 +35,13 @@ export default defineStore("roms", {
       }),
       this._all = uniqBy(this._all, "id");
 
+      // Check if roms should be grouped
+      const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
+      if (!groupRoms) {
+        this._grouped = this._all;
+        return;
+      }
+
       // Group roms by igdb_id
       this._grouped = Object.values(groupBy(this._all, "igdb_id")).map((games) => ({
         ...games.shift(),

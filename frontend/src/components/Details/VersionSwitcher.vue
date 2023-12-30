@@ -14,9 +14,11 @@ function formatItem(rom) {
   return `${langs} ${regions} ${tags}`;
 }
 
-watch(version, (v) => {
-  router.push({ path: `/platform/${props.rom.platform_slug}/${v}` });
-})
+function updateVersion() {
+  router.push({
+    path: `/platform/${props.rom.platform_slug}/${version.value}`,
+  });
+}
 </script>
 
 <template>
@@ -26,6 +28,7 @@ watch(version, (v) => {
     density="compact"
     class="pl-3 version-select"
     v-model="version"
+    @update:model-value="updateVersion"
     :items="
       [rom, ...rom.sibling_roms].map((i) => ({
         title: formatItem(i),
