@@ -100,5 +100,16 @@ class Rom(BaseModel):
             .lower()
         )
 
+    @property
+    def sibling_roms(self) -> list["Rom"]:
+        from handler import dbh
+
+        with dbh.session.begin() as session:
+            return session.scalars(
+                dbh.get_roms(self.platform_slug).filter(
+                    Rom.id != self.id, Rom.igdb_id == self.igdb_id
+                )
+            ).all()
+
     def __repr__(self) -> str:
         return self.file_name
