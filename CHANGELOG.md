@@ -18,7 +18,7 @@
  - Now sorting by size in the gallery table view works as expected. Closes [#423](https://github.com/zurdi15/romm/issues/423)
  - Now RomM is more responsive in more kind of devices.
  - Cover sizes are now standarized to have a more consistent gallery. Closes [#340](https://github.com/zurdi15/romm/issues/340)
- - Improved detection for miltiple extension files.
+ - Improved detection for multiple extension files.
  - Now the ``delete from filesystem`` checkbox is reseted when the ``delete`` dialog is closed. Closes [#466](https://github.com/zurdi15/romm/issues/466)
  - Single file roms now are properly downloaded from backend, fixing a potential security issue. Closes [#471](https://github.com/zurdi15/romm/issues/471)
  - Now a new ``scanned`` game appears directly in the gallery without refreshing. Closes [#467](https://github.com/zurdi15/romm/issues/467)
