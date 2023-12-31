@@ -1,4 +1,4 @@
-# v2.2.0 (_xx-01-2024_)
+# v2.2.0 (_31-12-2023_)
 
 ## Added
  - Support for ``productID`` in the file name for ``switch`` titles.
