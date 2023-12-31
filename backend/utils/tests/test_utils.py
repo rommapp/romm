@@ -7,25 +7,28 @@ from utils import (
 
 def test_parse_tags():
     file_name = "Super Mario Bros. (World).nes"
-    assert parse_tags(file_name) == ("World", "", [])
+    assert parse_tags(file_name) == (["World"], "", [], [])
 
     file_name = "Super Mario Bros. (W) (Rev A).nes"
-    assert parse_tags(file_name) == ("World", "A", [])
+    assert parse_tags(file_name) == (["World"], "A", [], [])
 
     file_name = "Super Mario Bros. (USA) (Rev A) (Beta).nes"
-    assert parse_tags(file_name) == ("USA", "A", ["Beta"])
+    assert parse_tags(file_name) == (["USA"], "A", [], ["Beta"])
 
     file_name = "Super Mario Bros. (U) (Beta).nes"
-    assert parse_tags(file_name) == ("USA", "", ["Beta"])
+    assert parse_tags(file_name) == (["USA"], "", [], ["Beta"])
 
     file_name = "Super Mario Bros. (CH) [!].nes"
-    assert parse_tags(file_name) == ("China", "", ["!"])
+    assert parse_tags(file_name) == (["China"], "", [], ["!"])
 
     file_name = "Super Mario Bros. (reg-T) (rev-1.2).nes"
-    assert parse_tags(file_name) == ("Taiwan", "1.2", [])
+    assert parse_tags(file_name) == (["Taiwan"], "1.2", [], [])
 
     file_name = "Super Mario Bros. (Reg S) (Rev A).nes"
-    assert parse_tags(file_name) == ("Spain", "A", [])
+    assert parse_tags(file_name) == (["Spain"], "A", [], [])
+
+    file_name = "Super Metroid (Japan, USA) (En,Ja).zip"
+    assert parse_tags(file_name) == (["Japan", "USA"], "", ["English", "Japanese"], [])
 
 
 def test_get_file_name_with_no_tags():
@@ -58,7 +61,7 @@ def test_get_file_name_with_no_tags():
 
     # This is expected behavior, since the regex is aggressive
     file_name = "Battle Stadium D.O.N.zip"
-    assert gfnwt(file_name) == "Battle Stadium D"
+    assert gfnwt(file_name) == "Battle Stadium D.O.N"
 
 
 def test_get_file_extension():

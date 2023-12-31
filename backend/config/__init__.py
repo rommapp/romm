@@ -8,6 +8,7 @@ load_dotenv()
 # UVICORN
 DEV_PORT: Final = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
 DEV_HOST: Final = "0.0.0.0"
+ROMM_HOST: Final = os.environ.get("ROMM_HOST", DEV_HOST)
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
@@ -25,10 +26,14 @@ DEFAULT_URL_COVER_L: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
 )
 DEFAULT_PATH_COVER_L: Final = "default/default/cover/big.png"
+DEFAULT_WIDTH_COVER_L: Final = 264 # Width of big cover of IGDB
+DEFAULT_HEIGHT_COVER_L: Final = 352 # Height of big cover of IGDB
 DEFAULT_URL_COVER_S: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
 )
 DEFAULT_PATH_COVER_S: Final = "default/default/cover/small.png"
+DEFAULT_WIDTH_COVER_S: Final = 90 # Width of small cover of IGDB
+DEFAULT_HEIGHT_COVER_S: Final = 120 # Height of small cover of IGDB
 
 # MARIADB
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
