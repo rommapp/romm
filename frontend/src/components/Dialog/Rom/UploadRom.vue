@@ -3,7 +3,7 @@ import { ref, inject, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import socket from "@/services/socket";
-import { uploadRomsApi } from "@/services/api";
+import api from "@/services/api";
 import storeScanning from "@/stores/scanning";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -46,19 +46,38 @@ async function uploadRoms() {
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
-  await uploadRomsApi(romsToUpload.value, route.params.platform)
-    .then(() => {
+
+  await api
+    .uploadRoms({
+      romsToUpload: romsToUpload.value,
+      platform: route.params.platform,
+    })
+    .then(({ data }) => {
+      const { uploaded_roms, skipped_roms } = data;
+
+      if (uploaded_roms.length == 0) {
+        return emitter.emit("snackbarShow", {
+          msg: `All files skipped, nothing to upload.`,
+          icon: "mdi-close-circle",
+          color: "orange",
+          timeout: 2000,
+        });
+      }
+
       emitter.emit("snackbarShow", {
-        msg: `${romsToUpload.value.length} roms uploaded successfully, scanning...`,
+        msg: `${uploaded_roms.length} files uploaded successfully (and ${skipped_roms.length} skipped). Starting scan...`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
+
       if (!socket.connected) socket.connect();
-      socket.emit("scan", {
-        platforms: [route.params.platform],
-        rescan: false,
-      });
+      setTimeout(() => {
+        socket.emit("scan", {
+          platforms: [route.params.platform],
+          rescan: false,
+        });
+      }, 2000);
     })
     .catch(({ response, message }) => {
       emitter.emit("snackbarShow", {
@@ -136,9 +155,9 @@ onBeforeUnmount(() => {
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary"
-            >Apply</v-btn
-          >
+          <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary">
+            Upload
+          </v-btn>
         </v-row>
       </v-card-text>
     </v-card>

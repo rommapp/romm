@@ -19,21 +19,34 @@ touch romm_mock/config.yml
 cp env.template .env
 ```
 
+### - Install system dependencies
+
+```sh
+# https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux): 
+sudo apt install libmariadb3 libmariadb-dev pipx
+```
+
 ### - Install python dependencies
 
 You'll need poetry installed
 
 https://python-poetry.org/docs/#installing-with-the-official-installer
 
-Then initialize the virtual environment and install the dependencies
+**_WARNING:_** Until poetry 1.8.0 version is released, poetry needs to be installed with the new non-package-mode feature branch:
 
 ```sh
-poetry shell
-# Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
+pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-package-mode
+```
+
+More info: https://github.com/python-poetry/poetry/pull/8650
+
+
+Then creat the virtual environment
+
+```sh
+# Fix disable parallel installation stuck: $> poetry_npm config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-# Fix mariadb install on linux: $> sudo apt install libmariadb3 libmariadb-dev
-# Fix mariadb connector/c >= 3.3.1: https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux)
-poetry install
+poetry_npm install --sync
 ```
 
 ### - Spin up mariadb in docker
@@ -48,7 +61,7 @@ docker-compose up -d
 
 ```sh
 cd backend
-python main.py
+poetry_npm run python3 main.py
 ```
 
 
@@ -56,7 +69,7 @@ python main.py
 
 ```sh
 cd backend
-python worker.py
+poetry_npm run python3 worker.py
 ```
 
 ## Setting up the frontend
@@ -87,8 +100,7 @@ npm run dev
 ### - Create the test user and database with root user
 
 ```sh
-docker exec -i mariadb mysql -u root -p<root password> < backend/romm_test/setup.sql    # for amd images
-docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/setup.sql  # for arm images
+docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/setup.sql
 ```
 
 ### - Run tests
@@ -98,5 +110,5 @@ docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/set
 ```sh
 cd backend
 # path or test file can be passed as argument to test only a subset
-pytest [path/file]
+poetry_npm run pytest [path/file]
 ```

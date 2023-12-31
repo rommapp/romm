@@ -2,9 +2,16 @@
 import { ref } from "vue";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 // Props
-const props = defineProps(["rom", "isHoveringTop", "showSelector", "size", "selected"]);
+const props = defineProps([
+  "rom",
+  "isHoveringTop",
+  "showSelector",
+  "size",
+  "selected",
+]);
 const emit = defineEmits(["selectRom"]);
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
@@ -52,7 +59,7 @@ function onTouchEnd() {
     :to="
       romsStore.touchScreen && romsStore.selectedRoms.length > 0
         ? ''
-        : `/platform/${rom.p_slug}/${rom.id}`
+        : `/platform/${rom.platform_slug}/${rom.id}`
     "
     ref="card"
     @click="onNavigate"
@@ -70,8 +77,9 @@ function onTouchEnd() {
         :value="rom.id"
         :key="rom.id"
         v-bind="props"
-        :src="`/assets/romm/resources/${rom.path_cover_l}`"
+        :src="`/assets/romm/resources/${rom.path_cover_l || rom.path_screenshots[0]}`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
+        :aspect-ratio="3 / 4"
       >
         <template v-slot:placeholder>
           <div class="d-flex align-center justify-center fill-height">
@@ -87,15 +95,29 @@ function onTouchEnd() {
             v-if="isHovering || !rom.has_cover"
             class="rom-title d-flex transition-fast-in-fast-out bg-tooltip text-caption"
           >
-            <v-list-item>{{ rom.r_name || rom.file_name }}</v-list-item>
+            <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="pl-1 pt-0">
-          <v-chip v-show="rom.region" size="x-small" class="bg-chip" label>
-            {{ rom.region }}
+        <v-chip-group class="ml-2 pt-0 text-shadow position-absolute flags">
+          <v-chip
+            v-if="rom.regions.filter(i => i).length > 0"
+            :title="`Regions: ${rom.regions.join(', ')}`"
+            class="bg-chip"
+            density="compact"
+          >
+            <span class="px-1" v-for="region in rom.regions">
+              {{ regionToEmoji(region) }}
+            </span>
           </v-chip>
-          <v-chip v-show="rom.revision" size="x-small" class="bg-chip" label>
-            {{ rom.revision }}
+          <v-chip
+            v-if="rom.languages.filter(i => i).length > 0"
+            :title="`Languages: ${rom.languages.join(', ')}`"
+            class="bg-chip"
+            density="compact"
+          >
+            <span class="px-1" v-for="language in rom.languages">
+              {{ languageToEmoji(language) }}
+            </span>
           </v-chip>
         </v-chip-group>
         <v-icon
@@ -121,5 +143,12 @@ function onTouchEnd() {
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
+}
+.flags {
+  bottom: -0.25rem;
+  left: 0;
+}
+.text-shadow {
+  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>

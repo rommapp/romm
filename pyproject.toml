@@ -1,14 +1,10 @@
 [tool.poetry]
-name = "RomM"
-version = "2.1.0"
-description = "RomM (Rom Manager) is a web based retro roms manager integrated with IGDB."
-authors = ["zurdi <zurdizurdo25@gmail.com>"]
-readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "2.31.0"
-fastapi = "0.95.1"
+fastapi = "0.103.1"
 uvicorn = "0.22.0"
 websockets = "11.0.3"
 python-socketio = "5.8.0"
@@ -41,6 +37,8 @@ types-python-jose = "^3.3.4.8"
 types-passlib = "^1.7.7.13"
 watchdog = "^3.0.0"
 xmltodict = "^0.13.0"
+Pillow = "10.1.0"
+numpy = "^1.26.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.0"
@@ -48,10 +46,6 @@ pytest-env = "^0.8.2"
 pytest-vcr = "^1.0.2"
 pytest-mock = "^3.11.1"
 pytest-asyncio = "^0.21.1"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 plugins = "sqlalchemy.ext.mypy.plugin"

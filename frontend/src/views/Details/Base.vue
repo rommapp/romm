@@ -3,12 +3,14 @@ import { ref, inject, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
-import { fetchRomApi, downloadRomApi } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
-import storeDownload from "@/stores/download";
-import storeAuth from "@/stores/auth";
-import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
-import AdminMenu from "@/components/AdminMenu/Base.vue";
+import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
+import TitleInfo from "@/components/Details/Title.vue";
+import Cover from "@/components/Details/Cover.vue";
+import ActionBar from "@/components/Details/ActionBar.vue";
+import DetailsInfo from "@/components/Details/Info.vue";
+import ScreenshotsCarousel from "@/components/Details/ScreenshotsCarousel.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
@@ -19,13 +21,8 @@ const route = useRoute();
 const romsStore = storeRoms();
 const { allRoms } = storeToRefs(romsStore);
 const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
-const downloadStore = storeDownload();
-const auth = storeAuth();
-const saveFiles = ref(false);
-const filesToDownload = ref();
 const tab = ref("details");
-const downloadUrl = ref();
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs, sm, md, lgAndUp } = useDisplay();
 
 // Event listeners bus
 const emitter = inject("emitter");
@@ -36,11 +33,10 @@ onBeforeMount(async () => {
   if (rom.value) {
     emitter.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
-    await fetchRomApi(route.params.platform, route.params.rom)
+    await api.fetchRom({ romId: route.params.rom })
       .then((response) => {
         rom.value = response.data;
         romsStore.update(response.data);
-        downloadUrl.value = `${window.location.origin}${rom.value.download_path}`;
       })
       .catch((error) => {
         console.log(error);
@@ -60,307 +56,80 @@ onBeforeMount(async () => {
 <template>
   <background-header v-if="rom" :image="rom.path_cover_s" />
 
-  <div
+  <v-row
     v-if="rom"
+    class="justify-center"
     :class="{
       content: lgAndUp,
-      'content-tablet': mdAndDown,
+      'content-tablet-md': md,
+      'content-tablet-sm': sm,
       'content-mobile': xs,
     }"
+    no-gutters
   >
-    <v-row class="pt-8 justify-center">
-      <v-col
+    <v-col
+      :class="{
+        cover: lgAndUp,
+        'cover-tablet-md': md,
+        'cover-tablet-sm': sm,
+        'cover-mobile': xs,
+      }"
+      class="pa-3"
+    >
+      <cover :rom="rom" />
+      <action-bar :rom="rom" />
+    </v-col>
+    <v-col
+      class="mt-14"
+      :class="{
+        info: lgAndUp,
+        'info-tablet-md': md,
+        'info-tablet-sm': sm,
+        'info-mobile': xs,
+      }"
+    >
+      <title-info :rom="rom" />
+      <v-row
         :class="{
-          cover: lgAndUp,
-          'cover-tablet': mdAndDown,
-          'cover-mobile': xs,
+          'details-content': lgAndUp,
+          'details-content-tablet-md': md,
+          'details-content-tablet-sm': sm,
+          'details-content-mobile': xs,
         }"
+        no-gutters
       >
-        <v-row>
-          <v-col>
-            <v-card
-              elevation="2"
-              :loading="
-                downloadStore.value.includes(rom.id) ? 'romm-accent-1' : null
-              "
-            >
-              <!-- TODO: fix image reload when rom update -->
-              <v-img
-                :src="`/assets/romm/resources/${rom.path_cover_l}`"
-                :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
-                cover
-              >
-                <template v-slot:placeholder>
-                  <div class="d-flex align-center justify-center fill-height">
-                    <v-progress-circular
-                      color="romm-accent-1"
-                      :width="2"
-                      :size="20"
-                      indeterminate
-                    />
-                  </div>
-                </template>
-              </v-img>
-            </v-card>
-          </v-col>
-        </v-row>
-        <v-row class="px-3 action-buttons">
-          <v-col class="pa-0">
-            <template v-if="rom.multi">
-              <v-btn
-                @click="downloadRomApi(rom, filesToDownload)"
-                :disabled="downloadStore.value.includes(rom.id)"
-                rounded="0"
-                color="primary"
-                block
-              >
-                <v-icon icon="mdi-download" size="large" />
-              </v-btn>
-            </template>
-            <template v-else>
-              <v-btn
-                :href="downloadUrl"
-                download
-                rounded="0"
-                color="primary"
-                block
-              >
-                <v-icon icon="mdi-download" size="large" />
-              </v-btn>
-            </template>
-          </v-col>
-          <v-col class="pa-0">
-            <v-btn rounded="0" block :disabled="!saveFiles"
-              ><v-icon icon="mdi-content-save-all" size="large"
-            /></v-btn>
-          </v-col>
-          <v-col class="pa-0">
-            <v-menu location="bottom">
-              <template v-slot:activator="{ props }">
-                <v-btn
-                  :disabled="!auth.scopes.includes('roms.write')"
-                  v-bind="props"
-                  rounded="0"
-                  block
-                >
-                  <v-icon icon="mdi-dots-vertical" size="large" />
-                </v-btn>
-              </template>
-              <admin-menu :rom="rom" />
-            </v-menu>
-          </v-col>
-        </v-row>
-      </v-col>
-      <v-col
-        class="mt-10"
-        :class="{ info: lgAndUp, 'info-tablet': mdAndDown, 'info-mobile': xs }"
-      >
-        <div class="text-white">
-          <v-row no-gutters>
-            <span class="text-h4 font-weight-bold rom-name">{{
-              rom.r_name
-            }}</span>
-            <v-chip-group class="ml-3 mt-1 hidden-xs">
-              <v-chip
-                v-show="rom.region"
-                size="x-small"
-                class="bg-chip"
-                label
-                >{{ rom.region }}</v-chip
-              >
-              <v-chip
-                v-show="rom.revision"
-                size="x-small"
-                class="bg-chip"
-                label
-                >{{ rom.revision }}</v-chip
-              >
-            </v-chip-group>
-          </v-row>
-          <v-row no-gutters class="align-center">
-            <span class="font-italic mt-1 rom-platform">{{
-              rom.p_name || rom.p_slug
-            }}</span>
-            <v-chip-group class="ml-3 mt-1 hidden-sm-and-up">
-              <v-chip
-                v-show="rom.region"
-                size="x-small"
-                class="bg-chip"
-                label
-                >{{ rom.region }}</v-chip
-              >
-              <v-chip
-                v-show="rom.revision"
-                size="x-small"
-                class="bg-chip"
-                label
-                >{{ rom.revision }}</v-chip
-              >
-            </v-chip-group>
-          </v-row>
-        </div>
-        <div
-          :class="{
-            'details-content': lgAndUp,
-            'details-content-tablet': mdAndDown,
-            'details-content-mobile': xs,
-          }"
-        >
-          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
-            <v-tab value="details" rounded="0">Details</v-tab>
-            <v-tab value="saves" rounded="0" disabled
-              >Saves<span class="text-caption text-truncate ml-1"
-                >[coming soon]</span
-              ></v-tab
-            >
-            <v-tab
-              v-if="rom.path_screenshots.length > 0"
-              value="screenshots"
-              rounded="0"
-              >Screenshots</v-tab
-            >
-          </v-tabs>
+        <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
+          <v-tab value="details" rounded="0">Details</v-tab>
+          <v-tab value="saves" rounded="0" disabled
+            >Saves<span class="text-caption text-truncate ml-1"
+              >[coming soon]</span
+            ></v-tab
+          >
+          <v-tab
+            v-if="rom.path_screenshots.length > 0"
+            value="screenshots"
+            rounded="0"
+            >Screenshots</v-tab
+          >
+        </v-tabs>
+      </v-row>
+      <v-row no-gutters>
+        <v-col cols="12">
           <v-window v-model="tab" class="mt-2">
             <v-window-item value="details">
-              <v-row
-                v-if="!rom.multi"
-                class="d-flex align-center text-body-1 mt-0"
-              >
-                <v-col
-                  cols="3"
-                  xs="3"
-                  sm="2"
-                  md="2"
-                  lg="2"
-                  class="font-weight-medium"
-                  ><span>File</span></v-col
-                >
-                <v-col class="text-body-1"
-                  ><span>{{ rom.file_name }}</span></v-col
-                >
-              </v-row>
-              <v-row
-                v-if="rom.multi"
-                class="d-flex align-center text-body-1 mt-0"
-              >
-                <v-col
-                  cols="3"
-                  xs="3"
-                  sm="2"
-                  md="2"
-                  lg="2"
-                  class="font-weight-medium"
-                  ><span>Files</span></v-col
-                >
-                <v-col
-                  ><v-select
-                    :label="rom.file_name"
-                    item-title="file_name"
-                    v-model="filesToDownload"
-                    :items="rom.files"
-                    class="my-2"
-                    density="compact"
-                    variant="outlined"
-                    return-object
-                    multiple
-                    hide-details
-                    clearable
-                    chips
-                /></v-col>
-              </v-row>
-              <v-row class="d-flex align-center text-body-1 mt-0">
-                <v-col
-                  cols="3"
-                  xs="3"
-                  sm="2"
-                  md="2"
-                  lg="2"
-                  class="font-weight-medium"
-                  ><span>Size</span></v-col
-                >
-                <v-col
-                  ><span
-                    >{{ rom.file_size }} {{ rom.file_size_units }}</span
-                  ></v-col
-                >
-              </v-row>
-              <v-row
-                v-if="rom.r_igdb_id != ''"
-                class="d-flex align-center text-body-1 mt-0"
-              >
-                <v-col
-                  cols="3"
-                  xs="3"
-                  sm="2"
-                  md="2"
-                  lg="2"
-                  class="font-weight-medium"
-                  ><span>IGDB</span></v-col
-                >
-                <v-col>
-                  <v-chip
-                    variant="outlined"
-                    :href="`https://www.igdb.com/games/${rom.r_slug}`"
-                    label
-                    >{{ rom.r_igdb_id }}</v-chip
-                  >
-                </v-col>
-              </v-row>
-              <v-row
-                v-if="rom.tags.length > 0"
-                class="d-flex align-center text-body-1 mt-0"
-              >
-                <v-col
-                  cols="3"
-                  xs="3"
-                  sm="2"
-                  md="2"
-                  lg="2"
-                  class="font-weight-medium"
-                  ><span>Tags</span></v-col
-                >
-                <v-col
-                  ><v-chip-group class="pt-0"
-                    ><v-chip
-                      v-for="tag in rom.tags"
-                      :key="tag"
-                      class="bg-chip"
-                      label
-                      >{{ tag }}</v-chip
-                    ></v-chip-group
-                  ></v-col
-                >
-              </v-row>
-              <v-row class="d-flex mt-3">
-                <v-col class="font-weight-medium text-caption">
-                  <p>{{ rom.summary }}</p>
-                </v-col>
-              </v-row>
+              <details-info :rom="rom" />
             </v-window-item>
             <v-window-item value="screenshots">
-              <v-row class="d-flex mt-2">
-                <v-carousel
-                  hide-delimiter-background
-                  delimiter-icon="mdi-square"
-                  class="bg-romm-black"
-                  show-arrows="hover"
-                  height="400"
-                >
-                  <v-carousel-item
-                    v-for="screenshot in rom.path_screenshots"
-                    :src="`/assets/romm/resources/${screenshot}`"
-                  />
-                </v-carousel>
-              </v-row>
+              <screenshots-carousel :rom="rom" />
             </v-window-item>
             <v-window-item value="saves">
-              <v-row class="d-flex mt-2"> </v-row>
+              <v-row class="d-flex mt-2" no-gutters></v-row>
             </v-window-item>
           </v-window>
-        </div>
-      </v-col>
-    </v-row>
-  </div>
+        </v-col>
+      </v-row>
+    </v-col>
+  </v-row>
 
   <search-rom-dialog />
   <edit-rom-dialog />
@@ -369,60 +138,80 @@ onBeforeMount(async () => {
 </template>
 
 <style scoped>
-.scroll {
-  overflow-y: scroll;
-}
-
-.rom-name,
-.rom-platform {
-  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
-}
-
 .content,
-.content-tablet,
+.content-tablet-md,
+.content-tablet-sm,
 .content-mobile {
+  /* Needed to put elements on top of the header background */
   position: relative;
 }
 
 .content,
-.content-tablet {
-  margin-top: 64px;
+.content-tablet-md {
+  margin-top: 86px;
   margin-left: 100px;
+}
+
+.content {
+  margin-right: 250px;
+}
+.content-tablet-md {
   margin-right: 100px;
 }
 
+.content-tablet-sm {
+  margin-top: 20px;
+  margin-left: 50px;
+  margin-right: 50px;
+}
 .content-mobile {
-  margin-top: 64px;
+  margin-top: 20px;
   margin-left: 20px;
   margin-right: 20px;
 }
 
 .cover,
-.cover-tablet,
+.cover-tablet-md {
+  min-width: 295px;
+  min-height: 420px;
+  max-width: 295px;
+  max-height: 420px;
+}
+.cover-tablet-sm,
 .cover-mobile {
-  min-width: 245px;
-  min-height: 326px;
-  max-width: 245px;
-  max-height: 326px;
+  min-width: 295px;
+  min-height: 390px;
+  max-width: 295px;
+  max-height: 390px;
+}
+
+.info,
+.info-tablet-md {
+  margin-left: 15px;
+  min-width: 480px;
 }
 
 .details,
-.details-tablet,
+.details-tablet-md,
+.details-tablet-sm,
 .details-mobile {
+  position: relative;
   padding-left: 25px;
   padding-right: 25px;
 }
 
 .details-content {
-  margin-top: 122px;
+  margin-top: 108px;
   max-width: 700px;
 }
 
-.details-content-tablet {
-  margin-top: 66px;
+.details-content-tablet-md {
+  margin-top: 52px;
+  max-width: 700px;
 }
 
+.details-content-tablet-sm,
 .details-content-mobile {
-  margin-top: 30px;
+  margin-top: 18px;
 }
 </style>

@@ -2,12 +2,12 @@
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
-import { fetchRomsApi } from "@/services/api";
-import { views, normalizeString } from "@/utils/utils";
+import api from "@/services/api";
+import { views, toTop, normalizeString } from "@/utils/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import GalleryAppBar from "@/components/GalleryAppBar/Base.vue";
+import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -15,7 +15,7 @@ import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import FabMenu from "@/components/FabMenu/Base.vue";
+import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 
 // Props
 const route = useRoute();
@@ -58,7 +58,7 @@ async function fetchRoms(platform) {
     scrim: false,
   });
 
-  await fetchRomsApi({
+  await api.fetchRoms({
     platform: platform,
     cursor: isFiltered ? searchCursor.value : cursor.value,
     searchTerm: normalizeString(galleryFilter.filter),
@@ -114,14 +114,6 @@ function onScroll() {
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
     fetchRoms(route.params.platform);
   }
-}
-
-function toTop() {
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "smooth",
-  });
 }
 
 function selectRom({ event, index, selected }) {
@@ -192,7 +184,7 @@ onBeforeRouteUpdate((to, _) => {
 <template>
   <gallery-app-bar />
   <template v-if="filteredRoms.length > 0">
-    <v-row no-gutters v-scroll="onScroll">
+    <v-row class="pa-1" no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
         class="pa-1"
@@ -204,6 +196,7 @@ onBeforeRouteUpdate((to, _) => {
         :sm="views[galleryView.current]['size-sm']"
         :md="views[galleryView.current]['size-md']"
         :lg="views[galleryView.current]['size-lg']"
+        :xl="views[galleryView.current]['size-xl']"
       >
         <game-card
           :rom="rom"
@@ -217,17 +210,6 @@ onBeforeRouteUpdate((to, _) => {
       <!-- Gallery list view -->
       <v-col v-show="galleryView.current == 2">
         <game-data-table />
-      </v-col>
-    </v-row>
-  </template>
-
-  <!-- Empty gallery message -->
-  <template v-if="filteredRoms.length == 0 && !gettingRoms">
-    <v-row class="align-center justify-center" no-gutters>
-      <v-col cols="6" md="2">
-        <div class="mt-16">
-          Feels empty here... <v-icon>mdi-emoticon-sad</v-icon>
-        </div>
       </v-col>
     </v-row>
   </template>
@@ -249,8 +231,8 @@ onBeforeRouteUpdate((to, _) => {
           icon
           class="mr-2"
           size="large"
-          @click="toTop"
-          ><v-icon color="romm-accent-2">mdi-chevron-up</v-icon></v-btn
+          @click="toTop()"
+          ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
         >
       </v-scroll-y-reverse-transition>
       <v-menu
@@ -288,10 +270,10 @@ onBeforeRouteUpdate((to, _) => {
 
 <style scoped>
 .game-card.game-selected {
-  border: 2px solid rgba(var(--v-theme-romm-accent-2));
+  border: 2px solid rgba(var(--v-theme-romm-accent-1));
   padding: 0;
 }
 #scrollToTop {
-  border: 1px solid rgba(var(--v-theme-romm-accent-2));
+  border: 1px solid rgba(var(--v-theme-romm-accent-1));
 }
 </style>

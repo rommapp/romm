@@ -106,7 +106,6 @@ def downgrade() -> None:
     with op.batch_alter_table("platforms") as batch_op:
         batch_op.drop_column("fs_slug")
     with op.batch_alter_table("roms") as batch_op:
-        batch_op.drop_constraint("PRIMARY", type_="primary")
         batch_op.drop_column("id")
         batch_op.drop_column("p_name")
         batch_op.drop_column("url_cover")

@@ -28,11 +28,11 @@ export default defineStore("roms", {
 
   actions: {
     _reorder() {
-      // Sort roms by name and remove duplicates
+      // Sort roms by comparator string
       this._all = uniqBy(
-        this._all.sort((a, b) =>
-          a.file_name_no_tags.localeCompare(b.file_name_no_tags)
-        ),
+        this._all.sort((a, b) => {
+          return a.sort_comparator.localeCompare(b.sort_comparator);
+        }),
         "id"
       );
     },
