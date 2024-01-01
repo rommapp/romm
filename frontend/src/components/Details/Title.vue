@@ -49,7 +49,7 @@ const { smAndUp } = useDisplay();
     </v-chip>
   </v-row>
   <v-row>
-    <version-switcher v-if="rom?.sibling_roms" :rom="rom" />
+    <version-switcher v-if="rom?.sibling_roms.length > 0" :rom="rom" />
   </v-row>
 </template>
 
