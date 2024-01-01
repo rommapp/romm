@@ -1,10 +1,14 @@
-# v2.2.1 (_01-01-2024_)
+# v2.2.1 (_02-01-2024_)
 
 ## Added
 - Added an option to group different regions of one game in the same entry in the ``Control Panel``. Closes [#404](https://github.com/zurdi15/romm/issues/404)
 
 ## Fixed
  - Fixed an error when scanning games with with ``ps2 opl``, ``switch titledb/productid``  or ``mame`` format.
+ - Fixed updating roms of a custom platform folder.
+
+## Changed
+ - Now region and language tags are case insensitive to show ``emojis``.
 
 # v2.2.0 (_31-12-2023_)
 
