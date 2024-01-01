@@ -1,3 +1,8 @@
+# v2.2.1 (_01-01-2024_)
+
+## Fixed
+ - Fixed an error when scanning games with with ``ps2 opl``, ``switch titledb/productid``  or ``mame`` format.
+
 # v2.2.0 (_31-12-2023_)
 
 ## Added
