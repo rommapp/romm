@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject, onBeforeMount } from "vue";
+import { ref, inject, onBeforeMount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
@@ -16,41 +16,51 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 
-// Props
 const route = useRoute();
 const romsStore = storeRoms();
-const { allRoms } = storeToRefs(romsStore);
-const rom = ref(allRoms.value.find((rom) => rom.id == route.params.rom));
+const rom = ref(null);
 const tab = ref("details");
 const { xs, sm, md, lgAndUp } = useDisplay();
-
-// Event listeners bus
 const emitter = inject("emitter");
 
-// Functions
+async function fetchRom() {
+  if (!route.params.rom) return;
+
+  await api
+    .fetchRom({ romId: route.params.rom })
+    .then((response) => {
+      rom.value = response.data;
+      romsStore.update(response.data);
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    })
+    .finally(() => {
+      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
+}
+
 onBeforeMount(async () => {
   emitter.emit("showLoadingDialog", { loading: true, scrim: false });
   if (rom.value) {
     emitter.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
-    await api.fetchRom({ romId: route.params.rom })
-      .then((response) => {
-        rom.value = response.data;
-        romsStore.update(response.data);
-      })
-      .catch((error) => {
-        console.log(error);
-        emitter.emit("snackbarShow", {
-          msg: error.response.data.detail,
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-      })
-      .finally(() => {
-        emitter.emit("showLoadingDialog", { loading: false, scrim: false });
-      });
+    fetchRom();
   }
 });
+
+watch(
+  () => route.fullPath,
+  async () => {
+    emitter.emit("showLoadingDialog", { loading: true, scrim: false });
+    await fetchRom();
+  }
+);
 </script>
 
 <template>
