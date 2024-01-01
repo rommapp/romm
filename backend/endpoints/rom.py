@@ -82,10 +82,13 @@ class RomSchema(BaseModel):
         from_attributes = True
 
 
-@protected_route(router.get, "/roms/{id}", ["roms.read"])
-def rom(request: Request, id: int) -> RomSchema:
-    """Returns one rom data of the desired platform"""
+class EnhancedRomSchema(RomSchema):
+    sibling_roms: list["RomSchema"]
 
+
+@protected_route(router.get, "/roms/{id}", ["roms.read"])
+def rom(request: Request, id: int) -> EnhancedRomSchema:
+    """Returns one rom data of the desired platform"""
     return dbh.get_rom(id)
 
 
@@ -143,7 +146,9 @@ def upload_roms(
 
 
 @protected_route(router.get, "/roms/{id}/download", ["roms.read"])
-def download_rom(request: Request, id: int, files: Annotated[list[str] | None, Query()] = None):
+def download_rom(
+    request: Request, id: int, files: Annotated[list[str] | None, Query()] = None
+):
     """Downloads a rom or a zip file with multiple roms"""
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"

@@ -16,6 +16,7 @@ const emit = defineEmits(["selectRom"]);
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const card = ref();
+
 let timeout;
 
 // Functions
@@ -77,7 +78,9 @@ function onTouchEnd() {
         :value="rom.id"
         :key="rom.id"
         v-bind="props"
-        :src="`/assets/romm/resources/${rom.path_cover_l || rom.path_screenshots[0]}`"
+        :src="`/assets/romm/resources/${
+          rom.path_cover_l || rom.path_screenshots[0]
+        }`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
         :aspect-ratio="3 / 4"
       >
@@ -100,9 +103,9 @@ function onTouchEnd() {
         </v-expand-transition>
         <v-chip-group class="ml-2 pt-0 text-shadow position-absolute flags">
           <v-chip
-            v-if="rom.regions.filter(i => i).length > 0"
+            v-if="rom.regions.filter((i) => i).length > 0"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            class="bg-chip"
+            class="bg-chip px-2 py-3"
             density="compact"
           >
             <span class="px-1" v-for="region in rom.regions">
@@ -110,14 +113,22 @@ function onTouchEnd() {
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.languages.filter(i => i).length > 0"
+            v-if="rom.languages.filter((i) => i).length > 0"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            class="bg-chip"
+            class="bg-chip px-2 py-3"
             density="compact"
           >
             <span class="px-1" v-for="language in rom.languages">
               {{ languageToEmoji(language) }}
             </span>
+          </v-chip>
+          <v-chip
+            v-if="rom.siblings?.length > 0"
+            :title="`${rom.siblings.length + 1} versions`"
+            class="bg-chip px-2 py-3"
+            density="compact"
+          >
+            +{{ rom.siblings.length }}
           </v-chip>
         </v-chip-group>
         <v-icon

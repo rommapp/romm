@@ -1,4 +1,4 @@
-import { uniqBy } from "lodash";
+import { uniqBy, groupBy } from "lodash";
 import { defineStore } from "pinia";
 
 export default defineStore("roms", {
@@ -6,6 +6,7 @@ export default defineStore("roms", {
     _platform: "",
     recentRoms: [],
     _all: [],
+    _grouped: [],
     _filteredIDs: [],
     _searchIDs: [],
     _selectedIDs: [],
@@ -19,22 +20,33 @@ export default defineStore("roms", {
     platform: (state) => state._platform,
     allRoms: (state) => state._all,
     filteredRoms: (state) =>
-      state._all.filter((rom) => state._filteredIDs.includes(rom.id)),
+      state._grouped.filter((rom) => state._filteredIDs.includes(rom.id)),
     searchRoms: (state) =>
-      state._all.filter((rom) => state._searchIDs.includes(rom.id)),
+      state._grouped.filter((rom) => state._searchIDs.includes(rom.id)),
     selectedRoms: (state) =>
-      state._all.filter((rom) => state._selectedIDs.includes(rom.id)),
+      state._grouped.filter((rom) => state._selectedIDs.includes(rom.id)),
   },
 
   actions: {
     _reorder() {
       // Sort roms by comparator string
-      this._all = uniqBy(
-        this._all.sort((a, b) => {
-          return a.sort_comparator.localeCompare(b.sort_comparator);
-        }),
-        "id"
-      );
+      this._all = this._all.sort((a, b) => {
+        return a.sort_comparator.localeCompare(b.sort_comparator);
+      }),
+      this._all = uniqBy(this._all, "id");
+
+      // Check if roms should be grouped
+      const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
+      if (!groupRoms) {
+        this._grouped = this._all;
+        return;
+      }
+
+      // Group roms by igdb_id
+      this._grouped = Object.values(groupBy(this._all, "igdb_id")).map((games) => ({
+        ...games.shift(),
+        siblings: games,
+      }));
     },
     setPlatform(platform) {
       this._platform = platform;
@@ -64,6 +76,7 @@ export default defineStore("roms", {
     },
     reset() {
       this._all = [];
+      this._grouped = [];
       this._filteredIDs = [];
       this._searchIDs = [];
       this._selectedIDs = [];
