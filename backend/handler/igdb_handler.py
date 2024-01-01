@@ -163,7 +163,7 @@ class IGDBHandler:
         ]
 
     @staticmethod
-    def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
+    async def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
         with open(PS2_OPL_INDEX_FILE, "r") as index_json:
             opl_index = json.loads(index_json.read())
@@ -265,21 +265,21 @@ class IGDBHandler:
         # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)
         if platform_idgb_id == PS2_IGDB_ID and match:
-            search_term = self._ps2_opl_format(match, search_term)
+            search_term = await self._ps2_opl_format(match, search_term)
 
         # Support for switch titleID filename format
         match = re.match(SWITCH_TITLEDB_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
-            search_term = self._switch_titledb_format(match, search_term)
+            search_term = await self._switch_titledb_format(match, search_term)
 
         # Support for switch productID filename format
         match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
-            search_term = self._switch_productid_format(match, search_term)
+            search_term = await self._switch_productid_format(match, search_term)
 
         # Support for MAME arcade filename format
         if platform_idgb_id in ARCADE_IGDB_IDS:
-            search_term = self._mame_format(search_term)
+            search_term = await self._mame_format(search_term)
 
         search_term = normalize_search_term(search_term)
 
