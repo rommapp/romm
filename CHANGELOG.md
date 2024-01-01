@@ -1,3 +1,11 @@
+# v2.2.1 (_01-01-2024_)
+
+## Added
+- Added an option to group different regions of one game in the same entry in the ``Control Panel``. Closes [#404](https://github.com/zurdi15/romm/issues/404)
+
+## Fixed
+ - Fixed an error when scanning games with with ``ps2 opl``, ``switch titledb/productid``  or ``mame`` format.
+
 # v2.2.0 (_31-12-2023_)
 
 ## Added
