@@ -1,7 +1,6 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 const props = defineProps(["rom"]);
@@ -47,9 +46,6 @@ const { smAndUp } = useDisplay();
     <v-chip v-show="rom.revision" class="text-white text-shadow title ml-2"
       >Revision {{ rom.revision }}
     </v-chip>
-  </v-row>
-  <v-row>
-    <version-switcher v-if="rom?.sibling_roms.length > 0" :rom="rom" />
   </v-row>
 </template>
 
