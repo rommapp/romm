@@ -1,6 +1,7 @@
 <script setup>
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils/utils";
 
 const props = defineProps(["rom"]);
@@ -43,7 +44,12 @@ const { smAndUp } = useDisplay();
         languageToEmoji(language)
       }}</span>
     </v-chip>
-    <v-chip v-show="rom.revision"> Rev {{ rom.revision }} </v-chip>
+    <v-chip v-show="rom.revision" class="text-white text-shadow title ml-2"
+      >Revision {{ rom.revision }}
+    </v-chip>
+  </v-row>
+  <v-row>
+    <version-switcher v-if="rom?.sibling_roms" :rom="rom" />
   </v-row>
 </template>
 
