@@ -26,7 +26,8 @@ function updateVersion() {
     label="Version"
     variant="outlined"
     density="compact"
-    class="pl-3 version-select"
+    class="version-select"
+    hide-details
     v-model="version"
     @update:model-value="updateVersion"
     :items="
@@ -41,8 +42,8 @@ function updateVersion() {
 
 <style scoped>
 .version-select {
-  position: absolute;
-  width: fit-content;
-  min-width: 8rem;
+  /* position: absolute; */
+  max-width: fit-content;
+  /* min-width: 8rem; */
 }
 </style>

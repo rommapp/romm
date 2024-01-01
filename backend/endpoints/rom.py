@@ -217,6 +217,7 @@ async def update_rom(
     data = await request.form()
 
     db_rom = dbh.get_rom(id)
+    platform_fs_slug = dbh.get_platform(db_rom.platform_slug).fs_slug
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
@@ -238,7 +239,7 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            rename_rom(db_rom.platform_slug, db_rom.file_name, fs_safe_file_name)
+            rename_rom(platform_fs_slug, db_rom.file_name, fs_safe_file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
@@ -250,7 +251,7 @@ async def update_rom(
     cleaned_data.update(
         get_cover(
             overwrite=True,
-            fs_slug=db_rom.platform_slug,
+            fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_cover=cleaned_data.get("url_cover", ""),
         )
@@ -258,7 +259,7 @@ async def update_rom(
 
     cleaned_data.update(
         get_screenshots(
-            fs_slug=db_rom.platform_slug,
+            fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
         ),
@@ -267,7 +268,7 @@ async def update_rom(
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
         path_cover_l, path_cover_s, artwork_path = build_artwork_path(
-            cleaned_data["name"], db_rom.platform_slug, file_ext
+            cleaned_data["name"], platform_fs_slug, file_ext
         )
 
         cleaned_data["path_cover_l"] = path_cover_l
