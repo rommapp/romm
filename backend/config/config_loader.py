@@ -77,7 +77,6 @@ class ConfigLoader:
         self.config["PLATFORMS_BINDING"] = pydash.get(
             self.config, "system.platforms", {}
         )
-        log.info(f"Config loaded successfully from {self.config_path}")
 
 
 config = ConfigLoader().config
