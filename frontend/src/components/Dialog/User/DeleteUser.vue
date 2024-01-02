@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import type { UserItem, Events } from "@/types/emitter";
 import api from "@/services/api";
 import storeUsers from "@/stores/users";
 
-const user = ref();
+const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
 
@@ -18,7 +18,7 @@ emitter?.on("showDeleteUserDialog", (userToDelete) => {
 async function deleteUser() {
   await api.deleteUser(user.value)
     .then(() => {
-      usersStore.remove(user.value);
+      if (user.value) usersStore.remove(user.value.id);
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
@@ -34,7 +34,7 @@ async function deleteUser() {
 }
 </script>
 <template>
-  <v-dialog v-model="show" max-width="500px" :scrim="true">
+  <v-dialog v-if="user" v-model="show" max-width="500px" :scrim="true">
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>

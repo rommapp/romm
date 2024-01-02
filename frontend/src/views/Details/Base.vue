@@ -6,7 +6,7 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import api from "@/services/api";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import Cover from "@/components/Details/Cover.vue";
@@ -20,8 +20,8 @@ import LoadingDialog from "@/components/Dialog/Loading.vue";
 
 const route = useRoute();
 const romsStore = storeRoms();
-const rom = ref(null);
-const tab = ref("details");
+const rom = ref<Rom | null>(null);
+const tab = ref<"details" | "saves" | "screenshots">("details");
 const { xs, sm, md, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 

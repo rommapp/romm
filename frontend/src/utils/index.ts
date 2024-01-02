@@ -1,6 +1,18 @@
 import cronstrue from "cronstrue";
 
-export const views = {
+export const views: Record<
+  number,
+  {
+    view: string;
+    icon: string;
+    "size-xl": number;
+    "size-lg": number;
+    "size-md": number;
+    "size-sm": number;
+    "size-xs": number;
+    "size-cols": number;
+  }
+> = {
   0: {
     view: "small",
     icon: "mdi-view-comfy",

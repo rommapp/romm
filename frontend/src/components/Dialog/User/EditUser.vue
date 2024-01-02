@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import type { Events, UserItem } from "@/types/emitter";
 
 import api from "@/services/api";
 import { defaultAvatarPath } from "@/utils"
 import storeUsers from "@/stores/users";
 
-const user = ref();
+const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
 
@@ -18,6 +18,8 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
 });
 
 function editUser() {
+  if (!user.value) return;
+
   api.updateUser(user.value)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
@@ -44,7 +46,7 @@ function editUser() {
 }
 </script>
 <template>
-  <v-dialog v-model="show" max-width="700px" :scrim="false">
+  <v-dialog v-if="user" v-model="show" max-width="700px" :scrim="false">
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -124,7 +126,7 @@ function editUser() {
               <v-col>
                 <v-file-input
                   class="text-truncate"
-                  v-model="user.avatar"
+                  :v-model="user.avatar ?? undefined"
                   label="Avatar"
                   prepend-inner-icon="mdi-image"
                   prepend-icon=""

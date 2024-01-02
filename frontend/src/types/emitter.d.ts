@@ -1,3 +1,11 @@
+import type { Rom } from "@/stores/roms";
+import type { User } from "@/stores/users";
+
+export interface UserItem extends User {
+  password: string;
+  avatar: File | null;
+}
+
 export type SnackbarStatus = {
   msg: string;
   timeout?: number;
@@ -6,20 +14,23 @@ export type SnackbarStatus = {
 };
 
 export type Events = {
-  showSearchRomDialog: any;
-  showEditRomDialog: any;
-  showDeleteRomDialog: any;
-  showUploadRomDialog: any;
+  showSearchRomDialog: Rom;
+  showEditRomDialog: Rom;
+  showDeleteRomDialog: Rom;
+  showUploadRomDialog: Rom;
   showCreateExclusionDialog: any;
   showCreatePlatformBindingDialog: any;
-  showCreateUserDialog: any;
-  showEditUserDialog: any;
-  showDeleteUserDialog: any;
+  showCreateUserDialog: null;
+  showEditUserDialog: UserItem;
+  showDeleteUserDialog: UserItem;
   toggleDrawer: any;
   toggleDrawerRail: any;
   snackbarShow: SnackbarStatus;
   refreshDrawer: any;
-  showLoadingDialog: any;
+  showLoadingDialog: {
+    loading: boolean;
+    scrim: boolean;
+  };
   openFabMenu: any;
   filter: null;
 };
