@@ -7,9 +7,13 @@ import "@mdi/font/css/materialdesignicons.css";
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 
 function getTheme() {
-  const storedTheme = parseInt(localStorage.getItem("settings.theme"));
+  const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
 
-  if (!isNaN(storedTheme) && storedTheme !== autoThemeKey) {
+  if (
+    !isNaN(storedTheme) &&
+    storedTheme !== autoThemeKey &&
+    isKeyof(storedTheme, themes)
+  ) {
     return themes[storedTheme];
   }
 
@@ -18,7 +22,7 @@ function getTheme() {
 
 const instance = createVuetify({
   icons: {
-    iconfont: "mdi",
+    defaultSet: "mdi",
   },
   theme: {
     defaultTheme: getTheme(),

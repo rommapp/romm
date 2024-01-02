@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 import { themes, autoThemeKey } from "@/styles/themes";

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import storeDownload from "@/stores/download";
 
 const downloadStore = storeDownload();

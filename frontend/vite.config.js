@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+          globPatterns: ["**/*.{js,ts,css,html,ico,png,svg}"],
           navigateFallbackDenylist: [
             /\/assets\/romm\/library/,
             /\/api\/platforms\/.*\/roms\/.*\/download/,

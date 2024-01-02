@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import api from "@/services/api";
 import storeDownload from "@/stores/download";

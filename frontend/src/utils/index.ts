@@ -43,14 +43,14 @@ export function toTop() {
   });
 }
 
-export function normalizeString(s) {
+export function normalizeString(s: string) {
   return s
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-export function convertCronExperssion(expression) {
+export function convertCronExperssion(expression: string) {
   let convertedExpression = cronstrue.toString(expression, { verbose: true });
   convertedExpression =
     convertedExpression.charAt(0).toLocaleLowerCase() +
@@ -58,104 +58,155 @@ export function convertCronExperssion(expression) {
   return convertedExpression;
 }
 
-export function regionToEmoji(region) {
+export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
-    case ("as", "australia"):
+    case "as":
+    case "australia":
       return "🇦🇺";
-    case ("a", "asia"):
+    case "a":
+    case "asia":
       return "🌏";
-    case ("b", "bra", "brazil"):
+    case "b":
+    case "bra":
+    case "brazil":
       return "🇧🇷";
-    case ("c", "canada"):
+    case "c":
+    case "canada":
       return "🇨🇦";
-    case ("ch", "chn", "china"):
+    case "ch":
+    case "chn":
+    case "china":
       return "🇨🇳";
-    case ("e", "eu", "europe"):
+    case "e":
+    case "eu":
+    case "europe":
       return "🇪🇺";
-    case ("f", "france"):
+    case "f":
+    case "france":
       return "🇫🇷";
-    case ("fn", "finland"):
+    case "fn":
+    case "finland":
       return "🇫🇮";
-    case ("g", "germany"):
+    case "g":
+    case "germany":
       return "🇩🇪";
-    case ("gr", "greece"):
+    case "gr":
+    case "greece":
       return "🇬🇷";
-    case ("h", "holland"):
+    case "h":
+    case "holland":
       return "🇳🇱";
-    case ("hk", "hong kong"):
+    case "hk":
+    case "hong kong":
       return "🇭🇰";
-    case ("i", "italy"):
+    case "i":
+    case "italy":
       return "🇮🇹";
-    case ("j", "jp", "japan"):
+    case "j":
+    case "jp":
+    case "japan":
       return "🇯🇵";
-    case ("k", "korea"):
+    case "k":
+    case "korea":
       return "🇰🇷";
-    case ("nl", "netherlands"):
+    case "nl":
+    case "netherlands":
       return "🇳🇱";
-    case ("no", "norway"):
+    case "no":
+    case "norway":
       return "🇳🇴";
-    case ("pd", "public domain"):
+    case "pd":
+    case "public domain":
       return "🇵🇱";
-    case ("r", "russia"):
+    case "r":
+    case "russia":
       return "🇷🇺";
-    case ("s", "spain"):
+    case "s":
+    case "spain":
       return "🇪🇸";
-    case ("sw", "sweden"):
+    case "sw":
+    case "sweden":
       return "🇸🇪";
-    case ("t", "taiwan"):
+    case "t":
+    case "taiwan":
       return "🇹🇼";
-    case ("u", "us", "usa"):
+    case "u":
+    case "us":
+    case "usa":
       return "🇺🇸";
-    case ("uk", "england"):
+    case "uk":
+    case "england":
       return "🇬🇧";
-    case ("unk", "unknown"):
+    case "unk":
+    case "unknown":
       return "🌎";
-    case ("unl", "unlicensed"):
+    case "unl":
+    case "unlicensed":
       return "🌎";
-    case ("w", "global", "world"):
+    case "w":
+    case "global":
+    case "world":
       return "🌎";
     default:
       return region;
   }
 }
 
-export function languageToEmoji(language) {
+export function languageToEmoji(language: string) {
   switch (language.toLowerCase()) {
-    case ("ar", "arabic"):
+    case "ar":
+    case "arabic":
       return "🇦🇪";
-    case ("da", "danish"):
+    case "da":
+    case "danish":
       return "🇩🇰";
-    case ("de", "german"):
+    case "de":
+    case "german":
       return "🇩🇪";
-    case ("en", "english"):
+    case "en":
+    case "english":
       return "🇬🇧";
-    case ("es", "spanish"):
+    case "es":
+    case "spanish":
       return "🇪🇸";
-    case ("fi", "finnish"):
+    case "fi":
+    case "finnish":
       return "🇫🇮";
-    case ("fr", "french"):
+    case "fr":
+    case "french":
       return "🇫🇷";
-    case ("it", "italian"):
+    case "it":
+    case "italian":
       return "🇮🇹";
-    case ("ja", "japanese"):
+    case "ja":
+    case "japanese":
       return "🇯🇵";
-    case ("ko", "korean"):
+    case "ko":
+    case "korean":
       return "🇰🇷";
-    case ("nl", "dutch"):
+    case "nl":
+    case "dutch":
       return "🇳🇱";
-    case ("no", "norwegian"):
+    case "no":
+    case "norwegian":
       return "🇳🇴";
-    case ("pl", "polish"):
+    case "pl":
+    case "polish":
       return "🇵🇱";
-    case ("pt", "portuguese"):
+    case "pt":
+    case "portuguese":
       return "🇵🇹";
-    case ("ru", "russian"):
+    case "ru":
+    case "russian":
       return "🇷🇺";
-    case ("sv", "swedish"):
+    case "sv":
+    case "swedish":
       return "🇸🇪";
-    case ("zh", "chinese"):
+    case "zh":
+    case "chinese":
       return "🇨🇳";
-    case ("nolang", "no language"):
+    case "nolang":
+    case "no language":
       return "🌎";
     default:
       return language;

@@ -1,6 +1,6 @@
-<script setup>
+<script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { views } from "@/utils/utils";
+import { views } from "@/utils";
 import { fetchRecentRoms } from "@/services/api";
 import storeRoms from "@/stores/roms";
 import GameCard from "@/components/Game/Card/Base.vue";
@@ -65,3 +65,4 @@ onMounted(async () => {
   <delete-rom-dialog />
   <loading-dialog />
 </template>
+@/utils

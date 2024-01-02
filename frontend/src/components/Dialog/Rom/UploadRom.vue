@@ -1,7 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import socket from "@/services/socket";
 import api from "@/services/api";
 import storeScanning from "@/stores/scanning";
@@ -12,16 +15,16 @@ const show = ref(false);
 const romsToUpload = ref([]);
 const scanning = storeScanning();
 
-const emitter = inject("emitter");
-emitter.on("showUploadRomDialog", () => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showUploadRomDialog", () => {
   show.value = true;
 });
 
 socket.on("scan:done", () => {
   scanning.set(false);
   socket.disconnect();
-  emitter.emit("refreshDrawer");
-  emitter.emit("snackbarShow", {
+  emitter?.emit("refreshDrawer");
+  emitter?.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
@@ -30,7 +33,7 @@ socket.on("scan:done", () => {
 
 socket.on("scan:done_ko", (msg) => {
   scanning.set(false);
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",
@@ -41,7 +44,7 @@ socket.on("scan:done_ko", (msg) => {
 async function uploadRoms() {
   show.value = false;
   scanning.set(true);
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Uploading ${romsToUpload.value.length} roms to ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
@@ -56,7 +59,7 @@ async function uploadRoms() {
       const { uploaded_roms, skipped_roms } = data;
 
       if (uploaded_roms.length == 0) {
-        return emitter.emit("snackbarShow", {
+        return emitter?.emit("snackbarShow", {
           msg: `All files skipped, nothing to upload.`,
           icon: "mdi-close-circle",
           color: "orange",
@@ -64,7 +67,7 @@ async function uploadRoms() {
         });
       }
 
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `${uploaded_roms.length} files uploaded successfully (and ${skipped_roms.length} skipped). Starting scan...`,
         icon: "mdi-check-bold",
         color: "green",
@@ -80,7 +83,7 @@ async function uploadRoms() {
       }, 2000);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to upload roms: ${
           response?.data?.detail || response?.statusText || message
         }`,

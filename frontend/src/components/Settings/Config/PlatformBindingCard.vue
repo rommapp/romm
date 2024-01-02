@@ -1,12 +1,14 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onBeforeMount, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 import { api } from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
 
 // Props
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
 </script>
@@ -22,7 +24,7 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-romm-accent-1"
-        @click="emitter.emit('showCreatePlatformBindingDialog')"
+        @click="emitter?.emit('showCreatePlatformBindingDialog')"
       >
         Add
       </v-btn>

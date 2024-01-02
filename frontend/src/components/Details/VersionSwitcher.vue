@@ -1,7 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { regionToEmoji, languageToEmoji } from "@/utils/utils";
+import { regionToEmoji, languageToEmoji } from "@/utils";
 
 const props = defineProps(["rom"]);
 const router = useRouter();
@@ -47,3 +47,4 @@ function updateVersion() {
   /* min-width: 8rem; */
 }
 </style>
+@/utils

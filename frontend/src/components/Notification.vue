@@ -1,13 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { SnackbarStatus, Events } from "@/types/emitter";
 
 // Props
 const snackbarShow = ref(false);
-const snackbarStatus = ref({});
+const snackbarStatus = ref<SnackbarStatus>({ msg: "" });
 
 // Event listeners bus
-const emitter = inject("emitter");
-emitter.on("snackbarShow", (snackbar) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("snackbarShow", (snackbar: SnackbarStatus) => {
   snackbarShow.value = true;
   snackbarStatus.value = snackbar;
 });
@@ -28,7 +30,7 @@ emitter.on("snackbarShow", (snackbar) => {
     {{ snackbarStatus.msg }}
     <template v-slot:actions>
       <v-btn @click="snackbarShow = false" variant="text">
-        <v-icon icon="mdi-close"/>
+        <v-icon icon="mdi-close" />
       </v-btn>
     </template>
   </v-snackbar>

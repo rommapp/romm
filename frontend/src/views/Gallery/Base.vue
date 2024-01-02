@@ -1,9 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onMounted, onBeforeUnmount } from "vue";
 import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
-import { views, toTop, normalizeString } from "@/utils/utils";
+import { views, toTop, normalizeString } from "@/utils";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
@@ -35,9 +38,9 @@ const {
 } = storeToRefs(romsStore);
 
 // Event listeners bus
-const emitter = inject("emitter");
-emitter.on("filter", onFilterChange);
-emitter.on("openFabMenu", (open) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("filter", onFilterChange);
+emitter?.on("openFabMenu", (open) => {
   fabMenu.value = open;
 });
 
@@ -53,7 +56,7 @@ async function fetchRoms(platform) {
     return;
 
   gettingRoms.value = true;
-  emitter.emit("showLoadingDialog", {
+  emitter?.emit("showLoadingDialog", {
     loading: gettingRoms.value,
     scrim: false,
   });
@@ -85,7 +88,7 @@ async function fetchRoms(platform) {
     })
     .finally(() => {
       gettingRoms.value = false;
-      emitter.emit("showLoadingDialog", {
+      emitter?.emit("showLoadingDialog", {
         loading: gettingRoms.value,
         scrim: false,
       });
@@ -277,3 +280,4 @@ onBeforeRouteUpdate((to, _) => {
   border: 1px solid rgba(var(--v-theme-romm-accent-1));
 }
 </style>
+@/utils

@@ -1,12 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import storeAuth from "@/stores/auth";
 import { api } from "@/services/api";
 
 // Props
 const auth = storeAuth();
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref();
 const password = ref();
@@ -37,7 +40,7 @@ function login() {
         message ||
         response.statusText;
 
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to login: ${errorMessage}`,
         icon: "mdi-close-circle",
         color: "red",

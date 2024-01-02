@@ -1,10 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 
 const show = ref(false);
-const emitter = inject("emitter");
-emitter.on("showCreatePlatformBindingDialog", () => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showCreatePlatformBindingDialog", () => {
   show.value = true;
 });
 </script>

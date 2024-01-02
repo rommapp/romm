@@ -1,5 +1,5 @@
-<script setup>
-import { views } from "@/utils/utils";
+<script setup lang="ts">
+import { views } from "@/utils";
 import storeGalleryView from "@/stores/galleryView";
 
 // Props
@@ -16,3 +16,4 @@ const galleryView = storeGalleryView();
   >
   </v-btn>
 </template>
+@/utils

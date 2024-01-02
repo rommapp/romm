@@ -1,5 +1,5 @@
-<script setup>
-import { convertCronExperssion } from "@/utils/utils";
+<script setup lang="ts">
+import { convertCronExperssion } from "@/utils";
 
 const props = defineProps(["task"]);
 const cronExpression = convertCronExperssion(props.task.CRON);
@@ -23,3 +23,4 @@ const cronExpression = convertCronExperssion(props.task.CRON);
     </p>
   </div>
 </template>
+@/utils

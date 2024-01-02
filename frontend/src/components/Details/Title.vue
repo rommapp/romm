@@ -1,7 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils/utils";
+import { regionToEmoji, languageToEmoji } from "@/utils";
 
 const props = defineProps(["rom"]);
 const { smAndUp } = useDisplay();
@@ -54,3 +54,4 @@ const { smAndUp } = useDisplay();
   text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>
+@/utils

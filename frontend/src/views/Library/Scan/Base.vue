@@ -1,5 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeUnmount } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import socket from "@/services/socket";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
@@ -14,7 +17,7 @@ const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
 
 // Event listeners bus
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 
 socket.on("scan:scanning_platform", ({ name, slug }) => {
   scannedPlatforms.value.push({ name, slug, roms: [] });
@@ -43,8 +46,8 @@ socket.on("scan:done", () => {
   scanning.set(false);
   socket.disconnect();
 
-  emitter.emit("refreshDrawer");
-  emitter.emit("snackbarShow", {
+  emitter?.emit("refreshDrawer");
+  emitter?.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
@@ -55,7 +58,7 @@ socket.on("scan:done", () => {
 socket.on("scan:done_ko", (msg) => {
   scanning.set(false);
 
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",

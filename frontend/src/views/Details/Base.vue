@@ -1,8 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeMount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
@@ -21,7 +23,7 @@ const romsStore = storeRoms();
 const rom = ref(null);
 const tab = ref("details");
 const { xs, sm, md, lgAndUp } = useDisplay();
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 
 async function fetchRom() {
   if (!route.params.rom) return;
@@ -34,21 +36,21 @@ async function fetchRom() {
     })
     .catch((error) => {
       console.log(error);
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 
 onBeforeMount(async () => {
-  emitter.emit("showLoadingDialog", { loading: true, scrim: false });
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
   if (rom.value) {
-    emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
     fetchRom();
   }
@@ -57,7 +59,7 @@ onBeforeMount(async () => {
 watch(
   () => route.fullPath,
   async () => {
-    emitter.emit("showLoadingDialog", { loading: true, scrim: false });
+    emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
     await fetchRom();
   }
 );

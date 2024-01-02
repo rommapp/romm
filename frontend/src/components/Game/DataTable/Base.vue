@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import api from "@/services/api";
@@ -7,7 +7,7 @@ import storeRoms from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils/utils";
+import { regionToEmoji, languageToEmoji } from "@/utils";
 
 const HEADERS = [
   {
@@ -168,3 +168,4 @@ function rowClick(_, row) {
     </template>
   </v-data-table>
 </template>
+@/utils

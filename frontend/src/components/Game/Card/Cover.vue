@@ -1,8 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
-import { regionToEmoji, languageToEmoji } from "@/utils/utils";
+import { regionToEmoji, languageToEmoji } from "@/utils";
 
 // Props
 const props = defineProps([
@@ -163,3 +163,4 @@ function onTouchEnd() {
   text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>
+@/utils
