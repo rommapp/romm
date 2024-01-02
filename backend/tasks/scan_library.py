@@ -23,7 +23,7 @@ class ScanLibraryTask(PeriodicTask):
             return
 
         log.info("Scheduled library scan started...")
-        scan_platforms([])
+        await scan_platforms([])
         log.info("Scheduled library scan done")
 
 
