@@ -30,7 +30,7 @@ function login() {
       }
     )
     .then(() => {
-      const next = router.currentRoute.value.query?.next || "/";
+      const next = (router.currentRoute.value.query?.next || "/").toString();
       router.push(next);
     })
     .catch(({ response, message }) => {

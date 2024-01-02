@@ -45,7 +45,7 @@ emitter?.on("openFabMenu", (open) => {
 });
 
 // Functions
-async function fetchRoms(platform) {
+async function fetchRoms(platform: string) {
   const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
 
   if (
@@ -61,11 +61,12 @@ async function fetchRoms(platform) {
     scrim: false,
   });
 
-  await api.fetchRoms({
-    platform: platform,
-    cursor: isFiltered ? searchCursor.value : cursor.value,
-    searchTerm: normalizeString(galleryFilter.filter),
-  })
+  await api
+    .fetchRoms({
+      platform: platform,
+      cursor: isFiltered ? searchCursor.value : cursor.value,
+      searchTerm: normalizeString(galleryFilter.filter),
+    })
     .then((response) => {
       // Add any new roms to the store
       const allRomsSet = [...allRoms.value, ...response.data.items];
@@ -104,7 +105,7 @@ function onFilterChange() {
     return;
   }
 
-  fetchRoms(route.params.platform);
+  fetchRoms(route.params.platform as string);
 }
 
 function onScroll() {
@@ -115,11 +116,17 @@ function onScroll() {
 
   const scrollOffset = 60;
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-    fetchRoms(route.params.platform);
+    fetchRoms(route.params.platform as string);
   }
 }
 
-function selectRom({ event, index, selected }) {
+type RomSelectEvent = {
+  event: MouseEvent;
+  index: number;
+  selected: boolean;
+};
+
+function selectRom({ event, index, selected }: RomSelectEvent) {
   if (event.shiftKey) {
     const [start, end] = [romsStore.lastSelectedIndex, index].sort(
       (a, b) => a - b
@@ -147,17 +154,17 @@ function resetGallery() {
 }
 
 onMounted(() => {
-  const platform = route.params.platform;
+  const platform = route.params.platform as string;
 
   // If platform is different, reset store and fetch roms
   if (platform != romsStore.platform) {
     resetGallery();
-    fetchRoms(route.params.platform);
+    fetchRoms(platform);
   }
 
   // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
-    fetchRoms(route.params.platform);
+    fetchRoms(platform);
   }
 });
 
@@ -180,7 +187,7 @@ onBeforeRouteLeave((to, from, next) => {
 onBeforeRouteUpdate((to, _) => {
   // Reset store if switching to another platform
   resetGallery();
-  fetchRoms(to.params.platform);
+  fetchRoms(to.params.platform as string);
 });
 </script>
 

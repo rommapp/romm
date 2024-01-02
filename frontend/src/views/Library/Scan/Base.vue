@@ -4,15 +4,16 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import socket from "@/services/socket";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import type { Rom } from "@/stores/roms";
 
 // Props
 const platforms = storePlatforms();
-const platformsToScan = ref([]);
+const platformsToScan = ref<Platform[]>([]);
 const scanning = storeScanning();
-const scannedPlatforms = ref([]);
+const scannedPlatforms = ref<{ name: string; slug: string; roms: Rom[] }[]>([]);
 const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
 
@@ -35,10 +36,10 @@ socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
       roms: [],
     });
 
-    platform = scannedPlatforms.slice(-1);
+    platform = scannedPlatforms.value.pop();
   }
 
-  platform.roms.push(rom);
+  platform?.roms.push(rom);
   window.setTimeout(scrollToBottom, 100);
 });
 
@@ -51,7 +52,7 @@ socket.on("scan:done", () => {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
-    timeout: 4000
+    timeout: 4000,
   });
 });
 
@@ -80,7 +81,7 @@ async function onScan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.fs_slug),
     completeRescan: completeRescan.value,
-    rescanUnidentified: rescanUnidentified.value
+    rescanUnidentified: rescanUnidentified.value,
   });
 }
 
@@ -122,7 +123,7 @@ onBeforeUnmount(() => {
         persistent-hint
       />
     </v-col>
-  
+
     <!-- Rescan unidentified option -->
     <v-col cols="12" xs="12" sm="6" md="4" lg="4" xl="4">
       <v-checkbox

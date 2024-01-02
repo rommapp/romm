@@ -48,7 +48,7 @@ onMounted(async () => {
     fixed
   />
 
-  <drawer :key="refreshDrawer" />
+  <drawer :key="refreshDrawer.toString()" />
 
   <app-bar v-if="mdAndDown" />
 

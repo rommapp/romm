@@ -33,9 +33,9 @@ export default defineStore("users", {
                 return value;
             })
         },
-        remove(user: User) {
+        remove(userId: number) {
             this.all = this.all.filter((value) => {
-                return value.id !== user.id;
+                return value.id !== userId;
             })
         },
         reset() {
