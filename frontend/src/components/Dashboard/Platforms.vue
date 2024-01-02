@@ -1,5 +1,5 @@
-<script setup>
-import { views } from "@/utils/utils";
+<script setup lang="ts">
+import { views } from "@/utils";
 import PlatformCard from "@/components/Platform/PlatformCard.vue";
 import storePlatforms from "@/stores/platforms";
 
@@ -33,3 +33,4 @@ const platforms = storePlatforms();
     </v-card-text>
   </v-card>
 </template>
+@/utils

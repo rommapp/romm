@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import storeRoms from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";

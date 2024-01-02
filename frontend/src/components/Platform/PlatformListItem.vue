@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 
 // Props

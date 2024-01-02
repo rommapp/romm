@@ -1,15 +1,18 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
-import { defaultAvatarPath } from "@/utils/utils"
+import { defaultAvatarPath } from "@/utils"
 import storeUsers from "@/stores/users";
 
 const user = ref();
 const show = ref(false);
 const usersStore = storeUsers();
 
-const emitter = inject("emitter");
-emitter.on("showEditUserDialog", (userToEdit) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showEditUserDialog", (userToEdit) => {
   user.value = userToEdit;
   show.value = true;
 });
@@ -17,7 +20,7 @@ emitter.on("showEditUserDialog", (userToEdit) => {
 function editUser() {
   api.updateUser(user.value)
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `User ${data.username} updated successfully`,
         icon: "mdi-check-bold",
         color: "green",
@@ -26,7 +29,7 @@ function editUser() {
       usersStore.update(data);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to edit user: ${
           response?.data?.detail || response?.statusText || message
         }`,
@@ -37,7 +40,7 @@ function editUser() {
     });
 
   show.value = false;
-  emitter.emit("refreshDrawer");
+  emitter?.emit("refreshDrawer");
 }
 </script>
 <template>
@@ -142,3 +145,4 @@ function editUser() {
     </v-card>
   </v-dialog>
 </template>
+@/utils

@@ -1,7 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
@@ -12,8 +15,8 @@ const romsStore = storeRoms();
 const roms = ref();
 const deleteFromFs = ref(false);
 
-const emitter = inject("emitter");
-emitter.on("showDeleteRomDialog", (romsToDelete) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showDeleteRomDialog", (romsToDelete) => {
   roms.value = romsToDelete;
   show.value = true;
 });
@@ -22,7 +25,7 @@ async function deleteRoms() {
   await api
     .deleteRoms({ roms: roms.value, deleteFromFs: deleteFromFs.value })
     .then((response) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
         color: "green",
@@ -31,7 +34,7 @@ async function deleteRoms() {
     })
     .catch((error) => {
       console.log(error);
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
@@ -45,7 +48,7 @@ async function deleteRoms() {
   });
 
   romsStore.remove(roms.value);
-  emitter.emit("refreshDrawer");
+  emitter?.emit("refreshDrawer");
   closeDialog()
 }
 

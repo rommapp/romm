@@ -1,6 +1,6 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
-import { toTop } from "@/utils/utils";
+import { toTop } from "@/utils";
 
 const routes = [
   {

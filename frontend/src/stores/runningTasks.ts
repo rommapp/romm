@@ -4,7 +4,7 @@ export default defineStore("runningTasks", {
   state: () => ({ value: false }),
 
   actions: {
-    set(runningTasks) {
+    set(runningTasks: boolean) {
       this.value = runningTasks;
     },
   },

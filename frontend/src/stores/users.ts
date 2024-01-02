@@ -1,8 +1,17 @@
 import { defineStore } from "pinia";
 
+export type User = {
+    id: number
+    username: string
+    enabled: boolean
+    role: "viewer" | "editor" | "admin"
+    oauth_scopes: string[]
+    avatar_path: string
+}
+
 export default defineStore("users", {
     state: () => ({
-        all: [],
+        all: [] as User[],
     }),
 
     getters: {
@@ -10,13 +19,13 @@ export default defineStore("users", {
     },
 
     actions: {
-        set(users) {
+        set(users: User[]) {
             this.all = users;
         },
-        add(user) {
+        add(user: User) {
             this.all = this.all.concat(user);
         },
-        update(user) {
+        update(user: User) {
             this.all = this.all.map((value) => {
                 if (value.id === user.id) {
                     return user;
@@ -24,7 +33,7 @@ export default defineStore("users", {
                 return value;
             })
         },
-        remove(user) {
+        remove(user: User) {
             this.all = this.all.filter((value) => {
                 return value.id !== user.id;
             })

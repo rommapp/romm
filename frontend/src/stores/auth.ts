@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 
+import type { User } from "./users";
+
 const FULL_SCOPES_LIST = [
   "me.read",
   "me.write",
@@ -10,10 +12,10 @@ const FULL_SCOPES_LIST = [
   "users.read",
   "users.write",
   "tasks.run",
-];
+] as const;
 
 export default defineStore("auth", {
-  state: () => ({ enabled: false, user: null, oauth_scopes: [] }),
+  state: () => ({ enabled: false, user: null as User | null, oauth_scopes: [] as string[] }),
 
   getters: {
     scopes: (state) => {
@@ -23,10 +25,10 @@ export default defineStore("auth", {
   },
 
   actions: {
-    setUser(user) {
+    setUser(user: User) {
       this.user = user;
     },
-    setEnabled(enabled) {
+    setEnabled(enabled: boolean) {
       this.enabled = enabled;
     },
   },

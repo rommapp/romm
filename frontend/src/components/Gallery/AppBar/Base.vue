@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import storeAuth from "@/stores/auth";
 import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";

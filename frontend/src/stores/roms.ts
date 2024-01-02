@@ -2,15 +2,49 @@ import { uniqBy, groupBy, isNull } from "lodash";
 import { defineStore } from "pinia";
 import { nanoid } from "nanoid";
 
+export type Rom = {
+  id: number;
+  igdb_id: number | undefined;
+  sgdb_id: number | undefined;
+  platform_slug: string;
+  platform_name: string;
+  file_name: string;
+  file_name_no_tags: string;
+  file_extension: string;
+  file_path: string;
+  file_size: number;
+  file_size_units: string;
+  file_size_bytes: number;
+  name: string | undefined;
+  slug: string | undefined;
+  summary: string | undefined;
+  sort_comparator: string;
+  path_cover_s: string;
+  path_cover_l: string;
+  has_cover: boolean;
+  url_cover: string;
+  revision: string | undefined;
+  regions: string[];
+  languages: string[];
+  tags: string[];
+  multi: boolean;
+  files: string[];
+  url_screenshots: string[];
+  path_screenshots: string[];
+  full_path: string;
+  download_path: string;
+  siblings?: Rom[];
+};
+
 export default defineStore("roms", {
   state: () => ({
     _platform: "",
-    recentRoms: [],
-    _all: [],
-    _grouped: [],
-    _filteredIDs: [],
-    _searchIDs: [],
-    _selectedIDs: [],
+    recentRoms: [] as Rom[],
+    _all: [] as Rom[],
+    _grouped: [] as Rom[],
+    _filteredIDs: [] as number[],
+    _searchIDs: [] as number[],
+    _selectedIDs: [] as number[],
     lastSelectedIndex: -1,
     cursor: "",
     searchCursor: "",
@@ -50,30 +84,30 @@ export default defineStore("roms", {
           isNull(game.igdb_id) ? nanoid() : game.igdb_id
         )
       ).map((games) => ({
-        ...games.shift(),
+        ...games.shift() as Rom,
         siblings: games,
       }));
     },
-    setPlatform(platform) {
+    setPlatform(platform: string) {
       this._platform = platform;
     },
-    setRecentRoms(roms) {
+    setRecentRoms(roms: Rom[]) {
       this.recentRoms = roms;
     },
     // All roms
-    set(roms) {
+    set(roms: Rom[]) {
       this._all = roms;
       this._reorder();
     },
-    add(roms) {
+    add(roms: Rom[]) {
       this._all = this._all.concat(roms);
       this._reorder();
     },
-    update(rom) {
+    update(rom: Rom) {
       this._all = this._all.map((value) => (value.id === rom.id ? rom : value));
       this._reorder();
     },
-    remove(roms) {
+    remove(roms: Rom[]) {
       this._all = this._all.filter((value) => {
         return !roms.find((rom) => {
           return rom.id === value.id;
@@ -90,31 +124,31 @@ export default defineStore("roms", {
     },
 
     // Filtered roms
-    setFiltered(roms) {
+    setFiltered(roms: Rom[]) {
       this._filteredIDs = roms.map((rom) => rom.id);
     },
 
     // Search roms
-    setSearch(roms) {
+    setSearch(roms: Rom[]) {
       this._searchIDs = roms.map((rom) => rom.id);
     },
 
     // Selected roms
-    setSelection(roms) {
+    setSelection(roms: Rom[]) {
       this._selectedIDs = roms.map((rom) => rom.id);
     },
-    addToSelection(rom) {
+    addToSelection(rom: Rom) {
       this._selectedIDs.push(rom.id);
     },
-    removeFromSelection(rom) {
+    removeFromSelection(rom: Rom) {
       this._selectedIDs = this._selectedIDs.filter((id) => {
         return id !== rom.id;
       });
     },
-    updateLastSelected(index) {
+    updateLastSelected(index: number) {
       this.lastSelectedIndex = index;
     },
-    isTouchScreen(touchScreen) {
+    isTouchScreen(touchScreen: boolean) {
       this.touchScreen = touchScreen;
     },
     resetSelection() {

@@ -1,6 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
@@ -15,8 +18,8 @@ const searchBy = ref("Name");
 const matchedRoms = ref([]);
 const selectedScrapSource = ref(0);
 
-const emitter = inject("emitter");
-emitter.on("showSearchRomDialog", (romToSearch) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
@@ -46,7 +49,7 @@ async function searchIGDB() {
 
 async function updateRom(matchedRom) {
   show.value = false;
-  emitter.emit("showLoadingDialog", { loading: true, scrim: true });
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   rom.value.igdb_id = matchedRom.igdb_id;
   rom.value.name = matchedRom.name;
@@ -58,7 +61,7 @@ async function updateRom(matchedRom) {
   await api
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
@@ -66,14 +69,14 @@ async function updateRom(matchedRom) {
       romsStore.update(data);
     })
     .catch((error) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 

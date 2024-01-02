@@ -1,11 +1,11 @@
-<script setup>
-import { ref, onBeforeMount, inject } from "vue";
-import { api } from "@/services/api";
+<script setup lang="ts">
+import { inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 import storeHeartbeat from "@/stores/heartbeat";
-// import CreateExclusionDialog from "@/components/Dialog/Platform/CreateExclusion.vue";
 
 // Props
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const excluded_platforms = heartbeat.data.CONFIG.EXCLUDED_PLATFORMS;
 const excludad_single_roms_files = heartbeat.data.CONFIG.EXCLUDED_SINGLE_FILES;
@@ -28,7 +28,7 @@ const excludad_multi_roms_parts_ext =
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-romm-accent-1"
-        @click="emitter.emit('showCreateExclusionDialog')"
+        @click="emitter?.emit('showCreateExclusionDialog')"
       >
         Add
       </v-btn>

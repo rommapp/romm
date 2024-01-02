@@ -1,5 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 import api from "@/services/api";
 import storeUsers from "@/stores/users";
 
@@ -7,8 +9,8 @@ const user = ref();
 const show = ref(false);
 const usersStore = storeUsers();
 
-const emitter = inject("emitter");
-emitter.on("showDeleteUserDialog", (userToDelete) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showDeleteUserDialog", (userToDelete) => {
   user.value = userToDelete;
   show.value = true;
 });
@@ -19,7 +21,7 @@ async function deleteUser() {
       usersStore.remove(user.value);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to delete user: ${
           response?.data?.detail || response?.statusText || message
         }`,

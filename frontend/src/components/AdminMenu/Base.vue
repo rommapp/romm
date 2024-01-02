@@ -1,14 +1,16 @@
-<script setup>
+<script setup lang="ts">
 import { inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 const props = defineProps(["rom"]);
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 </script>
 
 <template>
   <v-list rounded="0" class="pa-0">
     <v-list-item
-      @click="emitter.emit('showSearchRomDialog', rom)"
+      @click="emitter?.emit('showSearchRomDialog', rom)"
       class="py-4 pr-5"
     >
       <v-list-item-title class="d-flex"
@@ -18,7 +20,7 @@ const emitter = inject("emitter");
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
-      @click="emitter.emit('showEditRomDialog', { ...rom })"
+      @click="emitter?.emit('showEditRomDialog', { ...rom })"
       class="py-4 pr-5"
     >
       <v-list-item-title class="d-flex"
@@ -27,7 +29,7 @@ const emitter = inject("emitter");
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
-      @click="emitter.emit('showDeleteRomDialog', [rom])"
+      @click="emitter?.emit('showDeleteRomDialog', [rom])"
       class="py-4 pr-5 text-red"
     >
       <v-list-item-title class="d-flex"

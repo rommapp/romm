@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import RailBtn from "@/components/Drawer/RailBtn.vue";
 
 const props = defineProps(["rail"]);

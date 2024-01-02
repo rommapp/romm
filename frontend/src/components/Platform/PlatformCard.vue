@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import PlatformIcon from "./PlatformIcon.vue";
 
 const props = defineProps(["platform"]);

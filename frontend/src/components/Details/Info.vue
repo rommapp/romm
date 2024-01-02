@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import storeDownload from "@/stores/download";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 

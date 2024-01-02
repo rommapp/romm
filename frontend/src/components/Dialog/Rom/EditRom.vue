@@ -1,6 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
@@ -13,22 +16,22 @@ const fileNameInputRules = {
   newFileName: (value) => !value.includes("/") || "Invalid characters",
 };
 
-const emitter = inject("emitter");
-emitter.on("showEditRomDialog", (romToEdit) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showEditRomDialog", (romToEdit) => {
   show.value = true;
   rom.value = romToEdit;
 });
 
 async function updateRom() {
   if (rom.value.file_name.includes("/")) {
-    emitter.emit("snackbarShow", {
+    emitter?.emit("snackbarShow", {
       msg: "Couldn't edit rom: invalid file name characters",
       icon: "mdi-close-circle",
       color: "red",
     });
     return;
   } else if (!rom.value.file_name) {
-    emitter.emit("snackbarShow", {
+    emitter?.emit("snackbarShow", {
       msg: "Couldn't edit rom: file name required",
       icon: "mdi-close-circle",
       color: "red",
@@ -37,11 +40,11 @@ async function updateRom() {
   }
 
   show.value = false;
-  emitter.emit("showLoadingDialog", { loading: true, scrim: true });
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
   await api
     .updateRom({ rom: rom.value })
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
@@ -50,14 +53,14 @@ async function updateRom() {
     })
     .catch((error) => {
       console.log(error);
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 </script>
