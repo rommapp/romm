@@ -72,7 +72,7 @@ const romsPerPage = ref(-1);
 // Functions
 function rowClick(_: Event, row: any) {
   router.push(
-    `/platform/${row.item.value.platform_slug}/${row.item.value.id}`
+    `/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`
   );
 }
 </script>
@@ -93,40 +93,40 @@ function rowClick(_: Event, row: any) {
       <v-avatar :rounded="0">
         <v-progress-linear
           color="romm-accent-1"
-          :active="downloadStore.value.includes(item.value.id)"
+          :active="downloadStore.value.includes(item.raw.id)"
           :indeterminate="true"
           absolute
         />
         <v-img
-          :src="`/assets/romm/resources/${item.value.path_cover_s}`"
-          :lazy-src="`/assets/romm/resources/${item.value.path_cover_s}`"
+          :src="`/assets/romm/resources/${item.raw.path_cover_s}`"
+          :lazy-src="`/assets/romm/resources/${item.raw.path_cover_s}`"
           min-height="150"
         />
       </v-avatar>
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ item.value.file_size }}
-        {{ item.value.file_size_units }}
+        {{ item.raw.file_size }}
+        {{ item.raw.file_size_units }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">
-      <span class="px-1" v-for="region in item.value.regions">
+      <span class="px-1" v-for="region in item.raw.regions">
         {{ regionToEmoji(region) }}
       </span>
     </template>
     <template v-slot:item.languages="{ item }">
-      <span class="px-1" v-for="language in item.value.languages">
+      <span class="px-1" v-for="language in item.raw.languages">
         {{ languageToEmoji(language) }}
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template v-if="item.value.multi">
+      <template v-if="item.raw.multi">
         <v-btn
           class="my-1"
           rounded="0"
-          @click.stop="api.downloadRom({ rom: item.value })"
-          :disabled="downloadStore.value.includes(item.value.id)"
+          @click.stop="api.downloadRom({ rom: item.raw })"
+          :disabled="downloadStore.value.includes(item.raw.id)"
           download
           size="small"
           variant="text"
@@ -138,7 +138,7 @@ function rowClick(_: Event, row: any) {
           class="my-1"
           rounded="0"
           @click.stop=""
-          :href="`${location}${item.value.download_path}`"
+          :href="`${location}${item.raw.download_path}`"
           download
           size="small"
           variant="text"
@@ -165,9 +165,8 @@ function rowClick(_: Event, row: any) {
             ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
         </template>
-        <admin-menu :rom="item.value" />
+        <admin-menu :rom="item.raw" />
       </v-menu>
     </template>
   </v-data-table>
 </template>
-@/utils

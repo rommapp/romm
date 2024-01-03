@@ -43,9 +43,6 @@ function updateVersion() {
 
 <style scoped>
 .version-select {
-  /* position: absolute; */
   max-width: fit-content;
-  /* min-width: 8rem; */
 }
 </style>
-@/utils

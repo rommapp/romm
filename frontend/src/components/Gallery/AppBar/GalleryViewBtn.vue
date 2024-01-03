@@ -16,4 +16,3 @@ const galleryView = storeGalleryView();
   >
   </v-btn>
 </template>
-@/utils

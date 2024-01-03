@@ -26,4 +26,3 @@ const cronExpression = convertCronExperssion(props.task.CRON);
     </p>
   </div>
 </template>
-@/utils

@@ -161,4 +161,3 @@ function onTouchEnd() {
   text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>
-@/utils

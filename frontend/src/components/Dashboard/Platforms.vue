@@ -33,4 +33,3 @@ const platforms = storePlatforms();
     </v-card-text>
   </v-card>
 </template>
-@/utils
