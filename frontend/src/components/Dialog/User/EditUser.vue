@@ -147,4 +147,3 @@ function editUser() {
     </v-card>
   </v-dialog>
 </template>
-@/utils

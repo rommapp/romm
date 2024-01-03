@@ -122,8 +122,8 @@ onMounted(() => {
           <v-avatar>
             <v-img
               :src="
-                item.value.avatar_path
-                  ? `/assets/romm/resources/${item.value.avatar_path}`
+                item.raw.avatar_path
+                  ? `/assets/romm/resources/${item.raw.avatar_path}`
                   : defaultAvatarPath
               "
             />
@@ -131,9 +131,9 @@ onMounted(() => {
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
-            :disabled="item.value.id == auth.user?.id"
-            v-model="item.value.enabled"
-            @change="disableUser(item.value)"
+            :disabled="item.raw.id == auth.user?.id"
+            v-model="item.raw.enabled"
+            @change="disableUser(item.raw)"
             hide-details
           />
         </template>
@@ -142,7 +142,7 @@ onMounted(() => {
             class="ma-1 bg-terciary"
             size="small"
             rounded="0"
-            @click="emitter?.emit('showEditUserDialog', item.value)"
+            @click="emitter?.emit('showEditUserDialog', item.raw)"
           >
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
@@ -150,7 +150,7 @@ onMounted(() => {
             class="ma-1 bg-terciary text-romm-red"
             size="small"
             rounded="0"
-            @click="emitter?.emit('showDeleteUserDialog', item.value)"
+            @click="emitter?.emit('showDeleteUserDialog', item.raw)"
             ><v-icon>mdi-delete</v-icon></v-btn
           >
         </template>
@@ -162,4 +162,3 @@ onMounted(() => {
     <delete-user-dialog />
   </v-card>
 </template>
-@/utils

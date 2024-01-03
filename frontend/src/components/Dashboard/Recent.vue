@@ -65,4 +65,3 @@ onMounted(async () => {
   <delete-rom-dialog />
   <loading-dialog />
 </template>
-@/utils

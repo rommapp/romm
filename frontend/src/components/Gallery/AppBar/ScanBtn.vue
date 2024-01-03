@@ -80,4 +80,3 @@ onBeforeUnmount(() => {
       icon="mdi-magnify-scan"
     />
 </template>
-@/utils

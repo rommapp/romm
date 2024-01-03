@@ -70,4 +70,3 @@ async function logout() {
     @click="logout()"
   ></v-btn>
 </template>
-@/utils
