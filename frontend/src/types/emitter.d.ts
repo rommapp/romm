@@ -18,19 +18,19 @@ export type Events = {
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
   showUploadRomDialog: null;
-  showCreateExclusionDialog: any;
-  showCreatePlatformBindingDialog: any;
+  showCreateExclusionDialog: null;
+  showCreatePlatformBindingDialog: null;
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;
   showDeleteUserDialog: UserItem;
-  toggleDrawer: any;
-  toggleDrawerRail: any;
+  toggleDrawer: null;
+  toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
-  refreshDrawer: any;
+  refreshDrawer: null;
   showLoadingDialog: {
     loading: boolean;
     scrim: boolean;
   };
-  openFabMenu: any;
+  openFabMenu: boolean;
   filter: null;
 };

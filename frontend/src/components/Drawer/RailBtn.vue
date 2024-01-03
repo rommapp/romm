@@ -12,7 +12,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 <template>
   <v-btn
-    @click="emitter?.emit('toggleDrawerRail')"
+    @click="emitter?.emit('toggleDrawerRail', null)"
     color="primary"
     elevation="0"
     block

@@ -48,7 +48,7 @@ async function deleteRoms() {
   });
 
   romsStore.remove(roms.value);
-  emitter?.emit("refreshDrawer");
+  emitter?.emit("refreshDrawer", null);
   closeDialog()
 }
 
