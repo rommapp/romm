@@ -27,6 +27,13 @@ export type Heartbeat = {
   CONFIG: {
     EXCLUDED_MULTI_FILES: string[];
     EXCLUDED_SINGLE_EXT: string[];
+    EXCLUDED_SINGLE_FILES: string[];
+    EXCLUDED_MULTI_PARTS_FILES: string[];
+    EXCLUDED_MULTI_PARTS_EXT: string[];
+    EXCLUDED_PLATFORMS: string[];
+    PLATFORMS_BINDING: {
+      [key: string]: string;
+    };
   };
 };
 

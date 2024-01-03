@@ -17,17 +17,17 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const card = ref();
 
-let timeout;
+let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
-function onSelectRom(event) {
+function onSelectRom(event: MouseEvent) {
   if (!event.ctrlKey && !event.shiftKey) {
     event.preventDefault();
     emit("selectRom", event);
   }
 }
 
-function onNavigate(event) {
+function onNavigate(event: MouseEvent) {
   if (
     event.ctrlKey ||
     event.shiftKey ||
@@ -39,8 +39,8 @@ function onNavigate(event) {
   }
 }
 
-function onTouchStart(event) {
-  card.value.$el.addEventListener("contextmenu", (event) => {
+function onTouchStart(event: TouchEvent) {
+  card.value.$el.addEventListener("contextmenu", (event: Event) => {
     event.preventDefault();
   });
   romsStore.isTouchScreen(true);
@@ -103,7 +103,7 @@ function onTouchEnd() {
         </v-expand-transition>
         <v-chip-group class="ml-2 pt-0 text-shadow position-absolute flags">
           <v-chip
-            v-if="rom.regions.filter((i) => i).length > 0"
+            v-if="rom.regions.filter((i: string) => i).length > 0"
             :title="`Regions: ${rom.regions.join(', ')}`"
             class="bg-chip px-2 py-3"
             density="compact"
@@ -113,7 +113,7 @@ function onTouchEnd() {
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.languages.filter((i) => i).length > 0"
+            v-if="rom.languages.filter((i: string) => i).length > 0"
             :title="`Languages: ${rom.languages.join(', ')}`"
             class="bg-chip px-2 py-3"
             density="compact"

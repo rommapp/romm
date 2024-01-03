@@ -21,7 +21,7 @@ const route = useRoute();
 
 socket.on("scan:scanning_rom", ({ id }) => {
   const rom = romsStore.selectedRoms.find((r) => r.id === id);
-  romsStore.removeFromSelection(rom);
+  if (rom) romsStore.removeFromSelection(rom);
 });
 
 socket.on("scan:done", () => {
@@ -34,7 +34,7 @@ socket.on("scan:done", () => {
   socket.disconnect();
 });
 
-socket.on("scan:done_ko", (msg) => {
+socket.on("scan:done_ko", (msg: string) => {
   scanning.set(false);
   emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
