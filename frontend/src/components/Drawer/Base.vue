@@ -12,7 +12,7 @@ import RailFooter from "@/components/Drawer/Footer.vue";
 // Props
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(undefined);
+const drawer = ref(false);
 const open = ref(["Platforms", "Library", "Settings"]);
 const rail = ref(localStorage.getItem("rail") == "true");
 
@@ -23,7 +23,7 @@ emitter?.on("toggleDrawer", () => {
 });
 emitter?.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
-  localStorage.setItem("rail", rail.value);
+  localStorage.setItem("rail", rail.value.toString());
 });
 </script>
 

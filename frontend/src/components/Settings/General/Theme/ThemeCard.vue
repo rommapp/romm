@@ -5,17 +5,17 @@ import { themes, autoThemeKey } from "@/styles/themes";
 import ThemeOption from "@/components/Settings/General/Theme/ThemeOption.vue";
 
 const theme = useTheme();
-const storedTheme = parseInt(localStorage.getItem("settings.theme"));
+const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
 const selectedTheme = ref(isNaN(storedTheme) ? autoThemeKey : storedTheme);
 
 // Functions
 function toggleTheme() {
-  localStorage.setItem("settings.theme", selectedTheme.value);
+  localStorage.setItem("settings.theme", selectedTheme.value.toString());
 
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
   if (selectedTheme.value === autoThemeKey) {
     theme.global.name.value = mediaMatch.matches ? "dark" : "light";
-  } else {
+  } else if (isKeyof(selectedTheme.value, themes)) {
     theme.global.name.value = themes[selectedTheme.value];
   }
 }

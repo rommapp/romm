@@ -25,7 +25,7 @@ export default defineStore("auth", {
   },
 
   actions: {
-    setUser(user: User) {
+    setUser(user: User | null) {
       this.user = user;
     },
     setEnabled(enabled: boolean) {

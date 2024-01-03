@@ -18,12 +18,12 @@ onMounted(() => {
 
 function clearFilter() {
   galleryFilter.set("");
-  emitter?.emit("filter");
+  emitter?.emit("filter", null);
 }
 
 const filterRoms = debounce(() => {
   galleryFilter.set(filterValue.value);
-  emitter?.emit("filter");
+  emitter?.emit("filter", null);
 }, 500);
 </script>
 

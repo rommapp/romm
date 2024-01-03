@@ -9,7 +9,7 @@ const emit = defineEmits(["selectRom"]);
 const romsStore = storeRoms();
 
 // Functions
-function selectRom(event) {
+function selectRom(event: MouseEvent) {
   if (!props.selected) {
     romsStore.addToSelection(props.rom);
   } else {

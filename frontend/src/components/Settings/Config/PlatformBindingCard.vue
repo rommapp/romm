@@ -34,7 +34,7 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
 
     <v-card-text class="pa-1">
       <v-row no-gutters>
-        <v-col cols="6" sm="3" md="2" lg="2" v-for="(platform, fs_platform) in platformsBinding">
+        <v-col cols="6" sm="3" md="2" lg="2" v-for="platform in Object.keys(platformsBinding)">
           <v-card-text class="bg-terciary ma-1 py-1 pl-1 pr-3">
             <v-row class="align-center" no-gutters>
               <v-col cols="5" sm="4" md="5" lg="4">
@@ -43,8 +43,8 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
                 </v-avatar>
               </v-col>
               <v-col cols="7" sm="8" md="7" lg="8">
-                <div class="bg-primary pa-2 text-caption text-truncate" :title="fs_platform">
-                  <span clas="pa-1">{{ fs_platform }}</span>
+                <div class="bg-primary pa-2 text-caption text-truncate" :title="platformsBinding[platform]">
+                  <span clas="pa-1">{{ platformsBinding[platform] }}</span>
                 </div>
               </v-col>
             </v-row>
