@@ -13,7 +13,7 @@ function formatItem(rom: RomSchema) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
   const tags = rom.tags.map((t) => `(${t})`).join(" ");
-  return `${langs} ${regions} ${tags}`;
+  return `${langs} ${regions} ${tags}` || rom.file_name;
 }
 
 function updateVersion() {
