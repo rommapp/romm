@@ -2,8 +2,9 @@
 import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Rom } from "@/stores/roms";
 
-const props = defineProps(["rom"]);
+defineProps<{ rom: Rom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 </script>
 

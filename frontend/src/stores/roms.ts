@@ -33,6 +33,7 @@ export type Rom = {
   path_screenshots: string[];
   full_path: string;
   download_path: string;
+  sibling_roms?: Rom[];
   siblings?: Rom[];
 };
 

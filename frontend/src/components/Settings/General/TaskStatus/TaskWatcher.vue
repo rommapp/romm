@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const props = defineProps(["watcher"]);
+import type { Heartbeat } from "@/stores/heartbeat";
+
+defineProps<{ watcher: Heartbeat["WATCHER"] }>();
 </script>
 <template>
   <v-col

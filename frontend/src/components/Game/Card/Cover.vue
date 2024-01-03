@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import storeDownload from "@/stores/download";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 
-// Props
-const props = defineProps([
-  "rom",
-  "isHoveringTop",
-  "showSelector",
-  "size",
-  "selected",
-]);
+defineProps<{
+  rom: Rom;
+  isHoveringTop: boolean;
+  showSelector: boolean;
+  selected: boolean;
+}>();
 const emit = defineEmits(["selectRom"]);
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
@@ -123,7 +121,7 @@ function onTouchEnd() {
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.siblings?.length > 0"
+            v-if="rom.siblings && rom.siblings.length > 0"
             :title="`${rom.siblings.length + 1} versions`"
             class="bg-chip px-2 py-3"
             density="compact"

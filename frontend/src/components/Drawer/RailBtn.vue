@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 // Props
-const props = defineProps(["rail"]);
+defineProps<{ rail?: boolean }>();
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");

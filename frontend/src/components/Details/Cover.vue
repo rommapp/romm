@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import storeDownload from "@/stores/download";
+import type { Rom } from "@/stores/roms";
 
 const downloadStore = storeDownload();
-const props = defineProps(["rom"]);
+defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-card
