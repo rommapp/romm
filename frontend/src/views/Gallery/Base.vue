@@ -67,21 +67,21 @@ async function fetchRoms(platform: string) {
       cursor: isFiltered ? searchCursor.value : cursor.value,
       searchTerm: normalizeString(galleryFilter.filter),
     })
-    .then((response) => {
+    .then(({ data }) => {
       // Add any new roms to the store
-      const allRomsSet = [...allRoms.value, ...response.data.items];
+      const allRomsSet = [...allRoms.value, ...data.items];
       romsStore.set(allRomsSet);
       romsStore.setFiltered(allRomsSet);
       romsStore.setPlatform(platform);
 
       if (isFiltered) {
-        searchCursor.value = response.data.next_page;
+        if (data.next_page !== undefined) searchCursor.value = data.next_page;
 
-        const serchedRomsSet = [...searchRoms.value, ...response.data.items];
+        const serchedRomsSet = [...searchRoms.value, ...data.items];
         romsStore.setSearch(serchedRomsSet);
         romsStore.setFiltered(serchedRomsSet);
-      } else {
-        cursor.value = response.data.next_page;
+      } else if (data.next_page !== undefined) {
+        cursor.value = data.next_page;
       }
     })
     .catch((error) => {

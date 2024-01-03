@@ -5,6 +5,19 @@ import router from "@/plugins/router";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
+import type {
+  PlatformSchema,
+  RomSchema,
+  EnhancedRomSchema,
+  UploadRomResponse,
+  DeleteRomResponse,
+  MassDeleteRomResponse,
+  RomSearchResponse,
+  UserSchema,
+  MessageResponse,
+  CursorPage_RomSchema_,
+} from "@/__generated__";
+
 export const api = axios.create({ baseURL: "/api", timeout: 120000 });
 
 api.interceptors.response.use(
@@ -17,11 +30,11 @@ api.interceptors.response.use(
   }
 );
 
-export async function fetchRecentRoms() {
+export async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
   return api.get("/roms-recent");
 }
 
-async function fetchPlatforms() {
+async function fetchPlatforms(): Promise<{data: PlatformSchema[] }> {
   return api.get("/platforms");
 }
 
@@ -32,16 +45,20 @@ async function fetchRoms({
   searchTerm = "",
 }: {
   platform: string;
-  cursor?: string;
+  cursor?: string | null;
   size?: number;
   searchTerm?: string;
-}) {
+}): Promise<{ data: CursorPage_RomSchema_ }> {
   return api.get(`/platforms/${platform}/roms`, {
     params: { cursor, size, search_term: searchTerm },
   });
 }
 
-async function fetchRom({ romId }: { romId: number }) {
+async function fetchRom({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: EnhancedRomSchema }> {
   return api.get(`/roms/${romId}`);
 }
 
@@ -97,7 +114,7 @@ async function uploadRoms({
 }: {
   platform: string;
   romsToUpload: File[];
-}) {
+}): Promise<{ data: UploadRomResponse }> {
   let formData = new FormData();
   romsToUpload.forEach((rom) => formData.append("roms", rom));
 
@@ -109,7 +126,7 @@ async function uploadRoms({
   });
 }
 
-export type UploadRom = Rom & {
+export type UpdateRom = Rom & {
   artwork?: File[];
 };
 
@@ -117,9 +134,9 @@ async function updateRom({
   rom,
   renameAsIGDB = false,
 }: {
-  rom: UploadRom;
+  rom: UpdateRom;
   renameAsIGDB?: boolean;
-}) {
+}): Promise<{ data: RomSchema }> {
   var formData = new FormData();
   formData.append("igdb_id", rom.igdb_id?.toString() || "");
   formData.append("name", rom.name || "");
@@ -141,7 +158,7 @@ async function deleteRom({
 }: {
   rom: Rom;
   deleteFromFs: boolean;
-}) {
+}): Promise<{ data: DeleteRomResponse }> {
   return api.delete(`/roms/${rom.id}`, {
     params: { delete_from_fs: deleteFromFs },
   });
@@ -153,7 +170,7 @@ async function deleteRoms({
 }: {
   roms: Rom[];
   deleteFromFs: boolean;
-}) {
+}): Promise<{ data: MassDeleteRomResponse }> {
   return api.post(
     "/roms/delete",
     {
@@ -173,7 +190,7 @@ async function searchIGDB({
   romId: number;
   query: string;
   field: string;
-}) {
+}): Promise<{ data: RomSearchResponse }> {
   return api.put(
     "/search/roms/igdb",
     {},
@@ -181,15 +198,15 @@ async function searchIGDB({
   );
 }
 
-async function fetchCurrentUser() {
+async function fetchCurrentUser(): Promise<{ data: UserSchema | null }> {
   return api.get("/users/me");
 }
 
-async function fetchUsers() {
+async function fetchUsers(): Promise<{ data: UserSchema[] }> {
   return api.get("/users");
 }
 
-async function fetchUser(user: User) {
+async function fetchUser(user: User): Promise<{ data: UserSchema }> {
   return api.get(`/users/${user.id}`);
 }
 
@@ -201,7 +218,7 @@ async function createUser({
   username: string;
   password: string;
   role: string;
-}) {
+}): Promise<{ data: UserSchema }> {
   return api.post("/users", {}, { params: { username, password, role } });
 }
 
@@ -219,7 +236,7 @@ async function updateUser({
   role: string;
   enabled: boolean;
   avatar?: File[];
-}) {
+}): Promise<{ data: UserSchema }> {
   return api.patch(
     `/users/${id}`,
     {
@@ -234,7 +251,7 @@ async function updateUser({
   );
 }
 
-async function deleteUser(user: User) {
+async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 

@@ -3,12 +3,13 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 import type { Rom } from "@/stores/roms";
+import type { RomSchema } from "@/__generated__";
 
 const props = defineProps<{ rom: Rom }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 
-function formatItem(rom: Rom) {
+function formatItem(rom: RomSchema) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
   const tags = rom.tags.map((t) => `(${t})`).join(" ");

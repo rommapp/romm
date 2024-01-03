@@ -6,6 +6,7 @@ import type { Events } from "@/types/emitter";
 
 import api from "@/services/api";
 import storeRoms, { type Rom } from "@/stores/roms";
+import type { IGDBRomType } from "@/__generated__";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -15,7 +16,7 @@ const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
-const matchedRoms = ref<Rom[]>([]);
+const matchedRoms = ref<IGDBRomType[]>([]);
 const selectedScrapSource = ref(0);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -49,7 +50,7 @@ async function searchIGDB() {
   }
 }
 
-async function updateRom(matchedRom: Rom) {
+async function updateRom(matchedRom: IGDBRomType) {
   if (!rom.value) return;
 
   show.value = false;
