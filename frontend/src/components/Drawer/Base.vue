@@ -12,7 +12,7 @@ import RailFooter from "@/components/Drawer/Footer.vue";
 // Props
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(false);
+const drawer = ref(true);
 const open = ref(["Platforms", "Library", "Settings"]);
 const rail = ref(localStorage.getItem("rail") == "true");
 

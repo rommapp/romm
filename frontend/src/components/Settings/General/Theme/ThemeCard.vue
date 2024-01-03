@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useTheme } from "vuetify";
 import { themes, autoThemeKey } from "@/styles/themes";
 import ThemeOption from "@/components/Settings/General/Theme/ThemeOption.vue";
+import { isKeyof } from "@/types";
 
 const theme = useTheme();
 const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");

@@ -29,7 +29,7 @@ async function fetchRom() {
   if (!route.params.rom) return;
 
   await api
-    .fetchRom({ romId: route.params.rom })
+    .fetchRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
       romsStore.update(response.data);

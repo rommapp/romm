@@ -51,7 +51,7 @@ onMounted(async () => {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <game-card :rom="rom" :showSelector="false" />
+          <game-card :index="rom.id" :rom="rom" :selected="false" :showSelector="false" />
         </v-col>
       </v-row>
       <!-- TODO: Check recently added games in the last 30 days -->
