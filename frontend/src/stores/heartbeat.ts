@@ -1,45 +1,8 @@
 import { defineStore } from "pinia";
 
-export type Heartbeat = {
-  VERSION: string;
-  ROMM_AUTH_ENABLED: boolean;
-  WATCHER: {
-    ENABLED: boolean;
-    TITLE: string;
-    MESSAGE: string;
-  };
-  SCHEDULER: {
-    RESCAN: {
-      ENABLED: boolean;
-      CRON: string;
-      TITLE: string;
-      MESSAGE: string;
-    };
-    SWITCH_TITLEDB: {
-      ENABLED: boolean;
-      CRON: string;
-      TITLE: string;
-      MESSAGE: string;
-    };
-    MAME_XML: {
-      ENABLED: boolean;
-      CRON: string;
-      TITLE: string;
-      MESSAGE: string;
-    };
-  };
-  CONFIG: {
-    EXCLUDED_MULTI_FILES: string[];
-    EXCLUDED_SINGLE_EXT: string[];
-    EXCLUDED_SINGLE_FILES: string[];
-    EXCLUDED_MULTI_PARTS_FILES: string[];
-    EXCLUDED_MULTI_PARTS_EXT: string[];
-    EXCLUDED_PLATFORMS: string[];
-    PLATFORMS_BINDING: {
-      [key: string]: string;
-    };
-  };
-};
+import type { HeartbeatReturn } from "@/__generated__";
+
+export type Heartbeat = HeartbeatReturn;
 
 export default defineStore("heartbeat", {
   state: () => ({ data: {} as Heartbeat }),
