@@ -5,17 +5,17 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import api from "@/services/api";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const rom = ref();
+const rom = ref<Rom | null>(null);
 const romsStore = storeRoms();
 const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
-const matchedRoms = ref([]);
+const matchedRoms = ref<Rom[]>([]);
 const selectedScrapSource = ref(0);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -27,6 +27,8 @@ emitter?.on("showSearchRomDialog", (romToSearch) => {
 });
 
 async function searchIGDB() {
+  if (!rom.value) return;
+
   if (!searching.value) {
     searching.value = true;
     await api
@@ -47,7 +49,9 @@ async function searchIGDB() {
   }
 }
 
-async function updateRom(matchedRom) {
+async function updateRom(matchedRom: Rom) {
+  if (!rom.value) return;
+
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
@@ -81,7 +85,7 @@ async function updateRom(matchedRom) {
 }
 
 onBeforeUnmount(() => {
-  emitter.off("showSearchRomDialog");
+  emitter?.off("showSearchRomDialog");
 });
 </script>
 

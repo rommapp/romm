@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
+import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";

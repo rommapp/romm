@@ -1,9 +1,9 @@
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
-export interface UserItem extends User {
+export type UserItem = User & {
   password: string;
-  avatar: File | null;
+  avatar?: File[];
 }
 
 export type SnackbarStatus = {
@@ -16,8 +16,8 @@ export type SnackbarStatus = {
 export type Events = {
   showSearchRomDialog: Rom;
   showEditRomDialog: Rom;
-  showDeleteRomDialog: Rom;
-  showUploadRomDialog: Rom;
+  showDeleteRomDialog: Rom[];
+  showUploadRomDialog: null;
   showCreateExclusionDialog: any;
   showCreatePlatformBindingDialog: any;
   showCreateUserDialog: null;

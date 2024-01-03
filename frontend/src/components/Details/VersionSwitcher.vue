@@ -2,12 +2,13 @@
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { regionToEmoji, languageToEmoji } from "@/utils";
+import type { Rom } from "@/stores/roms";
 
 const props = defineProps(["rom"]);
 const router = useRouter();
 const version = ref(props.rom.id);
 
-function formatItem(rom) {
+function formatItem(rom: Rom) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
   const tags = rom.tags.map((t) => `(${t})`).join(" ");
