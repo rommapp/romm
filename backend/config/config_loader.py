@@ -4,7 +4,7 @@ import yaml
 import pydash
 from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from config import (
     ROMM_DB_DRIVER,
