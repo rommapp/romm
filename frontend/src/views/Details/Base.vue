@@ -17,10 +17,11 @@ import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import type { EnhancedRomSchema } from "@/__generated__";
 
 const route = useRoute();
 const romsStore = storeRoms();
-const rom = ref<Rom | null>(null);
+const rom = ref<EnhancedRomSchema | null>(null);
 const tab = ref<"details" | "saves" | "screenshots">("details");
 const { xs, sm, md, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");

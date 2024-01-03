@@ -1,13 +1,7 @@
 import { defineStore } from "pinia";
+import type { UserSchema } from "@/__generated__";
 
-export type User = {
-    id: number
-    username: string
-    enabled: boolean
-    role: "viewer" | "editor" | "admin"
-    oauth_scopes: string[]
-    avatar_path: string
-}
+export type User = UserSchema;
 
 export default defineStore("users", {
     state: () => ({

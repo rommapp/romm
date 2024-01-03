@@ -2,39 +2,11 @@ import { uniqBy, groupBy, isNull } from "lodash";
 import { defineStore } from "pinia";
 import { nanoid } from "nanoid";
 
-export type Rom = {
-  id: number;
-  igdb_id: number | undefined;
-  sgdb_id: number | undefined;
-  platform_slug: string;
-  platform_name: string;
-  file_name: string;
-  file_name_no_tags: string;
-  file_extension: string;
-  file_path: string;
-  file_size: number;
-  file_size_units: string;
-  file_size_bytes: number;
-  name: string | undefined;
-  slug: string | undefined;
-  summary: string | undefined;
-  sort_comparator: string;
-  path_cover_s: string;
-  path_cover_l: string;
-  has_cover: boolean;
-  url_cover: string;
-  revision: string | undefined;
-  regions: string[];
-  languages: string[];
-  tags: string[];
-  multi: boolean;
-  files: string[];
-  url_screenshots: string[];
-  path_screenshots: string[];
-  full_path: string;
-  download_path: string;
-  sibling_roms?: Rom[];
-  siblings?: Rom[];
+import type { RomSchema } from "../__generated__/";
+
+export type Rom = RomSchema & {
+  sibling_roms?: RomSchema[]; // Returned by the API
+  siblings?: RomSchema[]; // Added by the frontend
 };
 
 export default defineStore("roms", {
@@ -47,8 +19,8 @@ export default defineStore("roms", {
     _searchIDs: [] as number[],
     _selectedIDs: [] as number[],
     lastSelectedIndex: -1,
-    cursor: "",
-    searchCursor: "",
+    cursor: "" as string | null,
+    searchCursor: "" as string | null,
     touchScreen: false,
   }),
 
@@ -85,7 +57,7 @@ export default defineStore("roms", {
           isNull(game.igdb_id) ? nanoid() : game.igdb_id
         )
       ).map((games) => ({
-        ...games.shift() as Rom,
+        ...(games.shift() as Rom),
         siblings: games,
       }));
     },
@@ -123,17 +95,14 @@ export default defineStore("roms", {
       this._selectedIDs = [];
       this.lastSelectedIndex = -1;
     },
-
     // Filtered roms
     setFiltered(roms: Rom[]) {
       this._filteredIDs = roms.map((rom) => rom.id);
     },
-
     // Search roms
     setSearch(roms: Rom[]) {
       this._searchIDs = roms.map((rom) => rom.id);
     },
-
     // Selected roms
     setSelection(roms: Rom[]) {
       this._selectedIDs = roms.map((rom) => rom.id);

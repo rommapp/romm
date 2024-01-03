@@ -6,7 +6,8 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "generate": "openapi --input http://localhost:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
@@ -37,6 +38,7 @@
     "@vue/tsconfig": "^0.5.1",
     "eslint": "^8.22.0",
     "eslint-plugin-vue": "^9.3.0",
+    "openapi-typescript-codegen": "^0.25.0",
     "sass": "^1.55.0",
     "tslib": "^2.6.2",
     "typescript": "^5.3.3",

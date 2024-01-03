@@ -4,12 +4,12 @@ import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import api, { type UploadRom } from "@/services/api";
+import api, { type UpdateRom } from "@/services/api";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const rom = ref<UploadRom>();
+const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const fileNameInputRules = {
   required: (value: string) => !!value || "Required",
