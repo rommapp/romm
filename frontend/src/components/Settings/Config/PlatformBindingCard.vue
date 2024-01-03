@@ -45,15 +45,15 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
             <v-row class="align-center" no-gutters>
               <v-col cols="5" sm="4" md="5" lg="4">
                 <v-avatar class="mx-2" :rounded="0" size="40">
-                  <platform-icon :platform="platform" />
+                  <platform-icon :platform="platformsBinding[platform]" />
                 </v-avatar>
               </v-col>
               <v-col cols="7" sm="8" md="7" lg="8">
                 <div
                   class="bg-primary pa-2 text-caption text-truncate"
-                  :title="platformsBinding[platform]"
+                  :title="platform"
                 >
-                  <span clas="pa-1">{{ platformsBinding[platform] }}</span>
+                  <span clas="pa-1">{{ platform }}</span>
                 </div>
               </v-col>
             </v-row>
