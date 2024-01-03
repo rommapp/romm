@@ -9,7 +9,7 @@ import { defaultAvatarPath } from "@/utils"
 import { api } from "@/services/api";
 
 // Props
-const props = defineProps(["rail"]);
+defineProps<{ rail?: boolean }>();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();

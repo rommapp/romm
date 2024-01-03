@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps(["image"]);
+defineProps<{ image: string }>();
 </script>
 
 <template>

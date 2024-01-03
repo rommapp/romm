@@ -6,22 +6,26 @@ export type Heartbeat = {
   WATCHER: {
     ENABLED: boolean;
     TITLE: string;
+    MESSAGE: string;
   };
   SCHEDULER: {
     RESCAN: {
       ENABLED: boolean;
       CRON: string;
       TITLE: string;
+      MESSAGE: string;
     };
     SWITCH_TITLEDB: {
       ENABLED: boolean;
       CRON: string;
       TITLE: string;
+      MESSAGE: string;
     };
     MAME_XML: {
       ENABLED: boolean;
       CRON: string;
       TITLE: string;
+      MESSAGE: string;
     };
   };
   CONFIG: {

@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 import type { Rom } from "@/stores/roms";
 
-const props = defineProps(["rom"]);
+const props = defineProps<{ rom: Rom }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 

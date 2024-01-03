@@ -2,8 +2,9 @@
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
+import type { Rom } from "@/stores/roms";
 
-const props = defineProps(["rom"]);
+defineProps<{ rom: Rom }>();
 const { smAndUp } = useDisplay();
 </script>
 <template>
