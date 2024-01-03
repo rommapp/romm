@@ -9,7 +9,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 <template>
     <v-btn
-      @click="emitter?.emit('showUploadRomDialog')"
+      @click="emitter?.emit('showUploadRomDialog', null)"
       rounded="0"
       variant="text"
       class="mr-0"

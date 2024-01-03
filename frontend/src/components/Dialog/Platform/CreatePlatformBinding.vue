@@ -3,8 +3,6 @@ import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
-
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreatePlatformBindingDialog", () => {
@@ -36,11 +34,7 @@ emitter?.on("showCreatePlatformBindingDialog", () => {
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn
-            :disabled="false"
-            class="text-romm-green bg-terciary ml-5"
-            @click="createBinding()"
-          >
+          <v-btn :disabled="true" class="text-romm-green bg-terciary ml-5">
             Create
           </v-btn>
         </v-row>

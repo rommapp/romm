@@ -53,7 +53,7 @@ async function uploadRoms() {
   await api
     .uploadRoms({
       romsToUpload: romsToUpload.value,
-      platform: route.params.platform,
+      platform: route.params.platform as string,
     })
     .then(({ data }) => {
       const { uploaded_roms, skipped_roms } = data;

@@ -16,6 +16,8 @@ emitter?.on("showDeleteUserDialog", (userToDelete) => {
 });
 
 async function deleteUser() {
+  if (!user.value) return;
+
   await api.deleteUser(user.value)
     .then(() => {
       if (user.value) usersStore.remove(user.value.id);

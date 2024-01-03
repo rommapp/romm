@@ -4,16 +4,16 @@ import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
+import api, { type UploadRom } from "@/services/api";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const rom = ref();
+const rom = ref<UploadRom>();
 const romsStore = storeRoms();
 const fileNameInputRules = {
-  required: (value) => !!value || "Required.",
-  newFileName: (value) => !value.includes("/") || "Invalid characters",
+  required: (value: string) => !!value || "Required",
+  newFileName: (value: string) => !value.includes("/") || "Invalid characters",
 };
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -23,6 +23,8 @@ emitter?.on("showEditRomDialog", (romToEdit) => {
 });
 
 async function updateRom() {
+  if (!rom.value) return;
+
   if (rom.value.file_name.includes("/")) {
     emitter?.emit("snackbarShow", {
       msg: "Couldn't edit rom: invalid file name characters",
@@ -75,6 +77,7 @@ async function updateRom() {
     @keydown.esc="show = false"
     no-click-animation
     persistent
+    v-if="rom"
   >
     <v-card
       rounded="0"

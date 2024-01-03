@@ -15,7 +15,7 @@ const romsStore = storeRoms();
 const scroll_container = ref();
 
 // Methods
-function scrollX(e) {
+function scrollX(e: WheelEvent) {
   // TODO: fix horizontal scroll with wheel
   scroll_container.value.scrollLeft += e.deltaY;
 }
