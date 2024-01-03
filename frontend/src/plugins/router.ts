@@ -1,6 +1,5 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
-import { toTop } from "@/utils";
 
 const routes = [
   {
@@ -48,6 +47,7 @@ const routes = [
 ];
 
 const router = createRouter({
+  // @ts-ignore
   history: createWebHistory(process.env.BASE_URL),
   routes,
 });
