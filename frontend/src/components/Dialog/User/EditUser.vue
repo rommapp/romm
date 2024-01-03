@@ -42,7 +42,7 @@ function editUser() {
     });
 
   show.value = false;
-  emitter?.emit("refreshDrawer");
+  emitter?.emit("refreshDrawer", null);
 }
 </script>
 <template>

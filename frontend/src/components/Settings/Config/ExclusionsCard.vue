@@ -28,7 +28,7 @@ const excludad_multi_roms_parts_ext =
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-romm-accent-1"
-        @click="emitter?.emit('showCreateExclusionDialog')"
+        @click="emitter?.emit('showCreateExclusionDialog', null)"
       >
         Add
       </v-btn>

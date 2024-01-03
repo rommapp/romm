@@ -23,7 +23,7 @@ emitter?.on("showUploadRomDialog", () => {
 socket.on("scan:done", () => {
   scanning.set(false);
   socket.disconnect();
-  emitter?.emit("refreshDrawer");
+  emitter?.emit("refreshDrawer", null);
   emitter?.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
