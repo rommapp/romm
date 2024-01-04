@@ -8,7 +8,7 @@ const downloadStore = storeDownload();
 </script>
 <template>
   <v-row v-if="rom?.sibling_roms && rom.sibling_roms.length > 0" class="d-flex align-center text-body-1 mt-0 py-2" no-gutters>
-    <v-col cols="2" xs="2" sm="2" md="2" lg="1" xl="1" class="font-weight-medium">
+    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
       <span>Ver.</span>
     </v-col>
     <v-col>
@@ -20,7 +20,7 @@ const downloadStore = storeDownload();
     class="d-flex align-center text-body-1 mt-0 py-2"
     no-gutters
   >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="1" xl="1" class="font-weight-medium">
+    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
       <span>File</span>
     </v-col>
     <v-col class="text-body-1">
@@ -32,7 +32,7 @@ const downloadStore = storeDownload();
     class="d-flex align-center text-body-1 mt-0 py-2"
     no-gutters
   >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="1" xl="1" class="font-weight-medium">
+    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
       <span>Files</span>
     </v-col>
     <v-col>
@@ -53,7 +53,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row class="d-flex align-center text-body-1 mt-0 py-2" no-gutters>
-    <v-col cols="2" xs="2" sm="2" md="2" lg="1" xl="1" class="font-weight-medium">
+    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
       <span>Size</span>
     </v-col>
     <v-col>
@@ -65,7 +65,7 @@ const downloadStore = storeDownload();
     class="d-flex align-center text-body-1 py-2"
     no-gutters
   >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="1" xl="1" class="font-weight-medium">
+    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
       <span>IGDB</span>
     </v-col>
     <v-col>
@@ -84,7 +84,7 @@ const downloadStore = storeDownload();
     class="d-flex align-center text-body-1 mt-0 py-2"
     no-gutters
   >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="1" xl="1" class="font-weight-medium">
+    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
       <span>Tags</span>
     </v-col>
     <v-col>
