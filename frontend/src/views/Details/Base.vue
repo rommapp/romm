@@ -23,7 +23,7 @@ const route = useRoute();
 const romsStore = storeRoms();
 const rom = ref<EnhancedRomSchema | null>(null);
 const tab = ref<"details" | "saves" | "screenshots">("details");
-const { xs, sm, md, lgAndUp } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 
 async function fetchRom() {
@@ -67,82 +67,79 @@ watch(
 </script>
 
 <template>
-  <background-header v-if="rom" :image="rom.path_cover_s" />
+  <template v-if="rom">
+    <v-row no-gutters>
+      <v-col>
+        <background-header :image="rom.path_cover_s" />
+      </v-col>
+    </v-row>
 
-  <v-row
-    v-if="rom"
-    class="justify-center"
-    :class="{
-      content: lgAndUp,
-      'content-tablet-md': md,
-      'content-tablet-sm': sm,
-      'content-mobile': xs,
-    }"
-    no-gutters
-  >
-    <v-col
+    <v-row
       :class="{
-        cover: lgAndUp,
-        'cover-tablet-md': md,
-        'cover-tablet-sm': sm,
-        'cover-mobile': xs,
+        'justify-center': smAndDown,
       }"
-      class="pa-3"
+      no-gutters
     >
-      <cover :rom="rom" />
-      <action-bar :rom="rom" />
-    </v-col>
-    <v-col
-      class="mt-14"
-      :class="{
-        info: lgAndUp,
-        'info-tablet-md': md,
-        'info-tablet-sm': sm,
-        'info-mobile': xs,
-      }"
-    >
-      <title-info :rom="rom" />
-      <v-row
+      <v-col
+        class="cover"
         :class="{
-          'details-content': lgAndUp,
-          'details-content-tablet-md': md,
-          'details-content-tablet-sm': sm,
-          'details-content-mobile': xs,
+          'cover-lg': mdAndUp,
+          'cover-xs': smAndDown,
         }"
-        no-gutters
+        cols="12"
+        md="6"
+        lg="6"
       >
-        <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
-          <v-tab value="details" rounded="0">Details</v-tab>
-          <v-tab value="saves" rounded="0" disabled
-            >Saves<span class="text-caption text-truncate ml-1"
-              >[coming soon]</span
-            ></v-tab
-          >
-          <v-tab
-            v-if="rom.path_screenshots.length > 0"
-            value="screenshots"
-            rounded="0"
-            >Screenshots</v-tab
-          >
-        </v-tabs>
-      </v-row>
-      <v-row no-gutters>
-        <v-col cols="12">
-          <v-window v-model="tab" class="mt-2">
-            <v-window-item value="details">
-              <details-info :rom="rom" />
-            </v-window-item>
-            <v-window-item value="screenshots">
-              <screenshots-carousel :rom="rom" />
-            </v-window-item>
-            <v-window-item value="saves">
-              <v-row class="d-flex mt-2" no-gutters></v-row>
-            </v-window-item>
-          </v-window>
-        </v-col>
-      </v-row>
-    </v-col>
-  </v-row>
+        <cover :rom="rom" />
+        <action-bar class="mt-2" :rom="rom" />
+      </v-col>
+      <v-col
+        cols="12"
+        md="6"
+        lg="6"
+        class="px-6"
+        :class="{
+          'mr-16 info-lg': mdAndUp,
+          'info-xs': smAndDown,
+        }"
+      >
+        <v-row :class="{ 'position-absolute title-lg': mdAndUp }" no-gutters>
+          <title-info :rom="rom" />
+        </v-row>
+        <v-row no-gutters>
+          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
+            <v-tab value="details" rounded="0">Details</v-tab>
+            <v-tab value="saves" rounded="0" disabled
+              >Saves<span class="text-caption text-truncate ml-1"
+                >[coming soon]</span
+              ></v-tab
+            >
+            <v-tab
+              v-if="rom.path_screenshots.length > 0"
+              value="screenshots"
+              rounded="0"
+              >Screenshots</v-tab
+            >
+          </v-tabs>
+        </v-row>
+        <v-row no-gutters>
+          <v-col cols="12">
+            <v-window v-model="tab" class="mt-2">
+              <v-window-item value="details">
+                <details-info :rom="rom" />
+              </v-window-item>
+              <v-window-item value="screenshots">
+                <screenshots-carousel :rom="rom" />
+              </v-window-item>
+              <v-window-item value="saves">
+                <v-row class="d-flex mt-2"></v-row>
+              </v-window-item>
+            </v-window>
+          </v-col>
+        </v-row>
+      </v-col>
+    </v-row>
+  </template>
 
   <search-rom-dialog />
   <edit-rom-dialog />
@@ -151,80 +148,23 @@ watch(
 </template>
 
 <style scoped>
-.content,
-.content-tablet-md,
-.content-tablet-sm,
-.content-mobile {
-  /* Needed to put elements on top of the header background */
-  position: relative;
+.cover {
+  min-width: 270px;
+  min-height: 360px;
+  max-width: 270px;
+  max-height: 360px;
 }
-
-.content,
-.content-tablet-md {
-  margin-top: 86px;
-  margin-left: 100px;
+.cover-lg {
+  margin-top: -230px;
+  margin-left: 110px;
 }
-
-.content {
-  margin-right: 250px;
+.cover-xs {
+  margin-top: -280px;
 }
-.content-tablet-md {
-  margin-right: 100px;
+.title-lg {
+  margin-top: -190px;
 }
-
-.content-tablet-sm {
-  margin-top: 20px;
-  margin-left: 50px;
-  margin-right: 50px;
-}
-.content-mobile {
-  margin-top: 20px;
-  margin-left: 20px;
-  margin-right: 20px;
-}
-
-.cover,
-.cover-tablet-md {
-  min-width: 295px;
-  min-height: 420px;
-  max-width: 295px;
-  max-height: 420px;
-}
-.cover-tablet-sm,
-.cover-mobile {
-  min-width: 295px;
-  min-height: 390px;
-  max-width: 295px;
-  max-height: 390px;
-}
-
-.info,
-.info-tablet-md {
-  margin-left: 15px;
-  min-width: 480px;
-}
-
-.details,
-.details-tablet-md,
-.details-tablet-sm,
-.details-mobile {
-  position: relative;
-  padding-left: 25px;
-  padding-right: 25px;
-}
-
-.details-content {
-  margin-top: 108px;
-  max-width: 700px;
-}
-
-.details-content-tablet-md {
-  margin-top: 52px;
-  max-width: 700px;
-}
-
-.details-content-tablet-sm,
-.details-content-mobile {
-  margin-top: 18px;
+.info-xs {
+  margin-top: 60px;
 }
 </style>

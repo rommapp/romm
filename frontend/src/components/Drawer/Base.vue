@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
+import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
@@ -10,9 +11,10 @@ import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
 import RailFooter from "@/components/Drawer/Footer.vue";
 
 // Props
+const { lgAndUp } = useDisplay();
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(true);
+const drawer = ref(!!lgAndUp.value);
 const open = ref(["Platforms", "Library", "Settings"]);
 const rail = ref(localStorage.getItem("rail") == "true");
 

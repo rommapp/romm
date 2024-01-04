@@ -13,8 +13,8 @@ const saveFiles = ref(false);
 </script>
 
 <template>
-  <v-row class="my-3" no-gutters>
-    <v-col class="pa-0">
+  <v-row no-gutters>
+    <v-col>
       <v-btn
         @click="
           api.downloadRom({
@@ -30,12 +30,12 @@ const saveFiles = ref(false);
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
     </v-col>
-    <v-col class="pa-0">
+    <v-col>
       <v-btn rounded="0" block :disabled="!saveFiles"
         ><v-icon icon="mdi-content-save-all" size="large"
       /></v-btn>
     </v-col>
-    <v-col class="pa-0">
+    <v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
