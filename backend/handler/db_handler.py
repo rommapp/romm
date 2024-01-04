@@ -45,6 +45,10 @@ class DBHandler:
     @begin_session
     def get_platform(self, slug: str, session: Session = None):
         return session.get(Platform, slug)
+    
+    @begin_session
+    def get_platform_by_fs_slug(self, fs_slug: str, session: Session = None):
+        return session.scalars(select(Platform).filter_by(fs_slug=fs_slug).limit(1)).first()
 
     @begin_session
     def purge_platforms(self, platforms: list[str], session: Session = None):
