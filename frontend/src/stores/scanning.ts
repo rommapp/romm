@@ -4,7 +4,7 @@ export default defineStore("scanning", {
   state: () => ({ value: false }),
 
   actions: {
-    set(scanning) {
+    set(scanning: boolean) {
       this.value = scanning;
     },
   },

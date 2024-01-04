@@ -1,20 +1,24 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeUnmount } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import socket from "@/services/socket";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import type { Rom } from "@/stores/roms";
 
 // Props
 const platforms = storePlatforms();
-const platformsToScan = ref([]);
+const platformsToScan = ref<Platform[]>([]);
 const scanning = storeScanning();
-const scannedPlatforms = ref([]);
+const scannedPlatforms = ref<{ name: string; slug: string; roms: Rom[] }[]>([]);
 const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
 
 // Event listeners bus
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 
 socket.on("scan:scanning_platform", ({ name, slug }) => {
   scannedPlatforms.value.push({ name, slug, roms: [] });
@@ -32,10 +36,10 @@ socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
       roms: [],
     });
 
-    platform = scannedPlatforms.slice(-1);
+    platform = scannedPlatforms.value.pop();
   }
 
-  platform.roms.push(rom);
+  platform?.roms.push(rom);
   window.setTimeout(scrollToBottom, 100);
 });
 
@@ -43,19 +47,19 @@ socket.on("scan:done", () => {
   scanning.set(false);
   socket.disconnect();
 
-  emitter.emit("refreshDrawer");
-  emitter.emit("snackbarShow", {
+  emitter?.emit("refreshDrawer", null);
+  emitter?.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
-    timeout: 4000
+    timeout: 4000,
   });
 });
 
 socket.on("scan:done_ko", (msg) => {
   scanning.set(false);
 
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",
@@ -75,9 +79,9 @@ async function onScan() {
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.fs_slug),
+    platforms: platformsToScan.value.map((p) => p.slug),
     completeRescan: completeRescan.value,
-    rescanUnidentified: rescanUnidentified.value
+    rescanUnidentified: rescanUnidentified.value,
   });
 }
 
@@ -119,7 +123,7 @@ onBeforeUnmount(() => {
         persistent-hint
       />
     </v-col>
-  
+
     <!-- Rescan unidentified option -->
     <v-col cols="12" xs="12" sm="6" md="4" lg="4" xl="4">
       <v-checkbox

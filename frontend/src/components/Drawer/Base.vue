@@ -1,5 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import storePlatforms from "@/stores/platforms";
 import storeAuth from "@/stores/auth";
 import DrawerHeader from "@/components/Drawer/Header.vue";
@@ -9,18 +12,18 @@ import RailFooter from "@/components/Drawer/Footer.vue";
 // Props
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(undefined);
+const drawer = ref(true);
 const open = ref(["Platforms", "Library", "Settings"]);
 const rail = ref(localStorage.getItem("rail") == "true");
 
 // Event listeners bus
-const emitter = inject("emitter");
-emitter.on("toggleDrawer", () => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("toggleDrawer", () => {
   drawer.value = !drawer.value;
 });
-emitter.on("toggleDrawerRail", () => {
+emitter?.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
-  localStorage.setItem("rail", rail.value);
+  localStorage.setItem("rail", rail.value.toString());
 });
 </script>
 

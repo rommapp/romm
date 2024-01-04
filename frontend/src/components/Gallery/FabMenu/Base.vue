@@ -1,6 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { inject } from "vue";
 import { useRoute } from "vue-router";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import socket from "@/services/socket";
@@ -8,7 +11,7 @@ import storeScanning from "@/stores/scanning";
 import api from "@/services/api";
 
 // Event listeners bus
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 
 // Props
 const auth = storeAuth();
@@ -18,12 +21,12 @@ const route = useRoute();
 
 socket.on("scan:scanning_rom", ({ id }) => {
   const rom = romsStore.selectedRoms.find((r) => r.id === id);
-  romsStore.removeFromSelection(rom);
+  if (rom) romsStore.removeFromSelection(rom);
 });
 
 socket.on("scan:done", () => {
   scanning.set(false);
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
@@ -31,9 +34,9 @@ socket.on("scan:done", () => {
   socket.disconnect();
 });
 
-socket.on("scan:done_ko", (msg) => {
+socket.on("scan:done_ko", (msg: string) => {
   scanning.set(false);
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",
@@ -44,7 +47,7 @@ socket.on("scan:done_ko", (msg) => {
 // Functions
 async function onScan() {
   scanning.set(true);
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
@@ -60,7 +63,7 @@ async function onScan() {
 function selectAllRoms() {
   if (romsStore.filteredRoms.length === romsStore.selectedRoms.length) {
     romsStore.resetSelection();
-    emitter.emit("openFabMenu", false);
+    emitter?.emit("openFabMenu", false);
   } else {
     romsStore.setSelection(romsStore.filteredRoms);
   }
@@ -113,7 +116,7 @@ function onDownload() {
     elevation="8"
     icon
     class="mb-3 ml-1"
-    @click="emitter.emit('showDeleteRomDialog', romsStore.selectedRoms)"
+    @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
   >
     <v-icon color="romm-red">mdi-delete</v-icon>
   </v-btn>

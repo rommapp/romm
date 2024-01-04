@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
+import type { Platform } from "@/stores/platforms";
 import PlatformIcon from "./PlatformIcon.vue";
 
-const props = defineProps(["platform"]);
+defineProps<{ platform: Platform }>();
 </script>
 
 <template>

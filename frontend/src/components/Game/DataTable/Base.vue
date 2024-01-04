@@ -1,13 +1,14 @@
-<script setup>
-import { ref, inject } from "vue";
+<script setup lang="ts">
+import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { VDataTable } from "vuetify/labs/VDataTable";
+
 import api from "@/services/api";
 import storeDownload from "@/stores/download";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
-import { VDataTable } from "vuetify/labs/VDataTable";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils/utils";
+import { regionToEmoji, languageToEmoji } from "@/utils";
 
 const HEADERS = [
   {
@@ -52,11 +53,12 @@ const HEADERS = [
     sortable: true,
     key: "revision",
   },
-  { align: "end", key: "actions", sortable: false },
-];
+  { title: "", align: "end", key: "actions", sortable: false },
+] as const;
+
 const PER_PAGE_OPTIONS = [
   { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
-];
+] as const;
 
 // Props
 const location = window.location.origin;
@@ -68,9 +70,9 @@ const auth = storeAuth();
 const romsPerPage = ref(-1);
 
 // Functions
-function rowClick(_, row) {
+function rowClick(_: Event, row: any) {
   router.push(
-    `/platform/${row.item.selectable.platform_slug}/${row.item.selectable.id}`
+    `/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`
   );
 }
 </script>
@@ -91,40 +93,40 @@ function rowClick(_, row) {
       <v-avatar :rounded="0">
         <v-progress-linear
           color="romm-accent-1"
-          :active="downloadStore.value.includes(item.selectable.id)"
+          :active="downloadStore.value.includes(item.raw.id)"
           :indeterminate="true"
           absolute
         />
         <v-img
-          :src="`/assets/romm/resources/${item.selectable.path_cover_s}`"
-          :lazy-src="`/assets/romm/resources/${item.selectable.path_cover_s}`"
+          :src="`/assets/romm/resources/${item.raw.path_cover_s}`"
+          :lazy-src="`/assets/romm/resources/${item.raw.path_cover_s}`"
           min-height="150"
         />
       </v-avatar>
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ item.selectable.file_size }}
-        {{ item.selectable.file_size_units }}
+        {{ item.raw.file_size }}
+        {{ item.raw.file_size_units }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">
-      <span class="px-1" v-for="region in item.selectable.regions">
+      <span class="px-1" v-for="region in item.raw.regions">
         {{ regionToEmoji(region) }}
       </span>
     </template>
     <template v-slot:item.languages="{ item }">
-      <span class="px-1" v-for="language in item.selectable.languages">
+      <span class="px-1" v-for="language in item.raw.languages">
         {{ languageToEmoji(language) }}
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template v-if="item.selectable.multi">
+      <template v-if="item.raw.multi">
         <v-btn
           class="my-1"
           rounded="0"
-          @click.stop="api.downloadRom({ rom: item.selectable })"
-          :disabled="downloadStore.value.includes(item.selectable.id)"
+          @click.stop="api.downloadRom({ rom: item.raw })"
+          :disabled="downloadStore.value.includes(item.raw.id)"
           download
           size="small"
           variant="text"
@@ -136,7 +138,7 @@ function rowClick(_, row) {
           class="my-1"
           rounded="0"
           @click.stop=""
-          :href="`${location}${item.selectable.download_path}`"
+          :href="`${location}${item.raw.download_path}`"
           download
           size="small"
           variant="text"
@@ -163,7 +165,7 @@ function rowClick(_, row) {
             ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
         </template>
-        <admin-menu :rom="item.selectable" />
+        <admin-menu :rom="item.raw" />
       </v-menu>
     </template>
   </v-data-table>

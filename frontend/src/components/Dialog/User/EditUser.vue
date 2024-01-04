@@ -1,23 +1,28 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events, UserItem } from "@/types/emitter";
+
 import api from "@/services/api";
-import { defaultAvatarPath } from "@/utils/utils"
+import { defaultAvatarPath } from "@/utils"
 import storeUsers from "@/stores/users";
 
-const user = ref();
+const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
 
-const emitter = inject("emitter");
-emitter.on("showEditUserDialog", (userToEdit) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showEditUserDialog", (userToEdit) => {
   user.value = userToEdit;
   show.value = true;
 });
 
 function editUser() {
+  if (!user.value) return;
+
   api.updateUser(user.value)
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `User ${data.username} updated successfully`,
         icon: "mdi-check-bold",
         color: "green",
@@ -26,7 +31,7 @@ function editUser() {
       usersStore.update(data);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to edit user: ${
           response?.data?.detail || response?.statusText || message
         }`,
@@ -37,11 +42,11 @@ function editUser() {
     });
 
   show.value = false;
-  emitter.emit("refreshDrawer");
+  emitter?.emit("refreshDrawer", null);
 }
 </script>
 <template>
-  <v-dialog v-model="show" max-width="700px" :scrim="false">
+  <v-dialog v-if="user" v-model="show" max-width="700px" :scrim="false">
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -121,7 +126,7 @@ function editUser() {
               <v-col>
                 <v-file-input
                   class="text-truncate"
-                  v-model="user.avatar"
+                  :v-model="user.avatar ?? undefined"
                   label="Avatar"
                   prepend-inner-icon="mdi-image"
                   prepend-icon=""
