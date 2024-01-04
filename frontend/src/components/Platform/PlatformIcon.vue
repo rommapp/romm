@@ -1,7 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 
-const props = defineProps(["platform"]);
+const props = defineProps<{ platform: string }>();
 const platformIconUrl = ref(
   `/assets/platforms/${props.platform.toLowerCase()}.ico`
 );

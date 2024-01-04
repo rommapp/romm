@@ -1,11 +1,12 @@
 import { createApp } from "vue";
 import { createVuetify } from "vuetify";
+import mitt from "mitt";
+
 import { registerPlugins } from "@/plugins";
 import App from "./App.vue";
+import type { Events } from "@/types/emitter";
 
-// Event bus
-import mitt from "mitt";
-const emitter = mitt();
+const emitter = mitt<Events>();
 
 export default createVuetify({
   defaults: {

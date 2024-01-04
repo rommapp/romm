@@ -1,12 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import api from "@/services/api";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/AdminMenu/Base.vue";
+import type { Rom } from "@/stores/roms";
 
 // Props
-const props = defineProps(["rom"]);
+defineProps<{ rom: Rom }>();
 const saveFiles = ref(false);
 const auth = storeAuth();
 const downloadStore = storeDownload();

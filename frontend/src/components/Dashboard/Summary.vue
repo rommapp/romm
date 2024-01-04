@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import storePlatforms from "@/stores/platforms";
 
 // Props

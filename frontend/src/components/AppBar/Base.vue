@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import storeScanning from "@/stores/scanning";
 import DrawerToggle from "@/components/AppBar/DrawerToggle.vue";
 

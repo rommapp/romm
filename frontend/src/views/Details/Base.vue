@@ -1,10 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeMount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import Cover from "@/components/Details/Cover.vue";
@@ -15,40 +17,41 @@ import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import type { EnhancedRomSchema } from "@/__generated__";
 
 const route = useRoute();
 const romsStore = storeRoms();
-const rom = ref(null);
-const tab = ref("details");
+const rom = ref<EnhancedRomSchema | null>(null);
+const tab = ref<"details" | "saves" | "screenshots">("details");
 const { xs, sm, md, lgAndUp } = useDisplay();
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 
 async function fetchRom() {
   if (!route.params.rom) return;
 
   await api
-    .fetchRom({ romId: route.params.rom })
+    .fetchRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
       romsStore.update(response.data);
     })
     .catch((error) => {
       console.log(error);
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 
 onBeforeMount(async () => {
-  emitter.emit("showLoadingDialog", { loading: true, scrim: false });
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
   if (rom.value) {
-    emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
     fetchRom();
   }
@@ -57,7 +60,7 @@ onBeforeMount(async () => {
 watch(
   () => route.fullPath,
   async () => {
-    emitter.emit("showLoadingDialog", { loading: true, scrim: false });
+    emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
     await fetchRom();
   }
 );

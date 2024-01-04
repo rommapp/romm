@@ -1,5 +1,6 @@
 import { createVuetify } from "vuetify";
 import { themes, dark, light, autoThemeKey } from "@/styles/themes";
+import { isKeyof } from "@/types";
 
 import "vuetify/styles";
 import "@mdi/font/css/materialdesignicons.css";
@@ -7,9 +8,13 @@ import "@mdi/font/css/materialdesignicons.css";
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 
 function getTheme() {
-  const storedTheme = parseInt(localStorage.getItem("settings.theme"));
+  const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
 
-  if (!isNaN(storedTheme) && storedTheme !== autoThemeKey) {
+  if (
+    !isNaN(storedTheme) &&
+    storedTheme !== autoThemeKey &&
+    isKeyof(storedTheme, themes)
+  ) {
     return themes[storedTheme];
   }
 
@@ -18,7 +23,7 @@ function getTheme() {
 
 const instance = createVuetify({
   icons: {
-    iconfont: "mdi",
+    defaultSet: "mdi",
   },
   theme: {
     defaultTheme: getTheme(),

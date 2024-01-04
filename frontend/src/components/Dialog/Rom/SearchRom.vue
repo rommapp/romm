@@ -1,22 +1,26 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
+import type { IGDBRomType } from "@/__generated__";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const rom = ref();
+const rom = ref<Rom | null>(null);
 const romsStore = storeRoms();
 const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
-const matchedRoms = ref([]);
+const matchedRoms = ref<IGDBRomType[]>([]);
 const selectedScrapSource = ref(0);
 
-const emitter = inject("emitter");
-emitter.on("showSearchRomDialog", (romToSearch) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
@@ -24,6 +28,8 @@ emitter.on("showSearchRomDialog", (romToSearch) => {
 });
 
 async function searchIGDB() {
+  if (!rom.value) return;
+
   if (!searching.value) {
     searching.value = true;
     await api
@@ -44,9 +50,11 @@ async function searchIGDB() {
   }
 }
 
-async function updateRom(matchedRom) {
+async function updateRom(matchedRom: IGDBRomType) {
+  if (!rom.value) return;
+
   show.value = false;
-  emitter.emit("showLoadingDialog", { loading: true, scrim: true });
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   rom.value.igdb_id = matchedRom.igdb_id;
   rom.value.name = matchedRom.name;
@@ -58,7 +66,7 @@ async function updateRom(matchedRom) {
   await api
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
@@ -66,19 +74,19 @@ async function updateRom(matchedRom) {
       romsStore.update(data);
     })
     .catch((error) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 
 onBeforeUnmount(() => {
-  emitter.off("showSearchRomDialog");
+  emitter?.off("showSearchRomDialog");
 });
 </script>
 

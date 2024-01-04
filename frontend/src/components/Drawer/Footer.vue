@@ -1,14 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { inject } from "vue";
 import { useRouter } from "vue-router";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import storeAuth from "@/stores/auth";
-import { defaultAvatarPath } from "@/utils/utils"
+import { defaultAvatarPath } from "@/utils"
 import { api } from "@/services/api";
 
 // Props
-const props = defineProps(["rail"]);
+defineProps<{ rail?: boolean }>();
 const router = useRouter();
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 
 // Functions
@@ -16,7 +19,7 @@ async function logout() {
   api
     .post("/logout", {})
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: data.message,
         icon: "mdi-check-bold",
         color: "green",
