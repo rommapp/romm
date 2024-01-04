@@ -19,8 +19,8 @@ class DBHandler:
     def begin_session(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            if hasattr(kwargs, 'session'):
-                return func(*args, session=kwargs.get('session'))
+            if hasattr(kwargs, "session"):
+                return func(*args, session=kwargs.get("session"))
 
             try:
                 with args[0].session.begin() as s:
@@ -45,17 +45,26 @@ class DBHandler:
     @begin_session
     def get_platform(self, slug: str, session: Session = None):
         return session.get(Platform, slug)
-    
+
     @begin_session
     def get_platform_by_fs_slug(self, fs_slug: str, session: Session = None):
-        return session.scalars(select(Platform).filter_by(fs_slug=fs_slug).limit(1)).first()
+        return session.scalars(
+            select(Platform).filter_by(fs_slug=fs_slug).limit(1)
+        ).first()
 
     @begin_session
     def purge_platforms(self, platforms: list[str], session: Session = None):
         return session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(platforms), Platform.slug.is_(None)))
-            .execution_options(synchronize_session="evaluate")
+            .where(
+                select(func.count())
+                .select_from(Rom)
+                .filter_by(platform_slug=Platform.slug)
+                .as_scalar()
+                == 0
+            )
+            .execution_options(synchronize_session="fetch")
         )
 
     # ========= Roms =========
