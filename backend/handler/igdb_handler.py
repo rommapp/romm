@@ -304,18 +304,20 @@ class IGDBHandler:
         )
 
         igdb_id = res.get("id", None)
-        slug = res.get("slug", "")
-        name = res.get("name", search_term)
-        summary = res.get("summary", "")
-
-        return IGDBRomType(
+        rom = IGDBRomType(
             igdb_id=igdb_id,
-            slug=slug,
-            name=name,
-            summary=summary,
-            url_cover=self._search_cover(igdb_id),
-            url_screenshots=self._search_screenshots(igdb_id),
+            slug=res.get("slug", ""),
+            name=res.get("name", search_term),
+            summary=res.get("summary", ""),
+            url_cover=DEFAULT_URL_COVER_L,
+            url_screenshots=[],
         )
+
+        if igdb_id:
+            rom['url_cover'] = self._search_cover(igdb_id)
+            rom['url_screenshots'] = self._search_screenshots(igdb_id)
+
+        return rom
 
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRomType:
