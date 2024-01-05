@@ -126,7 +126,7 @@ class DeletePlatformResponse(TypedDict):
     msg: str
 
 
-@protected_route(router.delete, "/platforms/{fs_slug}", ["roms.write"])
+@protected_route(router.delete, "/platforms/{fs_slug}", ["platforms.write"])
 def delete_platform(
     request: Request, fs_slug: str, delete_from_fs: bool = False
 ) -> DeletePlatformResponse:

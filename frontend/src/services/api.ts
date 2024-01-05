@@ -47,7 +47,7 @@ async function deletePlatform({
   });
 }
 
-export async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
+async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
   return api.get("/roms-recent");
 }
 
@@ -271,6 +271,7 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
 export default {
   fetchPlatforms,
   deletePlatform,
+  fetchRecentRoms,
   fetchRoms,
   fetchRom,
   downloadRom,

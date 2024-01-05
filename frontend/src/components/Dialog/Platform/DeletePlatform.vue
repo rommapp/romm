@@ -4,11 +4,11 @@ import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import api from "@/services/api";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 
 const router = useRouter();
 const platformsStore = storePlatforms();
-const platform = ref();
+const platform = ref<Platform | null>(null);
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeletePlatformDialog", (platformToDelete) => {
@@ -18,6 +18,8 @@ emitter?.on("showDeletePlatformDialog", (platformToDelete) => {
 const deleteFromFs = ref(false);
 
 async function deletePlatform() {
+  if (!platform.value) return;
+
   show.value = false;
   await api
     .deletePlatform({

@@ -6,6 +6,7 @@
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "baseUrl": ".",
+    "noImplicitAny": true,
     "paths": {
       "@/*": ["./src/*"]
     }
