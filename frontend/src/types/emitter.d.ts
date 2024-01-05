@@ -15,7 +15,7 @@ export type SnackbarStatus = {
 };
 
 export type Events = {
-  showDeletePlatformDialog: Platform;
+  showDeletePlatformDialog: Platform | undefined;
   showSearchRomDialog: Rom;
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
