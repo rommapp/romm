@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0013_asset_files
-Revises: 0012_add_regions_languages
+Revision ID: 0014_asset_files
+Revises: 0013_upgrade_file_extension
 Create Date: 2023-11-29 14:38:33.068098
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "0013_asset_files"
-down_revision = "0012_add_regions_languages"
+revision = "0014_asset_files"
+down_revision = "0013_upgrade_file_extension"
 branch_labels = None
 depends_on = None
 

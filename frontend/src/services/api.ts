@@ -17,6 +17,8 @@ import type {
   UserSchema,
   MessageResponse,
   CursorPage_RomSchema_,
+  SaveSchema,
+  StateSchema,
 } from "@/__generated__";
 
 export const api = axios.create({ baseURL: "/api", timeout: 120000 });
@@ -268,7 +270,7 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 
-async function uploadSaves({ rom, saves }) {
+async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
 
@@ -280,13 +282,13 @@ async function uploadSaves({ rom, saves }) {
   });
 }
 
-async function deleteSaves({ saves }) {
+async function deleteSaves({ saves }: { saves: SaveSchema[] }) {
   return api.post("/saves/delete", {
     saves: saves.map((s) => s.id),
   });
 }
 
-async function uploadStates({ rom, states }) {
+async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   let formData = new FormData();
   states.forEach((state) => formData.append("states", state));
 
@@ -298,7 +300,7 @@ async function uploadStates({ rom, states }) {
   });
 }
 
-async function deleteStates({ states }) {
+async function deleteStates({ states }: { states: StateSchema[] }) {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),
   });

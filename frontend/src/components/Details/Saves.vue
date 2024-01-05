@@ -1,16 +1,20 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
-import { formatBytes } from "@/utils/utils";
+import { formatBytes } from "@/utils";
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
+import type { SaveSchema } from "@/__generated__";
+
 const props = defineProps(["rom"]);
 const savesToUpload = ref([]);
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
 
-async function deleteSave(save) {
+async function deleteSave(save: SaveSchema) {
   await api
     .deleteSaves({
       saves: [save],
@@ -20,7 +24,7 @@ async function deleteSave(save) {
       romsStore.update(props.rom);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to delete save: ${
           response?.data?.detail || response?.statusText || message
         }`,
@@ -32,7 +36,7 @@ async function deleteSave(save) {
 }
 
 async function uploadSaves() {
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Uploading ${savesToUpload.value.length} saves to ${props.rom.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
@@ -49,7 +53,7 @@ async function uploadSaves() {
       romsStore.update(props.rom);
       savesToUpload.value = [];
 
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `${uploaded} files uploaded successfully!`,
         icon: "mdi-check-bold",
         color: "green",
@@ -57,7 +61,7 @@ async function uploadSaves() {
       });
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to upload saves: ${
           response?.data?.detail || response?.statusText || message
         }`,
