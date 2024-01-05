@@ -8,7 +8,7 @@ from config.config_loader import config
 from models import Platform, Rom, Save, State, Bios, Screenshot, Emulator
 from logger.logger import log
 
-SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config["PLATFORMS_BINDING"].items())
+SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config.PLATFORMS_BINDING.items())
 
 
 def scan_platform(fs_slug: str, fs_platforms) -> Platform:

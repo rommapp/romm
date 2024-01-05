@@ -1,16 +1,20 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
-import { formatBytes } from "@/utils/utils";
+import { formatBytes } from "@/utils";
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 
+import type { StateSchema } from "@/__generated__";
+
 const props = defineProps(["rom"]);
 const statesToUpload = ref([]);
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
 
-async function deleteState(state) {
+async function deleteState(state: StateSchema) {
   await api
     .deleteStates({
       states: [state],
@@ -20,7 +24,7 @@ async function deleteState(state) {
       romsStore.update(props.rom);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to delete state: ${
           response?.data?.detail || response?.statusText || message
         }`,
@@ -32,7 +36,7 @@ async function deleteState(state) {
 }
 
 async function uploadStates() {
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: `Uploading ${statesToUpload.value.length} states to ${props.rom.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
@@ -49,7 +53,7 @@ async function uploadStates() {
       romsStore.update(props.rom);
       statesToUpload.value = [];
 
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `${uploaded} files uploaded successfully!`,
         icon: "mdi-check-bold",
         color: "green",
@@ -57,7 +61,7 @@ async function uploadStates() {
       });
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to upload states: ${
           response?.data?.detail || response?.statusText || message
         }`,

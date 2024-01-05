@@ -11,7 +11,7 @@ defineProps<{ rom: Rom }>();
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
     <v-img
-      :src="`/assets/romm/resources/${rom.path_cover_l || rom.path_screenshots[0]}`"
+      :src="`/assets/romm/resources/${rom.path_cover_l || rom.merged_screenshots[0]}`"
       :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
       :aspect-ratio="3 / 4"
     >

@@ -77,7 +77,7 @@ function onTouchEnd() {
         :key="rom.id"
         v-bind="props"
         :src="`/assets/romm/resources/${
-          rom.path_cover_l || rom.path_screenshots[0]
+          rom.path_cover_l || rom.merged_screenshots[0]
         }`"
         :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
         :aspect-ratio="3 / 4"

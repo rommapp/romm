@@ -4,6 +4,9 @@
 /* eslint-disable */
 
 import type { RomSchema } from './RomSchema';
+import type { SaveSchema } from './SaveSchema';
+import type { ScreenshotSchema } from './ScreenshotSchema';
+import type { StateSchema } from './StateSchema';
 
 export type EnhancedRomSchema = {
     id: number;
@@ -32,8 +35,11 @@ export type EnhancedRomSchema = {
     tags: Array<string>;
     multi: boolean;
     files: Array<string>;
+    saves: Array<SaveSchema>;
+    states: Array<StateSchema>;
     url_screenshots: Array<string>;
-    path_screenshots: Array<string>;
+    screenshots: Array<ScreenshotSchema>;
+    merged_screenshots: Array<string>;
     full_path: string;
     download_path: string;
     sibling_roms: Array<RomSchema>;
