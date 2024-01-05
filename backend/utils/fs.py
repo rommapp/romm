@@ -24,6 +24,7 @@ from config import (
 from config.config_loader import config
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
+    PlatformNotFoundException,
     RomsNotFoundException,
     RomNotFoundError,
     RomAlreadyExistsException,
@@ -214,6 +215,14 @@ def get_platforms() -> list[str]:
         return _exclude_platforms(platforms)
     except IndexError as exc:
         raise PlatformsNotFoundException from exc
+
+
+def remove_platform(fs_slug: str):
+    platform_path = get_roms_structure(fs_slug)
+    try:
+        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{platform_path}")
+    except FileNotFoundError as exc:
+        raise PlatformNotFoundException(fs_slug) from exc    
 
 
 # ========= Roms utils =========

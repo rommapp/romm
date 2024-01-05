@@ -1,3 +1,4 @@
+import type { Platform } from "@/stores/platforms";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
@@ -14,6 +15,7 @@ export type SnackbarStatus = {
 };
 
 export type Events = {
+  showDeletePlatformDialog: Platform;
   showSearchRomDialog: Rom;
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];

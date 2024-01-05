@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { views } from "@/utils";
-import { fetchRecentRoms } from "@/services/api";
+import api from "@/services/api";
 import storeRoms from "@/stores/roms";
 import GameCard from "@/components/Game/Card/Base.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -21,7 +21,7 @@ function scrollX(e: WheelEvent) {
 }
 
 onMounted(async () => {
-  const { data: recentData } = await fetchRecentRoms();
+  const { data: recentData } = await api.fetchRecentRoms();
   romsStore.setRecentRoms(recentData);
 });
 </script>
@@ -51,7 +51,12 @@ onMounted(async () => {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <game-card :index="rom.id" :rom="rom" :selected="false" :showSelector="false" />
+          <game-card
+            :index="rom.id"
+            :rom="rom"
+            :selected="false"
+            :showSelector="false"
+          />
         </v-col>
       </v-row>
       <!-- TODO: Check recently added games in the last 30 days -->
