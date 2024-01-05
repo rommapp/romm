@@ -5,6 +5,10 @@ import router from "@/plugins/router";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
+export type DeletePlatformResponse = {
+  msg: string;
+};
+
 import type {
   PlatformSchema,
   RomSchema,
@@ -30,12 +34,24 @@ api.interceptors.response.use(
   }
 );
 
-export async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
-  return api.get("/roms-recent");
+async function fetchPlatforms(): Promise<{ data: PlatformSchema[] }> {
+  return api.get("/platforms");
 }
 
-async function fetchPlatforms(): Promise<{data: PlatformSchema[] }> {
-  return api.get("/platforms");
+async function deletePlatform({
+  platform,
+  deleteFromFs = false,
+}: {
+  platform: PlatformSchema;
+  deleteFromFs: boolean;
+}): Promise<{ data: DeletePlatformResponse }> {
+  return api.delete(`/platforms/${platform.fs_slug}`, {
+    params: { delete_from_fs: deleteFromFs },
+  });
+}
+
+export async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
+  return api.get("/roms-recent");
 }
 
 async function fetchRoms({
@@ -257,6 +273,7 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
 
 export default {
   fetchPlatforms,
+  deletePlatform,
   fetchRoms,
   fetchRom,
   downloadRom,

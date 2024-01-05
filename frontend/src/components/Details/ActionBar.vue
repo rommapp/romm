@@ -3,7 +3,7 @@ import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import api from "@/services/api";
 import storeDownload from "@/stores/download";
-import AdminMenu from "@/components/AdminMenu/Base.vue";
+import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { Rom } from "@/stores/roms";
 
 defineProps<{ rom: Rom }>();

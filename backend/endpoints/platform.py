@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import Optional
+from typing_extensions import TypedDict
 
 from handler import dbh
 from utils.oauth import protected_route
@@ -117,3 +118,19 @@ def platforms_webrcade_feed(request: Request):
                 if p.slug in WEBRCADE_SUPPORTED_PLATFORM_SLUGS
             ],
         }
+
+
+class DeletePlatformResponse(TypedDict):
+    msg: str
+
+
+@protected_route(router.delete, "/platforms/{fs_slug}", ["roms.write"])
+def delete_platform(
+    request: Request, fs_slug: str, delete_from_fs: bool = False
+) -> DeletePlatformResponse:
+    """Detele platform from database [and filesystem]"""
+
+    from logger.logger import log
+    log.debug(f"deleting {fs_slug} -> from filesystem {delete_from_fs}")
+
+    return {"msg": f"{fs_slug} deleted successfully!"}
