@@ -1,5 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onBeforeMount, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import { api } from "@/services/api";
 import storeRunningTasks from "@/stores/runningTasks";
 import TaskWatcher from "@/components/Settings/General/TaskStatus/TaskWatcher.vue";
@@ -7,7 +10,7 @@ import TaskScheduler from "@/components/Settings/General/TaskStatus/TaskSchedule
 import storeHeartbeat from "@/stores/heartbeat";
 
 // Props
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const runningTasks = storeRunningTasks()
 
@@ -17,14 +20,14 @@ const runAllTasks = async () => {
   const result = await api.post("/tasks/run");
   runningTasks.value = false;
   if (result.status !== 200) {
-    return emitter.emit("snackbarShow", {
+    return emitter?.emit("snackbarShow", {
       msg: "Error running tasks",
       icon: "mdi-close-circle",
       color: "red",
     });
   }
 
-  emitter.emit("snackbarShow", {
+  emitter?.emit("snackbarShow", {
     msg: result.data.message,
     icon: "mdi-check-circle",
     color: "green",

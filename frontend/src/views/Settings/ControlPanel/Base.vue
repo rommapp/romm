@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import Settings from "@/views/Settings/ControlPanel/General/Base.vue";

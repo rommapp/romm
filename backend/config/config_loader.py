@@ -5,6 +5,7 @@ import pydash
 from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
 from typing import Final
+from typing_extensions import TypedDict
 
 from config import (
     ROMM_DB_DRIVER,
@@ -41,6 +42,16 @@ class Config:
     def __init__(self, **entries):
         self.__dict__.update(entries)
         self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
+
+
+class ConfigDict(TypedDict):
+    EXCLUDED_PLATFORMS: list[str]
+    EXCLUDED_SINGLE_EXT: list[str]
+    EXCLUDED_SINGLE_FILES: list[str]
+    EXCLUDED_MULTI_FILES: list[str]
+    EXCLUDED_MULTI_PARTS_EXT: list[str]
+    EXCLUDED_MULTI_PARTS_FILES: list[str]
+    PLATFORMS_BINDING: dict[str, str]
 
 
 class ConfigLoader:
@@ -117,7 +128,6 @@ class ConfigLoader:
                 self._raw_config, "filesystem.emulators_folder", "emulators"
             ),
         )
-        log.info(f"Config loaded successfully from {self.config_path}")
 
 
 config = ConfigLoader().config

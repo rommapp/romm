@@ -1,19 +1,20 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
 import api from "@/services/api";
 import storeDownload from "@/stores/download";
-import AdminMenu from "@/components/AdminMenu/Base.vue";
+import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
+import type { Rom } from "@/stores/roms";
 
-const props = defineProps(["rom"]);
+defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
 const saveFiles = ref(false);
 </script>
 
 <template>
-  <v-row class="my-3" no-gutters>
-    <v-col class="pa-0">
+  <v-row no-gutters>
+    <v-col>
       <v-btn
         @click="
           api.downloadRom({
@@ -29,12 +30,12 @@ const saveFiles = ref(false);
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
     </v-col>
-    <v-col class="pa-0">
+    <v-col>
       <v-btn rounded="0" block :disabled="!saveFiles"
         ><v-icon icon="mdi-content-save-all" size="large"
       /></v-btn>
     </v-col>
-    <v-col class="pa-0">
+    <v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn

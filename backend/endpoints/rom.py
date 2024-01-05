@@ -86,10 +86,13 @@ class RomSchema(BaseModel):
         from_attributes = True
 
 
-@protected_route(router.get, "/roms/{id}", ["roms.read"])
-def rom(request: Request, id: int) -> RomSchema:
-    """Returns one rom data of the desired platform"""
+class EnhancedRomSchema(RomSchema):
+    sibling_roms: list["RomSchema"]
 
+
+@protected_route(router.get, "/roms/{id}", ["roms.read"])
+def rom(request: Request, id: int) -> EnhancedRomSchema:
+    """Returns one rom data of the desired platform"""
     return dbh.get_rom(id)
 
 
@@ -148,7 +151,9 @@ def upload_roms(
 
 
 @protected_route(router.get, "/roms/{id}/download", ["roms.read"])
-def download_rom(request: Request, id: int, files: Annotated[list[str] | None, Query()] = None):
+def download_rom(
+    request: Request, id: int, files: Annotated[list[str] | None, Query()] = None
+):
     """Downloads a rom or a zip file with multiple roms"""
     rom = dbh.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
@@ -217,6 +222,7 @@ async def update_rom(
     data = await request.form()
 
     db_rom = dbh.get_rom(id)
+    platform_fs_slug = dbh.get_platform(db_rom.platform_slug).fs_slug
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
@@ -238,7 +244,7 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            rename_file(db_rom.platform_slug, db_rom.file_name, fs_safe_file_name)
+            rename_file(platform_fs_slug, db_rom.file_name, fs_safe_file_name)
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
@@ -250,7 +256,7 @@ async def update_rom(
     cleaned_data.update(
         get_rom_cover(
             overwrite=True,
-            fs_slug=db_rom.platform_slug,
+            fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_cover=cleaned_data.get("url_cover", ""),
         )
@@ -258,7 +264,7 @@ async def update_rom(
 
     cleaned_data.update(
         get_rom_screenshots(
-            fs_slug=db_rom.platform_slug,
+            fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
         ),
@@ -267,7 +273,7 @@ async def update_rom(
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
         path_cover_l, path_cover_s, artwork_path = build_artwork_path(
-            cleaned_data["name"], db_rom.platform_slug, file_ext
+            cleaned_data["name"], platform_fs_slug, file_ext
         )
 
         cleaned_data["path_cover_l"] = path_cover_l
@@ -305,7 +311,6 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
             error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
     return rom
 
 

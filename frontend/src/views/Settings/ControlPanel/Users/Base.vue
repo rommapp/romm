@@ -1,13 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onMounted } from "vue";
+import type { Emitter } from "mitt";
 import { VDataTable } from "vuetify/labs/VDataTable";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
-import { defaultAvatarPath } from "@/utils/utils";
+import { defaultAvatarPath } from "@/utils";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
+import type { UserItem } from "@/types/emitter";
 
 const HEADERS = [
   {
@@ -35,8 +39,8 @@ const HEADERS = [
     sortable: true,
     key: "enabled",
   },
-  { align: "end", key: "actions", sortable: false },
-];
+  { title: "", align: "end", key: "actions", sortable: false },
+] as const;
 
 const PER_PAGE_OPTIONS = [
   { value: 5, title: "5" },
@@ -46,15 +50,15 @@ const PER_PAGE_OPTIONS = [
 ];
 
 // Props
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const usersStore = storeUsers();
 const usersPerPage = ref(5);
 const userSearch = ref("");
 
-function disableUser(user) {
+function disableUser(user: UserItem) {
   api.updateUser(user).catch(({ response, message }) => {
-    emitter.emit("snackbarShow", {
+    emitter?.emit("snackbarShow", {
       msg: `Unable to disable/enable user: ${
         response?.data?.detail || response?.statusText || message
       }`,
@@ -66,9 +70,10 @@ function disableUser(user) {
 }
 
 onMounted(() => {
-  api.fetchUsers()
+  api
+    .fetchUsers()
     .then(({ data }) => {
-      usersStore.set(data)
+      usersStore.set(data);
     })
     .catch((error) => {
       console.log(error);
@@ -85,7 +90,7 @@ onMounted(() => {
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-romm-accent-1"
-        @click="emitter.emit('showCreateUserDialog')"
+        @click="emitter?.emit('showCreateUserDialog', null)"
       >
         Add
       </v-btn>
@@ -117,8 +122,8 @@ onMounted(() => {
           <v-avatar>
             <v-img
               :src="
-                item.selectable.avatar_path
-                  ? `/assets/romm/resources/${item.selectable.avatar_path}`
+                item.raw.avatar_path
+                  ? `/assets/romm/resources/${item.raw.avatar_path}`
                   : defaultAvatarPath
               "
             />
@@ -126,9 +131,9 @@ onMounted(() => {
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
-            :disabled="item.selectable.id == auth.user?.id"
-            v-model="item.selectable.enabled"
-            @change="disableUser(item.selectable)"
+            :disabled="item.raw.id == auth.user?.id"
+            v-model="item.raw.enabled"
+            @change="disableUser(item.raw)"
             hide-details
           />
         </template>
@@ -137,7 +142,7 @@ onMounted(() => {
             class="ma-1 bg-terciary"
             size="small"
             rounded="0"
-            @click="emitter.emit('showEditUserDialog', { ...item.raw })"
+            @click="emitter?.emit('showEditUserDialog', item.raw)"
           >
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
@@ -145,7 +150,7 @@ onMounted(() => {
             class="ma-1 bg-terciary text-romm-red"
             size="small"
             rounded="0"
-            @click="emitter.emit('showDeleteUserDialog', item.raw)"
+            @click="emitter?.emit('showDeleteUserDialog', item.raw)"
             ><v-icon>mdi-delete</v-icon></v-btn
           >
         </template>

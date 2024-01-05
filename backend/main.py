@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from typing_extensions import TypedDict
 
 from config import (
     DEV_PORT,
@@ -31,7 +32,7 @@ from utils.auth import (
     create_default_admin_user,
 )
 from utils import get_version
-from config.config_loader import config
+from config.config_loader import config, ConfigDict
 
 app = FastAPI(title="RomM API", version="0.1.0")
 
@@ -77,9 +78,33 @@ add_pagination(app)
 app.mount("/ws", socket_app)
 
 
+class WatcherDict(TypedDict):
+    ENABLED: bool
+    TITLE: str
+    MESSAGE: str
+
+
+class TaskDict(WatcherDict):
+    CRON: str
+
+
+class SchedulerDict(TypedDict):
+    RESCAN: TaskDict
+    SWITCH_TITLEDB: TaskDict
+    MAME_XML: TaskDict
+
+
+class HeartbeatReturn(TypedDict):
+    VERSION: str
+    ROMM_AUTH_ENABLED: bool
+    WATCHER: WatcherDict
+    SCHEDULER: SchedulerDict
+    CONFIG: ConfigDict
+
+
 # Endpoint to set the CSRF token in cache
 @app.get("/heartbeat")
-def heartbeat():
+def heartbeat() -> HeartbeatReturn:
     return {
         "VERSION": get_version(),
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
@@ -108,7 +133,7 @@ def heartbeat():
                 "MESSAGE": "Updates the MAME XML file",
             },
         },
-        "CONFIG": config
+        "CONFIG": config,
     }
 
 

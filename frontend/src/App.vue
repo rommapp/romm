@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { onBeforeMount } from "vue";
 import cookie from "js-cookie";
 import storeAuth from "@/stores/auth";

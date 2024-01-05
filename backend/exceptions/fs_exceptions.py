@@ -10,6 +10,15 @@ class PlatformsNotFoundException(Exception):
         return self.message
 
 
+class PlatformNotFoundException(Exception):
+    def __init__(self, platform: str):
+        self.message = f"Platform {platform} not found"
+        super().__init__(self.message)
+
+    def __repr__(self):
+        return self.message
+
+
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
         self.message = f"Roms not found for platform {platform}. {folder_struct_msg}"

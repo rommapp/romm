@@ -1,5 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storeUsers from "@/stores/users";
 
@@ -11,8 +14,8 @@ const user = ref({
 const show = ref(false);
 const usersStore = storeUsers();
 
-const emitter = inject("emitter");
-emitter.on("showCreateUserDialog", () => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showCreateUserDialog", () => {
   show.value = true;
 });
 
@@ -22,7 +25,7 @@ async function createUser() {
       usersStore.add(data);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to create user: ${
           response?.data?.detail || response?.statusText || message
         }`,
