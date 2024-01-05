@@ -50,8 +50,10 @@ async def scan_platforms(
     platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
     platform_list = platform_list or fs_platforms
 
-    if (len(platform_list) == 0):
-        log.warn("⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly ")
+    if len(platform_list) == 0:
+        log.warn(
+            "⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly "
+        )
     else:
         log.info(f"Found {len(platform_list)} platforms in file system ")
 
@@ -74,14 +76,18 @@ async def scan_platforms(
             log.error(e)
             continue
 
-        if (len(fs_roms) == 0):
-            log.warning("  ⚠️ No roms found, verify that the folder structure is correct")
+        if len(fs_roms) == 0:
+            log.warning(
+                "  ⚠️ No roms found, verify that the folder structure is correct"
+            )
         else:
-            log.warn(f"  {len(fs_roms)} roms found")
+            log.info(f"  {len(fs_roms)} roms found")
 
         for fs_rom in fs_roms:
             rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
-            if (rom and rom.id not in selected_roms and not complete_rescan) and not (rescan_unidentified and rom and not rom.igdb_id):
+            if (rom and rom.id not in selected_roms and not complete_rescan) and not (
+                rescan_unidentified and rom and not rom.igdb_id
+            ):
                 continue
 
             scanned_rom = await scan_rom(scanned_platform, fs_rom)
@@ -102,7 +108,7 @@ async def scan_platforms(
         fs_assets = get_assets(scanned_platform.fs_slug)
 
         # Scanning saves
-        log.info("\t · Saves")
+        log.info(f"\t · {len(fs_assets['saves'])} saves found")
         for fs_emulator, fs_save_filename in fs_assets["saves"]:
             scanned_save = scan_save(
                 platform=scanned_platform,
@@ -126,7 +132,7 @@ async def scan_platforms(
                 dbh.add_save(scanned_save)
 
         # Scanning states
-        log.info("\t · States")
+        log.info(f"\t · {len(fs_assets['states'])} states found")
         for fs_emulator, fs_state_filename in fs_assets["states"]:
             scanned_state = scan_state(
                 platform=scanned_platform,
@@ -150,7 +156,7 @@ async def scan_platforms(
                 dbh.add_state(scanned_state)
 
         # Scanning bios
-        log.info("\t · Firmware")
+        log.info(f"\t · {len(fs_assets['bios'])} firmware found")
         for fs_bios_filename in fs_assets["bios"]:
             scanned_bios = scan_bios(
                 platform=scanned_platform, file_name=fs_bios_filename
@@ -167,7 +173,7 @@ async def scan_platforms(
             dbh.add_bios(scanned_bios)
 
         # Scanning emulators
-        log.info("\t · Emulators")
+        log.info(f"\t · {len(fs_assets['emulators'])} emulators found")
         for fs_emulator_filename in fs_assets["emulators"]:
             scanned_emulator = scan_bios(
                 platform=scanned_platform, file_name=fs_emulator_filename
@@ -192,8 +198,9 @@ async def scan_platforms(
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots
-    log.info("\t · Screenshots")
     fs_screenshots = get_screenshots()
+    log.info("Screenshots")
+    log.info(f" · {len(fs_screenshots)} screenshots found")
     for fs_screenshot_filename in fs_screenshots:
         scanned_screenshot = scan_screenshot(fs_screenshot_filename)
 
@@ -240,4 +247,6 @@ async def scan_handler(_sid: str, options: dict):
             job_timeout=14400,  # Timeout after 4 hours
         )
     else:
-        await scan_platforms(platform_slugs, complete_rescan, rescan_unidentified, selected_roms)
+        await scan_platforms(
+            platform_slugs, complete_rescan, rescan_unidentified, selected_roms
+        )
