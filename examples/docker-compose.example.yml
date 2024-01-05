@@ -7,6 +7,7 @@ services:
     container_name: romm
     environment:
       - ROMM_DB_DRIVER=mariadb # mariadb | sqlite (default: sqlite)
+      - ROMM_HOST=https://localhost:3000 # [Optional] your host ip or domain name (including http(s)://, subdomain and port if needed). Being used only for webRcade feed for now.
       # [Optional] Only required if using MariaDB as the database
       - DB_HOST=romm_db
       - DB_PORT=3306
@@ -28,6 +29,7 @@ services:
       - REDIS_PORT=6379 # default: 6379
       - REDIS_PASSWORD=<redis password> # [Optional] Support for secured redis
       # [Optional] Will enable asynchronous tasks (all disabled by default)
+      # Important: Do NOT wrap the cron expression in quotes
       - ENABLE_RESCAN_ON_FILESYSTEM_CHANGE=true # Runs a quick scan on the library when a file is added or removed 
       - RESCAN_ON_FILESYSTEM_CHANGE_DELAY=5 # Delay in seconds before running the quick scan (default: 5)
       - ENABLE_SCHEDULED_RESCAN=true # Runs a quick scan on the library at a given time

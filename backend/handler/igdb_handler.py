@@ -163,19 +163,23 @@ class IGDBHandler:
         ]
 
     @staticmethod
-    def _ps2_opl_format(match: re.Match[str]) -> str:
+    async def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
+        
         with open(PS2_OPL_INDEX_FILE, "r") as index_json:
             opl_index = json.loads(index_json.read())
             index_entry = opl_index.get(serial_code, None)
             if index_entry:
                 search_term = index_entry["Name"]  # type: ignore
+        
         return search_term
 
+
     @staticmethod
-    async def _switch_titledb_format(match: re.Match[str]) -> str:
-        title_id = match.group(1)
+    async def _switch_titledb_format(match: re.Match[str], search_term: str) -> str:
         titledb_index = {}
+        title_id = match.group(1)
+        
         try:
             with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
                 titledb_index = json.loads(index_json.read())
@@ -191,12 +195,19 @@ class IGDBHandler:
             index_entry = titledb_index.get(title_id, None)
             if index_entry:
                 search_term = index_entry["name"]  # type: ignore
+        
         return search_term
 
     @staticmethod
-    async def _switch_productid_format(match: re.Match[str]) -> str:
-        product_id = match.group(1)
+    async def _switch_productid_format(match: re.Match[str], search_term: str) -> str:
         product_id_index = {}
+        product_id = match.group(1)
+        
+        # Game updates have the same product ID as the main application, except with bitmask 0x800 set
+        product_id = list(product_id)
+        product_id[-3] = '0'
+        product_id = ''.join(product_id)
+        
         try:
             with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
                 product_id_index = json.loads(index_json.read())
@@ -217,6 +228,7 @@ class IGDBHandler:
     @staticmethod
     async def _mame_format(search_term: str) -> str:
         mame_index = {"menu": {"game": []}}
+        
         try:
             with open(MAME_XML_FILE, "r") as index_xml:
                 mame_index = xmltodict.parse(index_xml.read())
@@ -239,6 +251,7 @@ class IGDBHandler:
                 search_term = get_search_term(
                     index_entry[0].get("description", search_term)
                 )
+        
         return search_term
 
     @check_twitch_token
@@ -264,21 +277,21 @@ class IGDBHandler:
         # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)
         if platform_idgb_id == PS2_IGDB_ID and match:
-            self._ps2_opl_format(match)
+            search_term = await self._ps2_opl_format(match, search_term)
 
         # Support for switch titleID filename format
-        match = re.match(SWITCH_TITLEDB_REGEX, file_name)
+        match = re.search(SWITCH_TITLEDB_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
-            self._switch_titledb_format(match)
+            search_term = await self._switch_titledb_format(match, search_term)
 
         # Support for switch productID filename format
         match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
         if platform_idgb_id == SWITCH_IGDB_ID and match:
-            self._switch_productid_format(match)
+            search_term = await self._switch_productid_format(match, search_term)
 
         # Support for MAME arcade filename format
         if platform_idgb_id in ARCADE_IGDB_IDS:
-            self._mame_format(search_term)
+            search_term = await self._mame_format(search_term)
 
         search_term = normalize_search_term(search_term)
 
@@ -291,18 +304,20 @@ class IGDBHandler:
         )
 
         igdb_id = res.get("id", None)
-        slug = res.get("slug", "")
-        name = res.get("name", search_term)
-        summary = res.get("summary", "")
-
-        return IGDBRomType(
+        rom = IGDBRomType(
             igdb_id=igdb_id,
-            slug=slug,
-            name=name,
-            summary=summary,
-            url_cover=self._search_cover(igdb_id),
-            url_screenshots=self._search_screenshots(igdb_id),
+            slug=res.get("slug", ""),
+            name=res.get("name", search_term),
+            summary=res.get("summary", ""),
+            url_cover=DEFAULT_URL_COVER_L,
+            url_screenshots=[],
         )
+
+        if igdb_id:
+            rom['url_cover'] = self._search_cover(igdb_id)
+            rom['url_screenshots'] = self._search_screenshots(igdb_id)
+
+        return rom
 
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRomType:

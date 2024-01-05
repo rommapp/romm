@@ -1,16 +1,18 @@
-<script setup>
+<script setup lang="ts">
 import { inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 // Props
-const props = defineProps(["rail"]);
+defineProps<{ rail?: boolean }>();
 
 // Event listeners bus
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 </script>
 
 <template>
   <v-btn
-    @click="emitter.emit('toggleDrawerRail')"
+    @click="emitter?.emit('toggleDrawerRail', null)"
     color="primary"
     elevation="0"
     block

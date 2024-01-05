@@ -1,5 +1,7 @@
-<script setup>
-const props = defineProps(["rom"]);
+<script setup lang="ts">
+import type { Rom } from '@/stores/roms';
+
+defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-row class="d-flex mt-2" no-gutters>

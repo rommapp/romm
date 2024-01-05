@@ -1,6 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { inject, ref, onMounted } from "vue";
 import { debounce } from "lodash";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import storeGalleryFilter from "@/stores/galleryFilter";
 
 // Props
@@ -8,19 +11,19 @@ const galleryFilter = storeGalleryFilter();
 const filterValue = ref("");
 
 // Event listeners bus
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 onMounted(() => {
   filterValue.value = galleryFilter.filter;
 });
 
 function clearFilter() {
   galleryFilter.set("");
-  emitter.emit("filter");
+  emitter?.emit("filter", null);
 }
 
 const filterRoms = debounce(() => {
   galleryFilter.set(filterValue.value);
-  emitter.emit("filter");
+  emitter?.emit("filter", null);
 }, 500);
 </script>
 

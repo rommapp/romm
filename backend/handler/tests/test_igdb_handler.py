@@ -46,14 +46,13 @@ async def test_get_ps2_opl_rom():
     assert rom["url_cover"] == DEFAULT_URL_COVER_L
     assert not rom["url_screenshots"]
 
-    rom = await igdbh.get_rom("SLUS_210.60.WWE Smack.iso", 8)
+    rom = await igdbh.get_rom("SLUS_210.60.iso", 8)
     assert rom["igdb_id"] == 80852
     assert rom["slug"] == "wwe-smackdown-vs-raw"
     assert rom["name"] == "WWE Smackdown! vs. Raw"
     assert rom["summary"]
     assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
     assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
-
 
 @pytest.mark.vcr()
 def test_get_rom_by_id():

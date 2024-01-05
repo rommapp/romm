@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
-import api from "@/services/api";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 const show = ref(false);
-const emitter = inject("emitter");
-emitter.on("showCreatePlatformBindingDialog", () => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showCreatePlatformBindingDialog", () => {
   show.value = true;
 });
 </script>
@@ -33,11 +34,7 @@ emitter.on("showCreatePlatformBindingDialog", () => {
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
-          <v-btn
-            :disabled="false"
-            class="text-romm-green bg-terciary ml-5"
-            @click="createBinding()"
-          >
+          <v-btn :disabled="true" class="text-romm-green bg-terciary ml-5">
             Create
           </v-btn>
         </v-row>

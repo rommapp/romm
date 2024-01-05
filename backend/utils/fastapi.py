@@ -2,14 +2,16 @@ import emoji
 import os
 from typing import Any
 
-from handler import igdbh
+from handler import igdbh, dbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
 from config.config_loader import config
 from models import Platform, Rom, Save, State, Bios, Screenshot, Emulator
 from logger.logger import log
 
+SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config["PLATFORMS_BINDING"].items())
 
-def scan_platform(fs_slug: str) -> Platform:
+
+def scan_platform(fs_slug: str, fs_platforms) -> Platform:
     """Get platform details
 
     Args:
@@ -23,6 +25,16 @@ def scan_platform(fs_slug: str) -> Platform:
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
 
+    # Sometimes users change the name of the folder, so we try to match it with the config
+    if fs_slug not in fs_platforms:
+        log.warning(
+            f"  {fs_slug} not found in file system, trying to match via config..."
+        )
+        if fs_slug in SWAPPED_PLATFORM_BINDINGS.keys():
+            platform = dbh.get_platform_by_fs_slug(fs_slug)
+            if platform:
+                platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
+
     try:
         if fs_slug in config.PLATFORMS_BINDING.keys():
             platform_attrs["slug"] = config.PLATFORMS_BINDING[fs_slug]
@@ -30,6 +42,7 @@ def scan_platform(fs_slug: str) -> Platform:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
+
     platform = igdbh.get_platform(platform_attrs["slug"])
 
     if platform["igdb_id"]:
