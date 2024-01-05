@@ -18,6 +18,7 @@ const downloadStore = storeDownload();
     <v-row>
       <v-col class="pa-0">
         <v-btn
+          class="action-bar-btn"
           @click="api.downloadRom({ rom })"
           :disabled="downloadStore.value.includes(rom.id)"
           icon="mdi-download"
@@ -26,6 +27,7 @@ const downloadStore = storeDownload();
           variant="text"
         />
         <v-btn
+        class="action-bar-btn"
           icon="mdi-content-save-all"
           size="x-small"
           rounded="0"
@@ -33,10 +35,10 @@ const downloadStore = storeDownload();
           :disabled="!saveFiles"
         />
       </v-col>
-
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
+          class="action-bar-btn"
             :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             icon="mdi-dots-vertical"
@@ -47,6 +49,14 @@ const downloadStore = storeDownload();
         </template>
         <admin-menu :rom="rom" />
       </v-menu>
+
     </v-row>
   </v-card-text>
 </template>
+
+<style scoped>
+.action-bar-btn {
+  max-width: 27px;
+  max-height: 27px;
+}
+</style>
