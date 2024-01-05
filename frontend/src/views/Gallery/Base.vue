@@ -13,6 +13,7 @@ import storeRoms from "@/stores/roms";
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
+import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
@@ -270,6 +271,8 @@ onBeforeRouteUpdate((to, _) => {
       </v-menu>
     </div>
   </v-layout-item>
+
+  <delete-platform-dialog />
 
   <search-rom-dialog />
   <upload-rom-dialog />

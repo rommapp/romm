@@ -36,7 +36,7 @@ socket.on("scan:done", () => {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
     color: "green",
-    timeout: 4000
+    timeout: 4000,
   });
 });
 
@@ -72,11 +72,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <v-btn
-      @click="scan"
-      rounded="0"
-      variant="text"
-      class="mr-0"
-      icon="mdi-magnify-scan"
-    />
+  <v-list-item @click="scan" class="py-4 pr-5">
+    <v-list-item-title class="d-flex"
+      ><v-icon icon="mdi-magnify-scan" class="mr-2" />Scan
+      platform</v-list-item-title
+    >
+  </v-list-item>
 </template>
