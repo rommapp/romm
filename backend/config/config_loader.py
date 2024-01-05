@@ -23,27 +23,6 @@ ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 
 
-class Config:
-    EXCLUDED_PLATFORMS: list[str] = []
-    EXCLUDED_SINGLE_EXT: list[str] = []
-    EXCLUDED_SINGLE_FILES: list[str] = []
-    EXCLUDED_MULTI_FILES: list[str] = []
-    EXCLUDED_MULTI_PARTS_EXT: list[str] = []
-    EXCLUDED_MULTI_PARTS_FILES: list[str] = []
-    PLATFORMS_BINDING: dict[str, str] = {}
-    ROMS_FOLDER_NAME: str = "roms"
-    SAVES_FOLDER_NAME: str = "saves"
-    STATES_FOLDER_NAME: str = "states"
-    SCREENSHOTS_FOLDER_NAME: str = "screenshots"
-    BIOS_FOLDER_NAME: str = "bios"
-    EMULATORS_FOLDER_NAME: str = "emulators"
-    HIGH_PRIO_STRUCTURE_PATH: str = ""
-
-    def __init__(self, **entries):
-        self.__dict__.update(entries)
-        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
-
-
 class ConfigDict(TypedDict):
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
@@ -52,6 +31,34 @@ class ConfigDict(TypedDict):
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
+    ROMS_FOLDER_NAME: str
+    SAVES_FOLDER_NAME: str
+    STATES_FOLDER_NAME: str
+    SCREENSHOTS_FOLDER_NAME: str
+    BIOS_FOLDER_NAME: str
+    EMULATORS_FOLDER_NAME: str
+    HIGH_PRIO_STRUCTURE_PATH: str
+
+
+class Config:
+    EXCLUDED_PLATFORMS: list[str]
+    EXCLUDED_SINGLE_EXT: list[str]
+    EXCLUDED_SINGLE_FILES: list[str]
+    EXCLUDED_MULTI_FILES: list[str]
+    EXCLUDED_MULTI_PARTS_EXT: list[str]
+    EXCLUDED_MULTI_PARTS_FILES: list[str]
+    PLATFORMS_BINDING: dict[str, str]
+    ROMS_FOLDER_NAME: str
+    SAVES_FOLDER_NAME: str
+    STATES_FOLDER_NAME: str
+    SCREENSHOTS_FOLDER_NAME: str
+    BIOS_FOLDER_NAME: str
+    EMULATORS_FOLDER_NAME: str
+    HIGH_PRIO_STRUCTURE_PATH: str
+
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
 
 
 class ConfigLoader:
@@ -59,14 +66,17 @@ class ConfigLoader:
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         self.config_path = config_path
         if os.path.isdir(config_path):
-            log.critical(f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system.")
+            log.critical(
+                f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system."
+            )
             raise FileNotFoundError()
         try:
             with open(config_path) as config_file:
                 self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
-                self._parse_config()
         except FileNotFoundError:
-            self.config = Config()
+            self._raw_config = {}
+        finally:
+            self._parse_config()
 
     @staticmethod
     def get_db_engine() -> str:
