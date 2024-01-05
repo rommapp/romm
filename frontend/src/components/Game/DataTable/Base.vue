@@ -7,7 +7,7 @@ import api from "@/services/api";
 import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
-import AdminMenu from "@/components/AdminMenu/Base.vue";
+import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 
 const HEADERS = [

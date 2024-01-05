@@ -2,8 +2,7 @@
 import storeAuth from "@/stores/auth";
 import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
-import ScanBtn from "@/components/Gallery/AppBar/ScanBtn.vue";
-import UploadRomBtn from "@/components/Gallery/AppBar/UploadRomBtn.vue";
+import AdminMenu from "@/components/Gallery/AppBar/AdminMenu.vue";
 
 // Props
 const auth = storeAuth();
@@ -14,8 +13,19 @@ const auth = storeAuth();
     <filter-bar />
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
-      <upload-rom-btn />
-      <scan-btn />
+      <v-menu location="bottom">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            v-bind="props"
+            @click=""
+            rounded="0"
+            variant="text"
+            class="mr-0"
+            icon="mdi-dots-vertical"
+          />
+        </template>
+        <admin-menu />
+      </v-menu>
     </template>
   </v-app-bar>
 </template>

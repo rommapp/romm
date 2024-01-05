@@ -18,5 +18,10 @@ export default defineStore("platforms", {
     set(platforms: Platform[]) {
       this.value = platforms;
     },
+    remove(platform: Platform) {
+      this.value = this.value.filter((p) => {
+        return p.slug !== platform.slug;
+      });
+    },
   },
 });
