@@ -9,6 +9,7 @@ export type { Body_update_user_users__user_id__patch } from './models/Body_updat
 export type { Body_upload_roms_roms_upload_put } from './models/Body_upload_roms_roms_upload_put';
 export type { ConfigDict } from './models/ConfigDict';
 export type { CursorPage_RomSchema_ } from './models/CursorPage_RomSchema_';
+export type { DeletePlatformResponse } from './models/DeletePlatformResponse';
 export type { DeleteRomResponse } from './models/DeleteRomResponse';
 export type { EnhancedRomSchema } from './models/EnhancedRomSchema';
 export type { HeartbeatReturn } from './models/HeartbeatReturn';
