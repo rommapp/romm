@@ -23,5 +23,5 @@ def test_heartbeat():
     assert heartbeat.get('SCHEDULER').get('MAME_XML').get('ENABLED')
     assert heartbeat.get('SCHEDULER').get('MAME_XML').get('CRON') == "0 5 * * *"
     assert heartbeat.get('SCHEDULER').get('MAME_XML').get('TITLE') == "Scheduled MAME XML update"
-    assert heartbeat.get('CONFIG').get('EXCLUDED_MULTI_FILES') is None
-    assert heartbeat.get('CONFIG').get('EXCLUDED_SINGLE_EXT') is None
+    assert heartbeat.get('CONFIG').get('EXCLUDED_MULTI_FILES') == []
+    assert heartbeat.get('CONFIG').get('EXCLUDED_SINGLE_EXT') == []

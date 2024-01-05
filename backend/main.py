@@ -133,7 +133,7 @@ def heartbeat() -> HeartbeatReturn:
                 "MESSAGE": "Updates the MAME XML file",
             },
         },
-        "CONFIG": config,
+        "CONFIG": config.__dict__,
     }
 
 
