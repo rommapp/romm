@@ -5,12 +5,9 @@ import router from "@/plugins/router";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
-export type DeletePlatformResponse = {
-  msg: string;
-};
-
 import type {
   PlatformSchema,
+  DeletePlatformResponse,
   RomSchema,
   EnhancedRomSchema,
   UploadRomResponse,
