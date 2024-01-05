@@ -22,7 +22,7 @@ const platform = platforms.value.find(
   >
     <v-list-item-title class="d-flex">
       <v-icon icon="mdi-delete" color="red" class="mr-2" />
-      Delete Platform
+      Delete platform
     </v-list-item-title>
   </v-list-item>
 </template>
