@@ -51,6 +51,20 @@ class DBHandler:
         return session.scalars(
             select(Platform).filter_by(fs_slug=fs_slug).limit(1)
         ).first()
+    
+    @begin_session
+    def delete_platform(self, slug: str, session: Session = None):
+        # Remove all roms from that platforms first
+        session.execute(
+            delete(Rom)
+            .where(Rom.platform_slug == slug)
+            .execution_options(synchronize_session="evaluate")
+        )
+        return session.execute(
+            delete(Platform)
+            .where(Platform.slug == slug)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     @begin_session
     def purge_platforms(self, platforms: list[str], session: Session = None):

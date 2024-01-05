@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, status, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from typing_extensions import TypedDict
-
 from handler import dbh
+from exceptions.fs_exceptions import PlatformNotFoundException
+from utils.fs import remove_platform
 from utils.oauth import protected_route
 from config import ROMM_HOST
+from logger.logger import log
 
 router = APIRouter()
 
@@ -130,7 +132,22 @@ def delete_platform(
 ) -> DeletePlatformResponse:
     """Detele platform from database [and filesystem]"""
 
-    from logger.logger import log
-    log.debug(f"deleting {fs_slug} -> from filesystem {delete_from_fs}")
+    platform = dbh.get_platform_by_fs_slug(fs_slug)
+    if not platform:
+        error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    return {"msg": f"{fs_slug} deleted successfully!"}
+    log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
+    dbh.delete_platform(platform.slug)
+
+    if delete_from_fs:
+        log.info(f"Deleting {platform.name} [{platform.fs_slug}] from filesystem")
+        try:
+            remove_platform(fs_slug)
+        except PlatformNotFoundException as e:
+            error = f"Couldn't delete from filesystem: {str(e)}"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}
