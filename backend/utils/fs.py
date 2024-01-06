@@ -353,7 +353,11 @@ def get_assets(platform_slug: str):
         platform_slug, folder=config.SCREENSHOTS_FOLDER_NAME
     )
     screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
-    fs_screenshots += [file for file in list(os.walk(screenshots_file_path))[0][2]]
+
+    try:
+        fs_screenshots += [file for file in list(os.walk(screenshots_file_path))[0][2]]
+    except IndexError:
+        pass
 
     return {
         "saves": fs_saves,
