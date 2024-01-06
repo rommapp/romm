@@ -216,7 +216,7 @@ def get_platforms() -> list[str]:
 
 
 def remove_platform(fs_slug: str):
-    platform_path = get_roms_structure(fs_slug)
+    platform_path = get_fs_structure(fs_slug)
     try:
         shutil.rmtree(f"{LIBRARY_BASE_PATH}/{platform_path}")
     except FileNotFoundError as exc:
