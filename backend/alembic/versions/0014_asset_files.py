@@ -39,6 +39,7 @@ def upgrade() -> None:
         "screenshots",
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("platform_slug", sa.String(length=50), nullable=True),
         sa.Column("file_name", sa.String(length=450), nullable=False),
         sa.Column("file_name_no_tags", sa.String(length=450), nullable=False),
         sa.Column("file_extension", sa.String(length=10), nullable=False),

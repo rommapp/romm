@@ -72,3 +72,10 @@ class Screenshot(BaseAsset):
         Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
     )
     rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
+
+    platform_slug = Column(
+        String(length=50),
+        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        nullable=True,
+    )
+    platform = relationship("Platform", lazy="selectin", back_populates="screenshots")

@@ -14,6 +14,6 @@ export type StateSchema = {
     download_path: string;
     rom_id: number;
     platform_slug: string;
-    emulator: string;
+    emulator: (string | null);
 };
 
