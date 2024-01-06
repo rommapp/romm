@@ -35,8 +35,6 @@ class ConfigDict(TypedDict):
     SAVES_FOLDER_NAME: str
     STATES_FOLDER_NAME: str
     SCREENSHOTS_FOLDER_NAME: str
-    BIOS_FOLDER_NAME: str
-    EMULATORS_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
 
 
@@ -52,8 +50,6 @@ class Config:
     SAVES_FOLDER_NAME: str
     STATES_FOLDER_NAME: str
     SCREENSHOTS_FOLDER_NAME: str
-    BIOS_FOLDER_NAME: str
-    EMULATORS_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
 
     def __init__(self, **entries):
@@ -130,12 +126,6 @@ class ConfigLoader:
             ),
             SCREENSHOTS_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.screenshots_folder", "screenshots"
-            ),
-            BIOS_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.bios_folder", "bios"
-            ),
-            EMULATORS_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.emulators_folder", "emulators"
             ),
         )
 

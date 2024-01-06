@@ -41,5 +41,4 @@ filesystem:
   roms_folder: 'roms' # The folder where your roms are located
   saves_folder: 'saves' # The folder where your save files are located
   states_folder: 'states' # The folder where your states are located
-  bios_folder: 'bios' # The folder where your bios files are located
   screenshots_folder: 'screenshots' # The folder where your screenshots are located

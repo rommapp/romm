@@ -5,7 +5,7 @@ from typing import Any
 from handler import igdbh, dbh
 from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
 from config.config_loader import config
-from models import Platform, Rom, Save, State, Bios, Screenshot, Emulator
+from models import Platform, Rom, Save, State, Screenshot
 from logger.logger import log
 
 SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config.PLATFORMS_BINDING.items())
@@ -157,18 +157,6 @@ def scan_state(platform: Platform, emulator: str, file_name: str) -> State:
         platform.fs_slug, folder=config.STATES_FOLDER_NAME
     )
     return State(**_scan_asset(file_name, os.path.join(states_path, emulator)))
-
-
-def scan_bios(platform: Platform, file_name: str) -> State:
-    bios_path = fs.get_fs_structure(platform.fs_slug, folder=config.BIOS_FOLDER_NAME)
-    return Bios(**_scan_asset(file_name, bios_path))
-
-
-def scan_emulator(platform: Platform, file_name: str) -> State:
-    emulators_path = fs.get_fs_structure(
-        platform.fs_slug, folder=config.EMULATORS_FOLDER_NAME
-    )
-    return Emulator(**_scan_asset(file_name, emulators_path))
 
 
 def scan_screenshot(file_name: str) -> State:

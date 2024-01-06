@@ -7,7 +7,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from logger.logger import log
 from config.config_loader import ConfigLoader
-from models import Platform, Rom, User, Role, Save, State, Screenshot, Bios, Emulator
+from models import Platform, Rom, User, Role, Save, State, Screenshot
 
 
 class DBHandler:
@@ -80,11 +80,6 @@ class DBHandler:
         session.execute(
             delete(State)
             .where(State.platform_slug.not_in(platforms))
-            .execution_options(synchronize_session="evaluate")
-        )
-        session.execute(
-            delete(Bios)
-            .where(Bios.platform_slug.not_in(platforms))
             .execution_options(synchronize_session="evaluate")
         )
         return session.execute(
@@ -264,98 +259,6 @@ class DBHandler:
                 and_(
                     State.platform_slug == platform_slug, State.file_name.not_in(states)
                 )
-            )
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    # ========= Bios =========
-    @begin_session
-    def add_bios(self, bios: Bios, session: Session = None):
-        return session.merge(bios)
-
-    @begin_session
-    def get_bios(self, id, session: Session = None):
-        return session.get(Bios, id)
-
-    @begin_session
-    def get_bios_by_filename(
-        self, platform_slug: str, file_name: str, session: Session = None
-    ):
-        return session.scalars(
-            select(Bios)
-            .filter_by(platform_slug=platform_slug, file_name=file_name)
-            .limit(1)
-        ).first()
-
-    @begin_session
-    def update_bios(self, id: int, data: dict, session: Session = None):
-        session.execute(
-            update(Bios)
-            .where(Bios.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def delete_bios(self, id: int, session: Session = None):
-        return session.execute(
-            delete(Bios)
-            .where(Bios.id == id)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def purge_bios(self, platform_slug: str, bios: list[str], session: Session = None):
-        return session.execute(
-            delete(Bios)
-            .where(
-                and_(Bios.platform_slug == platform_slug, Bios.file_name.not_in(bios))
-            )
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    # ========= Emulators =========
-    @begin_session
-    def add_emulators(self, emulators: Emulator, session: Session = None):
-        return session.merge(emulators)
-
-    @begin_session
-    def get_emulators(self, id, session: Session = None):
-        return session.get(Emulator, id)
-
-    @begin_session
-    def get_emulators_by_filename(
-        self, platform_slug: str, file_name: str, session: Session = None
-    ):
-        return session.scalars(
-            select(Emulator)
-            .filter_by(platform_slug=platform_slug, file_name=file_name)
-            .limit(1)
-        ).first()
-
-    @begin_session
-    def update_emulators(self, id: int, data: dict, session: Session = None):
-        session.execute(
-            update(Emulator)
-            .where(Emulator.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def delete_emulators(self, id: int, session: Session = None):
-        return session.execute(
-            delete(Emulator)
-            .where(Emulator.id == id)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def purge_emulators(self, platform_slug: str, emulators: list[str], session: Session = None):
-        return session.execute(
-            delete(Emulator)
-            .where(
-                and_(Emulator.platform_slug == platform_slug, Emulator.file_name.not_in(emulators))
             )
             .execution_options(synchronize_session="evaluate")
         )

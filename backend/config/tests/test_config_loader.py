@@ -20,8 +20,6 @@ def test_config_loader():
     assert loader.config.SAVES_FOLDER_NAME == "SAVES"
     assert loader.config.STATES_FOLDER_NAME == "STATES"
     assert loader.config.SCREENSHOTS_FOLDER_NAME == "SCREENSHOTS"
-    assert loader.config.BIOS_FOLDER_NAME == "BIOS"
-    assert loader.config.EMULATORS_FOLDER_NAME == "EMULATORS"
 
 
 def test_empty_config_loader():
@@ -38,5 +36,3 @@ def test_empty_config_loader():
     assert loader.config.SAVES_FOLDER_NAME == "saves"
     assert loader.config.STATES_FOLDER_NAME == "states"
     assert loader.config.SCREENSHOTS_FOLDER_NAME == "screenshots"
-    assert loader.config.BIOS_FOLDER_NAME == "bios"
-    assert loader.config.EMULATORS_FOLDER_NAME == "emulators"

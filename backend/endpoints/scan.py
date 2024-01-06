@@ -9,7 +9,6 @@ from utils.fastapi import (
     scan_rom,
     scan_save,
     scan_state,
-    scan_bios,
     scan_screenshot,
 )
 from utils.socket import socket_server
@@ -155,46 +154,8 @@ async def scan_platforms(
                 scanned_state.rom_id = rom.id
                 dbh.add_state(scanned_state)
 
-        # Scanning bios
-        log.info(f"\t · {len(fs_assets['bios'])} firmware found")
-        for fs_bios_filename in fs_assets["bios"]:
-            scanned_bios = scan_bios(
-                platform=scanned_platform, file_name=fs_bios_filename
-            )
-
-            bios = dbh.get_bios_by_filename(scanned_platform.slug, fs_bios_filename)
-            if bios:
-                dbh.update_bios(
-                    bios.id, {"file_size_bytes": scanned_bios.file_size_bytes}
-                )
-                continue
-
-            scanned_bios.platform_slug = scanned_platform.slug
-            dbh.add_bios(scanned_bios)
-
-        # Scanning emulators
-        log.info(f"\t · {len(fs_assets['emulators'])} emulators found")
-        for fs_emulator_filename in fs_assets["emulators"]:
-            scanned_emulator = scan_bios(
-                platform=scanned_platform, file_name=fs_emulator_filename
-            )
-
-            emulator = dbh.get_emulator_by_filename(
-                scanned_platform.slug, fs_emulator_filename
-            )
-            if emulator:
-                dbh.update_emulator(
-                    emulator.id, {"file_size_bytes": scanned_emulator.file_size_bytes}
-                )
-                continue
-
-            scanned_emulator.platform_slug = scanned_platform.slug
-            dbh.add_emulator(scanned_emulator)
-
         dbh.purge_saves(scanned_platform.slug, [s for e, s in fs_assets["saves"]])
         dbh.purge_states(scanned_platform.slug, [s for e, s in fs_assets["states"]])
-        dbh.purge_bios(scanned_platform.slug, fs_assets["bios"])
-        dbh.purge_emulators(scanned_platform.slug, fs_assets["emulators"])
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots
