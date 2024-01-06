@@ -163,7 +163,7 @@ def scan_state(platform: Platform, emulator: str, file_name: str) -> State:
 
     #  Scan asset with the sames path and emulator folder name
     if emulator:
-        return Save(**_scan_asset(file_name, os.path.join(states_path, emulator)))
+        return State(**_scan_asset(file_name, os.path.join(states_path, emulator)))
 
     return State(**_scan_asset(file_name, states_path))
 
