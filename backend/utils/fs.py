@@ -30,6 +30,7 @@ DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
 DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
 DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
 
+
 # ========= Resources utils =========
 class CoverSize(Enum):
     SMALL = "small"
@@ -220,7 +221,7 @@ def remove_platform(fs_slug: str):
     try:
         shutil.rmtree(f"{LIBRARY_BASE_PATH}/{platform_path}")
     except FileNotFoundError as exc:
-        raise PlatformNotFoundException(fs_slug) from exc    
+        raise PlatformNotFoundException(fs_slug) from exc
 
 
 # ========= Roms utils =========
@@ -239,7 +240,7 @@ def _exclude_files(files, filetype) -> list[str]:
 
     for file in files:
         # Exclude files starting with a period.
-        if file.startswith('.'):
+        if file.startswith("."):
             filtered_files.append(file)
         else:
             # Split the file name to get the extension.
@@ -313,12 +314,13 @@ def get_roms(fs_slug: str):
     ]
 
 
-def get_assets(fs_slug: str):
-    saves_path = get_fs_structure(fs_slug, folder=config.SAVES_FOLDER_NAME)
+def get_assets(platform_slug: str):
+    saves_path = get_fs_structure(platform_slug, folder=config.SAVES_FOLDER_NAME)
     saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
 
     fs_saves: list[str] = []
     fs_states: list[str] = []
+    fs_screenshots: list[str] = []
 
     try:
         emulators = list(os.walk(saves_file_path))[0][1]
@@ -327,15 +329,12 @@ def get_assets(fs_slug: str):
                 (emulator, file)
                 for file in list(os.walk(f"{saves_file_path}/{emulator}"))[0][2]
             ]
-        
-        fs_saves += [
-            (None, file)
-            for file in list(os.walk(saves_file_path))[0][2]
-        ]
+
+        fs_saves += [(None, file) for file in list(os.walk(saves_file_path))[0][2]]
     except IndexError:
         pass
 
-    states_path = get_fs_structure(fs_slug, folder=config.STATES_FOLDER_NAME)
+    states_path = get_fs_structure(platform_slug, folder=config.STATES_FOLDER_NAME)
     states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
 
     try:
@@ -346,26 +345,43 @@ def get_assets(fs_slug: str):
                 for file in list(os.walk(f"{states_file_path}/{emulator}"))[0][2]
             ]
 
-        fs_states += [
-            (None, file)
-            for file in list(os.walk(states_file_path))[0][2]
-        ]
+        fs_states += [(None, file) for file in list(os.walk(states_file_path))[0][2]]
     except IndexError:
         pass
+
+    screenshots_path = get_fs_structure(
+        platform_slug, folder=config.SCREENSHOTS_FOLDER_NAME
+    )
+    screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
+    fs_screenshots += [file for file in list(os.walk(screenshots_file_path))[0][2]]
 
     return {
         "saves": fs_saves,
         "states": fs_states,
+        "screenshots": fs_screenshots,
     }
 
 
 def get_screenshots():
     screenshots_path = f"{LIBRARY_BASE_PATH}/{config.SCREENSHOTS_FOLDER_NAME}"
 
+    fs_screenshots = []
+
     try:
-        return list(os.walk(screenshots_path))[0][2]
+        platforms = list(os.walk(screenshots_path))[0][1]
+        for platform in platforms:
+            fs_screenshots += [
+                (platform, file)
+                for file in list(os.walk(f"{screenshots_path}/{platform}"))[0][2]
+            ]
+
+        fs_screenshots += [
+            (None, file) for file in list(os.walk(screenshots_path))[0][2]
+        ]
     except IndexError:
-        return []
+        pass
+
+    return fs_screenshots
 
 
 def get_rom_file_size(

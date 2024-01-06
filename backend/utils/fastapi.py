@@ -160,8 +160,20 @@ def scan_state(platform: Platform, emulator: str, file_name: str) -> State:
     states_path = fs.get_fs_structure(
         platform.fs_slug, folder=config.STATES_FOLDER_NAME
     )
-    return State(**_scan_asset(file_name, os.path.join(states_path, emulator)))
+
+    #  Scan asset with the sames path and emulator folder name
+    if emulator:
+        return Save(**_scan_asset(file_name, os.path.join(states_path, emulator)))
+
+    return State(**_scan_asset(file_name, states_path))
 
 
-def scan_screenshot(file_name: str) -> State:
+def scan_screenshot(file_name: str, fs_platform: str = None) -> Screenshot:
+    screenshots_path = fs.get_fs_structure(
+        fs_platform, folder=config.SCREENSHOTS_FOLDER_NAME
+    )
+
+    if fs_platform:
+        return Screenshot(**_scan_asset(file_name, screenshots_path))
+
     return Screenshot(**_scan_asset(file_name, config.SCREENSHOTS_FOLDER_NAME))

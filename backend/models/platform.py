@@ -7,7 +7,7 @@ from .base import BaseModel
 
 class Platform(BaseModel):
     from .rom import Rom
-    from .assets import Save, State
+    from .assets import Save, State, Screenshot
 
     __tablename__ = "platforms"
 
@@ -26,6 +26,9 @@ class Platform(BaseModel):
     )
     states: Mapped[set[State]] = relationship(
         "State", lazy="selectin", back_populates="platform"
+    )
+    screenshots: Mapped[set[State]] = relationship(
+        "Screenshot", lazy="selectin", back_populates="platform"
     )
 
     ### DEPRECATED ###

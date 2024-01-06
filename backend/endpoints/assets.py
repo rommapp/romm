@@ -43,6 +43,7 @@ class StateSchema(BaseAsset):
 
 class ScreenshotSchema(BaseAsset):
     rom_id: int
+    platform_slug: Optional[str]
 
 
 class UploadedSavesResponse(TypedDict):
