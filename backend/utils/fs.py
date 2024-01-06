@@ -327,6 +327,11 @@ def get_assets(fs_slug: str):
                 (emulator, file)
                 for file in list(os.walk(f"{saves_file_path}/{emulator}"))[0][2]
             ]
+        
+        fs_saves += [
+            (None, file)
+            for file in list(os.walk(saves_file_path))[0][2]
+        ]
     except IndexError:
         pass
 
@@ -340,6 +345,11 @@ def get_assets(fs_slug: str):
                 (emulator, file)
                 for file in list(os.walk(f"{states_file_path}/{emulator}"))[0][2]
             ]
+
+        fs_states += [
+            (None, file)
+            for file in list(os.walk(states_file_path))[0][2]
+        ]
     except IndexError:
         pass
 
