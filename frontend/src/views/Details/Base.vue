@@ -111,19 +111,9 @@ watch(
         <v-row no-gutters>
           <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0">Details</v-tab>
-            <v-tab value="saves" rounded="0">
-              Saves
-            </v-tab>
-            <v-tab value="states" rounded="0">
-              States
-            </v-tab>
-            <v-tab
-              v-if="rom.screenshots.length > 0"
-              value="screenshots"
-              rounded="0"
-            >
-              Screenshots
-            </v-tab>
+            <v-tab value="saves" rounded="0"> Saves </v-tab>
+            <v-tab value="states" rounded="0"> States </v-tab>
+            <v-tab value="screenshots" rounded="0"> Screenshots </v-tab>
           </v-tabs>
         </v-row>
         <v-row no-gutters>
