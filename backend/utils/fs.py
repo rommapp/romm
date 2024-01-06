@@ -353,11 +353,9 @@ def get_screenshots():
     screenshots_path = f"{LIBRARY_BASE_PATH}/{config.SCREENSHOTS_FOLDER_NAME}"
 
     try:
-        fs_screenshots = list(os.walk(screenshots_path))[0][2]
+        return list(os.walk(screenshots_path))[0][2]
     except IndexError:
-        pass
-
-    return fs_screenshots
+        return []
 
 
 def get_rom_file_size(
