@@ -30,7 +30,7 @@ class Save(BaseAsset):
     __tablename__ = "saves"
     __table_args__ = {"extend_existing": True}
 
-    emulator = Column(String(length=50), nullable=False)
+    emulator = Column(String(length=50), nullable=True)
 
     rom_id = Column(
         Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
@@ -49,7 +49,7 @@ class State(BaseAsset):
     __tablename__ = "states"
     __table_args__ = {"extend_existing": True}
 
-    emulator = Column(String(length=50), nullable=False)
+    emulator = Column(String(length=50), nullable=True)
 
     rom_id = Column(
         Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False

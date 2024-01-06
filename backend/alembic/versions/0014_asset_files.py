@@ -48,7 +48,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "saves",
-        sa.Column("emulator", sa.String(length=50), nullable=False),
+        sa.Column("emulator", sa.String(length=50), nullable=True),
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column("platform_slug", sa.String(length=50), nullable=False),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -77,7 +77,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "states",
-        sa.Column("emulator", sa.String(length=50), nullable=False),
+        sa.Column("emulator", sa.String(length=50), nullable=True),
         sa.Column("rom_id", sa.Integer(), nullable=False),
         sa.Column("platform_slug", sa.String(length=50), nullable=False),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
