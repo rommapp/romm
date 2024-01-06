@@ -44,14 +44,6 @@ class ScreenshotSchema(BaseAsset):
     rom_id: int
 
 
-class BiosSchema(BaseAsset):
-    platform_slug: str
-
-
-class EmulatorSchema(BaseAsset):
-    platform_slug: str
-
-
 class UploadedSavesResponse(TypedDict):
     uploaded: int
     saves: list[SaveSchema]

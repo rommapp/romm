@@ -319,8 +319,6 @@ def get_assets(fs_slug: str):
 
     fs_saves: list[str] = []
     fs_states: list[str] = []
-    fs_bios: list[str] = []
-    fs_emulators: list[str] = []
 
     try:
         emulators = list(os.walk(saves_file_path))[0][1]
@@ -345,27 +343,9 @@ def get_assets(fs_slug: str):
     except IndexError:
         pass
 
-    bios_path = get_fs_structure(fs_slug, folder=config.BIOS_FOLDER_NAME)
-    bios_file_path = f"{LIBRARY_BASE_PATH}/{bios_path}"
-
-    try:
-        fs_bios = list(os.walk(bios_file_path))[0][2]
-    except IndexError:
-        pass
-
-    emulators_path = get_fs_structure(fs_slug, folder=config.EMULATORS_FOLDER_NAME)
-    emulators_file_path = f"{LIBRARY_BASE_PATH}/{emulators_path}"
-
-    try:
-        fs_emulators = list(os.walk(emulators_file_path))[0][2]
-    except IndexError:
-        pass
-
     return {
         "saves": fs_saves,
         "states": fs_states,
-        "bios": fs_bios,
-        "emulators": fs_emulators,
     }
 
 

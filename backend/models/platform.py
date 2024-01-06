@@ -7,7 +7,7 @@ from .base import BaseModel
 
 class Platform(BaseModel):
     from .rom import Rom
-    from .assets import Save, State, Bios, Emulator
+    from .assets import Save, State
 
     __tablename__ = "platforms"
 
@@ -26,12 +26,6 @@ class Platform(BaseModel):
     )
     states: Mapped[set[State]] = relationship(
         "State", lazy="selectin", back_populates="platform"
-    )
-    bios: Mapped[set[Bios]] = relationship(
-        "Bios", lazy="selectin", back_populates="platform"
-    )
-    emulators: Mapped[set[Emulator]] = relationship(
-        "Emulator", lazy="selectin", back_populates="platform"
     )
 
     ### DEPRECATED ###

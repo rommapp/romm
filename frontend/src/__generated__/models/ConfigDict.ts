@@ -15,8 +15,6 @@ export type ConfigDict = {
     SAVES_FOLDER_NAME: string;
     STATES_FOLDER_NAME: string;
     SCREENSHOTS_FOLDER_NAME: string;
-    BIOS_FOLDER_NAME: string;
-    EMULATORS_FOLDER_NAME: string;
     HIGH_PRIO_STRUCTURE_PATH: string;
 };
 

@@ -72,27 +72,3 @@ class Screenshot(BaseAsset):
         Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
     )
     rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
-
-
-class Bios(BaseAsset):
-    __tablename__ = "bios"
-    __table_args__ = {"extend_existing": True}
-
-    platform_slug = Column(
-        String(length=50),
-        ForeignKey("platforms.slug", ondelete="CASCADE"),
-        nullable=False,
-    )
-    platform = relationship("Platform", lazy="selectin", back_populates="bios")
-
-
-class Emulator(BaseAsset):
-    __tablename__ = "emulators"
-    __table_args__ = {"extend_existing": True}
-
-    platform_slug = Column(
-        String(length=50),
-        ForeignKey("platforms.slug", ondelete="CASCADE"),
-        nullable=False,
-    )
-    platform = relationship("Platform", lazy="selectin", back_populates="emulators")
