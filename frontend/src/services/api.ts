@@ -274,8 +274,6 @@ async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
 
-  debugger;
-
   return api.put("/saves/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
