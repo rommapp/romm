@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from fastapi import APIRouter, Request, UploadFile, File, HTTPException, status
 from typing_extensions import TypedDict
+from typing import Optional
 
 from utils.oauth import protected_route
 from handler import dbh
@@ -31,13 +32,13 @@ class BaseAsset(BaseModel):
 class SaveSchema(BaseAsset):
     rom_id: int
     platform_slug: str
-    emulator: str
+    emulator: Optional[str]
 
 
 class StateSchema(BaseAsset):
     rom_id: int
     platform_slug: str
-    emulator: str
+    emulator: Optional[str]
 
 
 class ScreenshotSchema(BaseAsset):
