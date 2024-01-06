@@ -169,14 +169,16 @@ async def scan_platforms(
                 )
                 continue
 
+            scanned_screenshot.platform_slug = scanned_platform.slug
+
             rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
             if rom:
                 scanned_screenshot.rom_id = rom.id
-                scanned_screenshot.platform_slug = rom.platform_slug
                 dbh.add_screenshot(scanned_screenshot)
 
-        dbh.purge_saves(scanned_platform.slug, [s for e, s in fs_assets["saves"]])
-        dbh.purge_states(scanned_platform.slug, [s for e, s in fs_assets["states"]])
+        dbh.purge_saves(scanned_platform.slug, [s for _e, s in fs_assets["saves"]])
+        dbh.purge_states(scanned_platform.slug, [s for _e, s in fs_assets["states"]])
+        dbh.purge_screenshots(fs_assets["screenshots"], scanned_platform.slug)
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots outside platform folders
@@ -201,7 +203,7 @@ async def scan_platforms(
             scanned_screenshot.platform_slug = rom.platform_slug
             dbh.add_screenshot(scanned_screenshot)
 
-    dbh.purge_screenshots(fs_screenshots)
+    dbh.purge_screenshots([s for _e, s in fs_screenshots])
     dbh.purge_platforms(fs_platforms)
 
     log.info(emoji.emojize(":check_mark:  Scan completed "))

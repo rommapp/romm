@@ -55,7 +55,7 @@ class DBHandler:
         return session.scalars(
             select(Platform).filter_by(fs_slug=fs_slug).limit(1)
         ).first()
-    
+
     @begin_session
     def delete_platform(self, slug: str, session: Session = None):
         # Remove all roms from that platforms first
@@ -296,10 +296,15 @@ class DBHandler:
         )
 
     @begin_session
-    def purge_screenshots(self, screenshots: list[str], session: Session = None):
+    def purge_screenshots(
+        self, screenshots: list[str], platform_slug: str = None, session: Session = None
+    ):
         return session.execute(
             delete(Screenshot)
-            .where(Screenshot.file_name.not_in(screenshots))
+            .where(
+                Screenshot.platform_slug == platform_slug,
+                Screenshot.file_name.not_in(screenshots),
+            )
             .execution_options(synchronize_session="evaluate")
         )
 
