@@ -111,8 +111,8 @@ async def scan_platforms(
         for fs_emulator, fs_save_filename in fs_assets["saves"]:
             scanned_save = scan_save(
                 platform=scanned_platform,
-                emulator=fs_emulator,
                 file_name=fs_save_filename,
+                emulator=fs_emulator,
             )
 
             save = dbh.get_save_by_filename(scanned_platform.slug, fs_save_filename)

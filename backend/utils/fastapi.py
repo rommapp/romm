@@ -146,10 +146,14 @@ def _scan_asset(file_name: str, path: str):
     }
 
 
-def scan_save(platform: Platform, emulator: str, file_name: str) -> Save:
+def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
     saves_path = fs.get_fs_structure(platform.fs_slug, folder=config.SAVES_FOLDER_NAME)
-    # Scan asset with the sames path and emulator folder name
-    return Save(**_scan_asset(file_name, os.path.join(saves_path, emulator)))
+
+    #  Scan asset with the sames path and emulator folder name
+    if emulator:
+        return Save(**_scan_asset(file_name, os.path.join(saves_path, emulator)))
+
+    return Save(**_scan_asset(file_name, saves_path))
 
 
 def scan_state(platform: Platform, emulator: str, file_name: str) -> State:
