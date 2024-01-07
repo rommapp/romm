@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Request, UploadFile, File, HTTPException, status
 from typing_extensions import TypedDict
 from typing import Optional
-
+from pathlib import Path
 from utils.oauth import protected_route
 from handler import dbh
 from utils.fs import build_upload_file_path, remove_file
@@ -59,6 +59,7 @@ class UploadedStatesResponse(TypedDict):
 def write_file(file: UploadFile, path: str) -> None:
     log.info(f" - Uploading {file.filename}")
     file_location = f"{path}/{file.filename}"
+    Path(path).mkdir(parents=True, exist_ok=True)
 
     with open(file_location, "wb+") as f:
         while True:
