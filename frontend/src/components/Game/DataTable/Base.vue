@@ -135,7 +135,7 @@ function rowClick(_: Event, row: any) {
       </template>
       <template v-else>
         <v-btn
-          class="my-1"
+          class="my-1 bg-terciary"
           rounded="0"
           @click.stop=""
           :href="`${location}${item.raw.download_path}`"
@@ -149,7 +149,7 @@ function rowClick(_: Event, row: any) {
         size="small"
         variant="text"
         :disabled="!saveFiles"
-        class="my-1"
+        class="my-1 bg-terciary"
         rounded="0"
         ><v-icon>mdi-content-save-all</v-icon></v-btn
       >
@@ -161,7 +161,7 @@ function rowClick(_: Event, row: any) {
             v-bind="props"
             size="small"
             variant="text"
-            class="my-1"
+            class="my-1 bg-terciary"
             ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
         </template>

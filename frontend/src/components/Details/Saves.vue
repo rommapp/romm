@@ -92,17 +92,33 @@ async function uploadSaves() {
   </v-row>
   <v-list rounded="0" class="pa-0">
     <v-list-item
+      class="pa-1 pl-2"
       v-for="save in rom.saves"
       :key="save.id"
       :title="save.file_name"
       :subtitle="`${save.emulator} - ${formatBytes(save.file_size_bytes)}`"
     >
       <template v-slot:append>
-        <v-btn icon :href="save.download_path" download>
+        <v-btn
+          icon
+          :href="save.download_path"
+          rounded="0"
+          variant="text"
+          class="bg-terciary"
+          size="small"
+          download
+        >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <v-btn icon @click="deleteSave(save)">
-          <v-icon>mdi-delete</v-icon>
+        <v-btn
+          icon
+          @click="deleteSave(save)"
+          rounded="0"
+          variant="text"
+          size="small"
+          class="ml-1 bg-terciary"
+        >
+          <v-icon class="text-romm-red">mdi-delete</v-icon>
         </v-btn>
       </template>
     </v-list-item>
