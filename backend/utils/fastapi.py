@@ -156,7 +156,7 @@ def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
     return Save(**_scan_asset(file_name, saves_path))
 
 
-def scan_state(platform: Platform, emulator: str, file_name: str) -> State:
+def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
     states_path = fs.get_fs_structure(
         platform.fs_slug, folder=config.STATES_FOLDER_NAME
     )
