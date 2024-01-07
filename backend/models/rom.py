@@ -35,7 +35,7 @@ class Rom(BaseModel):
 
     platform_slug = Column(
         String(length=50),
-        ForeignKey("platforms.slug", ondelete="CASCADE"),
+        ForeignKey("platforms.slug"),
         nullable=False,
     )
     platform = relationship(
@@ -62,7 +62,7 @@ class Rom(BaseModel):
 
     file_name: str = Column(String(length=450), nullable=False)
     file_name_no_tags: str = Column(String(length=450), nullable=False)
-    file_extension: str = Column(String(length=10), nullable=False)
+    file_extension: str = Column(String(length=100), nullable=False)
     file_path: str = Column(String(length=1000), nullable=False)
     file_size = Column(Float, default=0.0, nullable=False)
     file_size_units: str = Column(String(length=10), nullable=False)
