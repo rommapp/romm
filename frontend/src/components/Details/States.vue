@@ -92,17 +92,33 @@ async function uploadStates() {
   </v-row>
   <v-list rounded="0" class="pa-0">
     <v-list-item
+      class="pa-1 pl-2"
       v-for="state in rom.states"
       :key="state.id"
       :title="state.file_name"
       :subtitle="`${state.emulator} - ${formatBytes(state.file_size_bytes)}`"
     >
       <template v-slot:append>
-        <v-btn icon :href="state.download_path" download>
+        <v-btn
+          rounded="0"
+          variant="text"
+          class="bg-terciary"
+          size="small"
+          icon
+          :href="state.download_path"
+          download
+        >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <v-btn icon @click="deleteState(state)">
-          <v-icon>mdi-delete</v-icon>
+        <v-btn
+          rounded="0"
+          variant="text"
+          size="small"
+          class="ml-1 bg-terciary"
+          icon
+          @click="deleteState(state)"
+        >
+          <v-icon class="text-romm-red">mdi-delete</v-icon>
         </v-btn>
       </template>
     </v-list-item>

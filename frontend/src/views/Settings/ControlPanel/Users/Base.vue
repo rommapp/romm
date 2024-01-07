@@ -139,7 +139,8 @@ onMounted(() => {
         </template>
         <template v-slot:item.actions="{ item }">
           <v-btn
-            class="ma-1 bg-terciary"
+            variant="text"
+            class="bg-terciary"
             size="small"
             rounded="0"
             @click="emitter?.emit('showEditUserDialog', item.raw)"
@@ -147,7 +148,8 @@ onMounted(() => {
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
           <v-btn
-            class="ma-1 bg-terciary text-romm-red"
+            variant="text"
+            class="ml-1 bg-terciary text-romm-red"
             size="small"
             rounded="0"
             @click="emitter?.emit('showDeleteUserDialog', item.raw)"
