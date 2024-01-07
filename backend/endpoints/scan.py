@@ -117,9 +117,11 @@ async def scan_platforms(
 
             save = dbh.get_save_by_filename(scanned_platform.slug, fs_save_filename)
             if save:
-                dbh.update_save(
-                    save.id, {"file_size_bytes": scanned_save.file_size_bytes}
-                )
+                # Update file size if changed
+                if save.file_size_bytes != scanned_save.file_size_bytes:
+                    dbh.update_save(
+                        save.id, {"file_size_bytes": scanned_save.file_size_bytes}
+                    )
                 continue
 
             scanned_save.emulator = fs_emulator
@@ -141,9 +143,12 @@ async def scan_platforms(
 
             state = dbh.get_state_by_filename(scanned_platform.slug, fs_state_filename)
             if state:
-                dbh.update_state(
-                    state.id, {"file_size_bytes": scanned_state.file_size_bytes}
-                )
+                # Update file size if changed
+                if state.file_size_bytes != scanned_state.file_size_bytes:
+                    dbh.update_state(
+                        state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+                    )
+                
                 continue
 
             scanned_state.emulator = fs_emulator
@@ -163,10 +168,12 @@ async def scan_platforms(
 
             screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
             if screenshot:
-                dbh.update_screenshot(
-                    screenshot.id,
-                    {"file_size_bytes": scanned_screenshot.file_size_bytes},
-                )
+                # Update file size if changed
+                if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
+                    dbh.update_screenshot(
+                        screenshot.id,
+                        {"file_size_bytes": scanned_screenshot.file_size_bytes},
+                    )
                 continue
 
             scanned_screenshot.platform_slug = scanned_platform.slug
@@ -192,9 +199,11 @@ async def scan_platforms(
 
         screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
         if screenshot:
-            dbh.update_screenshot(
-                screenshot.id, {"file_size_bytes": scanned_screenshot.file_size_bytes}
-            )
+            # Update file size if changed
+            if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
+                dbh.update_screenshot(
+                    screenshot.id, {"file_size_bytes": scanned_screenshot.file_size_bytes}
+                )
             continue
 
         rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)

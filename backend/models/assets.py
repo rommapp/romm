@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, Column, ForeignKey, String
+from sqlalchemy import Integer, Column, ForeignKey, String, DateTime, func
 from sqlalchemy.orm import relationship
 from functools import cached_property
 
@@ -10,6 +10,13 @@ class BaseAsset(BaseModel):
     __abstract__ = True
 
     id = Column(Integer(), primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     file_name = Column(String(length=450), nullable=False)
     file_name_no_tags = Column(String(length=450), nullable=False)
