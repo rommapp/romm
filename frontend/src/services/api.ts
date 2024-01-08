@@ -37,14 +37,10 @@ async function fetchPlatforms(): Promise<{ data: PlatformSchema[] }> {
 
 async function deletePlatform({
   platform,
-  deleteFromFs = false,
 }: {
   platform: PlatformSchema;
-  deleteFromFs: boolean;
 }): Promise<{ data: DeletePlatformResponse }> {
-  return api.delete(`/platforms/${platform.fs_slug}`, {
-    params: { delete_from_fs: deleteFromFs },
-  });
+  return api.delete(`/platforms/${platform.fs_slug}`);
 }
 
 async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
