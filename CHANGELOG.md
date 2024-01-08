@@ -1,3 +1,21 @@
+# v2.2.2 (_08-01-2024_)
+
+## Added
+ - Now ``platforms`` can be ``deleted`` from the gallery. Closes [#567](https://github.com/zurdi15/romm/issues/567)
+ - Support for ``switch`` ``updates`` and ``DLC`` files. Closes [#554](https://github.com/zurdi15/romm/issues/554)
+ - Additional Webrcade resources by @Casuallynoted.
+ - ``Exclusions`` in ``config`` file now accepts ``wildcards``. Check the [config.example.yml](examples/config.example.yml). Closes [#575](https://github.com/zurdi15/romm/issues/575)
+
+## Fixed
+ - ``Not identified`` games are no longer being grouped when ``group roms`` option is enabled.
+ - Some other minor fixes.
+ - Changes in the ``config`` file from one to other platform are now more consistent. Closes [#567](https://github.com/zurdi15/romm/issues/567)
+
+## Changed
+ - File extensions now can have up to ``100`` characters. Closes [#531](https://github.com/zurdi15/romm/issues/531)
+ - Now files without extension are skipped during scan by @bfenty.
+ - Logs are now clearer.
+
 # v2.2.1 (_02-01-2024_)
 
 ## Added
