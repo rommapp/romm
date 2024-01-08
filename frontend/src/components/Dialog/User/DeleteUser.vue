@@ -1,25 +1,29 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
+import type { Emitter } from "mitt";
+import type { UserItem, Events } from "@/types/emitter";
 import api from "@/services/api";
 import storeUsers from "@/stores/users";
 
-const user = ref();
+const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
 
-const emitter = inject("emitter");
-emitter.on("showDeleteUserDialog", (userToDelete) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showDeleteUserDialog", (userToDelete) => {
   user.value = userToDelete;
   show.value = true;
 });
 
 async function deleteUser() {
+  if (!user.value) return;
+
   await api.deleteUser(user.value)
     .then(() => {
-      usersStore.remove(user.value);
+      if (user.value) usersStore.remove(user.value.id);
     })
     .catch(({ response, message }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: `Unable to delete user: ${
           response?.data?.detail || response?.statusText || message
         }`,
@@ -32,7 +36,7 @@ async function deleteUser() {
 }
 </script>
 <template>
-  <v-dialog v-model="show" max-width="500px" :scrim="true">
+  <v-dialog v-if="user" v-model="show" max-width="500px" :scrim="true">
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>

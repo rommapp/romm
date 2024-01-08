@@ -1,13 +1,14 @@
-<script setup>
+<script setup lang="ts">
 import storeDownload from "@/stores/download";
+import type { Rom } from "@/stores/roms";
 
 const downloadStore = storeDownload();
-const props = defineProps(["rom"]);
+defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-card
     elevation="2"
-    :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : null"
+    :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
     <v-img
       :src="`/assets/romm/resources/${rom.path_cover_l || rom.path_screenshots[0]}`"

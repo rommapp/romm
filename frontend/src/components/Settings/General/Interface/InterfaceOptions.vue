@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import { isUndefined } from "lodash";
 
@@ -7,7 +7,7 @@ const groupRoms = ref(isUndefined(storedGroupRoms) ? true : storedGroupRoms === 
 
 // Functions
 function toggleGroupRoms() {
-  localStorage.setItem("settings.groupRoms", groupRoms.value);
+  localStorage.setItem("settings.groupRoms", groupRoms.value.toString());
 }
 </script>
 

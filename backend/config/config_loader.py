@@ -4,6 +4,7 @@ import yaml
 import pydash
 from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
+from typing_extensions import TypedDict
 
 from config import (
     ROMM_DB_DRIVER,
@@ -16,6 +17,16 @@ from config import (
     DB_NAME,
 )
 from logger.logger import log
+
+
+class ConfigDict(TypedDict):
+    EXCLUDED_PLATFORMS: list[str]
+    EXCLUDED_SINGLE_EXT: list[str]
+    EXCLUDED_SINGLE_FILES: list[str]
+    EXCLUDED_MULTI_FILES: list[str]
+    EXCLUDED_MULTI_PARTS_EXT: list[str]
+    EXCLUDED_MULTI_PARTS_FILES: list[str]
+    PLATFORMS_BINDING: dict[str, str]
 
 
 class ConfigLoader:
@@ -77,7 +88,6 @@ class ConfigLoader:
         self.config["PLATFORMS_BINDING"] = pydash.get(
             self.config, "system.platforms", {}
         )
-        log.info(f"Config loaded successfully from {self.config_path}")
 
 
 config = ConfigLoader().config

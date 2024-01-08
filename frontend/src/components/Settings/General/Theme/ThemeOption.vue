@@ -1,5 +1,5 @@
-<script setup>
-const props = defineProps(["value", "icon"]);
+<script setup lang="ts">
+defineProps<{ value: string; icon: string }>();
 </script>
 <template>
   <v-col :key="value" cols="4" sm="3" md="2" lg="2" class="pa-1">

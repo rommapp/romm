@@ -1,6 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
 import api from "@/services/api";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
@@ -16,8 +19,8 @@ const auth = storeAuth();
 const refreshDrawer = ref(false);
 
 // Event listeners bus
-const emitter = inject("emitter");
-emitter.on("refreshDrawer", () => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("refreshDrawer", () => {
   refreshDrawer.value = !refreshDrawer.value;
 });
 
@@ -28,7 +31,7 @@ onMounted(async () => {
     platforms.set(platformData);
     const { data: userData } = await api.fetchCurrentUser();
     if (userData) auth.setUser(userData);
-    emitter.emit("refreshDrawer");
+    emitter?.emit("refreshDrawer", null);
   } catch (error) {
     console.error(error);
   }
@@ -45,7 +48,7 @@ onMounted(async () => {
     fixed
   />
 
-  <drawer :key="refreshDrawer" />
+  <drawer :key="refreshDrawer.toString()" />
 
   <app-bar v-if="mdAndDown" />
 

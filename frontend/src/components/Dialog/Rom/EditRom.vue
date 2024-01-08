@@ -1,34 +1,39 @@
-<script setup>
+<script setup lang="ts">
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
-import api from "@/services/api";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+
+import api, { type UpdateRom } from "@/services/api";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const rom = ref();
+const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const fileNameInputRules = {
-  required: (value) => !!value || "Required.",
-  newFileName: (value) => !value.includes("/") || "Invalid characters",
+  required: (value: string) => !!value || "Required",
+  newFileName: (value: string) => !value.includes("/") || "Invalid characters",
 };
 
-const emitter = inject("emitter");
-emitter.on("showEditRomDialog", (romToEdit) => {
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showEditRomDialog", (romToEdit) => {
   show.value = true;
   rom.value = romToEdit;
 });
 
 async function updateRom() {
+  if (!rom.value) return;
+
   if (rom.value.file_name.includes("/")) {
-    emitter.emit("snackbarShow", {
+    emitter?.emit("snackbarShow", {
       msg: "Couldn't edit rom: invalid file name characters",
       icon: "mdi-close-circle",
       color: "red",
     });
     return;
   } else if (!rom.value.file_name) {
-    emitter.emit("snackbarShow", {
+    emitter?.emit("snackbarShow", {
       msg: "Couldn't edit rom: file name required",
       icon: "mdi-close-circle",
       color: "red",
@@ -37,11 +42,11 @@ async function updateRom() {
   }
 
   show.value = false;
-  emitter.emit("showLoadingDialog", { loading: true, scrim: true });
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
   await api
     .updateRom({ rom: rom.value })
     .then(({ data }) => {
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
         icon: "mdi-check-bold",
         color: "green",
@@ -50,14 +55,14 @@ async function updateRom() {
     })
     .catch((error) => {
       console.log(error);
-      emitter.emit("snackbarShow", {
+      emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
     .finally(() => {
-      emitter.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
 </script>
@@ -72,6 +77,7 @@ async function updateRom() {
     @keydown.esc="show = false"
     no-click-animation
     persistent
+    v-if="rom"
   >
     <v-card
       rounded="0"
