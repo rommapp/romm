@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 
 from ..fs import (
     get_rom_cover,
@@ -6,6 +7,7 @@ from ..fs import (
     get_fs_structure,
     get_roms,
     get_rom_file_size,
+    _exclude_files,
     # get_rom_screenshots # TODO: write test
     # store_default_resources # TODO: write test
     # get_rom_files,  # TODO: write test
@@ -128,3 +130,49 @@ def test_rom_size():
     )
 
     assert rom_size == (2.0, "KB")
+
+def test__exclude_files():
+    from config.config_loader import config
+
+    config.EXCLUDED_SINGLE_FILES = ["Super Mario 64 (J) (Rev A) [Part 1].z64"]
+
+    patch("utils.fs.config", config)
+    
+    filtered_files = _exclude_files(
+        files=["Super Mario 64 (J) (Rev A) [Part 1].z64", "Super Mario 64 (J) (Rev A) [Part 2].z64"],
+        filetype="single",
+    )
+
+    assert len(filtered_files) == 1
+
+    config.EXCLUDED_SINGLE_EXT = ["z64"]
+
+    filtered_files = _exclude_files(
+        files=["Super Mario 64 (J) (Rev A) [Part 1].z64", "Super Mario 64 (J) (Rev A) [Part 2].z64"],
+        filetype="single",
+    )
+    
+    assert len(filtered_files) == 0
+
+    config.EXCLUDED_SINGLE_FILES = ["*.z64"]
+
+    filtered_files = _exclude_files(
+        files=["Super Mario 64 (J) (Rev A) [Part 1].z64", "Super Mario 64 (J) (Rev A) [Part 2].z64"],
+        filetype="single",
+    )
+
+    assert len(filtered_files) == 0
+
+    config.EXCLUDED_SINGLE_FILES = ["_.*"]
+
+    filtered_files = _exclude_files(
+        files=[
+            "Links Awakening.nsp",
+            "_.Links Awakening.nsp",
+            "Kirby's Adventure.nsp",
+            "_.Kirby's Adventure.nsp",
+        ],
+       filetype="single",
+    )
+
+    assert len(filtered_files) == 2
