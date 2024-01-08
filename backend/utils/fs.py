@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import datetime
 import requests
+import fnmatch
 from urllib.parse import quote
 from PIL import Image
 from typing import Final
@@ -239,18 +240,20 @@ def _exclude_files(files, filetype) -> list[str]:
     filtered_files: list = []
 
     for file in files:
-        # Exclude files starting with a period.
-        if file.startswith("."):
+        # Split the file name to get the extension.
+        parts = file.split(".")
+
+        # Exclude the file if it has no extension or the extension is in the excluded list.
+        if len(parts) == 1 or parts[-1] in excluded_extensions:
             filtered_files.append(file)
-        else:
-            # Split the file name to get the extension.
-            parts = file.split(".")
-            # Exclude the file if it has no extension or the extension is in the excluded list.
-            if len(parts) == 1 or parts[-1] in excluded_extensions:
+
+        # Additionally, check if the file name mathes a pattern in the excluded list.
+        if len(excluded_names) > 0:
+            [
                 filtered_files.append(file)
-            # Additionally, check if the entire file name is in the excluded names list.
-            elif file in excluded_names:
-                filtered_files.append(file)
+                for name in excluded_names
+                if file == name or fnmatch.fnmatch(file, name)
+            ]
 
     # Return files that are not in the filtered list.
     return [f for f in files if f not in filtered_files]

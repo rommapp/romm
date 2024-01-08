@@ -7,12 +7,14 @@ exclude:
   roms:
     ## Single file games section
     single_file:
-      # Exclude matched file names to be scanned
-      names:
-        - 'info.txt'
       # Exclude all files with certain extensions to be scanned
       extensions:
         - 'xml'
+      # Exclude matched file names to be scanned
+      names:
+        - 'info.txt'
+        - '._*' # Supports unix filename pattern matching
+        - '*.nfo' # Can also exclude files by extension
 
     ## Multi files games section
     multi_file:
