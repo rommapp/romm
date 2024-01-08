@@ -124,11 +124,11 @@ class DeletePlatformResponse(TypedDict):
     msg: str
 
 
-@protected_route(router.delete, "/platforms/{fs_slug}", ["platforms.write"])
-def delete_platform(request: Request, fs_slug) -> DeletePlatformResponse:
+@protected_route(router.delete, "/platforms/{slug}", ["platforms.write"])
+def delete_platform(request: Request, slug) -> DeletePlatformResponse:
     """Detele platform from database [and filesystem]"""
 
-    platform = dbh.get_platform_by_fs_slug(fs_slug)
+    platform = dbh.get_platform(slug)
     if not platform:
         error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
         log.error(error)
