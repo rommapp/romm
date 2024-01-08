@@ -1,4 +1,4 @@
-# v2.2.2 (_08-01-2024_)
+# v2.3.0 (_08-01-2024_)
 
 ## Added
  - Now ``platforms`` can be ``deleted`` from the gallery. Closes [#567](https://github.com/zurdi15/romm/issues/567)
@@ -8,8 +8,8 @@
 
 ## Fixed
  - ``Not identified`` games are no longer being grouped when ``group roms`` option is enabled.
- - Some other minor fixes.
  - Changes in the ``config`` file from one to other platform are now more consistent. Closes [#567](https://github.com/zurdi15/romm/issues/567)
+ - Some other minor fixes.
 
 ## Changed
  - File extensions now can have up to ``100`` characters. Closes [#531](https://github.com/zurdi15/romm/issues/531)

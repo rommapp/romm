@@ -13,7 +13,7 @@ const usersStore = storeUsers();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditUserDialog", (userToEdit) => {
-  user.value = userToEdit;
+  user.value = { ...userToEdit, avatar: undefined };
   show.value = true;
 });
 
@@ -126,7 +126,7 @@ function editUser() {
               <v-col>
                 <v-file-input
                   class="text-truncate"
-                  :v-model="user.avatar ?? undefined"
+                  v-model="user.avatar"
                   label="Avatar"
                   prepend-inner-icon="mdi-image"
                   prepend-icon=""
