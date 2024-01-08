@@ -1,6 +1,6 @@
 """empty message
 
-Revision ID: ca41fa04d88c
+Revision ID: 0014_asset_files
 Revises: 0013_upgrade_file_extension
 Create Date: 2024-01-07 09:45:09.632571
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'ca41fa04d88c'
+revision = '0014_asset_files'
 down_revision = '0013_upgrade_file_extension'
 branch_labels = None
 depends_on = None
