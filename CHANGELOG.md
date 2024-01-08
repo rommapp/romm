@@ -1,3 +1,13 @@
+# v2.3.1 (_08-01-2024_)
+
+## Fixed
+ - Deleting platforms now works properly when having "orphaned" platforms.
+
+## Changed
+ - Platforms can only be deleted from RomM's database. Checkbox to delete platform from filesystem have been removed.
+ 
+<br>
+
 # v2.3.0 (_08-01-2024_)
 
 ## Added
@@ -16,6 +26,8 @@
  - Now files without extension are skipped during scan by @bfenty.
  - Logs are now clearer.
 
+ <br>
+
 # v2.2.1 (_02-01-2024_)
 
 ## Added
@@ -27,6 +39,8 @@
 
 ## Changed
  - Now region and language tags are case insensitive to show ``emojis``.
+ 
+<br>
 
 # v2.2.0 (_31-12-2023_)
 
