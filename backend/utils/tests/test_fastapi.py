@@ -7,7 +7,7 @@ from models import Platform, Rom
 
 @pytest.mark.vcr()
 def test_scan_platform():
-    platform = scan_platform("n64")
+    platform = scan_platform("n64", "n64")
 
     assert platform.__class__ == Platform
     assert platform.fs_slug == "n64"
@@ -16,7 +16,7 @@ def test_scan_platform():
     assert platform.igdb_id == 4
 
     try:
-        platform = scan_platform("")
+        platform = scan_platform("", "")
     except RomsNotFoundException as e:
         assert "Roms not found for platform" in str(e)
 

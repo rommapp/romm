@@ -1,22 +1,27 @@
-<script setup>
+<script setup lang="ts">
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import type { Platform } from "@/stores/platforms";
 
 // Props
-const props = defineProps(["platform", "rail"]);
+defineProps<{ platform: Platform; rail: boolean }>();
 </script>
 
 <template>
   <v-list-item
     :to="`/platform/${platform.slug}`"
     :value="platform.slug"
-    :key="platform"
+    :key="platform.slug"
     class="pt-4 pb-4 bg-terciary"
   >
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
     <template v-slot:prepend>
       <v-avatar :rounded="0" size="40">
         <platform-icon :platform="platform.slug" />
-        <div class="igdb-icon" v-if="!platform.igdb_id" title="Not found in IGDB">
+        <div
+          class="igdb-icon"
+          v-if="!platform.igdb_id"
+          title="Not found in IGDB"
+        >
           ⚠️
         </div>
       </v-avatar>

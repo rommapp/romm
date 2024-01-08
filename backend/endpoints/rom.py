@@ -306,7 +306,6 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False):
             error = f"Couldn't delete from filesystem: {str(e)}"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
     return rom
 
 

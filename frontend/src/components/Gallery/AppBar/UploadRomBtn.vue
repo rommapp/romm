@@ -1,16 +1,19 @@
-<script setup>
+<script setup lang="ts">
 import { inject } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 // Props
-const emitter = inject("emitter");
+const emitter = inject<Emitter<Events>>("emitter");
 </script>
 
 <template>
-    <v-btn
-      @click="emitter.emit('showUploadRomDialog')"
-      rounded="0"
-      variant="text"
-      class="mr-0"
-      icon="mdi-upload"
-    />
+  <v-list-item
+    @click="emitter?.emit('showUploadRomDialog', null)"
+    class="py-4 pr-5"
+  >
+    <v-list-item-title class="d-flex"
+      ><v-icon icon="mdi-upload" class="mr-2" />Upload game</v-list-item-title
+    >
+  </v-list-item>
 </template>

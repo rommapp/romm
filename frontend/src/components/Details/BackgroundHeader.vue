@@ -1,9 +1,9 @@
-<script setup>
-const props = defineProps(["image"]);
+<script setup lang="ts">
+defineProps<{ image: string }>();
 </script>
 
 <template>
-  <v-card id="header-background" position="absolute" rounded="0" flat>
+  <v-card id="header-background" rounded="0" flat>
     <v-img
       :src="`/assets/romm/resources/${image}`"
       id="header-background-img"

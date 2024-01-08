@@ -43,7 +43,7 @@ async def scan_platforms(
         log.info(f"Found {len(platform_list)} platforms in file system ")
 
     for platform_slug in platform_list:
-        scanned_platform = scan_platform(platform_slug)
+        scanned_platform = scan_platform(platform_slug, fs_platforms)
         _new_platform = dbh.add_platform(scanned_platform)
         new_platform = dbh.get_platform(_new_platform.slug)
 

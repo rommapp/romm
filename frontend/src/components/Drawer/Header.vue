@@ -1,7 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import RailBtn from "@/components/Drawer/RailBtn.vue";
 
-const props = defineProps(["rail"]);
+defineProps<{ rail: boolean }>();
 </script>
 <template>
   <v-list-item :class="{ 'ml-9': !rail, 'ml-0': rail }" class="my-2">

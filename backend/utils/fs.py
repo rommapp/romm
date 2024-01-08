@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import datetime
 import requests
+import fnmatch
 from urllib.parse import quote
 from PIL import Image
 
@@ -24,6 +25,7 @@ from config import (
 from config.config_loader import config
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
+    PlatformNotFoundException,
     RomsNotFoundException,
     RomNotFoundError,
     RomAlreadyExistsException,
@@ -216,6 +218,14 @@ def get_platforms() -> list[str]:
         raise PlatformsNotFoundException from exc
 
 
+def remove_platform(fs_slug: str):
+    platform_path = get_roms_structure(fs_slug)
+    try:
+        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{platform_path}")
+    except FileNotFoundError as exc:
+        raise PlatformNotFoundException(fs_slug) from exc
+
+
 # ========= Roms utils =========
 def get_roms_structure(fs_slug: str):
     return (
@@ -231,9 +241,22 @@ def _exclude_files(files, filetype) -> list[str]:
     filtered_files: list = []
 
     for file in files:
-        if file.split(".")[-1] in excluded_extensions or file in excluded_names:
+        # Split the file name to get the extension.
+        parts = file.split(".")
+
+        # Exclude the file if it has no extension or the extension is in the excluded list.
+        if len(parts) == 1 or parts[-1] in excluded_extensions:
             filtered_files.append(file)
 
+        # Additionally, check if the file name mathes a pattern in the excluded list.
+        if len(excluded_names) > 0:
+            [
+                filtered_files.append(file)
+                for name in excluded_names
+                if file == name or fnmatch.fnmatch(file, name)
+            ]
+
+    # Return files that are not in the filtered list.
     return [f for f in files if f not in filtered_files]
 
 

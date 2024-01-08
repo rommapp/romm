@@ -1,5 +1,4 @@
-<script setup>
-import storePlatforms from "@/stores/platforms";
+<script setup lang="ts">
 import dashboardSummary from "@/components/Dashboard/Summary.vue";
 import recentlyAdded from "@/components/Dashboard/Recent.vue";
 import dashboardPlatforms from "@/components/Dashboard/Platforms.vue";
