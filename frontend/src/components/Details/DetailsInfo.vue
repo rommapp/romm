@@ -7,32 +7,28 @@ defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
 </script>
 <template>
-  <v-row v-if="rom?.sibling_roms && rom.sibling_roms.length > 0" class="d-flex align-center text-body-1 mt-0 py-2" no-gutters>
-    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
+  <v-row
+    v-if="rom?.sibling_roms && rom.sibling_roms.length > 0"
+    class="align-center py-2"
+    no-gutters
+  >
+    <v-col cols="3" sm="2" xl="1">
       <span>Ver.</span>
     </v-col>
     <v-col>
       <version-switcher :rom="rom" />
     </v-col>
   </v-row>
-  <v-row
-    v-if="!rom.multi"
-    class="d-flex align-center text-body-1 mt-0 py-2"
-    no-gutters
-  >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
+  <v-row v-if="!rom.multi" class="align-center py-2" no-gutters>
+    <v-col cols="3" sm="2" xl="1">
       <span>File</span>
     </v-col>
     <v-col class="text-body-1">
       <span>{{ rom.file_name }}</span>
     </v-col>
   </v-row>
-  <v-row
-    v-if="rom.multi"
-    class="d-flex align-center text-body-1 mt-0 py-2"
-    no-gutters
-  >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
+  <v-row v-if="rom.multi" class="align-center py-2" no-gutters>
+    <v-col cols="3" sm="2" xl="1">
       <span>Files</span>
     </v-col>
     <v-col>
@@ -52,20 +48,16 @@ const downloadStore = storeDownload();
       />
     </v-col>
   </v-row>
-  <v-row class="d-flex align-center text-body-1 mt-0 py-2" no-gutters>
-    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
+  <v-row class="align-center py-2" no-gutters>
+    <v-col cols="3" sm="2" xl="1">
       <span>Size</span>
     </v-col>
     <v-col>
       <span>{{ rom.file_size }} {{ rom.file_size_units }}</span>
     </v-col>
   </v-row>
-  <v-row
-    v-if="rom.igdb_id"
-    class="d-flex align-center text-body-1 py-2"
-    no-gutters
-  >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
+  <v-row v-if="rom.igdb_id" class="align-center py-2" no-gutters>
+    <v-col cols="3" sm="2" xl="1">
       <span>IGDB</span>
     </v-col>
     <v-col>
@@ -79,12 +71,8 @@ const downloadStore = storeDownload();
       </v-chip>
     </v-col>
   </v-row>
-  <v-row
-    v-if="rom.tags.length > 0"
-    class="d-flex align-center text-body-1 mt-0 py-2"
-    no-gutters
-  >
-    <v-col cols="2" xs="2" sm="2" md="2" lg="2" xl="1" class="font-weight-medium">
+  <v-row v-if="rom.tags.length > 0" class="align-center py-2" no-gutters>
+    <v-col cols="3" sm="2" xl="1">
       <span>Tags</span>
     </v-col>
     <v-col>
@@ -95,8 +83,8 @@ const downloadStore = storeDownload();
       </v-chip-group>
     </v-col>
   </v-row>
-  <v-row class="d-flex py-3" no-gutters>
-    <v-col class="font-weight-medium text-caption">
+  <v-row class="py-3" no-gutters>
+    <v-col class="text-caption">
       <p>{{ rom.summary }}</p>
     </v-col>
   </v-row>
