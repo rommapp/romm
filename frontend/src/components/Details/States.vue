@@ -84,6 +84,7 @@ async function uploadStates() {
       chips
       required
       variant="outlined"
+      density="compact"
       hide-details
     />
     <v-btn @click="uploadStates()" class="text-romm-green ml-5 bg-terciary">

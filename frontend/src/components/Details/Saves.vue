@@ -84,6 +84,7 @@ async function uploadSaves() {
       chips
       required
       variant="outlined"
+      density="compact"
       hide-details
     />
     <v-btn @click="uploadSaves()" class="text-romm-green ml-5 bg-terciary">
