@@ -127,11 +127,11 @@ def normalize_search_term(search_term: str) -> str:
 
 
 def get_file_extension(rom: dict) -> str:
-    return (
-        re.search(EXTENSION_REGEX, rom["file_name"]).group(1)
-        if not rom["multi"]
-        else ""
-    )
+    if rom["multi"]:
+        return ""
+
+    match = re.search(EXTENSION_REGEX, rom["file_name"])
+    return match.group(1) if match else ""
 
 
 def get_version() -> str | None:
