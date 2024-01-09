@@ -1,5 +1,7 @@
 import re
+import requests
 import subprocess as sp
+from packaging.version import parse, InvalidVersion
 from __version__ import __version__
 
 LANGUAGES = [
@@ -143,3 +145,17 @@ def get_version() -> str | None:
             return None
         branch = [a for a in output.split("\n") if a.find("*") >= 0][0]
         return branch[branch.find("*") + 2 :]
+    
+
+def check_new_version() -> str | None:
+    response = requests.get("https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=0.5)
+    try:
+        last_version = response.json()["name"][1:] # remove leading 'v' from 'vX.X.X'
+    except KeyError: # rate limit reached
+        return None
+    try:
+        if parse(get_version()) < parse(last_version):
+            return last_version
+    except InvalidVersion:
+        pass
+    return None
