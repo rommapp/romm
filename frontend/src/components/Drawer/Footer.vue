@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-
 import storeAuth from "@/stores/auth";
-import { defaultAvatarPath } from "@/utils"
+import storeHeartbeat from "@/stores/heartbeat";
+import { defaultAvatarPath } from "@/utils";
 import { api } from "@/services/api";
 
 // Props
@@ -13,8 +13,17 @@ defineProps<{ rail?: boolean }>();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
+const heartbeat = storeHeartbeat();
+const newVersion = heartbeat.data.NEW_VERSION;
+localStorage.setItem("newVersion", newVersion)
+const newVersionDismissed = ref(localStorage.getItem("dismissNewVersion") === newVersion);
 
 // Functions
+function dismissNewVersion() {
+  localStorage.setItem("dismissNewVersion", newVersion);
+  newVersionDismissed.value = true;
+}
+
 async function logout() {
   api
     .post("/logout", {})
@@ -38,8 +47,12 @@ async function logout() {
 <template>
   <v-list-item height="60" class="bg-primary text-button" rounded="0">
     <template v-if="!rail">
-      <div class="text-no-wrap text-truncate text-subtitle-1">{{ auth.user?.username }}</div>
-      <div class="text-no-wrap text-truncate text-caption text-romm-accent-1">{{ auth.user?.role }}</div>
+      <div class="text-no-wrap text-truncate text-subtitle-1">
+        {{ auth.user?.username }}
+      </div>
+      <div class="text-no-wrap text-truncate text-caption text-romm-accent-1">
+        {{ auth.user?.role }}
+      </div>
     </template>
     <template v-slot:prepend>
       <v-avatar :class="{ 'my-2': rail }">
@@ -69,4 +82,18 @@ async function logout() {
     block
     @click="logout()"
   ></v-btn>
+  <v-list-item
+    class="bg-terciary py-3"
+    v-if="newVersion && !newVersionDismissed"
+  >
+    <v-col class="px-0 py-1">
+      <span
+        >New version available <span class="text-romm-accent-1">{{ newVersion }}</span></span
+      >
+    </v-col>
+    <v-col class="px-0 py-1">
+      <span><a target="_blank" :href="`https://github.com/zurdi15/romm/releases/tag/v${newVersion}`">See what's new!</a></span>
+    </v-col>
+    <template v-slot:append><v-icon title="Dismiss" @click="dismissNewVersion()">mdi-close</v-icon></template>
+  </v-list-item>
 </template>

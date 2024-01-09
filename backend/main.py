@@ -31,10 +31,10 @@ from utils.auth import (
     CustomCSRFMiddleware,
     create_default_admin_user,
 )
-from utils import get_version
+from utils import get_version, check_new_version
 from config.config_loader import config, ConfigDict
 
-app = FastAPI(title="RomM API", version="0.1.0")
+app = FastAPI(title="RomM API", version=get_version())
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +95,7 @@ class SchedulerDict(TypedDict):
 
 class HeartbeatReturn(TypedDict):
     VERSION: str
+    NEW_VERSION: str | None
     ROMM_AUTH_ENABLED: bool
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
@@ -106,6 +107,7 @@ class HeartbeatReturn(TypedDict):
 def heartbeat() -> HeartbeatReturn:
     return {
         "VERSION": get_version(),
+        "NEW_VERSION": check_new_version(),
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
