@@ -232,20 +232,20 @@ def _exclude_files(files, filetype) -> list[str]:
     excluded_names = getattr(config, f"EXCLUDED_{filetype.upper()}_FILES")
     excluded_files: list = []
 
-    for file in files:
+    for file_name in files:
         # Split the file name to get the extension.
-        ext = get_file_extension({"file_name": file, "multi": False})
+        ext = get_file_extension(file_name)
 
         # Exclude the file if it has no extension or the extension is in the excluded list.
         if not ext or ext in excluded_extensions:
-            excluded_files.append(file)
+            excluded_files.append(file_name)
 
         # Additionally, check if the file name mathes a pattern in the excluded list.
         if len(excluded_names) > 0:
             [
-                excluded_files.append(file)
+                excluded_files.append(file_name)
                 for name in excluded_names
-                if file == name or fnmatch.fnmatch(file, name)
+                if file_name == name or fnmatch.fnmatch(file_name, name)
             ]
 
     # Return files that are not in the filtered list.
