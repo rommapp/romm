@@ -23,13 +23,14 @@ from config import (
 )
 from config.config_loader import config
 from exceptions.fs_exceptions import (
-    PlatformNotFoundException,
     PlatformsNotFoundException,
     RomAlreadyExistsException,
     RomNotFoundError,
     RomsNotFoundException,
 )
 from PIL import Image
+
+from . import get_file_extension
 
 
 # ========= Resources utils =========
@@ -230,26 +231,26 @@ def get_roms_structure(fs_slug: str):
 def _exclude_files(files, filetype) -> list[str]:
     excluded_extensions = config[f"EXCLUDED_{filetype.upper()}_EXT"]
     excluded_names = config[f"EXCLUDED_{filetype.upper()}_FILES"]
-    filtered_files: list = []
+    excluded_files: list = []
 
     for file in files:
         # Split the file name to get the extension.
-        parts = file.split(".")
+        ext = get_file_extension({"file_name": file, "multi": False})
 
         # Exclude the file if it has no extension or the extension is in the excluded list.
-        if len(parts) == 1 or parts[-1] in excluded_extensions:
-            filtered_files.append(file)
+        if not ext or ext in excluded_extensions:
+            excluded_files.append(file)
 
         # Additionally, check if the file name mathes a pattern in the excluded list.
         if len(excluded_names) > 0:
             [
-                filtered_files.append(file)
+                excluded_files.append(file)
                 for name in excluded_names
                 if file == name or fnmatch.fnmatch(file, name)
             ]
 
     # Return files that are not in the filtered list.
-    return [f for f in files if f not in filtered_files]
+    return [f for f in files if f not in excluded_files]
 
 
 def _exclude_multi_roms(roms) -> list[str]:

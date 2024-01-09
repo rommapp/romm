@@ -26,7 +26,7 @@ from handler import dbh
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing_extensions import TypedDict
-from utils import get_version
+from utils import check_new_version, get_version
 from utils.auth import (
     CustomCSRFMiddleware,
     HybridAuthBackend,
@@ -34,7 +34,7 @@ from utils.auth import (
 )
 from utils.socket import socket_app
 
-app = FastAPI(title="RomM API", version="0.1.0")
+app = FastAPI(title="RomM API", version=get_version())
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +95,7 @@ class SchedulerDict(TypedDict):
 
 class HeartbeatReturn(TypedDict):
     VERSION: str
+    NEW_VERSION: str | None
     ROMM_AUTH_ENABLED: bool
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
@@ -110,6 +111,7 @@ def heartbeat() -> HeartbeatReturn:
     """
     return {
         "VERSION": get_version(),
+        "NEW_VERSION": check_new_version(),
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,

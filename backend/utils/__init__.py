@@ -1,7 +1,9 @@
 import re
 import subprocess as sp
 
+import requests
 from __version__ import __version__
+from packaging.version import InvalidVersion, parse
 
 LANGUAGES = [
     ("Ar", "Arabic"),
@@ -126,11 +128,11 @@ def normalize_search_term(search_term: str) -> str:
 
 
 def get_file_extension(rom: dict) -> str:
-    return (
-        re.search(EXTENSION_REGEX, rom["file_name"]).group(1)
-        if not rom["multi"]
-        else ""
-    )
+    if rom["multi"]:
+        return ""
+
+    match = re.search(EXTENSION_REGEX, rom["file_name"])
+    return match.group(1) if match else ""
 
 
 def get_version() -> str | None:
@@ -144,3 +146,19 @@ def get_version() -> str | None:
             return None
         branch = [a for a in output.split("\n") if a.find("*") >= 0][0]
         return branch[branch.find("*") + 2 :]
+
+
+def check_new_version() -> str | None:
+    response = requests.get(
+        "https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=0.5
+    )
+    try:
+        last_version = response.json()["name"][1:]  # remove leading 'v' from 'vX.X.X'
+    except KeyError:  # rate limit reached
+        return None
+    try:
+        if parse(get_version()) < parse(last_version):
+            return last_version
+    except InvalidVersion:
+        pass
+    return None
