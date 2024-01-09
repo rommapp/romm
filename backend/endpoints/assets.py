@@ -128,7 +128,7 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
 
         try:
             remove_file(
-                save.rom.platform.slug, save.file_name, folder=config.SAVES_FOLDER_NAME
+                save.rom.platform.fs_slug, save.file_name, folder=config.SAVES_FOLDER_NAME
             )
         except FileNotFoundError:
             error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
@@ -153,7 +153,7 @@ def upload_states(
         )
 
     states_path = build_upload_file_path(
-        rom.platform.slug, folder=config.STATES_FOLDER_NAME
+        rom.platform.fs_slug, folder=config.STATES_FOLDER_NAME
     )
 
     for state in states:
