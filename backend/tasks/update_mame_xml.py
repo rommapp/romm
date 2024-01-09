@@ -1,11 +1,9 @@
 import os
 from pathlib import Path
-
 from typing import Final
-from config import (
-    ENABLE_SCHEDULED_UPDATE_MAME_XML,
-    SCHEDULED_UPDATE_MAME_XML_CRON,
-)
+
+from config import ENABLE_SCHEDULED_UPDATE_MAME_XML, SCHEDULED_UPDATE_MAME_XML_CRON
+
 from .utils import RemoteFilePullTask
 
 FIXTURE_FILE_PATH: Final = (

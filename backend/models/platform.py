@@ -1,6 +1,6 @@
-from sqlalchemy import Column, String, Integer
-
 from config import DEFAULT_PATH_COVER_S
+from sqlalchemy import Column, Integer, String
+
 from .base import BaseModel
 
 

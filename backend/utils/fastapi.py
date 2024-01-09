@@ -1,11 +1,11 @@
-import emoji
 from typing import Any
 
-from handler import igdbh, dbh
-from utils import fs, parse_tags, get_file_extension, get_file_name_with_no_tags
+import emoji
 from config.config_loader import config
-from models import Platform, Rom
+from handler import dbh, igdbh
 from logger.logger import log
+from models import Platform, Rom
+from utils import fs, get_file_extension, get_file_name_with_no_tags, parse_tags
 
 SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config["PLATFORMS_BINDING"].items())
 

@@ -1,10 +1,11 @@
-import requests
-from rq_scheduler import Scheduler
 from abc import ABC, abstractmethod
 
-from utils.redis import low_prio_queue
+import requests
 from config import ENABLE_EXPERIMENTAL_REDIS
 from logger.logger import log
+from rq_scheduler import Scheduler
+from utils.redis import low_prio_queue
+
 from .exceptions import SchedulerException
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
