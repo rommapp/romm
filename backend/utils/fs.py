@@ -1,14 +1,14 @@
-import os
-from enum import Enum
-import shutil
-from pathlib import Path
 import datetime
-import requests
 import fnmatch
+import os
+import shutil
+from enum import Enum
+from pathlib import Path
 from urllib.parse import quote
 from PIL import Image
 from typing import Final
 
+import requests
 from config import (
     LIBRARY_BASE_PATH,
     ROMM_BASE_PATH,
@@ -20,10 +20,11 @@ from config import (
 from config.config_loader import config
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
-    PlatformNotFoundException,
-    RomsNotFoundException,
     RomAlreadyExistsException,
+    RomsNotFoundException,
 )
+
+from . import get_file_extension
 
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
@@ -217,14 +218,6 @@ def get_platforms() -> list[str]:
         raise PlatformsNotFoundException from exc
 
 
-def remove_platform(fs_slug: str):
-    platform_path = get_fs_structure(fs_slug)
-    try:
-        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{platform_path}")
-    except FileNotFoundError as exc:
-        raise PlatformNotFoundException(fs_slug) from exc
-
-
 # ========= Roms utils =========
 def get_fs_structure(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
     return (
@@ -237,26 +230,26 @@ def get_fs_structure(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
 def _exclude_files(files, filetype) -> list[str]:
     excluded_extensions = getattr(config, f"EXCLUDED_{filetype.upper()}_EXT")
     excluded_names = getattr(config, f"EXCLUDED_{filetype.upper()}_FILES")
-    filtered_files: list = []
+    excluded_files: list = []
 
     for file in files:
         # Split the file name to get the extension.
-        parts = file.split(".")
+        ext = get_file_extension({"file_name": file, "multi": False})
 
         # Exclude the file if it has no extension or the extension is in the excluded list.
-        if len(parts) == 1 or parts[-1] in excluded_extensions:
-            filtered_files.append(file)
+        if not ext or ext in excluded_extensions:
+            excluded_files.append(file)
 
         # Additionally, check if the file name mathes a pattern in the excluded list.
         if len(excluded_names) > 0:
             [
-                filtered_files.append(file)
+                excluded_files.append(file)
                 for name in excluded_names
                 if file == name or fnmatch.fnmatch(file, name)
             ]
 
     # Return files that are not in the filtered list.
-    return [f for f in files if f not in filtered_files]
+    return [f for f in files if f not in excluded_files]
 
 
 def _exclude_multi_roms(roms) -> list[str]:

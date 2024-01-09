@@ -1,6 +1,5 @@
+from config import ENABLE_EXPERIMENTAL_REDIS, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 from redis import Redis
-
-from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, ENABLE_EXPERIMENTAL_REDIS
 
 
 class FallbackCache:

@@ -1,9 +1,10 @@
 import enum
-from sqlalchemy import Column, String, Boolean, Integer, Enum
+
+from sqlalchemy import Boolean, Column, Enum, Integer, String
 from starlette.authentication import SimpleUser
+from utils.oauth import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 
 from .base import BaseModel
-from utils.oauth import DEFAULT_SCOPES, WRITE_SCOPES, FULL_SCOPES
 
 
 class Role(enum.Enum):

@@ -1,13 +1,12 @@
 import functools
 
-from fastapi import status, HTTPException
-from sqlalchemy import create_engine, select, delete, update, and_, or_, func
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import ProgrammingError
-
-from logger.logger import log
 from config.config_loader import ConfigLoader
 from models import Platform, Rom, User, Role, Save, State, Screenshot
+from fastapi import HTTPException, status
+from logger.logger import log
+from sqlalchemy import and_, create_engine, delete, func, or_, select, update
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import Session, sessionmaker
 
 
 class DBHandler:

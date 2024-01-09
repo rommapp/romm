@@ -1,8 +1,6 @@
+from config import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 from redis import Redis
 from rq import Queue
-
-from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
-
 
 redis_client = Redis(
     host=REDIS_HOST, port=int(REDIS_PORT), password=REDIS_PASSWORD, db=0

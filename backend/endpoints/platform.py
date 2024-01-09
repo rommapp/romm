@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Request, status, HTTPException
-from pydantic import BaseModel
 from typing import Optional
-from typing_extensions import TypedDict
-from handler import dbh
-from exceptions.fs_exceptions import PlatformNotFoundException
-from utils.fs import remove_platform
-from utils.oauth import protected_route
+
 from config import ROMM_HOST
+from fastapi import APIRouter, HTTPException, Request, status
+from handler import dbh
 from logger.logger import log
+from pydantic import BaseModel
+from typing_extensions import TypedDict
+from utils.oauth import protected_route
 
 router = APIRouter()
 
@@ -79,15 +78,39 @@ class PlatformSchema(BaseModel):
         from_attributes = True
 
 
+class WebrcadeFeedSchema(TypedDict):
+    title: str
+    longTitle: str
+    description: str
+    thumbnail: str
+    background: str
+    categories: list[dict]
+
+
 @protected_route(router.get, "/platforms", ["platforms.read"])
 def platforms(request: Request) -> list[PlatformSchema]:
-    """Returns platforms data"""
+    """Get platforms endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[PlatformSchema]: All platforms in the database
+    """
+
     return dbh.get_platforms()
 
 
 @protected_route(router.get, "/platforms/webrcade/feed", [])
-def platforms_webrcade_feed(request: Request):
-    """Returns platforms data"""
+def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
+    """Get webrcade feed endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        WebrcadeFeedSchema: Webrcade feed object schema
+    """
     platforms = dbh.get_platforms()
 
     with dbh.session.begin() as session:
@@ -126,13 +149,11 @@ class DeletePlatformResponse(TypedDict):
     msg: str
 
 
-@protected_route(router.delete, "/platforms/{fs_slug}", ["platforms.write"])
-def delete_platform(
-    request: Request, fs_slug: str, delete_from_fs: bool = False
-) -> DeletePlatformResponse:
+@protected_route(router.delete, "/platforms/{slug}", ["platforms.write"])
+def delete_platform(request: Request, slug) -> DeletePlatformResponse:
     """Detele platform from database [and filesystem]"""
 
-    platform = dbh.get_platform_by_fs_slug(fs_slug)
+    platform = dbh.get_platform(slug)
     if not platform:
         error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
         log.error(error)
@@ -140,14 +161,5 @@ def delete_platform(
 
     log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
     dbh.delete_platform(platform.slug)
-
-    if delete_from_fs:
-        log.info(f"Deleting {platform.name} [{platform.fs_slug}] from filesystem")
-        try:
-            remove_platform(fs_slug)
-        except PlatformNotFoundException as e:
-            error = f"Couldn't delete from filesystem: {str(e)}"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}

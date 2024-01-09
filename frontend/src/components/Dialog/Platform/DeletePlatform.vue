@@ -15,17 +15,13 @@ emitter?.on("showDeletePlatformDialog", (platformToDelete) => {
   platform.value = platformToDelete;
   show.value = true;
 });
-const deleteFromFs = ref(false);
 
 async function deletePlatform() {
   if (!platform.value) return;
 
   show.value = false;
   await api
-    .deletePlatform({
-      platform: platform.value,
-      deleteFromFs: deleteFromFs.value,
-    })
+    .deletePlatform({ platform: platform.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
         msg: response.data.msg,
@@ -51,7 +47,6 @@ async function deletePlatform() {
 }
 
 function closeDialog() {
-  deleteFromFs.value = false;
   show.value = false;
 }
 </script>
@@ -97,16 +92,6 @@ function closeDialog() {
           >
         </v-row>
       </v-card-text>
-
-      <v-divider class="border-opacity-25" :thickness="1" />
-      <v-toolbar class="bg-terciary" density="compact">
-        <v-checkbox
-          v-model="deleteFromFs"
-          label="Remove from filesystem"
-          class="ml-3"
-          hide-details
-        />
-      </v-toolbar>
     </v-card>
   </v-dialog>
 </template>

@@ -1,16 +1,14 @@
-from typing import Annotated, Final
-from typing_extensions import TypedDict, NotRequired
 from datetime import timedelta
-from fastapi import Depends, APIRouter, HTTPException, status
+from typing import Annotated, Final
 
-
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing_extensions import NotRequired, TypedDict
 from utils.auth import authenticate_user
 from utils.oauth import (
     OAuth2RequestForm,
     create_oauth_token,
     get_current_active_user_from_bearer_token,
 )
-
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
@@ -27,7 +25,23 @@ class TokenResponse(TypedDict):
 
 @router.post("/token")
 async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
-    """OAuth2 token endpoint"""
+    """OAuth2 token endpoint
+
+    Args:
+        form_data (Annotated[OAuth2RequestForm, Depends): Form Data with OAuth2 info
+
+    Raises:
+        HTTPException: Missing refresh token
+        HTTPException: Invalid refresh token
+        HTTPException: Missing username or password
+        HTTPException: Invalid username or password
+        HTTPException: Client credentials are not yet supported
+        HTTPException: Invalid or unsupported grant type
+        HTTPException: Insufficient scope
+
+    Returns:
+        TokenResponse: TypedDict with the new generated token info
+    """
 
     # Suppport refreshing access tokens
     if form_data.grant_type == "refresh_token":

@@ -4,6 +4,7 @@ import socketio  # type: ignore
 from logger.logger import log
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
+from config import ENABLE_EXPERIMENTAL_REDIS
 from utils.fastapi import (
     scan_platform,
     scan_rom,
@@ -22,7 +23,6 @@ from utils.fs import (
 from utils.redis import high_prio_queue, redis_url
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
-from config import ENABLE_EXPERIMENTAL_REDIS
 
 
 async def scan_platforms(
@@ -31,6 +31,15 @@ async def scan_platforms(
     rescan_unidentified: bool = False,
     selected_roms: list[str] = (),
 ):
+    """Scan all the listed platforms and fetch metadata from different sources
+
+    Args:
+        platform_slugs (list[str]): List of platform slugs to be scanned
+        complete_rescan (bool, optional): Flag to rescan already scanned platforms. Defaults to False.
+        rescan_unidentified (bool, optional): Flag to rescan only unidentified roms. Defaults to False.
+        selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to ().
+    """
+
     # Connect to external socketio server
     sm = (
         socketio.AsyncRedisManager(redis_url, write_only=True)
@@ -148,7 +157,7 @@ async def scan_platforms(
                     dbh.update_state(
                         state.id, {"file_size_bytes": scanned_state.file_size_bytes}
                     )
-                
+
                 continue
 
             scanned_state.emulator = fs_emulator
@@ -202,7 +211,8 @@ async def scan_platforms(
             # Update file size if changed
             if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
                 dbh.update_screenshot(
-                    screenshot.id, {"file_size_bytes": scanned_screenshot.file_size_bytes}
+                    screenshot.id,
+                    {"file_size_bytes": scanned_screenshot.file_size_bytes},
                 )
             continue
 
@@ -222,7 +232,11 @@ async def scan_platforms(
 
 @socket_server.on("scan")
 async def scan_handler(_sid: str, options: dict):
-    """Scan platforms and roms and write them in database."""
+    """Scan socket endpoint
+
+    Args:
+        options (dict): Socket options
+    """
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     store_default_resources()

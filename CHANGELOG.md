@@ -1,3 +1,33 @@
+# v2.3.1 (_08-01-2024_)
+
+## Fixed
+ - Deleting platforms now works properly when having "orphaned" platforms.
+
+## Changed
+ - Platforms can only be deleted from RomM's database. Checkbox to delete platform from filesystem have been removed.
+ 
+<br>
+
+# v2.3.0 (_08-01-2024_)
+
+## Added
+ - Now ``platforms`` can be ``deleted`` from the gallery. Closes [#567](https://github.com/zurdi15/romm/issues/567)
+ - Support for ``switch`` ``updates`` and ``DLC`` files. Closes [#554](https://github.com/zurdi15/romm/issues/554)
+ - Additional Webrcade resources by @Casuallynoted.
+ - ``Exclusions`` in ``config`` file now accepts ``wildcards``. Check the [config.example.yml](examples/config.example.yml). Closes [#575](https://github.com/zurdi15/romm/issues/575)
+
+## Fixed
+ - ``Not identified`` games are no longer being grouped when ``group roms`` option is enabled.
+ - Changes in the ``config`` file from one to other platform are now more consistent. Closes [#567](https://github.com/zurdi15/romm/issues/567)
+ - Some other minor fixes.
+
+## Changed
+ - File extensions now can have up to ``100`` characters. Closes [#531](https://github.com/zurdi15/romm/issues/531)
+ - Now files without extension are skipped during scan by @bfenty.
+ - Logs are now clearer.
+
+ <br>
+
 # v2.2.1 (_02-01-2024_)
 
 ## Added
@@ -9,6 +39,8 @@
 
 ## Changed
  - Now region and language tags are case insensitive to show ``emojis``.
+ 
+<br>
 
 # v2.2.0 (_31-12-2023_)
 

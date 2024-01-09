@@ -1,23 +1,23 @@
 import os
 import sys
-import yaml
-import pydash
-from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
 from typing import Final
 from typing_extensions import TypedDict
 
+import pydash
+import yaml
 from config import (
-    ROMM_DB_DRIVER,
-    ROMM_BASE_PATH,
-    LIBRARY_BASE_PATH,
     DB_HOST,
+    DB_NAME,
+    DB_PASSWD,
     DB_PORT,
     DB_USER,
-    DB_PASSWD,
-    DB_NAME,
+    LIBRARY_BASE_PATH,
+    ROMM_DB_DRIVER,
+    ROMM_BASE_PATH,
 )
 from logger.logger import log
+from yaml.loader import SafeLoader
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
@@ -58,6 +58,12 @@ class Config:
 
 
 class ConfigLoader:
+    """Parse and load the user configuration from the config.yml file
+
+    Raises:
+        FileNotFoundError: Raises an error if the config.yml is not found
+    """
+
     # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         self.config_path = config_path
@@ -76,6 +82,12 @@ class ConfigLoader:
 
     @staticmethod
     def get_db_engine() -> str:
+        """Builds the database connection string depending on the defined database in the config.yml file
+
+        Returns:
+            str: database connection string
+        """
+
         if ROMM_DB_DRIVER == "mariadb":
             if not DB_USER or not DB_PASSWD:
                 log.critical(
@@ -97,6 +109,8 @@ class ConfigLoader:
         sys.exit(3)
 
     def _parse_config(self):
+        """Parses each entry in the config.yml"""
+
         self.config = Config(
             EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
             EXCLUDED_SINGLE_EXT=pydash.get(

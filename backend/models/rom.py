@@ -1,6 +1,4 @@
 import re
-from sqlalchemy import Integer, Column, String, Text, Boolean, Float, JSON, ForeignKey
-from sqlalchemy.orm import relationship, Mapped
 from functools import cached_property
 
 from config import (
@@ -9,6 +7,9 @@ from config import (
     FRONTEND_LIBRARY_PATH,
     FRONTEND_RESOURCES_PATH,
 )
+from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, relationship
+
 from .base import BaseModel
 
 SIZE_UNIT_TO_BYTES = {
