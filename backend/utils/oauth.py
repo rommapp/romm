@@ -1,14 +1,14 @@
 from datetime import datetime, timedelta
-from typing import Optional, Final, Any
-from jose import JWTError, jwt
-from fastapi import HTTPException, status, Security
-from fastapi.param_functions import Form
-from fastapi.security.oauth2 import OAuth2PasswordBearer
-from fastapi.security.http import HTTPBasic
-from fastapi.types import DecoratedCallable
-from starlette.authentication import requires
+from typing import Any, Final, Optional
 
 from config import ROMM_AUTH_SECRET_KEY
+from fastapi import HTTPException, Security, status
+from fastapi.param_functions import Form
+from fastapi.security.http import HTTPBasic
+from fastapi.security.oauth2 import OAuth2PasswordBearer
+from fastapi.types import DecoratedCallable
+from jose import JWTError, jwt
+from starlette.authentication import requires
 
 ALGORITHM: Final = "HS256"
 DEFAULT_OAUTH_TOKEN_EXPIRY: Final = 15

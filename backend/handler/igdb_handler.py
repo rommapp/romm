@@ -1,23 +1,25 @@
-import sys
 import functools
+import json
+import os
+import re
+import sys
+import time
+from typing import Final
+
 import pydash
 import requests
-import re
-import time
-import os
-import json
 import xmltodict
-from unidecode import unidecode as uc
-from requests.exceptions import HTTPError, Timeout
-from typing import Final
-from typing_extensions import TypedDict
-
-from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, DEFAULT_URL_COVER_L
-from utils import get_file_name_with_no_tags as get_search_term, normalize_search_term
+from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from igdb.wrapper import IGDBWrapper
 from logger.logger import log
-from utils.cache import cache
-from tasks.update_switch_titledb import update_switch_titledb_task
+from requests.exceptions import HTTPError, Timeout
 from tasks.update_mame_xml import update_mame_xml_task
+from tasks.update_switch_titledb import update_switch_titledb_task
+from typing_extensions import TypedDict
+from unidecode import unidecode as uc
+from utils import get_file_name_with_no_tags as get_search_term
+from utils import normalize_search_term
+from utils.cache import cache
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
@@ -70,14 +72,15 @@ class IGDBHandler:
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
+        self.wrapper = IGDBWrapper(IGDB_CLIENT_ID, self.twitch_auth.get_oauth_token())
 
     @staticmethod
     def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].headers[
-                "Authorization"
-            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
+            args[0].wrapper = IGDBWrapper(
+                IGDB_CLIENT_ID, args[0].twitch_auth.get_oauth_token()
+            )
             return func(*args)
 
         return wrapper
@@ -165,21 +168,20 @@ class IGDBHandler:
     @staticmethod
     async def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
-        
+
         with open(PS2_OPL_INDEX_FILE, "r") as index_json:
             opl_index = json.loads(index_json.read())
             index_entry = opl_index.get(serial_code, None)
             if index_entry:
                 search_term = index_entry["Name"]  # type: ignore
-        
-        return search_term
 
+        return search_term
 
     @staticmethod
     async def _switch_titledb_format(match: re.Match[str], search_term: str) -> str:
         titledb_index = {}
         title_id = match.group(1)
-        
+
         try:
             with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
                 titledb_index = json.loads(index_json.read())
@@ -195,19 +197,19 @@ class IGDBHandler:
             index_entry = titledb_index.get(title_id, None)
             if index_entry:
                 search_term = index_entry["name"]  # type: ignore
-        
+
         return search_term
 
     @staticmethod
     async def _switch_productid_format(match: re.Match[str], search_term: str) -> str:
         product_id_index = {}
         product_id = match.group(1)
-        
+
         # Game updates have the same product ID as the main application, except with bitmask 0x800 set
         product_id = list(product_id)
-        product_id[-3] = '0'
-        product_id = ''.join(product_id)
-        
+        product_id[-3] = "0"
+        product_id = "".join(product_id)
+
         try:
             with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
                 product_id_index = json.loads(index_json.read())
@@ -228,7 +230,7 @@ class IGDBHandler:
     @staticmethod
     async def _mame_format(search_term: str) -> str:
         mame_index = {"menu": {"game": []}}
-        
+
         try:
             with open(MAME_XML_FILE, "r") as index_xml:
                 mame_index = xmltodict.parse(index_xml.read())
@@ -251,7 +253,7 @@ class IGDBHandler:
                 search_term = get_search_term(
                     index_entry[0].get("description", search_term)
                 )
-        
+
         return search_term
 
     @check_twitch_token
@@ -314,8 +316,8 @@ class IGDBHandler:
         )
 
         if igdb_id:
-            rom['url_cover'] = self._search_cover(igdb_id)
-            rom['url_screenshots'] = self._search_screenshots(igdb_id)
+            rom["url_cover"] = self._search_cover(igdb_id)
+            rom["url_screenshots"] = self._search_screenshots(igdb_id)
 
         return rom
 

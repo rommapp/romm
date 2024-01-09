@@ -1,38 +1,38 @@
-import uvicorn
-import alembic.config
 import re
 import sys
+
+import alembic.config
+import uvicorn
+from config import (
+    DEV_HOST,
+    DEV_PORT,
+    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    ENABLE_SCHEDULED_RESCAN,
+    ENABLE_SCHEDULED_UPDATE_MAME_XML,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    ROMM_AUTH_ENABLED,
+    ROMM_AUTH_SECRET_KEY,
+    SCHEDULED_RESCAN_CRON,
+    SCHEDULED_UPDATE_MAME_XML_CRON,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+)
+from config.config_loader import ConfigDict, config
+from endpoints import identity, oauth, platform, rom, scan, search, tasks  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
+from handler import dbh
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing_extensions import TypedDict
-
-from config import (
-    DEV_PORT,
-    DEV_HOST,
-    ROMM_AUTH_SECRET_KEY,
-    ROMM_AUTH_ENABLED,
-    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    ENABLE_SCHEDULED_RESCAN,
-    SCHEDULED_RESCAN_CRON,
-    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
-    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-    ENABLE_SCHEDULED_UPDATE_MAME_XML,
-    SCHEDULED_UPDATE_MAME_XML_CRON,
-)
-from endpoints import search, platform, rom, identity, oauth, scan, tasks  # noqa
-from handler import dbh
-from utils.socket import socket_app
+from utils import get_version
 from utils.auth import (
-    HybridAuthBackend,
     CustomCSRFMiddleware,
+    HybridAuthBackend,
     create_default_admin_user,
 )
-from utils import get_version
-from config.config_loader import config, ConfigDict
+from utils.socket import socket_app
 
 app = FastAPI(title="RomM API", version="0.1.0")
 
@@ -101,9 +101,13 @@ class HeartbeatReturn(TypedDict):
     CONFIG: ConfigDict
 
 
-# Endpoint to set the CSRF token in cache
 @app.get("/heartbeat")
 def heartbeat() -> HeartbeatReturn:
+    """Endpoint to set the CSFR token in cache and return all the basic RomM config
+
+    Returns:
+        HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
+    """
     return {
         "VERSION": get_version(),
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
@@ -138,7 +142,7 @@ def heartbeat() -> HeartbeatReturn:
 
 @app.on_event("startup")
 def startup() -> None:
-    """Startup application."""
+    """Event to handle RomM startup logic."""
 
     # Create default admin user if no admin user exists
     if len(dbh.get_admin_users()) == 0 and "pytest" not in sys.modules:
