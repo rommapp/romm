@@ -1,22 +1,22 @@
 import os
 import sys
-import yaml
-import pydash
-from yaml.loader import SafeLoader
 from urllib.parse import quote_plus
-from typing_extensions import TypedDict
 
+import pydash
+import yaml
 from config import (
-    ROMM_DB_DRIVER,
-    SQLITE_DB_BASE_PATH,
-    ROMM_USER_CONFIG_PATH,
     DB_HOST,
+    DB_NAME,
+    DB_PASSWD,
     DB_PORT,
     DB_USER,
-    DB_PASSWD,
-    DB_NAME,
+    ROMM_DB_DRIVER,
+    ROMM_USER_CONFIG_PATH,
+    SQLITE_DB_BASE_PATH,
 )
 from logger.logger import log
+from typing_extensions import TypedDict
+from yaml.loader import SafeLoader
 
 
 class ConfigDict(TypedDict):
@@ -30,11 +30,19 @@ class ConfigDict(TypedDict):
 
 
 class ConfigLoader:
+    """Parse and load the user configuration from the config.yml file
+
+    Raises:
+        FileNotFoundError: Raises an error if the config.yml is not found
+    """
+
     # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         self.config_path = config_path
         if os.path.isdir(config_path):
-            log.critical(f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system.")
+            log.critical(
+                f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system."
+            )
             raise FileNotFoundError()
         try:
             with open(config_path) as config_file:
@@ -46,6 +54,12 @@ class ConfigLoader:
 
     @staticmethod
     def get_db_engine() -> str:
+        """Builds the database connection string depending on the defined database in the config.yml file
+
+        Returns:
+            str: database connection string
+        """
+
         if ROMM_DB_DRIVER == "mariadb":
             if not DB_USER or not DB_PASSWD:
                 log.critical(
@@ -67,6 +81,8 @@ class ConfigLoader:
         sys.exit(3)
 
     def _parse_config(self):
+        """Parses each entry in the config.yml"""
+
         self.config["EXCLUDED_PLATFORMS"] = pydash.get(
             self.config, "exclude.platforms", []
         )

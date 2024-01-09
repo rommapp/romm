@@ -1,8 +1,6 @@
 import socketio  # type: ignore
-
-from utils.redis import redis_url
 from config import ENABLE_EXPERIMENTAL_REDIS
-
+from utils.redis import redis_url
 
 socket_server = socketio.AsyncServer(
     cors_allowed_origins="*",
