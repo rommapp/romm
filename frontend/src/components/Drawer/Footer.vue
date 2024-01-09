@@ -83,17 +83,29 @@ async function logout() {
     @click="logout()"
   ></v-btn>
   <v-list-item
-    class="bg-terciary py-3"
-    v-if="newVersion && !newVersionDismissed"
+    class="bg-terciary py-1 px-1 text-subtitle-2"
+    v-if="newVersion && !newVersionDismissed && !rail"
   >
-    <v-col class="px-0 py-1">
-      <span
-        >New version available <span class="text-romm-accent-1">{{ newVersion }}</span></span
-      >
-    </v-col>
-    <v-col class="px-0 py-1">
-      <span><a target="_blank" :href="`https://github.com/zurdi15/romm/releases/tag/v${newVersion}`">See what's new!</a></span>
-    </v-col>
-    <template v-slot:append><v-icon title="Dismiss" @click="dismissNewVersion()">mdi-close</v-icon></template>
+    <v-card>
+      <v-card-text class="py-2 px-4">
+        <v-row no-gutters>
+          <v-col class="py-1">
+            <span
+              >New version available <span class="text-romm-accent-1">{{ newVersion }}</span></span
+            >
+          </v-col>
+        </v-row>
+        <v-row no-gutters>
+          <v-col class="py-1">
+            <span @click="dismissNewVersion()" class="pointer text-grey">Dismiss</span><span class="ml-4"><a target="_blank" :href="`https://github.com/zurdi15/romm/releases/tag/v${newVersion}`">See what's new!</a></span>
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
   </v-list-item>
 </template>
+<style scoped>
+.pointer {
+  cursor: pointer;
+}
+</style>
