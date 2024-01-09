@@ -149,17 +149,17 @@ def get_version() -> str | None:
         return branch[branch.find("*") + 2 :]
 
 
-def check_new_version() -> str | None:
+def check_new_version() -> str:
     response = requests.get(
         "https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=0.5
     )
     try:
         last_version = response.json()["name"][1:]  # remove leading 'v' from 'vX.X.X'
     except KeyError:  # rate limit reached
-        return None
+        return ""
     try:
         if parse(get_version()) < parse(last_version):
             return last_version
     except InvalidVersion:
         pass
-    return None
+    return ""

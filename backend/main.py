@@ -98,7 +98,7 @@ class SchedulerDict(TypedDict):
 
 class HeartbeatReturn(TypedDict):
     VERSION: str
-    NEW_VERSION: str | None
+    NEW_VERSION: str
     ROMM_AUTH_ENABLED: bool
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
@@ -112,6 +112,7 @@ def heartbeat() -> HeartbeatReturn:
     Returns:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
     """
+
     return {
         "VERSION": get_version(),
         "NEW_VERSION": check_new_version(),

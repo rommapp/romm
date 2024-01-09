@@ -92,7 +92,7 @@ async function uploadSaves() {
   </v-row>
   <v-list rounded="0" class="pa-0">
     <v-list-item
-      class="pa-1 pl-2"
+      class="pa-2 pl-4"
       v-for="save in rom.saves"
       :key="save.id"
       :title="save.file_name"
