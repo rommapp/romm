@@ -10,6 +10,7 @@ from fastapi import (
     File,
     UploadFile,
 )
+from pathlib import Path
 from fastapi import Query
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.cursor import CursorPage, CursorParams
@@ -127,7 +128,6 @@ def upload_roms(
     skipped_roms = []
 
     for rom in roms:
-        roms_path = get_fs_structure(platform_fs_slug)
         if _file_exists(roms_path, rom.filename):
             log.warning(f" - Skipping {rom.filename} since the file already exists")
             skipped_roms.append(rom.filename)
