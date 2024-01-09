@@ -1,16 +1,15 @@
 import emoji
 import socketio  # type: ignore
-
-from logger.logger import log
-from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
-from handler import dbh
-from utils.fastapi import scan_platform, scan_rom
-from utils.socket import socket_server
-from utils.fs import get_platforms, get_roms, store_default_resources
-from utils.redis import high_prio_queue, redis_url
+from config import ENABLE_EXPERIMENTAL_REDIS
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
-from config import ENABLE_EXPERIMENTAL_REDIS
+from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
+from handler import dbh
+from logger.logger import log
+from utils.fastapi import scan_platform, scan_rom
+from utils.fs import get_platforms, get_roms, store_default_resources
+from utils.redis import high_prio_queue, redis_url
+from utils.socket import socket_server
 
 
 async def scan_platforms(
@@ -19,6 +18,15 @@ async def scan_platforms(
     rescan_unidentified: bool = False,
     selected_roms: list[str] = (),
 ):
+    """Scan all the listed platforms and fetch metadata from different sources
+
+    Args:
+        platform_slugs (list[str]): List of platform slugs to be scanned
+        complete_rescan (bool, optional): Flag to rescan already scanned platforms. Defaults to False.
+        rescan_unidentified (bool, optional): Flag to rescan only unidentified roms. Defaults to False.
+        selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to ().
+    """
+
     # Connect to external socketio server
     sm = (
         socketio.AsyncRedisManager(redis_url, write_only=True)
@@ -37,8 +45,10 @@ async def scan_platforms(
     platform_list = [dbh.get_platform(s).fs_slug for s in platform_slugs]
     platform_list = platform_list or fs_platforms
 
-    if (len(platform_list) == 0):
-        log.warn("⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly ")
+    if len(platform_list) == 0:
+        log.warn(
+            "⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly "
+        )
     else:
         log.info(f"Found {len(platform_list)} platforms in file system ")
 
@@ -61,14 +71,18 @@ async def scan_platforms(
             log.error(e)
             continue
 
-        if (len(fs_roms) == 0):
-            log.warning("  ⚠️ No roms found, verify that the folder structure is correct")
+        if len(fs_roms) == 0:
+            log.warning(
+                "  ⚠️ No roms found, verify that the folder structure is correct"
+            )
         else:
             log.warn(f"  {len(fs_roms)} roms found")
 
         for fs_rom in fs_roms:
             rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
-            if (rom and rom.id not in selected_roms and not complete_rescan) and not (rescan_unidentified and rom and not rom.igdb_id):
+            if (rom and rom.id not in selected_roms and not complete_rescan) and not (
+                rescan_unidentified and rom and not rom.igdb_id
+            ):
                 continue
 
             scanned_rom = await scan_rom(scanned_platform, fs_rom)
@@ -96,7 +110,11 @@ async def scan_platforms(
 
 @socket_server.on("scan")
 async def scan_handler(_sid: str, options: dict):
-    """Scan platforms and roms and write them in database."""
+    """Scan socket endpoint
+
+    Args:
+        options (dict): Socket options
+    """
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
     store_default_resources()
@@ -117,4 +135,6 @@ async def scan_handler(_sid: str, options: dict):
             job_timeout=14400,  # Timeout after 4 hours
         )
     else:
-        await scan_platforms(platform_slugs, complete_rescan, rescan_unidentified, selected_roms)
+        await scan_platforms(
+            platform_slugs, complete_rescan, rescan_unidentified, selected_roms
+        )

@@ -1,12 +1,13 @@
-import os
 import json
+import os
 from pathlib import Path
-
 from typing import Final
+
 from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
+
 from .utils import RemoteFilePullTask
 
 FIXTURE_FILE_PATH: Final = (

@@ -1,7 +1,7 @@
 import sys
-from rq import Worker, Queue, Connection
 
 from config import ENABLE_EXPERIMENTAL_REDIS
+from rq import Connection, Queue, Worker
 from utils.redis import redis_client
 
 listen = ["high", "default", "low"]
@@ -15,5 +15,3 @@ if __name__ == "__main__":
     with Connection(redis_client):
         worker = Worker(map(Queue, listen))
         worker.work()
-
-    
