@@ -36,8 +36,8 @@ export type RomSchema = {
     files: Array<string>;
     saves: Array<SaveSchema>;
     states: Array<StateSchema>;
-    url_screenshots: Array<string>;
     screenshots: Array<ScreenshotSchema>;
+    url_screenshots: Array<string>;
     merged_screenshots: Array<string>;
     full_path: string;
     download_path: string;
