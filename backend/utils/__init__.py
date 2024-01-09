@@ -148,7 +148,7 @@ def get_version() -> str | None:
     
 
 def check_new_version() -> str | None:
-    response = requests.get("https://api.github.com/repos/zurdi15/romm/releases/latest")
+    response = requests.get("https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=0.5)
     try:
         last_version = response.json()["name"][1:] # remove leading 'v' from 'vX.X.X'
     except KeyError: # rate limit reached
