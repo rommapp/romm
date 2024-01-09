@@ -2,6 +2,7 @@ import logging
 
 from logger import COLORS
 
+
 class StdoutFormatter(logging.Formatter):
     level: str = "%(levelname)s"
     dots: str = ":"

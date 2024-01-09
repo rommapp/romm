@@ -1,29 +1,17 @@
-from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException, status, Request
+from config import ROMM_AUTH_ENABLED, ROMM_AUTH_PASSWORD, ROMM_AUTH_USERNAME
+from fastapi import HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from passlib.context import CryptContext
-from starlette.requests import HTTPConnection
-from starlette_csrf.middleware import CSRFMiddleware
-from starlette.types import Receive, Scope, Send
-from starlette.authentication import (
-    AuthCredentials,
-    AuthenticationBackend,
-)
-
 from handler import dbh
+from models.user import Role, User
+from passlib.context import CryptContext
+from sqlalchemy.exc import IntegrityError
+from starlette.authentication import AuthCredentials, AuthenticationBackend
+from starlette.requests import HTTPConnection
+from starlette.types import Receive, Scope, Send
+from starlette_csrf.middleware import CSRFMiddleware
 from utils.cache import cache
-from models.user import User, Role
-from config import (
-    ROMM_AUTH_ENABLED,
-    ROMM_AUTH_USERNAME,
-    ROMM_AUTH_PASSWORD,
-)
 
-from .oauth import (
-    FULL_SCOPES,
-    get_current_active_user_from_bearer_token,
-)
-
+from .oauth import FULL_SCOPES, get_current_active_user_from_bearer_token
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Integer
 from sqlalchemy.orm import relationship, Mapped
 
 from config import DEFAULT_PATH_COVER_S
+
 from .base import BaseModel
 
 

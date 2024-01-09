@@ -3,17 +3,15 @@ from datetime import timedelta
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from endpoints.scan import scan_platforms
-from logger.logger import log
-from tasks.utils import tasks_scheduler
-
-
 from config import (
-    LIBRARY_BASE_PATH,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
 from config.config_loader import config
+from endpoints.scan import scan_platforms
+from logger.logger import log
+from tasks.utils import tasks_scheduler
 
 path = (
     config.HIGH_PRIO_STRUCTURE_PATH
@@ -23,7 +21,14 @@ path = (
 
 
 class EventHandler(FileSystemEventHandler):
+    """Filesystem event handler"""
+
     def on_any_event(self, event):
+        """Catch-all event handler.
+
+        Args:
+            event: The event object representing the file system event.
+        """
         if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
             return
 

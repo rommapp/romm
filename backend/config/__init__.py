@@ -1,7 +1,8 @@
 import os
 import secrets
-from dotenv import load_dotenv
 from typing import Final
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
