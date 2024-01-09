@@ -73,23 +73,32 @@ async function uploadSaves() {
 }
 </script>
 <template>
-  <v-row class="pa-2 center" no-gutters align="center">
-    <v-file-input
-      @keyup.enter="uploadSaves()"
-      :label="`Upload save files for ${props.rom.name}`"
-      v-model="savesToUpload"
-      prepend-inner-icon="mdi-file"
-      prepend-icon=""
-      multiple
-      chips
-      required
-      variant="outlined"
-      density="compact"
-      hide-details
-    />
-    <v-btn @click="uploadSaves()" class="text-romm-green ml-5 bg-terciary">
-      Upload
-    </v-btn>
+  <v-row class="pa-2 align-center" no-gutters>
+    <v-col>
+      <v-list-item class="px-0">
+        <v-file-input
+          @keyup.enter="uploadSaves()"
+          :label="`Upload ${props.rom.name}`"
+          v-model="savesToUpload"
+          prepend-inner-icon="mdi-file"
+          prepend-icon=""
+          multiple
+          chips
+          required
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <template v-slot:append>
+          <v-btn
+            @click="uploadSaves()"
+            class="text-romm-green ml-3 bg-terciary"
+          >
+            Upload
+          </v-btn>
+        </template>
+      </v-list-item>
+    </v-col>
   </v-row>
   <v-list rounded="0" class="pa-0">
     <v-list-item

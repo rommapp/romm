@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
+import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-
 import { formatBytes } from "@/utils";
 import api from "@/services/api";
 import storeRoms from "@/stores/roms";
@@ -13,6 +13,7 @@ const props = defineProps(["rom"]);
 const statesToUpload = ref([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
+const { name, mdAndUp } = useDisplay();
 
 async function deleteState(state: StateSchema) {
   await api
@@ -73,23 +74,32 @@ async function uploadStates() {
 }
 </script>
 <template>
-  <v-row class="pa-2 center" no-gutters align="center">
-    <v-file-input
-      @keyup.enter="uploadStates()"
-      :label="`Upload state files for ${props.rom.name}`"
-      v-model="statesToUpload"
-      prepend-inner-icon="mdi-file"
-      prepend-icon=""
-      multiple
-      chips
-      required
-      variant="outlined"
-      density="compact"
-      hide-details
-    />
-    <v-btn @click="uploadStates()" class="text-romm-green ml-5 bg-terciary">
-      Upload
-    </v-btn>
+  <v-row class="pa-2 align-center" no-gutters>
+    <v-col>
+      <v-list-item class="px-0">
+        <v-file-input
+          @keyup.enter="uploadStates()"
+          :label="`Upload ${props.rom.name}`"
+          v-model="statesToUpload"
+          prepend-inner-icon="mdi-file"
+          prepend-icon=""
+          multiple
+          chips
+          required
+          variant="outlined"
+          density="compact"
+          hide-details
+        />
+        <template v-slot:append>
+          <v-btn
+            @click="uploadStates()"
+            class="text-romm-green ml-3 bg-terciary"
+          >
+            Upload
+          </v-btn>
+        </template>
+      </v-list-item>
+    </v-col>
   </v-row>
   <v-list rounded="0" class="pa-0">
     <v-list-item
