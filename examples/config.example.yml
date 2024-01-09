@@ -5,7 +5,9 @@ exclude:
 
   # Exclude roms or parts of roms to be scanned
   roms:
-    ## Single file games section
+
+    ## Single file games section.
+    # Will not apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
     single_file:
       # Exclude all files with certain extensions to be scanned
       extensions:
@@ -17,22 +19,25 @@ exclude:
         - '*.nfo' # Can also exclude files by extension
 
     ## Multi files games section
+    # Will apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
     multi_file:
-      # Exclude matched 'folder' (RomM identifies folders as multi file games) names to be scanned
+      # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games) 
       names:
         - 'my_multi_file_game'
         - 'DLC'
+      # Exclude files within sub-folders.
       parts:
         # Exclude matched file names to be scanned from multi file roms
         # Keep in mind that RomM doesn't scan folders inside multi files games,
         # so there is no need to exclude folders from inside of multi files games.
         names:
           - 'data.xml'
+          - '._*' # Supports unix filename pattern matching
         # Exclude all files with certain extensions to be scanned from multi file roms
         extensions:
           - 'txt'
 
-# Asociate different platform names to your current file system platform names
+# Associate different platform names to your current file system platform names
 system:
   platforms:
     # [your custom platform folder name]: [RomM platform name]
