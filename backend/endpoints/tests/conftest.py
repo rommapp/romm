@@ -2,7 +2,7 @@ import pytest
 
 from utils.oauth import create_oauth_token
 from datetime import timedelta
-from handler.tests.conftest import setup_database, clear_database, admin_user, editor_user, viewer_user, platform, rom  # noqa
+from handler.tests.conftest import setup_database, clear_database, admin_user, editor_user, viewer_user, platform, rom, save, state  # noqa
 from ..oauth import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 
 

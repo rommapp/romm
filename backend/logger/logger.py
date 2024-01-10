@@ -28,3 +28,6 @@ log.addHandler(stdout_handler)
 file_handler = logging.FileHandler(logs_file)
 file_handler.setFormatter(FileFormatter())
 log.addHandler(file_handler)
+
+# Hush passlib warnings
+logging.getLogger('passlib').setLevel(logging.ERROR)
