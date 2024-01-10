@@ -3,7 +3,9 @@ import subprocess as sp
 
 import requests
 from __version__ import __version__
+from logger.logger import log
 from packaging.version import InvalidVersion, parse
+from requests.exceptions import ReadTimeout
 
 LANGUAGES = [
     ("Ar", "Arabic"),
@@ -150,9 +152,19 @@ def get_version() -> str | None:
 
 
 def check_new_version() -> str:
-    response = requests.get(
-        "https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=0.5
-    )
+    """Check for new RomM versions
+
+    Returns:
+        str: New RomM version or empty if in dev mode
+    """
+
+    try:
+        response = requests.get(
+            "https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=0.5
+        )
+    except ReadTimeout:
+        log.warning("Couldn't check last RomM version.")
+        return ""
     try:
         last_version = response.json()["name"][1:]  # remove leading 'v' from 'vX.X.X'
     except KeyError:  # rate limit reached
