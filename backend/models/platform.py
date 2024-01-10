@@ -1,10 +1,15 @@
+from sqlalchemy import Column, String, Integer
+from sqlalchemy.orm import relationship, Mapped
+
 from config import DEFAULT_PATH_COVER_S
-from sqlalchemy import Column, Integer, String
 
 from .base import BaseModel
 
 
 class Platform(BaseModel):
+    from .rom import Rom
+    from .assets import Save, State, Screenshot
+
     __tablename__ = "platforms"
 
     slug: str = Column(String(length=50), primary_key=True)
@@ -13,6 +18,19 @@ class Platform(BaseModel):
     igdb_id: int = Column(Integer())
     sgdb_id: int = Column(Integer())
     logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
+
+    roms: Mapped[set[Rom]] = relationship(
+        "Rom", lazy="selectin", back_populates="platform"
+    )
+    saves: Mapped[set[Save]] = relationship(
+        "Save", lazy="selectin", back_populates="platform"
+    )
+    states: Mapped[set[State]] = relationship(
+        "State", lazy="selectin", back_populates="platform"
+    )
+    screenshots: Mapped[set[State]] = relationship(
+        "Screenshot", lazy="selectin", back_populates="platform"
+    )
 
     ### DEPRECATED ###
     n_roms: int = Column(Integer, default=0)

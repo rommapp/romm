@@ -38,3 +38,9 @@ system:
     # [your custom platform folder name]: [RomM platform name]
     gc: 'ngc' # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
     psx: 'ps' # In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
+
+filesystem:
+  roms_folder: 'roms' # The folder where your roms are located
+  saves_folder: 'saves' # The folder where your save files are located
+  states_folder: 'states' # The folder where your states are located
+  screenshots_folder: 'screenshots' # The folder where your screenshots are located

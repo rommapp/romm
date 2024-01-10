@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 
 from handler.db_handler import DBHandler
-from models import Platform, Rom, User
+from models import Platform, Rom, User, Save, State, Screenshot
 from models.user import Role
 from utils.auth import get_password_hash
 
@@ -57,7 +57,7 @@ def test_roms(rom):
         roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
         assert len(roms) == 1
 
-    dbh.purge_roms(rom_2.platform_slug, [rom_2.slug])
+    dbh.purge_roms(rom_2.platform_slug, [rom_2.id])
 
     with dbh.session.begin() as session:
         roms = session.scalars(dbh.get_roms(rom.platform_slug)).all()
@@ -108,3 +108,91 @@ def test_users(admin_user):
         )
     except IntegrityError as e:
         assert "Duplicate entry 'test_admin' for key" in str(e)
+
+
+def test_saves(save):
+    dbh.add_save(
+        Save(
+            rom_id=save.rom_id,
+            platform_slug=save.platform_slug,
+            file_name="test_save_2.sav",
+            file_name_no_tags="test_save_2",
+            file_extension="sav",
+            emulator="test_emulator",
+            file_path=f"{save.platform_slug}/saves/test_emulator",
+            file_size_bytes=1.0,
+        )
+    )
+
+    rom = dbh.get_rom(save.rom_id)
+    assert len(rom.saves) == 2
+
+    save = dbh.get_save(rom.saves[0].id)
+    assert save.file_name == "test_save.sav"
+
+    dbh.update_save(save.id, {"file_name": "test_save_2.sav"})
+    save = dbh.get_save(save.id)
+    assert save.file_name == "test_save_2.sav"
+
+    dbh.delete_save(save.id)
+
+    rom = dbh.get_rom(save.rom_id)
+    assert len(rom.saves) == 1
+
+
+def test_states(state):
+    dbh.add_state(
+        State(
+            rom_id=state.rom_id,
+            platform_slug=state.platform_slug,
+            file_name="test_state_2.state",
+            file_name_no_tags="test_state_2",
+            file_extension="state",
+            file_path=f"{state.platform_slug}/states",
+            file_size_bytes=1.0,
+        )
+    )
+
+    rom = dbh.get_rom(state.rom_id)
+    assert len(rom.states) == 2
+
+    state = dbh.get_state(rom.states[0].id)
+    assert state.file_name == "test_state.state"
+
+    dbh.update_state(state.id, {"file_name": "test_state_2.state"})
+    state = dbh.get_state(state.id)
+    assert state.file_name == "test_state_2.state"
+
+    dbh.delete_state(state.id)
+
+    rom = dbh.get_rom(state.rom_id)
+    assert len(rom.states) == 1
+
+
+def test_screenshots(screenshot):
+    dbh.add_screenshot(
+        Screenshot(
+            rom_id=screenshot.rom_id,
+            platform_slug=screenshot.platform_slug,
+            file_name="test_screenshot_2.png",
+            file_name_no_tags="test_screenshot_2",
+            file_extension="png",
+            file_path=f"{screenshot.platform_slug}/screenshots",
+            file_size_bytes=1.0,
+        )
+    )
+
+    rom = dbh.get_rom(screenshot.rom_id)
+    assert len(rom.screenshots) == 2
+
+    screenshot = dbh.get_screenshot(rom.screenshots[0].id)
+    assert screenshot.file_name == "test_screenshot.png"
+
+    dbh.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
+    screenshot = dbh.get_screenshot(screenshot.id)
+    assert screenshot.file_name == "test_screenshot_2.png"
+
+    dbh.delete_screenshot(screenshot.id)
+
+    rom = dbh.get_rom(screenshot.rom_id)
+    assert len(rom.screenshots) == 1

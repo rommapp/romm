@@ -31,8 +31,8 @@ const saveFiles = ref(false);
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn rounded="0" block :disabled="!saveFiles"
-        ><v-icon icon="mdi-content-save-all" size="large"
+      <v-btn rounded="0" block disabled
+        ><v-icon icon="mdi-play" size="large"
       /></v-btn>
     </v-col>
     <v-col>

@@ -28,14 +28,6 @@ class RomsNotFoundException(Exception):
         return self.message
 
 
-class RomNotFoundError(Exception):
-    def __init__(self, rom: str, platform: str):
-        self.message = f"Rom {rom} not found for platform {platform}"
-        super().__init__(self.message)
-
-    def __repr__(self):
-        return self.message
-
 
 class RomAlreadyExistsException(Exception):
     def __init__(self, rom_name: str):

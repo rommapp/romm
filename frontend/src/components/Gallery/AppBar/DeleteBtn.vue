@@ -17,7 +17,7 @@ const platform = platforms.value.find(
 <template>
   <v-list-item
     v-if="platform"
-    class="py-4 pr-5 text-red"
+    class="py-4 pr-5 text-romm-red"
     @click="emitter?.emit('showDeletePlatformDialog', platform)"
   >
     <v-list-item-title class="d-flex">

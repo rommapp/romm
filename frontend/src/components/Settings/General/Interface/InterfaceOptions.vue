@@ -3,7 +3,9 @@ import { ref } from "vue";
 import { isUndefined } from "lodash";
 
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
-const groupRoms = ref(isUndefined(storedGroupRoms) ? true : storedGroupRoms === "true");
+const groupRoms = ref(
+  isUndefined(storedGroupRoms) ? true : storedGroupRoms === "true"
+);
 
 // Functions
 function toggleGroupRoms() {
@@ -22,19 +24,31 @@ function toggleGroupRoms() {
 
     <v-divider class="border-opacity-25" />
 
-    <v-card-text class="pa-3">
-      <v-row>
-        <v-col cols="6">
-          <span class="font-weight-bold text-body-1">Group roms</span>
-          <p class="mt-1">
-            Group versions of the same rom together in the gallery
-          </p>
+    <v-card-text>
+      <v-row no-gutters class="align-center">
+        <v-col cols="8" lg="4" class="d-flex">
+          <v-icon
+            :class="groupRoms ? 'text-romm-accent-1' : ''"
+            :icon="groupRoms ? 'mdi-group' : 'mdi-ungroup'"
+          />
+          <div class="ml-3">
+            <span
+              class="font-weight-bold text-body-1"
+              :class="groupRoms ? 'text-romm-accent-1' : ''"
+              >Group roms</span
+            >
+            <p class="mt-1">
+              Group versions of the same rom together in the gallery
+            </p>
+          </div>
         </v-col>
-        <v-col cols="6" class="text-right">
+        <v-col cols="4">
           <v-switch
+            class="ml-10"
             v-model="groupRoms"
             color="romm-accent-1"
             @update:model-value="toggleGroupRoms"
+            hide-details
           ></v-switch>
         </v-col>
       </v-row>

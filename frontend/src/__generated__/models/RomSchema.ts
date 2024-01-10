@@ -3,6 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { SaveSchema } from './SaveSchema';
+import type { ScreenshotSchema } from './ScreenshotSchema';
+import type { StateSchema } from './StateSchema';
+
 export type RomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -30,8 +34,11 @@ export type RomSchema = {
     tags: Array<string>;
     multi: boolean;
     files: Array<string>;
+    saves: Array<SaveSchema>;
+    states: Array<StateSchema>;
+    screenshots: Array<ScreenshotSchema>;
     url_screenshots: Array<string>;
-    path_screenshots: Array<string>;
+    merged_screenshots: Array<string>;
     full_path: string;
     download_path: string;
 };

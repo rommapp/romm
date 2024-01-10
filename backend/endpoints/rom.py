@@ -1,31 +1,40 @@
 import json
 from datetime import datetime
-from stat import S_IFREG
-from typing import Annotated, Optional
-
-from config import LIBRARY_BASE_PATH
-from exceptions.fs_exceptions import RomAlreadyExistsException, RomNotFoundError
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse, StreamingResponse
-from fastapi_pagination.cursor import CursorPage, CursorParams
+from typing import Optional, Annotated
+from typing_extensions import TypedDict
+from fastapi import (
+    APIRouter,
+    Request,
+    status,
+    HTTPException,
+    File,
+    UploadFile,
+)
+from fastapi import Query
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler import dbh
-from logger.logger import log
-from models import Rom
+from fastapi_pagination.cursor import CursorPage, CursorParams
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
-from typing_extensions import TypedDict
+from stat import S_IFREG
+
+from config import LIBRARY_BASE_PATH
+from exceptions.fs_exceptions import RomAlreadyExistsException
+from handler import dbh
+from models import Rom
+from logger.logger import log
+from endpoints.assets import SaveSchema, StateSchema, ScreenshotSchema
 from utils import get_file_name_with_no_tags
-from utils.fs import (
-    _rom_exists,
-    build_artwork_path,
-    build_upload_roms_path,
-    get_cover,
-    get_screenshots,
-    remove_rom,
-    rename_rom,
-)
 from utils.oauth import protected_route
+from utils.fs import (
+    _file_exists,
+    build_artwork_path,
+    build_upload_file_path,
+    rename_file,
+    get_rom_cover,
+    get_rom_screenshots,
+    remove_file,
+)
 from utils.socket import socket_server
 
 router = APIRouter()
@@ -64,9 +73,11 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[str]
-
+    saves: list[SaveSchema]
+    states: list[StateSchema]
+    screenshots: list[ScreenshotSchema]
     url_screenshots: list[str]
-    path_screenshots: list[str]
+    merged_screenshots: list[str]
     full_path: str
 
     download_path: str
@@ -185,21 +196,21 @@ def upload_roms(
     """
 
     platform_fs_slug = dbh.get_platform(platform_slug).fs_slug
-    log.info(f"Uploading files to: {platform_fs_slug}")
+    log.info(f"Uploading roms to {platform_fs_slug}")
     if roms is None:
-        log.error("No files were uploaded")
+        log.error("No roms were uploaded")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No files were uploaded",
+            detail="No roms were uploaded",
         )
 
-    roms_path = build_upload_roms_path(platform_fs_slug)
+    roms_path = build_upload_file_path(platform_fs_slug)
 
     uploaded_roms = []
     skipped_roms = []
 
     for rom in roms:
-        if _rom_exists(platform_slug, rom.filename):
+        if _file_exists(roms_path, rom.filename):
             log.warning(f" - Skipping {rom.filename} since the file already exists")
             skipped_roms.append(rom.filename)
             continue
@@ -319,7 +330,11 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            rename_rom(platform_fs_slug, db_rom.file_name, fs_safe_file_name)
+            rename_file(
+                old_name=db_rom.file_name,
+                new_name=fs_safe_file_name,
+                file_path=db_rom.file_path,
+            )
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
@@ -329,7 +344,7 @@ async def update_rom(
     cleaned_data["file_name"] = fs_safe_file_name
     cleaned_data["file_name_no_tags"] = get_file_name_with_no_tags(fs_safe_file_name)
     cleaned_data.update(
-        get_cover(
+        get_rom_cover(
             overwrite=True,
             fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
@@ -338,7 +353,7 @@ async def update_rom(
     )
 
     cleaned_data.update(
-        get_screenshots(
+        get_rom_screenshots(
             fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
@@ -395,9 +410,11 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False) -> Rom:
     if delete_from_fs:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
-            remove_rom(rom.platform_slug, rom.file_name)
-        except RomNotFoundError as e:
-            error = f"Couldn't delete from filesystem: {str(e)}"
+            remove_file(file_name=rom.file_name, file_path=rom.file_path)
+        except FileNotFoundError:
+            error = (
+                f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
+            )
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
     return rom
@@ -424,7 +441,7 @@ def delete_rom(
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])
-async def mass_delete_roms(
+async def delete_roms(
     request: Request,
     delete_from_fs: bool = False,
 ) -> MassDeleteRomResponse:

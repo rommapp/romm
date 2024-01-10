@@ -10,7 +10,6 @@ import pydash
 import requests
 import xmltodict
 from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
-from igdb.wrapper import IGDBWrapper
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from tasks.update_mame_xml import update_mame_xml_task
@@ -72,15 +71,14 @@ class IGDBHandler:
             "Authorization": f"Bearer {self.twitch_auth.get_oauth_token()}",
             "Accept": "application/json",
         }
-        self.wrapper = IGDBWrapper(IGDB_CLIENT_ID, self.twitch_auth.get_oauth_token())
 
     @staticmethod
     def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].wrapper = IGDBWrapper(
-                IGDB_CLIENT_ID, args[0].twitch_auth.get_oauth_token()
-            )
+            args[0].headers[
+                "Authorization"
+            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
             return func(*args)
 
         return wrapper
