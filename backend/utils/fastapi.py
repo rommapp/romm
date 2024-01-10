@@ -2,7 +2,7 @@ from typing import Any
 
 import emoji
 import os
-from config.config_loader import config
+from config.config_manager import config
 from models import Platform, Rom, Save, State, Screenshot
 from handler import dbh, igdbh
 from logger.logger import log

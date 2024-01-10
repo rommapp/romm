@@ -8,7 +8,7 @@ from handler import dbh
 from utils.fs import build_upload_file_path, remove_file
 from utils.fastapi import scan_save, scan_state
 from logger.logger import log
-from config.config_loader import config
+from config.config_manager import config
 
 
 router = APIRouter()

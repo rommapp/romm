@@ -8,7 +8,7 @@ from config import (
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
-from config.config_loader import config
+from config.config_manager import config
 from endpoints.scan import scan_platforms
 from logger.logger import log
 from tasks.utils import tasks_scheduler
