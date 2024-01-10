@@ -66,8 +66,8 @@ const runAllTasks = async () => {
           cols="12"
           md="4"
           sm="6"
+          class="status-item d-flex"
           :class="{
-            'status-item d-flex': true,
             disabled: !task.ENABLED,
           }"
         >

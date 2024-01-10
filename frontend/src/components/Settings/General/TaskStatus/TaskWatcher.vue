@@ -9,8 +9,8 @@ defineProps<{ watcher: Heartbeat["WATCHER"] }>();
     md="4"
     sm="4"
     lg="4"
+    class="status-item d-flex"
     :class="{
-      'status-item d-flex': true,
       disabled: !watcher?.ENABLED,
     }"
   >
