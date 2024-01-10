@@ -26,19 +26,11 @@ const downloadStore = storeDownload();
           rounded="0"
           variant="text"
         />
-        <v-btn
-        class="action-bar-btn"
-          icon="mdi-content-save-all"
-          size="x-small"
-          rounded="0"
-          variant="text"
-          :disabled="!saveFiles"
-        />
       </v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
-          class="action-bar-btn"
+            class="action-bar-btn"
             :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             icon="mdi-dots-vertical"
@@ -49,7 +41,6 @@ const downloadStore = storeDownload();
         </template>
         <admin-menu :rom="rom" />
       </v-menu>
-
     </v-row>
   </v-card-text>
 </template>
