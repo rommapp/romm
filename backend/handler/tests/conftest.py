@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config.config_loader import ConfigLoader
-from models import Platform, Rom, User
+from models import Platform, Rom, User, Save, State, Screenshot
 from models.user import Role
 from utils.auth import get_password_hash
 from .. import dbh
@@ -21,6 +21,9 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(Save).delete(synchronize_session="evaluate")
+        s.query(State).delete(synchronize_session="evaluate")
+        s.query(Screenshot).delete(synchronize_session="evaluate")
         s.query(Rom).delete(synchronize_session="evaluate")
         s.query(Platform).delete(synchronize_session="evaluate")
         s.query(User).delete(synchronize_session="evaluate")
@@ -35,20 +38,62 @@ def platform():
 
 
 @pytest.fixture
-def rom(platform):
+def rom(platform: Platform):
     rom = Rom(
         name="test_rom",
         slug="test_rom_slug",
-        platform_slug="test_platform_slug",
+        platform_slug=platform.slug,
         file_name="test_rom.zip",
         file_name_no_tags="test_rom",
         file_extension="zip",
-        file_path="test_platform_slug/roms",
+        file_path=f"{platform.slug}/roms",
         file_size=1.0,
         file_size_units="MB",
     )
     return dbh.add_rom(rom)
 
+
+@pytest.fixture
+def save(rom: Rom):
+    save = Save(
+        rom_id=rom.id,
+        platform_slug=rom.platform_slug,
+        file_name="test_save.sav",
+        file_name_no_tags="test_save",
+        file_extension="sav",
+        emulator="test_emulator",
+        file_path=f"{rom.platform_slug}/saves/test_emulator",
+        file_size_bytes=1.0,
+    )
+    return dbh.add_save(save)
+
+
+@pytest.fixture
+def state(rom: Rom):
+    state = State(
+        rom_id=rom.id,
+        platform_slug=rom.platform_slug,
+        file_name="test_state.state",
+        file_name_no_tags="test_state",
+        file_extension="state",
+        emulator="test_emulator",
+        file_path=f"{rom.platform_slug}/states/test_emulator",
+        file_size_bytes=2.0,
+    )
+    return dbh.add_state(state)
+
+
+@pytest.fixture
+def screenshot(rom: Rom):
+    screenshot = Screenshot(
+        rom_id=rom.id,
+        file_name="test_screenshot.png",
+        file_name_no_tags="test_screenshot",
+        file_extension="png",
+        file_path=f"{rom.platform_slug}/screenshots",
+        file_size_bytes=3.0,
+    )
+    return dbh.add_screenshot(screenshot)
 
 @pytest.fixture
 def admin_user():
