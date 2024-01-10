@@ -110,6 +110,7 @@ def upload_saves(
 async def delete_saves(request: Request) -> list[SaveSchema]:
     data: dict = await request.json()
     save_ids: list = data["saves"]
+    delete_from_fs: bool = data["delete_from_fs"]
 
     if not save_ids:
         error = "No saves were provided"
@@ -122,18 +123,18 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-        log.info(f"Deleting {save.file_name} from filesystem")
+        
         dbh.delete_save(save_id)
 
-        try:
-            remove_file(
-                save.rom.platform.fs_slug, save.file_name, folder=config.SAVES_FOLDER_NAME
-            )
-        except FileNotFoundError:
-            error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        if delete_from_fs:
+            log.info(f"Deleting {save.file_name} from filesystem")
+
+            try:
+                remove_file(file_name=save.file_name, file_path=save.file_path)
+            except FileNotFoundError:
+                error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
+                log.error(error)
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     rom = dbh.get_rom(save.rom_id)
     return rom.saves
@@ -180,6 +181,7 @@ def upload_states(
 async def delete_states(request: Request) -> list[StateSchema]:
     data: dict = await request.json()
     state_ids: list = data["states"]
+    delete_from_fs: bool = data["delete_from_fs"]
 
     if not state_ids:
         error = "No states were provided"
@@ -193,17 +195,16 @@ async def delete_states(request: Request) -> list[StateSchema]:
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        log.info(f"Deleting {state.file_name} from filesystem")
         dbh.delete_state(state_id)
-
-        try:
-            remove_file(
-                state.rom.platform.fs_slug, state.file_name, folder=config.STATES_FOLDER_NAME
-            )
-        except FileNotFoundError:
-            error = f"Save file {state.file_name} not found for platform {state.platform_slug}"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        
+        if delete_from_fs:
+            log.info(f"Deleting {state.file_name} from filesystem")
+            try:
+                remove_file(file_name=state.file_name, file_path=state.file_path)
+            except FileNotFoundError:
+                error = f"Save file {state.file_name} not found for platform {state.platform_slug}"
+                log.error(error)
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     rom = dbh.get_rom(state.rom_id)
     return rom.states

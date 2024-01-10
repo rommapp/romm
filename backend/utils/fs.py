@@ -421,26 +421,22 @@ def _file_exists(path: str, file_name: str):
     return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
 
 
-def rename_file(
-    fs_slug: str, old_name: str, new_name: str, folder: str = config.ROMS_FOLDER_NAME
-):
+def rename_file(old_name: str, new_name: str, file_path: str):
     if new_name != old_name:
-        files_path = get_fs_structure(fs_slug, folder=folder)
-        if _file_exists(path=files_path, file_name=new_name):
+        if _file_exists(path=file_path, file_name=new_name):
             raise RomAlreadyExistsException(new_name)
 
         os.rename(
-            f"{LIBRARY_BASE_PATH}/{files_path}/{old_name}",
-            f"{LIBRARY_BASE_PATH}/{files_path}/{new_name}",
+            f"{LIBRARY_BASE_PATH}/{file_path}/{old_name}",
+            f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
         )
 
 
-def remove_file(fs_slug: str, file_name: str, folder: str = config.ROMS_FOLDER_NAME):
-    files_path = get_fs_structure(fs_slug, folder=folder)
+def remove_file(file_name: str, file_path: str):
     try:
-        os.remove(f"{LIBRARY_BASE_PATH}/{files_path}/{file_name}")
+        os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
     except IsADirectoryError:
-        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{files_path}/{file_name}")
+        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
 
 
 def build_upload_file_path(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
