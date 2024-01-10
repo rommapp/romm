@@ -131,6 +131,7 @@ onMounted(() => {
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
+            color="romm-accent-1"
             :disabled="item.raw.id == auth.user?.id"
             v-model="item.raw.enabled"
             @change="disableUser(item.raw)"
