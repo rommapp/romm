@@ -1,0 +1,21 @@
+<script setup lang="ts">
+import type { Rom } from "@/stores/roms";
+import { useDisplay } from "vuetify";
+
+defineProps<{ rom: Rom }>();
+const { xs } = useDisplay();
+</script>
+<template>
+  <v-carousel
+    hide-delimiter-background
+    delimiter-icon="mdi-square"
+    class="bg-romm-black"
+    show-arrows="hover"
+    :height="xs ? '200' : '350'"
+  >
+    <v-carousel-item
+      v-for="screenshot_url in rom.merged_screenshots"
+      :src="screenshot_url"
+    />
+  </v-carousel>
+</template>

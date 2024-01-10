@@ -8,7 +8,6 @@ import type { Rom } from "@/stores/roms";
 
 // Props
 defineProps<{ rom: Rom }>();
-const saveFiles = ref(false);
 const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
@@ -26,19 +25,19 @@ const downloadStore = storeDownload();
           rounded="0"
           variant="text"
         />
-        <v-btn
+        <!-- <v-btn
         class="action-bar-btn"
-          icon="mdi-content-save-all"
+          icon="mdi-play"
           size="x-small"
           rounded="0"
           variant="text"
-          :disabled="!saveFiles"
-        />
+          disabled
+        /> -->
       </v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
-          class="action-bar-btn"
+            class="action-bar-btn"
             :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             icon="mdi-dots-vertical"
@@ -49,7 +48,6 @@ const downloadStore = storeDownload();
         </template>
         <admin-menu :rom="rom" />
       </v-menu>
-
     </v-row>
   </v-card-text>
 </template>

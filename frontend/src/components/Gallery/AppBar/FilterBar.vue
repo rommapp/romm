@@ -33,7 +33,7 @@ const filterRoms = debounce(() => {
     @keyup="filterRoms"
     v-model="filterValue"
     prepend-inner-icon="mdi-magnify"
-    label="search"
+    label="Search"
     rounded="0"
     hide-details
     clearable

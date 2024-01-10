@@ -11,5 +11,10 @@ export type ConfigDict = {
     EXCLUDED_MULTI_PARTS_EXT: Array<string>;
     EXCLUDED_MULTI_PARTS_FILES: Array<string>;
     PLATFORMS_BINDING: Record<string, string>;
+    ROMS_FOLDER_NAME: string;
+    SAVES_FOLDER_NAME: string;
+    STATES_FOLDER_NAME: string;
+    SCREENSHOTS_FOLDER_NAME: string;
+    HIGH_PRIO_STRUCTURE_PATH: string;
 };
 

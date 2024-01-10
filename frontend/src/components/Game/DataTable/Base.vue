@@ -71,9 +71,7 @@ const romsPerPage = ref(-1);
 
 // Functions
 function rowClick(_: Event, row: any) {
-  router.push(
-    `/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`
-  );
+  router.push(`/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`);
 }
 </script>
 
@@ -123,7 +121,7 @@ function rowClick(_: Event, row: any) {
     <template v-slot:item.actions="{ item }">
       <template v-if="item.raw.multi">
         <v-btn
-          class="my-1"
+          class="ma-1"
           rounded="0"
           @click.stop="api.downloadRom({ rom: item.raw })"
           :disabled="downloadStore.value.includes(item.raw.id)"
@@ -135,7 +133,7 @@ function rowClick(_: Event, row: any) {
       </template>
       <template v-else>
         <v-btn
-          class="my-1"
+          class="ma-1 bg-terciary"
           rounded="0"
           @click.stop=""
           :href="`${location}${item.raw.download_path}`"
@@ -145,14 +143,14 @@ function rowClick(_: Event, row: any) {
           ><v-icon>mdi-download</v-icon></v-btn
         >
       </template>
-      <v-btn
+      <!-- <v-btn
         size="small"
         variant="text"
-        :disabled="!saveFiles"
-        class="my-1"
+        disabled
+        class="my-1 bg-terciary"
         rounded="0"
-        ><v-icon>mdi-content-save-all</v-icon></v-btn
-      >
+        ><v-icon>mdi-play</v-icon></v-btn
+      > -->
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
@@ -161,7 +159,7 @@ function rowClick(_: Event, row: any) {
             v-bind="props"
             size="small"
             variant="text"
-            class="my-1"
+            class="ma-1 bg-terciary"
             ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
         </template>

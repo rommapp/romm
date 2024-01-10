@@ -5,32 +5,32 @@ import shutil
 from enum import Enum
 from pathlib import Path
 from urllib.parse import quote
+from PIL import Image
+from typing import Final
 
 import requests
 from config import (
-    DEFAULT_HEIGHT_COVER_L,
-    DEFAULT_HEIGHT_COVER_S,
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_PATH_COVER_S,
-    DEFAULT_URL_COVER_L,
-    DEFAULT_URL_COVER_S,
-    DEFAULT_WIDTH_COVER_L,
-    DEFAULT_WIDTH_COVER_S,
-    HIGH_PRIO_STRUCTURE_PATH,
     LIBRARY_BASE_PATH,
-    RESOURCES_BASE_PATH,
-    ROMS_FOLDER_NAME,
+    ROMM_BASE_PATH,
+    DEFAULT_URL_COVER_L,
+    DEFAULT_PATH_COVER_L,
+    DEFAULT_URL_COVER_S,
+    DEFAULT_PATH_COVER_S,
 )
 from config.config_loader import config
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomAlreadyExistsException,
-    RomNotFoundError,
     RomsNotFoundException,
 )
-from PIL import Image
 
 from . import get_file_extension
+
+RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
+DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
+DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
+DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
+DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
 
 
 # ========= Resources utils =========
@@ -114,7 +114,7 @@ def _get_cover_path(fs_slug: str, rom_name: str, size: CoverSize):
     return f"{fs_slug}/{rom_name}/cover/{size.value}.png?timestamp={strtime}"
 
 
-def get_cover(
+def get_rom_cover(
     overwrite: bool, fs_slug: str, rom_name: str, url_cover: str = ""
 ) -> dict:
     q_rom_name = quote(rom_name)
@@ -172,13 +172,14 @@ def _get_screenshot_path(fs_slug: str, rom_name: str, idx: str):
     return f"{fs_slug}/{rom_name}/screenshots/{idx}.jpg"
 
 
-def get_screenshots(fs_slug: str, rom_name: str, url_screenshots: list) -> dict:
+def get_rom_screenshots(fs_slug: str, rom_name: str, url_screenshots: list) -> dict:
     q_rom_name = quote(rom_name)
 
     path_screenshots: list[str] = []
     for idx, url in enumerate(url_screenshots):
         _store_screenshot(fs_slug, rom_name, url, idx)
         path_screenshots.append(_get_screenshot_path(fs_slug, q_rom_name, str(idx)))
+
     return {"path_screenshots": path_screenshots}
 
 
@@ -196,9 +197,7 @@ def store_default_resources():
 # ========= Platforms utils =========
 def _exclude_platforms(platforms: list):
     return [
-        platform
-        for platform in platforms
-        if platform not in config["EXCLUDED_PLATFORMS"]
+        platform for platform in platforms if platform not in config.EXCLUDED_PLATFORMS
     ]
 
 
@@ -210,8 +209,8 @@ def get_platforms() -> list[str]:
     """
     try:
         platforms: list[str] = (
-            list(os.walk(HIGH_PRIO_STRUCTURE_PATH))[0][1]
-            if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
+            list(os.walk(config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
+            if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
             else list(os.walk(LIBRARY_BASE_PATH))[0][1]
         )
         return _exclude_platforms(platforms)
@@ -220,33 +219,33 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def get_roms_structure(fs_slug: str):
+def get_fs_structure(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
     return (
-        f"{ROMS_FOLDER_NAME}/{fs_slug}"
-        if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
-        else f"{fs_slug}/{ROMS_FOLDER_NAME}"
+        f"{folder}/{fs_slug}"
+        if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
+        else f"{fs_slug}/{folder}"
     )
 
 
 def _exclude_files(files, filetype) -> list[str]:
-    excluded_extensions = config[f"EXCLUDED_{filetype.upper()}_EXT"]
-    excluded_names = config[f"EXCLUDED_{filetype.upper()}_FILES"]
+    excluded_extensions = getattr(config, f"EXCLUDED_{filetype.upper()}_EXT")
+    excluded_names = getattr(config, f"EXCLUDED_{filetype.upper()}_FILES")
     excluded_files: list = []
 
-    for file in files:
+    for file_name in files:
         # Split the file name to get the extension.
-        ext = get_file_extension({"file_name": file, "multi": False})
+        ext = get_file_extension(file_name)
 
         # Exclude the file if it has no extension or the extension is in the excluded list.
         if not ext or ext in excluded_extensions:
-            excluded_files.append(file)
+            excluded_files.append(file_name)
 
         # Additionally, check if the file name mathes a pattern in the excluded list.
         if len(excluded_names) > 0:
             [
-                excluded_files.append(file)
+                excluded_files.append(file_name)
                 for name in excluded_names
-                if file == name or fnmatch.fnmatch(file, name)
+                if file_name == name or fnmatch.fnmatch(file_name, name)
             ]
 
     # Return files that are not in the filtered list.
@@ -254,7 +253,7 @@ def _exclude_files(files, filetype) -> list[str]:
 
 
 def _exclude_multi_roms(roms) -> list[str]:
-    excluded_names = config["EXCLUDED_MULTI_FILES"]
+    excluded_names = config.EXCLUDED_MULTI_FILES
     filtered_files: list = []
 
     for rom in roms:
@@ -282,7 +281,7 @@ def get_roms(fs_slug: str):
     Returns:
         list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
     """
-    roms_path = get_roms_structure(fs_slug)
+    roms_path = get_fs_structure(fs_slug)
     roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
 
     try:
@@ -311,6 +310,80 @@ def get_roms(fs_slug: str):
     ]
 
 
+def get_assets(platform_slug: str):
+    saves_path = get_fs_structure(platform_slug, folder=config.SAVES_FOLDER_NAME)
+    saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
+
+    fs_saves: list[str] = []
+    fs_states: list[str] = []
+    fs_screenshots: list[str] = []
+
+    try:
+        emulators = list(os.walk(saves_file_path))[0][1]
+        for emulator in emulators:
+            fs_saves += [
+                (emulator, file)
+                for file in list(os.walk(f"{saves_file_path}/{emulator}"))[0][2]
+            ]
+
+        fs_saves += [(None, file) for file in list(os.walk(saves_file_path))[0][2]]
+    except IndexError:
+        pass
+
+    states_path = get_fs_structure(platform_slug, folder=config.STATES_FOLDER_NAME)
+    states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
+
+    try:
+        emulators = list(os.walk(states_file_path))[0][1]
+        for emulator in emulators:
+            fs_states += [
+                (emulator, file)
+                for file in list(os.walk(f"{states_file_path}/{emulator}"))[0][2]
+            ]
+
+        fs_states += [(None, file) for file in list(os.walk(states_file_path))[0][2]]
+    except IndexError:
+        pass
+
+    screenshots_path = get_fs_structure(
+        platform_slug, folder=config.SCREENSHOTS_FOLDER_NAME
+    )
+    screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
+
+    try:
+        fs_screenshots += [file for file in list(os.walk(screenshots_file_path))[0][2]]
+    except IndexError:
+        pass
+
+    return {
+        "saves": fs_saves,
+        "states": fs_states,
+        "screenshots": fs_screenshots,
+    }
+
+
+def get_screenshots():
+    screenshots_path = f"{LIBRARY_BASE_PATH}/{config.SCREENSHOTS_FOLDER_NAME}"
+
+    fs_screenshots = []
+
+    try:
+        platforms = list(os.walk(screenshots_path))[0][1]
+        for platform in platforms:
+            fs_screenshots += [
+                (platform, file)
+                for file in list(os.walk(f"{screenshots_path}/{platform}"))[0][2]
+            ]
+
+        fs_screenshots += [
+            (None, file) for file in list(os.walk(screenshots_path))[0][2]
+        ]
+    except IndexError:
+        pass
+
+    return fs_screenshots
+
+
 def get_rom_file_size(
     roms_path: str, file_name: str, multi: bool, multi_files: list = []
 ):
@@ -332,43 +405,42 @@ def get_rom_file_size(
     return round(total_size, 2), unit
 
 
-def _rom_exists(fs_slug: str, file_name: str):
-    """Check if rom exists in filesystem
+def get_fs_file_size(asset_path: str, file_name: str):
+    return os.stat(f"{LIBRARY_BASE_PATH}/{asset_path}/{file_name}").st_size
+
+
+def _file_exists(path: str, file_name: str):
+    """Check if file exists in filesystem
 
     Args:
-        fs_slug: short name of the platform
-        file_name: rom file_name
+        path: path to file
+        file_name: name of file
     Returns
-        True if rom exists in filesystem else False
+        True if file exists in filesystem else False
     """
-    rom_path = get_roms_structure(fs_slug)
-    return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}"))
+    return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
 
 
-def rename_rom(fs_slug: str, old_name: str, new_name: str):
+def rename_file(old_name: str, new_name: str, file_path: str):
     if new_name != old_name:
-        rom_path = get_roms_structure(fs_slug)
-        if _rom_exists(fs_slug, new_name):
+        if _file_exists(path=file_path, file_name=new_name):
             raise RomAlreadyExistsException(new_name)
+
         os.rename(
-            f"{LIBRARY_BASE_PATH}/{rom_path}/{old_name}",
-            f"{LIBRARY_BASE_PATH}/{rom_path}/{new_name}",
+            f"{LIBRARY_BASE_PATH}/{file_path}/{old_name}",
+            f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
         )
 
 
-def remove_rom(fs_slug: str, file_name: str):
-    rom_path = get_roms_structure(fs_slug)
+def remove_file(file_name: str, file_path: str):
     try:
-        try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
-        except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{rom_path}/{file_name}")
-    except FileNotFoundError as exc:
-        raise RomNotFoundError(file_name, fs_slug) from exc
+        os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+    except IsADirectoryError:
+        shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
 
 
-def build_upload_roms_path(fs_slug: str):
-    rom_path = get_roms_structure(fs_slug)
+def build_upload_file_path(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
+    rom_path = get_fs_structure(fs_slug, folder=folder)
     return f"{LIBRARY_BASE_PATH}/{rom_path}"
 
 

@@ -11,12 +11,15 @@ import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import Cover from "@/components/Details/Cover.vue";
 import ActionBar from "@/components/Details/ActionBar.vue";
-import DetailsInfo from "@/components/Details/Info.vue";
-import ScreenshotsCarousel from "@/components/Details/ScreenshotsCarousel.vue";
+import DetailsInfo from "@/components/Details/DetailsInfo.vue";
+import Screenshots from "@/components/Details/Screenshots.vue";
+import Saves from "@/components/Details/Saves.vue";
+import States from "@/components/Details/States.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import DeleteAssetDialog from "@/components/Details/DeleteAssets.vue";
 import type { EnhancedRomSchema } from "@/__generated__";
 
 const route = useRoute();
@@ -103,36 +106,38 @@ watch(
           'info-xs': smAndDown,
         }"
       >
-        <v-row :class="{ 'position-absolute title-lg': mdAndUp }" no-gutters>
-          <title-info :rom="rom" />
+        <v-row :class="{ 'position-absolute title-lg mr-16': mdAndUp, 'justify-center': smAndDown }" no-gutters>
+          <v-col cols="12">
+            <title-info :rom="rom" />
+          </v-col>
         </v-row>
-        <v-row no-gutters>
+        <v-row
+          :class="{
+            'justify-center': smAndDown,
+          }"
+          no-gutters
+        >
           <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0">Details</v-tab>
-            <v-tab value="saves" rounded="0" disabled
-              >Saves<span class="text-caption text-truncate ml-1"
-                >[coming soon]</span
-              ></v-tab
-            >
-            <v-tab
-              v-if="rom.path_screenshots.length > 0"
-              value="screenshots"
-              rounded="0"
-              >Screenshots</v-tab
-            >
+            <v-tab value="saves" rounded="0"> Saves </v-tab>
+            <v-tab value="states" rounded="0"> States </v-tab>
+            <v-tab value="screenshots" rounded="0"> Screenshots </v-tab>
           </v-tabs>
         </v-row>
-        <v-row no-gutters>
+        <v-row no-gutters class="mb-4">
           <v-col cols="12">
-            <v-window v-model="tab" class="mt-2">
+            <v-window v-model="tab" class="py-2">
               <v-window-item value="details">
                 <details-info :rom="rom" />
               </v-window-item>
-              <v-window-item value="screenshots">
-                <screenshots-carousel :rom="rom" />
-              </v-window-item>
               <v-window-item value="saves">
-                <v-row class="d-flex mt-2"></v-row>
+                <saves :rom="rom" />
+              </v-window-item>
+              <v-window-item value="states">
+                <states :rom="rom" />
+              </v-window-item>
+              <v-window-item value="screenshots">
+                <screenshots :rom="rom" />
               </v-window-item>
             </v-window>
           </v-col>
@@ -145,6 +150,7 @@ watch(
   <edit-rom-dialog />
   <delete-rom-dialog />
   <loading-dialog />
+  <delete-asset-dialog />
 </template>
 
 <style scoped>

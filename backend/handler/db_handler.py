@@ -1,9 +1,9 @@
 import functools
 
 from config.config_loader import ConfigLoader
+from models import Platform, Rom, User, Role, Save, State, Screenshot
 from fastapi import HTTPException, status
 from logger.logger import log
-from models import Platform, Role, Rom, User
 from sqlalchemy import and_, create_engine, delete, func, or_, select, update
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
@@ -39,7 +39,11 @@ class DBHandler:
 
     @begin_session
     def get_platforms(self, session: Session = None):
-        return session.scalars(select(Platform).order_by(Platform.slug.asc())).all()
+        return (
+            session.scalars(select(Platform).order_by(Platform.slug.asc()))
+            .unique()
+            .all()
+        )
 
     @begin_session
     def get_platform(self, slug: str, session: Session = None):
@@ -67,6 +71,16 @@ class DBHandler:
 
     @begin_session
     def purge_platforms(self, platforms: list[str], session: Session = None):
+        session.execute(
+            delete(Save)
+            .where(Save.platform_slug.not_in(platforms))
+            .execution_options(synchronize_session="evaluate")
+        )
+        session.execute(
+            delete(State)
+            .where(State.platform_slug.not_in(platforms))
+            .execution_options(synchronize_session="evaluate")
+        )
         return session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(platforms), Platform.slug.is_(None)))
@@ -141,6 +155,157 @@ class DBHandler:
             .filter_by(platform_slug=platform_slug, file_name=file_name)
             .limit(1)
         ).first()
+
+    @begin_session
+    def get_rom_by_filename_no_tags(
+        self, file_name_no_tags: str, session: Session = None
+    ):
+        return session.scalars(
+            select(Rom).filter_by(file_name_no_tags=file_name_no_tags).limit(1)
+        ).first()
+
+    # ========= Saves =========
+    @begin_session
+    def add_save(self, save: Save, session: Session = None):
+        return session.merge(save)
+
+    @begin_session
+    def get_save(self, id, session: Session = None):
+        return session.get(Save, id)
+
+    @begin_session
+    def get_save_by_filename(
+        self, platform_slug: str, file_name: str, session: Session = None
+    ):
+        return session.scalars(
+            select(Save)
+            .filter_by(platform_slug=platform_slug, file_name=file_name)
+            .limit(1)
+        ).first()
+
+    @begin_session
+    def update_save(self, id: int, data: dict, session: Session = None):
+        session.execute(
+            update(Save)
+            .where(Save.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def delete_save(self, id: int, session: Session = None):
+        return session.execute(
+            delete(Save)
+            .where(Save.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def purge_saves(
+        self, platform_slug: str, saves: list[str], session: Session = None
+    ):
+        return session.execute(
+            delete(Save)
+            .where(
+                and_(Save.platform_slug == platform_slug, Save.file_name.not_in(saves))
+            )
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    # ========= States =========
+    @begin_session
+    def add_state(self, state: State, session: Session = None):
+        return session.merge(state)
+
+    @begin_session
+    def get_state(self, id, session: Session = None):
+        return session.get(State, id)
+
+    @begin_session
+    def get_state_by_filename(
+        self, platform_slug: str, file_name: str, session: Session = None
+    ):
+        return session.scalars(
+            select(State)
+            .filter_by(platform_slug=platform_slug, file_name=file_name)
+            .limit(1)
+        ).first()
+
+    @begin_session
+    def update_state(self, id: int, data: dict, session: Session = None):
+        session.execute(
+            update(State)
+            .where(State.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def delete_state(self, id: int, session: Session = None):
+        return session.execute(
+            delete(State)
+            .where(State.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def purge_states(
+        self, platform_slug: str, states: list[str], session: Session = None
+    ):
+        return session.execute(
+            delete(State)
+            .where(
+                and_(
+                    State.platform_slug == platform_slug, State.file_name.not_in(states)
+                )
+            )
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    # ========= Screenshots =========
+    @begin_session
+    def add_screenshot(self, screenshot: Screenshot, session: Session = None):
+        return session.merge(screenshot)
+
+    @begin_session
+    def get_screenshot(self, id, session: Session = None):
+        return session.get(Screenshot, id)
+
+    @begin_session
+    def get_screenshot_by_filename(self, file_name: str, session: Session = None):
+        return session.scalars(
+            select(Screenshot).filter_by(file_name=file_name).limit(1)
+        ).first()
+
+    @begin_session
+    def update_screenshot(self, id: int, data: dict, session: Session = None):
+        session.execute(
+            update(Screenshot)
+            .where(Screenshot.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def delete_screenshot(self, id: int, session: Session = None):
+        return session.execute(
+            delete(Screenshot)
+            .where(Screenshot.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+    @begin_session
+    def purge_screenshots(
+        self, screenshots: list[str], platform_slug: str = None, session: Session = None
+    ):
+        return session.execute(
+            delete(Screenshot)
+            .where(
+                Screenshot.platform_slug == platform_slug,
+                Screenshot.file_name.not_in(screenshots),
+            )
+            .execution_options(synchronize_session="evaluate")
+        )
 
     # ========= Users =========
     @begin_session

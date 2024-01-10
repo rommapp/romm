@@ -1,21 +1,21 @@
 import os
 from datetime import timedelta
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    HIGH_PRIO_STRUCTURE_PATH,
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
+from config.config_loader import config
 from endpoints.scan import scan_platforms
 from logger.logger import log
 from tasks.utils import tasks_scheduler
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
 
 path = (
-    HIGH_PRIO_STRUCTURE_PATH
-    if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
+    config.HIGH_PRIO_STRUCTURE_PATH
+    if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
     else LIBRARY_BASE_PATH
 )
 

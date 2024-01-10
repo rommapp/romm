@@ -1,15 +1,28 @@
 import emoji
 import socketio  # type: ignore
-from config import ENABLE_EXPERIMENTAL_REDIS
-from endpoints.platform import PlatformSchema
-from endpoints.rom import RomSchema
+
+from logger.logger import log
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from logger.logger import log
-from utils.fastapi import scan_platform, scan_rom
-from utils.fs import get_platforms, get_roms, store_default_resources
-from utils.redis import high_prio_queue, redis_url
+from config import ENABLE_EXPERIMENTAL_REDIS
+from utils.fastapi import (
+    scan_platform,
+    scan_rom,
+    scan_save,
+    scan_state,
+    scan_screenshot,
+)
 from utils.socket import socket_server
+from utils.fs import (
+    get_platforms,
+    get_roms,
+    store_default_resources,
+    get_assets,
+    get_screenshots,
+)
+from utils.redis import high_prio_queue, redis_url
+from endpoints.platform import PlatformSchema
+from endpoints.rom import RomSchema
 
 
 async def scan_platforms(
@@ -76,7 +89,7 @@ async def scan_platforms(
                 "  ⚠️ No roms found, verify that the folder structure is correct"
             )
         else:
-            log.warn(f"  {len(fs_roms)} roms found")
+            log.info(f"  {len(fs_roms)} roms found")
 
         for fs_rom in fs_roms:
             rom = dbh.get_rom_by_filename(scanned_platform.slug, fs_rom["file_name"])
@@ -100,7 +113,116 @@ async def scan_platforms(
                 },
             )
 
+        fs_assets = get_assets(scanned_platform.fs_slug)
+
+        # Scanning saves
+        log.info(f"\t · {len(fs_assets['saves'])} saves found")
+        for fs_emulator, fs_save_filename in fs_assets["saves"]:
+            scanned_save = scan_save(
+                platform=scanned_platform,
+                file_name=fs_save_filename,
+                emulator=fs_emulator,
+            )
+
+            save = dbh.get_save_by_filename(scanned_platform.slug, fs_save_filename)
+            if save:
+                # Update file size if changed
+                if save.file_size_bytes != scanned_save.file_size_bytes:
+                    dbh.update_save(
+                        save.id, {"file_size_bytes": scanned_save.file_size_bytes}
+                    )
+                continue
+
+            scanned_save.emulator = fs_emulator
+            scanned_save.platform_slug = scanned_platform.slug
+
+            rom = dbh.get_rom_by_filename_no_tags(scanned_save.file_name_no_tags)
+            if rom:
+                scanned_save.rom_id = rom.id
+                dbh.add_save(scanned_save)
+
+        # Scanning states
+        log.info(f"\t · {len(fs_assets['states'])} states found")
+        for fs_emulator, fs_state_filename in fs_assets["states"]:
+            scanned_state = scan_state(
+                platform=scanned_platform,
+                emulator=fs_emulator,
+                file_name=fs_state_filename,
+            )
+
+            state = dbh.get_state_by_filename(scanned_platform.slug, fs_state_filename)
+            if state:
+                # Update file size if changed
+                if state.file_size_bytes != scanned_state.file_size_bytes:
+                    dbh.update_state(
+                        state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+                    )
+
+                continue
+
+            scanned_state.emulator = fs_emulator
+            scanned_state.platform_slug = scanned_platform.slug
+
+            rom = dbh.get_rom_by_filename_no_tags(scanned_state.file_name_no_tags)
+            if rom:
+                scanned_state.rom_id = rom.id
+                dbh.add_state(scanned_state)
+
+        # Scanning screenshots
+        log.info(f"\t · {len(fs_assets['screenshots'])} screenshots found")
+        for fs_screenshot_filename in fs_assets["screenshots"]:
+            scanned_screenshot = scan_screenshot(
+                file_name=fs_screenshot_filename, fs_platform=scanned_platform.slug
+            )
+
+            screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
+            if screenshot:
+                # Update file size if changed
+                if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
+                    dbh.update_screenshot(
+                        screenshot.id,
+                        {"file_size_bytes": scanned_screenshot.file_size_bytes},
+                    )
+                continue
+
+            scanned_screenshot.platform_slug = scanned_platform.slug
+
+            rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+            if rom:
+                scanned_screenshot.rom_id = rom.id
+                dbh.add_screenshot(scanned_screenshot)
+
+        dbh.purge_saves(scanned_platform.slug, [s for _e, s in fs_assets["saves"]])
+        dbh.purge_states(scanned_platform.slug, [s for _e, s in fs_assets["states"]])
+        dbh.purge_screenshots(fs_assets["screenshots"], scanned_platform.slug)
         dbh.purge_roms(scanned_platform.slug, [rom["file_name"] for rom in fs_roms])
+
+    # Scanning screenshots outside platform folders
+    fs_screenshots = get_screenshots()
+    log.info("Screenshots")
+    log.info(f" · {len(fs_screenshots)} screenshots found")
+    for fs_platform, fs_screenshot_filename in fs_screenshots:
+        scanned_screenshot = scan_screenshot(
+            file_name=fs_screenshot_filename, fs_platform=fs_platform
+        )
+
+        screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
+        if screenshot:
+            # Update file size if changed
+            if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
+                dbh.update_screenshot(
+                    screenshot.id,
+                    {"file_size_bytes": scanned_screenshot.file_size_bytes},
+                )
+            continue
+
+        rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+        if rom:
+            scanned_screenshot.rom_id = rom.id
+            scanned_screenshot.platform_slug = rom.platform_slug
+            dbh.add_screenshot(scanned_screenshot)
+
+    dbh.purge_screenshots([s for _e, s in fs_screenshots])
     dbh.purge_platforms(fs_platforms)
 
     log.info(emoji.emojize(":check_mark:  Scan completed "))

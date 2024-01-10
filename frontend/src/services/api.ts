@@ -17,6 +17,8 @@ import type {
   UserSchema,
   MessageResponse,
   CursorPage_RomSchema_,
+  SaveSchema,
+  StateSchema,
 } from "@/__generated__";
 
 export const api = axios.create({ baseURL: "/api", timeout: 120000 });
@@ -264,6 +266,44 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 
+async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
+  let formData = new FormData();
+  saves.forEach((save) => formData.append("saves", save));
+
+  return api.put("/saves/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: { rom_id: rom.id },
+  });
+}
+
+async function deleteSaves({ saves, deleteFromFs }: { saves: SaveSchema[], deleteFromFs: boolean }) {
+  return api.post("/saves/delete", {
+    saves: saves.map((s) => s.id),
+    delete_from_fs: deleteFromFs,
+  });
+}
+
+async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
+  let formData = new FormData();
+  states.forEach((state) => formData.append("states", state));
+
+  return api.put("/states/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: { rom_id: rom.id },
+  });
+}
+
+async function deleteStates({ states, deleteFromFs }: { states: StateSchema[], deleteFromFs: boolean }) {
+  return api.post("/states/delete", {
+    states: states.map((s) => s.id),
+    delete_from_fs: deleteFromFs,
+  });
+}
+
 export default {
   fetchPlatforms,
   deletePlatform,
@@ -282,4 +322,8 @@ export default {
   createUser,
   updateUser,
   deleteUser,
+  uploadSaves,
+  deleteSaves,
+  uploadStates,
+  deleteStates,
 };

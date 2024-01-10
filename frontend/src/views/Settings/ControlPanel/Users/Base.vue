@@ -131,6 +131,7 @@ onMounted(() => {
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
+            color="romm-accent-1"
             :disabled="item.raw.id == auth.user?.id"
             v-model="item.raw.enabled"
             @change="disableUser(item.raw)"
@@ -139,6 +140,7 @@ onMounted(() => {
         </template>
         <template v-slot:item.actions="{ item }">
           <v-btn
+            variant="text"
             class="ma-1 bg-terciary"
             size="small"
             rounded="0"
@@ -147,6 +149,7 @@ onMounted(() => {
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
           <v-btn
+            variant="text"
             class="ma-1 bg-terciary text-romm-red"
             size="small"
             rounded="0"

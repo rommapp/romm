@@ -13,28 +13,19 @@ ROMM_HOST: Final = os.environ.get("ROMM_HOST", DEV_HOST)
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
-ROMS_FOLDER_NAME: Final = os.environ.get("ROMS_FOLDER_NAME", "roms")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
-FRONT_LIBRARY_PATH: Final = "/assets/romm/library"
-ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
-SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
-RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
-LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
-HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/{ROMS_FOLDER_NAME}"
+FRONTEND_LIBRARY_PATH: Final = "/assets/romm/library"
+FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
 )
 DEFAULT_PATH_COVER_L: Final = "default/default/cover/big.png"
-DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
-DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
 DEFAULT_URL_COVER_S: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
 )
 DEFAULT_PATH_COVER_S: Final = "default/default/cover/small.png"
-DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
-DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
 
 # MARIADB
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
@@ -84,17 +75,20 @@ ENABLE_SCHEDULED_RESCAN: Final = (
     os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
 )
 SCHEDULED_RESCAN_CRON: Final = os.environ.get(
-    "SCHEDULED_RESCAN_CRON", "0 3 * * *"  # At 3:00 AM every day
+    "SCHEDULED_RESCAN_CRON",
+    "0 3 * * *",  # At 3:00 AM every day
 )
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
     os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
 )
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
-    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON", "0 4 * * *"  # At 4:00 AM every day
+    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
+    "0 4 * * *",  # At 4:00 AM every day
 )
 ENABLE_SCHEDULED_UPDATE_MAME_XML: Final = (
     os.environ.get("ENABLE_SCHEDULED_UPDATE_MAME_XML", "false") == "true"
 )
 SCHEDULED_UPDATE_MAME_XML_CRON: Final = os.environ.get(
-    "SCHEDULED_UPDATE_MAME_XML_CRON", "0 5 * * *"  # At 5:00 AM every day
+    "SCHEDULED_UPDATE_MAME_XML_CRON",
+    "0 5 * * *",  # At 5:00 AM every day
 )

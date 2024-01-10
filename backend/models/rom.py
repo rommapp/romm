@@ -1,7 +1,12 @@
 import re
 from functools import cached_property
 
-from config import DEFAULT_PATH_COVER_L, DEFAULT_PATH_COVER_S, FRONT_LIBRARY_PATH
+from config import (
+    DEFAULT_PATH_COVER_S,
+    DEFAULT_PATH_COVER_L,
+    FRONTEND_LIBRARY_PATH,
+    FRONTEND_RESOURCES_PATH,
+)
 from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, relationship
 
@@ -20,20 +25,34 @@ SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
 
 class Rom(BaseModel):
-    from .platform import Platform
+    from .assets import Save, State, Screenshot
 
     __tablename__ = "roms"
+
     id = Column(Integer(), primary_key=True, autoincrement=True)
 
     igdb_id: int = Column(Integer())
     sgdb_id: int = Column(Integer())
 
-    # Foreign key to platform
     platform_slug = Column(
-        String(length=50), ForeignKey("platforms.slug"), nullable=False
+        String(length=50),
+        ForeignKey("platforms.slug"),
+        nullable=False,
     )
-    platform: Mapped[Platform] = relationship(  # noqa
-        "Platform", lazy="joined", innerjoin=True
+    platform = relationship(
+        "Platform", lazy="selectin", back_populates="roms"
+    )
+
+    saves: Mapped[list[Save]] = relationship(
+        "Save",
+        lazy="selectin",
+        back_populates="rom",
+    )
+    states: Mapped[list[State]] = relationship(
+        "State", lazy="selectin", back_populates="rom"
+    )
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        "Screenshot", lazy="selectin", back_populates="rom"
     )
 
     ### DEPRECATED ###
@@ -44,7 +63,7 @@ class Rom(BaseModel):
 
     file_name: str = Column(String(length=450), nullable=False)
     file_name_no_tags: str = Column(String(length=450), nullable=False)
-    file_extension: str = Column(String(length=10), nullable=False)
+    file_extension: str = Column(String(length=100), nullable=False)
     file_path: str = Column(String(length=1000), nullable=False)
     file_size = Column(Float, default=0.0, nullable=False)
     file_size_units: str = Column(String(length=10), nullable=False)
@@ -76,7 +95,7 @@ class Rom(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"{FRONT_LIBRARY_PATH}/{self.full_path}"
+        return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
 
     @property
     def file_size_bytes(self) -> int:
@@ -88,6 +107,12 @@ class Rom(BaseModel):
             self.path_cover_s != DEFAULT_PATH_COVER_S
             or self.path_cover_l != DEFAULT_PATH_COVER_L
         )
+
+    @cached_property
+    def merged_screenshots(self) -> list[str]:
+        return [s.download_path for s in self.screenshots] + [
+            f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
+        ]
 
     @cached_property
     def sort_comparator(self) -> str:

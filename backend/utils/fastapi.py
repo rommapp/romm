@@ -1,13 +1,14 @@
 from typing import Any
 
 import emoji
+import os
 from config.config_loader import config
+from models import Platform, Rom, Save, State, Screenshot
 from handler import dbh, igdbh
 from logger.logger import log
-from models import Platform, Rom
 from utils import fs, get_file_extension, get_file_name_with_no_tags, parse_tags
 
-SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config["PLATFORMS_BINDING"].items())
+SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config.PLATFORMS_BINDING.items())
 
 
 def scan_platform(fs_slug: str, fs_platforms) -> Platform:
@@ -35,8 +36,8 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
                 platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
 
     try:
-        if fs_slug in config["PLATFORMS_BINDING"].keys():
-            platform_attrs["slug"] = config["PLATFORMS_BINDING"][fs_slug]
+        if fs_slug in config.PLATFORMS_BINDING.keys():
+            platform_attrs["slug"] = config.PLATFORMS_BINDING[fs_slug]
         else:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
@@ -60,7 +61,7 @@ async def scan_rom(
     r_igbd_id_search: str = "",
     overwrite: bool = False,
 ) -> Rom:
-    roms_path = fs.get_roms_structure(platform.fs_slug)
+    roms_path = fs.get_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
 
@@ -81,7 +82,7 @@ async def scan_rom(
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
             "file_name_no_tags": get_file_name_with_no_tags(rom_attrs["file_name"]),
-            "file_extension": get_file_extension(rom_attrs),
+            "file_extension": get_file_extension(rom_attrs["file_name"]),
             "file_size": file_size,
             "file_size_units": file_size_units,
             "multi": rom_attrs["multi"],
@@ -113,7 +114,7 @@ async def scan_rom(
 
     # Update properties from IGDB
     rom_attrs.update(
-        fs.get_cover(
+        fs.get_rom_cover(
             overwrite=overwrite,
             fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
@@ -121,7 +122,7 @@ async def scan_rom(
         )
     )
     rom_attrs.update(
-        fs.get_screenshots(
+        fs.get_rom_screenshots(
             fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
             url_screenshots=rom_attrs["url_screenshots"],
@@ -129,3 +130,50 @@ async def scan_rom(
     )
 
     return Rom(**rom_attrs)
+
+
+def _scan_asset(file_name: str, path: str):
+    log.info(f"\t\t · {file_name}")
+
+    file_size = fs.get_fs_file_size(file_name=file_name, asset_path=path)
+
+    return {
+        "file_path": path,
+        "file_name": file_name,
+        "file_name_no_tags": get_file_name_with_no_tags(file_name),
+        "file_extension": get_file_extension(file_name),
+        "file_size_bytes": file_size,
+    }
+
+
+def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
+    saves_path = fs.get_fs_structure(platform.fs_slug, folder=config.SAVES_FOLDER_NAME)
+
+    #  Scan asset with the sames path and emulator folder name
+    if emulator:
+        return Save(**_scan_asset(file_name, os.path.join(saves_path, emulator)))
+
+    return Save(**_scan_asset(file_name, saves_path))
+
+
+def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
+    states_path = fs.get_fs_structure(
+        platform.fs_slug, folder=config.STATES_FOLDER_NAME
+    )
+
+    #  Scan asset with the sames path and emulator folder name
+    if emulator:
+        return State(**_scan_asset(file_name, os.path.join(states_path, emulator)))
+
+    return State(**_scan_asset(file_name, states_path))
+
+
+def scan_screenshot(file_name: str, fs_platform: str = None) -> Screenshot:
+    screenshots_path = fs.get_fs_structure(
+        fs_platform, folder=config.SCREENSHOTS_FOLDER_NAME
+    )
+
+    if fs_platform:
+        return Screenshot(**_scan_asset(file_name, screenshots_path))
+
+    return Screenshot(**_scan_asset(file_name, config.SCREENSHOTS_FOLDER_NAME))

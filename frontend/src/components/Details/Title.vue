@@ -5,10 +5,9 @@ import { regionToEmoji, languageToEmoji } from "@/utils";
 import type { Rom } from "@/stores/roms";
 
 defineProps<{ rom: Rom }>();
-const { mdAndUp } = useDisplay();
 </script>
 <template>
-  <v-row class="text-white text-shadow" :class="{ 'mr-16': mdAndUp }" no-gutters>
+  <v-row class="text-white text-shadow" no-gutters>
     <v-col
       cols="12"
       class="text-h5 font-weight-bold px-1"
@@ -21,7 +20,7 @@ const { mdAndUp } = useDisplay();
         :to="`/platform/${rom.platform_slug}`"
       >
         {{ rom.platform_name || rom.platform_slug }}
-        <v-avatar :rounded="0" size="40" class="ml-2 pa-1">
+        <v-avatar :rounded="0" size="40" class="ml-2 pa-2">
           <platform-icon :platform="rom.platform_slug"></platform-icon>
         </v-avatar>
       </v-chip>

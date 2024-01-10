@@ -30,8 +30,8 @@ def test_get_all_roms(access_token, rom):
     assert body["items"][0]["id"] == rom.id
 
 
-@patch("endpoints.rom.rename_rom")
-def test_update_rom(rename_rom, access_token, rom):
+@patch("endpoints.rom.rename_file")
+def test_update_rom(update_rom, access_token, rom):
     response = client.patch(
         f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -56,7 +56,7 @@ def test_update_rom(rename_rom, access_token, rom):
     body = response.json()
     assert body["file_name"] == "Metroid Prime Remastered.zip"
 
-    assert rename_rom.called
+    assert update_rom.called
 
 
 def test_delete_roms(access_token, rom):

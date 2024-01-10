@@ -43,9 +43,9 @@ const excludad_multi_roms_parts_ext =
           Platforms
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters class="mb-3">
+        <v-row no-gutters ma-1>
           <v-col class="pa-1">
-            <v-chip label class="mx-1" v-for="excluded in excluded_platforms">{{
+            <v-chip label class="ma-1" v-for="excluded in excluded_platforms">{{
               excluded
             }}</v-chip>
           </v-col>
@@ -58,11 +58,11 @@ const excludad_multi_roms_parts_ext =
           Single Roms Files
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters class="mb-3">
+        <v-row no-gutters ma-1>
           <v-col class="pa-1">
             <v-chip
               label
-              class="mx-1"
+              class="ma-1"
               v-for="excluded in excludad_single_roms_files"
               >{{ excluded }}</v-chip
             >
@@ -76,11 +76,11 @@ const excludad_multi_roms_parts_ext =
           Single Roms Extensions
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters class="mb-3">
+        <v-row no-gutters ma-1>
           <v-col class="pa-1">
             <v-chip
               label
-              class="mx-1"
+              class="ma-1"
               v-for="excluded in excludad_single_roms_ext"
               >{{ excluded }}</v-chip
             >
@@ -94,11 +94,11 @@ const excludad_multi_roms_parts_ext =
           Multi Roms Files
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters class="mb-3">
+        <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
               label
-              class="mx-1"
+              class="ma-1"
               v-for="excluded in excludad_multi_roms_files"
               >{{ excluded }}</v-chip
             >
@@ -112,11 +112,11 @@ const excludad_multi_roms_parts_ext =
           Multi Roms Parts Files
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters class="mb-3">
+        <v-row no-gutters ma-1>
           <v-col class="pa-1">
             <v-chip
               label
-              class="mx-1"
+              class="ma-1"
               v-for="excluded in excludad_multi_roms_parts_files"
               >{{ excluded }}</v-chip
             >
@@ -130,11 +130,11 @@ const excludad_multi_roms_parts_ext =
           Multi Roms Parts Extensions
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters class="mb-3">
+        <v-row no-gutters ma-1>
           <v-col class="pa-1">
             <v-chip
               label
-              class="mx-1"
+              class="ma-1"
               v-for="excluded in excludad_multi_roms_parts_ext"
               >{{ excluded }}</v-chip
             >
