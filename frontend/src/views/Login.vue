@@ -134,8 +134,6 @@ onBeforeMount(async () => {
   position: absolute;
   background: url("/assets/login_bg.png") center center;
   background-size: cover;
-  -webkit-filter: blur(3px);
-  filter: blur(3px);
 }
 #card {
   background-color: rgba(0, 0, 0, 0.4);
