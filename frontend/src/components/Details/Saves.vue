@@ -1,38 +1,35 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
+import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import api from "@/services/api";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 
 import type { SaveSchema } from "@/__generated__";
 
-const props = defineProps(["rom"]);
-const savesToUpload = ref([]);
+const props = defineProps<{ rom: Rom }>();
+const savesToUpload = ref<File[]>([]);
+const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
 
-async function deleteSave(save: SaveSchema) {
-  await api
-    .deleteSaves({
-      saves: [save],
-    })
-    .then(({ data }) => {
-      props.rom.saves = data;
-      romsStore.update(props.rom);
-    })
-    .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to delete save: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    });
+emitter?.on("romUpdated", (rom) => {
+  if (rom?.id === props.rom.id) {
+    props.rom.saves = rom.saves;
+  }
+});
+
+async function downloadSaves() {
+  selectedSaves.value.map((save) => {
+    const a = document.createElement("a");
+    a.href = save.download_path;
+    a.download = `${save.file_name}`;
+    a.click();
+  });
+
+  selectedSaves.value = [];
 }
 
 async function uploadSaves() {
@@ -54,7 +51,7 @@ async function uploadSaves() {
       savesToUpload.value = [];
 
       emitter?.emit("snackbarShow", {
-        msg: `${uploaded} files uploaded successfully!`,
+        msg: `Uploaded ${uploaded} files successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -108,6 +105,14 @@ async function uploadSaves() {
       :title="save.file_name"
       :subtitle="`${save.emulator} - ${formatBytes(save.file_size_bytes)}`"
     >
+      <template v-slot:prepend>
+        <v-checkbox
+          v-model="selectedSaves"
+          :value="save"
+          color="romm-accent-1"
+          hide-details
+        />
+      </template>
       <template v-slot:append>
         <v-btn
           icon
@@ -120,17 +125,32 @@ async function uploadSaves() {
         >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <v-btn
-          icon
-          @click="deleteSave(save)"
-          rounded="0"
-          variant="text"
-          size="small"
-          class="ml-1 bg-terciary"
-        >
-          <v-icon class="text-romm-red">mdi-delete</v-icon>
-        </v-btn>
       </template>
     </v-list-item>
   </v-list>
+  <v-btn
+    :disabled="!selectedSaves.length"
+    @click="downloadSaves()"
+    rounded="0"
+    variant="text"
+    class="mt-3 mr-3 bg-terciary"
+  >
+    <v-icon>mdi-download</v-icon>
+    Download
+  </v-btn>
+  <v-btn
+    :disabled="!selectedSaves.length"
+    @click="
+      emitter?.emit('showDeleteSavesDialog', {
+        rom: props.rom,
+        saves: selectedSaves,
+      })
+    "
+    rounded="0"
+    variant="text"
+    class="mt-3 bg-terciary text-romm-red"
+  >
+    <v-icon>mdi-delete</v-icon>
+    Delete
+  </v-btn>
 </template>

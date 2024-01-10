@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
-import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
+
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import api from "@/services/api";
@@ -10,30 +10,26 @@ import storeRoms from "@/stores/roms";
 import type { StateSchema } from "@/__generated__";
 
 const props = defineProps(["rom"]);
-const statesToUpload = ref([]);
+const statesToUpload = ref<File[]>([]);
+const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
-const { name, mdAndUp } = useDisplay();
 
-async function deleteState(state: StateSchema) {
-  await api
-    .deleteStates({
-      states: [state],
-    })
-    .then(({ data }) => {
-      props.rom.states = data;
-      romsStore.update(props.rom);
-    })
-    .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to delete state: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    });
+emitter?.on("romUpdated", (rom) => {
+  if (rom?.id === props.rom.id) {
+    props.rom.states = rom.states;
+  }
+});
+
+async function downloasStates() {
+  selectedStates.value.map((state) => {
+    const a = document.createElement("a");
+    a.href = state.download_path;
+    a.download = `${state.file_name}`;
+    a.click();
+  });
+
+  selectedStates.value = [];
 }
 
 async function uploadStates() {
@@ -55,7 +51,7 @@ async function uploadStates() {
       statesToUpload.value = [];
 
       emitter?.emit("snackbarShow", {
-        msg: `${uploaded} files uploaded successfully!`,
+        msg: `Uploaded ${uploaded} files successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -109,6 +105,14 @@ async function uploadStates() {
       :title="state.file_name"
       :subtitle="`${state.emulator} - ${formatBytes(state.file_size_bytes)}`"
     >
+      <template v-slot:prepend>
+        <v-checkbox
+          v-model="selectedStates"
+          :value="state"
+          color="romm-accent-1"
+          hide-details
+        />
+      </template>
       <template v-slot:append>
         <v-btn
           rounded="0"
@@ -121,17 +125,27 @@ async function uploadStates() {
         >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <v-btn
-          rounded="0"
-          variant="text"
-          size="small"
-          class="ml-1 bg-terciary"
-          icon
-          @click="deleteState(state)"
-        >
-          <v-icon class="text-romm-red">mdi-delete</v-icon>
-        </v-btn>
       </template>
     </v-list-item>
   </v-list>
+  <v-btn
+    :disabled="!selectedStates.length"
+    @click="downloasStates()"
+    rounded="0"
+    variant="text"
+    class="mt-3 mr-3 bg-terciary"
+  >
+    <v-icon>mdi-download</v-icon>
+    Download
+  </v-btn>
+  <v-btn
+    :disabled="!selectedStates.length"
+    @click="emitter?.emit('showDeleteStatesDialog', { rom: props.rom, states: selectedStates })"
+    rounded="0"
+    variant="text"
+    class="mt-3 bg-terciary text-romm-red"
+  >
+    <v-icon>mdi-delete</v-icon>
+    Delete
+  </v-btn>
 </template>

@@ -278,9 +278,10 @@ async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   });
 }
 
-async function deleteSaves({ saves }: { saves: SaveSchema[] }) {
+async function deleteSaves({ saves, deleteFromFs }: { saves: SaveSchema[], deleteFromFs: boolean }) {
   return api.post("/saves/delete", {
     saves: saves.map((s) => s.id),
+    delete_from_fs: deleteFromFs,
   });
 }
 
@@ -296,9 +297,10 @@ async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   });
 }
 
-async function deleteStates({ states }: { states: StateSchema[] }) {
+async function deleteStates({ states, deleteFromFs }: { states: StateSchema[], deleteFromFs: boolean }) {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),
+    delete_from_fs: deleteFromFs,
   });
 }
 

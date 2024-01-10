@@ -330,7 +330,11 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            rename_file(platform_fs_slug, db_rom.file_name, fs_safe_file_name)
+            rename_file(
+                old_name=db_rom.file_name,
+                new_name=fs_safe_file_name,
+                file_path=db_rom.file_path,
+            )
     except RomAlreadyExistsException as e:
         log.error(str(e))
         raise HTTPException(
@@ -406,7 +410,7 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False) -> Rom:
     if delete_from_fs:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
-            remove_file(rom.platform_slug, rom.file_name)
+            remove_file(file_name=rom.file_name, file_path=rom.file_path)
         except FileNotFoundError:
             error = (
                 f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"

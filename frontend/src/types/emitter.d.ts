@@ -1,6 +1,7 @@
 import type { Platform } from "@/stores/platforms";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 
 export type UserItem = User & {
   password: string;
@@ -25,6 +26,14 @@ export type Events = {
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;
   showDeleteUserDialog: UserItem;
+  showDeleteSavesDialog: {
+    rom: Rom,
+    saves: SaveSchema[];
+  }
+  showDeleteStatesDialog: {
+    rom: Rom,
+    states: StateSchema[];
+  }
   toggleDrawer: null;
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
@@ -35,4 +44,5 @@ export type Events = {
   };
   openFabMenu: boolean;
   filter: null;
+  romUpdated: Rom;
 };

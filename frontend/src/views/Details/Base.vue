@@ -19,6 +19,7 @@ import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
+import DeleteAssetDialog from "@/components/Details/DeleteAssets.vue";
 import type { EnhancedRomSchema } from "@/__generated__";
 
 const route = useRoute();
@@ -149,6 +150,7 @@ watch(
   <edit-rom-dialog />
   <delete-rom-dialog />
   <loading-dialog />
+  <delete-asset-dialog />
 </template>
 
 <style scoped>
