@@ -17,7 +17,7 @@ from config import (
     DEFAULT_URL_COVER_S,
     DEFAULT_PATH_COVER_S,
 )
-from config.config_loader import config
+from config.config_manager import config
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomAlreadyExistsException,

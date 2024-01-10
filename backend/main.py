@@ -3,7 +3,7 @@ import sys
 
 import alembic.config
 import uvicorn
-from config.config_loader import ConfigDict, config
+from config.config_manager import ConfigDict, config
 from endpoints import identity, oauth, platform, rom, scan, search, tasks  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

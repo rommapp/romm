@@ -57,7 +57,7 @@ class Config:
         self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
 
 
-class ConfigLoader:
+class ConfigManager:
     """Parse and load the user configuration from the config.yml file
 
     Raises:
@@ -143,5 +143,26 @@ class ConfigLoader:
             ),
         )
 
+    def _update_config(self) -> None:
+        try:
+            with open(self.config_path, 'w') as config_file:
+                yaml.dump(self._raw_config, config_file)
+        except FileNotFoundError:
+            self._raw_config = {}
+        finally:
+            self._parse_config()
 
-config = ConfigLoader().config
+    def add_binding(self, fs_slug: str, slug: str):
+        self._raw_config['system']['platforms'][fs_slug] = slug
+        self._update_config()
+
+    def remove_binding(self, fs_slug):
+        try:
+            del self._raw_config['system']['platforms'][fs_slug]
+        except KeyError:
+            pass
+        self._update_config()
+
+
+config_manager = ConfigManager()
+config = config_manager.config

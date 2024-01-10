@@ -132,7 +132,7 @@ def test_rom_size():
     assert rom_size == (2.0, "KB")
 
 def test__exclude_files():
-    from config.config_loader import config
+    from config.config_manager import config
 
     config.EXCLUDED_SINGLE_FILES = ["Super Mario 64 (J) (Rev A) [Part 1].z64"]
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import create_engine
 
-from config.config_loader import ConfigLoader
+from config.config_manager import ConfigManager
 from alembic import context
 from models.base import BaseModel
 
@@ -42,7 +42,7 @@ def run_migrations_offline() -> None:
     """
 
     context.configure(
-        url=ConfigLoader.get_db_engine(),
+        url=ConfigManager.get_db_engine(),
         target_metadata=target_metadata,
         render_as_batch=True,
         literal_binds=True,
@@ -62,7 +62,7 @@ def run_migrations_online() -> None:
 
     """
 
-    engine = create_engine(ConfigLoader.get_db_engine())
+    engine = create_engine(ConfigManager.get_db_engine())
 
     with engine.connect() as connection:
         context.configure(

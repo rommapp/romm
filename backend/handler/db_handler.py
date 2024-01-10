@@ -1,6 +1,6 @@
 import functools
 
-from config.config_loader import ConfigLoader
+from config.config_manager import ConfigManager
 from models import Platform, Rom, User, Role, Save, State, Screenshot
 from fastapi import HTTPException, status
 from logger.logger import log
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 class DBHandler:
     def __init__(self) -> None:
-        self.engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
+        self.engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
     @staticmethod
