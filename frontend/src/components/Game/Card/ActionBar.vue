@@ -8,7 +8,6 @@ import type { Rom } from "@/stores/roms";
 
 // Props
 defineProps<{ rom: Rom }>();
-const saveFiles = ref(false);
 const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
@@ -26,6 +25,14 @@ const downloadStore = storeDownload();
           rounded="0"
           variant="text"
         />
+        <!-- <v-btn
+        class="action-bar-btn"
+          icon="mdi-play"
+          size="x-small"
+          rounded="0"
+          variant="text"
+          disabled
+        /> -->
       </v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
