@@ -3,6 +3,7 @@ import sys
 
 import alembic.config
 import uvicorn
+from endpoints.sockets import scan
 from config import (
     DEV_HOST,
     DEV_PORT,
@@ -24,7 +25,6 @@ from endpoints import (
     oauth,
     platform,
     rom,
-    scan,  # noqa
     search,
     tasks,
     webrcade,

@@ -9,7 +9,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
 from config.config_loader import config
-from endpoints.scan import scan_platforms
+from endpoints.sockets.scan import scan_platforms
 from logger.logger import log
 from tasks.utils import tasks_scheduler
 

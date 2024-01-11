@@ -1,5 +1,5 @@
 from config import ENABLE_SCHEDULED_RESCAN, SCHEDULED_RESCAN_CRON
-from endpoints.scan import scan_platforms
+from endpoints.sockets.scan import scan_platforms
 from logger.logger import log
 
 from .utils import PeriodicTask

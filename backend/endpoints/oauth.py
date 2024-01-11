@@ -2,7 +2,6 @@ from datetime import timedelta
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing_extensions import NotRequired, TypedDict
 from utils.auth import authenticate_user
 from utils.oauth import (
     OAuth2RequestForm,
@@ -10,17 +9,12 @@ from utils.oauth import (
     get_current_active_user_from_bearer_token,
 )
 
+from endpoints.responses.oauth import TokenResponse
+
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 
 router = APIRouter()
-
-
-class TokenResponse(TypedDict):
-    access_token: str
-    refresh_token: NotRequired[str]
-    token_type: str
-    expires: int
 
 
 @router.post("/token")

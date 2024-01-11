@@ -1,59 +1,20 @@
-from pydantic import BaseModel
-from fastapi import APIRouter, Request, UploadFile, File, HTTPException, status
-from typing_extensions import TypedDict
-from typing import Optional
 from pathlib import Path
-from utils.oauth import protected_route
-from handler import dbh
-from utils.fs import build_upload_file_path, remove_file
-from utils.fastapi import scan_save, scan_state
-from logger.logger import log
-from config.config_loader import config
 
+from config.config_loader import config
+from endpoints.responses.assets import (
+    SaveSchema,
+    StateSchema,
+    UploadedSavesResponse,
+    UploadedStatesResponse,
+)
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from handler import dbh
+from logger.logger import log
+from utils.fastapi import scan_save, scan_state
+from utils.fs import build_upload_file_path, remove_file
+from utils.oauth import protected_route
 
 router = APIRouter()
-
-
-class BaseAsset(BaseModel):
-    id: int
-
-    file_name: str
-    file_name_no_tags: str
-    file_extension: str
-    file_path: str
-    file_size_bytes: int
-    full_path: str
-    download_path: str
-
-    class Config:
-        from_attributes = True
-
-
-class SaveSchema(BaseAsset):
-    rom_id: int
-    platform_slug: str
-    emulator: Optional[str]
-
-
-class StateSchema(BaseAsset):
-    rom_id: int
-    platform_slug: str
-    emulator: Optional[str]
-
-
-class ScreenshotSchema(BaseAsset):
-    rom_id: int
-    platform_slug: Optional[str]
-
-
-class UploadedSavesResponse(TypedDict):
-    uploaded: int
-    saves: list[SaveSchema]
-
-
-class UploadedStatesResponse(TypedDict):
-    uploaded: int
-    states: list[StateSchema]
 
 
 def write_file(file: UploadFile, path: str) -> None:
@@ -123,7 +84,7 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-        
+
         dbh.delete_save(save_id)
 
         if delete_from_fs:
@@ -196,7 +157,7 @@ async def delete_states(request: Request) -> list[StateSchema]:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         dbh.delete_state(state_id)
-        
+
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
