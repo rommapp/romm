@@ -8,16 +8,13 @@ defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-row class="text-white text-shadow" no-gutters>
-    <v-col
-      cols="12"
-      class="text-h5 font-weight-bold px-1"
-    >
+    <v-col cols="12" class="text-h5 font-weight-bold px-1">
       <span>{{ rom.name }}</span>
     </v-col>
     <v-col cols="12">
       <v-chip
         class="font-italic px-3 my-2"
-        :to="`/platform/${rom.platform_slug}`"
+        :to="{ name: 'platform', params: { platform: rom.platform_slug } }"
       >
         {{ rom.platform_name || rom.platform_slug }}
         <v-avatar :rounded="0" size="40" class="ml-2 pa-2">

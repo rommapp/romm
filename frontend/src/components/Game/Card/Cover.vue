@@ -57,8 +57,11 @@ function onTouchEnd() {
     style="text-decoration: none; color: inherit"
     :to="
       romsStore.touchScreen && romsStore.selectedRoms.length > 0
-        ? ''
-        : `/platform/${rom.platform_slug}/${rom.id}`
+        ? {}
+        : {
+            name: 'rom',
+            params: { platform: rom.platform_slug, rom: rom.id },
+          }
     "
     ref="card"
     @click="onNavigate"

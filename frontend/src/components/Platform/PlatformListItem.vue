@@ -8,7 +8,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
 
 <template>
   <v-list-item
-    :to="`/platform/${platform.slug}`"
+    :to="{ name: 'platform', params: { platform: platform.slug } }"
     :value="platform.slug"
     :key="platform.slug"
     class="pt-4 pb-4 bg-terciary"
