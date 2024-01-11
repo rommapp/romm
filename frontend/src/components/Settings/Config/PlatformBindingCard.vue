@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onBeforeMount, inject } from "vue";
+import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import { api } from "@/services/api";

@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import Settings from "@/views/Settings/ControlPanel/General/Base.vue";
-import Config from "@/views/Settings/ControlPanel/Config/Base.vue";
-import Users from "@/views/Settings/ControlPanel/Users/Base.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
 // Props
@@ -15,9 +12,14 @@ const tab = ref("general");
   <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
-      <v-tab value="general" rounded="0">General</v-tab>
-      <v-tab value="config" rounded="0">Config</v-tab>
+      <v-tab :to="{ name: 'controlPanelGeneral' }" value="general" rounded="0"
+        >General</v-tab
+      >
+      <v-tab :to="{ name: 'controlPanelConfig' }" value="config" rounded="0"
+        >Config</v-tab
+      >
       <v-tab
+        :to="{ name: 'controlPanelUsers' }"
         :disabled="!auth.scopes.includes('users.read')"
         value="users"
         rounded="0"
@@ -27,32 +29,17 @@ const tab = ref("general");
     </v-tabs>
   </v-app-bar>
 
-  <v-window v-model="tab">
-    <!-- General tab -->
+  <v-window v-model="tab" class="pa-1">
     <v-window-item value="general">
-      <v-row class="pa-1">
-        <v-col>
-          <settings />
-        </v-col>
-      </v-row>
+      <router-view />
     </v-window-item>
 
-    <!-- Config tab -->
     <v-window-item value="config">
-      <v-row class="pa-1">
-        <v-col>
-          <config />
-        </v-col>
-      </v-row>
+      <router-view />
     </v-window-item>
 
-    <!-- Users tab -->
     <v-window-item value="users">
-      <v-row class="pa-1">
-        <v-col>
-          <users />
-        </v-col>
-      </v-row>
+      <router-view />
     </v-window-item>
   </v-window>
 

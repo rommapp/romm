@@ -42,11 +42,12 @@ emitter?.on("toggleDrawerRail", () => {
       <v-divider />
     </template>
     <v-list v-model:opened="open" class="pa-0">
-
       <v-list-group value="Platforms" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
-            <span v-if="!rail" class="text-body-1 text-truncate">Platforms</span>
+            <span v-if="!rail" class="text-body-1 text-truncate"
+              >Platforms</span
+            >
             <template v-slot:prepend>
               <v-avatar :rounded="0" size="40"
                 ><v-icon>mdi-controller</v-icon></v-avatar
@@ -62,7 +63,11 @@ emitter?.on("toggleDrawerRail", () => {
         />
       </v-list-group>
 
-      <v-list-group value="Library" v-if="auth.scopes.includes('roms.write')" fluid>
+      <v-list-group
+        value="Library"
+        v-if="auth.scopes.includes('roms.write')"
+        fluid
+      >
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
             <span v-if="!rail" class="text-body-1 text-truncate">Library</span>
@@ -73,7 +78,7 @@ emitter?.on("toggleDrawerRail", () => {
             </template>
           </v-list-item>
         </template>
-        <v-list-item class="bg-terciary" to="/library/scan">
+        <v-list-item class="bg-terciary" :to="{ name: 'scan' }">
           <span v-if="!rail" class="text-body-2 text-truncate">Scan</span>
           <template v-slot:prepend>
             <v-avatar :rounded="0" size="40"
@@ -94,11 +99,10 @@ emitter?.on("toggleDrawerRail", () => {
             </template>
           </v-list-item>
         </template>
-        <v-list-item
-          class="bg-terciary"
-          to="/settings/control-panel"
-        >
-          <span v-if="!rail" class="text-body-2 text-truncate">Control Panel</span>
+        <v-list-item class="bg-terciary" :to="{ name: 'controlPanelGeneral' }">
+          <span v-if="!rail" class="text-body-2 text-truncate"
+            >Control Panel</span
+          >
           <template v-slot:prepend>
             <v-avatar :rounded="0" size="40"
               ><v-icon>mdi-view-dashboard</v-icon></v-avatar

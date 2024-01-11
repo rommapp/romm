@@ -6,7 +6,10 @@ defineProps<{ platform: Platform }>();
 </script>
 
 <template>
-  <router-link id="router-link" :to="`/platform/${platform.slug}`">
+  <router-link
+    id="router-link"
+    :to="{ name: 'platform', params: { platform: platform.slug } }"
+  >
     <v-hover v-slot="{ isHovering, props }">
       <v-card
         v-bind="props"
@@ -16,7 +19,12 @@ defineProps<{ platform: Platform }>();
       >
         <v-card-text>
           <v-row class="pa-1 justify-center bg-primary">
-            <div :title="platform.name?.toString()" class="px-2 text-truncate text-caption">{{ platform.name }}</div>
+            <div
+              :title="platform.name?.toString()"
+              class="px-2 text-truncate text-caption"
+            >
+              {{ platform.name }}
+            </div>
           </v-row>
           <v-row class="pa-1 justify-center">
             <v-avatar :rounded="0" size="105" class="mt-2">
@@ -47,6 +55,6 @@ defineProps<{ platform: Platform }>();
   transition-duration: 0.1s;
 }
 .v-card.on-hover {
-  transform: scale(1.05); 
+  transform: scale(1.05);
 }
 </style>
