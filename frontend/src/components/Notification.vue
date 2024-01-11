@@ -4,20 +4,24 @@ import type { Emitter } from "mitt";
 import type { SnackbarStatus, Events } from "@/types/emitter";
 
 // Props
-const snackbarShow = ref(false);
+const show = ref(false);
 const snackbarStatus = ref<SnackbarStatus>({ msg: "" });
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("snackbarShow", (snackbar: SnackbarStatus) => {
-  snackbarShow.value = true;
+  show.value = true;
   snackbarStatus.value = snackbar;
 });
+
+function closeDialog() {
+  show.value = false;
+}
 </script>
 
 <template>
   <v-snackbar
-    v-model="snackbarShow"
+    v-model="show"
     :timeout="snackbarStatus.timeout ? snackbarStatus.timeout : 2000"
     location="top"
     color="tooltip"
@@ -29,7 +33,7 @@ emitter?.on("snackbarShow", (snackbar: SnackbarStatus) => {
     />
     {{ snackbarStatus.msg }}
     <template v-slot:actions>
-      <v-btn @click="snackbarShow = false" variant="text">
+      <v-btn @click="closeDialog" variant="text">
         <v-icon icon="mdi-close" />
       </v-btn>
     </template>

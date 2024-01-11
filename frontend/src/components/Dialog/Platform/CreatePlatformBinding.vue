@@ -8,6 +8,11 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreatePlatformBindingDialog", () => {
   show.value = true;
 });
+
+// Functions
+function closeDialog() {
+  show.value = false;
+}
 </script>
 <template>
   <v-dialog v-model="show" max-width="500px" :scrim="false">
@@ -19,7 +24,7 @@ emitter?.on("showCreatePlatformBindingDialog", () => {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -33,7 +38,7 @@ emitter?.on("showCreatePlatformBindingDialog", () => {
 
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn :disabled="true" class="text-romm-green bg-terciary ml-5">
             Create
           </v-btn>

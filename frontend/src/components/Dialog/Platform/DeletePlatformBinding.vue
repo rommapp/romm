@@ -21,9 +21,20 @@ function removeBindPlatform() {
   heartbeat.removePlatformBinding(platformBindingToDelete.value);
   show.value = false;
 }
+
+function closeDialog() {
+  show.value = false;
+}
 </script>
 <template>
-  <v-dialog v-model="show" max-width="500px" :scrim="false">
+  <v-dialog
+    v-model="show"
+    width="auto"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
+    no-click-animation
+    persistent
+  >
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -32,7 +43,7 @@ function removeBindPlatform() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -55,7 +66,7 @@ function removeBindPlatform() {
           <span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn
             @click="removeBindPlatform()"
             class="text-romm-red bg-terciary ml-5"
