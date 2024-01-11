@@ -6,6 +6,7 @@ import api from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
+import DeletePlatformBindingDialog from "@/components/Dialog/Platform/DeletePlatformBinding.vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
@@ -15,10 +16,6 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
 // Functions
 function addBindPlatform(fsSlug: string, slug: string) {
   api.addPlatformBindConfig({ fsSlug: fsSlug, slug: slug });
-}
-
-function removeBindPlatform(fsSlug: string) {
-  api.removePlatformBindConfig({ fsSlug: fsSlug });
 }
 </script>
 <template>
@@ -49,6 +46,7 @@ function removeBindPlatform(fsSlug: string) {
           md="2"
           lg="2"
           v-for="platform in Object.keys(platformsBinding)"
+          :key="platform"
         >
           <v-list-item class="bg-terciary ma-1 pa-1">
             <template v-slot:prepend>
@@ -63,11 +61,16 @@ function removeBindPlatform(fsSlug: string) {
               <span clas="pa-1">{{ platform }}</span>
             </div>
             <template v-slot:append>
-              <v-icon
-                @click="removeBindPlatform(platform)"
+              <v-btn
+                rounded="0"
+                variant="text"
+                size="small"
+                icon="mdi-delete"
+                @click="
+                  emitter?.emit('showDeletePlatformBindingDialog', platform)
+                "
                 class="text-romm-red ml-1"
-                >mdi-delete</v-icon
-              >
+              />
             </template>
           </v-list-item>
         </v-col>
@@ -76,6 +79,7 @@ function removeBindPlatform(fsSlug: string) {
   </v-card>
 
   <create-platform-binding-dialog />
+  <delete-platform-binding-dialog />
 </template>
 
 <style scoped></style>
