@@ -42,15 +42,16 @@ function addBindPlatform(fsSlug: string, slug: string) {
       <v-row no-gutters>
         <v-col
           cols="6"
-          sm="3"
-          md="2"
+          sm="4"
+          md="3"
           lg="2"
+          xl="2"
           v-for="platform in Object.keys(platformsBinding)"
           :key="platform"
         >
           <v-list-item class="bg-terciary ma-1 pa-1">
             <template v-slot:prepend>
-              <v-avatar :rounded="0" size="40" class="mr-1">
+              <v-avatar :rounded="0" size="40" class="mx-2">
                 <platform-icon :platform="platformsBinding[platform]" />
               </v-avatar>
             </template>
