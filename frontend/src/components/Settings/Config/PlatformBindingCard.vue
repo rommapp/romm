@@ -2,7 +2,7 @@
 import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import { api } from "@/services/api";
+import api from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
@@ -11,6 +11,15 @@ import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlat
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
+
+// Functions
+function addBindPlatform(fsSlug: string, slug: string) {
+  api.addPlatformBindConfig({ fsSlug: fsSlug, slug: slug });
+}
+
+function removeBindPlatform(fsSlug: string) {
+  api.removePlatformBindConfig({ fsSlug: fsSlug });
+}
 </script>
 <template>
   <v-card rounded="0">
@@ -41,23 +50,26 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
           lg="2"
           v-for="platform in Object.keys(platformsBinding)"
         >
-          <v-card-text class="bg-terciary ma-1 py-1 pl-1 pr-3">
-            <v-row class="align-center" no-gutters>
-              <v-col cols="5" sm="4" md="5" lg="4">
-                <v-avatar class="mx-2" :rounded="0" size="40">
-                  <platform-icon :platform="platformsBinding[platform]" />
-                </v-avatar>
-              </v-col>
-              <v-col cols="7" sm="8" md="7" lg="8">
-                <div
-                  class="bg-primary pa-2 text-caption text-truncate"
-                  :title="platform"
-                >
-                  <span clas="pa-1">{{ platform }}</span>
-                </div>
-              </v-col>
-            </v-row>
-          </v-card-text>
+          <v-list-item class="bg-terciary ma-1 pa-1">
+            <template v-slot:prepend>
+              <v-avatar :rounded="0" size="40" class="mr-1">
+                <platform-icon :platform="platformsBinding[platform]" />
+              </v-avatar>
+            </template>
+            <div
+              class="bg-primary pa-2 text-caption text-truncate"
+              :title="platform"
+            >
+              <span clas="pa-1">{{ platform }}</span>
+            </div>
+            <template v-slot:append>
+              <v-icon
+                @click="removeBindPlatform(platform)"
+                class="text-romm-red ml-1"
+                >mdi-delete</v-icon
+              >
+            </template>
+          </v-list-item>
         </v-col>
       </v-row>
     </v-card-text>

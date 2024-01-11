@@ -1,14 +1,16 @@
+import os
 from typing import Any
 
 import emoji
-import os
-from config.config_manager import config
-from models import Platform, Rom, Save, State, Screenshot
+from config.config_manager import config_manager
 from handler import dbh, igdbh
 from logger.logger import log
+from models import Platform, Rom, Save, Screenshot, State
 from utils import fs, get_file_extension, get_file_name_with_no_tags, parse_tags
 
-SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config.PLATFORMS_BINDING.items())
+SWAPPED_PLATFORM_BINDINGS = dict(
+    (v, k) for k, v in config_manager.config.PLATFORMS_BINDING.items()
+)
 
 
 def scan_platform(fs_slug: str, fs_platforms) -> Platform:
@@ -36,8 +38,8 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
                 platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
 
     try:
-        if fs_slug in config.PLATFORMS_BINDING.keys():
-            platform_attrs["slug"] = config.PLATFORMS_BINDING[fs_slug]
+        if fs_slug in config_manager.config.PLATFORMS_BINDING.keys():
+            platform_attrs["slug"] = config_manager.config.PLATFORMS_BINDING[fs_slug]
         else:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
@@ -147,7 +149,9 @@ def _scan_asset(file_name: str, path: str):
 
 
 def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
-    saves_path = fs.get_fs_structure(platform.fs_slug, folder=config.SAVES_FOLDER_NAME)
+    saves_path = fs.get_fs_structure(
+        platform.fs_slug, folder=config_manager.config.SAVES_FOLDER_NAME
+    )
 
     #  Scan asset with the sames path and emulator folder name
     if emulator:
@@ -158,7 +162,7 @@ def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
 
 def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
     states_path = fs.get_fs_structure(
-        platform.fs_slug, folder=config.STATES_FOLDER_NAME
+        platform.fs_slug, folder=config_manager.config.STATES_FOLDER_NAME
     )
 
     #  Scan asset with the sames path and emulator folder name
@@ -170,10 +174,12 @@ def scan_state(platform: Platform, file_name: str, emulator: str = None) -> Stat
 
 def scan_screenshot(file_name: str, fs_platform: str = None) -> Screenshot:
     screenshots_path = fs.get_fs_structure(
-        fs_platform, folder=config.SCREENSHOTS_FOLDER_NAME
+        fs_platform, folder=config_manager.config.SCREENSHOTS_FOLDER_NAME
     )
 
     if fs_platform:
         return Screenshot(**_scan_asset(file_name, screenshots_path))
 
-    return Screenshot(**_scan_asset(file_name, config.SCREENSHOTS_FOLDER_NAME))
+    return Screenshot(
+        **_scan_asset(file_name, config_manager.config.SCREENSHOTS_FOLDER_NAME)
+    )

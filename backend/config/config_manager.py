@@ -1,8 +1,7 @@
 import os
 import sys
-from urllib.parse import quote_plus
 from typing import Final
-from typing_extensions import TypedDict
+from urllib.parse import quote_plus
 
 import pydash
 import yaml
@@ -13,10 +12,11 @@ from config import (
     DB_PORT,
     DB_USER,
     LIBRARY_BASE_PATH,
-    ROMM_DB_DRIVER,
     ROMM_BASE_PATH,
+    ROMM_DB_DRIVER,
 )
 from logger.logger import log
+from typing_extensions import TypedDict
 from yaml.loader import SafeLoader
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
@@ -64,6 +64,13 @@ class ConfigManager:
         FileNotFoundError: Raises an error if the config.yml is not found
     """
 
+    _self = None
+
+    def __new__(cls):
+        if cls._self is None:
+            cls._self = super().__new__(cls)
+        return cls._self
+
     # Tests require custom config path
     def __init__(self, config_path: str = ROMM_USER_CONFIG_PATH):
         self.config_path = config_path
@@ -72,13 +79,7 @@ class ConfigManager:
                 f"Your config file {config_path} is a directory, not a file. Docker creates folders by default for binded files that doesn't exists in advance in the host system."
             )
             raise FileNotFoundError()
-        try:
-            with open(config_path) as config_file:
-                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
-        except FileNotFoundError:
-            self._raw_config = {}
-        finally:
-            self._parse_config()
+        self.read_config()
 
     @staticmethod
     def get_db_engine() -> str:
@@ -143,9 +144,18 @@ class ConfigManager:
             ),
         )
 
-    def _update_config(self) -> None:
+    def read_config(self) -> None:
         try:
-            with open(self.config_path, 'w') as config_file:
+            with open(self.config_path) as config_file:
+                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+        except FileNotFoundError:
+            self._raw_config = {}
+        finally:
+            self._parse_config()
+
+    def update_config(self) -> None:
+        try:
+            with open(self.config_path, "w") as config_file:
                 yaml.dump(self._raw_config, config_file)
         except FileNotFoundError:
             self._raw_config = {}
@@ -153,16 +163,15 @@ class ConfigManager:
             self._parse_config()
 
     def add_binding(self, fs_slug: str, slug: str):
-        self._raw_config['system']['platforms'][fs_slug] = slug
-        self._update_config()
+        self._raw_config["system"]["platforms"][fs_slug] = slug
+        self.update_config()
 
     def remove_binding(self, fs_slug):
         try:
-            del self._raw_config['system']['platforms'][fs_slug]
+            del self._raw_config["system"]["platforms"][fs_slug]
         except KeyError:
             pass
-        self._update_config()
+        self.update_config()
 
 
 config_manager = ConfigManager()
-config = config_manager.config

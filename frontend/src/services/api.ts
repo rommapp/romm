@@ -19,6 +19,7 @@ import type {
   CursorPage_RomSchema_,
   SaveSchema,
   StateSchema,
+  PlatformBindingResponse
 } from "@/__generated__";
 
 export const api = axios.create({ baseURL: "/api", timeout: 120000 });
@@ -278,7 +279,13 @@ async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   });
 }
 
-async function deleteSaves({ saves, deleteFromFs }: { saves: SaveSchema[], deleteFromFs: boolean }) {
+async function deleteSaves({
+  saves,
+  deleteFromFs,
+}: {
+  saves: SaveSchema[];
+  deleteFromFs: boolean;
+}) {
   return api.post("/saves/delete", {
     saves: saves.map((s) => s.id),
     delete_from_fs: deleteFromFs,
@@ -297,11 +304,40 @@ async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   });
 }
 
-async function deleteStates({ states, deleteFromFs }: { states: StateSchema[], deleteFromFs: boolean }) {
+async function deleteStates({
+  states,
+  deleteFromFs,
+}: {
+  states: StateSchema[];
+  deleteFromFs: boolean;
+}) {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),
     delete_from_fs: deleteFromFs,
   });
+}
+
+async function addPlatformBindConfig({
+  fsSlug,
+  slug,
+}: {
+  fsSlug: string;
+  slug: string;
+}): Promise<{ data: PlatformBindingResponse }> {
+  let formData = new FormData()
+  formData.append("fs_slug", fsSlug);
+  formData.append("slug", slug);
+  return api.put("/config/system/platforms", formData);
+}
+
+async function removePlatformBindConfig({
+  fsSlug
+}: {
+  fsSlug: string;
+}): Promise<{ data: PlatformBindingResponse }> {
+  let formData = new FormData()
+  formData.append("fs_slug", fsSlug);
+  return api.patch("/config/system/platforms", formData);
 }
 
 export default {
@@ -326,4 +362,6 @@ export default {
   deleteSaves,
   uploadStates,
   deleteStates,
+  addPlatformBindConfig,
+  removePlatformBindConfig
 };
