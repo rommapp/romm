@@ -20,8 +20,9 @@ const refreshDrawer = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("refreshDrawer", () => {
-  refreshDrawer.value = !refreshDrawer.value;
+emitter?.on("refreshDrawer", async () => {
+  const { data: platformData } = await api.fetchPlatforms();
+  platforms.set(platformData);
 });
 
 // Functions
@@ -48,7 +49,7 @@ onMounted(async () => {
     fixed
   />
 
-  <drawer :key="refreshDrawer.toString()" />
+  <drawer />
 
   <app-bar v-if="mdAndDown" />
 

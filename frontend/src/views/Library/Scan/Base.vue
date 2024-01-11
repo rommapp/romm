@@ -2,46 +2,42 @@
 import { ref, inject, onBeforeUnmount } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-
+import api from "@/services/api";
 import socket from "@/services/socket";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import type { Rom } from "@/stores/roms";
+import type { PlatformSchema } from "@/__generated__";
 
 // Props
 const platforms = storePlatforms();
 const platformsToScan = ref<Platform[]>([]);
 const scanning = storeScanning();
-const scannedPlatforms = ref<{ name: string; slug: string; roms: Rom[] }[]>([]);
+const scannedPlatforms = ref<Platform[]>([]);
 const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 
-socket.on("scan:scanning_platform", ({ name, slug }) => {
-  scannedPlatforms.value.push({ name, slug, roms: [] });
+socket.on("scan:scanning_platform", async (platform: Platform) => {
+  scannedPlatforms.value.push(platform);
   window.setTimeout(scrollToBottom, 100);
 });
 
-socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
-  let platform = scannedPlatforms.value.find((p) => p.slug === platform_slug);
+// socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
+//   let platform = scannedPlatforms.value.find((p) => p.slug === platform_slug);
 
-  // Add the platform if the socket dropped and it's missing
-  if (!platform) {
-    scannedPlatforms.value.push({
-      name: platform_name,
-      slug: platform_slug,
-      roms: [],
-    });
+//   // Add the platform if the socket dropped and it's missing
+//   if (!platform) {
+//     scannedPlatforms.value.push(platform);
+//     platform = scannedPlatforms.value.pop();
+//   }
 
-    platform = scannedPlatforms.value.pop();
-  }
-
-  platform?.roms.push(rom);
-  window.setTimeout(scrollToBottom, 100);
-});
+//   platform?.roms.push(rom);
+//   window.setTimeout(scrollToBottom, 100);
+// });
 
 socket.on("scan:done", () => {
   scanning.set(false);
@@ -72,7 +68,7 @@ function scrollToBottom() {
   window.scrollTo(0, document.body.scrollHeight);
 }
 
-async function onScan() {
+async function scan() {
   scanning.set(true);
   scannedPlatforms.value = [];
 
@@ -139,7 +135,7 @@ onBeforeUnmount(() => {
   <!-- Scan button -->
   <v-row class="pa-4" no-gutters>
     <v-btn
-      @click="onScan()"
+      @click="scan()"
       :disabled="scanning.value"
       prepend-icon="mdi-magnify-scan"
       rounded="0"
