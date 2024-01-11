@@ -24,7 +24,7 @@ export type Events = {
   showCreatePlatformBindingDialog: null;
   showDeletePlatformBindingButtons: null;
   showDeletePlatformBindingDialog: string;
-  showCreateExclusionDialog: null;
+  showCreateExclusionDialog: string;
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;
   showDeleteUserDialog: UserItem;
