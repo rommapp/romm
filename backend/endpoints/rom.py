@@ -1,116 +1,38 @@
 import json
 from datetime import datetime
-from typing import Optional, Annotated
-from typing_extensions import TypedDict
-from fastapi import (
-    APIRouter,
-    Request,
-    status,
-    HTTPException,
-    File,
-    UploadFile,
-)
-from fastapi import Query
-from fastapi_pagination.ext.sqlalchemy import paginate
-from fastapi_pagination.cursor import CursorPage, CursorParams
-from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
-from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 from stat import S_IFREG
+from typing import Annotated, Optional
 
 from config import LIBRARY_BASE_PATH
+from endpoints.responses import MessageResponse
+from endpoints.responses.rom import (
+    CustomStreamingResponse,
+    EnhancedRomSchema,
+    RomSchema,
+    UploadRomResponse,
+)
 from exceptions.fs_exceptions import RomAlreadyExistsException
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
+from fastapi_pagination.cursor import CursorPage, CursorParams
+from fastapi_pagination.ext.sqlalchemy import paginate
 from handler import dbh
-from models import Rom
 from logger.logger import log
-from endpoints.assets import SaveSchema, StateSchema, ScreenshotSchema
+from models import Rom
+from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 from utils import get_file_name_with_no_tags
-from utils.oauth import protected_route
 from utils.fs import (
     _file_exists,
     build_artwork_path,
     build_upload_file_path,
-    rename_file,
     get_rom_cover,
     get_rom_screenshots,
     remove_file,
+    rename_file,
 )
-from utils.socket import socket_server
+from utils.oauth import protected_route
 
 router = APIRouter()
-
-
-class RomSchema(BaseModel):
-    id: int
-    igdb_id: Optional[int]
-    sgdb_id: Optional[int]
-
-    platform_slug: str
-    platform_name: str
-
-    file_name: str
-    file_name_no_tags: str
-    file_extension: str
-    file_path: str
-    file_size: float
-    file_size_units: str
-    file_size_bytes: int
-
-    name: Optional[str]
-    slug: Optional[str]
-    summary: Optional[str]
-    sort_comparator: str
-
-    path_cover_s: str
-    path_cover_l: str
-    has_cover: bool
-    url_cover: str
-
-    revision: Optional[str]
-    regions: list[str]
-    languages: list[str]
-    tags: list[str]
-
-    multi: bool
-    files: list[str]
-    saves: list[SaveSchema]
-    states: list[StateSchema]
-    screenshots: list[ScreenshotSchema]
-    url_screenshots: list[str]
-    merged_screenshots: list[str]
-    full_path: str
-
-    download_path: str
-
-    class Config:
-        from_attributes = True
-
-
-class EnhancedRomSchema(RomSchema):
-    sibling_roms: list["RomSchema"]
-
-
-class UploadRomResponse(TypedDict):
-    uploaded_roms: list[str]
-    skipped_roms: list[str]
-
-
-class CustomStreamingResponse(StreamingResponse):
-    def __init__(self, *args, **kwargs) -> None:
-        self.emit_body = kwargs.pop("emit_body", None)
-        super().__init__(*args, **kwargs)
-
-    async def stream_response(self, *args, **kwargs) -> None:
-        await super().stream_response(*args, **kwargs)
-        await socket_server.emit("download:complete", self.emit_body)
-
-
-class DeleteRomResponse(TypedDict):
-    msg: str
-
-
-class MassDeleteRomResponse(TypedDict):
-    msg: str
 
 
 @protected_route(router.get, "/roms/{id}", ["roms.read"])
@@ -423,7 +345,7 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False) -> Rom:
 @protected_route(router.delete, "/roms/{id}", ["roms.write"])
 def delete_rom(
     request: Request, id: int, delete_from_fs: bool = False
-) -> DeleteRomResponse:
+) -> MessageResponse:
     """Delete rom endpoint
 
     Args:
@@ -444,7 +366,7 @@ def delete_rom(
 async def delete_roms(
     request: Request,
     delete_from_fs: bool = False,
-) -> MassDeleteRomResponse:
+) -> MessageResponse:
     """Delete roms endpoint
 
     Args:

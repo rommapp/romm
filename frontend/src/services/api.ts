@@ -7,12 +7,9 @@ import type { User } from "@/stores/users";
 
 import type {
   PlatformSchema,
-  DeletePlatformResponse,
   RomSchema,
   EnhancedRomSchema,
   UploadRomResponse,
-  DeleteRomResponse,
-  MassDeleteRomResponse,
   RomSearchResponse,
   UserSchema,
   MessageResponse,
@@ -41,7 +38,7 @@ async function deletePlatform({
   platform,
 }: {
   platform: PlatformSchema;
-}): Promise<{ data: DeletePlatformResponse }> {
+}): Promise<{ data: MessageResponse }> {
   return api.delete(`/platforms/${platform.slug}`);
 }
 
@@ -169,7 +166,7 @@ async function deleteRom({
 }: {
   rom: Rom;
   deleteFromFs: boolean;
-}): Promise<{ data: DeleteRomResponse }> {
+}): Promise<{ data: MessageResponse }> {
   return api.delete(`/roms/${rom.id}`, {
     params: { delete_from_fs: deleteFromFs },
   });
@@ -181,7 +178,7 @@ async function deleteRoms({
 }: {
   roms: Rom[];
   deleteFromFs: boolean;
-}): Promise<{ data: MassDeleteRomResponse }> {
+}): Promise<{ data: MessageResponse }> {
   return api.post(
     "/roms/delete",
     {

@@ -1,52 +1,24 @@
 import secrets
-from typing import Annotated, Optional
+from typing import Annotated
+from endpoints.responses import MessageResponse
 
 from config import ROMM_AUTH_ENABLED
 from exceptions.credentials_exceptions import CredentialsException, DisabledException
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
 from handler import dbh
 from models.user import Role, User
-from pydantic import BaseModel
-from typing_extensions import TypedDict
 from utils.auth import authenticate_user, clear_session, get_password_hash
 from utils.cache import cache
 from utils.fs import build_avatar_path
 from utils.oauth import protected_route
 
+from endpoints.responses.identity import (
+    UserSchema,
+    UserUpdateForm,
+)
+
 router = APIRouter()
-
-
-class UserSchema(BaseModel):
-    id: int
-    username: str
-    enabled: bool
-    role: Role
-    oauth_scopes: list[str]
-    avatar_path: str
-
-    class Config:
-        from_attributes = True
-
-
-class UserUpdateForm:
-    def __init__(
-        self,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        role: Optional[str] = None,
-        enabled: Optional[bool] = None,
-        avatar: Optional[UploadFile] = File(None),
-    ):
-        self.username = username
-        self.password = password
-        self.role = role
-        self.enabled = enabled
-        self.avatar = avatar
-
-
-class MessageResponse(TypedDict):
-    message: str
 
 
 @router.post("/login")

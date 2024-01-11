@@ -1,27 +1,11 @@
-from typing import Optional
-
-from config import ROMM_HOST
+from endpoints.responses.platform import PlatformSchema
 from fastapi import APIRouter, HTTPException, Request, status
 from handler import dbh
 from logger.logger import log
-from pydantic import BaseModel
-from typing_extensions import TypedDict
+from endpoints.responses import MessageResponse
 from utils.oauth import protected_route
 
 router = APIRouter()
-
-
-class PlatformSchema(BaseModel):
-    slug: str
-    fs_slug: str
-    igdb_id: Optional[int] = None
-    sgdb_id: Optional[int] = None
-    name: Optional[str]
-    logo_path: str
-    rom_count: int
-
-    class Config:
-        from_attributes = True
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])
@@ -38,12 +22,8 @@ def platforms(request: Request) -> list[PlatformSchema]:
     return dbh.get_platforms()
 
 
-class DeletePlatformResponse(TypedDict):
-    msg: str
-
-
 @protected_route(router.delete, "/platforms/{slug}", ["platforms.write"])
-def delete_platform(request: Request, slug) -> DeletePlatformResponse:
+def delete_platform(request: Request, slug) -> MessageResponse:
     """Detele platform from database [and filesystem]"""
 
     platform = dbh.get_platform(slug)

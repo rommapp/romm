@@ -1,28 +1,27 @@
 import emoji
 import socketio  # type: ignore
-
-from logger.logger import log
+from config import ENABLE_EXPERIMENTAL_REDIS
+from endpoints.platform import PlatformSchema
+from endpoints.rom import RomSchema
 from exceptions.fs_exceptions import PlatformsNotFoundException, RomsNotFoundException
 from handler import dbh
-from config import ENABLE_EXPERIMENTAL_REDIS
+from logger.logger import log
 from utils.fastapi import (
     scan_platform,
     scan_rom,
     scan_save,
-    scan_state,
     scan_screenshot,
+    scan_state,
 )
-from utils.socket import socket_server
 from utils.fs import (
+    get_assets,
     get_platforms,
     get_roms,
-    store_default_resources,
-    get_assets,
     get_screenshots,
+    store_default_resources,
 )
 from utils.redis import high_prio_queue, redis_url
-from endpoints.platform import PlatformSchema
-from endpoints.rom import RomSchema
+from utils.socket import socket_server
 
 
 async def scan_platforms(

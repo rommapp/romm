@@ -1,4 +1,5 @@
 from config import ROMM_HOST
+from endpoints.responses.webrcade import WebrcadeFeedSchema
 from fastapi import APIRouter, Request
 from handler import dbh
 from utils.oauth import protected_route
@@ -58,15 +59,6 @@ WEBRCADE_SLUG_TO_TYPE_MAP = {
     "neo-geo-pocket-color": "ngc",
     "ps": "psx",
 }
-
-
-class WebrcadeFeedSchema(TypedDict):
-    title: str
-    longTitle: str
-    description: str
-    thumbnail: str
-    background: str
-    categories: list[dict]
 
 
 @protected_route(router.get, "/platforms/webrcade/feed", [])
