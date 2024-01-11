@@ -4,25 +4,25 @@ import os
 import shutil
 from enum import Enum
 from pathlib import Path
-from urllib.parse import quote
-from PIL import Image
 from typing import Final
+from urllib.parse import quote
 
 import requests
 from config import (
+    DEFAULT_PATH_COVER_L,
+    DEFAULT_PATH_COVER_S,
+    DEFAULT_URL_COVER_L,
+    DEFAULT_URL_COVER_S,
     LIBRARY_BASE_PATH,
     ROMM_BASE_PATH,
-    DEFAULT_URL_COVER_L,
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_URL_COVER_S,
-    DEFAULT_PATH_COVER_S,
 )
-from config.config_manager import config
+from config.config_manager import config_manager
 from exceptions.fs_exceptions import (
     PlatformsNotFoundException,
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
+from PIL import Image
 
 from . import get_file_extension
 
@@ -197,7 +197,9 @@ def store_default_resources():
 # ========= Platforms utils =========
 def _exclude_platforms(platforms: list):
     return [
-        platform for platform in platforms if platform not in config.EXCLUDED_PLATFORMS
+        platform
+        for platform in platforms
+        if platform not in config_manager.config.EXCLUDED_PLATFORMS
     ]
 
 
@@ -209,8 +211,8 @@ def get_platforms() -> list[str]:
     """
     try:
         platforms: list[str] = (
-            list(os.walk(config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
-            if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
+            list(os.walk(config_manager.config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
+            if os.path.exists(config_manager.config.HIGH_PRIO_STRUCTURE_PATH)
             else list(os.walk(LIBRARY_BASE_PATH))[0][1]
         )
         return _exclude_platforms(platforms)
@@ -219,17 +221,23 @@ def get_platforms() -> list[str]:
 
 
 # ========= Roms utils =========
-def get_fs_structure(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
+def get_fs_structure(
+    fs_slug: str, folder: str = config_manager.config.ROMS_FOLDER_NAME
+):
     return (
         f"{folder}/{fs_slug}"
-        if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
+        if os.path.exists(config_manager.config.HIGH_PRIO_STRUCTURE_PATH)
         else f"{fs_slug}/{folder}"
     )
 
 
 def _exclude_files(files, filetype) -> list[str]:
-    excluded_extensions = getattr(config, f"EXCLUDED_{filetype.upper()}_EXT")
-    excluded_names = getattr(config, f"EXCLUDED_{filetype.upper()}_FILES")
+    excluded_extensions = getattr(
+        config_manager.config, f"EXCLUDED_{filetype.upper()}_EXT"
+    )
+    excluded_names = getattr(
+        config_manager.config, f"EXCLUDED_{filetype.upper()}_FILES"
+    )
     excluded_files: list = []
 
     for file_name in files:
@@ -253,7 +261,7 @@ def _exclude_files(files, filetype) -> list[str]:
 
 
 def _exclude_multi_roms(roms) -> list[str]:
-    excluded_names = config.EXCLUDED_MULTI_FILES
+    excluded_names = config_manager.config.EXCLUDED_MULTI_FILES
     filtered_files: list = []
 
     for rom in roms:
@@ -311,7 +319,9 @@ def get_roms(fs_slug: str):
 
 
 def get_assets(platform_slug: str):
-    saves_path = get_fs_structure(platform_slug, folder=config.SAVES_FOLDER_NAME)
+    saves_path = get_fs_structure(
+        platform_slug, folder=config_manager.config.SAVES_FOLDER_NAME
+    )
     saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
 
     fs_saves: list[str] = []
@@ -330,7 +340,9 @@ def get_assets(platform_slug: str):
     except IndexError:
         pass
 
-    states_path = get_fs_structure(platform_slug, folder=config.STATES_FOLDER_NAME)
+    states_path = get_fs_structure(
+        platform_slug, folder=config_manager.config.STATES_FOLDER_NAME
+    )
     states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
 
     try:
@@ -346,7 +358,7 @@ def get_assets(platform_slug: str):
         pass
 
     screenshots_path = get_fs_structure(
-        platform_slug, folder=config.SCREENSHOTS_FOLDER_NAME
+        platform_slug, folder=config_manager.config.SCREENSHOTS_FOLDER_NAME
     )
     screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
 
@@ -363,7 +375,9 @@ def get_assets(platform_slug: str):
 
 
 def get_screenshots():
-    screenshots_path = f"{LIBRARY_BASE_PATH}/{config.SCREENSHOTS_FOLDER_NAME}"
+    screenshots_path = (
+        f"{LIBRARY_BASE_PATH}/{config_manager.config.SCREENSHOTS_FOLDER_NAME}"
+    )
 
     fs_screenshots = []
 
@@ -439,7 +453,9 @@ def remove_file(file_name: str, file_path: str):
         shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
 
 
-def build_upload_file_path(fs_slug: str, folder: str = config.ROMS_FOLDER_NAME):
+def build_upload_file_path(
+    fs_slug: str, folder: str = config_manager.config.ROMS_FOLDER_NAME
+):
     rom_path = get_fs_structure(fs_slug, folder=folder)
     return f"{LIBRARY_BASE_PATH}/{rom_path}"
 

@@ -3,31 +3,38 @@ import sys
 
 import alembic.config
 import uvicorn
-from config.config_manager import ConfigDict, config
-from endpoints import identity, oauth, platform, rom, scan, search, tasks  # noqa
+from config import (
+    DEV_HOST,
+    DEV_PORT,
+    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    ENABLE_SCHEDULED_RESCAN,
+    ENABLE_SCHEDULED_UPDATE_MAME_XML,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    ROMM_AUTH_ENABLED,
+    ROMM_AUTH_SECRET_KEY,
+    SCHEDULED_RESCAN_CRON,
+    SCHEDULED_UPDATE_MAME_XML_CRON,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+)
+from config.config_manager import ConfigDict, config_manager
+from endpoints import (
+    assets,
+    identity,
+    oauth,
+    platform,
+    rom,
+    scan,  # noqa
+    search,
+    tasks,
+)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
+from handler import dbh
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from typing_extensions import TypedDict
-
-from config import (
-    DEV_PORT,
-    DEV_HOST,
-    ROMM_AUTH_SECRET_KEY,
-    ROMM_AUTH_ENABLED,
-    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    ENABLE_SCHEDULED_RESCAN,
-    SCHEDULED_RESCAN_CRON,
-    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
-    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-    ENABLE_SCHEDULED_UPDATE_MAME_XML,
-    SCHEDULED_UPDATE_MAME_XML_CRON,
-)
-from endpoints import search, platform, rom, identity, oauth, assets, scan, tasks  # noqa
-from handler import dbh
 from utils import check_new_version, get_version
 from utils.auth import (
     CustomCSRFMiddleware,
@@ -113,6 +120,8 @@ def heartbeat() -> HeartbeatReturn:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
     """
 
+    config_manager.read_config()
+
     return {
         "VERSION": get_version(),
         "NEW_VERSION": check_new_version(),
@@ -142,7 +151,7 @@ def heartbeat() -> HeartbeatReturn:
                 "MESSAGE": "Updates the MAME XML file",
             },
         },
-        "CONFIG": config.__dict__,
+        "CONFIG": config_manager.config.__dict__,
     }
 
 

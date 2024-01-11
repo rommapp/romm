@@ -1,15 +1,15 @@
-from pydantic import BaseModel
-from fastapi import APIRouter, Request, UploadFile, File, HTTPException, status
-from typing_extensions import TypedDict
-from typing import Optional
 from pathlib import Path
-from utils.oauth import protected_route
-from handler import dbh
-from utils.fs import build_upload_file_path, remove_file
-from utils.fastapi import scan_save, scan_state
-from logger.logger import log
-from config.config_manager import config
+from typing import Optional
 
+from config.config_manager import config_manager
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from handler import dbh
+from logger.logger import log
+from pydantic import BaseModel
+from typing_extensions import TypedDict
+from utils.fastapi import scan_save, scan_state
+from utils.fs import build_upload_file_path, remove_file
+from utils.oauth import protected_route
 
 router = APIRouter()
 
@@ -83,7 +83,7 @@ def upload_saves(
         )
 
     saves_path = build_upload_file_path(
-        rom.platform.fs_slug, folder=config.SAVES_FOLDER_NAME
+        rom.platform.fs_slug, folder=config_manager.config.SAVES_FOLDER_NAME
     )
 
     for save in saves:
@@ -123,7 +123,7 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-        
+
         dbh.delete_save(save_id)
 
         if delete_from_fs:
@@ -154,7 +154,7 @@ def upload_states(
         )
 
     states_path = build_upload_file_path(
-        rom.platform.fs_slug, folder=config.STATES_FOLDER_NAME
+        rom.platform.fs_slug, folder=config_manager.config.STATES_FOLDER_NAME
     )
 
     for state in states:
@@ -196,7 +196,7 @@ async def delete_states(request: Request) -> list[StateSchema]:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         dbh.delete_state(state_id)
-        
+
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:

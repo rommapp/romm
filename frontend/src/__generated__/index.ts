@@ -19,6 +19,7 @@ export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBRomType } from './models/IGDBRomType';
 export type { MassDeleteRomResponse } from './models/MassDeleteRomResponse';
 export type { MessageResponse } from './models/MessageResponse';
+export type { PlatformBindingResponse } from './models/PlatformBindingResponse';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
 export type { RomSchema } from './models/RomSchema';

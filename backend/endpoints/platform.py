@@ -1,6 +1,7 @@
 from typing import Optional
 
 from config import ROMM_HOST
+from config.config_manager import config_manager
 from fastapi import APIRouter, HTTPException, Request, status
 from handler import dbh
 from logger.logger import log
@@ -87,6 +88,14 @@ class WebrcadeFeedSchema(TypedDict):
     categories: list[dict]
 
 
+class DeletePlatformResponse(TypedDict):
+    msg: str
+
+
+class PlatformBindingResponse(TypedDict):
+    msg: str
+
+
 @protected_route(router.get, "/platforms", ["platforms.read"])
 def platforms(request: Request) -> list[PlatformSchema]:
     """Get platforms endpoint
@@ -145,10 +154,6 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         }
 
 
-class DeletePlatformResponse(TypedDict):
-    msg: str
-
-
 @protected_route(router.delete, "/platforms/{slug}", ["platforms.write"])
 def delete_platform(request: Request, slug) -> DeletePlatformResponse:
     """Detele platform from database [and filesystem]"""
@@ -163,3 +168,30 @@ def delete_platform(request: Request, slug) -> DeletePlatformResponse:
     dbh.delete_platform(platform.slug)
 
     return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}
+
+
+@protected_route(router.put, "/config/system/platforms", ["platforms.write"])
+async def add_platform_binding(request: Request) -> PlatformBindingResponse:
+    """Add platform binding to the configuration"""
+
+    data = await request.form()
+
+    fs_slug = data.get("fs_slug")
+    slug = data.get("slug")
+
+    config_manager.add_binding(fs_slug, slug)
+
+    return {"msg": f"{fs_slug} binded to: {slug} successfully!"}
+
+
+@protected_route(router.patch, "/config/system/platforms", ["platforms.write"])
+async def delete_platform_binding(request: Request) -> PlatformBindingResponse:
+    """Delete platform binding from the configuration"""
+
+    data = await request.form()
+
+    fs_slug = data.get("fs_slug")
+
+    config_manager.remove_binding(fs_slug)
+
+    return {"msg": f"{fs_slug} bind removed successfully!"}
