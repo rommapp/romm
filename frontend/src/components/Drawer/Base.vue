@@ -99,7 +99,7 @@ emitter?.on("toggleDrawerRail", () => {
             </template>
           </v-list-item>
         </template>
-        <v-list-item class="bg-terciary" :to="{ name: 'controlPanelGeneral' }">
+        <v-list-item class="bg-terciary" :to="{ name: 'controlPanel' }">
           <span v-if="!rail" class="text-body-2 text-truncate"
             >Control Panel</span
           >
