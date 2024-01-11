@@ -6,9 +6,7 @@
   [![unraid-badge]][unraid-badge-url]
   [![wiki-badge]][wiki-url] 
 
-  <h1>
-    <img src=".github/resources/romm.svg" height="220px" width="auto" alt="RomM Logo">
-  </h1>
+  <img src=".github/resources/romm.svg" height="220px" width="auto" alt="RomM Logo">
   <h2>
     RomM - A beatiful, powerful, self-hosted rom manager
   </h2>
@@ -18,9 +16,9 @@
 
 RomM allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
 
-# Features
+## Features
 
-- Scans your existing games library[folder-structure] and enchances it with metadata from [IGDB][igdb]
+- Scans your existing games library [folder-structure] and enchances it with metadata from [IGDB][igdb]
 - Supports a large number of **[platforms][platform-support]**
 - Supports [MAME][mame-xml-update], [Nintendo Switch][switch-titledb-update] and PS2 naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
@@ -28,7 +26,7 @@ RomM allows you to scan, enrich, and browse your game collection with a clean an
 - Built-in [authentication][authentication] with multiple users and permissions
 - View, upload, update, and delete games from any modern web browser
 
-# Preview
+## Preview
 
 | 🖥 Desktop | 📱 Mobile |
 | :---: | :---: |
@@ -43,7 +41,7 @@ Before running the [image][docker-tags], ensure that Docker is installed and run
 3. Create a docker-compose file. Refer to the example [docker-compose.yml][docker-compose-example] file for guidance. Customize it for your setup and include the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables in the environment section of the file.
 4. Launch the container(s) with `docker-compose up -d`
 
-## Troubleshooting
+### Troubleshooting
 
 If you are having issues with the RomM, please review the [wiki page][wiki-troubleshooting-url] for troubleshooting steps and common issues.
 
