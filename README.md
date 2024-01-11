@@ -1,12 +1,19 @@
 <div align="center">
+  <div>
 
   [![license-badge]][license-badge-url]
   [![release-badge]][release-badge-url]
+  [![docker-pulls-badge]][docker-pulls-badge-url]
+  </div>
+  <div>
+
   [![discord-badge]][discord-badge-url]
   [![unraid-badge]][unraid-badge-url]
-  [![wiki-badge]][wiki-url] 
+  [![wiki-badge]][wiki-url]
+  </div>
 
-  <img src=".github/resources/romm.svg" height="220px" width="auto" alt="RomM Logo">
+  <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
+  
   <h2>
     RomM - A beatiful, powerful, self-hosted rom manager
   </h2>
@@ -43,7 +50,7 @@ Before running the [image][docker-tags], ensure that Docker is installed and run
 
 ### Troubleshooting
 
-If you are having issues with the RomM, please review the [wiki page][wiki-troubleshooting-url] for troubleshooting steps and common issues.
+If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting-url] for troubleshooting steps and common issues.
 
 # Configuration
 
@@ -227,6 +234,8 @@ If you like this project, consider buying me a coffee!
 [unraid-badge]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
 [unraid-badge-url]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
 [wiki-badge]: https://img.shields.io/badge/Wiki-736e9b?style=for-the-badge
+[docker-pulls-badge]: https://img.shields.io/docker/pulls/zurdi15/romm?style=for-the-badge&label=pulls
+[docker-pulls-badge-url]: https://hub.docker.com/r/zurdi15/romm
 
 <!-- Links -->
 [discord-invite]: https://invidget.switchblade.xyz/P5HtHnhUDH
