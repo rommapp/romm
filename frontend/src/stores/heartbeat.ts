@@ -11,8 +11,11 @@ export default defineStore("heartbeat", {
     set(data: Heartbeat) {
       this.data = data;
     },
-    removePlatformBinding(fs_slug: string) {
-      delete this.data.CONFIG.PLATFORMS_BINDING[fs_slug];
+    addPlatformBinding(fsSlug: string, slug: string) {
+      this.data.CONFIG.PLATFORMS_BINDING[fsSlug] = slug;
+    },
+    removePlatformBinding(fsSlug: string) {
+      delete this.data.CONFIG.PLATFORMS_BINDING[fsSlug];
     },
   },
 });

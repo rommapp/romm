@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { inject, ref } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import api from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
@@ -12,11 +11,7 @@ import DeletePlatformBindingDialog from "@/components/Dialog/Platform/DeletePlat
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
-
-// Functions
-function addBindPlatform(fsSlug: string, slug: string) {
-  api.addPlatformBindConfig({ fsSlug: fsSlug, slug: slug });
-}
+const showDeleteBtn = ref(false);
 </script>
 <template>
   <v-card rounded="0">
@@ -26,20 +21,20 @@ function addBindPlatform(fsSlug: string, slug: string) {
         Platforms Bindings
       </v-toolbar-title>
       <v-btn
-        disabled
-        prepend-icon="mdi-plus"
-        variant="outlined"
-        class="text-romm-accent-1"
-        @click="emitter?.emit('showCreatePlatformBindingDialog', null)"
+        class="ma-2"
+        rounded="0"
+        size="small"
+        variant="text"
+        @click="showDeleteBtn = !showDeleteBtn"
+        icon="mdi-cog"
       >
-        Add
       </v-btn>
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
 
     <v-card-text class="pa-1">
-      <v-row no-gutters>
+      <v-row no-gutters class="align-center">
         <v-col
           cols="6"
           sm="4"
@@ -62,18 +57,34 @@ function addBindPlatform(fsSlug: string, slug: string) {
               <span clas="pa-1">{{ platform }}</span>
             </div>
             <template v-slot:append>
-              <v-btn
-                rounded="0"
-                variant="text"
-                size="small"
-                icon="mdi-delete"
-                @click="
-                  emitter?.emit('showDeletePlatformBindingDialog', platform)
-                "
-                class="text-romm-red ml-1"
-              />
+              <v-scroll-x-reverse-transition>
+                <v-btn
+                  v-if="showDeleteBtn"
+                  rounded="0"
+                  variant="text"
+                  size="small"
+                  icon="mdi-delete"
+                  @click="
+                    emitter?.emit('showDeletePlatformBindingDialog', platform)
+                  "
+                  class="text-romm-red ml-1"
+                />
+              </v-scroll-x-reverse-transition>
             </template>
           </v-list-item>
+        </v-col>
+        <v-col cols="6" sm="4" md="3" lg="2" xl="2" class="px-1">
+          <v-btn
+            block
+            rounded="0"
+            size="large"
+            prepend-icon="mdi-plus"
+            variant="outlined"
+            class="text-romm-accent-1"
+            @click="emitter?.emit('showCreatePlatformBindingDialog', null)"
+          >
+            Add
+          </v-btn>
         </v-col>
       </v-row>
     </v-card-text>
