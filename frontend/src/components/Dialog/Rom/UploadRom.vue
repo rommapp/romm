@@ -41,6 +41,7 @@ socket.on("scan:done_ko", (msg) => {
   socket.disconnect();
 });
 
+// Functions
 async function uploadRoms() {
   show.value = false;
   scanning.set(true);
@@ -97,6 +98,10 @@ async function uploadRoms() {
     });
 }
 
+function closeDialog() {
+  show.value = false;
+}
+
 onBeforeUnmount(() => {
   socket.off("scan:done");
   socket.off("scan:done_ko");
@@ -109,8 +114,8 @@ onBeforeUnmount(() => {
     scroll-strategy="none"
     width="auto"
     :scrim="false"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
   >
@@ -129,7 +134,7 @@ onBeforeUnmount(() => {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -157,7 +162,7 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary">
             Upload
           </v-btn>

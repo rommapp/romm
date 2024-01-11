@@ -49,13 +49,13 @@ async function deleteRoms() {
 
   romsStore.remove(roms.value);
   emitter?.emit("refreshDrawer", null);
-  closeDialog()
+  closeDialog();
 }
 
 function closeDialog() {
   deleteFromFs.value = false;
   show.value = false;
-};
+}
 </script>
 
 <template>
@@ -82,7 +82,7 @@ function closeDialog() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -114,7 +114,7 @@ function closeDialog() {
       </v-card-text>
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="deleteRoms()" class="text-romm-red bg-terciary ml-5"
             >Confirm</v-btn
           >

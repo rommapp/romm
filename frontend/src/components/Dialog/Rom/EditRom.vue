@@ -22,6 +22,7 @@ emitter?.on("showEditRomDialog", (romToEdit) => {
   rom.value = romToEdit;
 });
 
+// Functions
 async function updateRom() {
   if (!rom.value) return;
 
@@ -65,6 +66,10 @@ async function updateRom() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
+
+function closeDialog() {
+  show.value = false;
+}
 </script>
 
 <template>
@@ -73,8 +78,8 @@ async function updateRom() {
     scroll-strategy="none"
     width="auto"
     :scrim="false"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
     v-if="rom"
@@ -94,7 +99,7 @@ async function updateRom() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -154,7 +159,7 @@ async function updateRom() {
           />
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="updateRom()" class="text-romm-green ml-5 bg-terciary"
             >Apply</v-btn
           >
