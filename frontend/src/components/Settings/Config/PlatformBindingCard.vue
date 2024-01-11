@@ -43,34 +43,48 @@ const showDeleteBtn = ref(false);
           xl="2"
           v-for="platform in Object.keys(platformsBinding)"
           :key="platform"
+          :title="platform"
         >
-          <v-list-item class="bg-terciary ma-1 pa-1">
+          <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
             <template v-slot:prepend>
               <v-avatar :rounded="0" size="40" class="mx-2">
-                <platform-icon :platform="platformsBinding[platform]" />
+                <platform-icon
+                  class="platform-icon"
+                  :platform="platformsBinding[platform]"
+                />
               </v-avatar>
             </template>
-            <div
-              class="bg-primary pa-2 text-caption text-truncate"
-              :title="platform"
-            >
-              <span clas="pa-1">{{ platform }}</span>
-            </div>
-            <template v-slot:append>
-              <v-scroll-x-reverse-transition>
-                <v-btn
-                  v-if="showDeleteBtn"
-                  rounded="0"
-                  variant="text"
-                  size="small"
-                  icon="mdi-delete"
-                  @click="
-                    emitter?.emit('showDeletePlatformBindingDialog', platform)
-                  "
-                  class="text-romm-red ml-1"
-                />
-              </v-scroll-x-reverse-transition>
-            </template>
+            <v-list-item class="bg-primary pr-2 pl-2">
+              <span>{{ platform }}</span>
+              <template v-slot:append>
+                <v-scroll-x-reverse-transition>
+                  <v-btn
+                    v-if="showDeleteBtn"
+                    rounded="0"
+                    variant="text"
+                    size="x-small"
+                    icon="mdi-pencil"
+                    @click="
+                      emitter?.emit('showDeletePlatformBindingDialog', platform)
+                    "
+                    class="ml-2"
+                  />
+                </v-scroll-x-reverse-transition>
+                <v-scroll-x-reverse-transition>
+                  <v-btn
+                    v-if="showDeleteBtn"
+                    rounded="0"
+                    variant="text"
+                    size="x-small"
+                    icon="mdi-delete"
+                    @click="
+                      emitter?.emit('showDeletePlatformBindingDialog', platform)
+                    "
+                    class="text-romm-red"
+                  />
+                </v-scroll-x-reverse-transition>
+              </template>
+            </v-list-item>
           </v-list-item>
         </v-col>
         <v-col cols="6" sm="4" md="3" lg="2" xl="2" class="px-1">
@@ -94,4 +108,8 @@ const showDeleteBtn = ref(false);
   <delete-platform-binding-dialog />
 </template>
 
-<style scoped></style>
+<style scoped>
+.platform-icon {
+  cursor: pointer;
+}
+</style>
