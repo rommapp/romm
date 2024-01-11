@@ -23,15 +23,6 @@ const excludad_multi_roms_parts_ext =
         <v-icon class="mr-3">mdi-cancel</v-icon>
         Excluded
       </v-toolbar-title>
-      <v-btn
-        disabled
-        prepend-icon="mdi-plus"
-        variant="outlined"
-        class="text-romm-accent-1"
-        @click="emitter?.emit('showCreateExclusionDialog', null)"
-      >
-        Add
-      </v-btn>
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
@@ -43,11 +34,20 @@ const excludad_multi_roms_parts_ext =
           Platforms
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters ma-1>
+        <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip label class="ma-1" v-for="excluded in excluded_platforms">{{
               excluded
             }}</v-chip>
+            <v-btn
+              rounded="1"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1 ml-1"
+              @click="emitter?.emit('showCreateExclusionDialog', 'platform')"
+            >
+              Add
+            </v-btn>
           </v-col>
         </v-row>
       </v-row>
@@ -58,14 +58,21 @@ const excludad_multi_roms_parts_ext =
           Single Roms Files
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters ma-1>
+        <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
               label
               class="ma-1"
               v-for="excluded in excludad_single_roms_files"
               >{{ excluded }}</v-chip
+            ><v-btn
+              rounded="1"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1 ml-1"
             >
+              Add
+            </v-btn>
           </v-col>
         </v-row>
       </v-row>
@@ -76,14 +83,21 @@ const excludad_multi_roms_parts_ext =
           Single Roms Extensions
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters ma-1>
+        <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
               label
               class="ma-1"
               v-for="excluded in excludad_single_roms_ext"
               >{{ excluded }}</v-chip
+            ><v-btn
+              rounded="1"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1 ml-1"
             >
+              Add
+            </v-btn>
           </v-col>
         </v-row>
       </v-row>
@@ -101,7 +115,14 @@ const excludad_multi_roms_parts_ext =
               class="ma-1"
               v-for="excluded in excludad_multi_roms_files"
               >{{ excluded }}</v-chip
+            ><v-btn
+              rounded="1"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1 ml-1"
             >
+              Add
+            </v-btn>
           </v-col>
         </v-row>
       </v-row>
@@ -112,14 +133,21 @@ const excludad_multi_roms_parts_ext =
           Multi Roms Parts Files
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters ma-1>
+        <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
               label
               class="ma-1"
               v-for="excluded in excludad_multi_roms_parts_files"
               >{{ excluded }}</v-chip
+            ><v-btn
+              rounded="1"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1 ml-1"
             >
+              Add
+            </v-btn>
           </v-col>
         </v-row>
       </v-row>
@@ -130,14 +158,21 @@ const excludad_multi_roms_parts_ext =
           Multi Roms Parts Extensions
         </v-toolbar-title>
         <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters ma-1>
+        <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
               label
               class="ma-1"
               v-for="excluded in excludad_multi_roms_parts_ext"
               >{{ excluded }}</v-chip
+            ><v-btn
+              rounded="1"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1 ml-1"
             >
+              Add
+            </v-btn>
           </v-col>
         </v-row>
       </v-row>

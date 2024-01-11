@@ -121,7 +121,7 @@ def test_rom_size():
     assert rom_size == (2.0, "KB")
 
 
-def test__exclude_files():
+def test_exclude_files():
     from config.config_manager import config_manager
 
     config_manager.config.EXCLUDED_SINGLE_FILES = [
