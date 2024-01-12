@@ -27,6 +27,7 @@ emitter?.on("showSearchRomDialog", (romToSearch) => {
   searchIGDB();
 });
 
+// Functions
 async function searchIGDB() {
   if (!rom.value) return;
 
@@ -85,6 +86,10 @@ async function updateRom(matchedRom: IGDBRomType) {
     });
 }
 
+function closeDialog() {
+  show.value = false;
+}
+
 onBeforeUnmount(() => {
   emitter?.off("showSearchRomDialog");
 });
@@ -96,8 +101,8 @@ onBeforeUnmount(() => {
     scroll-strategy="none"
     width="auto"
     :scrim="false"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
   >
@@ -148,7 +153,7 @@ onBeforeUnmount(() => {
 
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               rounded="0"
               variant="text"
               icon="mdi-close"

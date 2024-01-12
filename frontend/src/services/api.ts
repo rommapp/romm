@@ -1,22 +1,22 @@
-import axios from "axios";
-import storeDownload from "@/stores/download";
-import socket from "@/services/socket";
-import router from "@/plugins/router";
-import type { Rom } from "@/stores/roms";
-import type { User } from "@/stores/users";
-
 import type {
-  PlatformSchema,
-  RomSchema,
-  EnhancedRomSchema,
-  UploadRomResponse,
-  RomSearchResponse,
-  UserSchema,
-  MessageResponse,
   CursorPage_RomSchema_,
+  EnhancedRomSchema,
+  MessageResponse,
+  PlatformBindingResponse,
+  RomSchema,
+  RomSearchResponse,
   SaveSchema,
   StateSchema,
+  UploadRomResponse,
+  UserSchema,
 } from "@/__generated__";
+import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
+import router from "@/plugins/router";
+import socket from "@/services/socket";
+import storeDownload from "@/stores/download";
+import type { Rom } from "@/stores/roms";
+import type { User } from "@/stores/users";
+import axios from "axios";
 
 export const api = axios.create({ baseURL: "/api", timeout: 120000 });
 
@@ -30,8 +30,12 @@ api.interceptors.response.use(
   }
 );
 
-async function fetchPlatforms(): Promise<{ data: PlatformSchema[] }> {
+async function getPlatforms(): Promise<{ data: PlatformSchema[] }> {
   return api.get("/platforms");
+}
+
+async function getPlatform(id: number | undefined): Promise<{ data: PlatformSchema }> {
+  return api.get(`/platforms/${id}`);
 }
 
 async function deletePlatform({
@@ -275,7 +279,13 @@ async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   });
 }
 
-async function deleteSaves({ saves, deleteFromFs }: { saves: SaveSchema[], deleteFromFs: boolean }) {
+async function deleteSaves({
+  saves,
+  deleteFromFs,
+}: {
+  saves: SaveSchema[];
+  deleteFromFs: boolean;
+}) {
   return api.post("/saves/delete", {
     saves: saves.map((s) => s.id),
     delete_from_fs: deleteFromFs,
@@ -294,15 +304,45 @@ async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   });
 }
 
-async function deleteStates({ states, deleteFromFs }: { states: StateSchema[], deleteFromFs: boolean }) {
+async function deleteStates({
+  states,
+  deleteFromFs,
+}: {
+  states: StateSchema[];
+  deleteFromFs: boolean;
+}) {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),
     delete_from_fs: deleteFromFs,
   });
 }
 
+async function addPlatformBindConfig({
+  fsSlug,
+  slug,
+}: {
+  fsSlug: string;
+  slug: string;
+}): Promise<{ data: PlatformBindingResponse }> {
+  let formData = new FormData();
+  formData.append("fs_slug", fsSlug);
+  formData.append("slug", slug);
+  return api.put("/config/system/platforms", formData);
+}
+
+async function removePlatformBindConfig({
+  fsSlug,
+}: {
+  fsSlug: string;
+}): Promise<{ data: PlatformBindingResponse }> {
+  let formData = new FormData();
+  formData.append("fs_slug", fsSlug);
+  return api.patch("/config/system/platforms", formData);
+}
+
 export default {
-  fetchPlatforms,
+  getPlatforms,
+  getPlatform,
   deletePlatform,
   fetchRecentRoms,
   fetchRoms,
@@ -323,4 +363,6 @@ export default {
   deleteSaves,
   uploadStates,
   deleteStates,
+  addPlatformBindConfig,
+  removePlatformBindConfig,
 };

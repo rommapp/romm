@@ -3,8 +3,11 @@ import socketio  # type: ignore
 from config import ENABLE_EXPERIMENTAL_REDIS
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
-from exceptions.fs_exceptions import FolderStructureNotMatchException, RomsNotFoundException
-from handler import dbh, socketh, platformh, romh, resourceh, asseth
+from exceptions.fs_exceptions import (
+    FolderStructureNotMatchException,
+    RomsNotFoundException,
+)
+from handler import asseth, dbh, platformh, resourceh, romh, socketh
 from handler.redis_handler import high_prio_queue, redis_url
 from handler.scan_handler import (
     scan_platform,

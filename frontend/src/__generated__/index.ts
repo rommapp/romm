@@ -16,6 +16,7 @@ export type { HeartbeatReturn } from './models/HeartbeatReturn';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBRomType } from './models/IGDBRomType';
 export type { MessageResponse } from './models/MessageResponse';
+export type { PlatformBindingResponse } from './models/PlatformBindingResponse';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
 export type { RomSchema } from './models/RomSchema';

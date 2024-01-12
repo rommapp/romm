@@ -1,7 +1,7 @@
 import os
 
 from config import LIBRARY_BASE_PATH
-from config.config_loader import config
+from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import FolderStructureNotMatchException
 from handler.fs_handler.fs_handler import FSHandler
 
@@ -15,7 +15,7 @@ class PlatformsHandler(FSHandler):
         return [
             platform
             for platform in platforms
-            if platform not in config.EXCLUDED_PLATFORMS
+            if platform not in cm.config.EXCLUDED_PLATFORMS
         ]
 
     def get_platforms(self) -> list[str]:
@@ -26,8 +26,8 @@ class PlatformsHandler(FSHandler):
         """
         try:
             platforms: list[str] = (
-                list(os.walk(config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
-                if os.path.exists(config.HIGH_PRIO_STRUCTURE_PATH)
+                list(os.walk(cm.config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
+                if os.path.exists(cm.config.HIGH_PRIO_STRUCTURE_PATH)
                 else list(os.walk(LIBRARY_BASE_PATH))[0][1]
             )
             return self._exclude_platforms(platforms)

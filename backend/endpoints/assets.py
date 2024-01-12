@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from config.config_loader import config
+from config.config_manager import config_manager as cm
 from decorators.oauth import protected_route
 from endpoints.responses.assets import (
     SaveSchema,
@@ -9,9 +9,9 @@ from endpoints.responses.assets import (
     UploadedStatesResponse,
 )
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import dbh
-from logger.logger import log
+from handler import dbh, romh
 from handler.scan_handler import scan_save, scan_state
+from logger.logger import log
 
 router = APIRouter()
 
@@ -42,8 +42,8 @@ def upload_saves(
             detail="No saves were uploaded",
         )
 
-    saves_path = fsh.build_upload_file_path(
-        rom.platform.fs_slug, folder=config.SAVES_FOLDER_NAME
+    saves_path = romh.build_upload_file_path(
+        rom.platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
     )
 
     for save in saves:
@@ -90,7 +90,7 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
             log.info(f"Deleting {save.file_name} from filesystem")
 
             try:
-                fsh.remove_file(file_name=save.file_name, file_path=save.file_path)
+                romh.remove_file(file_name=save.file_name, file_path=save.file_path)
             except FileNotFoundError:
                 error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
                 log.error(error)
@@ -113,8 +113,8 @@ def upload_states(
             detail="No states were uploaded",
         )
 
-    states_path = fsh.build_upload_file_path(
-        rom.platform.fs_slug, folder=config.STATES_FOLDER_NAME
+    states_path = romh.build_upload_file_path(
+        rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
     )
 
     for state in states:
@@ -160,7 +160,7 @@ async def delete_states(request: Request) -> list[StateSchema]:
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
-                fsh.remove_file(file_name=state.file_name, file_path=state.file_path)
+                romh.remove_file(file_name=state.file_name, file_path=state.file_path)
             except FileNotFoundError:
                 error = f"Save file {state.file_name} not found for platform {state.platform_slug}"
                 log.error(error)

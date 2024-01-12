@@ -6,7 +6,7 @@ import type { SaveSchema, StateSchema } from "@/__generated__";
 export type UserItem = User & {
   password: string;
   avatar?: File[];
-}
+};
 
 export type SnackbarStatus = {
   msg: string;
@@ -21,19 +21,21 @@ export type Events = {
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
   showUploadRomDialog: null;
-  showCreateExclusionDialog: null;
   showCreatePlatformBindingDialog: null;
+  showDeletePlatformBindingButtons: null;
+  showDeletePlatformBindingDialog: string;
+  showCreateExclusionDialog: string;
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;
   showDeleteUserDialog: UserItem;
   showDeleteSavesDialog: {
-    rom: Rom,
+    rom: Rom;
     saves: SaveSchema[];
-  }
+  };
   showDeleteStatesDialog: {
-    rom: Rom,
+    rom: Rom;
     states: StateSchema[];
-  }
+  };
   toggleDrawer: null;
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;

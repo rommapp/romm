@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 import type { Events, UserItem } from "@/types/emitter";
 
 import api from "@/services/api";
-import { defaultAvatarPath } from "@/utils"
+import { defaultAvatarPath } from "@/utils";
 import storeUsers from "@/stores/users";
 
 const user = ref<UserItem | null>(null);
@@ -17,16 +17,18 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
   show.value = true;
 });
 
+// Functions
 function editUser() {
   if (!user.value) return;
 
-  api.updateUser(user.value)
+  api
+    .updateUser(user.value)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `User ${data.username} updated successfully`,
         icon: "mdi-check-bold",
         color: "green",
-        timeout: 5000
+        timeout: 5000,
       });
       usersStore.update(data);
     })
@@ -37,12 +39,16 @@ function editUser() {
         }`,
         icon: "mdi-close-circle",
         color: "red",
-        timeout: 5000
+        timeout: 5000,
       });
     });
 
   show.value = false;
   emitter?.emit("refreshDrawer", null);
+}
+
+function closeDialog() {
+  show.value = false;
 }
 </script>
 <template>
@@ -55,7 +61,7 @@ function editUser() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -138,7 +144,7 @@ function editUser() {
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn class="text-romm-green bg-terciary ml-5" @click="editUser()"
             >Apply</v-btn
           >

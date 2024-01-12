@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch
 
 from ...handler.fs_handler.roms_handler import (
@@ -17,11 +16,8 @@ from ...handler.fs_handler.roms_handler import (
     # build_artwork_path, # TODO: write test
     # build_avatar_path, # TODO: write test
 )
-
-from config import (
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_PATH_COVER_S,
-)
+import pytest
+from config import DEFAULT_PATH_COVER_L, DEFAULT_PATH_COVER_S
 
 
 @pytest.mark.vcr
@@ -131,39 +127,51 @@ def test_rom_size():
 
     assert rom_size == (2.0, "KB")
 
-def test__exclude_files():
-    from config.config_loader import config
 
-    config.EXCLUDED_SINGLE_FILES = ["Super Mario 64 (J) (Rev A) [Part 1].z64"]
+def test_exclude_files():
+    from config.config_manager import config_manager as cm
 
-    patch("utils.fs.config", config)
-    
+    cm.config.EXCLUDED_SINGLE_FILES = [
+        "Super Mario 64 (J) (Rev A) [Part 1].z64"
+    ]
+
+    patch("utils.fs.config", cm.config)
+
     filtered_files = _exclude_files(
-        files=["Super Mario 64 (J) (Rev A) [Part 1].z64", "Super Mario 64 (J) (Rev A) [Part 2].z64"],
+        files=[
+            "Super Mario 64 (J) (Rev A) [Part 1].z64",
+            "Super Mario 64 (J) (Rev A) [Part 2].z64",
+        ],
         filetype="single",
     )
 
     assert len(filtered_files) == 1
 
-    config.EXCLUDED_SINGLE_EXT = ["z64"]
+    cm.config.EXCLUDED_SINGLE_EXT = ["z64"]
 
     filtered_files = _exclude_files(
-        files=["Super Mario 64 (J) (Rev A) [Part 1].z64", "Super Mario 64 (J) (Rev A) [Part 2].z64"],
-        filetype="single",
-    )
-    
-    assert len(filtered_files) == 0
-
-    config.EXCLUDED_SINGLE_FILES = ["*.z64"]
-
-    filtered_files = _exclude_files(
-        files=["Super Mario 64 (J) (Rev A) [Part 1].z64", "Super Mario 64 (J) (Rev A) [Part 2].z64"],
+        files=[
+            "Super Mario 64 (J) (Rev A) [Part 1].z64",
+            "Super Mario 64 (J) (Rev A) [Part 2].z64",
+        ],
         filetype="single",
     )
 
     assert len(filtered_files) == 0
 
-    config.EXCLUDED_SINGLE_FILES = ["_.*"]
+    cm.config.EXCLUDED_SINGLE_FILES = ["*.z64"]
+
+    filtered_files = _exclude_files(
+        files=[
+            "Super Mario 64 (J) (Rev A) [Part 1].z64",
+            "Super Mario 64 (J) (Rev A) [Part 2].z64",
+        ],
+        filetype="single",
+    )
+
+    assert len(filtered_files) == 0
+
+    cm.config.EXCLUDED_SINGLE_FILES = ["_.*"]
 
     filtered_files = _exclude_files(
         files=[
@@ -172,7 +180,7 @@ def test__exclude_files():
             "Kirby's Adventure.nsp",
             "_.Kirby's Adventure.nsp",
         ],
-       filetype="single",
+        filetype="single",
     )
 
     assert len(filtered_files) == 2
