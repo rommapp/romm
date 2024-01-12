@@ -2,9 +2,9 @@ from typing import Optional
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi.responses import StreamingResponse
+from handler import socketh
 from pydantic import BaseModel
 from typing_extensions import TypedDict
-from utils.socket import socket_server
 
 
 class RomSchema(BaseModel):
@@ -12,8 +12,7 @@ class RomSchema(BaseModel):
     igdb_id: Optional[int]
     sgdb_id: Optional[int]
 
-    platform_slug: str
-    platform_name: str
+    platform_id: int
 
     file_name: str
     file_name_no_tags: str
@@ -69,4 +68,4 @@ class CustomStreamingResponse(StreamingResponse):
 
     async def stream_response(self, *args, **kwargs) -> None:
         await super().stream_response(*args, **kwargs)
-        await socket_server.emit("download:complete", self.emit_body)
+        await socketh.socket_server.emit("download:complete", self.emit_body)

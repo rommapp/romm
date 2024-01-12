@@ -169,14 +169,14 @@ onBeforeUnmount(() => {
         <platform-icon :platform="platform.slug"></platform-icon>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
-      <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
+      <!-- <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
         <span v-if="rom.igdb_id" class="ml-10">
           • Identified <b>{{ rom.name }} 👾</b>
         </span>
         <span v-else class="ml-10">
           • {{ rom.file_name }} not found in IGDB
         </span>
-      </v-list-item>
+      </v-list-item> -->
     </v-col>
   </v-row>
 </template>

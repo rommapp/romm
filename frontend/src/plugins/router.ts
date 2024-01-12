@@ -18,12 +18,12 @@ const routes = [
         component: () => import("@/views/Dashboard/Base.vue"),
       },
       {
-        path: "/platform/:platform",
+        path: "/gallery/:platform",
         name: "platform",
         component: () => import("@/views/Gallery/Base.vue"),
       },
       {
-        path: "/platform/:platform/:rom",
+        path: "/gallery/:platform/:rom",
         name: "rom",
         component: () => import("@/views/Details/Base.vue"),
       },

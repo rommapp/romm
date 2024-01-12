@@ -1,15 +1,10 @@
 from datetime import timedelta
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from utils.auth import authenticate_user
-from utils.oauth import (
-    OAuth2RequestForm,
-    create_oauth_token,
-    get_current_active_user_from_bearer_token,
-)
-
+from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses.oauth import TokenResponse
+from fastapi import APIRouter, Depends, HTTPException, status
+from handler import authh, oauthh
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
@@ -45,13 +40,13 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        user, payload = await get_current_active_user_from_bearer_token(token)
+        user, payload = await oauthh.get_current_active_user_from_bearer_token(token)
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
 
-        access_token = create_oauth_token(
+        access_token = oauthh.create_oauth_token(
             data={
                 "sub": user.username,
                 "scopes": payload.get("scopes"),
@@ -74,7 +69,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 detail="Missing username or password",
             )
 
-        user = authenticate_user(form_data.username, form_data.password)
+        user = authh.authenticate_user(form_data.username, form_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -102,7 +97,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             detail="Insufficient scope",
         )
 
-    access_token = create_oauth_token(
+    access_token = oauthh.create_oauth_token(
         data={
             "sub": user.username,
             "scopes": " ".join(form_data.scopes),
@@ -111,7 +106,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    refresh_token = create_oauth_token(
+    refresh_token = oauthh.create_oauth_token(
         data={
             "sub": user.username,
             "scopes": " ".join(form_data.scopes),

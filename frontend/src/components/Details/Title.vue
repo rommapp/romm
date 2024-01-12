@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
-import type { Rom } from "@/stores/roms";
+import type { RomSchema, PlatformSchema } from "@/__generated__/"
 
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: RomSchema, platform: PlatformSchema }>();
 </script>
 <template>
   <v-row class="text-white text-shadow" no-gutters>
@@ -17,11 +16,11 @@ defineProps<{ rom: Rom }>();
     <v-col cols="12">
       <v-chip
         class="font-italic px-3 my-2"
-        :to="`/platform/${rom.platform_slug}`"
+        :to="`/platform/${platform.slug}`"
       >
-        {{ rom.platform_name || rom.platform_slug }}
+        {{ platform.name }}
         <v-avatar :rounded="0" size="40" class="ml-2 pa-2">
-          <platform-icon :platform="rom.platform_slug"></platform-icon>
+          <platform-icon :platform="platform.slug"></platform-icon>
         </v-avatar>
       </v-chip>
       <v-chip

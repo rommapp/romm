@@ -8,7 +8,7 @@ import type { Events } from "@/types/emitter";
 import api from "@/services/api";
 import storeRoms, { type Rom } from "@/stores/roms";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
-import TitleInfo from "@/components/Details/Title.vue";
+import Title from "@/components/Details/Title.vue";
 import Cover from "@/components/Details/Cover.vue";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
@@ -20,11 +20,11 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeleteAssetDialog from "@/components/Details/DeleteAssets.vue";
-import type { EnhancedRomSchema } from "@/__generated__";
+import type { PlatformSchema, EnhancedRomSchema } from "@/__generated__";
 
 const route = useRoute();
-const romsStore = storeRoms();
-const rom = ref<EnhancedRomSchema | null>(null);
+const rom = ref<EnhancedRomSchema>();
+const platform = ref<PlatformSchema>();
 const tab = ref<"details" | "saves" | "screenshots">("details");
 const { smAndDown, mdAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -36,7 +36,6 @@ async function fetchRom() {
     .fetchRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
-      romsStore.update(response.data);
     })
     .catch((error) => {
       console.log(error);
@@ -108,7 +107,7 @@ watch(
       >
         <v-row :class="{ 'position-absolute title-lg mr-16': mdAndUp, 'justify-center': smAndDown }" no-gutters>
           <v-col cols="12">
-            <title-info :rom="rom" />
+            <title :rom="rom" :platform="platform" />
           </v-col>
         </v-row>
         <v-row

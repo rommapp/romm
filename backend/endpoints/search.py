@@ -1,10 +1,9 @@
 import emoji
+from decorators.oauth import protected_route
+from endpoints.responses.search import RomSearchResponse
 from fastapi import APIRouter, Request
 from handler import dbh, igdbh
 from logger.logger import log
-from utils.oauth import protected_route
-
-from endpoints.responses.search import RomSearchResponse
 
 router = APIRouter()
 

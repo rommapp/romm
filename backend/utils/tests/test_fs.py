@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 
-from ..fs import (
+from ...handler.fs_handler.roms_handler import (
     get_rom_cover,
     get_platforms,
     get_fs_structure,

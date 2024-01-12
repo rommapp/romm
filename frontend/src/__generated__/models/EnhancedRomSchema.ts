@@ -12,8 +12,7 @@ export type EnhancedRomSchema = {
     id: number;
     igdb_id: (number | null);
     sgdb_id: (number | null);
-    platform_slug: string;
-    platform_name: string;
+    platform_id: number;
     file_name: string;
     file_name_no_tags: string;
     file_extension: string;

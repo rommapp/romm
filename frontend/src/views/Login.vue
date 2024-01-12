@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeMount } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeMount, ref } from "vue";
+import { useRouter } from "vue-router";
 
-import storeAuth from "@/stores/auth";
 import { api } from "@/services/api";
+import storeAuth from "@/stores/auth";
 
 // Props
 const auth = storeAuth();
@@ -57,7 +57,7 @@ function login() {
 onBeforeMount(async () => {
   // Check if authentication is enabled
   if (!auth.enabled) {
-    return router.push("/");
+    return router.push({"name": "dashboard"});
   }
 });
 </script>

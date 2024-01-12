@@ -20,19 +20,7 @@ class BaseAsset(BaseModel):
 
 class SaveSchema(BaseAsset):
     rom_id: int
-    platform_slug: str
     emulator: Optional[str]
-
-
-class StateSchema(BaseAsset):
-    rom_id: int
-    platform_slug: str
-    emulator: Optional[str]
-
-
-class ScreenshotSchema(BaseAsset):
-    rom_id: int
-    platform_slug: Optional[str]
 
 
 class UploadedSavesResponse(TypedDict):
@@ -40,6 +28,15 @@ class UploadedSavesResponse(TypedDict):
     saves: list[SaveSchema]
 
 
+class StateSchema(BaseAsset):
+    rom_id: int
+    emulator: Optional[str]
+
+
 class UploadedStatesResponse(TypedDict):
     uploaded: int
     states: list[StateSchema]
+
+
+class ScreenshotSchema(BaseAsset):
+    rom_id: int
