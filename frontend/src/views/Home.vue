@@ -16,11 +16,10 @@ const { mdAndDown } = useDisplay();
 const platforms = storePlatforms();
 const scanning = storeScanning();
 const auth = storeAuth();
-const refreshDrawer = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("refreshDrawer", async () => {
+  emitter?.on("refreshDrawer", async () => {
   const { data: platformData } = await api.fetchPlatforms();
   platforms.set(platformData);
 });

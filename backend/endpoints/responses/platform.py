@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class PlatformSchema(BaseModel):
+    id: int
     slug: str
     fs_slug: str
     igdb_id: Optional[int] = None

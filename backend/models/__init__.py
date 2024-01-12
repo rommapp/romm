@@ -1,4 +1,4 @@
-from .platform import Platform # noqa[401]
-from .rom import Rom # noqa[401]
-from .user import User, Role # noqa[401]
-from .assets import Save, State, Screenshot # noqa[401]
+from models.platform import Platform # noqa[401]
+from models.rom import Rom # noqa[401]
+from models.user import User, Role # noqa[401]
+from models.assets import Save, State, Screenshot # noqa[401]

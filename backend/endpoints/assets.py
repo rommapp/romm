@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from config.config_loader import config
+from decorators.oauth import protected_route
 from endpoints.responses.assets import (
     SaveSchema,
     StateSchema,
@@ -10,9 +11,7 @@ from endpoints.responses.assets import (
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler import dbh
 from logger.logger import log
-from utils.fastapi import scan_save, scan_state
-from utils.fs import build_upload_file_path, remove_file
-from utils.oauth import protected_route
+from handler.scan_handler import scan_save, scan_state
 
 router = APIRouter()
 
@@ -43,7 +42,7 @@ def upload_saves(
             detail="No saves were uploaded",
         )
 
-    saves_path = build_upload_file_path(
+    saves_path = fsh.build_upload_file_path(
         rom.platform.fs_slug, folder=config.SAVES_FOLDER_NAME
     )
 
@@ -91,7 +90,7 @@ async def delete_saves(request: Request) -> list[SaveSchema]:
             log.info(f"Deleting {save.file_name} from filesystem")
 
             try:
-                remove_file(file_name=save.file_name, file_path=save.file_path)
+                fsh.remove_file(file_name=save.file_name, file_path=save.file_path)
             except FileNotFoundError:
                 error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
                 log.error(error)
@@ -114,7 +113,7 @@ def upload_states(
             detail="No states were uploaded",
         )
 
-    states_path = build_upload_file_path(
+    states_path = fsh.build_upload_file_path(
         rom.platform.fs_slug, folder=config.STATES_FOLDER_NAME
     )
 
@@ -161,7 +160,7 @@ async def delete_states(request: Request) -> list[StateSchema]:
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
-                remove_file(file_name=state.file_name, file_path=state.file_path)
+                fsh.remove_file(file_name=state.file_name, file_path=state.file_path)
             except FileNotFoundError:
                 error = f"Save file {state.file_name} not found for platform {state.platform_slug}"
                 log.error(error)

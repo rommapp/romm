@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Final
 
 from config import ROMM_BASE_PATH
-from .stdout_formatter import StdoutFormatter
-from .file_formatter import FileFormatter
+from logger.stdout_formatter import StdoutFormatter
+from logger.file_formatter import FileFormatter
 
 LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
 

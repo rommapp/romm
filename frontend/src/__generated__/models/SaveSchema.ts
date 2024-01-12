@@ -13,7 +13,6 @@ export type SaveSchema = {
     full_path: string;
     download_path: string;
     rom_id: number;
-    platform_slug: string;
     emulator: (string | null);
 };
 

@@ -38,22 +38,20 @@ class DBHandler:
         return session.merge(platform)
 
     @begin_session
-    def get_platforms(self, session: Session = None):
+    def get_platform(self, id: int = None, session: Session = None):
         return (
             session.scalars(select(Platform).order_by(Platform.slug.asc()))
             .unique()
             .all()
+            if not id
+            else session.get(Platform, id)
         )
 
-    @begin_session
-    def get_platform(self, slug: str, session: Session = None):
-        return session.get(Platform, slug)
-
-    @begin_session
-    def get_platform_by_fs_slug(self, fs_slug: str, session: Session = None):
-        return session.scalars(
-            select(Platform).filter_by(fs_slug=fs_slug).limit(1)
-        ).first()
+    # @begin_session
+    # def get_platform_by_fs_slug(self, fs_slug: str, session: Session = None):
+    #     return session.scalars(
+    #         select(Platform).filter_by(fs_slug=fs_slug).limit(1)
+    #     ).first()
 
     @begin_session
     def delete_platform(self, slug: str, session: Session = None):
@@ -67,6 +65,12 @@ class DBHandler:
             delete(Platform)
             .where(Platform.slug == slug)
             .execution_options(synchronize_session="evaluate")
+        )
+    
+    @begin_session
+    def get_rom_count(self, platform_id: int, session: Session = None):
+        return session.scalar(
+            select(func.count()).select_from(Rom).filter_by(platform_id=platform_id)
         )
 
     @begin_session
@@ -132,28 +136,20 @@ class DBHandler:
         )
 
     @begin_session
-    def purge_roms(self, platform_slug: str, roms: list[str], session: Session = None):
+    def purge_roms(self, platform_id: int, roms: list[str], session: Session = None):
         return session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_slug == platform_slug, Rom.file_name.not_in(roms)))
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
             .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def get_rom_count(self, platform_slug: str, session: Session = None):
-        return session.scalar(
-            select(func.count()).select_from(Rom).filter_by(platform_slug=platform_slug)
         )
 
     # ==== Utils ======
     @begin_session
     def get_rom_by_filename(
-        self, platform_slug: str, file_name: str, session: Session = None
+        self, platform_id: int, file_name: str, session: Session = None
     ):
         return session.scalars(
-            select(Rom)
-            .filter_by(platform_slug=platform_slug, file_name=file_name)
-            .limit(1)
+            select(Rom).filter_by(platform_id=platform_id, file_name=file_name).limit(1)
         ).first()
 
     @begin_session
@@ -201,14 +197,10 @@ class DBHandler:
         )
 
     @begin_session
-    def purge_saves(
-        self, platform_slug: str, saves: list[str], session: Session = None
-    ):
+    def purge_saves(self, platform_id: int, saves: list[str], session: Session = None):
         return session.execute(
             delete(Save)
-            .where(
-                and_(Save.platform_slug == platform_slug, Save.file_name.not_in(saves))
-            )
+            .where(and_(Save.platform_id == platform_id, Save.file_name.not_in(saves)))
             .execution_options(synchronize_session="evaluate")
         )
 
@@ -223,11 +215,11 @@ class DBHandler:
 
     @begin_session
     def get_state_by_filename(
-        self, platform_slug: str, file_name: str, session: Session = None
+        self, platform_id: int, file_name: str, session: Session = None
     ):
         return session.scalars(
             select(State)
-            .filter_by(platform_slug=platform_slug, file_name=file_name)
+            .filter_by(platform_slug=platform_id, file_name=file_name)
             .limit(1)
         ).first()
 
@@ -250,14 +242,12 @@ class DBHandler:
 
     @begin_session
     def purge_states(
-        self, platform_slug: str, states: list[str], session: Session = None
+        self, platform_id: int, states: list[str], session: Session = None
     ):
         return session.execute(
             delete(State)
             .where(
-                and_(
-                    State.platform_slug == platform_slug, State.file_name.not_in(states)
-                )
+                and_(State.platform_id == platform_id, State.file_name.not_in(states))
             )
             .execution_options(synchronize_session="evaluate")
         )
@@ -296,12 +286,12 @@ class DBHandler:
 
     @begin_session
     def purge_screenshots(
-        self, screenshots: list[str], platform_slug: str = None, session: Session = None
+        self, platform_id: int, screenshots: list[str], session: Session = None
     ):
         return session.execute(
             delete(Screenshot)
             .where(
-                Screenshot.platform_slug == platform_slug,
+                Screenshot.platform_id == platform_id,
                 Screenshot.file_name.not_in(screenshots),
             )
             .execution_options(synchronize_session="evaluate")

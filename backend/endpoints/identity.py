@@ -1,22 +1,17 @@
 import secrets
 from typing import Annotated
-from endpoints.responses import MessageResponse
 
 from config import ROMM_AUTH_ENABLED
-from exceptions.credentials_exceptions import CredentialsException, DisabledException
-from fastapi import APIRouter, Depends, File, HTTPException, Request, status
+from decorators.oauth import protected_route
+from endpoints.forms.identity import UserForm
+from endpoints.responses import MessageResponse
+from endpoints.responses.identity import UserSchema
+from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler import dbh
+from handler import authh, dbh
 from models.user import Role, User
-from utils.auth import authenticate_user, clear_session, get_password_hash
-from utils.cache import cache
-from utils.fs import build_avatar_path
-from utils.oauth import protected_route
-
-from endpoints.responses.identity import (
-    UserSchema,
-    UserUpdateForm,
-)
+from handler.redis_handler import cache
 
 router = APIRouter()
 
@@ -37,9 +32,9 @@ def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse
         MessageResponse: Standard message response
     """
 
-    user = authenticate_user(credentials.username, credentials.password)
+    user = authh.authenticate_user(credentials.username, credentials.password)
     if not user:
-        raise CredentialsException
+        raise AuthCredentialsException
 
     if not user.enabled:
         raise DisabledException
@@ -70,7 +65,7 @@ def logout(request: Request) -> MessageResponse:
     if not request.user.is_authenticated:
         return {"message": "Already logged out"}
 
-    clear_session(request)
+    authh.clear_session(request)
 
     return {"message": "Successfully logged out"}
 
@@ -153,7 +148,7 @@ def create_user(
 
     user = User(
         username=username,
-        hashed_password=get_password_hash(password),
+        hashed_password=authh.get_password_hash(password),
         role=Role[role.upper()],
     )
 
@@ -162,7 +157,7 @@ def create_user(
 
 @protected_route(router.patch, "/users/{user_id}", ["users.write"])
 def update_user(
-    request: Request, user_id: int, form_data: Annotated[UserUpdateForm, Depends()]
+    request: Request, user_id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
     """Update user endpoint
 
@@ -201,7 +196,7 @@ def update_user(
         cleaned_data["username"] = form_data.username.lower()
 
     if form_data.password:
-        cleaned_data["hashed_password"] = get_password_hash(form_data.password)
+        cleaned_data["hashed_password"] = authh.get_password_hash(form_data.password)
 
     # You can't change your own role
     if form_data.role and request.user.id != user_id:
@@ -212,7 +207,7 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        cleaned_data["avatar_path"], avatar_user_path = build_avatar_path(
+        cleaned_data["avatar_path"], avatar_user_path = fsh.build_avatar_path(
             form_data.avatar.filename, form_data.username
         )
         file_location = f"{avatar_user_path}/{form_data.avatar.filename}"
@@ -227,7 +222,7 @@ def update_user(
             "hashed_password"
         )
         if request.user.id == user_id and creds_updated:
-            clear_session(request)
+            authh.clear_session(request)
 
     return dbh.get_user(user_id)
 

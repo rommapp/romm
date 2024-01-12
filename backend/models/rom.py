@@ -2,15 +2,15 @@ import re
 from functools import cached_property
 
 from config import (
-    DEFAULT_PATH_COVER_S,
     DEFAULT_PATH_COVER_L,
+    DEFAULT_PATH_COVER_S,
     FRONTEND_LIBRARY_PATH,
     FRONTEND_RESOURCES_PATH,
 )
+from models.assets import Save, Screenshot, State
+from models.base import BaseModel
 from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, relationship
-
-from .base import BaseModel
 
 SIZE_UNIT_TO_BYTES = {
     "B": 1,
@@ -25,41 +25,12 @@ SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
 
 class Rom(BaseModel):
-    from .assets import Save, State, Screenshot
-
     __tablename__ = "roms"
 
     id = Column(Integer(), primary_key=True, autoincrement=True)
 
     igdb_id: int = Column(Integer())
     sgdb_id: int = Column(Integer())
-
-    platform_slug = Column(
-        String(length=50),
-        ForeignKey("platforms.slug"),
-        nullable=False,
-    )
-    platform = relationship(
-        "Platform", lazy="selectin", back_populates="roms"
-    )
-
-    saves: Mapped[list[Save]] = relationship(
-        "Save",
-        lazy="selectin",
-        back_populates="rom",
-    )
-    states: Mapped[list[State]] = relationship(
-        "State", lazy="selectin", back_populates="rom"
-    )
-    screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", lazy="selectin", back_populates="rom"
-    )
-
-    ### DEPRECATED ###
-    p_name: str = Column(String(length=150), default="")
-    p_igdb_id: str = Column(String(length=10), default="")
-    p_sgdb_id: str = Column(String(length=10), default="")
-    ### DEPRECATED ###
 
     file_name: str = Column(String(length=450), nullable=False)
     file_name_no_tags: str = Column(String(length=450), nullable=False)
@@ -80,10 +51,40 @@ class Rom(BaseModel):
     regions: JSON = Column(JSON, default=[])
     languages: JSON = Column(JSON, default=[])
     tags: JSON = Column(JSON, default=[])
-    multi: bool = Column(Boolean, default=False)
-    files: JSON = Column(JSON, default=[])
+
     url_screenshots: JSON = Column(JSON, default=[])
     path_screenshots: JSON = Column(JSON, default=[])
+
+    multi: bool = Column(Boolean, default=False)
+    files: JSON = Column(JSON, default=[])
+
+    platform_id = Column(
+        Integer(),
+        ForeignKey("platforms.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    platform = relationship("Platform", lazy="selectin", back_populates="roms")
+
+    saves: Mapped[list[Save]] = relationship(
+        "Save",
+        lazy="selectin",
+        back_populates="rom",
+    )
+    states: Mapped[list[State]] = relationship(
+        "State", lazy="selectin", back_populates="rom"
+    )
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        "Screenshot", lazy="selectin", back_populates="rom"
+    )
+
+    @property
+    def platform_slug(self) -> str:
+        return self.platform.slug
+    
+    @property
+    def platform_fs_slug(self) -> str:
+        return self.platform.fs_slug
 
     @property
     def platform_name(self) -> str:

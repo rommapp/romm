@@ -1,7 +1,7 @@
 from utils import (
     parse_tags,
     get_file_name_with_no_tags as gfnwt,
-    get_file_extension as gfe,
+    parse_file_extension as gfe,
 )
 
 

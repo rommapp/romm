@@ -1,7 +1,5 @@
 import os
 from datetime import timedelta
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
@@ -11,7 +9,9 @@ from config import (
 from config.config_loader import config
 from endpoints.sockets.scan import scan_platforms
 from logger.logger import log
-from tasks.utils import tasks_scheduler
+from tasks.tasks import tasks_scheduler
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 path = (
     config.HIGH_PRIO_STRUCTURE_PATH

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import { useRouter } from "vue-router";
-import { regionToEmoji, languageToEmoji } from "@/utils";
+import type { PlatformSchema, RomSchema } from "@/__generated__";
 import type { Rom } from "@/stores/roms";
-import type { RomSchema } from "@/__generated__";
+import { languageToEmoji, regionToEmoji } from "@/utils";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom; platform: PlatformSchema }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 
@@ -18,7 +18,8 @@ function formatItem(rom: RomSchema) {
 
 function updateVersion() {
   router.push({
-    path: `/platform/${props.rom.platform_slug}/${version.value}`,
+    name: "rom",
+    params: { platform: props.platform.slug, rom: version.value },
   });
 }
 </script>

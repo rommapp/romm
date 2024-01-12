@@ -1,21 +1,12 @@
 import os
 import sys
-from urllib.parse import quote_plus
 from typing import Final
-from typing_extensions import TypedDict
+from urllib.parse import quote_plus
 
 import pydash
 import yaml
-from config import (
-    DB_HOST,
-    DB_NAME,
-    DB_PASSWD,
-    DB_PORT,
-    DB_USER,
-    LIBRARY_BASE_PATH,
-    ROMM_DB_DRIVER,
-    ROMM_BASE_PATH,
-)
+from config import (DB_HOST, DB_NAME, DB_PASSWD, DB_PORT, DB_USER,
+                    ROMM_BASE_PATH, ROMM_DB_DRIVER)
 from logger.logger import log
 from yaml.loader import SafeLoader
 
@@ -23,19 +14,7 @@ ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 
 
-class ConfigDict(TypedDict):
-    EXCLUDED_PLATFORMS: list[str]
-    EXCLUDED_SINGLE_EXT: list[str]
-    EXCLUDED_SINGLE_FILES: list[str]
-    EXCLUDED_MULTI_FILES: list[str]
-    EXCLUDED_MULTI_PARTS_EXT: list[str]
-    EXCLUDED_MULTI_PARTS_FILES: list[str]
-    PLATFORMS_BINDING: dict[str, str]
-    ROMS_FOLDER_NAME: str
-    SAVES_FOLDER_NAME: str
-    STATES_FOLDER_NAME: str
-    SCREENSHOTS_FOLDER_NAME: str
-    HIGH_PRIO_STRUCTURE_PATH: str
+from config import LIBRARY_BASE_PATH
 
 
 class Config:
@@ -100,10 +79,12 @@ class ConfigLoader:
                 % quote_plus(DB_PASSWD)
             )
 
+        # DEPRECATED
         if ROMM_DB_DRIVER == "sqlite":
             if not os.path.exists(SQLITE_DB_BASE_PATH):
                 os.makedirs(SQLITE_DB_BASE_PATH)
             return f"sqlite:////{SQLITE_DB_BASE_PATH}/romm.db"
+        # DEPRECATED
 
         log.critical(f"{ROMM_DB_DRIVER} database not supported")
         sys.exit(3)
