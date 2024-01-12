@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import Settings from "@/views/Settings/ControlPanel/General/Base.vue";
-import Config from "@/views/Settings/ControlPanel/Config/Base.vue";
-import Users from "@/views/Settings/ControlPanel/Users/Base.vue";
 import storeHeartbeat from "@/stores/heartbeat";
+import ControlPanelGeneral from "@/views/Settings/ControlPanel/General/Base.vue"
+import ControlPanelConfig from "@/views/Settings/ControlPanel/Config/Base.vue"
+import ControlPanelUsers from "@/views/Settings/ControlPanel/Users/Base.vue"
 
 // Props
 const auth = storeAuth();
@@ -27,32 +27,17 @@ const tab = ref("general");
     </v-tabs>
   </v-app-bar>
 
-  <v-window v-model="tab">
-    <!-- General tab -->
+  <v-window v-model="tab" class="pa-1">
     <v-window-item value="general">
-      <v-row class="pa-1">
-        <v-col>
-          <settings />
-        </v-col>
-      </v-row>
+      <control-panel-general />
     </v-window-item>
 
-    <!-- Config tab -->
     <v-window-item value="config">
-      <v-row class="pa-1">
-        <v-col>
-          <config />
-        </v-col>
-      </v-row>
+      <control-panel-config />
     </v-window-item>
 
-    <!-- Users tab -->
     <v-window-item value="users">
-      <v-row class="pa-1">
-        <v-col>
-          <users />
-        </v-col>
-      </v-row>
+      <control-panel-users />
     </v-window-item>
   </v-window>
 

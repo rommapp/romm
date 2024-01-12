@@ -9,7 +9,7 @@ from config import (
     SCHEDULED_UPDATE_MAME_XML_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from config.config_loader import config
+from config.config_manager import config_manager as cm
 from endpoints.responses.heartbeat import HeartbeatReturn
 from fastapi import APIRouter
 from handler import ghh
@@ -54,5 +54,5 @@ def heartbeat() -> HeartbeatReturn:
                 "MESSAGE": "Updates the MAME XML file",
             },
         },
-        "CONFIG": config.__dict__,
+        "CONFIG": cm.config.__dict__,
     }

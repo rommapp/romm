@@ -11,12 +11,10 @@ defineProps<{ value: string; icon: string }>();
         variant="outlined"
         @click="toggle"
       >
-        <v-scroll-y-transition>
-          <div class="text-subtitle-2 flex-grow-1 text-center text-capitalize">
-            <v-icon class="mr-2">{{ icon }}</v-icon>
-            {{ value }}
-          </div>
-        </v-scroll-y-transition>
+        <div class="text-subtitle-2 flex-grow-1 text-center text-capitalize">
+          <v-icon class="mr-2">{{ icon }}</v-icon>
+          {{ value }}
+        </div>
       </v-card>
     </v-item>
   </v-col>

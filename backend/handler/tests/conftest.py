@@ -3,13 +3,13 @@ import alembic.config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from config.config_loader import ConfigLoader
+from config.config_manager import ConfigManager
 from models import Platform, Rom, User, Save, State, Screenshot
 from models.user import Role
 from utils.auth import get_password_hash
 from .. import dbh
 
-engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
+engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
 

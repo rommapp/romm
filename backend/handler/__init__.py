@@ -1,9 +1,9 @@
 from handler.auth_handler.auth_handler import AuthHandler, OAuthHandler
 from handler.db_handler import DBHandler
-from handler.fs_handler.platforms_handler import PlatformsHandler
-from handler.fs_handler.roms_handler import RomsHandler
 from handler.fs_handler.assets_handler import AssetsHandler
+from handler.fs_handler.platforms_handler import PlatformsHandler
 from handler.fs_handler.resources_handler import ResourceHandler
+from handler.fs_handler.roms_handler import RomsHandler
 from handler.gh_handler import GHHandler
 from handler.igdb_handler import IGDBHandler
 from handler.sgdb_handler import SGDBHandler

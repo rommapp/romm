@@ -2,12 +2,14 @@ import os
 from typing import Any
 
 import emoji
-from config.config_loader import config
-from handler import dbh, igdbh, romh, resourceh, asseth
+from config.config_manager import config_manager as cm
+from handler import asseth, dbh, igdbh, resourceh, romh
 from logger.logger import log
 from models import Platform, Rom, Save, Screenshot, State
 
-SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in config.PLATFORMS_BINDING.items())
+SWAPPED_PLATFORM_BINDINGS = dict(
+    (v, k) for k, v in cm.config.PLATFORMS_BINDING.items()
+)
 
 
 def scan_platform(fs_slug: str, fs_platforms) -> Platform:
@@ -35,8 +37,8 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
                 platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
 
     try:
-        if fs_slug in config.PLATFORMS_BINDING.keys():
-            platform_attrs["slug"] = config.PLATFORMS_BINDING[fs_slug]
+        if fs_slug in cm.config.PLATFORMS_BINDING.keys():
+            platform_attrs["slug"] = cm.config.PLATFORMS_BINDING[fs_slug]
         else:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
@@ -149,7 +151,7 @@ def _scan_asset(file_name: str, path: str):
 
 def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
     saves_path = asseth.get_fs_structure(
-        platform.fs_slug, folder=config.SAVES_FOLDER_NAME
+        platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
     )
 
     #  Scan asset with the sames path and emulator folder name
@@ -161,7 +163,7 @@ def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
 
 def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
     states_path = asseth.get_fs_structure(
-        platform.fs_slug, folder=config.STATES_FOLDER_NAME
+        platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
     )
 
     #  Scan asset with the sames path and emulator folder name
@@ -173,10 +175,12 @@ def scan_state(platform: Platform, file_name: str, emulator: str = None) -> Stat
 
 def scan_screenshot(file_name: str, platform: Platform = None) -> Screenshot:
     screenshots_path = asseth.get_fs_structure(
-        platform.fs_slug, folder=config.SCREENSHOTS_FOLDER_NAME
+        platform.fs_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
     )
 
     if platform.fs_slug:
         return Screenshot(**_scan_asset(file_name, screenshots_path))
 
-    return Screenshot(**_scan_asset(file_name, config.SCREENSHOTS_FOLDER_NAME))
+    return Screenshot(
+        **_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME)
+    )

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Final
 
 from config import ROMM_BASE_PATH
-from logger.stdout_formatter import StdoutFormatter
 from logger.file_formatter import FileFormatter
+from logger.stdout_formatter import StdoutFormatter
 
 LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
 
@@ -30,4 +30,4 @@ file_handler.setFormatter(FileFormatter())
 log.addHandler(file_handler)
 
 # Hush passlib warnings
-logging.getLogger('passlib').setLevel(logging.ERROR)
+logging.getLogger("passlib").setLevel(logging.ERROR)

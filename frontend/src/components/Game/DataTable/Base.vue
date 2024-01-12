@@ -3,12 +3,12 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { VDataTable } from "vuetify/labs/VDataTable";
 
-import api from "@/services/api";
-import storeDownload from "@/stores/download";
-import storeRoms, { type Rom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils";
+import api from "@/services/api";
+import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
+import storeRoms from "@/stores/roms";
+import { languageToEmoji, regionToEmoji } from "@/utils";
 
 const HEADERS = [
   {
@@ -71,7 +71,7 @@ const romsPerPage = ref(-1);
 
 // Functions
 function rowClick(_: Event, row: any) {
-  router.push(`/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`);
+  router.push({ name: "rom", params: { rom: row.item.raw.id } });
 }
 </script>
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from models.platform import Platform
 
 from config import LIBRARY_BASE_PATH
-from config.config_loader import config
+from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from handler.fs_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -69,8 +69,8 @@ class RomsHandler(FSHandler):
         return regs, rev, langs, other_tags
 
     def _exclude_files(self, files, filetype) -> list[str]:
-        excluded_extensions = getattr(config, f"EXCLUDED_{filetype.upper()}_EXT")
-        excluded_names = getattr(config, f"EXCLUDED_{filetype.upper()}_FILES")
+        excluded_extensions = getattr(cm.config, f"EXCLUDED_{filetype.upper()}_EXT")
+        excluded_names = getattr(cm.config, f"EXCLUDED_{filetype.upper()}_FILES")
         excluded_files: list = []
 
         for file_name in files:
@@ -94,7 +94,7 @@ class RomsHandler(FSHandler):
 
     @staticmethod
     def _exclude_multi_roms(roms) -> list[str]:
-        excluded_names = config.EXCLUDED_MULTI_FILES
+        excluded_names = cm.config.EXCLUDED_MULTI_FILES
         filtered_files: list = []
 
         for rom in roms:
@@ -171,7 +171,7 @@ class RomsHandler(FSHandler):
         return round(total_size, 2), unit
 
     @staticmethod
-    def _file_exists(path: str, file_name: str):
+    def file_exists(path: str, file_name: str):
         """Check if file exists in filesystem
 
         Args:
@@ -184,7 +184,7 @@ class RomsHandler(FSHandler):
 
     def rename_file(self, old_name: str, new_name: str, file_path: str):
         if new_name != old_name:
-            if self._file_exists(path=file_path, file_name=new_name):
+            if self.file_exists(path=file_path, file_name=new_name):
                 raise RomAlreadyExistsException(new_name)
 
             os.rename(

@@ -21,7 +21,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     Returns:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
-    platforms = dbh.get_platforms()
+    platforms = dbh.get_platform()
 
     with dbh.session.begin() as session:
         return {

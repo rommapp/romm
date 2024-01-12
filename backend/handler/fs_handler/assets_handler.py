@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 import requests
 from config import LIBRARY_BASE_PATH
-from config.config_loader import config
+from config.config_manager import config_manager as cm
 from handler.fs_handler import RESOURCES_BASE_PATH
 from handler.fs_handler.fs_handler import FSHandler
 
@@ -58,7 +58,7 @@ class AssetsHandler(FSHandler):
 
     def get_assets(self, platform_slug: str):
         saves_path = self.get_fs_structure(
-            platform_slug, folder=config.SAVES_FOLDER_NAME
+            platform_slug, folder=cm.config.SAVES_FOLDER_NAME
         )
         saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
 
@@ -79,7 +79,7 @@ class AssetsHandler(FSHandler):
             pass
 
         states_path = self.get_fs_structure(
-            platform_slug, folder=config.STATES_FOLDER_NAME
+            platform_slug, folder=cm.config.STATES_FOLDER_NAME
         )
         states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
 
@@ -98,7 +98,7 @@ class AssetsHandler(FSHandler):
             pass
 
         screenshots_path = self.get_fs_structure(
-            platform_slug, folder=config.SCREENSHOTS_FOLDER_NAME
+            platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
         )
         screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
 
@@ -117,7 +117,7 @@ class AssetsHandler(FSHandler):
 
     @staticmethod
     def get_screenshots():
-        screenshots_path = f"{LIBRARY_BASE_PATH}/{config.SCREENSHOTS_FOLDER_NAME}"
+        screenshots_path = f"{LIBRARY_BASE_PATH}/{cm.config.SCREENSHOTS_FOLDER_NAME}"
 
         fs_screenshots = []
 

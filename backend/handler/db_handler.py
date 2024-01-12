@@ -1,9 +1,9 @@
 import functools
 
-from config.config_loader import ConfigLoader
-from models import Platform, Rom, User, Role, Save, State, Screenshot
+from config.config_manager import ConfigManager
 from fastapi import HTTPException, status
 from logger.logger import log
+from models import Platform, Role, Rom, Save, Screenshot, State, User
 from sqlalchemy import and_, create_engine, delete, func, or_, select, update
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 class DBHandler:
     def __init__(self) -> None:
-        self.engine = create_engine(ConfigLoader.get_db_engine(), pool_pre_ping=True)
+        self.engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
     @staticmethod
@@ -47,12 +47,6 @@ class DBHandler:
             else session.get(Platform, id)
         )
 
-    # @begin_session
-    # def get_platform_by_fs_slug(self, fs_slug: str, session: Session = None):
-    #     return session.scalars(
-    #         select(Platform).filter_by(fs_slug=fs_slug).limit(1)
-    #     ).first()
-
     @begin_session
     def delete_platform(self, slug: str, session: Session = None):
         # Remove all roms from that platforms first
@@ -66,7 +60,7 @@ class DBHandler:
             .where(Platform.slug == slug)
             .execution_options(synchronize_session="evaluate")
         )
-    
+
     @begin_session
     def get_rom_count(self, platform_id: int, session: Session = None):
         return session.scalar(

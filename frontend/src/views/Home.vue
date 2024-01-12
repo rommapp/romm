@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, onMounted } from "vue";
+import { inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
@@ -13,24 +13,24 @@ import AppBar from "@/components/AppBar/Base.vue";
 
 // Props
 const { mdAndDown } = useDisplay();
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
 const scanning = storeScanning();
 const auth = storeAuth();
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
   emitter?.on("refreshDrawer", async () => {
-  const { data: platformData } = await api.fetchPlatforms();
-  platforms.set(platformData);
+  const { data: platformData } = await api.getPlatforms();
+  platformsStore.set(platformData);
 });
 
 // Functions
 onMounted(async () => {
   try {
-    const { data: platformData } = await api.fetchPlatforms();
-    platforms.set(platformData);
-    const { data: userData } = await api.fetchCurrentUser();
-    if (userData) auth.setUser(userData);
+    const { data: platforms } = await api.getPlatforms();
+    platformsStore.set(platforms);
+    const { data: currentUser } = await api.fetchCurrentUser();
+    if (currentUser) auth.setUser(currentUser);
     emitter?.emit("refreshDrawer", null);
   } catch (error) {
     console.error(error);

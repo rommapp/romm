@@ -81,7 +81,7 @@ class Rom(BaseModel):
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
-    
+
     @property
     def platform_fs_slug(self) -> str:
         return self.platform.fs_slug

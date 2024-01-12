@@ -1,49 +1,25 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
-import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import storeHeartbeat from "@/stores/heartbeat";
 import api from "@/services/api";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 
-const router = useRouter();
-const platformsStore = storePlatforms();
-const platform = ref<Platform | null>(null);
+// Props
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showDeletePlatformDialog", (platformToDelete) => {
-  platform.value = platformToDelete;
+const heartbeat = storeHeartbeat();
+const platformBindingToDelete = ref();
+emitter?.on("showDeletePlatformBindingDialog", (fsSlug: string) => {
+  platformBindingToDelete.value = fsSlug;
   show.value = true;
 });
 
-async function deletePlatform() {
-  if (!platform.value) return;
-
+// Functions
+function removeBindPlatform() {
+  api.removePlatformBindConfig({ fsSlug: platformBindingToDelete.value });
+  heartbeat.removePlatformBinding(platformBindingToDelete.value);
   show.value = false;
-  await api
-    .deletePlatform({ platform: platform.value })
-    .then((response) => {
-      emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-    })
-    .catch((error) => {
-      console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-      return;
-    });
-
-  await router.push({ name: "dashboard" });
-
-  platformsStore.remove(platform.value);
-  emitter?.emit("refreshDrawer", null);
-  closeDialog();
 }
 
 function closeDialog() {
@@ -51,11 +27,14 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog v-if="platform" v-model="show" width="auto"
+  <v-dialog
+    v-model="show"
+    width="auto"
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     no-click-animation
-    persistent>
+    persistent
+  >
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -78,22 +57,22 @@ function closeDialog() {
 
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <span class="mr-1">Deleting platform</span
+          <span class="mr-1">Deleting platform binding</span
           ><span class="text-romm-accent-1"
-            >{{ platform.name }} - [<span class="text-romm-accent-1">{{
-              platform.fs_slug
-            }}</span
-            >]</span
+            ><span class="text-romm-accent-1">{{
+              platformBindingToDelete
+            }}</span></span
           >.
           <span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn
-            class="bg-terciary text-romm-red ml-5"
-            @click="deletePlatform()"
-            >Confirm</v-btn
+            @click="removeBindPlatform()"
+            class="text-romm-red bg-terciary ml-5"
           >
+            Confirm
+          </v-btn>
         </v-row>
       </v-card-text>
     </v-card>

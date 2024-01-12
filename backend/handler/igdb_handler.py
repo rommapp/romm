@@ -10,13 +10,13 @@ import pydash
 import requests
 import xmltodict
 from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from tasks.update_mame_xml import update_mame_xml_task
 from tasks.update_switch_titledb import update_switch_titledb_task
 from typing_extensions import TypedDict
 from unidecode import unidecode as uc
-from handler.redis_handler import cache
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
@@ -80,7 +80,7 @@ class IGDBHandler:
             return func(*args)
 
         return wrapper
-    
+
     @staticmethod
     def normalize_search_term(search_term: str) -> str:
         return (
@@ -233,7 +233,6 @@ class IGDBHandler:
                 search_term = index_entry["name"]  # type: ignore
         return search_term
 
-
     async def _mame_format(self, search_term: str) -> str:
         mame_index = {"menu": {"game": []}}
 
@@ -258,6 +257,7 @@ class IGDBHandler:
                 # Run through get_search_term to remove tags
                 # TODO: refactor
                 from handler.fs_handler.fs_handler import FSHandler
+
                 get_search_term = FSHandler.get_file_name_with_no_tags
                 search_term = get_search_term(
                     index_entry[0].get("description", search_term)
@@ -285,6 +285,7 @@ class IGDBHandler:
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
         # TODO: refactor
         from handler.fs_handler.fs_handler import FSHandler
+
         get_search_term = FSHandler.get_file_name_with_no_tags
         search_term = get_search_term(file_name)
 

@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
   >
     <v-col>
       <v-avatar :rounded="0" size="40">
-        <platform-icon :platform="platform.slug"></platform-icon>
+        <platform-icon :slug="platform.slug"></platform-icon>
       </v-avatar>
       <span class="text-body-2 ml-5"> {{ platform.name }}</span>
       <!-- <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>

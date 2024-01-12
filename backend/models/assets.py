@@ -1,10 +1,9 @@
 from functools import cached_property
 
 from config import FRONTEND_LIBRARY_PATH
+from models.base import BaseModel
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
-
-from models.base import BaseModel
 
 
 class BaseAsset(BaseModel):

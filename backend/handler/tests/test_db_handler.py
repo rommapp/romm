@@ -1,11 +1,11 @@
 from sqlalchemy.exc import IntegrityError
 
-from handler.db_handler import DBHandler
+# from handler.db_handler import DBHandler
 from models import Platform, Rom, User, Save, State, Screenshot
 from models.user import Role
-from utils.auth import get_password_hash
+from handler import dbh, authh
 
-dbh = DBHandler()
+# dbh = DBHandler()
 
 
 def test_platforms():
@@ -14,14 +14,14 @@ def test_platforms():
     )
     dbh.add_platform(platform)
 
-    platforms = dbh.get_platforms()
+    platforms = dbh.get_platform()
     assert len(platforms) == 1
 
     platform = dbh.get_platform(platform.slug)
     assert platform.name == "test_platform"
 
     dbh.purge_platforms([])
-    platforms = dbh.get_platforms()
+    platforms = dbh.get_platform()
     assert len(platforms) == 0
 
 
@@ -76,7 +76,7 @@ def test_users(admin_user):
     dbh.add_user(
         User(
             username="new_user",
-            hashed_password=get_password_hash("new_password"),
+            hashed_password=authh.get_password_hash("new_password"),
         )
     )
 
@@ -102,7 +102,7 @@ def test_users(admin_user):
         new_user = dbh.add_user(
             User(
                 username="test_admin",
-                hashed_password=get_password_hash("new_password"),
+                hashed_password=authh.get_password_hash("new_password"),
                 role=Role.ADMIN,
             )
         )
