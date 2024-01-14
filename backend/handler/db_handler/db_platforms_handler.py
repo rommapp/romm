@@ -24,16 +24,16 @@ class DBPlatformsHandler(DBHandler):
         )
 
     @begin_session
-    def delete_platform(self, slug: str, session: Session = None):
+    def delete_platform(self, id: int, session: Session = None):
         # Remove all roms from that platforms first
         session.execute(
             delete(Rom)
-            .where(Rom.platform_slug == slug)
+            .where(Rom.platform_id == id)
             .execution_options(synchronize_session="evaluate")
         )
         return session.execute(
             delete(Platform)
-            .where(Platform.slug == slug)
+            .where(Platform.id == id)
             .execution_options(synchronize_session="evaluate")
         )
 

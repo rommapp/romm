@@ -1,10 +1,15 @@
+import secrets
 from datetime import timedelta
 from typing import Annotated, Final
 
 from endpoints.forms.identity import OAuth2RequestForm
+from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
-from fastapi import APIRouter, Depends, HTTPException, status
+from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security.http import HTTPBasic
 from handler import authh, oauthh
+from handler.redis_handler import cache
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
@@ -12,7 +17,7 @@ REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 router = APIRouter()
 
 
-@router.post("/token")
+@router.get("/token")
 async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
     """OAuth2 token endpoint
 
@@ -121,3 +126,57 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         "token_type": "bearer",
         "expires": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
+
+
+@router.post("/login")
+def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse:
+    """Session login endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        credentials: Defaults to Depends(HTTPBasic()).
+
+    Raises:
+        CredentialsException: Invalid credentials
+        DisabledException: Auth is disabled
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    user = authh.authenticate_user(credentials.username, credentials.password)
+    if not user:
+        raise AuthCredentialsException
+
+    if not user.enabled:
+        raise DisabledException
+
+    # Generate unique session key and store in cache
+    request.session["session_id"] = secrets.token_hex(16)
+    cache.set(f'romm:{request.session["session_id"]}', user.username)  # type: ignore[attr-defined]
+
+    return {"msg": "Successfully logged in"}
+
+
+@router.post("/logout")
+def logout(request: Request) -> MessageResponse:
+    """Session logout endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    # Check if session key already stored in cache
+    session_id = request.session.get("session_id")
+    if not session_id:
+        return {"msg": "Already logged out"}
+
+    if not request.user.is_authenticated:
+        return {"msg": "Already logged out"}
+
+    authh.clear_session(request)
+
+    return {"msg": "Successfully logged out"}

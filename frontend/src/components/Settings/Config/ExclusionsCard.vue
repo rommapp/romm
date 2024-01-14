@@ -1,20 +1,18 @@
 <script setup lang="ts">
-import { inject } from "vue";
-import type { Emitter } from "mitt";
+import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
-import storeHeartbeat from "@/stores/heartbeat";
+import type { Emitter } from "mitt";
+import { inject } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const heartbeat = storeHeartbeat();
-const excluded_platforms = heartbeat.data.CONFIG.EXCLUDED_PLATFORMS;
-const excludad_single_roms_files = heartbeat.data.CONFIG.EXCLUDED_SINGLE_FILES;
-const excludad_single_roms_ext = heartbeat.data.CONFIG.EXCLUDED_SINGLE_EXT;
-const excludad_multi_roms_files = heartbeat.data.CONFIG.EXCLUDED_MULTI_FILES;
-const excludad_multi_roms_parts_files =
-  heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS_FILES;
-const excludad_multi_roms_parts_ext =
-  heartbeat.data.CONFIG.EXCLUDED_MULTI_PARTS_EXT;
+const config = storeConfig();
+const excluded_platforms = config.value.EXCLUDED_PLATFORMS;
+const excludad_single_roms_files = config.value.EXCLUDED_SINGLE_FILES;
+const excludad_single_roms_ext = config.value.EXCLUDED_SINGLE_EXT;
+const excludad_multi_roms_files = config.value.EXCLUDED_MULTI_FILES;
+const excludad_multi_roms_parts_files = config.value.EXCLUDED_MULTI_PARTS_FILES;
+const excludad_multi_roms_parts_ext = config.value.EXCLUDED_MULTI_PARTS_EXT;
 </script>
 <template>
   <v-card rounded="0">

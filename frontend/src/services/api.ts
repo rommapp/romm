@@ -1,16 +1,17 @@
 import type {
+  AddRomsResponse,
+  ConfigResponse,
   CursorPage_RomSchema_,
   EnhancedRomSchema,
+  HeartbeatResponse,
   MessageResponse,
-  PlatformBindingResponse,
+  PlatformSchema,
   RomSchema,
   RomSearchResponse,
   SaveSchema,
   StateSchema,
-  UploadRomResponse,
   UserSchema,
 } from "@/__generated__";
-import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
 import router from "@/plugins/router";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
@@ -30,12 +31,41 @@ api.interceptors.response.use(
   }
 );
 
+// === Identity ===
+
+async function login(username: string, password: string) {
+  return api.post(
+    "/login",
+    {},
+    {
+      auth: {
+        username: username,
+        password: password,
+      },
+    }
+  );
+}
+
+// === Identity ===
+
+// === Platforms ===
+
 async function getPlatforms(): Promise<{ data: PlatformSchema[] }> {
   return api.get("/platforms");
 }
 
-async function getPlatform(id: number | undefined): Promise<{ data: PlatformSchema }> {
+async function getPlatform(
+  id: number | undefined
+): Promise<{ data: PlatformSchema }> {
   return api.get(`/platforms/${id}`);
+}
+
+async function updatePlatform({
+  platform,
+}: {
+  platform: PlatformSchema;
+}): Promise<{ data: MessageResponse }> {
+  return api.delete(`/platforms/${platform.id}`);
 }
 
 async function deletePlatform({
@@ -43,30 +73,65 @@ async function deletePlatform({
 }: {
   platform: PlatformSchema;
 }): Promise<{ data: MessageResponse }> {
-  return api.delete(`/platforms/${platform.slug}`);
+  return api.delete(`/platforms/${platform.id}`);
 }
 
-async function fetchRecentRoms(): Promise<{ data: RomSchema[] }> {
-  return api.get("/roms-recent");
-}
+// === Platforms ===
 
-async function fetchRoms({
+// === Roms ===
+
+async function uploadRoms({
   platform,
-  cursor = "",
-  size = 60,
-  searchTerm = "",
+  romsToUpload,
 }: {
   platform: string;
-  cursor?: string | null;
-  size?: number;
-  searchTerm?: string;
-}): Promise<{ data: CursorPage_RomSchema_ }> {
-  return api.get(`/platforms/${platform}/roms`, {
-    params: { cursor, size, search_term: searchTerm },
+  romsToUpload: File[];
+}): Promise<{ data: AddRomsResponse }> {
+  let formData = new FormData();
+  romsToUpload.forEach((rom) => formData.append("roms", rom));
+
+  return api.put("/roms", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: { platform_slug: platform },
   });
 }
 
-async function fetchRom({
+async function getRoms({
+  platformId,
+  size = 60,
+  cursor = "",
+  searchTerm = "",
+  orderBy = "name",
+  orderDir = "asc",
+}: {
+  platformId: number;
+  size?: number;
+  cursor?: string | null;
+  searchTerm?: string;
+  orderBy?: string;
+  orderDir?: string;
+}): Promise<{ data: CursorPage_RomSchema_ }> {
+  return api.get(`/roms`, {
+    params: {
+      platform_id: platformId,
+      size: size,
+      cursor: cursor,
+      search_term: searchTerm,
+      order_by: orderBy,
+      order_dir: orderDir,
+    },
+  });
+}
+
+async function getRecentRoms(): Promise<{ data: CursorPage_RomSchema_ }> {
+  return api.get("/roms", {
+    params: { size: 15, order_by: "id", order_dir: "desc" },
+  });
+}
+
+async function getRom({
   romId,
 }: {
   romId: number;
@@ -104,7 +169,7 @@ async function downloadRom({
   });
 
   const a = document.createElement("a");
-  a.href = `/api/roms/${rom.id}/download?${files_params}`;
+  a.href = `/api/roms/${rom.id}/content?${files_params}`;
   a.download = `${rom.name}.zip`;
   a.click();
 
@@ -118,24 +183,6 @@ async function downloadRom({
       clearRomFromDownloads(rom);
     }, 60 * 1000);
   }
-}
-
-async function uploadRoms({
-  platform,
-  romsToUpload,
-}: {
-  platform: string;
-  romsToUpload: File[];
-}): Promise<{ data: UploadRomResponse }> {
-  let formData = new FormData();
-  romsToUpload.forEach((rom) => formData.append("roms", rom));
-
-  return api.put("/roms/upload", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    params: { platform_slug: platform },
-  });
 }
 
 export type UpdateRom = Rom & {
@@ -159,20 +206,8 @@ async function updateRom({
   formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
-  return api.patch(`/roms/${rom.id}`, formData, {
+  return api.put(`/roms/${rom.id}`, formData, {
     params: { rename_as_igdb: renameAsIGDB },
-  });
-}
-
-async function deleteRom({
-  rom,
-  deleteFromFs = false,
-}: {
-  rom: Rom;
-  deleteFromFs: boolean;
-}): Promise<{ data: MessageResponse }> {
-  return api.delete(`/roms/${rom.id}`, {
-    params: { delete_from_fs: deleteFromFs },
   });
 }
 
@@ -194,25 +229,30 @@ async function deleteRoms({
   );
 }
 
-async function searchIGDB({
+async function searchRom({
   romId,
-  query,
-  field,
+  source,
+  searchTerm,
+  searchBy,
 }: {
   romId: number;
-  query: string;
-  field: string;
+  source: string;
+  searchTerm: string;
+  searchBy: string;
 }): Promise<{ data: RomSearchResponse }> {
-  return api.put(
-    "/search/roms/igdb",
-    {},
-    { params: { rom_id: romId, query, field } }
-  );
+  return api.get("/search/roms", {
+    params: {
+      rom_id: romId,
+      source: source,
+      search_term: searchTerm,
+      search_by: searchBy,
+    },
+  });
 }
 
-async function fetchCurrentUser(): Promise<{ data: UserSchema | null }> {
-  return api.get("/users/me");
-}
+// === Roms ===
+
+// === Users ===
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
   return api.get("/users");
@@ -220,6 +260,10 @@ async function fetchUsers(): Promise<{ data: UserSchema[] }> {
 
 async function fetchUser(user: User): Promise<{ data: UserSchema }> {
   return api.get(`/users/${user.id}`);
+}
+
+async function fetchCurrentUser(): Promise<{ data: UserSchema | null }> {
+  return api.get("/users/me");
 }
 
 async function createUser({
@@ -249,7 +293,7 @@ async function updateUser({
   enabled: boolean;
   avatar?: File[];
 }): Promise<{ data: UserSchema }> {
-  return api.patch(
+  return api.put(
     `/users/${id}`,
     {
       avatar: avatar ? avatar[0] : null,
@@ -267,11 +311,15 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 
+// === Users ===
+
+// === Saves ===
+
 async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
-
-  return api.put("/saves/upload", formData, {
+console.log(saves)
+  return api.post("/saves", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -286,17 +334,21 @@ async function deleteSaves({
   saves: SaveSchema[];
   deleteFromFs: boolean;
 }) {
-  return api.post("/saves/delete", {
+  return api.delete("/saves", {
     saves: saves.map((s) => s.id),
     delete_from_fs: deleteFromFs,
   });
 }
 
+// === Saves ===
+
+// === States ===
+
 async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   let formData = new FormData();
   states.forEach((state) => formData.append("states", state));
 
-  return api.put("/states/upload", formData, {
+  return api.post("/states", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -311,11 +363,15 @@ async function deleteStates({
   states: StateSchema[];
   deleteFromFs: boolean;
 }) {
-  return api.post("/states/delete", {
+  return api.delete("/states", {
     states: states.map((s) => s.id),
     delete_from_fs: deleteFromFs,
   });
 }
+
+// === States ===
+
+// === Config ===
 
 async function addPlatformBindConfig({
   fsSlug,
@@ -323,40 +379,42 @@ async function addPlatformBindConfig({
 }: {
   fsSlug: string;
   slug: string;
-}): Promise<{ data: PlatformBindingResponse }> {
+}): Promise<{ data: MessageResponse }> {
   let formData = new FormData();
   formData.append("fs_slug", fsSlug);
   formData.append("slug", slug);
-  return api.put("/config/system/platforms", formData);
+  return api.post("/config/system/platforms", formData);
 }
 
-async function removePlatformBindConfig({
+async function deletePlatformBindConfig({
   fsSlug,
 }: {
   fsSlug: string;
-}): Promise<{ data: PlatformBindingResponse }> {
+}): Promise<{ data: MessageResponse }> {
   let formData = new FormData();
   formData.append("fs_slug", fsSlug);
-  return api.patch("/config/system/platforms", formData);
+  return api.put("/config/system/platforms", formData);
 }
 
+// === Config ===
+
 export default {
+  login,
   getPlatforms,
   getPlatform,
   deletePlatform,
-  fetchRecentRoms,
-  fetchRoms,
-  fetchRom,
-  downloadRom,
   uploadRoms,
+  getRoms,
+  getRecentRoms,
+  getRom,
+  downloadRom,
+  searchRom,
   updateRom,
-  deleteRom,
   deleteRoms,
-  searchIGDB,
-  fetchCurrentUser,
+  createUser,
   fetchUsers,
   fetchUser,
-  createUser,
+  fetchCurrentUser,
   updateUser,
   deleteUser,
   uploadSaves,
@@ -364,5 +422,5 @@ export default {
   uploadStates,
   deleteStates,
   addPlatformBindConfig,
-  removePlatformBindConfig,
+  deletePlatformBindConfig,
 };

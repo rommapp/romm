@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeUnmount, ref } from "vue";
+import { useDisplay } from "vuetify";
 
+import type { IGDBRomType } from "@/__generated__";
 import api from "@/services/api";
 import storeRoms, { type Rom } from "@/stores/roms";
-import type { IGDBRomType } from "@/__generated__";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -24,20 +24,21 @@ emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
-  searchIGDB();
+  searchRom();
 });
 
 // Functions
-async function searchIGDB() {
+async function searchRom() {
   if (!rom.value) return;
 
   if (!searching.value) {
     searching.value = true;
     await api
-      .searchIGDB({
+      .searchRom({
         romId: rom.value.id,
-        query: searchTerm.value,
-        field: searchBy.value,
+        source: "igdb",
+        searchTerm: searchTerm.value,
+        searchBy: searchBy.value,
       })
       .then((response) => {
         matchedRoms.value = response.data.roms;
@@ -169,7 +170,7 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="7" xs="7" sm="8" md="8" lg="9">
             <v-text-field
-              @keyup.enter="searchIGDB()"
+              @keyup.enter="searchRom()"
               @click:clear="searchTerm = ''"
               class="bg-terciary"
               v-model="searchTerm"
@@ -190,7 +191,7 @@ onBeforeUnmount(() => {
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"
-              @click="searchIGDB()"
+              @click="searchRom()"
               class="bg-terciary"
               rounded="0"
               variant="text"

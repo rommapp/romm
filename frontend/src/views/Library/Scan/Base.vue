@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import api from "@/services/api";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import type { Rom } from "@/stores/roms";
-import type { PlatformSchema } from "@/__generated__";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeUnmount, ref } from "vue";
 
 // Props
 const platforms = storePlatforms();

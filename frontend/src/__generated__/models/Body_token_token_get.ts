@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_token_token_post = {
+export type Body_token_token_get = {
     grant_type?: string;
     scope?: string;
     username?: (string | null);

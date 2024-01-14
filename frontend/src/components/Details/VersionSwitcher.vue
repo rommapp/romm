@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PlatformSchema, RomSchema } from "@/__generated__";
+import type { PlatformSchema } from "@/__generated__";
 import type { Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { ref } from "vue";
@@ -9,7 +9,7 @@ const props = defineProps<{ rom: Rom; platform: PlatformSchema }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 
-function formatItem(rom: RomSchema) {
+function formatItem(rom: Rom) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
   const tags = rom.tags.map((t) => `(${t})`).join(" ");

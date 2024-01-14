@@ -2,13 +2,13 @@
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import api from "@/services/api";
 
 // Props
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const heartbeat = storeHeartbeat();
+const configStore = storeConfig();
 const platformBindingToDelete = ref();
 emitter?.on("showDeletePlatformBindingDialog", (fsSlug: string) => {
   platformBindingToDelete.value = fsSlug;
@@ -17,8 +17,8 @@ emitter?.on("showDeletePlatformBindingDialog", (fsSlug: string) => {
 
 // Functions
 function removeBindPlatform() {
-  api.removePlatformBindConfig({ fsSlug: platformBindingToDelete.value });
-  heartbeat.removePlatformBinding(platformBindingToDelete.value);
+  api.deletePlatformBindConfig({ fsSlug: platformBindingToDelete.value });
+  configStore.removePlatformBinding(platformBindingToDelete.value);
   show.value = false;
 }
 

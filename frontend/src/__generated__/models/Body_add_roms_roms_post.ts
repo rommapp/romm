@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type PlatformBindingResponse = {
-    msg: string;
+export type Body_add_roms_roms_post = {
+    roms: Array<Blob>;
 };
 

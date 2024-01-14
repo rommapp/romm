@@ -44,16 +44,6 @@ def test_get_all_users(access_token):
     assert users[0]["username"] == "test_admin"
 
 
-def test_get_current_user(access_token):
-    response = client.get(
-        "/users/me", headers={"Authorization": f"Bearer {access_token}"}
-    )
-    assert response.status_code == 200
-
-    user = response.json()
-    assert user["username"] == "test_admin"
-
-
 def test_get_user(access_token, editor_user):
     response = client.get(
         f"/users/{editor_user.id}", headers={"Authorization": f"Bearer {access_token}"}

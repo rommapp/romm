@@ -152,7 +152,7 @@ class ConfigManager:
         self._raw_config["system"]["platforms"][fs_slug] = slug
         self.update_config()
 
-    def remove_binding(self, fs_slug):
+    def remove_binding(self, fs_slug: str):
         try:
             del self._raw_config["system"]["platforms"][fs_slug]
         except KeyError:

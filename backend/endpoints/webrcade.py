@@ -6,12 +6,12 @@ from endpoints.responses.webrcade import (
     WebrcadeFeedSchema,
 )
 from fastapi import APIRouter, Request
-from handler import dbh
+from handler import dbplatformh, dbromh
 
 router = APIRouter()
 
 
-@protected_route(router.get, "/platforms/webrcade/feed", [])
+@protected_route(router.get, "/webrcade/feed", [])
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """Get webrcade feed endpoint
 
@@ -21,9 +21,10 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     Returns:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
-    platforms = dbh.get_platform()
 
-    with dbh.session.begin() as session:
+    platforms = dbplatformh.get_platforms()
+
+    with dbplatformh.session.begin() as session:
         return {
             "title": "RomM Feed",
             "longTitle": "Custom RomM Feed",
@@ -46,7 +47,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                             "background": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_l}",
                             "props": {"rom": f"{ROMM_HOST}{rom.download_path}"},
                         }
-                        for rom in session.scalars(dbh.get_roms(p.slug)).all()
+                        for rom in session.scalars(dbromh.get_roms(p.id)).all()
                     ],
                 }
                 for p in platforms

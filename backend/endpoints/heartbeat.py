@@ -9,8 +9,7 @@ from config import (
     SCHEDULED_UPDATE_MAME_XML_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from config.config_manager import config_manager as cm
-from endpoints.responses.heartbeat import HeartbeatReturn
+from endpoints.responses.heartbeat import HeartbeatResponse
 from fastapi import APIRouter
 from handler import ghh
 
@@ -18,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/heartbeat")
-def heartbeat() -> HeartbeatReturn:
+def heartbeat() -> HeartbeatResponse:
     """Endpoint to set the CSFR token in cache and return all the basic RomM config
 
     Returns:
@@ -53,6 +52,5 @@ def heartbeat() -> HeartbeatReturn:
                 "TITLE": "Scheduled MAME XML update",
                 "MESSAGE": "Updates the MAME XML file",
             },
-        },
-        "CONFIG": cm.config.__dict__,
+        }
     }

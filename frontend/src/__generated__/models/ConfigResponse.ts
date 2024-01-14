@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type ConfigDict = {
+export type ConfigResponse = {
     EXCLUDED_PLATFORMS: Array<string>;
     EXCLUDED_SINGLE_EXT: Array<string>;
     EXCLUDED_SINGLE_FILES: Array<string>;

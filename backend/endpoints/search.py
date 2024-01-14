@@ -8,9 +8,9 @@ from logger.logger import log
 router = APIRouter()
 
 
-@protected_route(router.put, "/search/roms/igdb", ["roms.read"])
-async def search_rom_igdb(
-    request: Request, rom_id: str, query: str = None, field: str = "Name"
+@protected_route(router.get, "/search/roms", ["roms.read"])
+async def search_rom(
+    request: Request, rom_id: str,  source: str, search_term: str = None, search_by: str = "name"
 ) -> RomSearchResponse:
     """Search rom into IGDB database
 
@@ -25,17 +25,17 @@ async def search_rom_igdb(
     """
 
     rom = dbh.get_rom(rom_id)
-    query = query or rom.file_name_no_tags
+    search_term = search_term or rom.file_name_no_tags
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
     matched_roms: list = []
 
-    log.info(f"Searching by {field}: {query}")
+    log.info(f"Searching by {search_by.lower()}: {search_term}")
     log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
-    if field.lower() == "id":
-        matched_roms = igdbh.get_matched_roms_by_id(int(query))
-    elif field.lower() == "name":
-        matched_roms = igdbh.get_matched_roms_by_name(query, rom.platform.igdb_id)
+    if search_by.lower() == "id":
+        matched_roms = igdbh.get_matched_roms_by_id(int(search_term))
+    elif search_by.lower() == "name":
+        matched_roms = igdbh.get_matched_roms_by_name(search_term, rom.platform.igdb_id)
 
     log.info("Results:")
     for m_rom in matched_roms:

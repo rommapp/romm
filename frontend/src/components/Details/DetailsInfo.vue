@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storeDownload from "@/stores/download";
+import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
-import type { Rom } from "@/stores/roms";
+import storeDownload from "@/stores/download";
 
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: EnhancedRomSchema, platform: PlatformSchema }>();
 const downloadStore = storeDownload();
 </script>
 <template>
@@ -16,7 +16,7 @@ const downloadStore = storeDownload();
       <span>Ver.</span>
     </v-col>
     <v-col>
-      <version-switcher :rom="rom" />
+      <version-switcher :rom="rom" :platform="platform" />
     </v-col>
   </v-row>
   <v-row v-if="!rom.multi" class="align-center py-2" no-gutters>

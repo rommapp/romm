@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref } from "vue";
 import { useRouter } from "vue-router";
 
-import { api } from "@/services/api";
+import api from "@/services/api";
 import storeAuth from "@/stores/auth";
 
 // Props
@@ -19,16 +19,7 @@ const logging = ref(false);
 function login() {
   logging.value = true;
   api
-    .post(
-      "/login",
-      {},
-      {
-        auth: {
-          username: username.value,
-          password: password.value,
-        },
-      }
-    )
+    .login(username.value, password.value)
     .then(() => {
       const next = (router.currentRoute.value.query?.next || "/").toString();
       router.push(next);
@@ -57,7 +48,7 @@ function login() {
 onBeforeMount(async () => {
   // Check if authentication is enabled
   if (!auth.enabled) {
-    return router.push({"name": "dashboard"});
+    return router.push({ name: "dashboard" });
   }
 });
 </script>

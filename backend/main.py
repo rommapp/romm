@@ -4,8 +4,19 @@ import sys
 import alembic.config
 import uvicorn
 from config import DEV_HOST, DEV_PORT, ROMM_AUTH_ENABLED, ROMM_AUTH_SECRET_KEY
-from endpoints import (assets, heartbeat, identity, oauth, platform, rom,
-                       search, tasks, webrcade, config)
+from endpoints import (
+    auth,
+    config,
+    heartbeat,
+    platform,
+    rom,
+    saves,
+    search,
+    states,
+    tasks,
+    user,
+    webrcade,
+)
 from endpoints.sockets import scan
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,15 +60,16 @@ app.add_middleware(
 )
 
 app.include_router(heartbeat.router)
-app.include_router(oauth.router)
-app.include_router(identity.router)
+app.include_router(auth.router)
+app.include_router(user.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
 app.include_router(search.router)
-app.include_router(assets.router)
+app.include_router(saves.router)
+app.include_router(states.router)
 app.include_router(tasks.router)
 app.include_router(webrcade.router)
-app.include_router(webrcade.router)
+app.include_router(config.router)
 
 add_pagination(app)
 app.mount("/ws", socketh.socket_app)

@@ -2,12 +2,12 @@
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import api from "@/services/api";
 
 // Props
 const show = ref(false);
-const heartbeat = storeHeartbeat();
+const configStore = storeConfig();
 const emitter = inject<Emitter<Events>>("emitter");
 const fsSlug = ref("");
 const slug = ref("");
@@ -18,7 +18,7 @@ emitter?.on("showCreatePlatformBindingDialog", () => {
 // Functions
 function addBindPlatform() {
   api.addPlatformBindConfig({ fsSlug: fsSlug.value, slug: slug.value });
-  heartbeat.addPlatformBinding(fsSlug.value, slug.value);
+  configStore.addPlatformBinding(fsSlug.value, slug.value);
   closeDialog();
   fsSlug.value = "";
   slug.value = "";

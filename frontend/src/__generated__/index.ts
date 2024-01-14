@@ -3,20 +3,19 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type { Body_token_token_post } from './models/Body_token_token_post';
-export type { Body_update_rom_roms__id__patch } from './models/Body_update_rom_roms__id__patch';
-export type { Body_update_user_users__user_id__patch } from './models/Body_update_user_users__user_id__patch';
-export type { Body_upload_roms_roms_upload_put } from './models/Body_upload_roms_roms_upload_put';
-export type { Body_upload_saves_saves_upload_put } from './models/Body_upload_saves_saves_upload_put';
-export type { Body_upload_states_states_upload_put } from './models/Body_upload_states_states_upload_put';
-export type { ConfigDict } from './models/ConfigDict';
+export type { AddRomsResponse } from './models/AddRomsResponse';
+export type { Body_add_roms_roms_post } from './models/Body_add_roms_roms_post';
+export type { Body_add_states_states_post } from './models/Body_add_states_states_post';
+export type { Body_token_token_get } from './models/Body_token_token_get';
+export type { Body_update_rom_roms__id__put } from './models/Body_update_rom_roms__id__put';
+export type { Body_update_user_users__id__put } from './models/Body_update_user_users__id__put';
+export type { ConfigResponse } from './models/ConfigResponse';
 export type { CursorPage_RomSchema_ } from './models/CursorPage_RomSchema_';
 export type { EnhancedRomSchema } from './models/EnhancedRomSchema';
-export type { HeartbeatReturn } from './models/HeartbeatReturn';
+export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBRomType } from './models/IGDBRomType';
 export type { MessageResponse } from './models/MessageResponse';
-export type { PlatformBindingResponse } from './models/PlatformBindingResponse';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
 export type { RomSchema } from './models/RomSchema';
@@ -27,9 +26,7 @@ export type { ScreenshotSchema } from './models/ScreenshotSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { TaskDict } from './models/TaskDict';
 export type { TokenResponse } from './models/TokenResponse';
-export type { UploadedSavesResponse } from './models/UploadedSavesResponse';
 export type { UploadedStatesResponse } from './models/UploadedStatesResponse';
-export type { UploadRomResponse } from './models/UploadRomResponse';
 export type { UserSchema } from './models/UserSchema';
 export type { ValidationError } from './models/ValidationError';
 export type { WatcherDict } from './models/WatcherDict';
