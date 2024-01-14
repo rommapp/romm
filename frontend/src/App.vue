@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { onBeforeMount } from "vue";
-import cookie from "js-cookie";
-import storeAuth from "@/stores/auth";
 import Notification from "@/components/Notification.vue";
 import { api } from "@/services/api";
+import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
+import { onBeforeMount } from "vue";
+import cookie from "js-cookie";
 
 // Props
-const auth = storeAuth();
-const heartbeat = storeHeartbeat();
+const authStore = storeAuth();
+const heartbeatStore = storeHeartbeat();
+const configStore = storeConfig();
 
 onBeforeMount(async () => {
-  const { data } = await api.get("/heartbeat");
-  heartbeat.set(data)
-  auth.setEnabled(data.ROMM_AUTH_ENABLED ?? false);
+  const { data: heartBeatData } = await api.get("/heartbeat");
+  heartbeatStore.set(heartBeatData);
+  authStore.setEnabled(heartBeatData.ROMM_AUTH_ENABLED ?? false);
+  const { data: configData } = await api.get("/config");
+  configStore.set(configData);
   // Set CSRF token for all requests
   api.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
 });

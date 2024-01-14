@@ -1,15 +1,15 @@
 <script setup lang="ts">
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
+import AppBar from "@/components/AppBar/Base.vue";
+import Drawer from "@/components/Drawer/Base.vue";
 import api from "@/services/api";
+import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import storeAuth from "@/stores/auth";
-import Drawer from "@/components/Drawer/Base.vue";
-import AppBar from "@/components/AppBar/Base.vue";
 
 // Props
 const { mdAndDown } = useDisplay();
@@ -19,7 +19,7 @@ const auth = storeAuth();
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
-  emitter?.on("refreshDrawer", async () => {
+emitter?.on("refreshDrawer", async () => {
   const { data: platformData } = await api.getPlatforms();
   platformsStore.set(platformData);
 });

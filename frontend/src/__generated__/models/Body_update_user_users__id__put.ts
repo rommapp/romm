@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type UploadRomResponse = {
-    uploaded_roms: Array<string>;
-    skipped_roms: Array<string>;
+export type Body_update_user_users__id__put = {
+    avatar?: (Blob | null);
 };
 

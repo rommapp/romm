@@ -7,10 +7,10 @@ from config import LIBRARY_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
+    AddRomsResponse,
     CustomStreamingResponse,
     EnhancedRomSchema,
     RomSchema,
-    UploadRomResponse,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
@@ -26,65 +26,9 @@ router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
-def add_rom(request: Request) -> MessageResponse:
-    """Create rom endpoint
-
-    Args
-        request (Request): Fastapi Request object
-
-    Returns:
-        MessageResponse: Standard message response
-
-    """
-
-    pass
-
-
-@protected_route(router.get, "/roms", ["roms.read"])
-def get_roms(
-    request: Request,
-    platform_id: int = None,
-    size: int = 60,
-    cursor: str = "",
-    search_term: str = "",
-    order_by: str = "name",
-    order_dir: str = "asc",
-) -> CursorPage[RomSchema]:
-    """Get roms endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int, optional): Rom internal id
-
-    Returns:
-        EnhancedRomSchema: Rom stored in RomM's database
-    """
-
-    with dbromh.session.begin() as session:
-        cursor_params = CursorParams(size=size, cursor=cursor)
-        qq = dbromh.get_roms(platform_id, search_term, order_by, order_dir)
-        return paginate(session, qq, cursor_params)
-
-
-@protected_route(router.get, "/roms/{id}", ["roms.read"])
-def get_rom(request: Request, id: int) -> EnhancedRomSchema:
-    """Get rom endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-
-    Returns:
-        EnhancedRomSchema: Rom stored in RomM's database
-    """
-
-    return dbromh.get_roms(id)
-
-
-@protected_route(router.put, "/roms/upload", ["roms.write"])
-def upload_roms(
-    request: Request, platform_id: str, roms: list[UploadFile] = File(...)
-) -> UploadRomResponse:
+def add_roms(
+    request: Request, platform_id: int, roms: list[UploadFile] = File(...)
+) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
     Args:
@@ -137,8 +81,51 @@ def upload_roms(
     }
 
 
-@protected_route(router.get, "/roms/{id}/download", ["roms.read"])
-def download_rom(
+@protected_route(router.get, "/roms", ["roms.read"])
+def get_roms(
+    request: Request,
+    platform_id: int = None,
+    size: int = 60,
+    cursor: str = "",
+    search_term: str = "",
+    order_by: str = "name",
+    order_dir: str = "asc",
+) -> CursorPage[RomSchema]:
+    """Get roms endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int, optional): Rom internal id
+
+    Returns:
+        EnhancedRomSchema: Rom stored in RomM's database
+    """
+
+    with dbromh.session.begin() as session:
+        cursor_params = CursorParams(size=size, cursor=cursor)
+        qq = dbromh.get_roms(
+            None, platform_id, search_term.lower(), order_by.lower(), order_dir.lower()
+        )
+        return paginate(session, qq, cursor_params)
+
+
+@protected_route(router.get, "/roms/{id}", ["roms.read"])
+def get_rom(request: Request, id: int) -> EnhancedRomSchema:
+    """Get rom endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Rom internal id
+
+    Returns:
+        EnhancedRomSchema: Rom stored in RomM's database
+    """
+
+    return dbromh.get_roms(id)
+
+
+@protected_route(router.get, "/roms/{id}/content", ["roms.read"])
+def get_rom_content(
     request: Request, id: int, files: Annotated[list[str] | None, Query()] = None
 ):
     """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
@@ -187,7 +174,7 @@ def download_rom(
     )
 
 
-@protected_route(router.patch, "/roms/{id}", ["roms.write"])
+@protected_route(router.put, "/roms/{id}", ["roms.write"])
 async def update_rom(
     request: Request,
     id: int,
@@ -252,7 +239,7 @@ async def update_rom(
     cleaned_data.update(
         fsresourceh.get_rom_cover(
             overwrite=True,
-            fs_slug=platform_fs_slug,
+            platform_fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_cover=cleaned_data.get("url_cover", ""),
         )
@@ -260,7 +247,7 @@ async def update_rom(
 
     cleaned_data.update(
         fsasseth.get_rom_screenshots(
-            fs_slug=platform_fs_slug,
+            platform_fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
         ),
@@ -289,64 +276,7 @@ async def update_rom(
     return dbromh.get_roms(id)
 
 
-def _delete_single_rom(id: int, delete_from_fs: bool = False) -> Rom:
-    """Auxiliar function to delete one single rom at once
-
-    Args:
-        rom_id (int): Rom internal id
-        delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
-
-    Raises:
-        HTTPException: Rom could not be found
-        HTTPException: Rom could not be deleted from filesystem
-
-    Returns:
-        Rom: Rom object
-    """
-
-    rom = dbromh.get_rosm(id)
-    if not rom:
-        error = f"Rom with id {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    log.info(f"Deleting {rom.file_name} from database")
-    dbromh.delete_rom(id)
-
-    if delete_from_fs:
-        log.info(f"Deleting {rom.file_name} from filesystem")
-        try:
-            fsromh.remove_file(file_name=rom.file_name, file_path=rom.file_path)
-        except FileNotFoundError:
-            error = (
-                f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
-            )
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-    return rom
-
-
-@protected_route(router.delete, "/roms/{id}", ["roms.write"])
-def delete_rom(
-    request: Request, id: int, delete_from_fs: bool = False
-) -> MessageResponse:
-    """Delete rom endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
-
-    Returns:
-        DeleteRomResponse: Standard message response
-    """
-
-    rom = _delete_single_rom(id, delete_from_fs)
-
-    return {"msg": f"{rom.file_name} deleted successfully!"}
-
-
-@protected_route(router.post, "/roms/delete", ["roms.write"])
+@protected_route(router.delete, "/roms", ["roms.write"])
 async def delete_roms(
     request: Request,
     delete_from_fs: bool = False,
@@ -354,17 +284,36 @@ async def delete_roms(
     """Delete roms endpoint
 
     Args:
-        request (Request): Fastapi Request object
+        request (Request): Fastapi Request object.
+            {
+                "roms": List of rom's ids to delete
+            }
         delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
 
     Returns:
-        MassDeleteRomResponse: Standard message response
+        MessageResponse: Standard message response
     """
 
     data: dict = await request.json()
     roms_ids: list = data["roms"]
 
-    for rom_id in roms_ids:
-        _delete_single_rom(rom_id, delete_from_fs)
+    for id in roms_ids:
+        rom = dbromh.get_roms(id)
+        if not rom:
+            error = f"Rom with id {id} not found"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+        log.info(f"Deleting {rom.file_name} from database")
+        dbromh.delete_rom(id)
+
+        if delete_from_fs:
+            log.info(f"Deleting {rom.file_name} from filesystem")
+            try:
+                fsromh.remove_file(file_name=rom.file_name, file_path=rom.file_path)
+            except FileNotFoundError:
+                error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
+                log.error(error)
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}

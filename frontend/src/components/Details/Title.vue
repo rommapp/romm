@@ -13,7 +13,7 @@ defineProps<{ rom: RomSchema, platform: PlatformSchema }>();
     <v-col cols="12">
       <v-chip
         class="font-italic px-3 my-2"
-        :to="{ name: 'platform', params: { platform: platform.slug } }"
+        :to="{ name: 'platform', params: { platform: platform.id } }"
       >
         {{ platform.name }}
         <v-avatar :rounded="0" size="40" class="ml-2 pa-2">

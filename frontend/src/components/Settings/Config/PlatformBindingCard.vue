@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { inject, ref } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import storeHeartbeat from "@/stores/heartbeat";
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
 import DeletePlatformBindingDialog from "@/components/Dialog/Platform/DeletePlatformBinding.vue";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import storeConfig from "@/stores/config";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const heartbeat = storeHeartbeat();
-const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
+const config = storeConfig();
+const platformsBinding = config.value.PLATFORMS_BINDING;
 const showDeleteBtn = ref(false);
 </script>
 <template>

@@ -56,7 +56,7 @@ class EnhancedRomSchema(RomSchema):
     sibling_roms: list["RomSchema"]
 
 
-class UploadRomResponse(TypedDict):
+class AddRomsResponse(TypedDict):
     uploaded_roms: list[str]
     skipped_roms: list[str]
 

@@ -14,7 +14,7 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const heartbeat = storeHeartbeat();
-const newVersion = heartbeat.data.NEW_VERSION;
+const newVersion = heartbeat.value.NEW_VERSION;
 localStorage.setItem("newVersion", newVersion)
 const newVersionDismissed = ref(localStorage.getItem("dismissNewVersion") === newVersion);
 
@@ -29,7 +29,7 @@ async function logout() {
     .post("/logout", {})
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: data.message,
+        msg: data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });

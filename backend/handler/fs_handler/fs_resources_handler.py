@@ -75,7 +75,6 @@ class FSResourceHandler(FSHandler):
             background.paste(cover, offset)
             background.save(cover_path)
 
-    @staticmethod
     def _store_cover(
         self, fs_slug: str, rom_name: str, url_cover: str, size: CoverSize
     ):
@@ -117,7 +116,8 @@ class FSResourceHandler(FSHandler):
     ) -> dict:
         q_rom_name = quote(rom_name)
         if (
-            overwrite or not self._cover_exists(platform_fs_slug, rom_name, CoverSize.SMALL)
+            overwrite
+            or not self._cover_exists(platform_fs_slug, rom_name, CoverSize.SMALL)
         ) and url_cover:
             self._store_cover(platform_fs_slug, rom_name, url_cover, CoverSize.SMALL)
         path_cover_s = (
@@ -127,7 +127,8 @@ class FSResourceHandler(FSHandler):
         )
 
         if (
-            overwrite or not self._cover_exists(platform_fs_slug, rom_name, CoverSize.BIG)
+            overwrite
+            or not self._cover_exists(platform_fs_slug, rom_name, CoverSize.BIG)
         ) and url_cover:
             self._store_cover(platform_fs_slug, rom_name, url_cover, CoverSize.BIG)
         path_cover_l = (

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Heartbeat } from "@/stores/heartbeat";
+import type { HeartbeatResponse } from "@/__generated__"
 import { convertCronExperssion } from "@/utils";
 
-type Scheduler = Heartbeat["SCHEDULER"];
+type Scheduler = HeartbeatResponse["SCHEDULER"];
 
 const props = defineProps<{ task: Scheduler[keyof Scheduler] }>();
 const cronExpression = convertCronExperssion(props.task.CRON);

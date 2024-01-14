@@ -11,7 +11,7 @@ export type Rom = RomSchema & {
 
 export default defineStore("roms", {
   state: () => ({
-    _platform: "",
+    _platform: Number(undefined),
     recentRoms: [] as Rom[],
     _all: [] as Rom[],
     _grouped: [] as Rom[],
@@ -61,7 +61,7 @@ export default defineStore("roms", {
         siblings: games,
       }));
     },
-    setPlatform(platform: string) {
+    setPlatform(platform: number) {
       this._platform = platform;
     },
     setRecentRoms(roms: Rom[]) {

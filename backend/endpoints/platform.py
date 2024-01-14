@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 @protected_route(router.post, "/platforms", ["platforms.write"])
-def add_platform(request: Request) -> MessageResponse:
+def add_platforms(request: Request) -> MessageResponse:
     """Create platform endpoint
 
     Args:
@@ -38,7 +38,7 @@ def get_platforms(request: Request) -> list[PlatformSchema]:
 
 
 @protected_route(router.get, "/platforms/{id}", ["platforms.read"])
-def get_platforms(request: Request, id: int) -> PlatformSchema:
+def get_platform(request: Request, id: int) -> PlatformSchema:
     """Get platforms endpoint
 
     Args:
@@ -53,7 +53,7 @@ def get_platforms(request: Request, id: int) -> PlatformSchema:
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])
-def update_platform(request: Request, form) -> MessageResponse:
+async def update_platform(request: Request) -> MessageResponse:
     """Update platform endpoint
 
     Args:
@@ -66,17 +66,34 @@ def update_platform(request: Request, form) -> MessageResponse:
     pass
 
 
-@protected_route(router.delete, "/platforms/{id}", ["platforms.write"])
-def delete_platforms(request: Request, id: int) -> MessageResponse:
-    """Detele platform from database [and filesystem]"""
+@protected_route(router.delete, "/platforms", ["platforms.write"])
+async def delete_platforms(request: Request) -> MessageResponse:
+    """Delete platforms endpoint
 
-    platform = dbplatformh.get_platforms(id)
-    if not platform:
-        error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    Args:
+        request (Request): Fastapi Request object
+        {
+            "platforms": List of rom's ids to delete
+        }
 
-    log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
-    dbplatformh.delete_platform(id)
+    Raises:
+        HTTPException: Platform not found
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    data: dict = await request.json()
+    platforms_ids: list = data["platforms"]
+
+    for id in platforms_ids:
+        platform = dbplatformh.get_platforms(id)
+        if not platform:
+            error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+        log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
+        dbplatformh.delete_platform(id)
 
     return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}

@@ -6,13 +6,28 @@ from urllib.parse import quote
 import requests
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
+from fastapi import UploadFile
 from handler.fs_handler import RESOURCES_BASE_PATH
 from handler.fs_handler.fs_handler import FSHandler
+from logger.logger import log
 
 
 class FSAssetsHandler(FSHandler):
     def __init__(self) -> None:
         pass
+
+    @staticmethod
+    def _write_file(file: UploadFile, path: str) -> None:
+        log.info(f" - Uploading {file.filename}")
+        file_location = f"{path}/{file.filename}"
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+        with open(file_location, "wb+") as f:
+            while True:
+                chunk = file.file.read(1024)
+                if not chunk:
+                    break
+                f.write(chunk)
 
     @staticmethod
     def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):

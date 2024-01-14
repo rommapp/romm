@@ -23,7 +23,7 @@ class DBHandler:
         )
 
     @begin_session
-    def get_rom(self, id, session: Session = None):
+    def get_rom(self, id: int, session: Session = None):
         return session.get(Rom, id)
 
     @begin_session

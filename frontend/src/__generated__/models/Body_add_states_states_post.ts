@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_upload_saves_saves_upload_put = {
-    saves: Array<Blob>;
+export type Body_add_states_states_post = {
+    states: Array<Blob>;
 };
 

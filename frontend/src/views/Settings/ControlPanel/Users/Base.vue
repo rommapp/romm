@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { ref, inject, onMounted } from "vue";
-import type { Emitter } from "mitt";
-import { VDataTable } from "vuetify/labs/VDataTable";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onMounted, ref } from "vue";
+import { VDataTable } from "vuetify/labs/VDataTable";
 
+import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
+import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
+import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import api from "@/services/api";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
-import { defaultAvatarPath } from "@/utils";
-import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
-import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
-import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import type { UserItem } from "@/types/emitter";
+import { defaultAvatarPath } from "@/utils";
 
 const HEADERS = [
   {

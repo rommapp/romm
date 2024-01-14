@@ -32,7 +32,7 @@ async function fetchDetails() {
   if (!route.params.rom) return;
 
   await api
-    .fetchRom({ romId: parseInt(route.params.rom as string) })
+    .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
     })
@@ -129,7 +129,6 @@ watch(
           no-gutters
         >
           <v-col cols="12">
-            
             <title-info :rom="rom" :platform="platform" />
           </v-col>
         </v-row>
@@ -150,7 +149,7 @@ watch(
           <v-col cols="12">
             <v-window v-model="tab" class="py-2">
               <v-window-item value="details">
-                <details-info :rom="rom" />
+                <details-info :rom="rom" :platform="platform" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />
