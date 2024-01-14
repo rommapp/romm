@@ -5,7 +5,7 @@ import alembic.config
 import uvicorn
 from config import DEV_HOST, DEV_PORT, ROMM_AUTH_ENABLED, ROMM_AUTH_SECRET_KEY
 from endpoints import (assets, heartbeat, identity, oauth, platform, rom,
-                       search, tasks, webrcade)
+                       search, tasks, webrcade, config)
 from endpoints.sockets import scan
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,6 +56,7 @@ app.include_router(rom.router)
 app.include_router(search.router)
 app.include_router(assets.router)
 app.include_router(tasks.router)
+app.include_router(webrcade.router)
 app.include_router(webrcade.router)
 
 add_pagination(app)

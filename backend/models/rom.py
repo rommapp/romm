@@ -130,14 +130,14 @@ class Rom(BaseModel):
     # This is an expensive operation so don't call it on a list of roms
     @cached_property
     def sibling_roms(self) -> list["Rom"]:
-        from handler import dbh
+        from handler import dbromh
 
         if not self.igdb_id:
             return []
 
-        with dbh.session.begin() as session:
+        with dbromh.session.begin() as session:
             return session.scalars(
-                dbh.get_roms(self.platform_slug).filter(
+                dbromh.get_roms(platform_id=self.platform_id).filter(
                     Rom.id != self.id,
                     Rom.igdb_id == self.igdb_id,
                 )

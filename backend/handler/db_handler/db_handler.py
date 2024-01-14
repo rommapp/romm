@@ -1,11 +1,7 @@
-import functools
-
 from config.config_manager import ConfigManager
-from fastapi import HTTPException, status
-from logger.logger import log
-from models import Platform, Role, Rom, Save, Screenshot, State, User
-from sqlalchemy import and_, create_engine, delete, func, or_, select, update
-from sqlalchemy.exc import ProgrammingError
+from decorators.database import begin_session
+from models import Role, Rom, Save, Screenshot, State, User
+from sqlalchemy import and_, create_engine, delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -13,84 +9,6 @@ class DBHandler:
     def __init__(self) -> None:
         self.engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
-
-    @staticmethod
-    def begin_session(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            if hasattr(kwargs, "session"):
-                return func(*args, session=kwargs.get("session"))
-
-            try:
-                with args[0].session.begin() as s:
-                    return func(*args, session=s)
-            except ProgrammingError as e:
-                log.critical(str(e))
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-                )
-
-        return wrapper
-
-    # ========= Platforms =========
-    @begin_session
-    def add_platform(self, platform: Platform, session: Session = None):
-        return session.merge(platform)
-
-    @begin_session
-    def get_platform(self, id: int = None, session: Session = None):
-        return (
-            session.scalars(select(Platform).order_by(Platform.slug.asc()))
-            .unique()
-            .all()
-            if not id
-            else session.get(Platform, id)
-        )
-
-    @begin_session
-    def delete_platform(self, slug: str, session: Session = None):
-        # Remove all roms from that platforms first
-        session.execute(
-            delete(Rom)
-            .where(Rom.platform_slug == slug)
-            .execution_options(synchronize_session="evaluate")
-        )
-        return session.execute(
-            delete(Platform)
-            .where(Platform.slug == slug)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def get_rom_count(self, platform_id: int, session: Session = None):
-        return session.scalar(
-            select(func.count()).select_from(Rom).filter_by(platform_id=platform_id)
-        )
-
-    @begin_session
-    def purge_platforms(self, platforms: list[str], session: Session = None):
-        session.execute(
-            delete(Save)
-            .where(Save.platform_slug.not_in(platforms))
-            .execution_options(synchronize_session="evaluate")
-        )
-        session.execute(
-            delete(State)
-            .where(State.platform_slug.not_in(platforms))
-            .execution_options(synchronize_session="evaluate")
-        )
-        return session.execute(
-            delete(Platform)
-            .where(or_(Platform.fs_slug.not_in(platforms), Platform.slug.is_(None)))
-            .where(
-                select(func.count())
-                .select_from(Rom)
-                .filter_by(platform_slug=Platform.slug)
-                .as_scalar()
-                == 0
-            )
-            .execution_options(synchronize_session="fetch")
-        )
 
     # ========= Roms =========
     @begin_session

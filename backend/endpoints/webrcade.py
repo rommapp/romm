@@ -1,5 +1,5 @@
 from config import ROMM_HOST
-from decorators.oauth import protected_route
+from decorators.auth import protected_route
 from endpoints.responses.webrcade import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,

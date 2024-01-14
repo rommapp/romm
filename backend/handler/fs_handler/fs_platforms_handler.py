@@ -6,7 +6,7 @@ from exceptions.fs_exceptions import FolderStructureNotMatchException
 from handler.fs_handler.fs_handler import FSHandler
 
 
-class PlatformsHandler(FSHandler):
+class FSPlatformsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 

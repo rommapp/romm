@@ -7,7 +7,7 @@ from exceptions.fs_exceptions import (
     FolderStructureNotMatchException,
     RomsNotFoundException,
 )
-from handler import asseth, dbh, platformh, resourceh, romh, socketh
+from handler import fsasseth, dbh, fsplatformh, fsresourceh, fsromh, socketh
 from handler.redis_handler import high_prio_queue, redis_url
 from handler.scan_handler import (
     scan_platform,
@@ -43,7 +43,7 @@ async def scan_platforms(
 
     # Scanning file system
     try:
-        fs_platforms: list[str] = platformh.get_platforms()
+        fs_platforms: list[str] = fsplatformh.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
@@ -71,7 +71,7 @@ async def scan_platforms(
 
         # Scanning roms
         try:
-            fs_roms = romh.get_roms(platform.fs_slug)
+            fs_roms = fsromh.get_roms(platform.fs_slug)
         except RomsNotFoundException as e:
             log.error(e)
             continue
@@ -106,7 +106,7 @@ async def scan_platforms(
                 },
             )
 
-        fs_assets = asseth.get_assets(platform.fs_slug)
+        fs_assets = fsasseth.get_assets(platform.fs_slug)
 
         # Scanning saves
         log.info(f"\t · {len(fs_assets['saves'])} saves found")
@@ -190,7 +190,7 @@ async def scan_platforms(
         dbh.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots outside platform folders
-    fs_screenshots = asseth.get_screenshots()
+    fs_screenshots = fsasseth.get_screenshots()
     log.info("Screenshots")
     log.info(f" · {len(fs_screenshots)} screenshots found")
     for fs_platform, fs_screenshot_filename in fs_screenshots:
@@ -231,7 +231,7 @@ async def scan_handler(_sid: str, options: dict):
     """
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    resourceh.store_default_resources()
+    fsresourceh.store_default_resources()
 
     platform_slugs = options.get("platforms", [])
     complete_rescan = options.get("completeRescan", False)

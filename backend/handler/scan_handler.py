@@ -3,7 +3,7 @@ from typing import Any
 
 import emoji
 from config.config_manager import config_manager as cm
-from handler import asseth, dbh, igdbh, resourceh, romh
+from handler import fsasseth, dbh, igdbh, fsresourceh, fsromh
 from logger.logger import log
 from models import Platform, Rom, Save, Screenshot, State
 
@@ -62,7 +62,7 @@ async def scan_rom(
     r_igbd_id_search: str = "",
     overwrite: bool = False,
 ) -> Rom:
-    roms_path = romh.get_fs_structure(platform.fs_slug)
+    roms_path = fsromh.get_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
 
@@ -71,21 +71,21 @@ async def scan_rom(
             log.info(f"\t\t · {file}")
 
     # Update properties that don't require IGDB
-    file_size, file_size_units = romh.get_rom_file_size(
+    file_size, file_size_units = fsromh.get_rom_file_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
         multi_files=rom_attrs["files"],
         roms_path=roms_path,
     )
-    regs, rev, langs, other_tags = romh.parse_tags(rom_attrs["file_name"])
+    regs, rev, langs, other_tags = fsromh.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
-            "file_name_no_tags": romh.get_file_name_with_no_tags(
+            "file_name_no_tags": fsromh.get_file_name_with_no_tags(
                 rom_attrs["file_name"]
             ),
-            "file_extension": romh.parse_file_extension(rom_attrs["file_name"]),
+            "file_extension": fsromh.parse_file_extension(rom_attrs["file_name"]),
             "file_size": file_size,
             "file_size_units": file_size_units,
             "multi": rom_attrs["multi"],
@@ -117,7 +117,7 @@ async def scan_rom(
 
     # Update properties from IGDB
     rom_attrs.update(
-        resourceh.get_rom_cover(
+        fsresourceh.get_rom_cover(
             overwrite=overwrite,
             platform_fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
@@ -125,7 +125,7 @@ async def scan_rom(
         )
     )
     rom_attrs.update(
-        asseth.get_rom_screenshots(
+        fsasseth.get_rom_screenshots(
             platform_fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
             url_screenshots=rom_attrs["url_screenshots"],
@@ -138,19 +138,19 @@ async def scan_rom(
 def _scan_asset(file_name: str, path: str):
     log.info(f"\t\t · {file_name}")
 
-    file_size = asseth.get_asset_size(file_name=file_name, asset_path=path)
+    file_size = fsasseth.get_asset_size(file_name=file_name, asset_path=path)
 
     return {
         "file_path": path,
         "file_name": file_name,
-        "file_name_no_tags": asseth.get_file_name_with_no_tags(file_name),
-        "file_extension": asseth.parse_file_extension(file_name),
+        "file_name_no_tags": fsasseth.get_file_name_with_no_tags(file_name),
+        "file_extension": fsasseth.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
 
 
 def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
-    saves_path = asseth.get_fs_structure(
+    saves_path = fsasseth.get_fs_structure(
         platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
     )
 
@@ -162,7 +162,7 @@ def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
 
 
 def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
-    states_path = asseth.get_fs_structure(
+    states_path = fsasseth.get_fs_structure(
         platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
     )
 
@@ -174,7 +174,7 @@ def scan_state(platform: Platform, file_name: str, emulator: str = None) -> Stat
 
 
 def scan_screenshot(file_name: str, platform: Platform = None) -> Screenshot:
-    screenshots_path = asseth.get_fs_structure(
+    screenshots_path = fsasseth.get_fs_structure(
         platform.fs_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
     )
 
