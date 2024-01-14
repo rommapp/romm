@@ -10,7 +10,7 @@ from handler.fs_handler import RESOURCES_BASE_PATH
 from handler.fs_handler.fs_handler import FSHandler
 
 
-class AssetsHandler(FSHandler):
+class FSAssetsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 

@@ -1,5 +1,5 @@
 import emoji
-from decorators.oauth import protected_route
+from decorators.auth import protected_route
 from endpoints.responses.search import RomSearchResponse
 from fastapi import APIRouter, Request
 from handler import dbh, igdbh

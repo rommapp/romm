@@ -4,7 +4,7 @@ from stat import S_IFREG
 from typing import Annotated, Optional
 
 from config import LIBRARY_BASE_PATH
-from decorators.oauth import protected_route
+from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     CustomStreamingResponse,
@@ -17,7 +17,7 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler import asseth, dbh, romh
+from handler import dbplatformh, dbromh, fsasseth, fsresourceh, fsromh
 from logger.logger import log
 from models import Rom
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
@@ -25,8 +25,49 @@ from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 router = APIRouter()
 
 
+@protected_route(router.post, "/roms", ["roms.write"])
+def add_rom(request: Request) -> MessageResponse:
+    """Create rom endpoint
+
+    Args
+        request (Request): Fastapi Request object
+
+    Returns:
+        MessageResponse: Standard message response
+
+    """
+
+    pass
+
+
+@protected_route(router.get, "/roms", ["roms.read"])
+def get_roms(
+    request: Request,
+    platform_id: int = None,
+    size: int = 60,
+    cursor: str = "",
+    search_term: str = "",
+    order_by: str = "name",
+    order_dir: str = "asc",
+) -> CursorPage[RomSchema]:
+    """Get roms endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int, optional): Rom internal id
+
+    Returns:
+        EnhancedRomSchema: Rom stored in RomM's database
+    """
+
+    with dbromh.session.begin() as session:
+        cursor_params = CursorParams(size=size, cursor=cursor)
+        qq = dbromh.get_roms(platform_id, search_term, order_by, order_dir)
+        return paginate(session, qq, cursor_params)
+
+
 @protected_route(router.get, "/roms/{id}", ["roms.read"])
-def rom(request: Request, id: int) -> EnhancedRomSchema:
+def get_rom(request: Request, id: int) -> EnhancedRomSchema:
     """Get rom endpoint
 
     Args:
@@ -37,61 +78,12 @@ def rom(request: Request, id: int) -> EnhancedRomSchema:
         EnhancedRomSchema: Rom stored in RomM's database
     """
 
-    return dbh.get_rom(id)
-
-
-@protected_route(router.get, "/roms-recent", ["roms.read"])
-def recent_roms(request: Request) -> list[RomSchema]:
-    """Get recent roms endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[RomSchema]: List of the last 15 stored roms in RomM's database
-    """
-
-    return dbh.get_recent_roms()
-
-
-@protected_route(router.get, "/platforms/{platform_slug}/roms", ["roms.read"])
-def roms(
-    request: Request,
-    platform_slug: str,
-    size: int = 60,
-    cursor: str = "",
-    search_term: str = "",
-) -> CursorPage[RomSchema]:
-    """Get all roms for a specific platform endpoint (paginated)
-
-    Args:
-        request (Request): Fastapi Request object
-        platform_slug (str): Platform slug
-        size (int, optional): Size of each page. Defaults to 60.
-        cursor (str, optional): Cursor string. Defaults to "".
-        search_term (str, optional): Filter to search roms. Defaults to "".
-
-    Returns:
-        CursorPage[RomSchema]: Paged list of roms
-    """
-
-    with dbh.session.begin() as session:
-        cursor_params = CursorParams(size=size, cursor=cursor)
-        qq = dbh.get_roms(platform_slug)
-
-        if search_term:
-            return paginate(
-                session,
-                qq.filter(Rom.file_name.ilike(f"%{search_term}%")),
-                cursor_params,
-            )
-
-        return paginate(session, qq, cursor_params)
+    return dbromh.get_roms(id)
 
 
 @protected_route(router.put, "/roms/upload", ["roms.write"])
 def upload_roms(
-    request: Request, platform_slug: str, roms: list[UploadFile] = File(...)
+    request: Request, platform_id: str, roms: list[UploadFile] = File(...)
 ) -> UploadRomResponse:
     """Upload roms endpoint (one or more at the same time)
 
@@ -107,7 +99,7 @@ def upload_roms(
         UploadRomResponse: Standard message response
     """
 
-    platform_fs_slug = dbh.get_platform(platform_slug).fs_slug
+    platform_fs_slug = dbromh.get_platforms(platform_id).fs_slug
     log.info(f"Uploading roms to {platform_fs_slug}")
     if roms is None:
         log.error("No roms were uploaded")
@@ -116,13 +108,13 @@ def upload_roms(
             detail="No roms were uploaded",
         )
 
-    roms_path = romh.build_upload_file_path(platform_fs_slug)
+    roms_path = fsromh.build_upload_file_path(platform_fs_slug)
 
     uploaded_roms = []
     skipped_roms = []
 
     for rom in roms:
-        if romh.file_exists(roms_path, rom.filename):
+        if fsromh.file_exists(roms_path, rom.filename):
             log.warning(f" - Skipping {rom.filename} since the file already exists")
             skipped_roms.append(rom.filename)
             continue
@@ -163,7 +155,7 @@ def download_rom(
         CustomStreamingResponse: Streams a file for multi-part roms
     """
 
-    rom = dbh.get_rom(id)
+    rom = dbromh.get_roms(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     if not rom.multi:
@@ -219,8 +211,8 @@ async def update_rom(
 
     data = await request.form()
 
-    db_rom = dbh.get_rom(id)
-    platform_fs_slug = dbh.get_platform(db_rom.platform_slug).fs_slug
+    db_rom = dbromh.get_roms(id)
+    platform_fs_slug = dbplatformh.get_platforms(db_rom.platform_id).fs_slug
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
@@ -242,7 +234,7 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            romh.rename_file(
+            fsromh.rename_file(
                 old_name=db_rom.file_name,
                 new_name=fs_safe_file_name,
                 file_path=db_rom.file_path,
@@ -254,11 +246,11 @@ async def update_rom(
         )
 
     cleaned_data["file_name"] = fs_safe_file_name
-    cleaned_data["file_name_no_tags"] = romh.get_file_name_with_no_tags(
+    cleaned_data["file_name_no_tags"] = fsromh.get_file_name_with_no_tags(
         fs_safe_file_name
     )
     cleaned_data.update(
-        asseth.get_rom_cover(
+        fsresourceh.get_rom_cover(
             overwrite=True,
             fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
@@ -267,7 +259,7 @@ async def update_rom(
     )
 
     cleaned_data.update(
-        asseth.get_rom_screenshots(
+        fsasseth.get_rom_screenshots(
             fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),
@@ -276,7 +268,7 @@ async def update_rom(
 
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
-        path_cover_l, path_cover_s, artwork_path = asseth.build_artwork_path(
+        path_cover_l, path_cover_s, artwork_path = fsresourceh.build_artwork_path(
             cleaned_data["name"], platform_fs_slug, file_ext
         )
 
@@ -292,12 +284,12 @@ async def update_rom(
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
 
-    dbh.update_rom(id, cleaned_data)
+    dbromh.update_rom(id, cleaned_data)
 
-    return dbh.get_rom(id)
+    return dbromh.get_roms(id)
 
 
-def _delete_single_rom(rom_id: int, delete_from_fs: bool = False) -> Rom:
+def _delete_single_rom(id: int, delete_from_fs: bool = False) -> Rom:
     """Auxiliar function to delete one single rom at once
 
     Args:
@@ -312,19 +304,19 @@ def _delete_single_rom(rom_id: int, delete_from_fs: bool = False) -> Rom:
         Rom: Rom object
     """
 
-    rom = dbh.get_rom(rom_id)
+    rom = dbromh.get_rosm(id)
     if not rom:
-        error = f"Rom with id {rom_id} not found"
+        error = f"Rom with id {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     log.info(f"Deleting {rom.file_name} from database")
-    dbh.delete_rom(rom_id)
+    dbromh.delete_rom(id)
 
     if delete_from_fs:
         log.info(f"Deleting {rom.file_name} from filesystem")
         try:
-            romh.remove_file(file_name=rom.file_name, file_path=rom.file_path)
+            fsromh.remove_file(file_name=rom.file_name, file_path=rom.file_path)
         except FileNotFoundError:
             error = (
                 f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"

@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from ...handler.fs_handler.roms_handler import (
+from ...handler.fs_handler.fs_roms_handler import (
     get_rom_cover,
     get_platforms,
     get_fs_structure,

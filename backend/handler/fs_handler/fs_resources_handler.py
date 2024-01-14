@@ -23,7 +23,7 @@ from handler.fs_handler.fs_handler import FSHandler
 from PIL import Image
 
 
-class ResourceHandler(FSHandler):
+class FSResourceHandler(FSHandler):
     def __init__(self) -> None:
         pass
 

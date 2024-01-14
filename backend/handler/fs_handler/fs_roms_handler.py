@@ -18,7 +18,7 @@ from handler.fs_handler import (
 from handler.fs_handler.fs_handler import FSHandler
 
 
-class RomsHandler(FSHandler):
+class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 

@@ -1,4 +1,4 @@
-from decorators.oauth import protected_route
+from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from fastapi import APIRouter, Request
 from tasks.update_mame_xml import update_mame_xml_task

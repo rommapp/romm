@@ -2,14 +2,14 @@ import secrets
 from typing import Annotated
 
 from config import ROMM_AUTH_ENABLED
-from decorators.oauth import protected_route
+from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler import authh, dbh, resourceh
+from handler import authh, dbh, fsresourceh
 from handler.redis_handler import cache
 from models.user import Role, User
 
@@ -207,7 +207,7 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        cleaned_data["avatar_path"], avatar_user_path = resourceh.build_avatar_path(
+        cleaned_data["avatar_path"], avatar_user_path = fsresourceh.build_avatar_path(
             form_data.avatar.filename, form_data.username
         )
         file_location = f"{avatar_user_path}/{form_data.avatar.filename}"
