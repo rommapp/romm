@@ -8,7 +8,7 @@ import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -71,7 +71,7 @@ function selectAllRoms() {
 
 function onDownload() {
   romsStore.selectedRoms.forEach((rom) => {
-    api.downloadRom({ rom });
+    api_rom.downloadRom({ rom });
   });
 }
 </script>

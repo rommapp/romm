@@ -23,20 +23,20 @@ def get_config() -> ConfigResponse:
 async def add_platform_binding(request: Request) -> MessageResponse:
     """Add platform binding to the configuration"""
 
-    data = await request.form()
-    fs_slug = data.get("fs_slug")
-    slug = data.get("slug")
+    data = await request.json()
+    fs_slug = data["fs_slug"]
+    slug = data["slug"]
     cm.add_binding(fs_slug, slug)
 
     return {"msg": f"{fs_slug} binded to: {slug} successfully!"}
 
 
-@protected_route(router.put, "/config/system/platforms", ["platforms.write"])
+@protected_route(router.delete, "/config/system/platforms", ["platforms.write"])
 async def delete_platform_binding(request: Request) -> MessageResponse:
     """Delete platform binding from the configuration"""
 
-    data = await request.form()
-    fs_slug = data.get("fs_slug")
+    data = await request.json()
+    fs_slug = data["fs_slug"]
     cm.remove_binding(fs_slug)
 
     return {"msg": f"{fs_slug} bind removed successfully!"}

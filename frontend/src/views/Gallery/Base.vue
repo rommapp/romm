@@ -15,7 +15,7 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
@@ -62,7 +62,7 @@ async function fetchRoms(platformId: number) {
     scrim: false,
   });
 
-  await api
+  await api_rom
     .getRoms({
       platformId: platformId,
       cursor: isFiltered ? searchCursor.value : cursor.value,

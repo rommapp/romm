@@ -2,7 +2,7 @@
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { UserItem, Events } from "@/types/emitter";
-import api from "@/services/api";
+import api_user from "@/services/api_user";
 import storeUsers from "@/stores/users";
 
 const user = ref<UserItem | null>(null);
@@ -19,7 +19,7 @@ emitter?.on("showDeleteUserDialog", (userToDelete) => {
 async function deleteUser() {
   if (!user.value) return;
 
-  await api
+  await api_user
     .deleteUser(user.value)
     .then(() => {
       if (user.value) usersStore.remove(user.value.id);

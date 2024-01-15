@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import storeConfig from "@/stores/config";
-import api from "@/services/api";
+import api_config from "@/services/api_config";
 
 // Props
 const show = ref(false);
@@ -19,7 +19,7 @@ emitter?.on("showDeletePlatformBindingDialog", ({fsSlug, slug}) => {
 
 // Functions
 function removeBindPlatform() {
-  api.deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value });
+  api_config.deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value });
   configStore.removePlatformBinding(platformBindingFSSlugToDelete.value);
   show.value = false;
 }

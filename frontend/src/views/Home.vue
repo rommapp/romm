@@ -6,7 +6,8 @@ import { useDisplay } from "vuetify";
 
 import AppBar from "@/components/AppBar/Base.vue";
 import Drawer from "@/components/Drawer/Base.vue";
-import api from "@/services/api";
+import api_user from "@/services/api_user";
+import api_platform from "@/services/api_platform";
 import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
@@ -20,16 +21,16 @@ const auth = storeAuth();
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
-  const { data: platformData } = await api.getPlatforms();
+  const { data: platformData } = await api_platform.getPlatforms();
   platformsStore.set(platformData);
 });
 
 // Functions
 onMounted(async () => {
   try {
-    const { data: platforms } = await api.getPlatforms();
+    const { data: platforms } = await api_platform.getPlatforms();
     platformsStore.set(platforms);
-    const { data: currentUser } = await api.fetchCurrentUser();
+    const { data: currentUser } = await api_user.fetchCurrentUser();
     if (currentUser) auth.setUser(currentUser);
     emitter?.emit("refreshDrawer", null);
   } catch (error) {

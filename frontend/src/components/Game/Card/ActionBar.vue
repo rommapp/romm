@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
@@ -18,7 +17,7 @@ const downloadStore = storeDownload();
       <v-col class="pa-0">
         <v-btn
           class="action-bar-btn"
-          @click="api.downloadRom({ rom })"
+          @click="api_rom.downloadRom({ rom })"
           :disabled="downloadStore.value.includes(rom.id)"
           icon="mdi-download"
           size="x-small"

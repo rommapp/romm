@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { inject, ref } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import api_identity from "@/services/api_identity";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
+import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
-import api from "@/services/api";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
 defineProps<{ rail?: boolean }>();
@@ -27,7 +27,7 @@ function dismissNewVersion() {
 }
 
 async function logout() {
-  api
+  api_identity
     .logout()
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
