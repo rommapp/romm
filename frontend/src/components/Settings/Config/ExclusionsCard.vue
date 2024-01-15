@@ -52,7 +52,7 @@ const editable = ref(false);
             <v-chip label class="ma-1" v-for="excluded in excluded_platforms">{{
               excluded
             }}</v-chip>
-            <v-slide-x-reverse-transition>
+            <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') &&
                       editable"
@@ -64,7 +64,7 @@ const editable = ref(false);
               >
                 Add
               </v-btn>
-            </v-slide-x-reverse-transition>
+            </v-expand-transition>
           </v-col>
         </v-row>
       </v-row>
@@ -83,7 +83,7 @@ const editable = ref(false);
               v-for="excluded in excludad_single_roms_files"
               >{{ excluded }}</v-chip
             >
-            <v-slide-x-reverse-transition>
+            <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') &&
                       editable"
@@ -94,7 +94,7 @@ const editable = ref(false);
               >
                 Add
               </v-btn>
-            </v-slide-x-reverse-transition>
+            </v-expand-transition>
           </v-col>
         </v-row>
       </v-row>
@@ -113,7 +113,7 @@ const editable = ref(false);
               v-for="excluded in excludad_single_roms_ext"
               >{{ excluded }}</v-chip
             >
-            <v-slide-x-reverse-transition>
+            <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') &&
                       editable"
@@ -124,7 +124,7 @@ const editable = ref(false);
               >
                 Add
               </v-btn>
-            </v-slide-x-reverse-transition>
+            </v-expand-transition>
           </v-col>
         </v-row>
       </v-row>
@@ -143,7 +143,7 @@ const editable = ref(false);
               v-for="excluded in excludad_multi_roms_files"
               >{{ excluded }}</v-chip
             >
-            <v-slide-x-reverse-transition>
+            <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') &&
                       editable"
@@ -154,7 +154,7 @@ const editable = ref(false);
               >
                 Add
               </v-btn>
-            </v-slide-x-reverse-transition>
+            </v-expand-transition>
           </v-col>
         </v-row>
       </v-row>
@@ -173,7 +173,7 @@ const editable = ref(false);
               v-for="excluded in excludad_multi_roms_parts_files"
               >{{ excluded }}</v-chip
             >
-            <v-slide-x-reverse-transition>
+            <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') &&
                       editable"
@@ -184,7 +184,7 @@ const editable = ref(false);
               >
                 Add
               </v-btn>
-            </v-slide-x-reverse-transition>
+            </v-expand-transition>
           </v-col>
         </v-row>
       </v-row>
@@ -203,7 +203,7 @@ const editable = ref(false);
               v-for="excluded in excludad_multi_roms_parts_ext"
               >{{ excluded }}</v-chip
             >
-            <v-slide-x-reverse-transition>
+            <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') &&
                       editable"
@@ -214,7 +214,7 @@ const editable = ref(false);
               >
                 Add
               </v-btn>
-            </v-slide-x-reverse-transition>
+            </v-expand-transition>
           </v-col>
         </v-row>
       </v-row>

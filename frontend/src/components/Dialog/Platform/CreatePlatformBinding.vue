@@ -9,19 +9,22 @@ import api from "@/services/api";
 const show = ref(false);
 const configStore = storeConfig();
 const emitter = inject<Emitter<Events>>("emitter");
-const fsSlug = ref("");
-const slug = ref("");
-emitter?.on("showCreatePlatformBindingDialog", () => {
+const fsSlugToCreate = ref();
+const slugToCreate = ref();
+emitter?.on("showCreatePlatformBindingDialog", ({ fsSlug = "", slug = "" }) => {
+  fsSlugToCreate.value = fsSlug;
+  slugToCreate.value = slug;
   show.value = true;
 });
 
 // Functions
 function addBindPlatform() {
-  api.addPlatformBindConfig({ fsSlug: fsSlug.value, slug: slug.value });
-  configStore.addPlatformBinding(fsSlug.value, slug.value);
+  api.addPlatformBindConfig({
+    fsSlug: fsSlugToCreate.value,
+    slug: slugToCreate.value,
+  });
+  configStore.addPlatformBinding(fsSlugToCreate.value, slugToCreate.value);
   closeDialog();
-  fsSlug.value = "";
-  slug.value = "";
 }
 
 function closeDialog() {
@@ -56,7 +59,7 @@ function closeDialog() {
         <v-row class="pa-2 align-center" no-gutters>
           <v-text-field
             @keyup.enter=""
-            v-model="fsSlug"
+            v-model="fsSlugToCreate"
             label="Folder name"
             variant="outlined"
             required
@@ -66,7 +69,7 @@ function closeDialog() {
           <v-text-field
             class="text-romm-accent-1"
             @keyup.enter=""
-            v-model="slug"
+            v-model="slugToCreate"
             label="RomM platform"
             color="romm-accent-1"
             base-color="romm-accent-1"
@@ -81,7 +84,7 @@ function closeDialog() {
             @click="addBindPlatform()"
             class="text-romm-green bg-terciary ml-5"
           >
-            Create
+            Confirm
           </v-btn>
         </v-row>
       </v-card-text>
