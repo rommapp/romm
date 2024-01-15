@@ -1,9 +1,7 @@
 import type {
   AddRomsResponse,
-  ConfigResponse,
   CursorPage_RomSchema_,
   EnhancedRomSchema,
-  HeartbeatResponse,
   MessageResponse,
   PlatformSchema,
   RomSchema,
@@ -147,6 +145,27 @@ function clearRomFromDownloads({ id }: { id: number }) {
   if (downloadStore.value.length === 0) socket.disconnect();
 }
 
+async function searchRom({
+  romId,
+  source,
+  searchTerm,
+  searchBy,
+}: {
+  romId: number;
+  source: string;
+  searchTerm: string;
+  searchBy: string;
+}): Promise<{ data: RomSearchResponse }> {
+  return api.get("/search/roms", {
+    params: {
+      rom_id: romId,
+      source: source,
+      search_term: searchTerm,
+      search_by: searchBy,
+    },
+  });
+}
+
 // Listen for multi-file download completion events
 socket.on("download:complete", clearRomFromDownloads);
 
@@ -218,36 +237,11 @@ async function deleteRoms({
   roms: Rom[];
   deleteFromFs: boolean;
 }): Promise<{ data: MessageResponse }> {
-  return api.post(
-    "/roms/delete",
-    {
-      roms: roms.map((r) => r.id),
-    },
-    {
-      params: { delete_from_fs: deleteFromFs },
-    }
+  return api.put(
+    "/roms",
+    { roms: roms.map((r) => r.id) },
+    { params: { delete_from_fs: deleteFromFs } }
   );
-}
-
-async function searchRom({
-  romId,
-  source,
-  searchTerm,
-  searchBy,
-}: {
-  romId: number;
-  source: string;
-  searchTerm: string;
-  searchBy: string;
-}): Promise<{ data: RomSearchResponse }> {
-  return api.get("/search/roms", {
-    params: {
-      rom_id: romId,
-      source: source,
-      search_term: searchTerm,
-      search_by: searchBy,
-    },
-  });
 }
 
 // === Roms ===
@@ -318,7 +312,7 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
 async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
-console.log(saves)
+  console.log(saves);
   return api.post("/saves", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
