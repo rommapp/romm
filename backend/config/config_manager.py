@@ -169,6 +169,13 @@ class ConfigManager:
         if not isinstance(self.config.PLATFORMS_BINDING, dict):
             log.critical("Invalid config.yml: system.platforms must be a dictionary")
             sys.exit(3)
+        else:
+            for fs_slug, slug in self.config.PLATFORMS_BINDING.items():
+                if slug is None:
+                    log.critical(
+                        f"Invalid config.yml: system.platforms.{fs_slug} must be a string"
+                    )
+                    sys.exit(3)
 
         if not isinstance(self.config.ROMS_FOLDER_NAME, str):
             log.critical("Invalid config.yml: filesystem.roms_folder must be a string")
