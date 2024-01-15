@@ -32,7 +32,7 @@ def add_saves(
 
         # Scan or update save
         scanned_save = scan_save(rom.platform, save.filename)
-        db_save = dbsaveh.get_save(rom.id, save.filename)
+        db_save = dbsaveh.get_save(rom.id)
         if db_save:
             dbsaveh.update_save(
                 db_save.id, {"file_size_bytes": scanned_save.file_size_bytes}
@@ -40,6 +40,7 @@ def add_saves(
             continue
 
         scanned_save.rom_id = rom.id
+        log.debug(scanned_save)
         dbsaveh.add_save(scanned_save)
 
     return {"uploaded": len(saves), "saves": rom.saves}

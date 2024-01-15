@@ -47,24 +47,6 @@ def upgrade() -> None:
 
 
     # Create platform id foreign key
-    with op.batch_alter_table('states', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('platform_id', mysql.INTEGER(display_width=11), autoincrement=False, nullable=False))
-
-    with op.batch_alter_table('states', schema=None) as batch_op:
-        batch_op.create_foreign_key('states_platforms_FK', 'platforms', ['platform_id'], ['id'])
-
-    with op.batch_alter_table('screenshots', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('platform_id', mysql.INTEGER(display_width=11), autoincrement=False, nullable=False))
-
-    with op.batch_alter_table('screenshots', schema=None) as batch_op:
-        batch_op.create_foreign_key('screenshots_platforms_FK', 'platforms', ['platform_id'], ['id'])
-
-    with op.batch_alter_table('saves', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('platform_id', mysql.INTEGER(display_width=11), autoincrement=False, nullable=False))
-
-    with op.batch_alter_table('saves', schema=None) as batch_op:
-        batch_op.create_foreign_key('saves_platforms_FK', 'platforms', ['platform_id'], ['id'])
-
     with op.batch_alter_table('roms', schema=None) as batch_op:
         batch_op.add_column(sa.Column('platform_id', mysql.INTEGER(display_width=11), autoincrement=False, nullable=False))
 
