@@ -44,7 +44,7 @@ async function deleteRoms() {
 
   await router.push({
     name: "platform",
-    params: { platform: roms.value[0].platform_slug },
+    params: { platform: roms.value[0].platform_id },
   });
 
   romsStore.remove(roms.value);
