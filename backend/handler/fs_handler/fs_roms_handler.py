@@ -1,7 +1,6 @@
 import fnmatch
 import os
 import re
-import shutil
 from pathlib import Path
 from models.platform import Platform
 
@@ -191,10 +190,3 @@ class FSRomsHandler(FSHandler):
                 f"{LIBRARY_BASE_PATH}/{file_path}/{old_name}",
                 f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
             )
-
-    @staticmethod
-    def remove_file(file_name: str, file_path: str):
-        try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
-        except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")

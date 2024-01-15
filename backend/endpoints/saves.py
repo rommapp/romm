@@ -3,7 +3,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedSavesResponse
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import dbh, fsasseth, fsromh
+from handler import dbsaveh, fsasseth, dbromh
 from handler.scan_handler import scan_save
 from logger.logger import log
 
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request, rom_id: int, saves: list[UploadFile] = File(...)
 ) -> UploadedSavesResponse:
-    rom = dbh.get_rom(rom_id)
+    rom = dbromh.get_roms(id=rom_id)
     log.info(f"Uploading saves to {rom.name}")
     if saves is None:
         log.error("No saves were uploaded")
@@ -23,7 +23,7 @@ def add_saves(
             detail="No saves were uploaded",
         )
 
-    saves_path = fsromh.build_upload_file_path(
+    saves_path = fsasseth.build_upload_file_path(
         rom.platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
     )
 
@@ -32,18 +32,16 @@ def add_saves(
 
         # Scan or update save
         scanned_save = scan_save(rom.platform, save.filename)
-        db_save = dbh.get_save_by_filename(rom.platform_slug, save.filename)
+        db_save = dbsaveh.get_save(rom.id, save.filename)
         if db_save:
-            dbh.update_save(
+            dbsaveh.update_save(
                 db_save.id, {"file_size_bytes": scanned_save.file_size_bytes}
             )
             continue
 
         scanned_save.rom_id = rom.id
-        scanned_save.platform_slug = rom.platform_slug
-        dbh.add_save(scanned_save)
+        dbsaveh.add_save(scanned_save)
 
-    rom = dbh.get_rom(rom_id)
     return {"uploaded": len(saves), "saves": rom.saves}
 
 
@@ -74,19 +72,19 @@ async def delete_saves(request: Request) -> MessageResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     for save_id in save_ids:
-        save = dbh.get_save(save_id)
+        save = dbsaveh.get_save(save_id)
         if not save:
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        dbh.delete_save(save_id)
+        dbsaveh.delete_save(save_id)
 
         if delete_from_fs:
             log.info(f"Deleting {save.file_name} from filesystem")
 
             try:
-                fsromh.remove_file(file_name=save.file_name, file_path=save.file_path)
+                fsasseth.remove_file(file_name=save.file_name, file_path=save.file_path)
             except FileNotFoundError:
                 error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
                 log.error(error)
