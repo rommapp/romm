@@ -130,6 +130,90 @@ class ConfigManager:
             ),
         )
 
+    def _validate_config(self):
+        """Validates the config.yml file"""
+        if not isinstance(self.config.EXCLUDED_PLATFORMS, list):
+            log.critical("Invalid config.yml: exclude.platforms must be a list")
+            sys.exit(3)
+
+        if not isinstance(self.config.EXCLUDED_SINGLE_EXT, list):
+            log.critical(
+                "Invalid config.yml: exclude.roms.single_file.extensions must be a list"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EXCLUDED_SINGLE_FILES, list):
+            log.critical(
+                "Invalid config.yml: exclude.roms.single_file.names must be a list"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EXCLUDED_MULTI_FILES, list):
+            log.critical(
+                "Invalid config.yml: exclude.roms.multi_file.names must be a list"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EXCLUDED_MULTI_PARTS_EXT, list):
+            log.critical(
+                "Invalid config.yml: exclude.roms.multi_file.parts.extensions must be a list"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EXCLUDED_MULTI_PARTS_FILES, list):
+            log.critical(
+                "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.PLATFORMS_BINDING, dict):
+            log.critical("Invalid config.yml: system.platforms must be a dictionary")
+            sys.exit(3)
+
+        if not isinstance(self.config.ROMS_FOLDER_NAME, str):
+            log.critical("Invalid config.yml: filesystem.roms_folder must be a string")
+            sys.exit(3)
+
+        if self.config.ROMS_FOLDER_NAME == "":
+            log.critical(
+                "Invalid config.yml: filesystem.roms_folder cannot be an empty string"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.SAVES_FOLDER_NAME, str):
+            log.critical("Invalid config.yml: filesystem.saves_folder must be a string")
+            sys.exit(3)
+
+        if self.config.SAVES_FOLDER_NAME == "":
+            log.critical(
+                "Invalid config.yml: filesystem.saves_folder cannot be an empty string"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.STATES_FOLDER_NAME, str):
+            log.critical(
+                "Invalid config.yml: filesystem.states_folder must be a string"
+            )
+            sys.exit(3)
+
+        if self.config.STATES_FOLDER_NAME == "":
+            log.critical(
+                "Invalid config.yml: filesystem.states_folder cannot be an empty string"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.SCREENSHOTS_FOLDER_NAME, str):
+            log.critical(
+                "Invalid config.yml: filesystem.screenshots_folder must be a string"
+            )
+            sys.exit(3)
+
+        if self.config.SCREENSHOTS_FOLDER_NAME == "":
+            log.critical(
+                "Invalid config.yml: filesystem.screenshots_folder cannot be an empty string"
+            )
+            sys.exit(3)
+
     def read_config(self) -> None:
         try:
             with open(self.config_path) as config_file:
@@ -138,6 +222,7 @@ class ConfigManager:
             self._raw_config = {}
         finally:
             self._parse_config()
+            self._validate_config()
 
     def update_config(self) -> None:
         try:

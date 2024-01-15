@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       VitePWA({
+        injectRegister: null,
         manifest: {
           icons: [
             {
@@ -40,15 +41,8 @@ export default defineConfig(({ mode }) => {
             },
           ],
         },
-        workbox: {
-          globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-          navigateFallbackDenylist: [
-            /\/assets\/romm\/library/,
-            /\/api\/platforms\/.*\/roms\/.*\/download/,
-          ],
-        },
         devOptions: {
-          enabled: false,
+          enabled: true,
           type: "module",
         },
       }),

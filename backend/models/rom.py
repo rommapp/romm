@@ -102,7 +102,7 @@ class Rom(BaseModel):
     def file_size_bytes(self) -> int:
         return int(self.file_size * SIZE_UNIT_TO_BYTES[self.file_size_units or "B"])
 
-    @property
+    @cached_property
     def has_cover(self) -> bool:
         return (
             self.path_cover_s != DEFAULT_PATH_COVER_S
