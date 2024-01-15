@@ -5,7 +5,7 @@ import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 import type { IGDBRomType } from "@/__generated__";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 import storeRoms, { type Rom } from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -33,7 +33,7 @@ async function searchRom() {
 
   if (!searching.value) {
     searching.value = true;
-    await api
+    await api_rom
       .searchRom({
         romId: rom.value.id,
         source: "igdb",
@@ -65,7 +65,7 @@ async function updateRom(matchedRom: IGDBRomType) {
   rom.value.url_cover = matchedRom.url_cover;
   rom.value.url_screenshots = matchedRom.url_screenshots;
 
-  await api
+  await api_rom
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {

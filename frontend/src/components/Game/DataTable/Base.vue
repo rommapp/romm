@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { VDataTable } from "vuetify/labs/VDataTable";
 
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
@@ -123,7 +123,7 @@ function rowClick(_: Event, row: any) {
         <v-btn
           class="ma-1"
           rounded="0"
-          @click.stop="api.downloadRom({ rom: item.raw })"
+          @click.stop="api_rom.downloadRom({ rom: item.raw })"
           :disabled="downloadStore.value.includes(item.raw.id)"
           download
           size="small"

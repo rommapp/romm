@@ -2,7 +2,7 @@ import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import RomSearchResponse
 from fastapi import APIRouter, Request
-from handler import dbh, igdbh
+from handler import dbromh, igdbh
 from logger.logger import log
 
 router = APIRouter()
@@ -24,7 +24,7 @@ async def search_rom(
         RomSearchResponse: List of objects with all the matched roms
     """
 
-    rom = dbh.get_rom(rom_id)
+    rom = dbromh.get_roms(rom_id)
     search_term = search_term or rom.file_name_no_tags
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))

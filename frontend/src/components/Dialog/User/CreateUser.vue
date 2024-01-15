@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
+import api_user from "@/services/api_user";
 import storeUsers from "@/stores/users";
 
 const user = ref({
@@ -21,7 +21,7 @@ emitter?.on("showCreateUserDialog", () => {
 
 // Functions
 async function createUser() {
-  await api.createUser(user.value)
+  await api_user.createUser(user.value)
     .then(({ data }) => {
       usersStore.add(data);
     })

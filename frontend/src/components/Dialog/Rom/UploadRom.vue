@@ -6,7 +6,7 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import socket from "@/services/socket";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 import storeScanning from "@/stores/scanning";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -51,7 +51,7 @@ async function uploadRoms() {
     color: "romm-accent-1",
   });
 
-  await api
+  await api_rom
     .uploadRoms({
       romsToUpload: romsToUpload.value,
       platform: route.params.platform as string,

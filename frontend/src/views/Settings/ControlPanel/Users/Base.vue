@@ -7,7 +7,7 @@ import { VDataTable } from "vuetify/labs/VDataTable";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
-import api from "@/services/api";
+import api_user from "@/services/api_user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { UserItem } from "@/types/emitter";
@@ -57,7 +57,7 @@ const usersPerPage = ref(5);
 const userSearch = ref("");
 
 function disableUser(user: UserItem) {
-  api.updateUser(user).catch(({ response, message }) => {
+  api_user.updateUser(user).catch(({ response, message }) => {
     emitter?.emit("snackbarShow", {
       msg: `Unable to disable/enable user: ${
         response?.data?.detail || response?.statusText || message
@@ -70,7 +70,7 @@ function disableUser(user: UserItem) {
 }
 
 onMounted(() => {
-  api
+  api_user
     .fetchUsers()
     .then(({ data }) => {
       usersStore.set(data);
