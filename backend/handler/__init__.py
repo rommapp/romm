@@ -2,6 +2,7 @@ from handler.auth_handler.auth_handler import AuthHandler, OAuthHandler
 from handler.db_handler.db_platforms_handler import DBPlatformsHandler
 from handler.db_handler.db_roms_handler import DBRomsHandler
 from handler.db_handler.db_saves_handler import DBSavesHandler
+from handler.db_handler.db_states_handler import DBStatesHandler
 from handler.fs_handler.fs_assets_handler import FSAssetsHandler
 from handler.fs_handler.fs_platforms_handler import FSPlatformsHandler
 from handler.fs_handler.fs_resources_handler import FSResourceHandler
@@ -20,6 +21,7 @@ socketh = SocketHandler()
 dbplatformh = DBPlatformsHandler()
 dbromh = DBRomsHandler()
 dbsaveh = DBSavesHandler()
+dbstateh = DBStatesHandler()
 fsplatformh = FSPlatformsHandler()
 fsromh = FSRomsHandler()
 fsasseth = FSAssetsHandler()

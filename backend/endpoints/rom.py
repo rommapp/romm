@@ -19,7 +19,6 @@ from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
 from handler import dbplatformh, dbromh, fsasseth, fsresourceh, fsromh
 from logger.logger import log
-from models import Rom
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 
 router = APIRouter()
@@ -276,10 +275,9 @@ async def update_rom(
     return dbromh.get_roms(id)
 
 
-@protected_route(router.put, "/roms", ["roms.write"])
+@protected_route(router.delete, "/roms", ["roms.write"])
 async def delete_roms(
     request: Request,
-    delete_from_fs: bool = False,
 ) -> MessageResponse:
     """Delete roms endpoint
 
@@ -296,6 +294,7 @@ async def delete_roms(
 
     data: dict = await request.json()
     roms_ids: list = data["roms"]
+    delete_from_fs: bool = data["delete_from_fs"]
 
     for id in roms_ids:
         rom = dbromh.get_roms(id)
