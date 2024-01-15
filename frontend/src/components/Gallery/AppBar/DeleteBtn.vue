@@ -10,7 +10,7 @@ const platforms = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const platform = platforms.value.find(
-  (p: Platform) => p.slug === (route.params.platform as string)
+  (p: Platform) => p.id === (Number(route.params.platform))
 );
 </script>
 

@@ -3,7 +3,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedStatesResponse
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import dbh, fsasseth, fsromh
+from handler import dbstateh, dbromh, fsasseth
 from handler.scan_handler import scan_state
 from logger.logger import log
 
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_states(
     request: Request, rom_id: int, states: list[UploadFile] = File(...)
 ) -> UploadedStatesResponse:
-    rom = dbh.get_rom(rom_id)
+    rom = dbromh.get_roms(rom_id)
     log.info(f"Uploading states to {rom.name}")
     if states is None:
         log.error("No states were uploaded")
@@ -23,7 +23,7 @@ def add_states(
             detail="No states were uploaded",
         )
 
-    states_path = fsromh.build_upload_file_path(
+    states_path = fsasseth.build_upload_file_path(
         rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
     )
 
@@ -32,23 +32,21 @@ def add_states(
 
         # Scan or update state
         scanned_state = scan_state(rom.platform, state.filename)
-        db_state = dbh.get_state_by_filename(rom.platform_slug, state.filename)
+        db_state = dbstateh.get_state(rom.id)
         if db_state:
-            dbh.update_state(
+            dbstateh.update_state(
                 db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
             )
             continue
 
         scanned_state.rom_id = rom.id
-        scanned_state.platform_slug = rom.platform_slug
-        dbh.add_state(scanned_state)
+        dbstateh.add_state(scanned_state)
 
-    rom = dbh.get_rom(rom_id)
     return {"uploaded": len(states), "states": rom.states}
 
 
 @protected_route(router.get, "/states", ["assets.read"])
-def get_saves(request: Request) -> MessageResponse:
+def get_states(request: Request) -> MessageResponse:
     pass
 
 
@@ -74,21 +72,21 @@ async def delete_states(request: Request) -> MessageResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     for state_id in state_ids:
-        state = dbh.get_state(state_id)
+        state = dbstateh.get_state(state_id)
         if not state:
             error = f"Save with ID {state_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        dbh.delete_state(state_id)
+        dbstateh.delete_state(state_id)
 
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
-                fsromh.remove_file(file_name=state.file_name, file_path=state.file_path)
+                fsasseth.remove_file(file_name=state.file_name, file_path=state.file_path)
             except FileNotFoundError:
                 error = f"Save file {state.file_name} not found for platform {state.platform_slug}"
                 log.error(error)
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    return {"msg": f"Successfully deleted {len(state_ids)} saves."}
+    return {"msg": f"Successfully deleted {len(state_ids)} states."}

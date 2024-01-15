@@ -23,7 +23,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response.status === 403) {
-      router.push(`/login?next=${router.currentRoute.value.path}`);
+      router.push({
+        name: "login",
+        params: { next: router.currentRoute.value.path },
+      });
     }
     return Promise.reject(error);
   }
@@ -42,6 +45,10 @@ async function login(username: string, password: string) {
       },
     }
   );
+}
+
+async function logout() {
+  return api.post("/logout", {});
 }
 
 // === Identity ===
@@ -71,7 +78,7 @@ async function deletePlatform({
 }: {
   platform: PlatformSchema;
 }): Promise<{ data: MessageResponse }> {
-  return api.delete(`/platforms/${platform.id}`);
+  return api.delete(`/platforms`, { data: { platforms: [platform.id] } });
 }
 
 // === Platforms ===
@@ -237,11 +244,9 @@ async function deleteRoms({
   roms: Rom[];
   deleteFromFs: boolean;
 }): Promise<{ data: MessageResponse }> {
-  return api.put(
-    "/roms",
-    { roms: roms.map((r) => r.id) },
-    { params: { delete_from_fs: deleteFromFs } }
-  );
+  return api.delete("/roms", {
+    data: { roms: roms.map((r) => r.id), delete_from_fs: deleteFromFs },
+  });
 }
 
 // === Roms ===
@@ -328,9 +333,11 @@ async function deleteSaves({
   saves: SaveSchema[];
   deleteFromFs: boolean;
 }) {
-  return api.put("/saves", {
-    saves: saves.map((s) => s.id),
-    delete_from_fs: deleteFromFs,
+  return api.delete("/saves", {
+    data: {
+      saves: saves.map((s) => s.id),
+      delete_from_fs: deleteFromFs,
+    },
   });
 }
 
@@ -358,8 +365,10 @@ async function deleteStates({
   deleteFromFs: boolean;
 }) {
   return api.put("/states", {
-    states: states.map((s) => s.id),
-    delete_from_fs: deleteFromFs,
+    data: {
+      states: states.map((s) => s.id),
+      delete_from_fs: deleteFromFs,
+    },
   });
 }
 
@@ -374,10 +383,7 @@ async function addPlatformBindConfig({
   fsSlug: string;
   slug: string;
 }): Promise<{ data: MessageResponse }> {
-  let formData = new FormData();
-  formData.append("fs_slug", fsSlug);
-  formData.append("slug", slug);
-  return api.post("/config/system/platforms", formData);
+  return api.post("/config/system/platforms", { fs_slug: fsSlug, slug: slug });
 }
 
 async function deletePlatformBindConfig({
@@ -385,15 +391,14 @@ async function deletePlatformBindConfig({
 }: {
   fsSlug: string;
 }): Promise<{ data: MessageResponse }> {
-  let formData = new FormData();
-  formData.append("fs_slug", fsSlug);
-  return api.put("/config/system/platforms", formData);
+  return api.delete("/config/system/platforms", { data: { fs_slug: fsSlug } });
 }
 
 // === Config ===
 
 export default {
   login,
+  logout,
   getPlatforms,
   getPlatform,
   deletePlatform,
