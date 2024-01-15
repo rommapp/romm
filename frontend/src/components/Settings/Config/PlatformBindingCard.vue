@@ -2,6 +2,7 @@
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
 import DeletePlatformBindingDialog from "@/components/Dialog/Platform/DeletePlatformBinding.vue";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -9,9 +10,10 @@ import { inject, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const config = storeConfig();
-const platformsBinding = config.value.PLATFORMS_BINDING;
-const showDeleteBtn = ref(false);
+const configStore = storeConfig();
+const authStore = storeAuth();
+const platformsBinding = configStore.value.PLATFORMS_BINDING;
+const editable = ref(false);
 </script>
 <template>
   <v-card rounded="0">
@@ -21,11 +23,12 @@ const showDeleteBtn = ref(false);
         Platforms Bindings
       </v-toolbar-title>
       <v-btn
+        v-if="authStore.scopes.includes('platforms.write')"
         class="ma-2"
         rounded="0"
         size="small"
         variant="text"
-        @click="showDeleteBtn = !showDeleteBtn"
+        @click="editable = !editable"
         icon="mdi-cog"
       >
       </v-btn>
@@ -57,9 +60,12 @@ const showDeleteBtn = ref(false);
             <v-list-item class="bg-primary pr-2 pl-2">
               <span>{{ platform }}</span>
               <template v-slot:append>
-                <v-scroll-x-reverse-transition>
+                <v-slide-x-reverse-transition>
                   <v-btn
-                    v-if="showDeleteBtn"
+                    v-if="
+                      authStore.scopes.includes('platforms.write') &&
+                      editable
+                    "
                     rounded="0"
                     variant="text"
                     size="x-small"
@@ -69,10 +75,13 @@ const showDeleteBtn = ref(false);
                     "
                     class="ml-2"
                   />
-                </v-scroll-x-reverse-transition>
-                <v-scroll-x-reverse-transition>
+                </v-slide-x-reverse-transition>
+                <v-slide-x-reverse-transition>
                   <v-btn
-                    v-if="showDeleteBtn"
+                    v-if="
+                      authStore.scopes.includes('platforms.write') &&
+                      editable
+                    "
                     rounded="0"
                     variant="text"
                     size="x-small"
@@ -82,23 +91,28 @@ const showDeleteBtn = ref(false);
                     "
                     class="text-romm-red"
                   />
-                </v-scroll-x-reverse-transition>
+                </v-slide-x-reverse-transition>
               </template>
             </v-list-item>
           </v-list-item>
         </v-col>
         <v-col cols="6" sm="4" md="3" lg="2" xl="2" class="px-1">
-          <v-btn
-            block
-            rounded="0"
-            size="large"
-            prepend-icon="mdi-plus"
-            variant="outlined"
-            class="text-romm-accent-1"
-            @click="emitter?.emit('showCreatePlatformBindingDialog', null)"
-          >
-            Add
-          </v-btn>
+          <v-slide-x-reverse-transition>
+            <v-btn
+              v-if="
+                authStore.scopes.includes('platforms.write') && editable
+              "
+              block
+              rounded="0"
+              size="large"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1"
+              @click="emitter?.emit('showCreatePlatformBindingDialog', null)"
+            >
+              Add
+            </v-btn>
+          </v-slide-x-reverse-transition>
         </v-col>
       </v-row>
     </v-card-text>
