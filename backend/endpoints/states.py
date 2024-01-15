@@ -62,7 +62,7 @@ def update_save(request: Request, id: int) -> MessageResponse:
     pass
 
 
-@protected_route(router.delete, "/states", ["assets.write"])
+@protected_route(router.put, "/states", ["assets.write"])
 async def delete_states(request: Request) -> MessageResponse:
     data: dict = await request.json()
     state_ids: list = data["states"]

@@ -44,21 +44,21 @@ const editable = ref(false);
           md="3"
           lg="2"
           xl="2"
-          v-for="platform in Object.keys(platformsBinding)"
-          :key="platform"
-          :title="platform"
+          v-for="slug, fsSlug in platformsBinding"
+          :key="slug"
+          :title="slug"
         >
           <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
             <template v-slot:prepend>
               <v-avatar :rounded="0" size="40" class="mx-2">
                 <platform-icon
                   class="platform-icon"
-                  :slug="platformsBinding[platform]"
+                  :slug="slug"
                 />
               </v-avatar>
             </template>
             <v-list-item class="bg-primary pr-2 pl-2">
-              <span>{{ platform }}</span>
+              <span>{{ fsSlug }}</span>
               <template v-slot:append>
                 <v-slide-x-reverse-transition>
                   <v-btn
@@ -71,7 +71,7 @@ const editable = ref(false);
                     size="x-small"
                     icon="mdi-pencil"
                     @click="
-                      emitter?.emit('showDeletePlatformBindingDialog', platform)
+                      emitter?.emit('showCreatePlatformBindingDialog', {fsSlug, slug})
                     "
                     class="ml-2"
                   />
@@ -87,7 +87,7 @@ const editable = ref(false);
                     size="x-small"
                     icon="mdi-delete"
                     @click="
-                      emitter?.emit('showDeletePlatformBindingDialog', platform)
+                      emitter?.emit('showDeletePlatformBindingDialog', {fsSlug, slug})
                     "
                     class="text-romm-red"
                   />
@@ -97,7 +97,7 @@ const editable = ref(false);
           </v-list-item>
         </v-col>
         <v-col cols="6" sm="4" md="3" lg="2" xl="2" class="px-1">
-          <v-slide-x-reverse-transition>
+          <v-expand-transition>
             <v-btn
               v-if="
                 authStore.scopes.includes('platforms.write') && editable
@@ -108,11 +108,11 @@ const editable = ref(false);
               prepend-icon="mdi-plus"
               variant="outlined"
               class="text-romm-accent-1"
-              @click="emitter?.emit('showCreatePlatformBindingDialog', null)"
+              @click="emitter?.emit('showCreatePlatformBindingDialog', {fsSlug: '', slug: ''})"
             >
               Add
             </v-btn>
-          </v-slide-x-reverse-transition>
+          </v-expand-transition>
         </v-col>
       </v-row>
     </v-card-text>

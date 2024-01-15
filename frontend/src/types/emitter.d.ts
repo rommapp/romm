@@ -21,9 +21,14 @@ export type Events = {
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
   showUploadRomDialog: null;
-  showCreatePlatformBindingDialog: null;
-  showDeletePlatformBindingButtons: null;
-  showDeletePlatformBindingDialog: string;
+  showCreatePlatformBindingDialog: {
+    fsSlug: string,
+    slug: string
+  };
+  showDeletePlatformBindingDialog: {
+    fsSlug: string,
+    slug: string
+  };
   showCreateExclusionDialog: string;
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;

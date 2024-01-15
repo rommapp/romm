@@ -334,7 +334,7 @@ async function deleteSaves({
   saves: SaveSchema[];
   deleteFromFs: boolean;
 }) {
-  return api.delete("/saves", {
+  return api.put("/saves", {
     saves: saves.map((s) => s.id),
     delete_from_fs: deleteFromFs,
   });
@@ -363,7 +363,7 @@ async function deleteStates({
   states: StateSchema[];
   deleteFromFs: boolean;
 }) {
-  return api.delete("/states", {
+  return api.put("/states", {
     states: states.map((s) => s.id),
     delete_from_fs: deleteFromFs,
   });

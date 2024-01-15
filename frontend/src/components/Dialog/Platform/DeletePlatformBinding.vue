@@ -9,16 +9,18 @@ import api from "@/services/api";
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
-const platformBindingToDelete = ref();
-emitter?.on("showDeletePlatformBindingDialog", (fsSlug: string) => {
-  platformBindingToDelete.value = fsSlug;
+const platformBindingFSSlugToDelete = ref();
+const platformBindingSlugToDelete = ref();
+emitter?.on("showDeletePlatformBindingDialog", ({fsSlug, slug}) => {
+  platformBindingFSSlugToDelete.value = fsSlug;
+  platformBindingSlugToDelete.value = slug;
   show.value = true;
 });
 
 // Functions
 function removeBindPlatform() {
-  api.deletePlatformBindConfig({ fsSlug: platformBindingToDelete.value });
-  configStore.removePlatformBinding(platformBindingToDelete.value);
+  api.deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value });
+  configStore.removePlatformBinding(platformBindingFSSlugToDelete.value);
   show.value = false;
 }
 
@@ -57,12 +59,10 @@ function closeDialog() {
 
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <span class="mr-1">Deleting platform binding</span
-          ><span class="text-romm-accent-1"
-            ><span class="text-romm-accent-1">{{
-              platformBindingToDelete
-            }}</span></span
-          >.
+          <span class="mr-1">Deleting platform binding [</span>
+          <span class="text-romm-accent-1 mr-1">{{ platformBindingFSSlugToDelete }}</span>
+          <span>:</span>
+          <span class="text-romm-accent-1 ml-1">{{ platformBindingSlugToDelete }}</span><span class="ml-1">].</span>
           <span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
