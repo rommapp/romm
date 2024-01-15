@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from abc import ABC
 
 from config import LIBRARY_BASE_PATH
@@ -38,3 +39,10 @@ class FSHandler(ABC):
     ):
         rom_path = self.get_fs_structure(fs_slug, folder=folder)
         return f"{LIBRARY_BASE_PATH}/{rom_path}"
+
+    @staticmethod
+    def remove_file(file_name: str, file_path: str):
+        try:
+            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+        except IsADirectoryError:
+            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")

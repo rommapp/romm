@@ -10,51 +10,6 @@ class DBHandler:
         self.engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
-    # ========= Roms =========
-    @begin_session
-    def add_rom(self, rom: Rom, session: Session = None):
-        return session.merge(rom)
-
-    def get_roms(self, platform_slug: str):
-        return (
-            select(Rom)
-            .filter_by(platform_slug=platform_slug)
-            .order_by(func.lower(Rom.name).asc())
-        )
-
-    @begin_session
-    def get_rom(self, id: int, session: Session = None):
-        return session.get(Rom, id)
-
-    @begin_session
-    def get_recent_roms(self, session: Session = None):
-        return session.scalars(select(Rom).order_by(Rom.id.desc()).limit(15)).all()
-
-    @begin_session
-    def update_rom(self, id: int, data: dict, session: Session = None):
-        return session.execute(
-            update(Rom)
-            .where(Rom.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def delete_rom(self, id: int, session: Session = None):
-        return session.execute(
-            delete(Rom)
-            .where(Rom.id == id)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def purge_roms(self, platform_id: int, roms: list[str], session: Session = None):
-        return session.execute(
-            delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
-            .execution_options(synchronize_session="evaluate")
-        )
-
     # ==== Utils ======
     @begin_session
     def get_rom_by_filename(
@@ -73,48 +28,7 @@ class DBHandler:
         ).first()
 
     # ========= Saves =========
-    @begin_session
-    def add_save(self, save: Save, session: Session = None):
-        return session.merge(save)
-
-    @begin_session
-    def get_save(self, id, session: Session = None):
-        return session.get(Save, id)
-
-    @begin_session
-    def get_save_by_filename(
-        self, platform_slug: str, file_name: str, session: Session = None
-    ):
-        return session.scalars(
-            select(Save)
-            .filter_by(platform_slug=platform_slug, file_name=file_name)
-            .limit(1)
-        ).first()
-
-    @begin_session
-    def update_save(self, id: int, data: dict, session: Session = None):
-        session.execute(
-            update(Save)
-            .where(Save.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def delete_save(self, id: int, session: Session = None):
-        return session.execute(
-            delete(Save)
-            .where(Save.id == id)
-            .execution_options(synchronize_session="evaluate")
-        )
-
-    @begin_session
-    def purge_saves(self, platform_id: int, saves: list[str], session: Session = None):
-        return session.execute(
-            delete(Save)
-            .where(and_(Save.platform_id == platform_id, Save.file_name.not_in(saves)))
-            .execution_options(synchronize_session="evaluate")
-        )
+    
 
     # ========= States =========
     @begin_session
