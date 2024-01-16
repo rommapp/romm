@@ -28,6 +28,7 @@ export type { SaveSchema } from './models/SaveSchema';
 export type { SchedulerDict } from './models/SchedulerDict';
 export type { ScreenshotSchema } from './models/ScreenshotSchema';
 export type { StateSchema } from './models/StateSchema';
+export type { StatsReturn } from './models/StatsReturn';
 export type { TaskDict } from './models/TaskDict';
 export type { TokenResponse } from './models/TokenResponse';
 export type { UploadedSavesResponse } from './models/UploadedSavesResponse';

@@ -37,8 +37,7 @@ async def test_scan_rom():
     assert rom.file_name == "Paper Mario (USA).z64"
     assert rom.name == "Paper Mario"
     assert rom.igdb_id == 3340
-    assert rom.file_size == 1.0
-    assert rom.file_size_units == "KB"
+    assert rom.file_size_bytes == 1024
     assert rom.files == ["Paper Mario (USA).z64"]
     assert rom.tags == []
     assert not rom.multi

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, onBeforeMount, inject } from "vue";
+import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import { api } from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
