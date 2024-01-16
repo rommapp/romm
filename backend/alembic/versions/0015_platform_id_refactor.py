@@ -60,7 +60,7 @@ def upgrade() -> None:
         batch_op.drop_column("p_sgdb_id")
         batch_op.drop_column("p_igdb_id")
         batch_op.drop_column("p_name")
-        batch_op.add_column(sa.Column("file_size_bytes", sa.Integer(), nullable=False))
+        batch_op.add_column(sa.Column("file_size_bytes", sa.Integer(), default=0, nullable=False))
         batch_op.add_column(
             sa.Column(
                 "platform_id",
