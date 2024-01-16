@@ -122,11 +122,12 @@ async def scan_platforms(
             await sm.emit(
                 "scan:scanning_rom",
                 {
-                    "p_name": platform.name,
+                    "platform_name": platform.name,
+                    "platform_slug": platform.slug,
+                    "platform_id": platform.id,
                     **RomSchema.model_validate(rom).model_dump(),
                 },
             )
-
 
             # Scanning saves
             fs_saves = fsasseth.get_assets(

@@ -49,7 +49,7 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
     if platform["igdb_id"]:
         log.info(emoji.emojize(f"  Identified as {platform['name']} :video_game:"))
     else:
-        log.warning(f'  {platform_attrs["slug"]} not found in IGDB')
+        log.warning(emoji.emojize(f"  {platform_attrs['slug']} not found in IGDB :cross_mark:"))
 
     platform_attrs.update(platform)
 
@@ -109,7 +109,7 @@ async def scan_rom(
     # Return early if not found in IGDB
     if not igdbh_rom["igdb_id"]:
         log.warning(
-            f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB"
+            emoji.emojize(f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB :cross_mark:")
         )
         return Rom(**rom_attrs)
 

@@ -2,6 +2,7 @@
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import type { Rom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -11,30 +12,37 @@ import { inject, onBeforeUnmount, ref } from "vue";
 const platforms = storePlatforms();
 const platformsToScan = ref<Platform[]>([]);
 const scanning = storeScanning();
-const scannedPlatforms = ref<Platform[]>([]);
+const scannedPlatforms = ref<
+  { name: string; slug: string; id: number; roms: Rom[] }[]
+>([]);
 const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 
-socket.on("scan:scanning_platform", async (platform: Platform) => {
-  scannedPlatforms.value.push(platform);
+socket.on("scan:scanning_platform", ({ name, slug, id }) => {
+  scannedPlatforms.value.push({ name, slug, id, roms: [] });
   window.setTimeout(scrollToBottom, 100);
 });
 
-// socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
-//   let platform = scannedPlatforms.value.find((p) => p.slug === platform_slug);
+socket.on(
+  "scan:scanning_rom",
+  ({ platform_name, platform_slug, platform_id, ...rom }) => {
+    let scannedPlatform = scannedPlatforms.value.find(
+      (p) => p.slug === platform_slug
+    );
 
-//   // Add the platform if the socket dropped and it's missing
-//   if (!platform) {
-//     scannedPlatforms.value.push(platform);
-//     platform = scannedPlatforms.value.pop();
-//   }
+    // Add the platform if the socket dropped and it's missing
+    if (scannedPlatform) {
+      scannedPlatforms.value.push(scannedPlatform);
+      scannedPlatform = scannedPlatforms.value.pop();
+    }
 
-//   platform?.roms.push(rom);
-//   window.setTimeout(scrollToBottom, 100);
-// });
+    scannedPlatform?.roms.push(rom);
+    window.setTimeout(scrollToBottom, 100);
+  }
+);
 
 socket.on("scan:done", () => {
   scanning.set(false);
@@ -162,18 +170,27 @@ onBeforeUnmount(() => {
     v-for="platform in scannedPlatforms"
   >
     <v-col>
-      <v-avatar :rounded="0" size="40">
-        <platform-icon :slug="platform.slug"></platform-icon>
-      </v-avatar>
-      <span class="text-body-2 ml-5"> {{ platform.name }}</span>
-      <!-- <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
+      <v-list-item :to="{ name: 'platform', params: { platform: platform.id } }">
+        <v-avatar
+          :rounded="0"
+          size="40"
+        >
+          <platform-icon :slug="platform.slug"></platform-icon>
+        </v-avatar>
+        <span class="text-body-2 ml-5"> {{ platform.name }}</span>
+      </v-list-item>
+      <v-list-item
+        v-for="rom in platform.roms"
+        class="text-body-2 romm-grey"
+        :to="{ name: 'rom', params: { rom: rom.id } }"
+      >
         <span v-if="rom.igdb_id" class="ml-10">
           • Identified <b>{{ rom.name }} 👾</b>
         </span>
         <span v-else class="ml-10">
-          • {{ rom.file_name }} not found in IGDB
+          • {{ rom.file_name }} not found in IGDB ❌
         </span>
-      </v-list-item> -->
+      </v-list-item>
     </v-col>
   </v-row>
 </template>
