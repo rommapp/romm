@@ -18,8 +18,6 @@ class RomSchema(BaseModel):
     file_name_no_tags: str
     file_extension: str
     file_path: str
-    file_size: float
-    file_size_units: str
     file_size_bytes: int
 
     name: Optional[str]

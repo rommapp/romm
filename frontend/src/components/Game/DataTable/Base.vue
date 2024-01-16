@@ -8,7 +8,7 @@ import api_rom from "@/services/api_rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
-import { languageToEmoji, regionToEmoji } from "@/utils";
+import { regionToEmoji, languageToEmoji, formatBytes } from "@/utils";
 
 const HEADERS = [
   {
@@ -104,8 +104,7 @@ function rowClick(_: Event, row: any) {
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ item.raw.file_size }}
-        {{ item.raw.file_size_units }}
+        {{ formatBytes(item.raw.file_size_bytes) }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">

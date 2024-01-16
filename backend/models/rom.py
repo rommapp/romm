@@ -9,17 +9,8 @@ from config import (
 )
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy import JSON, Boolean, Column, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, relationship
-
-SIZE_UNIT_TO_BYTES = {
-    "B": 1,
-    "KB": 1024,
-    "MB": 1024 ^ 2,
-    "GB": 1024 ^ 3,
-    "TB": 1024 ^ 4,
-    "PB": 1024 ^ 5,
-}
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
@@ -36,8 +27,7 @@ class Rom(BaseModel):
     file_name_no_tags: str = Column(String(length=450), nullable=False)
     file_extension: str = Column(String(length=100), nullable=False)
     file_path: str = Column(String(length=1000), nullable=False)
-    file_size = Column(Float, default=0.0, nullable=False)
-    file_size_units: str = Column(String(length=10), nullable=False)
+    file_size_bytes: int = Column(Integer(), default=0, nullable=False)
 
     name: str = Column(String(length=350))
     slug: str = Column(String(length=400))
@@ -97,10 +87,6 @@ class Rom(BaseModel):
     @cached_property
     def download_path(self) -> str:
         return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
-
-    @property
-    def file_size_bytes(self) -> int:
-        return int(self.file_size * SIZE_UNIT_TO_BYTES[self.file_size_units or "B"])
 
     @cached_property
     def has_cover(self) -> bool:

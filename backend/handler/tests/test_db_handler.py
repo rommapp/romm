@@ -35,8 +35,7 @@ def test_roms(rom):
             file_name_no_tags="test_rom_2",
             file_extension="zip",
             file_path=f"{rom.platform_slug}/roms",
-            file_size=1.0,
-            file_size_units="MB",
+            file_size_bytes=1000.0,
         )
     )
 

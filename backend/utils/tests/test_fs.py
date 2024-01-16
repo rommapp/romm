@@ -113,7 +113,7 @@ def test_rom_size():
         multi=False,
     )
 
-    assert rom_size == (1.0, "KB")
+    assert rom_size == 1024
 
     rom_size = get_rom_file_size(
         roms_path=get_fs_structure(fs_slug="n64"),
@@ -125,7 +125,7 @@ def test_rom_size():
         ],
     )
 
-    assert rom_size == (2.0, "KB")
+    assert rom_size == 2048
 
 
 def test_exclude_files():
