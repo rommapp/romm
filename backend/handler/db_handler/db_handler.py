@@ -1,7 +1,7 @@
 from config.config_manager import ConfigManager
 from decorators.database import begin_session
-from models import Role, Rom, Save, Screenshot, State, User
-from sqlalchemy import and_, create_engine, delete, func, select, update
+from models import Role, Platform, Rom, Save, Screenshot, State, User
+from sqlalchemy import create_engine, delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -105,7 +105,7 @@ class DBHandler:
             .where(
                 select(func.count())
                 .select_from(Rom)
-                .filter_by(platform_slug=Platform.slug)
+                .filter_by(platform_id=Platform.id)
                 .as_scalar()
                 > 0
             )
