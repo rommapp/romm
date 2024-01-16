@@ -7,7 +7,7 @@ import requests
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from fastapi import UploadFile
-from handler.fs_handler import RESOURCES_BASE_PATH
+from handler.fs_handler import RESOURCES_BASE_PATH, Asset
 from handler.fs_handler.fs_handler import FSHandler
 from logger.logger import log
 
@@ -71,64 +71,75 @@ class FSAssetsHandler(FSHandler):
 
         return {"path_screenshots": path_screenshots}
 
-    def get_assets(self, platform_slug: str):
-        saves_path = self.get_fs_structure(
-            platform_slug, folder=cm.config.SAVES_FOLDER_NAME
-        )
-        saves_file_path = f"{LIBRARY_BASE_PATH}/{saves_path}"
+    def get_assets(
+        self, platform_slug: str, rom_file_name_no_tags: str, asset_type: Asset
+    ):
+        asset_folder_name = {
+            Asset.SAVES: cm.config.SAVES_FOLDER_NAME,
+            Asset.STATES: cm.config.STATES_FOLDER_NAME,
+            Asset.SCREENSHOTS: cm.config.SCREENSHOTS_FOLDER_NAME,
+        }
 
-        fs_saves: list[str] = []
-        fs_states: list[str] = []
-        fs_screenshots: list[str] = []
+        assets_path = self.get_fs_structure(
+            platform_slug, folder=asset_folder_name[asset_type]
+        )
+
+        saves_file_path = f"{LIBRARY_BASE_PATH}/{assets_path}"
+
+        fs_assets: list[str] = []
+        # fs_states: list[str] = []
+        # fs_screenshots: list[str] = []
 
         try:
             emulators = list(os.walk(saves_file_path))[0][1]
             for emulator in emulators:
-                fs_saves += [
+                fs_assets += [
                     (emulator, file)
                     for file in list(os.walk(f"{saves_file_path}/{emulator}"))[0][2]
                 ]
 
-            fs_saves += [(None, file) for file in list(os.walk(saves_file_path))[0][2]]
-        except IndexError:
-            pass
-
-        states_path = self.get_fs_structure(
-            platform_slug, folder=cm.config.STATES_FOLDER_NAME
-        )
-        states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
-
-        try:
-            emulators = list(os.walk(states_file_path))[0][1]
-            for emulator in emulators:
-                fs_states += [
-                    (emulator, file)
-                    for file in list(os.walk(f"{states_file_path}/{emulator}"))[0][2]
-                ]
-
-            fs_states += [
-                (None, file) for file in list(os.walk(states_file_path))[0][2]
+            fs_assets += [
+                ("", file)
+                for file in list(os.walk(saves_file_path))[0][2]
+                if file.split(".")[0] == rom_file_name_no_tags
             ]
         except IndexError:
             pass
 
-        screenshots_path = self.get_fs_structure(
-            platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
-        )
-        screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
+        # states_path = self.get_fs_structure(
+        #     platform_slug, folder=cm.config.STATES_FOLDER_NAME
+        # )
+        # states_file_path = f"{LIBRARY_BASE_PATH}/{states_path}"
 
-        try:
-            fs_screenshots += [
-                file for file in list(os.walk(screenshots_file_path))[0][2]
-            ]
-        except IndexError:
-            pass
+        # try:
+        #     emulators = list(os.walk(states_file_path))[0][1]
+        #     for emulator in emulators:
+        #         fs_states += [
+        #             (emulator, file)
+        #             for file in list(os.walk(f"{states_file_path}/{emulator}"))[0][2]
+        #         ]
 
-        return {
-            "saves": fs_saves,
-            "states": fs_states,
-            "screenshots": fs_screenshots,
-        }
+        #     fs_states += [
+        #         (None, file) for file in list(os.walk(states_file_path))[0][2]
+        #     ]
+        # except IndexError:
+        #     pass
+
+        # screenshots_path = self.get_fs_structure(
+        #     platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
+        # )
+        # screenshots_file_path = f"{LIBRARY_BASE_PATH}/{screenshots_path}"
+
+        # try:
+        #     fs_screenshots += [
+        #         file for file in list(os.walk(screenshots_file_path))[0][2]
+        #     ]
+        # except IndexError:
+        #     pass
+
+        return fs_assets
+        # "states": fs_states,
+        # "screenshots": fs_screenshots,
 
     @staticmethod
     def get_screenshots():
