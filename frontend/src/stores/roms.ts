@@ -86,6 +86,16 @@ export default defineStore("roms", {
           return rom.id === value.id;
         });
       });
+      this._grouped = this._grouped.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value.id;
+        });
+      });
+      this._filteredIDs = this._filteredIDs.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value;
+        });
+      });
     },
     reset() {
       this._all = [];

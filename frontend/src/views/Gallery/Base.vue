@@ -206,14 +206,14 @@ onBeforeRouteUpdate((to, _) => {
       <v-col
         class="pa-1"
         v-show="galleryView.current != 2"
-        v-for="rom in filteredRoms"
-        :key="rom.id"
         :cols="views[galleryView.current]['size-cols']"
         :xs="views[galleryView.current]['size-xs']"
         :sm="views[galleryView.current]['size-sm']"
         :md="views[galleryView.current]['size-md']"
         :lg="views[galleryView.current]['size-lg']"
         :xl="views[galleryView.current]['size-xl']"
+        v-for="rom in filteredRoms"
+        :key="rom.id"
       >
         <game-card
           :rom="rom"
