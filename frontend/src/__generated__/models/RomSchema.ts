@@ -16,8 +16,6 @@ export type RomSchema = {
     file_name_no_tags: string;
     file_extension: string;
     file_path: string;
-    file_size: number;
-    file_size_units: string;
     file_size_bytes: number;
     name: (string | null);
     slug: (string | null);

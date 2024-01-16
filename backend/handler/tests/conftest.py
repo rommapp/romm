@@ -47,8 +47,7 @@ def rom(platform: Platform):
         file_name_no_tags="test_rom",
         file_extension="zip",
         file_path=f"{platform.slug}/roms",
-        file_size=1.0,
-        file_size_units="MB",
+        file_size_bytes=1000.0,
     )
     return dbh.add_rom(rom)
 
