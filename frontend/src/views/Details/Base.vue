@@ -9,7 +9,7 @@ import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
-import DeleteAssetDialog from "@/components/Details/DeleteAssets.vue";
+import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
 import Saves from "@/components/Details/Saves.vue";
 import Screenshots from "@/components/Details/Screenshots.vue";

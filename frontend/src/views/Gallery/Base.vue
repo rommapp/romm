@@ -161,7 +161,7 @@ function resetGallery() {
 }
 
 onMounted(() => {
-  const platformId = Number(route.params.platform)
+  const platformId = Number(route.params.platform);
 
   // If platform is different, reset store and fetch roms
   if (platformId != romsStore.platform) {

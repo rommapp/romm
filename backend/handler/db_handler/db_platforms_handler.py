@@ -24,6 +24,12 @@ class DBPlatformsHandler(DBHandler):
         )
 
     @begin_session
+    def get_platform_by_slug(self, fs_slug: str, session: Session = None):
+        return session.scalars(
+            select(Platform).filter_by(fs_slug=fs_slug).limit(1)
+        ).first()
+
+    @begin_session
     def delete_platform(self, id: int, session: Session = None):
         # Remove all roms from that platforms first
         session.execute(
@@ -44,10 +50,10 @@ class DBPlatformsHandler(DBHandler):
         )
 
     @begin_session
-    def purge_platforms(self, platforms: list[str], session: Session = None):
+    def purge_platforms(self, fs_platforms: list[str], session: Session = None):
         return session.execute(
             delete(Platform)
-            .where(or_(Platform.fs_slug.not_in(platforms), Platform.slug.is_(None)))
+            .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))
             .where(
                 select(func.count())
                 .select_from(Rom)

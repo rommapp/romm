@@ -72,7 +72,7 @@ async function scan() {
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.slug),
+    platforms: platformsToScan.value.map((p) => p.id),
     completeRescan: completeRescan.value,
     rescanUnidentified: rescanUnidentified.value,
   });

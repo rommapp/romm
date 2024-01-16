@@ -29,5 +29,8 @@ export default defineStore("platforms", {
         return p.slug !== platform.slug;
       });
     },
+    get(platformId: number){
+      return this.value.find((p) => p.id === platformId);
+    }
   },
 });
