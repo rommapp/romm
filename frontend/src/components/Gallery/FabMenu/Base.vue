@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useRoute } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
+import api_rom from "@/services/api_rom";
+import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
-import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
-import api_rom from "@/services/api_rom";
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -16,7 +16,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 // Props
 const auth = storeAuth();
 const romsStore = storeRoms();
-const scanning = storeScanning();
+const scanningStore = storeScanning();
 const route = useRoute();
 
 socket.on("scan:scanning_rom", ({ id }) => {
@@ -25,7 +25,7 @@ socket.on("scan:scanning_rom", ({ id }) => {
 });
 
 socket.on("scan:done", () => {
-  scanning.set(false);
+  scanningStore.set(false);
   emitter?.emit("snackbarShow", {
     msg: "Scan completed successfully!",
     icon: "mdi-check-bold",
@@ -35,7 +35,7 @@ socket.on("scan:done", () => {
 });
 
 socket.on("scan:done_ko", (msg: string) => {
-  scanning.set(false);
+  scanningStore.set(false);
   emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
@@ -46,7 +46,7 @@ socket.on("scan:done_ko", (msg: string) => {
 
 // Functions
 async function onScan() {
-  scanning.set(true);
+  scanningStore.set(true);
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
