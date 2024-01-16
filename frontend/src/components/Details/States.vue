@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import api from "@/services/api";
+import api_state from "@/services/api_state";
 import storeRoms from "@/stores/roms";
 
 import type { StateSchema } from "@/__generated__";
@@ -39,7 +39,7 @@ async function uploadStates() {
     color: "romm-accent-1",
   });
 
-  await api
+  await api_state
     .uploadStates({
       states: statesToUpload.value,
       rom: props.rom,

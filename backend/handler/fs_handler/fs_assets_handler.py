@@ -99,7 +99,7 @@ class FSAssetsHandler(FSHandler):
                 ]
 
             fs_assets += [
-                ("", file)
+                (None, file)
                 for file in list(os.walk(saves_file_path))[0][2]
                 if file.split(".")[0] == rom_file_name_no_tags
             ]

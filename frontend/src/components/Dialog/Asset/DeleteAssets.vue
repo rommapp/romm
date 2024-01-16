@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, inject } from "vue";
-import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import storeRoms from "@/stores/roms";
-import api from "@/services/api";
+import api_save from "@/services/api_save";
+import api_state from "@/services/api_state";
 import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 
@@ -37,11 +37,11 @@ async function deleteAssets() {
 
   const result =
     (await assetType.value) === "saves"
-      ? api.deleteSaves({
+      ? api_save.deleteSaves({
           saves: assets.value,
           deleteFromFs: deleteFromFs.value,
         })
-      : api.deleteStates({
+      : api_state.deleteStates({
           states: assets.value,
           deleteFromFs: deleteFromFs.value,
         });

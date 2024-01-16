@@ -3,15 +3,13 @@ import { inject } from "vue";
 import { useRoute } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 
 // Props
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
-const platform = platforms.value.find(
-  (p: Platform) => p.id === (Number(route.params.platform))
-);
+const platform = platformsStore.get(Number(route.params.platform));
 </script>
 
 <template>
