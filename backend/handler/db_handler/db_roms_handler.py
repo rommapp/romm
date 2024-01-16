@@ -31,6 +31,10 @@ class DBRomsHandler(DBHandler):
             return data.order_by(_column.asc())
 
     @begin_session
+    def add_rom(self, rom: Rom, session: Session = None):
+        return session.merge(rom)
+
+    @begin_session
     def get_roms(
         self,
         id: int = None,
@@ -49,6 +53,22 @@ class DBRomsHandler(DBHandler):
                 order_dir,
             )
         )
+
+    @begin_session
+    def get_rom_by_filename(
+        self, platform_id: int, file_name: str, session: Session = None
+    ):
+        return session.scalars(
+            select(Rom).filter_by(platform_id=platform_id, file_name=file_name).limit(1)
+        ).first()
+
+    @begin_session
+    def get_rom_by_filename_no_tags(
+        self, file_name_no_tags: str, session: Session = None
+    ):
+        return session.scalars(
+            select(Rom).filter_by(file_name_no_tags=file_name_no_tags).limit(1)
+        ).first()
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None):

@@ -73,3 +73,9 @@ EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
 class CoverSize(Enum):
     SMALL = "small"
     BIG = "big"
+
+
+class Asset(Enum):
+    SAVES = "saves"
+    STATES = "states"
+    SCREENSHOTS = "screenshots"

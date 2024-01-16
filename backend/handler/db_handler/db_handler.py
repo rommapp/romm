@@ -10,27 +10,6 @@ class DBHandler:
         self.engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
         self.session = sessionmaker(bind=self.engine, expire_on_commit=False)
 
-    # ==== Utils ======
-    @begin_session
-    def get_rom_by_filename(
-        self, platform_id: int, file_name: str, session: Session = None
-    ):
-        return session.scalars(
-            select(Rom).filter_by(platform_id=platform_id, file_name=file_name).limit(1)
-        ).first()
-
-    @begin_session
-    def get_rom_by_filename_no_tags(
-        self, file_name_no_tags: str, session: Session = None
-    ):
-        return session.scalars(
-            select(Rom).filter_by(file_name_no_tags=file_name_no_tags).limit(1)
-        ).first()
-
-    # ========= Saves =========
-
-    # ========= States =========
-
     # ========= Screenshots =========
     @begin_session
     def add_screenshot(self, screenshot: Screenshot, session: Session = None):
@@ -65,12 +44,12 @@ class DBHandler:
 
     @begin_session
     def purge_screenshots(
-        self, platform_id: int, screenshots: list[str], session: Session = None
+        self, rom_id: int, screenshots: list[str], session: Session = None
     ):
         return session.execute(
             delete(Screenshot)
             .where(
-                Screenshot.platform_id == platform_id,
+                Screenshot.rom_id == rom_id,
                 Screenshot.file_name.not_in(screenshots),
             )
             .execution_options(synchronize_session="evaluate")

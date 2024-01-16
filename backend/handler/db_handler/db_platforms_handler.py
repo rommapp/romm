@@ -45,23 +45,13 @@ class DBPlatformsHandler(DBHandler):
 
     @begin_session
     def purge_platforms(self, platforms: list[str], session: Session = None):
-        session.execute(
-            delete(Save)
-            .where(Save.platform_slug.not_in(platforms))
-            .execution_options(synchronize_session="evaluate")
-        )
-        session.execute(
-            delete(State)
-            .where(State.platform_slug.not_in(platforms))
-            .execution_options(synchronize_session="evaluate")
-        )
         return session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(platforms), Platform.slug.is_(None)))
             .where(
                 select(func.count())
                 .select_from(Rom)
-                .filter_by(platform_slug=Platform.slug)
+                .filter_by(platform_id=Platform.id)
                 .as_scalar()
                 == 0
             )
