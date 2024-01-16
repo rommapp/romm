@@ -30,7 +30,7 @@ const { scanning } = storeToRefs(scanningStore);
       <v-tab value="general" rounded="0">General</v-tab>
       <v-tab value="config" rounded="0">Config</v-tab>
       <v-tab
-        :disabled="!authStore.scopes.includes('users.read')"
+        v-if="heartbeatStore.value.ROMM_AUTH_ENABLED && authStore.scopes.includes('users.read')"
         value="users"
         rounded="0"
       >
