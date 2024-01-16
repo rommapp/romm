@@ -60,7 +60,7 @@ def upgrade() -> None:
         batch_op.drop_column("p_sgdb_id")
         batch_op.drop_column("p_igdb_id")
         batch_op.drop_column("p_name")
-        batch_op.add_column(sa.Column("file_size_bytes", sa.Integer(), default=0, nullable=False))
+        batch_op.add_column(sa.Column("file_size_bytes", sa.Integer(), nullable=False))
         batch_op.add_column(
             sa.Column(
                 "platform_id",
@@ -98,6 +98,10 @@ def upgrade() -> None:
         text("UPDATE roms SET file_size_bytes = :file_size_bytes WHERE id = :id"),
         updates,
     )
+
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.drop_column("file_size")
+        batch_op.drop_column("file_size_units")
     # Clean roms table
     # ### end Alembic commands ###
 
