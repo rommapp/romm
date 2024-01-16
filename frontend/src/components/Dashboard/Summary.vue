@@ -29,16 +29,13 @@ onBeforeMount(async () => {
           <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.ROMS }} Games
         </v-chip>
         <v-chip class="text-overline" variant="text" label>
-          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.SAVES }} Games
+          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.SAVES }} Saves
         </v-chip>
         <v-chip class="text-overline" variant="text" label>
-          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.STATES }} Games
+          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.STATES }} States
         </v-chip>
         <v-chip class="text-overline" variant="text" label>
-          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.SCREENSHOTS }} Games
-        </v-chip>
-        <v-chip class="text-overline" variant="text" label>
-          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.FILESIZE }} Games
+          <v-icon class="mr-2">mdi-disc</v-icon>{{ stats.SCREENSHOTS }} Screenshots
         </v-chip>
       </v-chip-group>
     </v-card-text>
