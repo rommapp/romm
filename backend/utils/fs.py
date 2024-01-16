@@ -395,14 +395,8 @@ def get_rom_file_size(
             for file in multi_files
         ]
     )
-    total_size: float = 0.0
-    for file in files:
-        total_size += os.stat(file).st_size
-    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
-        if total_size < 1024.0 or unit == "PB":
-            break
-        total_size /= 1024.0
-    return round(total_size, 2), unit
+
+    return sum([os.stat(file).st_size for file in files])
 
 
 def get_fs_file_size(asset_path: str, file_name: str):

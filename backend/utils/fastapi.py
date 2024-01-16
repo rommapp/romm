@@ -70,7 +70,7 @@ async def scan_rom(
             log.info(f"\t\t · {file}")
 
     # Update properties that don't require IGDB
-    file_size, file_size_units = fs.get_rom_file_size(
+    file_size = fs.get_rom_file_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
         multi_files=rom_attrs["files"],
@@ -83,8 +83,7 @@ async def scan_rom(
             "file_name": rom_attrs["file_name"],
             "file_name_no_tags": get_file_name_with_no_tags(rom_attrs["file_name"]),
             "file_extension": get_file_extension(rom_attrs["file_name"]),
-            "file_size": file_size,
-            "file_size_units": file_size_units,
+            "file_size_bytes": file_size,
             "multi": rom_attrs["multi"],
             "regions": regs,
             "revision": rev,

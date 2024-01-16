@@ -8,7 +8,7 @@ import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils";
+import { regionToEmoji, languageToEmoji, formatBytes } from "@/utils";
 
 const HEADERS = [
   {
@@ -104,8 +104,7 @@ function rowClick(_: Event, row: any) {
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ item.raw.file_size }}
-        {{ item.raw.file_size_units }}
+        {{ formatBytes(item.raw.file_size_bytes) }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">

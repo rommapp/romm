@@ -146,6 +146,33 @@ def heartbeat() -> HeartbeatReturn:
     }
 
 
+class StatsReturn(TypedDict):
+    PLATFORMS: int
+    ROMS: int
+    SAVES: int
+    STATES: int
+    SCREENSHOTS: int
+    FILESIZE: int
+
+
+@app.get("/stats")
+def stats() -> StatsReturn:
+    """Endpoint to return the current RomM stats
+
+    Returns:
+        dict: Dictionary with all the stats
+    """
+
+    return {
+        "PLATFORMS": dbh.get_platforms_count(),
+        "ROMS": dbh.get_roms_count(),
+        "SAVES": dbh.get_saves_count(),
+        "STATES": dbh.get_states_count(),
+        "SCREENSHOTS": dbh.get_screenshots_count(),
+        "FILESIZE": dbh.get_total_filesize(),
+    }
+
+
 @app.on_event("startup")
 def startup() -> None:
     """Event to handle RomM startup logic."""

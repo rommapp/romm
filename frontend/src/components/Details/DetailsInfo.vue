@@ -2,6 +2,7 @@
 import storeDownload from "@/stores/download";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import type { Rom } from "@/stores/roms";
+import { formatBytes } from "@/utils";
 
 defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
@@ -53,7 +54,7 @@ const downloadStore = storeDownload();
       <span>Size</span>
     </v-col>
     <v-col>
-      <span>{{ rom.file_size }} {{ rom.file_size_units }}</span>
+      <span>{{ formatBytes(rom.file_size_bytes) }}</span>
     </v-col>
   </v-row>
   <v-row v-if="rom.igdb_id" class="align-center py-2" no-gutters>
