@@ -120,8 +120,6 @@ async def scan_platforms(
             _added_rom = dbromh.add_rom(scanned_rom)
             rom = dbromh.get_roms(_added_rom.id)
 
-            log.debug(rom.platform_id)
-
             await sm.emit(
                 "scan:scanning_rom",
                 {
