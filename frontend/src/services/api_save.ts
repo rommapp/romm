@@ -7,7 +7,6 @@ export const api_save = api;
 async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
-  console.log(saves);
   return api.post("/saves", formData, {
     headers: {
       "Content-Type": "multipart/form-data",

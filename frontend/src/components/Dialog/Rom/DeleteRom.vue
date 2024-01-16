@@ -42,14 +42,14 @@ async function deleteRoms() {
       return;
     });
 
+  romsStore.remove(roms.value);
+  emitter?.emit("refreshDrawer", null);
+  closeDialog();
+
   await router.push({
     name: "platform",
     params: { platform: roms.value[0].platform_id },
   });
-
-  romsStore.remove(roms.value);
-  emitter?.emit("refreshDrawer", null);
-  closeDialog();
 }
 
 function closeDialog() {

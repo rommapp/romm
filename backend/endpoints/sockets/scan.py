@@ -63,6 +63,7 @@ async def scan_platforms(
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
+        await sm.emit("scan:done_ko_s", e.message)
         return
 
     platform_list = [
@@ -119,12 +120,13 @@ async def scan_platforms(
             _added_rom = dbromh.add_rom(scanned_rom)
             rom = dbromh.get_roms(_added_rom.id)
 
+            log.debug(rom.platform_id)
+
             await sm.emit(
                 "scan:scanning_rom",
                 {
                     "platform_name": platform.name,
                     "platform_slug": platform.slug,
-                    "platform_id": platform.id,
                     **RomSchema.model_validate(rom).model_dump(),
                 },
             )

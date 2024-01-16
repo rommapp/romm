@@ -6,16 +6,18 @@ import { useDisplay } from "vuetify";
 
 import AppBar from "@/components/AppBar/Base.vue";
 import Drawer from "@/components/Drawer/Base.vue";
-import api_user from "@/services/api_user";
 import api_platform from "@/services/api_platform";
+import api_user from "@/services/api_user";
 import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { storeToRefs } from "pinia";
 
 // Props
 const { mdAndDown } = useDisplay();
+const scanningStore = storeScanning();
+const { scanning } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
-const scanning = storeScanning();
 const auth = storeAuth();
 
 // Event listeners bus
@@ -43,7 +45,7 @@ onMounted(async () => {
   <v-progress-linear
     id="scan-progress-bar"
     color="romm-accent-1"
-    :active="scanning.value"
+    :active="scanning"
     :indeterminate="true"
     absolute
     fixed
@@ -60,6 +62,6 @@ onMounted(async () => {
 
 <style scoped>
 #scan-progress-bar {
-  z-index: 1000 !important;
+  z-index: 1001 !important;
 }
 </style>

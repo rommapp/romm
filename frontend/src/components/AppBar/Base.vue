@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import DrawerToggle from "@/components/AppBar/DrawerToggle.vue";
 import storeScanning from "@/stores/scanning";
+import { storeToRefs } from "pinia";
 
 // Props
-const scanning = storeScanning();
+const scanningStore = storeScanning();
+const { scanning } = storeToRefs(scanningStore);
 </script>
 
 <template>
   <v-app-bar elevation="1" density="comfortable">
     <v-progress-linear
       color="romm-accent-1"
-      :active="scanning.value"
+      :active="scanning"
       :indeterminate="true"
       absolute
     />
