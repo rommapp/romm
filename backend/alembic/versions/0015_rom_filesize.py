@@ -41,6 +41,9 @@ def upgrade() -> None:
         file_size_bytes = int(row[1] * SIZE_UNIT_TO_BYTES.get(row[2], 1))
         updates.append({"id": row[0], "file_size_bytes": file_size_bytes})
 
+    if not updates:
+        return
+
     # Perform bulk update
     connection.execute(
         text("UPDATE roms SET file_size_bytes = :file_size_bytes WHERE id = :id"),
