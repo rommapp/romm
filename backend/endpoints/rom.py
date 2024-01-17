@@ -276,7 +276,7 @@ async def update_rom(
     return dbromh.get_roms(id)
 
 
-@protected_route(router.delete, "/roms", ["roms.write"])
+@protected_route(router.post, "/roms/delete", ["roms.write"])
 async def delete_roms(
     request: Request,
 ) -> MessageResponse:

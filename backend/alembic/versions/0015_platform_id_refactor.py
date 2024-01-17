@@ -90,19 +90,17 @@ def upgrade() -> None:
         file_size_bytes = int(row[1] * SIZE_UNIT_TO_BYTES.get(row[2], 1))
         updates.append({"id": row[0], "file_size_bytes": file_size_bytes})
 
-    if not updates:
-        return
+    if updates:
+        # Perform bulk update
+        connection.execute(
+            text("UPDATE roms SET file_size_bytes = :file_size_bytes WHERE id = :id"),
+            updates,
+        )
 
-    # Perform bulk update
-    connection.execute(
-        text("UPDATE roms SET file_size_bytes = :file_size_bytes WHERE id = :id"),
-        updates,
-    )
-
+    # Clean roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_column("file_size")
         batch_op.drop_column("file_size_units")
-    # Clean roms table
     # ### end Alembic commands ###
 
 
@@ -122,6 +120,10 @@ def downgrade() -> None:
         batch_op.create_foreign_key(None, "platforms", ["platform_slug"], ["slug"])
         batch_op.drop_column("platform_id")
         batch_op.drop_column("file_size_bytes")
+        batch_op.add_column(
+            sa.Column("file_size_units", sa.String(length=10), nullable=False)
+        )
+        batch_op.add_column(sa.Column("file_size", sa.Float(), nullable=False))
 
     with op.batch_alter_table("saves", schema=None) as batch_op:
         batch_op.add_column(

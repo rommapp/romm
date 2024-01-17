@@ -3,7 +3,7 @@ from typing import Any
 
 import emoji
 from config.config_manager import config_manager as cm
-from handler import fsasseth, dbplatformh, igdbh, fsresourceh, fsromh
+from handler import fsasseth, igdbh, fsresourceh, fsromh, dbplatformh
 from logger.logger import log
 from models import Platform, Rom, Save, Screenshot, State
 
@@ -32,7 +32,7 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
             f"  {fs_slug} not found in file system, trying to match via config..."
         )
         if fs_slug in SWAPPED_PLATFORM_BINDINGS.keys():
-            platform = dbh.get_platform_by_fs_slug(fs_slug)
+            platform = dbplatformh.get_platform_by_fs_slug(fs_slug)
             if platform:
                 platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
 
@@ -80,6 +80,7 @@ async def scan_rom(
     regs, rev, langs, other_tags = fsromh.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
+            "platform_id": platform.id,
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
             "file_name_no_tags": fsromh.get_file_name_with_no_tags(rom_attrs["file_name"]),
@@ -92,7 +93,6 @@ async def scan_rom(
             "tags": other_tags,
         }
     )
-    rom_attrs["platform_id"] = platform.id
 
     # Search in IGDB
     igdbh_rom = (

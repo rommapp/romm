@@ -20,11 +20,8 @@ class User(BaseModel, SimpleUser):
 
     username: str = Column(String(length=255), unique=True, index=True)
     hashed_password: str = Column(String(length=255))
-
     enabled: bool = Column(Boolean(), default=True)
-
     role: Role = Column(Enum(Role), default=Role.VIEWER)
-
     avatar_path: str = Column(String(length=255), default="")
 
     @property

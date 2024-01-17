@@ -60,7 +60,7 @@ def update_save(request: Request, id: int) -> MessageResponse:
     pass
 
 
-@protected_route(router.put, "/saves", ["assets.write"])
+@protected_route(router.post, "/saves/delete", ["assets.write"])
 async def delete_saves(request: Request) -> MessageResponse:
     data: dict = await request.json()
     save_ids: list = data["saves"]
@@ -86,7 +86,7 @@ async def delete_saves(request: Request) -> MessageResponse:
             try:
                 fsasseth.remove_file(file_name=save.file_name, file_path=save.file_path)
             except FileNotFoundError:
-                error = f"Save file {save.file_name} not found for platform {save.platform_slug}"
+                error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
                 log.error(error)
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 

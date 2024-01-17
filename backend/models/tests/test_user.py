@@ -1,4 +1,4 @@
-from utils.oauth import DEFAULT_SCOPES, WRITE_SCOPES, FULL_SCOPES
+from handler.auth_handler import FULL_SCOPES, WRITE_SCOPES, DEFAULT_SCOPES
 
 def test_admin(admin_user):
     admin_user.oauth_scopes == FULL_SCOPES

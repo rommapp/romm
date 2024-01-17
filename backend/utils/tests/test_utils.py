@@ -1,69 +1,65 @@
-from utils import (
-    parse_tags,
-    get_file_name_with_no_tags as gfnwt,
-    parse_file_extension as gfe,
-)
+from handler import fsromh
 
 
 def test_parse_tags():
     file_name = "Super Mario Bros. (World).nes"
-    assert parse_tags(file_name) == (["World"], "", [], [])
+    assert fsromh.parse_tags(file_name) == (["World"], "", [], [])
 
     file_name = "Super Mario Bros. (W) (Rev A).nes"
-    assert parse_tags(file_name) == (["World"], "A", [], [])
+    assert fsromh.parse_tags(file_name) == (["World"], "A", [], [])
 
     file_name = "Super Mario Bros. (USA) (Rev A) (Beta).nes"
-    assert parse_tags(file_name) == (["USA"], "A", [], ["Beta"])
+    assert fsromh.parse_tags(file_name) == (["USA"], "A", [], ["Beta"])
 
     file_name = "Super Mario Bros. (U) (Beta).nes"
-    assert parse_tags(file_name) == (["USA"], "", [], ["Beta"])
+    assert fsromh.parse_tags(file_name) == (["USA"], "", [], ["Beta"])
 
     file_name = "Super Mario Bros. (CH) [!].nes"
-    assert parse_tags(file_name) == (["China"], "", [], ["!"])
+    assert fsromh.parse_tags(file_name) == (["China"], "", [], ["!"])
 
     file_name = "Super Mario Bros. (reg-T) (rev-1.2).nes"
-    assert parse_tags(file_name) == (["Taiwan"], "1.2", [], [])
+    assert fsromh.parse_tags(file_name) == (["Taiwan"], "1.2", [], [])
 
     file_name = "Super Mario Bros. (Reg S) (Rev A).nes"
-    assert parse_tags(file_name) == (["Spain"], "A", [], [])
+    assert fsromh.parse_tags(file_name) == (["Spain"], "A", [], [])
 
     file_name = "Super Metroid (Japan, USA) (En,Ja).zip"
-    assert parse_tags(file_name) == (["Japan", "USA"], "", ["English", "Japanese"], [])
+    assert fsromh.parse_tags(file_name) == (["Japan", "USA"], "", ["English", "Japanese"], [])
 
 
 def test_get_file_name_with_no_tags():
     file_name = "Super Mario Bros. (World).nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "Super Mario Bros. (W) (Rev A).nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "Super Mario Bros. (USA) (Rev A) (Beta).nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "Super Mario Bros. (U) (Beta).nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "Super Mario Bros. (U) [!].nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "Super Mario Bros. (reg-T) (rev-1.2).nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "Super Mario Bros. (Reg S) (Rev A).nes"
-    assert gfnwt(file_name) == "Super Mario Bros."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Super Mario Bros."
 
     file_name = "007 - Agent Under Fire.nkit.iso"
-    assert gfnwt(file_name) == "007 - Agent Under Fire"
+    assert fsromh.get_file_name_with_no_tags(file_name) == "007 - Agent Under Fire"
 
     file_name = "Jimmy Houston's Bass Tournament U.S.A..zip"
-    assert gfnwt(file_name) == "Jimmy Houston's Bass Tournament U.S.A."
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Jimmy Houston's Bass Tournament U.S.A."
 
     # This is expected behavior, since the regex is aggressive
     file_name = "Battle Stadium D.O.N.zip"
-    assert gfnwt(file_name) == "Battle Stadium D.O.N"
+    assert fsromh.get_file_name_with_no_tags(file_name) == "Battle Stadium D.O.N"
 
 
 def test_get_file_extension():
-    assert gfe("Super Mario Bros. (World).nes") == "nes"
-    assert gfe("007 - Agent Under Fire.nkit.iso") == "nkit.iso"
+    assert fsromh.parse_file_extension("Super Mario Bros. (World).nes") == "nes"
+    assert fsromh.parse_file_extension("007 - Agent Under Fire.nkit.iso") == "nkit.iso"

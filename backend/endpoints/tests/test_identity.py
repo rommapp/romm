@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from utils.cache import cache
+from handler.redis_handler import cache
 from models.user import Role
 
 client = TestClient(app)
@@ -27,12 +27,12 @@ def test_login_logout(admin_user):
 
     assert response.status_code == 200
     assert response.cookies.get("session")
-    assert response.json()["message"] == "Successfully logged in"
+    assert response.json()["msg"] == "Successfully logged in"
 
     response = client.post("/logout")
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Successfully logged out"
+    assert response.json()["msg"] == "Successfully logged out"
 
 
 def test_get_all_users(access_token):
@@ -92,4 +92,4 @@ def test_delete_user(access_token, editor_user):
     assert response.status_code == 200
 
     body = response.json()
-    assert body["message"] == "User successfully deleted"
+    assert body["msg"] == "User successfully deleted"
