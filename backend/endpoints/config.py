@@ -42,20 +42,26 @@ async def delete_platform_binding(request: Request) -> MessageResponse:
     return {"msg": f"{fs_slug} bind removed successfully!"}
 
 
-@protected_route(router.post, "/config/exclude", ["platforms.write"])
-async def add_exclusion(request: Request) -> MessageResponse:
-    """Add platform binding to the configuration"""
+# @protected_route(router.post, "/config/exclude", ["platforms.write"])
+# async def add_exclusion(request: Request) -> MessageResponse:
+#     """Add platform binding to the configuration"""
 
-    data = await request.json()
+#     data = await request.json()
+#     exclude = data['exclude']
+#     exclusion = data['exclusion']
+#     cm.add_exclusion(exclude, exclusion)
+    
+#     return {"msg": f"Exclusion {exclusion} added to {exclude} successfully!"}
 
-    return {"msg": f"Exclusion added successfully!"}
 
+# @protected_route(router.delete, "/config/exclude", ["platforms.write"])
+# async def delete_exclusion(request: Request) -> MessageResponse:
+#     """Delete platform binding from the configuration"""
 
-@protected_route(router.delete, "/config/exclude", ["platforms.write"])
-async def delete_exclusion(request: Request) -> MessageResponse:
-    """Delete platform binding from the configuration"""
+#     data = await request.json()
+#     exclude = data['exclude']
+#     exclusion = data['exclusion']
+#     cm.remove_exclusion(exclude, exclusion)
 
-    data = await request.json()
-
-    return {"msg": f"Exclusion removed successfully!"}
+#     return {"msg": f"Exclusion {exclusion} removed from {exclude} successfully!"}
 

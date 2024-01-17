@@ -4,6 +4,7 @@ import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import CreateExclusionDialog from "@/components/Dialog/Config/CreateExclusion.vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
@@ -34,6 +35,7 @@ const editable = ref(false);
         variant="text"
         @click="editable = !editable"
         icon="mdi-cog"
+        disabled
       >
       </v-btn>
     </v-toolbar>
@@ -54,13 +56,16 @@ const editable = ref(false);
             }}</v-chip>
             <v-expand-transition>
               <v-btn
-                v-if="authStore.scopes.includes('platforms.write') &&
-                      editable"
+                v-if="authStore.scopes.includes('platforms.write') && editable"
                 rounded="1"
                 prepend-icon="mdi-plus"
                 variant="outlined"
                 class="text-romm-accent-1 ml-1"
-                @click="emitter?.emit('showCreateExclusionDialog', 'platform')"
+                @click="
+                  emitter?.emit('showCreateExclusionDialog', {
+                    exclude: 'platforms',
+                  })
+                "
               >
                 Add
               </v-btn>
@@ -85,8 +90,7 @@ const editable = ref(false);
             >
             <v-expand-transition>
               <v-btn
-                v-if="authStore.scopes.includes('platforms.write') &&
-                      editable"
+                v-if="authStore.scopes.includes('platforms.write') && editable"
                 rounded="1"
                 prepend-icon="mdi-plus"
                 variant="outlined"
@@ -115,8 +119,7 @@ const editable = ref(false);
             >
             <v-expand-transition>
               <v-btn
-                v-if="authStore.scopes.includes('platforms.write') &&
-                      editable"
+                v-if="authStore.scopes.includes('platforms.write') && editable"
                 rounded="1"
                 prepend-icon="mdi-plus"
                 variant="outlined"
@@ -145,8 +148,7 @@ const editable = ref(false);
             >
             <v-expand-transition>
               <v-btn
-                v-if="authStore.scopes.includes('platforms.write') &&
-                      editable"
+                v-if="authStore.scopes.includes('platforms.write') && editable"
                 rounded="1"
                 prepend-icon="mdi-plus"
                 variant="outlined"
@@ -175,8 +177,7 @@ const editable = ref(false);
             >
             <v-expand-transition>
               <v-btn
-                v-if="authStore.scopes.includes('platforms.write') &&
-                      editable"
+                v-if="authStore.scopes.includes('platforms.write') && editable"
                 rounded="1"
                 prepend-icon="mdi-plus"
                 variant="outlined"
@@ -205,8 +206,7 @@ const editable = ref(false);
             >
             <v-expand-transition>
               <v-btn
-                v-if="authStore.scopes.includes('platforms.write') &&
-                      editable"
+                v-if="authStore.scopes.includes('platforms.write') && editable"
                 rounded="1"
                 prepend-icon="mdi-plus"
                 variant="outlined"
@@ -221,7 +221,7 @@ const editable = ref(false);
     </v-card-text>
   </v-card>
 
-  <!-- <create-exclusions-dialog /> -->
+  <create-exclusion-dialog />
 </template>
 
 <style scoped></style>
