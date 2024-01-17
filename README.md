@@ -1,4 +1,11 @@
 <div align="center">
+
+  <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
+  
+  <h3>
+    A beautiful, powerful, self-hosted rom manager
+  </h3>
+  <br/>
   <div>
 
   [![license-badge]][license-badge-url]
@@ -11,12 +18,6 @@
   [![unraid-badge]][unraid-badge-url]
   [![wiki-badge]][wiki-url]
   </div>
-
-  <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
-  
-  <h2>
-    RomM - A beatiful, powerful, self-hosted rom manager
-  </h2>
 </div>
 
 # Overview
