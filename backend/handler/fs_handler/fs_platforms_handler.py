@@ -3,7 +3,7 @@ import os
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import FolderStructureNotMatchException
-from handler.fs_handler.fs_handler import FSHandler
+from handler.fs_handler import FSHandler
 
 
 class FSPlatformsHandler(FSHandler):

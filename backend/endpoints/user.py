@@ -5,8 +5,8 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from handler import authh, dbh, fsresourceh
+from fastapi import APIRouter, Depends, HTTPException, Request
+from handler import authh, dbuserh, fsresourceh
 from models.user import Role, User
 
 router = APIRouter()
@@ -41,7 +41,7 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         role=Role[role.upper()],
     )
 
-    return dbh.add_user(user)
+    return dbuserh.add_user(user)
 
 
 @protected_route(router.get, "/users", ["users.read"])
@@ -55,7 +55,7 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return dbh.get_users()
+    return dbuserh.get_users()
 
 
 @protected_route(router.get, "/users/me", ["me.read"])
@@ -83,7 +83,7 @@ def get_user(request: Request, id: int) -> UserSchema:
         UserSchem: User stored in the RomM's database
     """
 
-    user = dbh.get_user(id)
+    user = dbuserh.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -115,14 +115,14 @@ def update_user(
             status_code=400,
             detail="Cannot update user: ROMM_AUTH_ENABLED is set to False",
         )
-    user = dbh.get_user(id)
+    user = dbuserh.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     cleaned_data = {}
 
     if form_data.username and form_data.username != user.username:
-        existing_user = dbh.get_user_by_username(form_data.username.lower())
+        existing_user = dbuserh.get_user_by_username(form_data.username.lower())
         if existing_user:
             raise HTTPException(
                 status_code=400, detail="Username already in use by another user"
@@ -150,7 +150,7 @@ def update_user(
             file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
-        dbh.update_user(id, cleaned_data)
+        dbuserh.update_user(id, cleaned_data)
 
         # Log out the current user if username or password changed
         creds_updated = cleaned_data.get("username") or cleaned_data.get(
@@ -159,7 +159,7 @@ def update_user(
         if request.user.id == id and creds_updated:
             authh.clear_session(request)
 
-    return dbh.get_user(id)
+    return dbuserh.get_user(id)
 
 
 @protected_route(router.delete, "/users/{id}", ["users.write"])
@@ -186,7 +186,7 @@ def delete_user(request: Request, id: int) -> MessageResponse:
             detail="Cannot delete user: ROMM_AUTH_ENABLED is set to False",
         )
 
-    user = dbh.get_user(id)
+    user = dbuserh.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -195,11 +195,11 @@ def delete_user(request: Request, id: int) -> MessageResponse:
         raise HTTPException(status_code=400, detail="You cannot delete yourself")
 
     # You can't delete the last admin user
-    if user.role == Role.ADMIN and len(dbh.get_admin_users()) == 1:
+    if user.role == Role.ADMIN and len(dbuserh.get_admin_users()) == 1:
         raise HTTPException(
             status_code=400, detail="You cannot delete the last admin user"
         )
 
-    dbh.delete_user(id)
+    dbuserh.delete_user(id)
 
     return {"msg": "User successfully deleted"}

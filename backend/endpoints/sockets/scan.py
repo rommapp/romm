@@ -8,10 +8,10 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler import (
-    dbh,
     dbplatformh,
     dbromh,
     dbsaveh,
+    dbscreenshotsh,
     dbstateh,
     fsasseth,
     fsplatformh,
@@ -19,6 +19,7 @@ from handler import (
     fsromh,
     socketh,
 )
+from handler.fs_handler import Asset
 from handler.redis_handler import high_prio_queue, redis_url
 from handler.scan_handler import (
     scan_platform,
@@ -28,7 +29,6 @@ from handler.scan_handler import (
     scan_state,
 )
 from logger.logger import log
-from handler.fs_handler import Asset
 
 
 def _get_socket_manager():
@@ -145,14 +145,13 @@ async def scan_platforms(
                 if save:
                     # Update file size if changed
                     if save.file_size_bytes != scanned_save.file_size_bytes:
-                        dbh.update_save(
+                        dbsaveh.update_save(
                             save.id, {"file_size_bytes": scanned_save.file_size_bytes}
                         )
                     continue
 
                 scanned_save.emulator = fs_emulator
 
-                rom = dbromh.get_rom_by_filename_no_tags(scanned_save.file_name_no_tags)
                 if rom:
                     scanned_save.rom_id = rom.id
                     dbsaveh.add_save(scanned_save)
@@ -173,7 +172,7 @@ async def scan_platforms(
                 if state:
                     # Update file size if changed
                     if state.file_size_bytes != scanned_state.file_size_bytes:
-                        dbh.update_state(
+                        dbstateh.update_state(
                             state.id, {"file_size_bytes": scanned_state.file_size_bytes}
                         )
 
@@ -181,66 +180,66 @@ async def scan_platforms(
 
                 scanned_state.emulator = fs_emulator
 
-                rom = dbromh.get_rom_by_filename_no_tags(scanned_state.file_name_no_tags)
                 if rom:
                     scanned_state.rom_id = rom.id
                     dbstateh.add_state(scanned_state)
 
-        # # Scanning screenshots
-        # log.info(f"\t · {len(fs_assets['screenshots'])} screenshots found")
-        # for fs_screenshot_filename in fs_assets["screenshots"]:
-        #     scanned_screenshot = scan_screenshot(
-        #         file_name=fs_screenshot_filename, platform=platform
-        #     )
+            # Scanning screenshots
+            fs_screenshots = fsasseth.get_assets(
+                platform.fs_slug, rom.file_name_no_tags, Asset.SCREENSHOTS
+            )
+            log.info(f"\t · {len(fs_screenshots)} screenshots found")
+            for fs_screenshot_filename in fs_screenshots:
+                scanned_screenshot = scan_screenshot(
+                    file_name=fs_screenshot_filename, platform=platform
+                )
 
-        #     screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
-        #     if screenshot:
-        #         # Update file size if changed
-        #         if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
-        #             dbh.update_screenshot(
-        #                 screenshot.id,
-        #                 {"file_size_bytes": scanned_screenshot.file_size_bytes},
-        #             )
-        #         continue
+                screenshot = dbscreenshotsh.get_screenshot_by_filename(
+                    fs_screenshot_filename
+                )
+                if screenshot:
+                    # Update file size if changed
+                    if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
+                        dbscreenshotsh.update_screenshot(
+                            screenshot.id,
+                            {"file_size_bytes": scanned_screenshot.file_size_bytes},
+                        )
+                    continue
 
-        #     rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+                if rom:
+                    scanned_screenshot.rom_id = rom.id
+                    dbscreenshotsh.add_screenshot(scanned_screenshot)
 
-        #     if rom:
-        #         scanned_screenshot.rom_id = rom.id
-        #         dbh.add_screenshot(scanned_screenshot)
-
-        # for fs_rom in fs_roms:
-        #     rom = dbh.get_rom_by_filename(platform.id, fs_rom["file_name"])
-        #     dbsaveh.purge_saves(rom.id, [s for _e, s in fs_assets["saves"]])
-        #     dbstateh.purge_states(rom.id, [s for _e, s in fs_assets["states"]])
-        #     dbh.purge_screenshots(rom.id, fs_assets["screenshots"])
-        # dbromh.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
+            dbsaveh.purge_saves(rom.id, [s for _e, s in fs_saves])
+            dbstateh.purge_states(rom.id, [s for _e, s in fs_states])
+            dbscreenshotsh.purge_screenshots(rom.id, fs_screenshots)
+            dbromh.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots outside platform folders
-    # fs_screenshots = fsasseth.get_screenshots()
-    # log.info("Screenshots")
-    # log.info(f" · {len(fs_screenshots)} screenshots found")
-    # for fs_platform, fs_screenshot_filename in fs_screenshots:
-    #     scanned_screenshot = scan_screenshot(
-    #         file_name=fs_screenshot_filename, fs_platform=fs_platform
-    #     )
+    fs_screenshots = fsasseth.get_screenshots()
+    log.info("Screenshots")
+    log.info(f" · {len(fs_screenshots)} screenshots found")
+    for fs_platform, fs_screenshot_filename in fs_screenshots:
+        scanned_screenshot = scan_screenshot(
+            file_name=fs_screenshot_filename, fs_platform=fs_platform
+        )
 
-    #     screenshot = dbh.get_screenshot_by_filename(fs_screenshot_filename)
-    #     if screenshot:
-    #         # Update file size if changed
-    #         if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
-    #             dbh.update_screenshot(
-    #                 screenshot.id,
-    #                 {"file_size_bytes": scanned_screenshot.file_size_bytes},
-    #             )
-    #         continue
+        screenshot = dbscreenshotsh.get_screenshot_by_filename(fs_screenshot_filename)
+        if screenshot:
+            # Update file size if changed
+            if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
+                dbscreenshotsh.update_screenshot(
+                    screenshot.id,
+                    {"file_size_bytes": scanned_screenshot.file_size_bytes},
+                )
+            continue
 
-    #     rom = dbh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
-    #     if rom:
-    #         scanned_screenshot.rom_id = rom.id
-    #         dbh.add_screenshot(scanned_screenshot)
+        rom = dbromh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+        if rom:
+            scanned_screenshot.rom_id = rom.id
+            dbscreenshotsh.add_screenshot(scanned_screenshot)
 
-    # dbh.purge_screenshots([s for _e, s in fs_screenshots])
+    # dbscreenshotsh.purge_screenshots([s for _e, s in fs_screenshots])
     dbplatformh.purge_platforms(fs_platforms)
 
     log.info(emoji.emojize(":check_mark:  Scan completed "))

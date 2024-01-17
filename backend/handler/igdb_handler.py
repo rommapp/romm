@@ -284,7 +284,7 @@ class IGDBHandler:
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
         # TODO: refactor
-        from handler.fs_handler.fs_handler import FSHandler
+        from handler.fs_handler import FSHandler
 
         get_search_term = FSHandler.get_file_name_with_no_tags
         search_term = get_search_term(file_name)

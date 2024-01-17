@@ -1,9 +1,8 @@
-from models import Platform, Rom, Save, State
+from decorators.database import begin_session
+from handler.db_handler import DBHandler
+from models import Platform, Rom
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
-
-from decorators.database import begin_session
-from handler.db_handler.db_handler import DBHandler
 
 
 class DBPlatformsHandler(DBHandler):

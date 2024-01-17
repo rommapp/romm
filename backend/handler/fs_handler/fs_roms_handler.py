@@ -2,7 +2,6 @@ import fnmatch
 import os
 import re
 from pathlib import Path
-from models.platform import Platform
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -13,8 +12,9 @@ from handler.fs_handler import (
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
     TAG_REGEX,
+    FSHandler,
 )
-from handler.fs_handler.fs_handler import FSHandler
+from models.platform import Platform
 
 
 class FSRomsHandler(FSHandler):

@@ -6,8 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from config.config_manager import ConfigManager
 from models import Platform, Rom, User, Save, State, Screenshot
 from models.user import Role
-from utils.auth import get_password_hash
-from .. import dbh
+from handler import dbh, dbuserh, dbplatformh, dbromh, dbsaveh, dbstateh, authh
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -34,7 +33,7 @@ def platform():
     platform = Platform(
         name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
     )
-    return dbh.add_platform(platform)
+    return dbplatformh.add_platform(platform)
 
 
 @pytest.fixture
@@ -49,7 +48,7 @@ def rom(platform: Platform):
         file_path=f"{platform.slug}/roms",
         file_size_bytes=1000.0,
     )
-    return dbh.add_rom(rom)
+    return dbromh.add_rom(rom)
 
 
 @pytest.fixture
@@ -64,7 +63,7 @@ def save(rom: Rom):
         file_path=f"{rom.platform_slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return dbh.add_save(save)
+    return dbsaveh.add_save(save)
 
 
 @pytest.fixture
@@ -79,7 +78,7 @@ def state(rom: Rom):
         file_path=f"{rom.platform_slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return dbh.add_state(state)
+    return dbstateh.add_state(state)
 
 
 @pytest.fixture
@@ -98,27 +97,27 @@ def screenshot(rom: Rom):
 def admin_user():
     user = User(
         username="test_admin",
-        hashed_password=get_password_hash("test_admin_password"),
+        hashed_password=authh.get_password_hash("test_admin_password"),
         role=Role.ADMIN,
     )
-    return dbh.add_user(user)
+    return dbuserh.add_user(user)
 
 
 @pytest.fixture
 def editor_user():
     user = User(
         username="test_editor",
-        hashed_password=get_password_hash("test_editor_password"),
+        hashed_password=authh.get_password_hash("test_editor_password"),
         role=Role.EDITOR,
     )
-    return dbh.add_user(user)
+    return dbuserh.add_user(user)
 
 
 @pytest.fixture
 def viewer_user():
     user = User(
         username="test_viewer",
-        hashed_password=get_password_hash("test_viewer_password"),
+        hashed_password=authh.get_password_hash("test_viewer_password"),
         role=Role.VIEWER,
     )
-    return dbh.add_user(user)
+    return dbuserh.add_user(user)
