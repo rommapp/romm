@@ -173,7 +173,8 @@ async function deleteRoms({
   deleteFromFs: boolean;
 }): Promise<{ data: MessageResponse }> {
   return api.post("/roms/delete", {
-    data: { roms: roms.map((r) => r.id), delete_from_fs: deleteFromFs },
+    roms: roms.map((r) => r.id),
+    delete_from_fs: deleteFromFs,
   });
 }
 

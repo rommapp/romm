@@ -31,12 +31,10 @@ async def add_platform_binding(request: Request) -> MessageResponse:
     return {"msg": f"{fs_slug} binded to: {slug} successfully!"}
 
 
-@protected_route(router.delete, "/config/system/platforms", ["platforms.write"])
-async def delete_platform_binding(request: Request) -> MessageResponse:
+@protected_route(router.delete, "/config/system/platforms/{fs_slug}", ["platforms.write"])
+async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform binding from the configuration"""
 
-    data = await request.json()
-    fs_slug = data["fs_slug"]
     cm.remove_binding(fs_slug)
 
     return {"msg": f"{fs_slug} bind removed successfully!"}

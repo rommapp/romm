@@ -26,7 +26,7 @@ async function deletePlatform({
 }: {
   platform: PlatformSchema;
 }): Promise<{ data: MessageResponse }> {
-  return api.delete(`/platforms`, { data: { platforms: [platform.id] } });
+  return api.delete(`/platforms/${platform.id}`);
 }
 
 export default {

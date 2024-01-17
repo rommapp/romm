@@ -13,11 +13,12 @@ from endpoints import (
     saves,
     search,
     states,
+    stats,
     tasks,
     user,
     webrcade,
-    stats,
 )
+from endpoints.sockets import scan # type: ignore
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination

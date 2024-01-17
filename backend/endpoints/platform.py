@@ -66,8 +66,8 @@ async def update_platform(request: Request) -> MessageResponse:
     pass
 
 
-@protected_route(router.delete, "/platforms", ["platforms.write"])
-async def delete_platforms(request: Request) -> MessageResponse:
+@protected_route(router.delete, "/platforms/{id}", ["platforms.write"])
+async def delete_platforms(request: Request, id: int) -> MessageResponse:
     """Delete platforms endpoint
 
     Args:
@@ -83,17 +83,13 @@ async def delete_platforms(request: Request) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    data: dict = await request.json()
-    platforms_ids: list = data["platforms"]
+    platform = dbplatformh.get_platforms(id)
+    if not platform:
+        error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    for id in platforms_ids:
-        platform = dbplatformh.get_platforms(id)
-        if not platform:
-            error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-        log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
-        dbplatformh.delete_platform(id)
+    log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
+    dbplatformh.delete_platform(id)
 
     return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}
