@@ -23,10 +23,8 @@ async function deleteSaves({
   deleteFromFs: boolean;
 }) {
   return api.post("/saves/delete", {
-    data: {
-      saves: saves.map((s) => s.id),
-      delete_from_fs: deleteFromFs,
-    },
+    saves: saves.map((s) => s.id),
+    delete_from_fs: deleteFromFs,
   });
 }
 

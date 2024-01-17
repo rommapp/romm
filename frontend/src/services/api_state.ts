@@ -24,10 +24,8 @@ async function deleteStates({
   deleteFromFs: boolean;
 }) {
   return api.post("/states/delete", {
-    data: {
-      states: states.map((s) => s.id),
-      delete_from_fs: deleteFromFs,
-    },
+    states: states.map((s) => s.id),
+    delete_from_fs: deleteFromFs,
   });
 }
 

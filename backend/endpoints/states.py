@@ -83,7 +83,9 @@ async def delete_states(request: Request) -> MessageResponse:
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
-                fsasseth.remove_file(file_name=state.file_name, file_path=state.file_path)
+                fsasseth.remove_file(
+                    file_name=state.file_name, file_path=state.file_path
+                )
             except FileNotFoundError:
                 error = f"Save file {state.file_name} not found for platform {state.rom.platform_slug}"
                 log.error(error)
