@@ -48,9 +48,9 @@ redis_url = (
     else f"redis://{REDIS_HOST}:{REDIS_PORT}"
 )
 
-high_prio_queue = Queue(name=QueuePrio.HIGH.name, connection=redis_client)
-default_queue = Queue(name=QueuePrio.DEFAULT.name, connection=redis_client)
-low_prio_queue = Queue(name=QueuePrio.LOW.name, connection=redis_client)
+high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
+default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
+low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
 
 # A seperate client that auto-decodes responses is needed
 _cache_client = Redis(
