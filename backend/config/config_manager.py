@@ -251,5 +251,25 @@ class ConfigManager:
             pass
         self.update_config()
 
+    # def _get_exclude_path(self, exclude):
+    #     exclude_base = self._raw_config["exclude"]
+    #     exclusions = {
+    #         "platforms": exclude_base["platforms"],
+    #         "single_ext": exclude_base["roms"]["single_file"]["extensions"],
+    #         "single_file": exclude_base["roms"]["single_file"]["names"],
+    #         "multi_file": exclude_base["roms"]["multi_file"]["names"],
+    #         "multi_part_ext": exclude_base["roms"]["multi_file"]["parts"]["extensions"],
+    #         "multi_part_file": exclude_base["roms"]["multi_file"]["parts"]["names"],
+    #     }
+    #     return exclusions[exclude]
+
+    # def add_exclusion(self, exclude: str, exclusion: str):
+    #     config = self._get_exclude_path(exclude)
+    #     config.append(exclusion)
+
+    # def remove_exclusion(self, exclude: str, exclusion: str):
+    #     config = self._get_exclude_path(exclude)
+    #     config.remove(exclusion)
+
 
 config_manager = ConfigManager()

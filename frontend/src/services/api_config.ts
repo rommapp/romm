@@ -21,7 +21,23 @@ async function deletePlatformBindConfig({
   return api.delete("/config/system/platforms", { data: { fs_slug: fsSlug } });
 }
 
+async function addExclusion({
+  exclude,
+  exclusion,
+}: {
+  exclude: string;
+  exclusion: string;
+}): Promise<{ data: MessageResponse }> {
+  return api.post("/config/exclude", {
+    exclude: exclude,
+    exclusion: exclusion,
+  });
+}
+
+
+
 export default {
   addPlatformBindConfig,
   deletePlatformBindConfig,
+  addExclusion
 };
