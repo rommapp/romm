@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { inject, ref, onMounted } from "vue";
+import type { Events } from "@/types/emitter";
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import { inject, onMounted, ref } from "vue";
 
 import storeGalleryFilter from "@/stores/galleryFilter";
 
@@ -12,9 +12,6 @@ const filterValue = ref("");
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
-onMounted(() => {
-  filterValue.value = galleryFilter.filter;
-});
 
 function clearFilter() {
   galleryFilter.set("");
@@ -25,6 +22,10 @@ const filterRoms = debounce(() => {
   galleryFilter.set(filterValue.value);
   emitter?.emit("filter", null);
 }, 500);
+
+onMounted(() => {
+  filterValue.value = galleryFilter.filter;
+});
 </script>
 
 <template>
@@ -32,8 +33,8 @@ const filterRoms = debounce(() => {
     @click:clear="clearFilter"
     @keyup="filterRoms"
     v-model="filterValue"
-    prepend-inner-icon="mdi-magnify"
-    label="Search"
+    prepend-inner-icon="mdi-filter-variant"
+    label="Filter"
     rounded="0"
     hide-details
     clearable
