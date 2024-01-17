@@ -4,12 +4,14 @@ from fastapi.exceptions import HTTPException
 
 from models import User
 from handler import authh, oauthh, dbuserh
+from handler.auth_handler import WRITE_SCOPES
+from handler.auth_handler.hybrid_auth import HybridAuthBackend
 from handler.redis_handler import cache
 
 
 def test_verify_password():
-    assert authh.verify_password("password", authh.get_password_hash("password"))
-    assert not authh.verify_password("password", authh.get_password_hash("notpassword"))
+    assert authh._verify_password("password", authh.get_password_hash("password"))
+    assert not authh._verify_password("password", authh.get_password_hash("notpassword"))
 
 
 def test_authenticate_user(admin_user):
@@ -92,7 +94,7 @@ def test_create_default_admin_user():
 
     user = dbuserh.get_user_by_username("test_admin")
     assert user.username == "test_admin"
-    assert authh.verify_password("test_admin_password", user.hashed_password)
+    assert authh._verify_password("test_admin_password", user.hashed_password)
 
     users = dbuserh.get_users()
     assert len(users) == 1
@@ -111,14 +113,14 @@ async def test_hybrid_auth_backend_session(editor_user):
         def __init__(self):
             self.session = {"session_id": session_id}
 
-    backend = authh.authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
 
     assert user.id == editor_user.id
     assert creds.scopes == editor_user.oauth_scopes
-    assert creds.scopes == oauthh.WRITE_SCOPES
+    assert creds.scopes == WRITE_SCOPES
 
 
 async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
@@ -127,7 +129,7 @@ async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
             self.session = {}
             self.headers = {}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -150,7 +152,7 @@ async def test_hybrid_auth_backend_bearer_auth_header(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Bearer {access_token}"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -165,7 +167,7 @@ async def test_hybrid_auth_backend_bearer_invalid_token(editor_user):
             self.session = {}
             self.headers = {"Authorization": "Bearer invalid_token"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     with pytest.raises(HTTPException):
@@ -180,13 +182,13 @@ async def test_hybrid_auth_backend_basic_auth_header(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Basic {token}"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
 
     assert user.id == editor_user.id
-    assert creds.scopes == oauthh.WRITE_SCOPES
+    assert creds.scopes == WRITE_SCOPES
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
 
 
@@ -196,7 +198,7 @@ async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user):
             self.session = {}
             self.headers = {"Authorization": "Basic test_editor:test_editor_password"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     with pytest.raises(HTTPException):
@@ -209,7 +211,7 @@ async def test_hybrid_auth_backend_invalid_scheme():
             self.session = {}
             self.headers = {"Authorization": "Some invalid_scheme"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -232,7 +234,7 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Bearer {refresh_token}"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -256,7 +258,7 @@ async def test_hybrid_auth_backend_scope_subset(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Bearer {access_token}"}
 
-    backend = authh.HybridAuthBackend()
+    backend = HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)

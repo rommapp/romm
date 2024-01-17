@@ -255,11 +255,9 @@ class IGDBHandler:
             ]
             if index_entry:
                 # Run through get_search_term to remove tags
-                # TODO: refactor
-                from handler.fs_handler.fs_handler import FSHandler
+                from handler import fsromh
 
-                get_search_term = FSHandler.get_file_name_with_no_tags
-                search_term = get_search_term(
+                search_term = fsromh.get_file_name_with_no_tags(
                     index_entry[0].get("description", search_term)
                 )
 

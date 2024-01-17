@@ -7,7 +7,7 @@ from handler.auth_handler import WRITE_SCOPES
 client = TestClient(app)
 
 
-def test_refreshing_oauth_token(refresh_token):
+def test_refreshing_oauth_token_basic(refresh_token):
     response = client.post(
         "/token",
         data={

@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from handler import fsresourceh, fsplatformh, fsromh
+from models import Platform
 from config import DEFAULT_PATH_COVER_L, DEFAULT_PATH_COVER_S
 
 
@@ -10,7 +11,7 @@ def test_get_rom_cover():
     # Game: Metroid Prime (EUR).iso
     cover = fsresourceh.get_rom_cover(
         overwrite=False,
-        fs_slug="ngc",
+        platform_fs_slug="ngc",
         rom_name="Metroid Prime",
     )
 
@@ -20,7 +21,7 @@ def test_get_rom_cover():
     # Game: Paper Mario (USA).z64
     cover = fsresourceh.get_rom_cover(
         overwrite=True,
-        fs_slug="n64",
+        platform_fs_slug="n64",
         rom_name="Paper Mario",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
@@ -31,7 +32,7 @@ def test_get_rom_cover():
     # Game: Super Mario 64 (J) (Rev A)
     cover = fsresourceh.get_rom_cover(
         overwrite=False,
-        fs_slug="n64",
+        platform_fs_slug="n64",
         rom_name="Super Mario 64",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
@@ -42,7 +43,7 @@ def test_get_rom_cover():
     # Game: Disney's Kim Possible: What's the Switch?.zip
     cover = fsresourceh.get_rom_cover(
         overwrite=False,
-        fs_slug="ps2",
+        platform_fs_slug="ps2",
         rom_name="Disney's Kim Possible: What's the Switch?",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
@@ -59,7 +60,7 @@ def test_get_rom_cover():
     # Game: Fake Game.xyz
     cover = fsresourceh.get_rom_cover(
         overwrite=False,
-        fs_slug="n64",
+        platform_fs_slug="n64",
         rom_name="Fake Game",
     )
 
@@ -81,7 +82,8 @@ def test_get_fs_structure():
 
 
 def test_get_roms():
-    roms = fsromh.get_roms(fs_slug="n64")
+    platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
+    roms = fsromh.get_roms(platform=platform)
 
     assert len(roms) == 2
     assert roms[0]["file_name"] == "Paper Mario (USA).z64"

@@ -12,18 +12,18 @@ def test_platforms():
     )
     dbplatformh.add_platform(platform)
 
-    platforms = dbplatformh.get_platform()
+    platforms = dbplatformh.get_platforms()
     assert len(platforms) == 1
 
-    platform = dbplatformh.get_platform(platform.slug)
+    platform = dbplatformh.get_platform_by_slug(platform.slug)
     assert platform.name == "test_platform"
 
     dbplatformh.purge_platforms([])
-    platforms = dbplatformh.get_platform()
+    platforms = dbplatformh.get_platforms()
     assert len(platforms) == 0
 
 
-def test_roms(rom: Rom):
+def test_roms(rom: Rom, platform: Platform):
     dbromh.add_rom(
         Rom(
             platform_id=rom.platform_id,
@@ -32,40 +32,40 @@ def test_roms(rom: Rom):
             file_name="test_rom_2",
             file_name_no_tags="test_rom_2",
             file_extension="zip",
-            file_path=f"{rom.platform_slug}/roms",
+            file_path=f"{platform.slug}/roms",
             file_size_bytes=1000.0,
         )
     )
 
     with dbromh.session.begin() as session:
-        roms = session.scalars(dbromh.get_roms(rom.platform_slug)).all()
+        roms = session.scalars(dbromh.get_roms(platform_id=platform.id)).all()
         assert len(roms) == 2
 
-    rom = dbromh.get_rom(roms[0].id)
+    rom = dbromh.get_roms(id=roms[0].id)
     assert rom.file_name == "test_rom.zip"
 
     dbromh.update_rom(roms[1].id, {"file_name": "test_rom_2_updated"})
-    rom_2 = dbromh.get_rom(roms[1].id)
+    rom_2 = dbromh.get_roms(id=roms[1].id)
     assert rom_2.file_name == "test_rom_2_updated"
 
     dbromh.delete_rom(rom.id)
 
     with dbromh.session.begin() as session:
-        roms = session.scalars(dbromh.get_roms(rom.platform_slug)).all()
+        roms = session.scalars(dbromh.get_roms(platform_id=platform.id)).all()
         assert len(roms) == 1
 
-    dbromh.purge_roms(rom_2.platform_slug, [rom_2.id])
+    dbromh.purge_roms(rom_2.platform_id, [rom_2.id])
 
     with dbromh.session.begin() as session:
-        roms = session.scalars(dbromh.get_roms(rom.platform_slug)).all()
+        roms = session.scalars(dbromh.get_roms(platform_id=platform.id)).all()
         assert len(roms) == 0
 
 
-def test_utils(rom: Rom):
+def test_utils(rom: Rom, platform: Platform):
     with dbromh.session.begin() as session:
-        roms = session.scalars(dbromh.get_roms(rom.platform_slug)).all()
+        roms = session.scalars(dbromh.get_roms(platform_id=platform.id)).all()
         assert (
-            dbromh.get_rom_by_filename(rom.platform_slug, rom.file_name).id == roms[0].id
+            dbromh.get_rom_by_filename(platform_id=platform.id, file_name=rom.file_name).id == roms[0].id
         )
 
 
@@ -107,7 +107,7 @@ def test_users(admin_user):
         assert "Duplicate entry 'test_admin' for key" in str(e)
 
 
-def test_saves(save: Save):
+def test_saves(save: Save, platform: Platform):
     dbsaveh.add_save(
         Save(
             rom_id=save.rom_id,
@@ -115,12 +115,12 @@ def test_saves(save: Save):
             file_name_no_tags="test_save_2",
             file_extension="sav",
             emulator="test_emulator",
-            file_path=f"{save.platform_slug}/saves/test_emulator",
+            file_path=f"{platform.slug}/saves/test_emulator",
             file_size_bytes=1.0,
         )
     )
 
-    rom = dbsaveh.get_rom(save.rom_id)
+    rom = dbromh.get_roms(id=save.rom_id)
     assert len(rom.saves) == 2
 
     save = dbsaveh.get_save(rom.saves[0].id)
@@ -132,23 +132,23 @@ def test_saves(save: Save):
 
     dbsaveh.delete_save(save.id)
 
-    rom = dbsaveh.get_rom(save.rom_id)
+    rom = dbromh.get_roms(id=save.rom_id)
     assert len(rom.saves) == 1
 
 
-def test_states(state: State):
+def test_states(state: State, platform: Platform):
     dbstateh.add_state(
         State(
             rom_id=state.rom_id,
             file_name="test_state_2.state",
             file_name_no_tags="test_state_2",
             file_extension="state",
-            file_path=f"{state.platform_slug}/states",
+            file_path=f"{platform.slug}/states",
             file_size_bytes=1.0,
         )
     )
 
-    rom = dbstateh.get_rom(state.rom_id)
+    rom = dbromh.get_roms(id=state.rom_id)
     assert len(rom.states) == 2
 
     state = dbstateh.get_state(rom.states[0].id)
@@ -160,23 +160,23 @@ def test_states(state: State):
 
     dbstateh.delete_state(state.id)
 
-    rom = dbstateh.get_rom(state.rom_id)
+    rom = dbromh.get_roms(id=state.rom_id)
     assert len(rom.states) == 1
 
 
-def test_screenshots(screenshot: Screenshot):
+def test_screenshots(screenshot: Screenshot, platform: Platform):
     dbscreenshotsh.add_screenshot(
         Screenshot(
             rom_id=screenshot.rom_id,
             file_name="test_screenshot_2.png",
             file_name_no_tags="test_screenshot_2",
             file_extension="png",
-            file_path=f"{screenshot.platform_slug}/screenshots",
+            file_path=f"{platform.slug}/screenshots",
             file_size_bytes=1.0,
         )
     )
 
-    rom = dbscreenshotsh.get_rom(screenshot.rom_id)
+    rom = dbromh.get_roms(id=screenshot.rom_id)
     assert len(rom.screenshots) == 2
 
     screenshot = dbscreenshotsh.get_screenshot(rom.screenshots[0].id)
@@ -188,5 +188,5 @@ def test_screenshots(screenshot: Screenshot):
 
     dbscreenshotsh.delete_screenshot(screenshot.id)
 
-    rom = dbscreenshotsh.get_rom(screenshot.rom_id)
+    rom = dbromh.get_roms(id=screenshot.rom_id)
     assert len(rom.screenshots) == 1

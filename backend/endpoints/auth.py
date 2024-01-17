@@ -17,7 +17,7 @@ REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 router = APIRouter()
 
 
-@router.get("/token")
+@router.post("/token")
 async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
     """OAuth2 token endpoint
 
