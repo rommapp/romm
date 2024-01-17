@@ -18,8 +18,8 @@ from handler.fs_handler import (
     DEFAULT_WIDTH_COVER_S,
     RESOURCES_BASE_PATH,
     CoverSize,
+    FSHandler,
 )
-from handler.fs_handler.fs_handler import FSHandler
 from PIL import Image
 
 

@@ -184,14 +184,14 @@ def test_screenshots(screenshot):
     rom = dbh.get_rom(screenshot.rom_id)
     assert len(rom.screenshots) == 2
 
-    screenshot = dbh.get_screenshot(rom.screenshots[0].id)
+    screenshot = dbscreenshotsh.get_screenshot(rom.screenshots[0].id)
     assert screenshot.file_name == "test_screenshot.png"
 
-    dbh.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
+    dbscreenshotsh.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
     screenshot = dbh.get_screenshot(screenshot.id)
     assert screenshot.file_name == "test_screenshot_2.png"
 
-    dbh.delete_screenshot(screenshot.id)
+    dbscreenshotsh.delete_screenshot(screenshot.id)
 
     rom = dbh.get_rom(screenshot.rom_id)
     assert len(rom.screenshots) == 1

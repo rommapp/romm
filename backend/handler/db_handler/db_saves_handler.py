@@ -1,5 +1,5 @@
 from decorators.database import begin_session
-from handler.db_handler.db_handler import DBHandler
+from handler.db_handler import DBHandler
 from models import Save
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session

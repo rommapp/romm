@@ -3,7 +3,7 @@ from typing import Any
 
 import emoji
 from config.config_manager import config_manager as cm
-from handler import fsasseth, dbh, igdbh, fsresourceh, fsromh
+from handler import fsasseth, dbplatformh, igdbh, fsresourceh, fsromh
 from logger.logger import log
 from models import Platform, Rom, Save, Screenshot, State
 

@@ -1,6 +1,5 @@
 import re
 import sys
-from typing_extensions import TypedDict
 
 import alembic.config
 import uvicorn
@@ -17,12 +16,13 @@ from endpoints import (
     tasks,
     user,
     webrcade,
+    stats,
 )
 from endpoints.sockets import scan
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
-from handler import authh, dbh, ghh, socketh
+from handler import authh, dbuserh, ghh, socketh
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
 from handler.auth_handler.middleware import CustomCSRFMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
@@ -71,36 +71,10 @@ app.include_router(states.router)
 app.include_router(tasks.router)
 app.include_router(webrcade.router)
 app.include_router(config.router)
+app.include_router(stats.router)
 
 add_pagination(app)
 app.mount("/ws", socketh.socket_app)
-
-
-class StatsReturn(TypedDict):
-    PLATFORMS: int
-    ROMS: int
-    SAVES: int
-    STATES: int
-    SCREENSHOTS: int
-    FILESIZE: int
-
-
-@app.get("/stats")
-def stats() -> StatsReturn:
-    """Endpoint to return the current RomM stats
-
-    Returns:
-        dict: Dictionary with all the stats
-    """
-
-    return {
-        "PLATFORMS": dbh.get_platforms_count(),
-        "ROMS": dbh.get_roms_count(),
-        "SAVES": dbh.get_saves_count(),
-        "STATES": dbh.get_states_count(),
-        "SCREENSHOTS": dbh.get_screenshots_count(),
-        "FILESIZE": dbh.get_total_filesize(),
-    }
 
 
 @app.on_event("startup")
@@ -108,7 +82,7 @@ def startup() -> None:
     """Event to handle RomM startup logic."""
 
     # Create default admin user if no admin user exists
-    if len(dbh.get_admin_users()) == 0 and "pytest" not in sys.modules:
+    if len(dbuserh.get_admin_users()) == 0 and "pytest" not in sys.modules:
         authh.create_default_admin_user()
 
 
