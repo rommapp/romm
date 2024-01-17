@@ -5,14 +5,14 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler import authh, dbuserh, fsresourceh
 from models.user import Role, User
 
 router = APIRouter()
 
 
-@protected_route(router.post, "/users", ["users.write"])
+@protected_route(router.post, "/users", ["users.write"], status_code=status.HTTP_201_CREATED)
 def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
     """Create user endpoint
 
