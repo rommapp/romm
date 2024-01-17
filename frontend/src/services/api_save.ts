@@ -22,7 +22,7 @@ async function deleteSaves({
   saves: SaveSchema[];
   deleteFromFs: boolean;
 }) {
-  return api.delete("/saves", {
+  return api.post("/saves/delete", {
     data: {
       saves: saves.map((s) => s.id),
       delete_from_fs: deleteFromFs,

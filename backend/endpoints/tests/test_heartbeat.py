@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from main import app
-from utils import get_version
+from handler import ghh
 
 client = TestClient(app)
 
@@ -9,8 +9,9 @@ client = TestClient(app)
 def test_heartbeat():
     response = client.get("/heartbeat")
     assert response.status_code == 200
+    
     heartbeat = response.json()
-    assert heartbeat.get('VERSION') == get_version()
+    assert heartbeat.get('VERSION') == ghh.get_version()
     assert heartbeat.get('ROMM_AUTH_ENABLED')
     assert heartbeat.get('WATCHER').get('ENABLED')
     assert heartbeat.get('WATCHER').get('TITLE') == "Rescan on filesystem change"
@@ -23,5 +24,3 @@ def test_heartbeat():
     assert heartbeat.get('SCHEDULER').get('MAME_XML').get('ENABLED')
     assert heartbeat.get('SCHEDULER').get('MAME_XML').get('CRON') == "0 5 * * *"
     assert heartbeat.get('SCHEDULER').get('MAME_XML').get('TITLE') == "Scheduled MAME XML update"
-    assert heartbeat.get('CONFIG').get('EXCLUDED_MULTI_FILES') == []
-    assert heartbeat.get('CONFIG').get('EXCLUDED_SINGLE_EXT') == []

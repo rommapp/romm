@@ -18,7 +18,6 @@ from endpoints import (
     webrcade,
     stats,
 )
-from endpoints.sockets import scan
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination

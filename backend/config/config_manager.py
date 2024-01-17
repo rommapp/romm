@@ -50,9 +50,10 @@ class ConfigManager:
 
     _self = None
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if cls._self is None:
-            cls._self = super().__new__(cls)
+            cls._self = super().__new__(cls, *args, **kwargs)
+        
         return cls._self
 
     # Tests require custom config path

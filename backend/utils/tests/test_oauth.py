@@ -2,29 +2,25 @@ import pytest
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 
-from handler import dbh
-from ..oauth import (
-    create_oauth_token,
-    get_current_active_user_from_bearer_token,
-    protected_route,
-)
+from decorators.auth import protected_route
+from handler import dbuserh, oauthh
 
 
 def test_create_oauth_token():
-    token = create_oauth_token({"sub": "test_user"})
+    token = oauthh.create_oauth_token(data={"sub": "test_user"})
 
     assert isinstance(token, str)
 
 
 async def test_get_current_active_user_from_bearer_token(admin_user):
-    token = create_oauth_token(
-        {
+    token = oauthh.create_oauth_token(
+        data={
             "sub": admin_user.username,
             "scopes": " ".join(admin_user.oauth_scopes),
             "type": "access",
         },
     )
-    user, payload = await get_current_active_user_from_bearer_token(token)
+    user, payload = await oauthh.get_current_active_user_from_bearer_token(token)
 
     assert user.id == admin_user.id
     assert payload["sub"] == admin_user.username
@@ -34,29 +30,29 @@ async def test_get_current_active_user_from_bearer_token(admin_user):
 
 async def test_get_current_active_user_from_bearer_token_invalid_token():
     with pytest.raises(HTTPException):
-        await get_current_active_user_from_bearer_token("invalid_token")
+        await oauthh.get_current_active_user_from_bearer_token("invalid_token")
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_user():
-    token = create_oauth_token({"sub": "invalid_user"})
+    token = oauthh.create_oauth_token(data={"sub": "invalid_user"})
 
     with pytest.raises(HTTPException):
-        await get_current_active_user_from_bearer_token(token)
+        await oauthh.get_current_active_user_from_bearer_token(token)
 
 
 async def test_get_current_active_user_from_bearer_token_disabled_user(admin_user):
-    token = create_oauth_token(
-        {
+    token = oauthh.create_oauth_token(
+        data={
             "sub": admin_user.username,
             "scopes": " ".join(admin_user.oauth_scopes),
             "type": "access",
         },
     )
 
-    dbh.update_user(admin_user.id, {"enabled": False})
+    dbuserh.update_user(admin_user.id, {"enabled": False})
 
     try:
-        await get_current_active_user_from_bearer_token(token)
+        await oauthh.get_current_active_user_from_bearer_token(token)
     except HTTPException as e:
         assert e.status_code == 401
         assert e.detail == "Inactive user"

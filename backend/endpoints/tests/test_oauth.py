@@ -2,7 +2,7 @@ from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
 from main import app
-from utils.oauth import WRITE_SCOPES
+from handler.auth_handler import WRITE_SCOPES
 
 client = TestClient(app)
 

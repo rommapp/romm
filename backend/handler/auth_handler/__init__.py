@@ -57,7 +57,7 @@ class AuthHandler:
     def clear_session(req: HTTPConnection | Request):
         session_id = req.session.get("session_id")
         if session_id:
-            redish.cache.delete(f"romm:{session_id}")  # type: ignore[attr-defined]
+            cache.delete(f"romm:{session_id}")  # type: ignore[attr-defined]
             req.session["session_id"] = None
 
     def authenticate_user(self, username: str, password: str):
@@ -126,7 +126,7 @@ class OAuthHandler:
     def __init__(self) -> None:
         pass
 
-    def create_oauth_token(data: dict, expires_delta: timedelta | None = None):
+    def create_oauth_token(self, data: dict, expires_delta: timedelta | None = None):
         to_encode = data.copy()
 
         if expires_delta:
@@ -138,7 +138,7 @@ class OAuthHandler:
 
         return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
 
-    async def get_current_active_user_from_bearer_token(token: str):
+    async def get_current_active_user_from_bearer_token(self, token: str):
         from handler import dbuserh
 
         try:

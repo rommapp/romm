@@ -1,6 +1,6 @@
 import pytest
 
-from ..fastapi import scan_platform, scan_rom
+from handler.scan_handler import scan_platform, scan_rom
 from exceptions.fs_exceptions import RomsNotFoundException
 from models import Platform, Rom
 

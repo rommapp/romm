@@ -3,26 +3,17 @@ from base64 import b64encode
 from fastapi.exceptions import HTTPException
 
 from models import User
-from handler import dbh
-from ..auth import (
-    verify_password,
-    get_password_hash,
-    authenticate_user,
-    get_current_active_user_from_session,
-    create_default_admin_user,
-    HybridAuthBackend,
-)
-from ..oauth import WRITE_SCOPES, create_oauth_token
-from ..cache import cache
+from handler import authh, oauthh, dbuserh
+from handler.redis_handler import cache
 
 
 def test_verify_password():
-    assert verify_password("password", get_password_hash("password"))
-    assert not verify_password("password", get_password_hash("notpassword"))
+    assert authh.verify_password("password", authh.get_password_hash("password"))
+    assert not authh.verify_password("password", authh.get_password_hash("notpassword"))
 
 
 def test_authenticate_user(admin_user):
-    current_user = authenticate_user("test_admin", "test_admin_password")
+    current_user = authh.authenticate_user("test_admin", "test_admin_password")
 
     assert current_user
     assert current_user.id == admin_user.id
@@ -37,7 +28,7 @@ async def test_get_current_active_user_from_session(editor_user):
             self.session = {"session_id": session_id}
 
     conn = MockConnection()
-    current_user = await get_current_active_user_from_session(conn)
+    current_user = await authh.get_current_active_user_from_session(conn)
 
     assert current_user
     assert isinstance(current_user, User)
@@ -53,7 +44,7 @@ async def test_get_current_active_user_from_session_bad_session_key(editor_user)
             self.headers = {}
 
     conn = MockConnection()
-    current_user = await get_current_active_user_from_session(conn)
+    current_user = await authh.get_current_active_user_from_session(conn)
 
     assert not current_user
 
@@ -70,7 +61,7 @@ async def test_get_current_active_user_from_session_bad_username(editor_user):
     conn = MockConnection()
 
     try:
-        await get_current_active_user_from_session(conn)
+        await authh.get_current_active_user_from_session(conn)
     except HTTPException as e:
         assert e.status_code == 403
         assert e.detail == "User not found"
@@ -87,28 +78,28 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user):
 
     conn = MockConnection()
 
-    dbh.update_user(editor_user.id, {"enabled": False})
+    dbuserh.update_user(editor_user.id, {"enabled": False})
 
     try:
-        await get_current_active_user_from_session(conn)
+        await authh.get_current_active_user_from_session(conn)
     except HTTPException as e:
         assert e.status_code == 403
         assert e.detail == "Inactive user"
 
 
 def test_create_default_admin_user():
-    create_default_admin_user()
+    authh.create_default_admin_user()
 
-    user = dbh.get_user_by_username("test_admin")
+    user = dbuserh.get_user_by_username("test_admin")
     assert user.username == "test_admin"
-    assert verify_password("test_admin_password", user.hashed_password)
+    assert authh.verify_password("test_admin_password", user.hashed_password)
 
-    users = dbh.get_users()
+    users = dbuserh.get_users()
     assert len(users) == 1
 
-    create_default_admin_user()
+    authh.create_default_admin_user()
 
-    users = dbh.get_users()
+    users = dbuserh.get_users()
     assert len(users) == 1
 
 
@@ -120,14 +111,14 @@ async def test_hybrid_auth_backend_session(editor_user):
         def __init__(self):
             self.session = {"session_id": session_id}
 
-    backend = HybridAuthBackend()
+    backend = authh.authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
 
     assert user.id == editor_user.id
     assert creds.scopes == editor_user.oauth_scopes
-    assert creds.scopes == WRITE_SCOPES
+    assert creds.scopes == oauthh.WRITE_SCOPES
 
 
 async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
@@ -136,7 +127,7 @@ async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
             self.session = {}
             self.headers = {}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -146,7 +137,7 @@ async def test_hybrid_auth_backend_empty_session_and_headers(editor_user):
 
 
 async def test_hybrid_auth_backend_bearer_auth_header(editor_user):
-    access_token = create_oauth_token(
+    access_token = oauthh.create_oauth_token(
         data={
             "sub": editor_user.username,
             "scopes": " ".join(editor_user.oauth_scopes),
@@ -159,7 +150,7 @@ async def test_hybrid_auth_backend_bearer_auth_header(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Bearer {access_token}"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -174,7 +165,7 @@ async def test_hybrid_auth_backend_bearer_invalid_token(editor_user):
             self.session = {}
             self.headers = {"Authorization": "Bearer invalid_token"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     with pytest.raises(HTTPException):
@@ -189,13 +180,13 @@ async def test_hybrid_auth_backend_basic_auth_header(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Basic {token}"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
 
     assert user.id == editor_user.id
-    assert creds.scopes == WRITE_SCOPES
+    assert creds.scopes == oauthh.WRITE_SCOPES
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
 
 
@@ -205,7 +196,7 @@ async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user):
             self.session = {}
             self.headers = {"Authorization": "Basic test_editor:test_editor_password"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     with pytest.raises(HTTPException):
@@ -218,7 +209,7 @@ async def test_hybrid_auth_backend_invalid_scheme():
             self.session = {}
             self.headers = {"Authorization": "Some invalid_scheme"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -228,7 +219,7 @@ async def test_hybrid_auth_backend_invalid_scheme():
 
 
 async def test_hybrid_auth_backend_with_refresh_token(editor_user):
-    refresh_token = create_oauth_token(
+    refresh_token = oauthh.create_oauth_token(
         data={
             "sub": editor_user.username,
             "scopes": " ".join(editor_user.oauth_scopes),
@@ -241,7 +232,7 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Bearer {refresh_token}"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)
@@ -252,7 +243,7 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user):
 
 async def test_hybrid_auth_backend_scope_subset(editor_user):
     scopes = editor_user.oauth_scopes[:3]
-    access_token = create_oauth_token(
+    access_token = oauthh.create_oauth_token(
         data={
             "sub": editor_user.username,
             "scopes": " ".join(scopes),
@@ -265,7 +256,7 @@ async def test_hybrid_auth_backend_scope_subset(editor_user):
             self.session = {}
             self.headers = {"Authorization": f"Bearer {access_token}"}
 
-    backend = HybridAuthBackend()
+    backend = authh.HybridAuthBackend()
     conn = MockConnection()
 
     creds, user = await backend.authenticate(conn)

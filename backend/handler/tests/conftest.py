@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from config.config_manager import ConfigManager
 from models import Platform, Rom, User, Save, State, Screenshot
 from models.user import Role
-from handler import dbh, dbuserh, dbplatformh, dbromh, dbsaveh, dbstateh, authh
+from handler import dbuserh, dbplatformh, dbromh, dbsaveh, dbstateh, authh, dbscreenshotsh
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -39,9 +39,9 @@ def platform():
 @pytest.fixture
 def rom(platform: Platform):
     rom = Rom(
+        platform_id=platform.id,
         name="test_rom",
         slug="test_rom_slug",
-        platform_slug=platform.slug,
         file_name="test_rom.zip",
         file_name_no_tags="test_rom",
         file_extension="zip",
@@ -52,46 +52,44 @@ def rom(platform: Platform):
 
 
 @pytest.fixture
-def save(rom: Rom):
+def save(rom: Rom, platform: Platform):
     save = Save(
         rom_id=rom.id,
-        platform_slug=rom.platform_slug,
         file_name="test_save.sav",
         file_name_no_tags="test_save",
         file_extension="sav",
         emulator="test_emulator",
-        file_path=f"{rom.platform_slug}/saves/test_emulator",
+        file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
     return dbsaveh.add_save(save)
 
 
 @pytest.fixture
-def state(rom: Rom):
+def state(rom: Rom, platform: Platform):
     state = State(
         rom_id=rom.id,
-        platform_slug=rom.platform_slug,
         file_name="test_state.state",
         file_name_no_tags="test_state",
         file_extension="state",
         emulator="test_emulator",
-        file_path=f"{rom.platform_slug}/states/test_emulator",
+        file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
     return dbstateh.add_state(state)
 
 
 @pytest.fixture
-def screenshot(rom: Rom):
+def screenshot(rom: Rom, platform: Platform):
     screenshot = Screenshot(
         rom_id=rom.id,
         file_name="test_screenshot.png",
         file_name_no_tags="test_screenshot",
         file_extension="png",
-        file_path=f"{rom.platform_slug}/screenshots",
+        file_path=f"{platform.slug}/screenshots",
         file_size_bytes=3.0,
     )
-    return dbh.add_screenshot(screenshot)
+    return dbscreenshotsh.add_screenshot(screenshot)
 
 @pytest.fixture
 def admin_user():
