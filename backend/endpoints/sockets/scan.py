@@ -63,7 +63,6 @@ async def scan_platforms(
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
-        await sm.emit("scan:done_ko_s", e.message)
         return
 
     platform_list = [
