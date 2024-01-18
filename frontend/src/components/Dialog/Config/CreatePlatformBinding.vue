@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import storeConfig from "@/stores/config";
 import api_config from "@/services/api_config";
+import storeConfig from "@/stores/config";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 // Props
 const show = ref(false);
@@ -19,11 +19,22 @@ emitter?.on("showCreatePlatformBindingDialog", ({ fsSlug = "", slug = "" }) => {
 
 // Functions
 function addBindPlatform() {
-  api_config.addPlatformBindConfig({
-    fsSlug: fsSlugToCreate.value,
-    slug: slugToCreate.value,
-  });
-  configStore.addPlatformBinding(fsSlugToCreate.value, slugToCreate.value);
+  api_config
+    .addPlatformBindConfig({
+      fsSlug: fsSlugToCreate.value,
+      slug: slugToCreate.value,
+    })
+    .then(() => {
+      configStore.addPlatformBinding(fsSlugToCreate.value, slugToCreate.value);
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `${response?.data?.detail || response?.statusText || message}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
   closeDialog();
 }
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import storeConfig from "@/stores/config";
 import api_config from "@/services/api_config";
+import storeConfig from "@/stores/config";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 // Props
 const show = ref(false);
@@ -11,7 +11,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const platformBindingFSSlugToDelete = ref();
 const platformBindingSlugToDelete = ref();
-emitter?.on("showDeletePlatformBindingDialog", ({fsSlug, slug}) => {
+emitter?.on("showDeletePlatformBindingDialog", ({ fsSlug, slug }) => {
   platformBindingFSSlugToDelete.value = fsSlug;
   platformBindingSlugToDelete.value = slug;
   show.value = true;
@@ -19,9 +19,20 @@ emitter?.on("showDeletePlatformBindingDialog", ({fsSlug, slug}) => {
 
 // Functions
 function removeBindPlatform() {
-  api_config.deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value });
-  configStore.removePlatformBinding(platformBindingFSSlugToDelete.value);
-  show.value = false;
+  api_config
+    .deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value })
+    .then(() => {
+      configStore.removePlatformBinding(platformBindingFSSlugToDelete.value);
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `${response?.data?.detail || response?.statusText || message}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
+  closeDialog();
 }
 
 function closeDialog() {
@@ -60,9 +71,14 @@ function closeDialog() {
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <span class="mr-1">Deleting platform binding [</span>
-          <span class="text-romm-accent-1 mr-1">{{ platformBindingFSSlugToDelete }}</span>
+          <span class="text-romm-accent-1 mr-1">{{
+            platformBindingFSSlugToDelete
+          }}</span>
           <span>:</span>
-          <span class="text-romm-accent-1 ml-1">{{ platformBindingSlugToDelete }}</span><span class="ml-1">].</span>
+          <span class="text-romm-accent-1 ml-1">{{
+            platformBindingSlugToDelete
+          }}</span
+          ><span class="ml-1">].</span>
           <span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
