@@ -43,7 +43,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog v-model="show" max-width="500px" :scrim="false">
+  <v-dialog v-model="show" max-width="500px" :scrim="true">
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>

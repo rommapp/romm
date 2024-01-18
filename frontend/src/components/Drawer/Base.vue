@@ -45,7 +45,7 @@ onMounted(() => {});
       <v-divider />
       <v-list-item
         @click="emitter?.emit('showSearchRomGlobalDialog', null)"
-        :class="{ 'px-16': !rail }"
+        :class="{ 'px-4': !rail }"
         class="bg-terciary"
       >
         <span v-if="!rail">Search</span>
