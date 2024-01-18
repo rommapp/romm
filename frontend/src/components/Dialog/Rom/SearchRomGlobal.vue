@@ -94,16 +94,16 @@ onBeforeUnmount(() => {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="2" xs="2" sm="1" md="2" lg="2">
+          <v-col cols="4" xs="4" sm="3" md="2" lg="2">
             <v-icon icon="mdi-magnify" class="ml-5" />
             <v-avatar :rounded="0" :size="30" class="mx-4"
               ><v-img src="/assets/isotipo.svg"
             /></v-avatar>
           </v-col>
 
-          <v-col cols="8" xs="8" sm="9" md="9" lg="9"> </v-col>
+          <v-col cols="6" xs="6" sm="8" md="9" lg="9" />
 
-          <v-col cols="2" xs="2" sm="2" md="1" lg="1">
+          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
             <v-btn
               @click="closeDialog"
               rounded="0"
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="10" xs="10" sm="10" md="10" lg="7">
+          <v-col cols="6" xs="6" sm="6" md="6" lg="7">
             <v-text-field
               autofocus
               @keyup.enter="searchRoms"
@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
               clearable
             />
           </v-col>
-          <v-col lg="4">
+          <v-col cols="4" xs="4" sm="5" md="5" lg="4">
             <v-select
               @click:clear="clearFilter"
               clearable
@@ -144,7 +144,7 @@ onBeforeUnmount(() => {
             >
             </v-select>
           </v-col>
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
             <v-btn
               type="submit"
               @click="searchRoms"

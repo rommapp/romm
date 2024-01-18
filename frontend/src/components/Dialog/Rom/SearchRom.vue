@@ -294,8 +294,8 @@ onBeforeUnmount(() => {
 }
 
 .search-content {
-  width: 50vw;
-  height: 640px;
+  width: 60vw;
+  height: 80vh;
 }
 
 .search-content-tablet {
