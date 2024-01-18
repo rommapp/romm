@@ -13,6 +13,9 @@ const show = ref(false);
 const searching = ref(false);
 const router = useRouter();
 const searchedRoms = ref();
+const filteredRoms = ref();
+const platforms = ref();
+const selectedPlatform = ref();
 const searchValue = ref("");
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -21,7 +24,7 @@ emitter?.on("showSearchRomGlobalDialog", () => {
 });
 
 function clearFilter() {
-  searchValue.value = "";
+  selectedPlatform.value = null;
 }
 
 async function searchRoms() {
@@ -29,9 +32,28 @@ async function searchRoms() {
   searchedRoms.value = (
     await api_rom.getRoms({ searchTerm: searchValue.value })
   ).data.items.sort((a, b) => {
-    return a.platform_slug.localeCompare(b.platform_slug);
+    return a.platform_name.localeCompare(b.platform_name);
   });
+  platforms.value = [
+    ...new Set(
+      searchedRoms.value.map(
+        (rom: { platform_name: string }) => rom.platform_name
+      )
+    ),
+  ];
+  filterRoms();
   searching.value = false;
+}
+
+async function filterRoms() {
+  if (!selectedPlatform.value) {
+    filteredRoms.value = searchedRoms.value;
+  } else {
+    filteredRoms.value = searchedRoms.value.filter(
+      (rom: { platform_name: string }) =>
+        rom.platform_name == selectedPlatform.value
+    );
+  }
 }
 
 function romDetails(rom: RomSchema) {
@@ -97,17 +119,30 @@ onBeforeUnmount(() => {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="10" xs="10" sm="10" md="10" lg="11">
+          <v-col cols="10" xs="10" sm="10" md="10" lg="7">
             <v-text-field
               autofocus
               @keyup.enter="searchRoms"
-              @click:clear="clearFilter"
+              @click:clear="searchRoms"
               v-model="searchValue"
               label="Search"
               hide-details
               class="bg-terciary"
               clearable
             />
+          </v-col>
+          <v-col lg="4">
+            <v-select
+              @click:clear="clearFilter"
+              clearable
+              label="Platform"
+              class="bg-terciary"
+              hide-details
+              v-model="selectedPlatform"
+              @update:model-value="filterRoms"
+              :items="platforms"
+            >
+            </v-select>
           </v-col>
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
@@ -155,7 +190,7 @@ onBeforeUnmount(() => {
             md="2"
             lg="2"
             v-show="!searching"
-            v-for="rom in searchedRoms"
+            v-for="rom in filteredRoms"
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
@@ -180,7 +215,10 @@ onBeforeUnmount(() => {
                     </v-col>
                     <v-col class="pa-0 ma-0" cols="2">
                       <v-avatar :rounded="0" size="20">
-                        <platform-icon :key="rom.platform_slug" :slug="rom.platform_slug" />
+                        <platform-icon
+                          :key="rom.platform_slug"
+                          :slug="rom.platform_slug"
+                        />
                       </v-avatar>
                     </v-col>
                   </v-row>
