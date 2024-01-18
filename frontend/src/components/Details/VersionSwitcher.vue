@@ -19,7 +19,7 @@ function formatItem(rom: Rom) {
 function updateVersion() {
   router.push({
     name: "rom",
-    params: { platform: props.platform.slug, rom: version.value },
+    params: { rom: version.value },
   });
 }
 </script>
