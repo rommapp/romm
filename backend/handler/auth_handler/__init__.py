@@ -61,9 +61,9 @@ class AuthHandler:
             req.session["session_id"] = None
 
     def authenticate_user(self, username: str, password: str):
-        from handler import dbuserh
+        from handler import db_user_handler
 
-        user = dbuserh.get_user_by_username(username)
+        user = db_user_handler.get_user_by_username(username)
         if not user:
             return None
 
@@ -73,7 +73,7 @@ class AuthHandler:
         return user
 
     async def get_current_active_user_from_session(self, conn: HTTPConnection):
-        from handler import dbuserh
+        from handler import db_user_handler
 
         # Check if session key already stored in cache
         session_id = conn.session.get("session_id")
@@ -85,7 +85,7 @@ class AuthHandler:
             return None
 
         # Key exists therefore user is probably authenticated
-        user = dbuserh.get_user_by_username(username)
+        user = db_user_handler.get_user_by_username(username)
         if user is None:
             self.clear_session(conn)
 
@@ -104,14 +104,14 @@ class AuthHandler:
         return user
 
     def create_default_admin_user(self):
-        from handler import dbuserh
+        from handler import db_user_handler
         from models.user import Role, User
 
         if not ROMM_AUTH_ENABLED:
             return
 
         try:
-            dbuserh.add_user(
+            db_user_handler.add_user(
                 User(
                     username=ROMM_AUTH_USERNAME,
                     hashed_password=self.get_password_hash(ROMM_AUTH_PASSWORD),
@@ -139,7 +139,7 @@ class OAuthHandler:
         return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
 
     async def get_current_active_user_from_bearer_token(self, token: str):
-        from handler import dbuserh
+        from handler import db_user_handler
 
         try:
             payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
@@ -150,7 +150,7 @@ class OAuthHandler:
         if username is None:
             raise OAuthCredentialsException
 
-        user = dbuserh.get_user_by_username(username)
+        user = db_user_handler.get_user_by_username(username)
         if user is None:
             raise OAuthCredentialsException
 

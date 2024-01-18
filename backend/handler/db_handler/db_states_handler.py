@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from handler.db_handler import DBHandler
-from models import State
+from models.assets import State
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session
 

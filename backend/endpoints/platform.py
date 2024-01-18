@@ -2,7 +2,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from fastapi import APIRouter, HTTPException, Request, status
-from handler import dbplatformh
+from handler import db_platform_handler
 from logger.logger import log
 
 router = APIRouter()
@@ -34,7 +34,7 @@ def get_platforms(request: Request) -> list[PlatformSchema]:
         list[PlatformSchema]: List of platforms
     """
 
-    return dbplatformh.get_platforms()
+    return db_platform_handler.get_platforms()
 
 
 @protected_route(router.get, "/platforms/{id}", ["platforms.read"])
@@ -49,7 +49,7 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
         PlatformSchema: Platform
     """
 
-    return dbplatformh.get_platforms(id)
+    return db_platform_handler.get_platforms(id)
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])
@@ -83,13 +83,13 @@ async def delete_platforms(request: Request, id: int) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    platform = dbplatformh.get_platforms(id)
+    platform = db_platform_handler.get_platforms(id)
     if not platform:
         error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
-    dbplatformh.delete_platform(id)
+    db_platform_handler.delete_platform(id)
 
     return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}
