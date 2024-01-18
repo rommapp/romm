@@ -30,7 +30,7 @@ function clearFilter() {
 async function searchRoms() {
   searching.value = true;
   searchedRoms.value = (
-    await api_rom.getRoms({ searchTerm: searchValue.value })
+    await api_rom.getRoms({ searchTerm: searchValue.value, size: 250 })
   ).data.items.sort((a, b) => {
     return a.platform_name.localeCompare(b.platform_name);
   });
