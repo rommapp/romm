@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request, rom_id: int, saves: list[UploadFile] = File(...)
 ) -> UploadedSavesResponse:
-    rom = dbromh.get_roms(id=rom_id)
+    rom = dbromh.get_roms(rom_id)
     log.info(f"Uploading saves to {rom.name}")
     if saves is None:
         log.error("No saves were uploaded")
