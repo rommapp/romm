@@ -85,7 +85,6 @@ npm install
 ### - Create symlink to library and resources
 ```sh
 mkdir assets/romm
-ln -s ../../../romm_mock/library assets/romm/library
 ln -s ../../../romm_mock/resources assets/romm/resources
 ```
 
