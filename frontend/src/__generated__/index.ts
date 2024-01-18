@@ -7,7 +7,7 @@ export type { AddRomsResponse } from './models/AddRomsResponse';
 export type { Body_add_roms_roms_post } from './models/Body_add_roms_roms_post';
 export type { Body_add_saves_saves_post } from './models/Body_add_saves_saves_post';
 export type { Body_add_states_states_post } from './models/Body_add_states_states_post';
-export type { Body_token_token_get } from './models/Body_token_token_get';
+export type { Body_token_token_post } from './models/Body_token_token_post';
 export type { Body_update_rom_roms__id__put } from './models/Body_update_rom_roms__id__put';
 export type { Body_update_user_users__id__put } from './models/Body_update_user_users__id__put';
 export type { ConfigResponse } from './models/ConfigResponse';

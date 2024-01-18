@@ -7,6 +7,7 @@ defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-card
+    :key="rom.path_cover_s"
     elevation="2"
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >

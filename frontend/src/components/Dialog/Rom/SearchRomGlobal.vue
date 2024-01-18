@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RomSchema } from "@/__generated__";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import api_rom from "@/services/api_rom";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -27,9 +28,10 @@ async function searchRoms() {
   searching.value = true;
   searchedRoms.value = (
     await api_rom.getRoms({ searchTerm: searchValue.value })
-  ).data.items;
+  ).data.items.sort((a, b) => {
+    return a.platform_slug.localeCompare(b.platform_slug);
+  });
   searching.value = false;
-  console.log(searchedRoms.value);
 }
 
 function romDetails(rom: RomSchema) {
@@ -150,7 +152,7 @@ onBeforeUnmount(() => {
             cols="4"
             xs="4"
             sm="3"
-            md="3"
+            md="2"
             lg="2"
             v-show="!searching"
             v-for="rom in searchedRoms"
@@ -172,10 +174,15 @@ onBeforeUnmount(() => {
                   :aspect-ratio="3 / 4"
                 />
                 <v-card-text>
-                  <v-row class="pa-1">
-                    <span class="d-inline-block text-truncate">{{
-                      rom.name
-                    }}</span>
+                  <v-row class="pa-1 align-center">
+                    <v-col class="pa-0 pr-2 ma-0 text-truncate" cols="10">
+                      <span>{{ rom.name }}</span>
+                    </v-col>
+                    <v-col class="pa-0 ma-0" cols="2">
+                      <v-avatar :rounded="0" size="20">
+                        <platform-icon :key="rom.platform_slug" :slug="rom.platform_slug" />
+                      </v-avatar>
+                    </v-col>
                   </v-row>
                 </v-card-text>
               </v-card>
@@ -201,8 +208,8 @@ onBeforeUnmount(() => {
 }
 
 .search-content {
-  width: 50vw;
-  height: 640px;
+  width: 60vw;
+  height: 80vh;
 }
 
 .search-content-tablet {
