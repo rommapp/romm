@@ -106,33 +106,31 @@ async def scan_platforms(
 
         for fs_rom in fs_roms:
             rom = dbromh.get_rom_by_filename(platform.id, fs_rom["file_name"])
-            if (rom and rom.id not in selected_roms and not complete_rescan) and not (
-                rescan_unidentified and rom and not rom.igdb_id
-            ):
-                continue
+            if not rom or rom.id in selected_roms or complete_rescan or (rescan_unidentified and not rom.igdb_id):
+                scanned_rom = await scan_rom(platform, fs_rom)
+                if rom:
+                    scanned_rom.id = rom.id
 
-            scanned_rom = await scan_rom(platform, fs_rom)
-            if rom:
-                scanned_rom.id = rom.id
+                scanned_rom.platform_id = platform.id
+                _added_rom = dbromh.add_rom(scanned_rom)
+                rom = dbromh.get_roms(_added_rom.id)
 
-            scanned_rom.platform_id = platform.id
-            _added_rom = dbromh.add_rom(scanned_rom)
-            rom = dbromh.get_roms(_added_rom.id)
-
-            await sm.emit(
-                "scan:scanning_rom",
-                {
-                    "platform_name": platform.name,
-                    "platform_slug": platform.slug,
-                    **RomSchema.model_validate(rom).model_dump(),
-                },
-            )
+                await sm.emit(
+                    "scan:scanning_rom",
+                    {
+                        "platform_name": platform.name,
+                        "platform_slug": platform.slug,
+                        **RomSchema.model_validate(rom).model_dump(),
+                    },
+                )
 
             # Scanning saves
             fs_saves = fsasseth.get_assets(
                 platform.fs_slug, rom.file_name_no_tags, Asset.SAVES
             )
-            log.info(f"\t · {len(fs_saves)} saves found")
+            if len(fs_saves) > 0:
+                log.info(f"\t · {len(fs_saves)} saves found")
+           
             for fs_emulator, fs_save_filename in fs_saves:
                 scanned_save = scan_save(
                     platform=platform,
@@ -159,7 +157,9 @@ async def scan_platforms(
             fs_states = fsasseth.get_assets(
                 platform.fs_slug, rom.file_name_no_tags, Asset.STATES
             )
-            log.info(f"\t · {len(fs_states)} states found")
+            if len(fs_states) > 0:
+                log.info(f"\t · {len(fs_states)} states found")
+            
             for fs_emulator, fs_state_filename in fs_states:
                 scanned_state = scan_state(
                     platform=platform,
@@ -187,8 +187,10 @@ async def scan_platforms(
             fs_screenshots = fsasseth.get_assets(
                 platform.fs_slug, rom.file_name_no_tags, Asset.SCREENSHOTS
             )
-            log.info(f"\t · {len(fs_screenshots)} screenshots found")
-            for fs_screenshot_filename in fs_screenshots:
+            if len(fs_screenshots) > 0:
+                log.info(f"\t · {len(fs_screenshots)} screenshots found")
+            
+            for _, fs_screenshot_filename in fs_screenshots:
                 scanned_screenshot = scan_screenshot(
                     file_name=fs_screenshot_filename, platform_slug=platform.fs_slug
                 )
@@ -211,7 +213,7 @@ async def scan_platforms(
 
             dbsaveh.purge_saves(rom.id, [s for _e, s in fs_saves])
             dbstateh.purge_states(rom.id, [s for _e, s in fs_states])
-            dbscreenshotsh.purge_screenshots(rom.id, fs_screenshots)
+            dbscreenshotsh.purge_screenshots(rom.id, [s for _e, s in fs_screenshots])
             dbromh.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots outside platform folders

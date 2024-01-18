@@ -83,22 +83,23 @@ class FSAssetsHandler(FSHandler):
             platform_slug, folder=asset_folder_name[asset_type]
         )
 
-        saves_file_path = f"{LIBRARY_BASE_PATH}/{assets_path}"
+        assets_file_path = f"{LIBRARY_BASE_PATH}/{assets_path}"
 
         assets: list[str] = []
 
         try:
-            emulators = list(os.walk(saves_file_path))[0][1]
+            emulators = list(os.walk(assets_file_path))[0][1]
             for emulator in emulators:
                 assets += [
                     (emulator, file)
-                    for file in list(os.walk(f"{saves_file_path}/{emulator}"))[0][2]
+                    for file in list(os.walk(f"{assets_file_path}/{emulator}"))[0][2]
+                    if rom_file_name_no_tags == self.get_file_name_with_no_tags(file)
                 ]
 
             assets += [
                 (None, file)
-                for file in list(os.walk(saves_file_path))[0][2]
-                if file.split(".")[0] == rom_file_name_no_tags
+                for file in list(os.walk(assets_file_path))[0][2]
+                if rom_file_name_no_tags == self.get_file_name_with_no_tags(file)
             ]
         except IndexError:
             pass
