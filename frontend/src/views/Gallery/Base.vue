@@ -19,6 +19,7 @@ import api_rom from "@/services/api_rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
+import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
 
 // Props
@@ -126,12 +127,6 @@ function onScroll() {
     fetchRoms(Number(route.params.platform));
   }
 }
-
-type RomSelectEvent = {
-  event: MouseEvent;
-  index: number;
-  selected: boolean;
-};
 
 function selectRom({ event, index, selected }: RomSelectEvent) {
   if (event.shiftKey) {
