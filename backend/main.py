@@ -3,40 +3,33 @@ import sys
 
 import alembic.config
 import uvicorn
-from config.config_loader import ConfigDict, config
-from endpoints import identity, oauth, platform, rom, scan, search, tasks  # noqa
+from config import DEV_HOST, DEV_PORT, ROMM_AUTH_ENABLED, ROMM_AUTH_SECRET_KEY
+from endpoints import (
+    auth,
+    config,
+    heartbeat,
+    platform,
+    rom,
+    raw,
+    saves,
+    search,
+    states,
+    stats,
+    tasks,
+    user,
+    webrcade,
+)
+import endpoints.sockets.scan # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
+from handler import authh, dbuserh, ghh, socketh
+from handler.auth_handler.hybrid_auth import HybridAuthBackend
+from handler.auth_handler.middleware import CustomCSRFMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from typing_extensions import TypedDict
 
-from config import (
-    DEV_PORT,
-    DEV_HOST,
-    ROMM_AUTH_SECRET_KEY,
-    ROMM_AUTH_ENABLED,
-    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    ENABLE_SCHEDULED_RESCAN,
-    SCHEDULED_RESCAN_CRON,
-    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
-    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-    ENABLE_SCHEDULED_UPDATE_MAME_XML,
-    SCHEDULED_UPDATE_MAME_XML_CRON,
-)
-from endpoints import search, platform, rom, identity, oauth, assets, scan, tasks  # noqa
-from handler import dbh
-from utils import check_new_version, get_version
-from utils.auth import (
-    CustomCSRFMiddleware,
-    HybridAuthBackend,
-    create_default_admin_user,
-)
-from utils.socket import socket_app
-
-app = FastAPI(title="RomM API", version=get_version())
+app = FastAPI(title="RomM API", version=ghh.get_version())
 
 app.add_middleware(
     CORSMiddleware,
@@ -68,82 +61,22 @@ app.add_middleware(
     https_only=False,
 )
 
-app.include_router(oauth.router)
-app.include_router(identity.router)
+app.include_router(heartbeat.router)
+app.include_router(auth.router)
+app.include_router(user.router)
 app.include_router(platform.router)
 app.include_router(rom.router)
 app.include_router(search.router)
-app.include_router(assets.router)
+app.include_router(saves.router)
+app.include_router(states.router)
 app.include_router(tasks.router)
+app.include_router(webrcade.router)
+app.include_router(config.router)
+app.include_router(stats.router)
+app.include_router(raw.router)
 
 add_pagination(app)
-app.mount("/ws", socket_app)
-
-
-class WatcherDict(TypedDict):
-    ENABLED: bool
-    TITLE: str
-    MESSAGE: str
-
-
-class TaskDict(WatcherDict):
-    CRON: str
-
-
-class SchedulerDict(TypedDict):
-    RESCAN: TaskDict
-    SWITCH_TITLEDB: TaskDict
-    MAME_XML: TaskDict
-
-
-class HeartbeatReturn(TypedDict):
-    VERSION: str
-    NEW_VERSION: str
-    ROMM_AUTH_ENABLED: bool
-    WATCHER: WatcherDict
-    SCHEDULER: SchedulerDict
-    CONFIG: ConfigDict
-
-
-@app.get("/heartbeat")
-def heartbeat() -> HeartbeatReturn:
-    """Endpoint to set the CSFR token in cache and return all the basic RomM config
-
-    Returns:
-        HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
-    """
-
-    return {
-        "VERSION": get_version(),
-        "NEW_VERSION": check_new_version(),
-        "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
-        "WATCHER": {
-            "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-            "TITLE": "Rescan on filesystem change",
-            "MESSAGE": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
-        },
-        "SCHEDULER": {
-            "RESCAN": {
-                "ENABLED": ENABLE_SCHEDULED_RESCAN,
-                "CRON": SCHEDULED_RESCAN_CRON,
-                "TITLE": "Scheduled rescan",
-                "MESSAGE": "Rescans the entire library",
-            },
-            "SWITCH_TITLEDB": {
-                "ENABLED": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
-                "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-                "TITLE": "Scheduled Switch TitleDB update",
-                "MESSAGE": "Updates the Nintedo Switch TitleDB file",
-            },
-            "MAME_XML": {
-                "ENABLED": ENABLE_SCHEDULED_UPDATE_MAME_XML,
-                "CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
-                "TITLE": "Scheduled MAME XML update",
-                "MESSAGE": "Updates the MAME XML file",
-            },
-        },
-        "CONFIG": config.__dict__,
-    }
+app.mount("/ws", socketh.socket_app)
 
 
 @app.on_event("startup")
@@ -151,8 +84,8 @@ def startup() -> None:
     """Event to handle RomM startup logic."""
 
     # Create default admin user if no admin user exists
-    if len(dbh.get_admin_users()) == 0 and "pytest" not in sys.modules:
-        create_default_admin_user()
+    if len(dbuserh.get_admin_users()) == 0 and "pytest" not in sys.modules:
+        authh.create_default_admin_user()
 
 
 if __name__ == "__main__":

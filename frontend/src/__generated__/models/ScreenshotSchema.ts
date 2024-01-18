@@ -13,6 +13,5 @@ export type ScreenshotSchema = {
     full_path: string;
     download_path: string;
     rom_id: number;
-    platform_slug: (string | null);
 };
 

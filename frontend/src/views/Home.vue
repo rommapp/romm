@@ -1,36 +1,39 @@
 <script setup lang="ts">
-import { ref, inject, onMounted } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onMounted } from "vue";
+import { useDisplay } from "vuetify";
 
-import api from "@/services/api";
+import AppBar from "@/components/AppBar/Base.vue";
+import Drawer from "@/components/Drawer/Base.vue";
+import api_platform from "@/services/api_platform";
+import api_user from "@/services/api_user";
+import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import storeAuth from "@/stores/auth";
-import Drawer from "@/components/Drawer/Base.vue";
-import AppBar from "@/components/AppBar/Base.vue";
+import { storeToRefs } from "pinia";
 
 // Props
 const { mdAndDown } = useDisplay();
-const platforms = storePlatforms();
-const scanning = storeScanning();
+const scanningStore = storeScanning();
+const { scanning } = storeToRefs(scanningStore);
+const platformsStore = storePlatforms();
 const auth = storeAuth();
-const refreshDrawer = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("refreshDrawer", () => {
-  refreshDrawer.value = !refreshDrawer.value;
+emitter?.on("refreshDrawer", async () => {
+  const { data: platformData } = await api_platform.getPlatforms();
+  platformsStore.set(platformData);
 });
 
 // Functions
 onMounted(async () => {
   try {
-    const { data: platformData } = await api.fetchPlatforms();
-    platforms.set(platformData);
-    const { data: userData } = await api.fetchCurrentUser();
-    if (userData) auth.setUser(userData);
+    const { data: platforms } = await api_platform.getPlatforms();
+    platformsStore.set(platforms);
+    const { data: currentUser } = await api_user.fetchCurrentUser();
+    if (currentUser) auth.setUser(currentUser);
     emitter?.emit("refreshDrawer", null);
   } catch (error) {
     console.error(error);
@@ -42,13 +45,13 @@ onMounted(async () => {
   <v-progress-linear
     id="scan-progress-bar"
     color="romm-accent-1"
-    :active="scanning.value"
+    :active="scanning"
     :indeterminate="true"
     absolute
     fixed
   />
 
-  <drawer :key="refreshDrawer.toString()" />
+  <drawer />
 
   <app-bar v-if="mdAndDown" />
 
@@ -59,6 +62,6 @@ onMounted(async () => {
 
 <style scoped>
 #scan-progress-bar {
-  z-index: 1000 !important;
+  z-index: 1001 !important;
 }
 </style>

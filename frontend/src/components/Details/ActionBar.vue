@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import api from "@/services/api";
+import api_rom from "@/services/api_rom";
 import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { Rom } from "@/stores/roms";
@@ -17,7 +17,7 @@ const saveFiles = ref(false);
     <v-col>
       <v-btn
         @click="
-          api.downloadRom({
+          api_rom.downloadRom({
             rom,
             files: downloadStore.filesToDownloadMultiFileRom,
           })

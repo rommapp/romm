@@ -18,10 +18,11 @@ def test_get_rom(access_token, rom):
     assert body["id"] == rom.id
 
 
-def test_get_all_roms(access_token, rom):
+def test_get_all_roms(access_token, rom, platform):
     response = client.get(
-        f"/platforms/{rom.platform_slug}/roms",
+        "/roms",
         headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id},
     )
     assert response.status_code == 200
 
@@ -30,9 +31,9 @@ def test_get_all_roms(access_token, rom):
     assert body["items"][0]["id"] == rom.id
 
 
-@patch("endpoints.rom.rename_file")
+@patch("endpoints.rom.fsromh.rename_file")
 def test_update_rom(update_rom, access_token, rom):
-    response = client.patch(
+    response = client.put(
         f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         params={"rename_as_igdb": True},
@@ -60,11 +61,12 @@ def test_update_rom(update_rom, access_token, rom):
 
 
 def test_delete_roms(access_token, rom):
-    response = client.delete(
-        f"/roms/{rom.id}",
+    response = client.post(
+        "/roms/delete",
         headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": False},
     )
     assert response.status_code == 200
 
     body = response.json()
-    assert body["msg"] == f"{rom.file_name} deleted successfully!"
+    assert body["msg"] == "1 roms deleted successfully!"

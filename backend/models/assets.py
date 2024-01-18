@@ -1,9 +1,8 @@
-from sqlalchemy import Integer, Column, ForeignKey, String, DateTime, func
-from sqlalchemy.orm import relationship
 from functools import cached_property
 
-from config import FRONTEND_LIBRARY_PATH
-from .base import BaseModel
+from models.base import BaseModel
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import relationship
 
 
 class BaseAsset(BaseModel):
@@ -24,13 +23,17 @@ class BaseAsset(BaseModel):
     file_path = Column(String(length=1000), nullable=False)
     file_size_bytes = Column(Integer(), default=0, nullable=False)
 
+    rom_id = Column(
+        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
+    )
+
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
 
     @cached_property
     def download_path(self) -> str:
-        return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
+        return f"/api/raw/{self.full_path}"
 
 
 class Save(BaseAsset):
@@ -39,17 +42,7 @@ class Save(BaseAsset):
 
     emulator = Column(String(length=50), nullable=True)
 
-    rom_id = Column(
-        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
-    )
     rom = relationship("Rom", lazy="selectin", back_populates="saves")
-
-    platform_slug = Column(
-        String(length=50),
-        ForeignKey("platforms.slug", ondelete="CASCADE"),
-        nullable=False,
-    )
-    platform = relationship("Platform", lazy="selectin", back_populates="saves")
 
 
 class State(BaseAsset):
@@ -58,31 +51,11 @@ class State(BaseAsset):
 
     emulator = Column(String(length=50), nullable=True)
 
-    rom_id = Column(
-        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
-    )
     rom = relationship("Rom", lazy="selectin", back_populates="states")
-
-    platform_slug = Column(
-        String(length=50),
-        ForeignKey("platforms.slug", ondelete="CASCADE"),
-        nullable=False,
-    )
-    platform = relationship("Platform", lazy="selectin", back_populates="states")
 
 
 class Screenshot(BaseAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
-    rom_id = Column(
-        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
-    )
     rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
-
-    platform_slug = Column(
-        String(length=50),
-        ForeignKey("platforms.slug", ondelete="CASCADE"),
-        nullable=True,
-    )
-    platform = relationship("Platform", lazy="selectin", back_populates="screenshots")

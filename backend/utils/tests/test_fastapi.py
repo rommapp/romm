@@ -1,6 +1,6 @@
 import pytest
 
-from ..fastapi import scan_platform, scan_rom
+from handler.scan_handler import scan_platform, scan_rom
 from exceptions.fs_exceptions import RomsNotFoundException
 from models import Platform, Rom
 
@@ -37,8 +37,7 @@ async def test_scan_rom():
     assert rom.file_name == "Paper Mario (USA).z64"
     assert rom.name == "Paper Mario"
     assert rom.igdb_id == 3340
-    assert rom.file_size == 1.0
-    assert rom.file_size_units == "KB"
+    assert rom.file_size_bytes == 1024
     assert rom.files == ["Paper Mario (USA).z64"]
     assert rom.tags == []
     assert not rom.multi

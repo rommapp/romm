@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-const props = defineProps<{ platform: string }>();
+const props = defineProps<{ slug: string }>();
 const platformIconUrl = ref(
-  `/assets/platforms/${props.platform.toLowerCase()}.ico`
+  `/assets/platforms/${props.slug.toLowerCase()}.ico`
 );
 
 function onImageError() {

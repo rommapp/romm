@@ -6,7 +6,7 @@ defineProps<{ rail: boolean }>();
 <template>
   <v-list-item :class="{ 'ml-9': !rail, 'ml-0': rail }" class="my-2">
     <template v-slot:prepend>
-      <router-link to="/">
+      <router-link :to="{ name: 'dashboard' }">
         <v-avatar :rounded="0" :size="rail ? 40 : 60" class="mr-3"
           ><v-img src="/assets/isotipo.svg"
         /></v-avatar>

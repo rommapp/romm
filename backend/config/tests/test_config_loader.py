@@ -1,11 +1,11 @@
 import os
 from pathlib import Path
 
-from config.config_loader import ConfigLoader
+from config.config_manager import ConfigManager
 
 
 def test_config_loader():
-    loader = ConfigLoader(
+    loader = ConfigManager(
         os.path.join(Path(__file__).resolve().parent, "fixtures", "config.yml")
     )
 
@@ -23,7 +23,7 @@ def test_config_loader():
 
 
 def test_empty_config_loader():
-    loader = ConfigLoader("")
+    loader = ConfigManager("")
 
     assert loader.config.EXCLUDED_PLATFORMS == []
     assert loader.config.EXCLUDED_SINGLE_EXT == []

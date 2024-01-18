@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { ref, inject, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from "vue-router";
-import { storeToRefs } from "pinia";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 
-import api from "@/services/api";
-import { views, toTop, normalizeString } from "@/utils";
+import LoadingDialog from "@/components/Dialog/Loading.vue";
+import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
+import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
+import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
+import GameDataTable from "@/components/Game/DataTable/Base.vue";
+import api_rom from "@/services/api_rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import GameCard from "@/components/Game/Card/Base.vue";
-import GameDataTable from "@/components/Game/DataTable/Base.vue";
-import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import LoadingDialog from "@/components/Dialog/Loading.vue";
-import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
+import { normalizeString, toTop, views } from "@/utils";
 
 // Props
 const route = useRoute();
@@ -46,7 +46,7 @@ emitter?.on("openFabMenu", (open) => {
 });
 
 // Functions
-async function fetchRoms(platform: string) {
+async function fetchRoms(platformId: number) {
   const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
 
   if (
@@ -62,9 +62,9 @@ async function fetchRoms(platform: string) {
     scrim: false,
   });
 
-  await api
-    .fetchRoms({
-      platform: platform,
+  await api_rom
+    .getRoms({
+      platformId: platformId,
       cursor: isFiltered ? searchCursor.value : cursor.value,
       searchTerm: normalizeString(galleryFilter.filter),
     })
@@ -73,7 +73,7 @@ async function fetchRoms(platform: string) {
       const allRomsSet = [...allRoms.value, ...data.items];
       romsStore.set(allRomsSet);
       romsStore.setFiltered(allRomsSet);
-      romsStore.setPlatform(platform);
+      romsStore.setPlatform(platformId);
 
       if (isFiltered) {
         if (data.next_page !== undefined) searchCursor.value = data.next_page;
@@ -86,7 +86,13 @@ async function fetchRoms(platform: string) {
       }
     })
     .catch((error) => {
-      console.error(`Couldn't fetch roms for ${platform}: ${error}`);
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms for ${platformId}: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+      console.error(`Couldn't fetch roms for ${platformId}: ${error}`);
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -106,7 +112,7 @@ function onFilterChange() {
     return;
   }
 
-  fetchRoms(route.params.platform as string);
+  fetchRoms(Number(route.params.platform));
 }
 
 function onScroll() {
@@ -117,7 +123,7 @@ function onScroll() {
 
   const scrollOffset = 60;
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-    fetchRoms(route.params.platform as string);
+    fetchRoms(Number(route.params.platform));
   }
 }
 
@@ -155,17 +161,17 @@ function resetGallery() {
 }
 
 onMounted(() => {
-  const platform = route.params.platform as string;
+  const platformId = Number(route.params.platform);
 
   // If platform is different, reset store and fetch roms
-  if (platform != romsStore.platform) {
+  if (platformId != romsStore.platform) {
     resetGallery();
-    fetchRoms(platform);
+    fetchRoms(platformId);
   }
 
   // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
-    fetchRoms(platform);
+    fetchRoms(platformId);
   }
 });
 
@@ -188,7 +194,7 @@ onBeforeRouteLeave((to, from, next) => {
 onBeforeRouteUpdate((to, _) => {
   // Reset store if switching to another platform
   resetGallery();
-  fetchRoms(to.params.platform as string);
+  fetchRoms(Number(to.params.platform));
 });
 </script>
 
@@ -200,14 +206,14 @@ onBeforeRouteUpdate((to, _) => {
       <v-col
         class="pa-1"
         v-show="galleryView.current != 2"
-        v-for="rom in filteredRoms"
-        :key="rom.id"
         :cols="views[galleryView.current]['size-cols']"
         :xs="views[galleryView.current]['size-xs']"
         :sm="views[galleryView.current]['size-sm']"
         :md="views[galleryView.current]['size-md']"
         :lg="views[galleryView.current]['size-lg']"
         :xl="views[galleryView.current]['size-xl']"
+        v-for="rom in filteredRoms"
+        :key="rom.id"
       >
         <game-card
           :rom="rom"

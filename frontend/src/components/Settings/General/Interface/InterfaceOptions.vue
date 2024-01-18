@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import { isUndefined } from "lodash";
+import { ref } from "vue";
 
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
 const groupRoms = ref(

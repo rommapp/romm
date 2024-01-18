@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeUnmount, ref } from "vue";
+import { useDisplay } from "vuetify";
 
-import api from "@/services/api";
-import storeRoms, { type Rom } from "@/stores/roms";
 import type { IGDBRomType } from "@/__generated__";
+import api_rom from "@/services/api_rom";
+import storeRoms, { type Rom } from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -24,19 +24,21 @@ emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
-  searchIGDB();
+  searchRom();
 });
 
-async function searchIGDB() {
+// Functions
+async function searchRom() {
   if (!rom.value) return;
 
   if (!searching.value) {
     searching.value = true;
-    await api
-      .searchIGDB({
+    await api_rom
+      .searchRom({
         romId: rom.value.id,
-        query: searchTerm.value,
-        field: searchBy.value,
+        source: "igdb",
+        searchTerm: searchTerm.value,
+        searchBy: searchBy.value,
       })
       .then((response) => {
         matchedRoms.value = response.data.roms;
@@ -63,7 +65,7 @@ async function updateRom(matchedRom: IGDBRomType) {
   rom.value.url_cover = matchedRom.url_cover;
   rom.value.url_screenshots = matchedRom.url_screenshots;
 
-  await api
+  await api_rom
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
@@ -85,6 +87,10 @@ async function updateRom(matchedRom: IGDBRomType) {
     });
 }
 
+function closeDialog() {
+  show.value = false;
+}
+
 onBeforeUnmount(() => {
   emitter?.off("showSearchRomDialog");
 });
@@ -96,8 +102,8 @@ onBeforeUnmount(() => {
     scroll-strategy="none"
     width="auto"
     :scrim="false"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
   >
@@ -148,7 +154,7 @@ onBeforeUnmount(() => {
 
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -164,7 +170,7 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="7" xs="7" sm="8" md="8" lg="9">
             <v-text-field
-              @keyup.enter="searchIGDB()"
+              @keyup.enter="searchRom()"
               @click:clear="searchTerm = ''"
               class="bg-terciary"
               v-model="searchTerm"
@@ -185,7 +191,7 @@ onBeforeUnmount(() => {
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"
-              @click="searchIGDB()"
+              @click="searchRom()"
               class="bg-terciary"
               rounded="0"
               variant="text"

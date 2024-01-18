@@ -3,12 +3,12 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { VDataTable } from "vuetify/labs/VDataTable";
 
-import api from "@/services/api";
-import storeDownload from "@/stores/download";
-import storeRoms, { type Rom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils";
+import api_rom from "@/services/api_rom";
+import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
+import storeRoms from "@/stores/roms";
+import { regionToEmoji, languageToEmoji, formatBytes } from "@/utils";
 
 const HEADERS = [
   {
@@ -71,7 +71,7 @@ const romsPerPage = ref(-1);
 
 // Functions
 function rowClick(_: Event, row: any) {
-  router.push(`/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`);
+  router.push({ name: "rom", params: { rom: row.item.raw.id } });
 }
 </script>
 
@@ -104,8 +104,7 @@ function rowClick(_: Event, row: any) {
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ item.raw.file_size }}
-        {{ item.raw.file_size_units }}
+        {{ formatBytes(item.raw.file_size_bytes) }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">
@@ -119,24 +118,12 @@ function rowClick(_: Event, row: any) {
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template v-if="item.raw.multi">
+      <template>
         <v-btn
           class="ma-1"
           rounded="0"
-          @click.stop="api.downloadRom({ rom: item.raw })"
+          @click.stop="api_rom.downloadRom({ rom: item.raw })"
           :disabled="downloadStore.value.includes(item.raw.id)"
-          download
-          size="small"
-          variant="text"
-          ><v-icon>mdi-download</v-icon></v-btn
-        >
-      </template>
-      <template v-else>
-        <v-btn
-          class="ma-1 bg-terciary"
-          rounded="0"
-          @click.stop=""
-          :href="`${location}${item.raw.download_path}`"
           download
           size="small"
           variant="text"

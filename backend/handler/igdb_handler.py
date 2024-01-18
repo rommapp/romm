@@ -10,15 +10,13 @@ import pydash
 import requests
 import xmltodict
 from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from tasks.update_mame_xml import update_mame_xml_task
 from tasks.update_switch_titledb import update_switch_titledb_task
 from typing_extensions import TypedDict
 from unidecode import unidecode as uc
-from utils import get_file_name_with_no_tags as get_search_term
-from utils import normalize_search_term
-from utils.cache import cache
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
@@ -82,6 +80,16 @@ class IGDBHandler:
             return func(*args)
 
         return wrapper
+
+    @staticmethod
+    def normalize_search_term(search_term: str) -> str:
+        return (
+            search_term.replace("\u2122", "")  # Remove trademark symbol
+            .replace("\u00ae", "")  # Remove registered symbol
+            .replace("\u00a9", "")  # Remove copywrite symbol
+            .replace("\u2120", "")  # Remove service mark symbol
+            .strip()  # Remove leading and trailing spaces
+        )
 
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
@@ -225,8 +233,9 @@ class IGDBHandler:
                 search_term = index_entry["name"]  # type: ignore
         return search_term
 
-    @staticmethod
-    async def _mame_format(search_term: str) -> str:
+    async def _mame_format(self, search_term: str) -> str:
+        from handler import fsromh
+
         mame_index = {"menu": {"game": []}}
 
         try:
@@ -247,8 +256,7 @@ class IGDBHandler:
                 if game["@name"] == search_term
             ]
             if index_entry:
-                # Run through get_search_term to remove tags
-                search_term = get_search_term(
+                search_term = fsromh.get_file_name_with_no_tags(
                     index_entry[0].get("description", search_term)
                 )
 
@@ -272,7 +280,9 @@ class IGDBHandler:
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
-        search_term = get_search_term(file_name)
+        from handler import fsromh
+
+        search_term = fsromh.get_file_name_with_no_tags(file_name)
 
         # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)
@@ -293,7 +303,7 @@ class IGDBHandler:
         if platform_idgb_id in ARCADE_IGDB_IDS:
             search_term = await self._mame_format(search_term)
 
-        search_term = normalize_search_term(search_term)
+        search_term = self.normalize_search_term(search_term)
 
         res = (
             self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)
