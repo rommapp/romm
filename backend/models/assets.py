@@ -1,6 +1,5 @@
 from functools import cached_property
 
-from config import FRONTEND_LIBRARY_PATH
 from models.base import BaseModel
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
@@ -34,7 +33,7 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
+        return f"/api/raw/{self.full_path}"
 
 
 class Save(BaseAsset):
