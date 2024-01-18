@@ -1,6 +1,5 @@
 import enum
 
-from handler.auth_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 from models.base import BaseModel
 from sqlalchemy import Boolean, Column, Enum, Integer, String
 from starlette.authentication import SimpleUser
@@ -26,6 +25,8 @@ class User(BaseModel, SimpleUser):
 
     @property
     def oauth_scopes(self):
+        from handler.auth_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
+
         if self.role == Role.ADMIN:
             return FULL_SCOPES
 
