@@ -16,8 +16,7 @@ import storePlatforms from "@/stores/platforms";
 const { lgAndUp } = useDisplay();
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(!!lgAndUp.value);
-const open = ref(["Platforms", "Library", "Settings"]);
+const drawer = ref(lgAndUp.value);
 const rail = ref(localStorage.getItem("rail") == "true");
 
 // Event listeners bus
@@ -44,9 +43,11 @@ onMounted(() => {});
     <template v-slot:prepend>
       <drawer-header :rail="rail" />
       <v-divider />
-    </template>
-    <v-list v-model:opened="open" class="pa-0">
-      <v-list-item @click="emitter?.emit('showSearchRomGlobalDialog', null)" :class="{ 'px-16': !rail }" class="bg-terciary">
+      <v-list-item
+        @click="emitter?.emit('showSearchRomGlobalDialog', null)"
+        :class="{ 'px-16': !rail }"
+        class="bg-terciary"
+      >
         <span v-if="!rail">Search</span>
         <template v-slot:prepend>
           <v-avatar :rounded="0" size="40"
@@ -54,6 +55,10 @@ onMounted(() => {});
           >
         </template>
       </v-list-item>
+      <v-divider />
+    </template>
+
+    <v-list class="pa-0">
       <v-list-group value="Platforms" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
@@ -74,7 +79,8 @@ onMounted(() => {});
           :key="platform.slug"
         />
       </v-list-group>
-
+    </v-list>
+    <v-list>
       <v-list-group
         value="Library"
         v-if="auth.scopes.includes('roms.write')"
@@ -99,7 +105,9 @@ onMounted(() => {});
           </template>
         </v-list-item>
       </v-list-group>
+    </v-list>
 
+    <v-list>
       <v-list-group value="Settings" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
