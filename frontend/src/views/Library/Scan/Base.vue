@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
         :to="{ name: 'platform', params: { platform: platform.id } }"
       >
         <v-avatar :rounded="0" size="40">
-          <platform-icon :slug="platform.slug"></platform-icon>
+          <platform-icon :key="platform.slug" :slug="platform.slug" />
         </v-avatar>
         <span class="text-body-2 ml-5"> {{ platform.name }}</span>
       </v-list-item>

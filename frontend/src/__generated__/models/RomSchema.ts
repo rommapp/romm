@@ -12,6 +12,7 @@ export type RomSchema = {
     igdb_id: (number | null);
     sgdb_id: (number | null);
     platform_id: number;
+    platform_slug: string;
     file_name: string;
     file_name_no_tags: string;
     file_extension: string;
