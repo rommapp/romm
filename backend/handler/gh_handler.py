@@ -12,7 +12,7 @@ class GHHandler:
         pass
 
     @staticmethod
-    def get_version() -> str | None:
+    def get_version() -> str:
         """Returns current version or branch name."""
         if not __version__ == "<version>":
             return __version__
@@ -21,8 +21,9 @@ class GHHandler:
                 output = str(
                     sp.check_output(["git", "branch"], universal_newlines=True)
                 )
-            except sp.CalledProcessError:
-                return None
+            except (sp.CalledProcessError, FileNotFoundError):
+                return "1.0.0"
+
             branch = [a for a in output.split("\n") if a.find("*") >= 0][0]
             return branch[branch.find("*") + 2 :]
 

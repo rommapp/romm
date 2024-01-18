@@ -11,7 +11,7 @@ class Platform(BaseModel):
     id = Column(Integer(), primary_key=True, autoincrement=True)
     igdb_id: int = Column(Integer())
     sgdb_id: int = Column(Integer())
-    slug: str = Column(String(length=50))
+    slug: str = Column(String(length=50), nullable=False)
     fs_slug: str = Column(String(length=50), nullable=False)
     name: str = Column(String(length=400))
     logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
