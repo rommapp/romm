@@ -4,7 +4,6 @@ from functools import cached_property
 from config import (
     DEFAULT_PATH_COVER_L,
     DEFAULT_PATH_COVER_S,
-    FRONTEND_LIBRARY_PATH,
     FRONTEND_RESOURCES_PATH,
 )
 from models.assets import Save, Screenshot, State
@@ -86,7 +85,7 @@ class Rom(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"{FRONTEND_LIBRARY_PATH}/{self.full_path}"
+        return f"/api/raw/{self.full_path}"
 
     @cached_property
     def has_cover(self) -> bool:
