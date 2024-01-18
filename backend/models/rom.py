@@ -8,7 +8,7 @@ from config import (
 )
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text, BigInteger
 from sqlalchemy.orm import Mapped, relationship
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
@@ -26,7 +26,7 @@ class Rom(BaseModel):
     file_name_no_tags: str = Column(String(length=450), nullable=False)
     file_extension: str = Column(String(length=100), nullable=False)
     file_path: str = Column(String(length=1000), nullable=False)
-    file_size_bytes: int = Column(Integer(), default=0, nullable=False)
+    file_size_bytes: int = Column(BigInteger(), default=0, nullable=False)
 
     name: str = Column(String(length=350))
     slug: str = Column(String(length=400))

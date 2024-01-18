@@ -6,6 +6,10 @@ from sqlalchemy import create_engine
 from config.config_manager import ConfigManager
 from alembic import context
 from models.base import BaseModel
+from models.assets import Save, Screenshot, State  # noqa
+from models.rom import Rom  # noqa
+from models.platform import Platform  # noqa
+from models.user import User  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
