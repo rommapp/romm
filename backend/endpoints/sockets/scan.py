@@ -8,16 +8,16 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler import (
-    dbplatformh,
-    dbromh,
-    dbsaveh,
-    dbscreenshotsh,
-    dbstateh,
-    fsasseth,
-    fsplatformh,
-    fsresourceh,
-    fsromh,
-    socketh,
+    db_platform_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_screenshot_handler,
+    db_state_handler,
+    fs_asset_handler,
+    fs_platform_handler,
+    fs_resource_handler,
+    fs_rom_handler,
+    socket_handler,
 )
 from handler.fs_handler import Asset
 from handler.redis_handler import high_prio_queue, redis_url
@@ -36,7 +36,7 @@ def _get_socket_manager():
     return (
         socketio.AsyncRedisManager(redis_url, write_only=True)
         if ENABLE_EXPERIMENTAL_REDIS
-        else socketh.socket_server
+        else socket_handler.socket_server
     )
 
 
@@ -59,14 +59,14 @@ async def scan_platforms(
 
     # Scanning file system
     try:
-        fs_platforms: list[str] = fsplatformh.get_platforms()
+        fs_platforms: list[str] = fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
         return
 
     platform_list = [
-        dbplatformh.get_platforms(s).fs_slug for s in platform_ids
+        db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
     ] or fs_platforms
 
     if len(platform_list) == 0:
@@ -77,13 +77,13 @@ async def scan_platforms(
         log.info(f"Found {len(platform_list)} platforms in file system ")
 
     for platform_slug in platform_list:
-        platform = dbplatformh.get_platform_by_slug(platform_slug)
+        platform = db_platform_handler.get_platform_by_slug(platform_slug)
         scanned_platform = scan_platform(platform_slug, fs_platforms)
 
         if platform:
             scanned_platform.id = platform.id
 
-        platform = dbplatformh.add_platform(scanned_platform)
+        platform = db_platform_handler.add_platform(scanned_platform)
 
         await sm.emit(
             "scan:scanning_platform",
@@ -92,7 +92,7 @@ async def scan_platforms(
 
         # Scanning roms
         try:
-            fs_roms = fsromh.get_roms(platform)
+            fs_roms = fs_rom_handler.get_roms(platform)
         except RomsNotFoundException as e:
             log.error(e)
             continue
@@ -105,15 +105,15 @@ async def scan_platforms(
             log.info(f"  {len(fs_roms)} roms found")
 
         for fs_rom in fs_roms:
-            rom = dbromh.get_rom_by_filename(platform.id, fs_rom["file_name"])
+            rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
             if not rom or rom.id in selected_roms or complete_rescan or (rescan_unidentified and not rom.igdb_id):
                 scanned_rom = await scan_rom(platform, fs_rom)
                 if rom:
                     scanned_rom.id = rom.id
 
                 scanned_rom.platform_id = platform.id
-                _added_rom = dbromh.add_rom(scanned_rom)
-                rom = dbromh.get_roms(_added_rom.id)
+                _added_rom = db_rom_handler.add_rom(scanned_rom)
+                rom = db_rom_handler.get_roms(_added_rom.id)
 
                 await sm.emit(
                     "scan:scanning_rom",
@@ -125,7 +125,7 @@ async def scan_platforms(
                 )
 
             # Scanning saves
-            fs_saves = fsasseth.get_assets(
+            fs_saves = fs_asset_handler.get_assets(
                 platform.fs_slug, rom.file_name_no_tags, Asset.SAVES
             )
             if len(fs_saves) > 0:
@@ -138,11 +138,11 @@ async def scan_platforms(
                     emulator=fs_emulator,
                 )
 
-                save = dbsaveh.get_save_by_filename(rom.id, fs_save_filename)
+                save = db_save_handler.get_save_by_filename(rom.id, fs_save_filename)
                 if save:
                     # Update file size if changed
                     if save.file_size_bytes != scanned_save.file_size_bytes:
-                        dbsaveh.update_save(
+                        db_save_handler.update_save(
                             save.id, {"file_size_bytes": scanned_save.file_size_bytes}
                         )
                     continue
@@ -151,10 +151,10 @@ async def scan_platforms(
 
                 if rom:
                     scanned_save.rom_id = rom.id
-                    dbsaveh.add_save(scanned_save)
+                    db_save_handler.add_save(scanned_save)
 
             # Scanning states
-            fs_states = fsasseth.get_assets(
+            fs_states = fs_asset_handler.get_assets(
                 platform.fs_slug, rom.file_name_no_tags, Asset.STATES
             )
             if len(fs_states) > 0:
@@ -167,11 +167,11 @@ async def scan_platforms(
                     file_name=fs_state_filename,
                 )
 
-                state = dbstateh.get_state_by_filename(rom.id, fs_state_filename)
+                state = db_state_handler.get_state_by_filename(rom.id, fs_state_filename)
                 if state:
                     # Update file size if changed
                     if state.file_size_bytes != scanned_state.file_size_bytes:
-                        dbstateh.update_state(
+                        db_state_handler.update_state(
                             state.id, {"file_size_bytes": scanned_state.file_size_bytes}
                         )
 
@@ -181,10 +181,10 @@ async def scan_platforms(
 
                 if rom:
                     scanned_state.rom_id = rom.id
-                    dbstateh.add_state(scanned_state)
+                    db_state_handler.add_state(scanned_state)
 
             # Scanning screenshots
-            fs_screenshots = fsasseth.get_assets(
+            fs_screenshots = fs_asset_handler.get_assets(
                 platform.fs_slug, rom.file_name_no_tags, Asset.SCREENSHOTS
             )
             if len(fs_screenshots) > 0:
@@ -195,13 +195,13 @@ async def scan_platforms(
                     file_name=fs_screenshot_filename, platform_slug=platform.fs_slug
                 )
 
-                screenshot = dbscreenshotsh.get_screenshot_by_filename(
+                screenshot = db_screenshot_handler.get_screenshot_by_filename(
                     fs_screenshot_filename
                 )
                 if screenshot:
                     # Update file size if changed
                     if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
-                        dbscreenshotsh.update_screenshot(
+                        db_screenshot_handler.update_screenshot(
                             screenshot.id,
                             {"file_size_bytes": scanned_screenshot.file_size_bytes},
                         )
@@ -209,15 +209,15 @@ async def scan_platforms(
 
                 if rom:
                     scanned_screenshot.rom_id = rom.id
-                    dbscreenshotsh.add_screenshot(scanned_screenshot)
+                    db_screenshot_handler.add_screenshot(scanned_screenshot)
 
-            dbsaveh.purge_saves(rom.id, [s for _e, s in fs_saves])
-            dbstateh.purge_states(rom.id, [s for _e, s in fs_states])
-            dbscreenshotsh.purge_screenshots(rom.id, [s for _e, s in fs_screenshots])
-            dbromh.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
+            db_save_handler.purge_saves(rom.id, [s for _e, s in fs_saves])
+            db_state_handler.purge_states(rom.id, [s for _e, s in fs_states])
+            db_screenshot_handler.purge_screenshots(rom.id, [s for _e, s in fs_screenshots])
+            db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
 
     # Scanning screenshots outside platform folders
-    fs_screenshots = fsasseth.get_screenshots()
+    fs_screenshots = fs_asset_handler.get_screenshots()
     log.info("Screenshots")
     log.info(f" · {len(fs_screenshots)} screenshots found")
     for fs_platform, fs_screenshot_filename in fs_screenshots:
@@ -225,30 +225,30 @@ async def scan_platforms(
             file_name=fs_screenshot_filename, platform_slug=fs_platform
         )
 
-        screenshot = dbscreenshotsh.get_screenshot_by_filename(fs_screenshot_filename)
+        screenshot = db_screenshot_handler.get_screenshot_by_filename(fs_screenshot_filename)
         if screenshot:
             # Update file size if changed
             if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
-                dbscreenshotsh.update_screenshot(
+                db_screenshot_handler.update_screenshot(
                     screenshot.id,
                     {"file_size_bytes": scanned_screenshot.file_size_bytes},
                 )
             continue
 
-        rom = dbromh.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+        rom = db_rom_handler.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
         if rom:
             scanned_screenshot.rom_id = rom.id
-            dbscreenshotsh.add_screenshot(scanned_screenshot)
+            db_screenshot_handler.add_screenshot(scanned_screenshot)
 
-    # dbscreenshotsh.purge_screenshots([s for _e, s in fs_screenshots])
-    dbplatformh.purge_platforms(fs_platforms)
+    # db_screenshot_handler.purge_screenshots([s for _e, s in fs_screenshots])
+    db_platform_handler.purge_platforms(fs_platforms)
 
     log.info(emoji.emojize(":check_mark:  Scan completed "))
 
     await sm.emit("scan:done", {})
 
 
-@socketh.socket_server.on("scan")
+@socket_handler.socket_server.on("scan")
 async def scan_handler(_sid: str, options: dict):
     """Scan socket endpoint
 
@@ -257,7 +257,7 @@ async def scan_handler(_sid: str, options: dict):
     """
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    fsresourceh.store_default_resources()
+    fs_resource_handler.store_default_resources()
 
     platform_slugs = options.get("platforms", [])
     complete_rescan = options.get("completeRescan", False)

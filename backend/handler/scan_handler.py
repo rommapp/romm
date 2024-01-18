@@ -3,7 +3,7 @@ from typing import Any
 import emoji
 
 from config.config_manager import config_manager as cm
-from handler import fsasseth, igdbh, fsresourceh, fsromh, dbplatformh
+from handler import fs_asset_handler, igdb_handler, fs_resource_handler, fs_rom_handler, db_platform_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
@@ -34,7 +34,7 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
             f"  {fs_slug} not found in file system, trying to match via config..."
         )
         if fs_slug in SWAPPED_PLATFORM_BINDINGS.keys():
-            platform = dbplatformh.get_platform_by_fs_slug(fs_slug)
+            platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
             if platform:
                 platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
 
@@ -46,7 +46,7 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    platform = igdbh.get_platform(platform_attrs["slug"])
+    platform = igdb_handler.get_platform(platform_attrs["slug"])
 
     if platform["igdb_id"]:
         log.info(emoji.emojize(f"  Identified as {platform['name']} :video_game:"))
@@ -64,7 +64,7 @@ async def scan_rom(
     r_igbd_id_search: str = "",
     overwrite: bool = False,
 ) -> Rom:
-    roms_path = fsromh.get_fs_structure(platform.fs_slug)
+    roms_path = fs_rom_handler.get_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
 
@@ -73,20 +73,20 @@ async def scan_rom(
             log.info(f"\t\t · {file}")
 
     # Update properties that don't require IGDB
-    file_size = fsromh.get_rom_file_size(
+    file_size = fs_rom_handler.get_rom_file_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
         multi_files=rom_attrs["files"],
         roms_path=roms_path,
     )
-    regs, rev, langs, other_tags = fsromh.parse_tags(rom_attrs["file_name"])
+    regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
             "platform_id": platform.id,
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
-            "file_name_no_tags": fsromh.get_file_name_with_no_tags(rom_attrs["file_name"]),
-            "file_extension": fsromh.parse_file_extension(rom_attrs["file_name"]),
+            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(rom_attrs["file_name"]),
+            "file_extension": fs_rom_handler.parse_file_extension(rom_attrs["file_name"]),
             "file_size_bytes": file_size,
             "multi": rom_attrs["multi"],
             "regions": regs,
@@ -97,26 +97,26 @@ async def scan_rom(
     )
 
     # Search in IGDB
-    igdbh_rom = (
-        igdbh.get_rom_by_id(int(r_igbd_id_search))
+    igdb_handler_rom = (
+        igdb_handler.get_rom_by_id(int(r_igbd_id_search))
         if r_igbd_id_search
-        else await igdbh.get_rom(rom_attrs["file_name"], platform.igdb_id)
+        else await igdb_handler.get_rom(rom_attrs["file_name"], platform.igdb_id)
     )
 
-    rom_attrs.update(igdbh_rom)
+    rom_attrs.update(igdb_handler_rom)
 
     # Return early if not found in IGDB
-    if not igdbh_rom["igdb_id"]:
+    if not igdb_handler_rom["igdb_id"]:
         log.warning(
             emoji.emojize(f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB :cross_mark:")
         )
         return Rom(**rom_attrs)
 
-    log.info(emoji.emojize(f"\t   Identified as {igdbh_rom['name']} :alien_monster:"))
+    log.info(emoji.emojize(f"\t   Identified as {igdb_handler_rom['name']} :alien_monster:"))
 
     # Update properties from IGDB
     rom_attrs.update(
-        fsresourceh.get_rom_cover(
+        fs_resource_handler.get_rom_cover(
             overwrite=overwrite,
             platform_fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
@@ -124,7 +124,7 @@ async def scan_rom(
         )
     )
     rom_attrs.update(
-        fsasseth.get_rom_screenshots(
+        fs_asset_handler.get_rom_screenshots(
             platform_fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
             url_screenshots=rom_attrs["url_screenshots"],
@@ -137,19 +137,19 @@ async def scan_rom(
 def _scan_asset(file_name: str, path: str):
     log.info(f"\t\t · {file_name}")
 
-    file_size = fsasseth.get_asset_size(file_name=file_name, asset_path=path)
+    file_size = fs_asset_handler.get_asset_size(file_name=file_name, asset_path=path)
 
     return {
         "file_path": path,
         "file_name": file_name,
-        "file_name_no_tags": fsasseth.get_file_name_with_no_tags(file_name),
-        "file_extension": fsasseth.parse_file_extension(file_name),
+        "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
+        "file_extension": fs_asset_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
 
 
 def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
-    saves_path = fsasseth.get_fs_structure(
+    saves_path = fs_asset_handler.get_fs_structure(
         platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
     )
 
@@ -161,7 +161,7 @@ def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
 
 
 def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
-    states_path = fsasseth.get_fs_structure(
+    states_path = fs_asset_handler.get_fs_structure(
         platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
     )
 
@@ -173,7 +173,7 @@ def scan_state(platform: Platform, file_name: str, emulator: str = None) -> Stat
 
 
 def scan_screenshot(file_name: str, platform_slug: Platform = None) -> Screenshot:
-    screenshots_path = fsasseth.get_fs_structure(
+    screenshots_path = fs_asset_handler.get_fs_structure(
         platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
     )
 

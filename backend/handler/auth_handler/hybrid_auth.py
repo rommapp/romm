@@ -1,9 +1,9 @@
 from config import ROMM_AUTH_ENABLED
 from fastapi.security.http import HTTPBasic
-from handler import authh
+from handler import auth_handler
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
-from handler import oauthh
+from handler import oauth_handler
 from handler.auth_handler import FULL_SCOPES
 
 
@@ -13,7 +13,7 @@ class HybridAuthBackend(AuthenticationBackend):
             return (AuthCredentials(FULL_SCOPES), None)
 
         # Check if session key already stored in cache
-        user = await authh.get_current_active_user_from_session(conn)
+        user = await auth_handler.get_current_active_user_from_session(conn)
         if user:
             return (AuthCredentials(user.oauth_scopes), user)
 
@@ -29,7 +29,7 @@ class HybridAuthBackend(AuthenticationBackend):
             if not credentials:
                 return (AuthCredentials([]), None)
 
-            user = authh.authenticate_user(credentials.username, credentials.password)
+            user = auth_handler.authenticate_user(credentials.username, credentials.password)
             if user is None:
                 return (AuthCredentials([]), None)
 
@@ -37,7 +37,7 @@ class HybridAuthBackend(AuthenticationBackend):
 
         # Check if bearer auth header is valid
         if scheme.lower() == "bearer":
-            user, payload = await oauthh.get_current_active_user_from_bearer_token(token)
+            user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
 
             # Only access tokens can request resources
             if payload.get("type") != "access":
