@@ -31,7 +31,7 @@ def test_get_all_roms(access_token, rom, platform):
     assert body["items"][0]["id"] == rom.id
 
 
-@patch("endpoints.rom.fsromh.rename_file")
+@patch("endpoints.rom.fs_rom_handler.rename_file")
 def test_update_rom(update_rom, access_token, rom):
     response = client.put(
         f"/roms/{rom.id}",

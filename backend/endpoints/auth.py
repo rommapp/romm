@@ -8,7 +8,7 @@ from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler import authh, oauthh
+from handler import auth_handler, oauth_handler
 from handler.redis_handler import cache
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
@@ -45,13 +45,13 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        user, payload = await oauthh.get_current_active_user_from_bearer_token(token)
+        user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
 
-        access_token = oauthh.create_oauth_token(
+        access_token = oauth_handler.create_oauth_token(
             data={
                 "sub": user.username,
                 "scopes": payload.get("scopes"),
@@ -74,7 +74,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 detail="Missing username or password",
             )
 
-        user = authh.authenticate_user(form_data.username, form_data.password)
+        user = auth_handler.authenticate_user(form_data.username, form_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -102,7 +102,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             detail="Insufficient scope",
         )
 
-    access_token = oauthh.create_oauth_token(
+    access_token = oauth_handler.create_oauth_token(
         data={
             "sub": user.username,
             "scopes": " ".join(form_data.scopes),
@@ -111,7 +111,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    refresh_token = oauthh.create_oauth_token(
+    refresh_token = oauth_handler.create_oauth_token(
         data={
             "sub": user.username,
             "scopes": " ".join(form_data.scopes),
@@ -144,7 +144,7 @@ def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse
         MessageResponse: Standard message response
     """
 
-    user = authh.authenticate_user(credentials.username, credentials.password)
+    user = auth_handler.authenticate_user(credentials.username, credentials.password)
     if not user:
         raise AuthCredentialsException
 
@@ -177,6 +177,6 @@ def logout(request: Request) -> MessageResponse:
     if not request.user.is_authenticated:
         return {"msg": "Already logged out"}
 
-    authh.clear_session(request)
+    auth_handler.clear_session(request)
 
     return {"msg": "Successfully logged out"}

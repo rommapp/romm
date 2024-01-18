@@ -22,9 +22,9 @@ class Platform(BaseModel):
 
     @property
     def rom_count(self) -> int:
-        from handler import dbplatformh
+        from handler import db_platform_handler
 
-        return dbplatformh.get_rom_count(self.id)
+        return db_platform_handler.get_rom_count(self.id)
 
     def __repr__(self) -> str:
         return self.name
