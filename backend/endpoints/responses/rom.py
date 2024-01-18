@@ -2,7 +2,7 @@ from typing import Optional
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi.responses import StreamingResponse
-from handler import socketh
+from handler import socket_handler
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
@@ -67,4 +67,4 @@ class CustomStreamingResponse(StreamingResponse):
 
     async def stream_response(self, *args, **kwargs) -> None:
         await super().stream_response(*args, **kwargs)
-        await socketh.socket_server.emit("download:complete", self.emit_body)
+        await socket_handler.socket_server.emit("download:complete", self.emit_body)

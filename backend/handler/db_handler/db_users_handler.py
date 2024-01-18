@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from handler.db_handler import DBHandler
-from models import Role, User
+from models.user import Role, User
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
