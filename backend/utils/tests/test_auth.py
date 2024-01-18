@@ -10,8 +10,8 @@ from handler.redis_handler import cache
 
 
 def test_verify_password():
-    assert authh._verify_password("password", authh.get_password_hash("password"))
-    assert not authh._verify_password("password", authh.get_password_hash("notpassword"))
+    assert authh.verify_password("password", authh.get_password_hash("password"))
+    assert not authh.verify_password("password", authh.get_password_hash("notpassword"))
 
 
 def test_authenticate_user(admin_user):
@@ -94,7 +94,7 @@ def test_create_default_admin_user():
 
     user = dbuserh.get_user_by_username("test_admin")
     assert user.username == "test_admin"
-    assert authh._verify_password("test_admin_password", user.hashed_password)
+    assert authh.verify_password("test_admin_password", user.hashed_password)
 
     users = dbuserh.get_users()
     assert len(users) == 1
