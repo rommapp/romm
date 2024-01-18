@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Heartbeat } from "@/stores/heartbeat";
+import type { HeartbeatResponse } from "@/__generated__";
 
-defineProps<{ watcher: Heartbeat["WATCHER"] }>();
+defineProps<{ watcher: HeartbeatResponse["WATCHER"] }>();
 </script>
 <template>
   <v-col

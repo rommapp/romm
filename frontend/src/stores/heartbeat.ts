@@ -1,15 +1,15 @@
 import { defineStore } from "pinia";
 
-import type { HeartbeatReturn } from "@/__generated__";
-
-export type Heartbeat = HeartbeatReturn;
+import type { HeartbeatResponse } from "@/__generated__";
 
 export default defineStore("heartbeat", {
-  state: () => ({ data: {} as Heartbeat }),
+  state: () => {
+    return { value: {} as HeartbeatResponse };
+  },
 
   actions: {
-    set(data: Heartbeat) {
-      this.data = data;
-    }
+    set(data: HeartbeatResponse) {
+      this.value = data;
+    },
   },
 });

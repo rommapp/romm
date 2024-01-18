@@ -7,8 +7,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-
-from .utils import RemoteFilePullTask
+from tasks.tasks import RemoteFilePullTask
 
 FIXTURE_FILE_PATH: Final = (
     Path(os.path.dirname(__file__)).parent

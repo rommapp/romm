@@ -1,7 +1,7 @@
 folder_struct_msg = "Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
 
 
-class PlatformsNotFoundException(Exception):
+class FolderStructureNotMatchException(Exception):
     def __init__(self):
         self.message = f"Platforms not found. {folder_struct_msg}"
         super().__init__(self.message)
@@ -26,7 +26,6 @@ class RomsNotFoundException(Exception):
 
     def __repr__(self):
         return self.message
-
 
 
 class RomAlreadyExistsException(Exception):

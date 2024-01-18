@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeMount } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-
+import type { Emitter } from "mitt";
+import { inject, onBeforeMount, ref } from "vue";
+import { useRouter } from "vue-router";
+import api_identity from "@/services/api_identity";
 import storeAuth from "@/stores/auth";
-import { api } from "@/services/api";
 
 // Props
 const auth = storeAuth();
@@ -18,17 +17,8 @@ const logging = ref(false);
 
 function login() {
   logging.value = true;
-  api
-    .post(
-      "/login",
-      {},
-      {
-        auth: {
-          username: username.value,
-          password: password.value,
-        },
-      }
-    )
+  api_identity
+    .login(username.value, password.value)
     .then(() => {
       const next = (router.currentRoute.value.query?.next || "/").toString();
       router.push(next);
@@ -57,7 +47,7 @@ function login() {
 onBeforeMount(async () => {
   // Check if authentication is enabled
   if (!auth.enabled) {
-    return router.push("/");
+    return router.push({ name: "dashboard" });
   }
 });
 </script>

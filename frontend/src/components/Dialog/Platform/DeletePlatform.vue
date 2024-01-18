@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import api from "@/services/api";
+import api_platform from "@/services/api_platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 
 const router = useRouter();
@@ -20,7 +20,7 @@ async function deletePlatform() {
   if (!platform.value) return;
 
   show.value = false;
-  await api
+  await api_platform
     .deletePlatform({ platform: platform.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
@@ -51,7 +51,11 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog v-if="platform" v-model="show" max-width="500px" :scrim="true">
+  <v-dialog v-if="platform" v-model="show" width="auto"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
+    no-click-animation
+    persistent>
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -60,7 +64,7 @@ function closeDialog() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -84,7 +88,7 @@ function closeDialog() {
           <span class="ml-1">Do you confirm?</span>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn
             class="bg-terciary text-romm-red ml-5"
             @click="deletePlatform()"

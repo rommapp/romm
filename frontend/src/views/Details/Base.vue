@@ -1,42 +1,58 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeMount, watch } from "vue";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
-import storeRoms, { type Rom } from "@/stores/roms";
-import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
-import TitleInfo from "@/components/Details/Title.vue";
-import Cover from "@/components/Details/Cover.vue";
+import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
+import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
+import Cover from "@/components/Details/Cover.vue";
+import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
-import Screenshots from "@/components/Details/Screenshots.vue";
 import Saves from "@/components/Details/Saves.vue";
+import Screenshots from "@/components/Details/Screenshots.vue";
 import States from "@/components/Details/States.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import TitleInfo from "@/components/Details/Title.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import DeleteAssetDialog from "@/components/Details/DeleteAssets.vue";
-import type { EnhancedRomSchema } from "@/__generated__";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import api_rom from "@/services/api_rom";
+import api_platform from "@/services/api_platform";
 
 const route = useRoute();
-const romsStore = storeRoms();
-const rom = ref<EnhancedRomSchema | null>(null);
+const rom = ref<EnhancedRomSchema>();
+const platform = ref<PlatformSchema>();
 const tab = ref<"details" | "saves" | "screenshots">("details");
 const { smAndDown, mdAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 
-async function fetchRom() {
+async function fetchDetails() {
   if (!route.params.rom) return;
 
-  await api
-    .fetchRom({ romId: parseInt(route.params.rom as string) })
+  await api_rom
+    .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
-      romsStore.update(response.data);
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
+
+  await api_platform
+    .getPlatform(rom.value?.platform_id)
+    .then((response) => {
+      platform.value = response.data;
     })
     .catch((error) => {
       console.log(error);
@@ -56,7 +72,7 @@ onBeforeMount(async () => {
   if (rom.value) {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
-    fetchRom();
+    await fetchDetails();
   }
 });
 
@@ -64,13 +80,13 @@ watch(
   () => route.fullPath,
   async () => {
     emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-    await fetchRom();
+    await fetchDetails();
   }
 );
 </script>
 
 <template>
-  <template v-if="rom">
+  <template v-if="rom && platform">
     <v-row no-gutters>
       <v-col>
         <background-header :image="rom.path_cover_s" />
@@ -106,9 +122,15 @@ watch(
           'info-xs': smAndDown,
         }"
       >
-        <v-row :class="{ 'position-absolute title-lg mr-16': mdAndUp, 'justify-center': smAndDown }" no-gutters>
+        <v-row
+          :class="{
+            'position-absolute title-lg mr-16': mdAndUp,
+            'justify-center': smAndDown,
+          }"
+          no-gutters
+        >
           <v-col cols="12">
-            <title-info :rom="rom" />
+            <title-info :rom="rom" :platform="platform" />
           </v-col>
         </v-row>
         <v-row
@@ -128,7 +150,7 @@ watch(
           <v-col cols="12">
             <v-window v-model="tab" class="py-2">
               <v-window-item value="details">
-                <details-info :rom="rom" />
+                <details-info :rom="rom" :platform="platform" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />

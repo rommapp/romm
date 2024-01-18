@@ -11,7 +11,7 @@ export type Rom = RomSchema & {
 
 export default defineStore("roms", {
   state: () => ({
-    _platform: "",
+    _platform: Number(undefined),
     recentRoms: [] as Rom[],
     _all: [] as Rom[],
     _grouped: [] as Rom[],
@@ -61,7 +61,7 @@ export default defineStore("roms", {
         siblings: games,
       }));
     },
-    setPlatform(platform: string) {
+    setPlatform(platform: number) {
       this._platform = platform;
     },
     setRecentRoms(roms: Rom[]) {
@@ -84,6 +84,16 @@ export default defineStore("roms", {
       this._all = this._all.filter((value) => {
         return !roms.find((rom) => {
           return rom.id === value.id;
+        });
+      });
+      this._grouped = this._grouped.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value.id;
+        });
+      });
+      this._filteredIDs = this._filteredIDs.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value;
         });
       });
     },

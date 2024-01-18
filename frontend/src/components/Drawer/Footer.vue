@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { inject, ref } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import api_identity from "@/services/api_identity";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
+import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
-import { api } from "@/services/api";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
 defineProps<{ rail?: boolean }>();
@@ -14,9 +14,11 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const heartbeat = storeHeartbeat();
-const newVersion = heartbeat.data.NEW_VERSION;
-localStorage.setItem("newVersion", newVersion)
-const newVersionDismissed = ref(localStorage.getItem("dismissNewVersion") === newVersion);
+const newVersion = heartbeat.value.NEW_VERSION;
+localStorage.setItem("newVersion", newVersion);
+const newVersionDismissed = ref(
+  localStorage.getItem("dismissNewVersion") === newVersion
+);
 
 // Functions
 function dismissNewVersion() {
@@ -25,18 +27,18 @@ function dismissNewVersion() {
 }
 
 async function logout() {
-  api
-    .post("/logout", {})
+  api_identity
+    .logout()
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: data.message,
+        msg: data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
-      router.push("/login");
+      router.push({ name: "login" });
     })
     .catch(() => {
-      router.push("/login");
+      router.push({ name: "login" });
     })
     .finally(() => {
       auth.setUser(null);
@@ -91,13 +93,22 @@ async function logout() {
         <v-row no-gutters>
           <v-col class="py-1">
             <span
-              >New version available <span class="text-romm-accent-1">{{ newVersion }}</span></span
+              >New version available
+              <span class="text-romm-accent-1">{{ newVersion }}</span></span
             >
           </v-col>
         </v-row>
         <v-row no-gutters>
           <v-col class="py-1">
-            <span @click="dismissNewVersion()" class="pointer text-grey">Dismiss</span><span class="ml-4"><a target="_blank" :href="`https://github.com/zurdi15/romm/releases/tag/v${newVersion}`">See what's new!</a></span>
+            <span @click="dismissNewVersion()" class="pointer text-grey"
+              >Dismiss</span
+            ><span class="ml-4"
+              ><a
+                target="_blank"
+                :href="`https://github.com/zurdi15/romm/releases/tag/v${newVersion}`"
+                >See what's new!</a
+              ></span
+            >
           </v-col>
         </v-row>
       </v-card-text>

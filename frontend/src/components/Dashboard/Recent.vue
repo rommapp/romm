@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { views } from "@/utils";
-import api from "@/services/api";
-import storeRoms from "@/stores/roms";
-import GameCard from "@/components/Game/Card/Base.vue";
+import LoadingDialog from "@/components/Dialog/Loading.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import LoadingDialog from "@/components/Dialog/Loading.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
+import api_rom from "@/services/api_rom";
+import storeRoms from "@/stores/roms";
+import { views } from "@/utils";
+import { onMounted, ref } from "vue";
 
 // Props
 const romsStore = storeRoms();
@@ -21,8 +21,8 @@ function scrollX(e: WheelEvent) {
 }
 
 onMounted(async () => {
-  const { data: recentData } = await api.fetchRecentRoms();
-  romsStore.setRecentRoms(recentData);
+  const { data: recentData } = await api_rom.getRecentRoms();
+  romsStore.setRecentRoms(recentData.items);
 });
 </script>
 <template>

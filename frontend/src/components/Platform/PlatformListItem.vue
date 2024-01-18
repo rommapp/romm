@@ -8,7 +8,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
 
 <template>
   <v-list-item
-    :to="`/platform/${platform.slug}`"
+    :to="{ name: 'platform', params: { platform: platform.id } }"
     :value="platform.slug"
     :key="platform.slug"
     class="pt-4 pb-4 bg-terciary"
@@ -16,7 +16,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
     <template v-slot:prepend>
       <v-avatar :rounded="0" size="40">
-        <platform-icon :platform="platform.slug" />
+        <platform-icon :slug="platform.slug" />
         <div
           class="igdb-icon"
           v-if="!platform.igdb_id"
