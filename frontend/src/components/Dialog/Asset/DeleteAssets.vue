@@ -51,7 +51,7 @@ async function deleteAssets() {
       if (romRef.value) {
         romRef.value[assetType.value] = data;
         romsStore.update(romRef.value);
-        emitter?.emit("romUpdated", romRef.value)
+        emitter?.emit("romUpdated", romRef.value);
       }
     })
     .catch(({ response, message }) => {
@@ -83,6 +83,7 @@ function closeDialog() {
     @keydown.esc="closeDialog"
     no-click-animation
     persistent
+    :scrim="true"
   >
     <v-card
       rounded="0"

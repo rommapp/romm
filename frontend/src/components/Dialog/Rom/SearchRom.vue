@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
     :modelValue="show"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
+    :scrim="true"
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     no-click-animation

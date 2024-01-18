@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
     :modelValue="show"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
+    :scrim="true"
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     no-click-animation
@@ -185,10 +185,10 @@ onBeforeUnmount(() => {
           <v-col
             class="pa-1"
             cols="4"
-            xs="4"
-            sm="3"
+            sm="2"
             md="2"
             lg="2"
+            xl="2"
             v-show="!searching"
             v-for="rom in filteredRoms"
           >
@@ -210,10 +210,19 @@ onBeforeUnmount(() => {
                 />
                 <v-card-text>
                   <v-row class="pa-1 align-center">
-                    <v-col class="pa-0 pr-2 ma-0 text-truncate" cols="10">
+                    <v-col
+                      class="pa-0 pr-2 ma-0 text-truncate"
+                      cols="9"
+                      sm="8"
+                      md="9"
+                      lg="8"
+                      xl="10"
+                    >
                       <span>{{ rom.name }}</span>
                     </v-col>
-                    <v-col class="pa-0 ma-0" cols="2">
+                    <v-col
+                      class="pa-0 ma-0"
+                    >
                       <v-avatar :rounded="0" size="20">
                         <platform-icon
                           :key="rom.platform_slug"
@@ -246,7 +255,7 @@ onBeforeUnmount(() => {
 }
 
 .search-content {
-  width: 60vw;
+  width: 75vw;
   height: 80vh;
 }
 
