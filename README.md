@@ -2,8 +2,8 @@
 
   <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
   
-  <h3>
-    A beautiful, powerful, self-hosted Rom Manager
+  <h3 style="font-size: 25px;">
+    A beautiful, powerful, self-hosted rom manager.
   </h3>
   <br/>
 
@@ -20,7 +20,7 @@
 
 # Overview
 
-RomM allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
+RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
 
 ## Features
 

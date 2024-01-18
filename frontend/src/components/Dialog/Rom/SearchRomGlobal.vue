@@ -94,15 +94,12 @@ onBeforeUnmount(() => {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="4" xs="4" sm="3" md="2" lg="2">
+          <v-col cols="10" xs="10" sm="11" md="11" lg="11">
             <v-icon icon="mdi-magnify" class="ml-5" />
             <v-avatar :rounded="0" :size="30" class="mx-4"
               ><v-img src="/assets/isotipo.svg"
             /></v-avatar>
           </v-col>
-
-          <v-col cols="6" xs="6" sm="8" md="9" lg="9" />
-
           <v-col cols="2" xs="2" sm="1" md="1" lg="1">
             <v-btn
               @click="closeDialog"
@@ -210,26 +207,15 @@ onBeforeUnmount(() => {
                 />
                 <v-card-text>
                   <v-row class="pa-1 align-center">
-                    <v-col
-                      class="pa-0 pr-2 ma-0 text-truncate"
-                      cols="9"
-                      sm="8"
-                      md="9"
-                      lg="8"
-                      xl="10"
-                    >
+                    <v-col class="pa-0 ml-1 text-truncate">
                       <span>{{ rom.name }}</span>
                     </v-col>
-                    <v-col
-                      class="pa-0 ma-0"
-                    >
-                      <v-avatar :rounded="0" size="20">
-                        <platform-icon
-                          :key="rom.platform_slug"
-                          :slug="rom.platform_slug"
-                        />
-                      </v-avatar>
-                    </v-col>
+                    <v-avatar :rounded="0" size="20" class="ml-2">
+                      <platform-icon
+                        :key="rom.platform_slug"
+                        :slug="rom.platform_slug"
+                      />
+                    </v-avatar>
                   </v-row>
                 </v-card-text>
               </v-card>
@@ -255,7 +241,7 @@ onBeforeUnmount(() => {
 }
 
 .search-content {
-  width: 75vw;
+  width: 60vw;
   height: 80vh;
 }
 
