@@ -23,13 +23,13 @@ import endpoints.sockets.scan # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
-from handler import authh, dbuserh, ghh, socketh
+from handler import auth_handler, db_user_handler, github_handler, socket_handler
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
 from handler.auth_handler.middleware import CustomCSRFMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-app = FastAPI(title="RomM API", version=ghh.get_version())
+app = FastAPI(title="RomM API", version=github_handler.get_version())
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,7 +76,7 @@ app.include_router(stats.router)
 app.include_router(raw.router)
 
 add_pagination(app)
-app.mount("/ws", socketh.socket_app)
+app.mount("/ws", socket_handler.socket_app)
 
 
 @app.on_event("startup")
@@ -84,8 +84,8 @@ def startup() -> None:
     """Event to handle RomM startup logic."""
 
     # Create default admin user if no admin user exists
-    if len(dbuserh.get_admin_users()) == 0 and "pytest" not in sys.modules:
-        authh.create_default_admin_user()
+    if len(db_user_handler.get_admin_users()) == 0 and "pytest" not in sys.modules:
+        auth_handler.create_default_admin_user()
 
 
 if __name__ == "__main__":

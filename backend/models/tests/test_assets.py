@@ -1,4 +1,4 @@
-from models import Save, State, Screenshot
+from models.assets import Save, State, Screenshot
 
 def test_save(save: Save):
     assert save.full_path == "test_platform_slug/saves/test_emulator/test_save.sav"

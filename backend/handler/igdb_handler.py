@@ -234,7 +234,7 @@ class IGDBHandler:
         return search_term
 
     async def _mame_format(self, search_term: str) -> str:
-        from handler import fsromh
+        from handler import fs_rom_handler
 
         mame_index = {"menu": {"game": []}}
 
@@ -256,7 +256,7 @@ class IGDBHandler:
                 if game["@name"] == search_term
             ]
             if index_entry:
-                search_term = fsromh.get_file_name_with_no_tags(
+                search_term = fs_rom_handler.get_file_name_with_no_tags(
                     index_entry[0].get("description", search_term)
                 )
 
@@ -280,9 +280,9 @@ class IGDBHandler:
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
-        from handler import fsromh
+        from handler import fs_rom_handler
 
-        search_term = fsromh.get_file_name_with_no_tags(file_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
 
         # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)

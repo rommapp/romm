@@ -1,6 +1,6 @@
 from endpoints.responses.stats import StatsReturn
 from fastapi import APIRouter
-from handler import dbstatsh
+from handler import db_stats_handler
 
 router = APIRouter()
 
@@ -14,10 +14,10 @@ def stats() -> StatsReturn:
     """
 
     return {
-        "PLATFORMS": dbstatsh.get_platforms_count(),
-        "ROMS": dbstatsh.get_roms_count(),
-        "SAVES": dbstatsh.get_saves_count(),
-        "STATES": dbstatsh.get_states_count(),
-        "SCREENSHOTS": dbstatsh.get_screenshots_count(),
-        "FILESIZE": dbstatsh.get_total_filesize(),
+        "PLATFORMS": db_stats_handler.get_platforms_count(),
+        "ROMS": db_stats_handler.get_roms_count(),
+        "SAVES": db_stats_handler.get_saves_count(),
+        "STATES": db_stats_handler.get_states_count(),
+        "SCREENSHOTS": db_stats_handler.get_screenshots_count(),
+        "FILESIZE": db_stats_handler.get_total_filesize(),
     }

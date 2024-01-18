@@ -4,22 +4,22 @@ from urllib.parse import urlparse
 from config import DEFAULT_URL_COVER_L
 from handler.igdb_handler import IGDBHandler
 
-igdbh = IGDBHandler()
+igdb_handler = IGDBHandler()
 
 
 @pytest.mark.vcr()
 def test_get_platform():
-    platform = igdbh.get_platform("n64")
+    platform = igdb_handler.get_platform("n64")
     assert platform["igdb_id"] == 4
     assert platform["name"] == "Nintendo 64"
 
-    platform = igdbh.get_platform("not-real")
+    platform = igdb_handler.get_platform("not-real")
     assert platform == {"igdb_id": None, "name": "Not Real"}
 
 
 @pytest.mark.vcr()
 async def test_get_rom():
-    rom = await igdbh.get_rom("Paper Mario (USA).n64", 4)
+    rom = await igdb_handler.get_rom("Paper Mario (USA).n64", 4)
     assert rom["igdb_id"] == 3340
     assert rom["slug"] == "paper-mario"
     assert rom["name"] == "Paper Mario"
@@ -27,7 +27,7 @@ async def test_get_rom():
     assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
     assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
 
-    rom = await igdbh.get_rom("Not a real game title", 4)
+    rom = await igdb_handler.get_rom("Not a real game title", 4)
     assert not rom["igdb_id"]
     assert rom["slug"] == ""
     assert rom["name"] == "Not a real game title"
@@ -38,7 +38,7 @@ async def test_get_rom():
 
 @pytest.mark.vcr()
 async def test_get_ps2_opl_rom():
-    rom = await igdbh.get_rom("WWE Smack.iso", 8)
+    rom = await igdb_handler.get_rom("WWE Smack.iso", 8)
     assert not rom["igdb_id"]
     assert rom["slug"] == ""
     assert rom["name"] == "WWE Smack"
@@ -46,7 +46,7 @@ async def test_get_ps2_opl_rom():
     assert rom["url_cover"] == DEFAULT_URL_COVER_L
     assert not rom["url_screenshots"]
 
-    rom = await igdbh.get_rom("SLUS_210.60.iso", 8)
+    rom = await igdb_handler.get_rom("SLUS_210.60.iso", 8)
     assert rom["igdb_id"] == 80852
     assert rom["slug"] == "wwe-smackdown-vs-raw"
     assert rom["name"] == "WWE Smackdown! vs. Raw"
@@ -56,7 +56,7 @@ async def test_get_ps2_opl_rom():
 
 @pytest.mark.vcr()
 def test_get_rom_by_id():
-    rom = igdbh.get_rom_by_id(3340)
+    rom = igdb_handler.get_rom_by_id(3340)
     assert rom["igdb_id"] == 3340
     assert rom["slug"] == "paper-mario"
     assert rom["name"] == "Paper Mario"
@@ -64,14 +64,14 @@ def test_get_rom_by_id():
     assert urlparse(rom["url_cover"]).hostname == "images.igdb.com"
     assert urlparse(rom["url_screenshots"][0]).hostname == "images.igdb.com"
 
-    rom = igdbh.get_rom_by_id(-1)
+    rom = igdb_handler.get_rom_by_id(-1)
     assert rom["igdb_id"] == -1
     assert not rom["name"]
 
 
 @pytest.mark.vcr()
 def test_get_matched_roms_by_id():
-    roms = igdbh.get_matched_roms_by_id(3340)
+    roms = igdb_handler.get_matched_roms_by_id(3340)
     assert len(roms) == 1
 
     assert roms[0]["igdb_id"] == 3340
@@ -81,7 +81,7 @@ def test_get_matched_roms_by_id():
 
 @pytest.mark.vcr()
 def test_get_matched_roms_by_name():
-    roms = igdbh.get_matched_roms_by_name("Mario", 4)
+    roms = igdb_handler.get_matched_roms_by_name("Mario", 4)
     assert len(roms) == 10
 
     assert roms[0]["igdb_id"] == 132642
@@ -92,5 +92,5 @@ def test_get_matched_roms_by_name():
     assert roms[1]["slug"] == "dr-mario-64"
     assert roms[1]["name"] == "Dr. Mario 64"
 
-    roms = igdbh.get_matched_roms_by_name("Notarealgametitle", 4)
+    roms = igdb_handler.get_matched_roms_by_name("Notarealgametitle", 4)
     assert roms == []

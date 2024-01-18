@@ -2,7 +2,8 @@ import pytest
 
 from handler.scan_handler import scan_platform, scan_rom
 from exceptions.fs_exceptions import RomsNotFoundException
-from models import Platform, Rom
+from models.platform import Platform
+from models.rom import Rom
 
 
 @pytest.mark.vcr()
