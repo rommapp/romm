@@ -14,6 +14,7 @@ class RomSchema(BaseModel):
 
     platform_id: int
     platform_slug: str
+    platform_name: str
 
     file_name: str
     file_name_no_tags: str
