@@ -11,7 +11,7 @@ from config import (
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
 from fastapi import APIRouter
-from handler import ghh
+from handler import github_handler
 
 router = APIRouter()
 
@@ -25,8 +25,8 @@ def heartbeat() -> HeartbeatResponse:
     """
 
     return {
-        "VERSION": ghh.get_version(),
-        "NEW_VERSION": ghh.check_new_version(),
+        "VERSION": github_handler.get_version(),
+        "NEW_VERSION": github_handler.check_new_version(),
         "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
