@@ -190,7 +190,7 @@ async def scan_platforms(
             log.info(f"\t · {len(fs_screenshots)} screenshots found")
             for fs_screenshot_filename in fs_screenshots:
                 scanned_screenshot = scan_screenshot(
-                    file_name=fs_screenshot_filename, platform=platform
+                    file_name=fs_screenshot_filename, platform_slug=platform.fs_slug
                 )
 
                 screenshot = dbscreenshotsh.get_screenshot_by_filename(
@@ -220,7 +220,7 @@ async def scan_platforms(
     log.info(f" · {len(fs_screenshots)} screenshots found")
     for fs_platform, fs_screenshot_filename in fs_screenshots:
         scanned_screenshot = scan_screenshot(
-            file_name=fs_screenshot_filename, fs_platform=fs_platform
+            file_name=fs_screenshot_filename, platform_slug=fs_platform
         )
 
         screenshot = dbscreenshotsh.get_screenshot_by_filename(fs_screenshot_filename)

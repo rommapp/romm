@@ -47,7 +47,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                             "background": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_l}",
                             "props": {"rom": f"{ROMM_HOST}{rom.download_path}"},
                         }
-                        for rom in session.scalars(dbromh.get_roms(p.id)).all()
+                        for rom in session.scalars(dbromh.get_roms(platform_id=p.id)).all()
                     ],
                 }
                 for p in platforms
