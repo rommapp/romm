@@ -118,24 +118,12 @@ function rowClick(_: Event, row: any) {
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template v-if="item.raw.multi">
+      <template>
         <v-btn
           class="ma-1"
           rounded="0"
           @click.stop="api_rom.downloadRom({ rom: item.raw })"
           :disabled="downloadStore.value.includes(item.raw.id)"
-          download
-          size="small"
-          variant="text"
-          ><v-icon>mdi-download</v-icon></v-btn
-        >
-      </template>
-      <template v-else>
-        <v-btn
-          class="ma-1 bg-terciary"
-          rounded="0"
-          @click.stop=""
-          :href="`${location}${item.raw.download_path}`"
           download
           size="small"
           variant="text"
