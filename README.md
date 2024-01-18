@@ -3,20 +3,18 @@
   <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
   
   <h3>
-    A beautiful, powerful, self-hosted rom manager
+    A beautiful, powerful, self-hosted Rom Manager
   </h3>
   <br/>
-  <div>
 
-  [![license-badge]][license-badge-url]
-  [![release-badge]][release-badge-url]
-  [![docker-pulls-badge]][docker-pulls-badge-url]
-  </div>
-  <div>
+[![license-badge]][license-badge-url]
+[![release-badge]][release-badge-url]
+[![docker-pulls-badge]][docker-pulls-badge-url]
 
-  [![discord-badge]][discord-badge-url]
-  [![unraid-badge]][unraid-badge-url]
-  [![wiki-badge]][wiki-url]
+[![discord-badge]][discord-badge-url]
+[![unraid-badge]][unraid-badge-url]
+[![wiki-badge]][wiki-url]
+
   </div>
 </div>
 
@@ -36,8 +34,8 @@ RomM allows you to scan, enrich, and browse your game collection with a clean an
 
 ## Preview
 
-| 🖥 Desktop | 📱 Mobile |
-| :---: | :---: |
+|                              🖥 Desktop                              |                                                  📱 Mobile                                                   |
+| :-----------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/romm-desktop-slider.gif" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" /> |
 
 # Installation
@@ -193,8 +191,8 @@ Tags can be used to search for games in the search bar. For example, searching f
 
 Here are a few projects maintained by members of our community. As they are not regularly reviewed by the RomM team, **we recommend you closely review them before use**.
 
-* CasaOS app via the [BigBear App Store][big-bear-casaos]
-* [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
+- CasaOS app via the [BigBear App Store][big-bear-casaos]
+- [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
 
 Join us on discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -207,6 +205,7 @@ If you like this project, consider buying me a coffee!
 [![coffee-donate]][coffee-donate-url]
 
 <!-- Sections -->
+
 [folder-structure]: #-folder-structure
 [platform-support]: #-platform-support
 [authentication]: #-authentication
@@ -216,16 +215,19 @@ If you like this project, consider buying me a coffee!
 [configuration-file]: #%EF%B8%8F-configuration-file
 
 <!-- Files -->
+
 [docker-compose-example]: examples/docker-compose.example.yml
 [configuration-file-example]: examples/config.example.yml
 
 <!-- Wiki links -->
+
 [wiki-url]: https://github.com/zurdi15/romm/wiki
 [wiki-authentication-url]: https://github.com/zurdi15/romm/wiki/Authentication
 [wiki-platforms-icons-url]: https://github.com/zurdi15/romm/wiki/Custom-Platform-Icons
 [wiki-troubleshooting-url]: https://github.com/zurdi15/romm/wiki/Troubleshooting
 
 <!-- Badges -->
+
 [license-badge]: https://img.shields.io/github/license/zurdi15/romm?style=for-the-badge&color=a32d2a
 [license-badge-url]: LICENSE
 [release-badge]: https://img.shields.io/github/v/release/zurdi15/romm?style=for-the-badge
@@ -239,12 +241,14 @@ If you like this project, consider buying me a coffee!
 [docker-pulls-badge-url]: https://hub.docker.com/r/zurdi15/romm
 
 <!-- Links -->
+
 [discord-invite]: https://invidget.switchblade.xyz/P5HtHnhUDH
 [discord-invite-url]: https://discord.gg/P5HtHnhUDH
 [coffee-donate]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
 [coffee-donate-url]: https://www.buymeacoff.ee/zurdi15
 
 <!-- External links -->
+
 [docker-tags]: https://hub.docker.com/r/zurdi15/romm/tags
 [igdb]: https://www.igdb.com/
 [igdb-api]: https://api-docs.igdb.com/#getting-started
