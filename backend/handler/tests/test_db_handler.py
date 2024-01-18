@@ -1,8 +1,10 @@
 from sqlalchemy.exc import IntegrityError
 
 # from handler.db_handler import DBHandler
-from models import Platform, Rom, User, Save, State, Screenshot
-from models.user import Role
+from models.platform import Platform
+from models.rom import Rom
+from models.user import User, Role
+from models.assets import Save, State, Screenshot
 from handler import authh, dbplatformh, dbromh, dbuserh, dbsaveh, dbstateh, dbscreenshotsh
 
 

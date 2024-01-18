@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from handler.db_handler import DBHandler
-from models import Rom
+from models.rom import Rom
 from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.orm import Session
 

@@ -2,7 +2,7 @@ import pytest
 from base64 import b64encode
 from fastapi.exceptions import HTTPException
 
-from models import User
+from models.user import User
 from handler import authh, oauthh, dbuserh
 from handler.auth_handler import WRITE_SCOPES
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
