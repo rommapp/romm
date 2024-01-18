@@ -47,6 +47,7 @@ function closeDialog() {
     @keydown.esc="closeDialog"
     no-click-animation
     persistent
+    :scrim="true"
   >
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">

@@ -32,19 +32,19 @@ async function uploadRoms({
 }
 
 async function getRoms({
-  platformId,
+  platformId = null,
   size = 60,
   cursor = "",
   searchTerm = "",
   orderBy = "name",
   orderDir = "asc",
 }: {
-  platformId: number;
-  size?: number;
+  platformId?: number | null;
+  size?: number | null;
   cursor?: string | null;
-  searchTerm?: string;
-  orderBy?: string;
-  orderDir?: string;
+  searchTerm?: string | null;
+  orderBy?: string | null;
+  orderDir?: string | null;
 }): Promise<{ data: CursorPage_RomSchema_ }> {
   return api.get(`/roms`, {
     params: {

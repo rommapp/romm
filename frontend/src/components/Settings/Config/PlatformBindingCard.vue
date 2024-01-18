@@ -51,7 +51,7 @@ const editable = ref(false);
           <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
             <template v-slot:prepend>
               <v-avatar :rounded="0" size="40" class="mx-2">
-                <platform-icon class="platform-icon" :slug="slug" />
+                <platform-icon class="platform-icon" :key="slug" :slug="slug" />
               </v-avatar>
             </template>
             <v-list-item class="bg-primary pr-2 pl-2">

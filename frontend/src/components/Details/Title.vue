@@ -17,7 +17,7 @@ defineProps<{ rom: RomSchema, platform: PlatformSchema }>();
       >
         {{ platform.name }}
         <v-avatar :rounded="0" size="40" class="ml-2 pa-2">
-          <platform-icon :slug="platform.slug"></platform-icon>
+          <platform-icon :key="platform.slug" :slug="platform.slug" />
         </v-avatar>
       </v-chip>
       <v-chip

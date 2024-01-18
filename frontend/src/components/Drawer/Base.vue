@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import storePlatforms from "@/stores/platforms";
-import storeAuth from "@/stores/auth";
+import type { Emitter } from "mitt";
+import { inject, onMounted, ref } from "vue";
+import { useDisplay } from "vuetify";
+
+import SearchRomGlobalDialog from "@/components/Dialog/Rom/SearchRomGlobal.vue";
+import RailFooter from "@/components/Drawer/Footer.vue";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
-import RailFooter from "@/components/Drawer/Footer.vue";
+import storeAuth from "@/stores/auth";
+import storePlatforms from "@/stores/platforms";
 
 // Props
 const { lgAndUp } = useDisplay();
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(!!lgAndUp.value);
-const open = ref(["Platforms", "Library", "Settings"]);
+const drawer = ref(lgAndUp.value);
 const rail = ref(localStorage.getItem("rail") == "true");
 
 // Event listeners bus
@@ -27,6 +28,8 @@ emitter?.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
   localStorage.setItem("rail", rail.value.toString());
 });
+
+onMounted(() => {});
 </script>
 
 <template>
@@ -40,8 +43,22 @@ emitter?.on("toggleDrawerRail", () => {
     <template v-slot:prepend>
       <drawer-header :rail="rail" />
       <v-divider />
+      <v-list-item
+        @click="emitter?.emit('showSearchRomGlobalDialog', null)"
+        :class="{ 'px-4': !rail }"
+        class="bg-terciary"
+      >
+        <span v-if="!rail">Search</span>
+        <template v-slot:prepend>
+          <v-avatar :rounded="0" size="40"
+            ><v-icon>mdi-magnify</v-icon></v-avatar
+          >
+        </template>
+      </v-list-item>
+      <v-divider />
     </template>
-    <v-list v-model:opened="open" class="pa-0">
+
+    <v-list class="pa-0">
       <v-list-group value="Platforms" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
@@ -62,7 +79,8 @@ emitter?.on("toggleDrawerRail", () => {
           :key="platform.slug"
         />
       </v-list-group>
-
+    </v-list>
+    <v-list>
       <v-list-group
         value="Library"
         v-if="auth.scopes.includes('roms.write')"
@@ -87,7 +105,9 @@ emitter?.on("toggleDrawerRail", () => {
           </template>
         </v-list-item>
       </v-list-group>
+    </v-list>
 
+    <v-list>
       <v-list-group value="Settings" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
@@ -117,4 +137,6 @@ emitter?.on("toggleDrawerRail", () => {
       <rail-footer :rail="rail" />
     </template>
   </v-navigation-drawer>
+
+  <search-rom-global-dialog />
 </template>

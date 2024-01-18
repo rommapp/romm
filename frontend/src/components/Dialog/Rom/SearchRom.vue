@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
     :modelValue="show"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
+    :scrim="true"
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     no-click-animation
@@ -121,7 +121,7 @@ onBeforeUnmount(() => {
             <v-icon icon="mdi-search-web" class="ml-5" />
           </v-col>
 
-          <v-col cols="8" xs="8" sm="9" md="9" lg="10">
+          <v-col cols="8" xs="8" sm="9" md="10" lg="10">
             <v-item-group mandatory v-model="selectedScrapSource">
               <v-item v-slot="{ isSelected, toggle }">
                 <v-chip
@@ -152,7 +152,7 @@ onBeforeUnmount(() => {
             </v-item-group>
           </v-col>
 
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+          <v-col cols="2" xs="2" sm="2" md="1" lg="1">
             <v-btn
               @click="closeDialog"
               rounded="0"
@@ -170,6 +170,7 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="7" xs="7" sm="8" md="8" lg="9">
             <v-text-field
+              autofocus
               @keyup.enter="searchRom()"
               @click:clear="searchTerm = ''"
               class="bg-terciary"
@@ -293,12 +294,12 @@ onBeforeUnmount(() => {
 }
 
 .search-content {
-  width: 900px;
-  height: 640px;
+  width: 60vw;
+  height: 80vh;
 }
 
 .search-content-tablet {
-  width: 570px;
+  width: 75vw;
   height: 640px;
 }
 
