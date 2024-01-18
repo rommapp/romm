@@ -28,7 +28,6 @@ router = APIRouter()
 def add_roms(
     request: Request, platform_id: int, roms: list[UploadFile] = File(...)
 ) -> AddRomsResponse:
-
     """Upload roms endpoint (one or more at the same time)
 
     Args:
@@ -104,7 +103,10 @@ def get_roms(
     with dbromh.session.begin() as session:
         cursor_params = CursorParams(size=size, cursor=cursor)
         qq = dbromh.get_roms(
-            None, platform_id, search_term.lower(), order_by.lower(), order_dir.lower()
+            platform_id=platform_id,
+            search_term=search_term.lower(),
+            order_by=order_by.lower(),
+            order_dir=order_dir.lower(),
         )
         return paginate(session, qq, cursor_params)
 

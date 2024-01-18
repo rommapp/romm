@@ -11,7 +11,7 @@ from handler import dbplatformh, dbromh
 router = APIRouter()
 
 
-@protected_route(router.get, "/webrcade/feed", [])
+@protected_route(router.get, "/webrcade/feed", ["roms.read"])
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """Get webrcade feed endpoint
 
@@ -47,7 +47,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                             "background": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_l}",
                             "props": {"rom": f"{ROMM_HOST}{rom.download_path}"},
                         }
-                        for rom in session.scalars(dbromh.get_roms(p.id)).all()
+                        for rom in session.scalars(dbromh.get_roms(platform_id=p.id)).all()
                     ],
                 }
                 for p in platforms

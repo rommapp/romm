@@ -10,6 +10,7 @@ from endpoints import (
     heartbeat,
     platform,
     rom,
+    raw,
     saves,
     search,
     states,
@@ -18,7 +19,7 @@ from endpoints import (
     user,
     webrcade,
 )
-from endpoints.sockets import scan # type: ignore
+import endpoints.sockets.scan # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
@@ -72,6 +73,7 @@ app.include_router(tasks.router)
 app.include_router(webrcade.router)
 app.include_router(config.router)
 app.include_router(stats.router)
+app.include_router(raw.router)
 
 add_pagination(app)
 app.mount("/ws", socketh.socket_app)

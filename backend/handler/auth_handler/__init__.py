@@ -47,7 +47,7 @@ class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    def _verify_password(self, plain_password, hashed_password):
+    def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
 
     def get_password_hash(self, password):
@@ -67,7 +67,7 @@ class AuthHandler:
         if not user:
             return None
 
-        if not self._verify_password(password, user.hashed_password):
+        if not self.verify_password(password, user.hashed_password):
             return None
 
         return user

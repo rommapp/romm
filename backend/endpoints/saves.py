@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request, rom_id: int, saves: list[UploadFile] = File(...)
 ) -> UploadedSavesResponse:
-    rom = dbromh.get_roms(id=rom_id)
+    rom = dbromh.get_roms(rom_id)
     log.info(f"Uploading saves to {rom.name}")
     if saves is None:
         log.error("No saves were uploaded")
@@ -45,19 +45,19 @@ def add_saves(
     return {"uploaded": len(saves), "saves": rom.saves}
 
 
-@protected_route(router.get, "/saves", ["assets.read"])
-def get_saves(request: Request) -> MessageResponse:
-    pass
+# @protected_route(router.get, "/saves", ["assets.read"])
+# def get_saves(request: Request) -> MessageResponse:
+#     pass
 
 
-@protected_route(router.get, "/saves/{id}", ["assets.read"])
-def get_save(request: Request, id: int) -> MessageResponse:
-    pass
+# @protected_route(router.get, "/saves/{id}", ["assets.read"])
+# def get_save(request: Request, id: int) -> MessageResponse:
+#     pass
 
 
-@protected_route(router.put, "/saves/{id}", ["assets.write"])
-def update_save(request: Request, id: int) -> MessageResponse:
-    pass
+# @protected_route(router.put, "/saves/{id}", ["assets.write"])
+# def update_save(request: Request, id: int) -> MessageResponse:
+#     pass
 
 
 @protected_route(router.post, "/saves/delete", ["assets.write"])
