@@ -11,7 +11,7 @@ from handler import dbplatformh, dbromh
 router = APIRouter()
 
 
-@protected_route(router.get, "/webrcade/feed", [])
+@protected_route(router.get, "/webrcade/feed", ["roms.read"])
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """Get webrcade feed endpoint
 
