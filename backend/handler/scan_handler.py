@@ -1,11 +1,13 @@
 import os
 from typing import Any
-
 import emoji
+
 from config.config_manager import config_manager as cm
 from handler import fsasseth, igdbh, fsresourceh, fsromh, dbplatformh
 from logger.logger import log
-from models import Platform, Rom, Save, Screenshot, State
+from models.platform import Platform
+from models.rom import Rom
+from models.assets import Save, Screenshot, State
 
 SWAPPED_PLATFORM_BINDINGS = dict(
     (v, k) for k, v in cm.config.PLATFORMS_BINDING.items()

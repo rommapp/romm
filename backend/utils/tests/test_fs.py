@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from handler import fsresourceh, fsplatformh, fsromh
-from models import Platform
+from models.platform import Platform
 from config import DEFAULT_PATH_COVER_L, DEFAULT_PATH_COVER_S
 
 

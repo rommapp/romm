@@ -1,6 +1,8 @@
 from decorators.database import begin_session
 from handler.db_handler import DBHandler
-from models import Platform, Rom, Save, Screenshot, State
+from models.platform import Platform
+from models.rom import Rom
+from models.assets import Save, Screenshot, State
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 

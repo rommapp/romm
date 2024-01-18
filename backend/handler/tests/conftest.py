@@ -4,7 +4,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config.config_manager import ConfigManager
-from models import Platform, Rom, User, Save, State, Screenshot
+from models.platform import Platform
+from models.rom import Rom
+from models.user import User
+from models.assets import Save, State, Screenshot
 from models.user import Role
 from handler import dbuserh, dbplatformh, dbromh, dbsaveh, dbstateh, authh, dbscreenshotsh
 
