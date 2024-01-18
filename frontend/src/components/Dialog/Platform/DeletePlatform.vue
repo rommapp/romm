@@ -51,11 +51,16 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog v-if="platform" v-model="show" width="auto"
+  <v-dialog
+    v-if="platform"
+    v-model="show"
+    width="auto"
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     no-click-animation
-    persistent>
+    :scrim="true"
+    persistent
+  >
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>

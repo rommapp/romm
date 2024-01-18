@@ -16,7 +16,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
     <template v-slot:prepend>
       <v-avatar :rounded="0" size="40">
-        <platform-icon :slug="platform.slug" />
+        <platform-icon :key="platform.slug" :slug="platform.slug" />
         <div
           class="igdb-icon"
           v-if="!platform.igdb_id"
