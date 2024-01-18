@@ -3,7 +3,7 @@
   <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
   
   <h3>
-    A beautiful, powerful, self-hosted rom manager
+    A beautiful, powerful, self-hosted Rom Manager
   </h3>
   <br/>
   <div>
