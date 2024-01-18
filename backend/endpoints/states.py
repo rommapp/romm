@@ -45,19 +45,19 @@ def add_states(
     return {"uploaded": len(states), "states": rom.states}
 
 
-@protected_route(router.get, "/states", ["assets.read"])
-def get_states(request: Request) -> MessageResponse:
-    pass
+# @protected_route(router.get, "/states", ["assets.read"])
+# def get_states(request: Request) -> MessageResponse:
+#     pass
 
 
-@protected_route(router.get, "/states/{id}", ["assets.read"])
-def get_save(request: Request, id: int) -> MessageResponse:
-    pass
+# @protected_route(router.get, "/states/{id}", ["assets.read"])
+# def get_state(request: Request, id: int) -> MessageResponse:
+#     pass
 
 
-@protected_route(router.put, "/states/{id}", ["assets.write"])
-def update_save(request: Request, id: int) -> MessageResponse:
-    pass
+# @protected_route(router.put, "/states/{id}", ["assets.write"])
+# def update_state(request: Request, id: int) -> MessageResponse:
+#     pass
 
 
 @protected_route(router.post, "/states/delete", ["assets.write"])

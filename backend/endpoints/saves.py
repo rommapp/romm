@@ -45,19 +45,19 @@ def add_saves(
     return {"uploaded": len(saves), "saves": rom.saves}
 
 
-@protected_route(router.get, "/saves", ["assets.read"])
-def get_saves(request: Request) -> MessageResponse:
-    pass
+# @protected_route(router.get, "/saves", ["assets.read"])
+# def get_saves(request: Request) -> MessageResponse:
+#     pass
 
 
-@protected_route(router.get, "/saves/{id}", ["assets.read"])
-def get_save(request: Request, id: int) -> MessageResponse:
-    pass
+# @protected_route(router.get, "/saves/{id}", ["assets.read"])
+# def get_save(request: Request, id: int) -> MessageResponse:
+#     pass
 
 
-@protected_route(router.put, "/saves/{id}", ["assets.write"])
-def update_save(request: Request, id: int) -> MessageResponse:
-    pass
+# @protected_route(router.put, "/saves/{id}", ["assets.write"])
+# def update_save(request: Request, id: int) -> MessageResponse:
+#     pass
 
 
 @protected_route(router.post, "/saves/delete", ["assets.write"])
