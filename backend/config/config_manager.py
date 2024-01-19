@@ -36,6 +36,7 @@ class Config:
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
+    PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     SAVES_FOLDER_NAME: str
     STATES_FOLDER_NAME: str
@@ -128,6 +129,7 @@ class ConfigManager:
                 self._raw_config, "exclude.roms.multi_file.parts.names", []
             ),
             PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
+            PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),
             ROMS_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.roms_folder", "roms"
             ),
@@ -186,6 +188,17 @@ class ConfigManager:
                 if slug is None:
                     log.critical(
                         f"Invalid config.yml: system.platforms.{fs_slug} must be a string"
+                    )
+                    sys.exit(3)
+
+        if not isinstance(self.config.PLATFORMS_VERSIONS, dict):
+            log.critical("Invalid config.yml: system.versions must be a dictionary")
+            sys.exit(3)
+        else:
+            for fs_slug, slug in self.config.PLATFORMS_VERSIONS.items():
+                if slug is None:
+                    log.critical(
+                        f"Invalid config.yml: system.versions.{fs_slug} must be a string"
                     )
                     sys.exit(3)
 
@@ -272,6 +285,25 @@ class ConfigManager:
     def remove_binding(self, fs_slug: str) -> None:
         try:
             del self._raw_config["system"]["platforms"][fs_slug]
+        except KeyError:
+            pass
+        self.update_config()
+
+    def add_version(self, fs_slug: str, slug: str) -> None:
+        try:
+            _ = self._raw_config["system"]
+        except KeyError:
+            self._raw_config = {"system": {"versions": {}}}
+        try:
+            _ = self._raw_config["system"]["versions"]
+        except KeyError:
+            self._raw_config["system"]["versions"] = {}
+        self._raw_config["system"]["versions"][fs_slug] = slug
+        self.update_config()
+
+    def remove_version(self, fs_slug: str) -> None:
+        try:
+            del self._raw_config["system"]["versions"][fs_slug]
         except KeyError:
             pass
         self.update_config()

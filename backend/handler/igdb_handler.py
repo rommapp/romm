@@ -43,12 +43,12 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
-class IGDBPlatformType(TypedDict):
+class IGDBPlatform(TypedDict):
     igdb_id: int
     name: str
 
 
-class IGDBRomType(TypedDict):
+class IGDBRom(TypedDict):
     igdb_id: int
     slug: str
     name: str
@@ -60,6 +60,7 @@ class IGDBRomType(TypedDict):
 class IGDBHandler:
     def __init__(self) -> None:
         self.platform_url = "https://api.igdb.com/v4/platforms/"
+        self.platform_version_url = "https://api.igdb.com/v4/platform_versions/"
         self.games_url = "https://api.igdb.com/v4/games/"
         self.covers_url = "https://api.igdb.com/v4/covers/"
         self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
@@ -263,23 +264,36 @@ class IGDBHandler:
         return search_term
 
     @check_twitch_token
-    def get_platform(self, slug: str) -> IGDBPlatformType:
+    def get_platform(self, slug: str) -> IGDBPlatform:
         platforms = self._request(
             self.platform_url,
             data=f'fields id, name; where slug="{slug.lower()}";',
         )
 
         platform = pydash.get(platforms, "[0]", None)
-        if not platform:
-            return IGDBPlatformType(igdb_id=None, name=slug.replace("-", " ").title())
 
-        return IGDBPlatformType(
+        # Check if platform is a version if not found
+        if not platform:
+            platform_versions = self._request(
+                self.platform_version_url,
+                data=f'fields id, name; where slug="{slug.lower()}";',
+            )
+            version = pydash.get(platform_versions, "[0]", None)
+            if not version:
+                return IGDBPlatform(igdb_id=None, igdb_id_base_platform=None, name=slug.replace("-", " ").title())
+
+            return IGDBPlatform(
+                igdb_id=version["id"],
+                name=version["name"],
+            )
+
+        return IGDBPlatform(
             igdb_id=platform["id"],
             name=platform["name"],
         )
 
     @check_twitch_token
-    async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRomType:
+    async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRom:
         from handler import fs_rom_handler
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
@@ -314,7 +328,7 @@ class IGDBHandler:
         )
 
         igdb_id = res.get("id", None)
-        rom = IGDBRomType(
+        rom = IGDBRom(
             igdb_id=igdb_id,
             slug=res.get("slug", ""),
             name=res.get("name", search_term),
@@ -330,7 +344,7 @@ class IGDBHandler:
         return rom
 
     @check_twitch_token
-    def get_rom_by_id(self, igdb_id: int) -> IGDBRomType:
+    def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
         roms = self._request(
             self.games_url,
             f"fields slug, name, summary; where id={igdb_id};",
@@ -347,7 +361,7 @@ class IGDBHandler:
         }
 
     @check_twitch_token
-    def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRomType]:
+    def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRom]:
         matched_rom = self.get_rom_by_id(igdb_id)
         matched_rom.update(
             url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),
@@ -357,7 +371,7 @@ class IGDBHandler:
     @check_twitch_token
     def get_matched_roms_by_name(
         self, search_term: str, platform_idgb_id: int
-    ) -> list[IGDBRomType]:
+    ) -> list[IGDBRom]:
         if not platform_idgb_id:
             return []
 
@@ -371,7 +385,7 @@ class IGDBHandler:
         )
 
         return [
-            IGDBRomType(
+            IGDBRom(
                 igdb_id=rom["id"],
                 slug=rom["slug"],
                 name=rom["name"],

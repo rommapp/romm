@@ -9,6 +9,7 @@ class ConfigResponse(TypedDict):
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
+    PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     SAVES_FOLDER_NAME: str
     STATES_FOLDER_NAME: str
