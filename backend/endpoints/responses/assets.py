@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -13,6 +14,8 @@ class BaseAsset(BaseModel):
     file_size_bytes: int
     full_path: str
     download_path: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
