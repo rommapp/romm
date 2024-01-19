@@ -36,7 +36,7 @@ async function deleteAssets() {
   if (!assets.value) return;
 
   const result =
-    (await assetType.value) === "saves"
+    assetType.value === "saves"
       ? saveApi.deleteSaves({
           saves: assets.value,
           deleteFromFs: deleteFromFs.value,
@@ -66,9 +66,9 @@ async function deleteAssets() {
         color: "red",
         timeout: 4000,
       });
+    }).finally(() => {
+      closeDialog();
     });
-
-  closeDialog();
 }
 
 function closeDialog() {
