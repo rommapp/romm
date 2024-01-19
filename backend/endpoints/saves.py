@@ -32,7 +32,7 @@ def add_saves(
 
         # Scan or update save
         scanned_save = scan_save(rom.platform, save.filename)
-        db_save = db_save_handler.get_save(rom.id)
+        db_save = db_save_handler.get_save_by_filename(rom.id, save.filename)
         if db_save:
             db_save_handler.update_save(
                 db_save.id, {"file_size_bytes": scanned_save.file_size_bytes}

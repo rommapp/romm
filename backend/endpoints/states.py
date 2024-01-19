@@ -1,7 +1,7 @@
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.assets import UploadedStatesResponse
+from endpoints.responses.assets import UploadedStatesResponse, StateSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler import db_state_handler, db_rom_handler, fs_asset_handler
 from handler.scan_handler import scan_state
@@ -33,7 +33,7 @@ def add_states(
 
         # Scan or update state
         scanned_state = scan_state(rom.platform, state.filename)
-        db_state = db_state_handler.get_state(rom.id)
+        db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
         if db_state:
             db_state_handler.update_state(
                 db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
@@ -43,6 +43,7 @@ def add_states(
         scanned_state.rom_id = rom.id
         db_state_handler.add_state(scanned_state)
 
+    rom = db_rom_handler.get_roms(rom_id)
     return {"uploaded": len(states), "states": rom.states}
 
 
@@ -57,7 +58,7 @@ def add_states(
 
 
 @protected_route(router.put, "/states/{id}", ["assets.write"])
-async def update_state(request: Request, id: int) -> MessageResponse:
+async def update_state(request: Request, id: int) -> StateSchema:
     data = await request.form()
 
     db_state = db_state_handler.get_state(id)
@@ -65,13 +66,15 @@ async def update_state(request: Request, id: int) -> MessageResponse:
         error = f"Save with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-    
+
     if "file" in data:
         file: UploadFile = data["file"]
-        fs_asset_handler._write_file(file=file, path=f"{LIBRARY_BASE_PATH}/{db_state.file_path}")
+        fs_asset_handler._write_file(
+            file=file, path=f"{LIBRARY_BASE_PATH}/{db_state.file_path}"
+        )
         db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
 
-    return {"msg": f"Successfully updated state with ID {id}"}
+    return db_state
 
 
 @protected_route(router.post, "/states/delete", ["assets.write"])
