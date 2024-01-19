@@ -280,7 +280,7 @@ class IGDBHandler:
             )
             version = pydash.get(platform_versions, "[0]", None)
             if not version:
-                return IGDBPlatform(igdb_id=None, igdb_id_base_platform=None, name=slug.replace("-", " ").title())
+                return IGDBPlatform(igdb_id=None, name=slug.replace("-", " ").title())
 
             return IGDBPlatform(
                 igdb_id=version["id"],
