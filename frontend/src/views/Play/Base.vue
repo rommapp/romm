@@ -13,7 +13,35 @@ const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
 
+// Uses a different regex for jaavscript
 const EXTENSION_REGEX = new RegExp("\.(([a-z]+\.)*)$");
+
+// Declare global variables for EmulatorJS
+declare global {
+  interface Window {
+    EJS_core: string;
+    EJS_player: string;
+    EJS_pathtodata: string;
+    EJS_color: string;
+    EJS_defaultOptions: object;
+    EJS_gameID: number;
+    EJS_gameName: string;
+    EJS_backgroundImage: string;
+    EJS_gameUrl: string;
+    EJS_loadStateURL: string | null;
+    EJS_cheats: string;
+    EJS_gamePatchUrl: string;
+    EJS_netplayServer: string;
+    EJS_alignStartButton: string;
+    EJS_startOnLoaded: boolean;
+    EJS_fullscreenOnLoaded: boolean;
+    EJS_emulator: any;
+    EJS_onGameStart: () => void;
+    EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
+    EJS_onLoadState: () => void;
+  }
+}
+
 
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
@@ -82,7 +110,7 @@ window.EJS_onSaveState = function ({
       })
       .then(({ data }) => {
         if (rom.value) rom.value.states = data.states;
-        stateRef.value = data.states.pop();
+        stateRef.value = data.states.pop() ?? null;
       });
   }
 };
@@ -98,9 +126,9 @@ onMounted(() => {
       rom.value = response.data;
       window.EJS_core = rom.value.platform_slug;
       window.EJS_gameID = rom.value.id;
-      window.EJS_gameName = rom.value.name;
       window.EJS_backgroundImage = `/assets/romm/resources/${rom.value.path_cover_l}`;
       window.EJS_gameUrl = rom.value.download_path;
+      if (rom.value.name) window.EJS_gameName = rom.value.name;
     })
     .catch((error) => {
       console.log(error);
