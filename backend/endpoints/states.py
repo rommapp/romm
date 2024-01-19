@@ -74,6 +74,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
         )
         db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
 
+    db_state = db_state_handler.get_state(id)
     return db_state
 
 
