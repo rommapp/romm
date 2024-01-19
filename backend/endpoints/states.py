@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler import db_state_handler, db_rom_handler, fs_asset_handler
 from handler.scan_handler import scan_state
 from logger.logger import log
+from config import LIBRARY_BASE_PATH
 
 router = APIRouter()
 
@@ -55,9 +56,22 @@ def add_states(
 #     pass
 
 
-# @protected_route(router.put, "/states/{id}", ["assets.write"])
-# def update_state(request: Request, id: int) -> MessageResponse:
-#     pass
+@protected_route(router.put, "/states/{id}", ["assets.write"])
+async def update_state(request: Request, id: int) -> MessageResponse:
+    data = await request.form()
+
+    db_state = db_state_handler.get_state(id)
+    if not db_state:
+        error = f"Save with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    
+    if "file" in data:
+        file: UploadFile = data["file"]
+        fs_asset_handler._write_file(file=file, path=f"{LIBRARY_BASE_PATH}/{db_state.file_path}")
+        db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
+
+    return {"msg": f"Successfully updated state with ID {id}"}
 
 
 @protected_route(router.post, "/states/delete", ["assets.write"])
