@@ -1,11 +1,12 @@
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.assets import UploadedSavesResponse
+from endpoints.responses.assets import UploadedSavesResponse, SaveSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler import db_save_handler, fs_asset_handler, db_rom_handler
 from handler.scan_handler import scan_save
 from logger.logger import log
+from config import LIBRARY_BASE_PATH
 
 router = APIRouter()
 
@@ -55,9 +56,24 @@ def add_saves(
 #     pass
 
 
-# @protected_route(router.put, "/saves/{id}", ["assets.write"])
-# def update_save(request: Request, id: int) -> MessageResponse:
-#     pass
+@protected_route(router.put, "/saves/{id}", ["assets.write"])
+async def update_save(request: Request, id: int) -> SaveSchema:
+    data = await request.form()
+
+    db_save = db_save_handler.get_save(id)
+    if not db_save:
+        error = f"Save with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    if "file" in data:
+        file: UploadFile = data["file"]
+        fs_asset_handler._write_file(
+            file=file, path=f"{LIBRARY_BASE_PATH}/{db_save.file_path}"
+        )
+        db_save_handler.update_save(db_save.id, {"file_size_bytes": file.size})
+
+    return db_save
 
 
 @protected_route(router.post, "/saves/delete", ["assets.write"])
@@ -84,7 +100,9 @@ async def delete_saves(request: Request) -> MessageResponse:
             log.info(f"Deleting {save.file_name} from filesystem")
 
             try:
-                fs_asset_handler.remove_file(file_name=save.file_name, file_path=save.file_path)
+                fs_asset_handler.remove_file(
+                    file_name=save.file_name, file_path=save.file_path
+                )
             except FileNotFoundError:
                 error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
                 log.error(error)

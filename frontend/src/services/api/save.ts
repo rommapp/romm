@@ -15,6 +15,19 @@ async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   });
 }
 
+async function updateSave({
+  save,
+  file,
+}: {
+  save: SaveSchema;
+  file: File;
+}): Promise<{ data: SaveSchema }> {
+  var formData = new FormData();
+  formData.append("file", file);
+
+  return api.put(`/saves/${save.id}`, formData);
+}
+
 async function deleteSaves({
   saves,
   deleteFromFs,
@@ -30,5 +43,6 @@ async function deleteSaves({
 
 export default {
   deleteSaves,
+  updateSave,
   uploadSaves,
 };

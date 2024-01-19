@@ -1,3 +1,4 @@
+import secrets
 from functools import cached_property
 
 from models.base import BaseModel
@@ -33,7 +34,7 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}?timestamp={self.updated_at}"
+        return f"/api/raw/{self.full_path}?s={secrets.token_hex(8)}"
 
 
 class Save(BaseAsset):
