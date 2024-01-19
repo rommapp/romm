@@ -56,10 +56,14 @@ export default defineStore("roms", {
           // If igdb_id is null, generate a random id so that the roms are not grouped
           isNull(game.igdb_id) ? nanoid() : game.igdb_id
         )
-      ).map((games) => ({
-        ...(games.shift() as Rom),
-        siblings: games,
-      }));
+      )
+        .map((games) => ({
+          ...(games.shift() as Rom),
+          siblings: games,
+        }))
+        .sort((a, b) => {
+          return a.sort_comparator.localeCompare(b.sort_comparator);
+        });
     },
     setPlatform(platform: number) {
       this._platform = platform;

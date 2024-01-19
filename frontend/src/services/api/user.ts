@@ -4,18 +4,6 @@ import type { User } from "@/stores/users";
 
 export const userApi = api;
 
-async function fetchUsers(): Promise<{ data: UserSchema[] }> {
-  return api.get("/users");
-}
-
-async function fetchUser(user: User): Promise<{ data: UserSchema }> {
-  return api.get(`/users/${user.id}`);
-}
-
-async function fetchCurrentUser(): Promise<{ data: UserSchema | null }> {
-  return api.get("/users/me");
-}
-
 async function createUser({
   username,
   password,
@@ -26,6 +14,18 @@ async function createUser({
   role: string;
 }): Promise<{ data: UserSchema }> {
   return api.post("/users", {}, { params: { username, password, role } });
+}
+
+async function fetchUsers(): Promise<{ data: UserSchema[] }> {
+  return api.get("/users");
+}
+
+async function fetchUser(user: User): Promise<{ data: UserSchema }> {
+  return api.get(`/users/${user.id}`);
+}
+
+async function fetchCurrentUser(): Promise<{ data: UserSchema | null }> {
+  return api.get("/users/me");
 }
 
 async function updateUser({

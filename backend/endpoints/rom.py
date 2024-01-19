@@ -42,7 +42,7 @@ def add_roms(
         UploadRomResponse: Standard message response
     """
 
-    platform_fs_slug = db_rom_handler.get_platforms(platform_id).fs_slug
+    platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug
     log.info(f"Uploading roms to {platform_fs_slug}")
     if roms is None:
         log.error("No roms were uploaded")

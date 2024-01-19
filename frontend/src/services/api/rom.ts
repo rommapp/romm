@@ -23,11 +23,11 @@ async function uploadRoms({
   let formData = new FormData();
   romsToUpload.forEach((rom) => formData.append("roms", rom));
 
-  return api.put("/roms", formData, {
+  return api.post("/roms", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    params: { platform_slug: platform },
+    params: { platform_id: platform },
   });
 }
 
