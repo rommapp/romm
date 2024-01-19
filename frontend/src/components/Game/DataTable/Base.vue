@@ -134,7 +134,6 @@ function rowClick(_: Event, row: any) {
         size="small"
         variant="text"
         :href="`/play/${item.raw.id}`"
-        :disabled="false"
         class="my-1 bg-terciary"
         rounded="0"
         ><v-icon>mdi-play</v-icon></v-btn
