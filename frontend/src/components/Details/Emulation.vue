@@ -1,23 +1,21 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
-import { useDisplay } from "vuetify";
-
-defineProps<{ rom: Rom }>();
-const { xs } = useDisplay();
-
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
+import type { Rom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 
+defineProps<{ rom: Rom }>();
 const route = useRoute();
 const rom = ref<Rom | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
-const gameWindow = ref(9);
+const fullScreenOnPlay = ref(true);
+const { smAndDown, mdAndUp } = useDisplay();
 
 const EXTENSION_REGEX = new RegExp("\.(([a-z]+\.)*)$");
 
@@ -29,7 +27,7 @@ window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_fullscreenOnLoaded = false;
+window.EJS_fullscreenOnLoaded = true;
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
 };
@@ -111,8 +109,11 @@ onMounted(() => {
     });
 });
 
+function toggleFullScreen() {
+  window.EJS_fullscreenOnLoaded = !window.EJS_fullscreenOnLoaded;
+}
+
 function onPlay() {
-  gameWindow.value = 12;
   gameRunning.value = true;
   window.EJS_loadStateURL = stateRef.value?.download_path ?? null;
   document.body.appendChild(script);
@@ -177,13 +178,19 @@ function onPlay() {
           'War Room Sturm (AW1) by Kartal',
         ]"
       />
-      <v-row no-gutters>
-        <v-col cols="8">
+      <v-switch
+        hide-details
+        v-model="fullScreenOnPlay"
+        @update:model-value="toggleFullScreen"
+        color="romm-accent-1"
+        label="Full screen"
+      />
+      <v-row no-gutters class="align-center">
+        <v-col cols="12" lg="8" xl="8">
           <v-btn
-            density="compact"
-            class="mt-4"
             block
-            rounded="0"
+            density="compact"
+            class="text-romm-accent-1"
             variant="outlined"
             size="x-large"
             @click="onPlay()"
@@ -191,9 +198,9 @@ function onPlay() {
             <v-icon class="mr-2">mdi-play</v-icon>Play
           </v-btn>
         </v-col>
-        <v-col cols="4">
+        <v-col cols="12" lg="4" xl="4">
           <img
-            class="ma-3"
+            :class="{ 'mt-6': smAndDown, 'ml-7': mdAndUp }"
             width="150"
             src="/assets/powered_by_emulatorjs.png"
           />

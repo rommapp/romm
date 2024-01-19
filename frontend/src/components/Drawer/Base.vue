@@ -58,7 +58,7 @@ onMounted(() => {});
       <v-divider />
     </template>
 
-    <v-list class="pa-0">
+    <v-list class="py-0">
       <v-list-group value="Platforms" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
@@ -80,7 +80,7 @@ onMounted(() => {});
         />
       </v-list-group>
     </v-list>
-    <v-list>
+    <v-list class="py-0">
       <v-list-group
         value="Library"
         v-if="auth.scopes.includes('roms.write')"
@@ -107,7 +107,7 @@ onMounted(() => {});
       </v-list-group>
     </v-list>
 
-    <v-list>
+    <v-list class="py-0">
       <v-list-group value="Settings" fluid>
         <template v-slot:activator="{ props }">
           <v-list-item v-bind="props">
