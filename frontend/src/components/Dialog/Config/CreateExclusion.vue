@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import storeConfig from "@/stores/config";
-import api_config from "@/services/api_config";
+import apiConfig from "@/services/apiConfig";
 
 // Props
 const show = ref(false);
@@ -18,7 +18,7 @@ emitter?.on("showCreateExclusionDialog", ({ exclude }) => {
 
 // Functions
 function addExclusion() {
-  api_config.addExclusion({
+  apiConfig.addExclusion({
     exclude: excludeToCreate.value,
     exclusion: exclusionToCreate.value,
   });

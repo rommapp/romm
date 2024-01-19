@@ -1,7 +1,7 @@
 import type { MessageResponse } from "@/__generated__";
 import { api } from "@/services/api";
 
-export const api_config = api;
+export const apiConfig = api;
 
 async function addPlatformBindConfig({
   fsSlug,

@@ -28,6 +28,10 @@ const routes = [
         component: () => import("@/views/Details/Base.vue"),
       },
       {
+        path: "/play/:rom",
+        component: () => import("@/views/Play/Base.vue"),
+      },
+      {
         path: "/library/scan",
         name: "scan",
         component: () => import("@/views/Library/Scan/Base.vue"),

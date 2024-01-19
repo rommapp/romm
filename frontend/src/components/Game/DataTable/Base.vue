@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { VDataTable } from "vuetify/labs/VDataTable";
 
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import api_rom from "@/services/api_rom";
+import apiRom from "@/services/apiRom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
@@ -122,7 +122,7 @@ function rowClick(_: Event, row: any) {
         <v-btn
           class="ma-1"
           rounded="0"
-          @click.stop="api_rom.downloadRom({ rom: item.raw })"
+          @click.stop="apiRom.downloadRom({ rom: item.raw })"
           :disabled="downloadStore.value.includes(item.raw.id)"
           download
           size="small"
@@ -130,14 +130,15 @@ function rowClick(_: Event, row: any) {
           ><v-icon>mdi-download</v-icon></v-btn
         >
       </template>
-      <!-- <v-btn
+      <v-btn
         size="small"
         variant="text"
-        disabled
+        :href="`/play/${item.raw.id}`"
+        :disabled="false"
         class="my-1 bg-terciary"
         rounded="0"
         ><v-icon>mdi-play</v-icon></v-btn
-      > -->
+      >
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn

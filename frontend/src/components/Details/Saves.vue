@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import api_save from "@/services/api_save";
+import apiSave from "@/services/apiSave";
 import storeRoms, { type Rom } from "@/stores/roms";
 
 import type { SaveSchema } from "@/__generated__";
@@ -39,7 +39,7 @@ async function uploadSaves() {
     color: "romm-accent-1",
   });
 
-  await api_save
+  await apiSave
     .uploadSaves({
       saves: savesToUpload.value,
       rom: props.rom,

@@ -2,7 +2,7 @@ import type { SaveSchema } from "@/__generated__";
 import { api } from "@/services/api";
 import type { Rom } from "@/stores/roms";
 
-export const api_save = api;
+export const apiSave = api;
 
 async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();

@@ -6,6 +6,7 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
+    "postinstall": "cd node_modules/emulatorjs/data/minify/ && npm i && npm run build",
     "typecheck": "vue-tsc --noEmit",
     "generate": "openapi --input http://localhost:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
@@ -14,6 +15,7 @@
     "axios": "^1.6.0",
     "core-js": "^3.8.3",
     "cronstrue": "^2.31.0",
+    "emulatorjs": "github:GAntoine/emulatorjs",
     "file-saver": "^2.0.5",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
@@ -45,6 +47,7 @@
     "vite": "^3.2.7",
     "vite-plugin-pwa": "^0.14.7",
     "vite-plugin-rewrite-all": "^1.0.1",
+    "vite-plugin-static-copy": "0.17.1",
     "vite-plugin-vuetify": "^1.0.0-alpha.12",
     "vue-tsc": "^1.8.27"
   }

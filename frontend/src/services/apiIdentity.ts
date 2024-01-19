@@ -1,7 +1,7 @@
 import type { MessageResponse } from "@/__generated__";
 import { api } from "@/services/api";
 
-export const api_identity = api;
+export const apiIdentity = api;
 
 async function login(
   username: string,

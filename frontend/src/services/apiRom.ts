@@ -11,7 +11,7 @@ import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
 
-export const api_rom = api;
+export const apiRom = api;
 
 async function uploadRoms({
   platform,
