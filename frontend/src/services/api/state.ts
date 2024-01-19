@@ -4,7 +4,13 @@ import type { Rom } from "@/stores/roms";
 
 export const stateApi = api;
 
-async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
+async function uploadStates({
+  rom,
+  states,
+}: {
+  rom: Rom;
+  states: File[];
+}): Promise<{ data: { uploaded: string; states: StateSchema[] } }> {
   let formData = new FormData();
   states.forEach((state) => formData.append("states", state));
 
@@ -18,13 +24,12 @@ async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
 
 async function updateState({
   state,
-  blob,
+  file,
 }: {
   state: StateSchema;
-  blob: Blob;
-}) {
+  file: File;
+}): Promise<{ data: StateSchema }> {
   var formData = new FormData();
-  const file = new File([blob], state.file_name, { type: "application/octet-stream" });
   formData.append("file", file);
 
   return api.put(`/states/${state.id}`, formData);

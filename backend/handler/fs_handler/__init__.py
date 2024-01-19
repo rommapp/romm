@@ -99,7 +99,7 @@ class FSHandler(ABC):
         )
 
     @staticmethod
-    def _get_file_name_with_no_extension(file_name: str) -> str:
+    def get_file_name_with_no_extension(file_name: str) -> str:
         return re.sub(EXTENSION_REGEX, "", file_name).strip()
 
     @staticmethod

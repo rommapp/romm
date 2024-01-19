@@ -13,6 +13,8 @@ const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
 
+const EXTENSION_REGEX = new RegExp("\.(([a-z]+\.)*)$");
+
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
@@ -26,27 +28,65 @@ window.EJS_defaultOptions = {
   "save-state-location": "browser",
 };
 
+function buildStateName(rom: Rom): string {
+  const states = rom.states.map((s) => s.file_name);
+  const romName = rom.file_name.replace(EXTENSION_REGEX, "").trim();
+  let stateName = `${romName}.state.auto`;
+  if (!states.includes(stateName)) return stateName;
+
+  let i = 1;
+  stateName = `${romName}.state1`;
+  while (states.includes(stateName)) {
+    i++;
+    stateName = `${romName}.state${i}`;
+  }
+
+  return stateName;
+}
+
 window.EJS_onSaveState = function ({
-  screenshot,
   state,
 }: {
   screenshot: File;
   state: File;
 }) {
+  if (window.EJS_emulator.saveInBrowserSupported()) {
+    window.EJS_emulator.storage.states.put(
+      window.EJS_emulator.getBaseFileName() + ".state",
+      state
+    );
+    window.EJS_emulator.displayMessage(
+      window.EJS_emulator.localization("SAVE SAVED TO BROWSER")
+    );
+  }
   if (stateRef.value) {
     stateApi
       .updateState({
         state: stateRef.value,
-        blob: state,
+        file: new File([state], stateRef.value.file_name, {
+          type: "application/octet-stream",
+        }),
       })
-      .then((response) => {
-        console.log(response);
+      .then(({ data }) => {
+        stateRef.value = data;
+      });
+  } else if (rom.value) {
+    stateApi
+      .uploadStates({
+        rom: rom.value,
+        states: [
+          new File([state], buildStateName(rom.value), {
+            type: "application/octet-stream",
+          }),
+        ],
       })
-      .catch((error) => {
-        console.log(error);
+      .then(({ data }) => {
+        if (rom.value) rom.value.states = data.states;
+        stateRef.value = data.states.pop();
       });
   }
 };
+
 window.EJS_onGameStart = () => {
   gameRunning.value = true;
 };
