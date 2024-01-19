@@ -33,7 +33,7 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}"
+        return f"/api/raw/{self.full_path}?timestamp={self.updated_at}"
 
 
 class Save(BaseAsset):

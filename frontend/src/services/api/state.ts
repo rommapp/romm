@@ -16,6 +16,20 @@ async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   });
 }
 
+async function updateState({
+  state,
+  blob,
+}: {
+  state: StateSchema;
+  blob: Blob;
+}) {
+  var formData = new FormData();
+  const file = new File([blob], state.file_name, { type: "application/octet-stream" });
+  formData.append("file", file);
+
+  return api.put(`/states/${state.id}`, formData);
+}
+
 async function deleteStates({
   states,
   deleteFromFs,
@@ -31,5 +45,6 @@ async function deleteStates({
 
 export default {
   uploadStates,
+  updateState,
   deleteStates,
 };

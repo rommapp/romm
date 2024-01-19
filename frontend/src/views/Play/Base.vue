@@ -2,15 +2,15 @@
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import romApi from "@/services/api/rom";
-import saveApi from "@/services/api/save";
+import stateApi from "@/services/api/state";
 import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 
 const route = useRoute();
 const rom = ref<Rom | null>(null);
-const save = ref<SaveSchema | null>(null);
-const state = ref<StateSchema | null>(null);
+const saveRef = ref<SaveSchema | null>(null);
+const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
 
 const script = document.createElement("script");
@@ -26,8 +26,26 @@ window.EJS_defaultOptions = {
   "save-state-location": "browser",
 };
 
-window.EJS_onSaveState = function ({ screenshot, state }) {
-  debugger;
+window.EJS_onSaveState = function ({
+  screenshot,
+  state,
+}: {
+  screenshot: File;
+  state: File;
+}) {
+  if (stateRef.value) {
+    stateApi
+      .updateState({
+        state: stateRef.value,
+        blob: state,
+      })
+      .then((response) => {
+        console.log(response);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  }
 };
 window.EJS_onGameStart = () => {
   gameRunning.value = true;
@@ -50,7 +68,7 @@ onMounted(() => {
 });
 
 function onPlay() {
-  window.EJS_loadStateURL = state.value?.download_path ?? null;
+  window.EJS_loadStateURL = stateRef.value?.download_path ?? null;
   document.body.appendChild(script);
 }
 </script>
@@ -61,8 +79,9 @@ function onPlay() {
       <v-col v-if="rom && !gameRunning" class="v-col-3">
         <v-select
           clearable
+          disabled
           label="Save"
-          v-model="save"
+          v-model="saveRef"
           :items="
             rom.saves.map((s) => ({
               title: s.file_name,
@@ -74,7 +93,7 @@ function onPlay() {
         <v-select
           clearable
           label="State"
-          v-model="state"
+          v-model="stateRef"
           :items="
             rom.states.map((s) => ({
               title: s.file_name,
@@ -93,9 +112,7 @@ function onPlay() {
             'War Room Sturm (AW1) by Kartal',
           ]"
         />
-        <v-btn rounded="0" size="x-large" @click="onPlay()">
-          Play
-        </v-btn>
+        <v-btn rounded="0" size="x-large" @click="onPlay()"> Play </v-btn>
       </v-col>
       <v-col>
         <v-sheet rounded id="game-wrapper">

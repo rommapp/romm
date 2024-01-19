@@ -21,12 +21,9 @@ class FSAssetsHandler(FSHandler):
         file_location = f"{path}/{file.filename}"
         Path(path).mkdir(parents=True, exist_ok=True)
 
-        with open(file_location, "wb+") as f:
-            while True:
-                chunk = file.file.read(1024)
-                if not chunk:
-                    break
-                f.write(chunk)
+        with open(file_location, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+               
 
     @staticmethod
     def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):
