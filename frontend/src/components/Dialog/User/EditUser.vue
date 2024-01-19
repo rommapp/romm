@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events, UserItem } from "@/types/emitter";
 
-import apiUser from "@/services/apiUser";
+import userApi from "@/services/api/user";
 import { defaultAvatarPath } from "@/utils";
 import storeUsers from "@/stores/users";
 
@@ -21,7 +21,7 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
 function editUser() {
   if (!user.value) return;
 
-  apiUser
+  userApi
     .updateUser(user.value)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeMount, ref } from "vue";
 
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 
 const stats = ref({
   PLATFORMS: 0,

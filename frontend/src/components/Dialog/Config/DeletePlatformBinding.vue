@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import apiConfig from "@/services/apiConfig";
+import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -19,7 +19,7 @@ emitter?.on("showDeletePlatformBindingDialog", ({ fsSlug, slug }) => {
 
 // Functions
 function removeBindPlatform() {
-  apiConfig
+  configApi
     .deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value })
     .then(() => {
       configStore.removePlatformBinding(platformBindingFSSlugToDelete.value);

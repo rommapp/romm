@@ -5,7 +5,7 @@ import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
-import apiRom from "@/services/apiRom";
+import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -22,7 +22,7 @@ emitter?.on("showDeleteRomDialog", (romsToDelete) => {
 });
 
 async function deleteRoms() {
-  await apiRom
+  await romApi
     .deleteRoms({ roms: roms.value, deleteFromFs: deleteFromFs.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {

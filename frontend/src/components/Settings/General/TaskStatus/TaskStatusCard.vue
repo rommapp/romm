@@ -5,7 +5,7 @@ import { inject } from "vue";
 
 import TaskScheduler from "@/components/Settings/General/TaskStatus/TaskScheduler.vue";
 import TaskWatcher from "@/components/Settings/General/TaskStatus/TaskWatcher.vue";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRunningTasks from "@/stores/runningTasks";
 

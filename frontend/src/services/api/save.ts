@@ -1,8 +1,8 @@
 import type { SaveSchema } from "@/__generated__";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 import type { Rom } from "@/stores/roms";
 
-export const apiSave = api;
+export const saveApi = api;
 
 async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
   let formData = new FormData();

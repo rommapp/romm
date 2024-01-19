@@ -5,8 +5,8 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import storeRoms from "@/stores/roms";
-import apiSave from "@/services/apiSave";
-import apiState from "@/services/apiState";
+import saveApi from "@/services/api/save";
+import stateApi from "@/services/api/state";
 import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 
@@ -37,11 +37,11 @@ async function deleteAssets() {
 
   const result =
     (await assetType.value) === "saves"
-      ? apiSave.deleteSaves({
+      ? saveApi.deleteSaves({
           saves: assets.value,
           deleteFromFs: deleteFromFs.value,
         })
-      : apiState.deleteStates({
+      : stateApi.deleteStates({
           states: assets.value,
           deleteFromFs: deleteFromFs.value,
         });

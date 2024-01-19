@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import apiPlatform from "@/services/apiPlatform";
+import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 
 const router = useRouter();
@@ -20,7 +20,7 @@ async function deletePlatform() {
   if (!platform.value) return;
 
   show.value = false;
-  await apiPlatform
+  await platformApi
     .deletePlatform({ platform: platform.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
