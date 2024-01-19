@@ -8,6 +8,7 @@
 mkdir -p romm_mock/library/roms/switch
 touch romm_mock/library/roms/switch/metroid.xci
 mkdir -p romm_mock/resources
+mkdir -p romm_mock/config
 touch romm_mock/config.yml
 ```
 
