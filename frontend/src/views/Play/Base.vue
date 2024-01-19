@@ -45,7 +45,6 @@ declare global {
   }
 }
 
-
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
@@ -128,22 +127,25 @@ window.EJS_onSaveState = function ({
         ],
       })
       .then(({ data }) => {
-        if (rom.value) rom.value.states = data.states;
-        stateRef.value = data.states.pop() ?? null;
+        const allStates = data.states.sort((a: StateSchema, b: StateSchema) => a.id - b.id);
+        if (rom.value) rom.value.states = allStates;
+        stateRef.value = allStates.pop() ?? null;
       });
   }
 };
 
 async function getSave(): Promise<Uint8Array> {
   if (saveRef.value) {
-    const { data } = await api.get(saveRef.value.download_path.replace("/api", ""));
+    const { data } = await api.get(
+      saveRef.value.download_path.replace("/api", "")
+    );
     var enc = new TextEncoder();
     return enc.encode(data);
   } else {
     const file = await window.EJS_emulator.selectFile();
     return new Uint8Array(await file.arrayBuffer());
   }
-};
+}
 
 window.EJS_onLoadSave = async function () {
   const sav = await getSave();
@@ -151,22 +153,17 @@ window.EJS_onLoadSave = async function () {
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
   const paths = path.split("/");
   let cp = "";
-  for (let i=0; i<paths.length-1; i++) {
-      if (paths[i] === "") continue;
-      cp += "/"+paths[i];
-      if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
+  for (let i = 0; i < paths.length - 1; i++) {
+    if (paths[i] === "") continue;
+    cp += "/" + paths[i];
+    if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
   }
   if (FS.analyzePath(path).exists) FS.unlink(path);
   FS.writeFile(path, sav);
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
-window.EJS_onSaveSave = function ({
-  save,
-}: {
-  screenshot: File;
-  save: File;
-}) {
+window.EJS_onSaveSave = function ({ save }: { screenshot: File; save: File }) {
   if (saveRef.value) {
     saveApi
       .updateSave({
@@ -189,14 +186,20 @@ window.EJS_onSaveSave = function ({
         ],
       })
       .then(({ data }) => {
-        if (rom.value) rom.value.saves = data.saves;
-        saveRef.value = data.saves.pop() ?? null;
+        const allSaves = data.saves.sort((a: SaveSchema, b: SaveSchema) => a.id - b.id);
+        if (rom.value) rom.value.saves = allSaves;
+        saveRef.value = allSaves.pop() ?? null;
       });
   }
 };
 
-window.EJS_onGameStart = () => {
-  if (saveRef.value) window.EJS_onLoadSave();
+window.EJS_onGameStart = async () => {
+  setTimeout(() => {
+    if (stateRef.value) {
+      window.EJS_onLoadSave();
+      window.EJS_emulator.gameManager.restart();
+    }
+  }, 1000);
   gameRunning.value = true;
 };
 

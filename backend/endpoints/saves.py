@@ -43,6 +43,7 @@ def add_saves(
         scanned_save.rom_id = rom.id
         db_save_handler.add_save(scanned_save)
 
+    rom = db_rom_handler.get_roms(rom_id)
     return {"uploaded": len(saves), "saves": rom.saves}
 
 
@@ -73,6 +74,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         )
         db_save_handler.update_save(db_save.id, {"file_size_bytes": file.size})
 
+    db_save = db_save_handler.get_save(id)
     return db_save
 
 
