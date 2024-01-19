@@ -11,6 +11,7 @@ export type ConfigResponse = {
     EXCLUDED_MULTI_PARTS_EXT: Array<string>;
     EXCLUDED_MULTI_PARTS_FILES: Array<string>;
     PLATFORMS_BINDING: Record<string, string>;
+    PLATFORMS_VERSIONS: Record<string, string>;
     ROMS_FOLDER_NAME: string;
     SAVES_FOLDER_NAME: string;
     STATES_FOLDER_NAME: string;
