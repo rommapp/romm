@@ -19,8 +19,8 @@ import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import api_rom from "@/services/api_rom";
-import api_platform from "@/services/api_platform";
+import apiRom from "@/services/apiRom";
+import apiPlatform from "@/services/apiPlatform";
 
 const route = useRoute();
 const rom = ref<EnhancedRomSchema>();
@@ -32,7 +32,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 async function fetchDetails() {
   if (!route.params.rom) return;
 
-  await api_rom
+  await apiRom
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
@@ -49,7 +49,7 @@ async function fetchDetails() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 
-  await api_platform
+  await apiPlatform
     .getPlatform(rom.value?.platform_id)
     .then((response) => {
       platform.value = response.data;

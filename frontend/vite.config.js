@@ -3,6 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 import { VitePWA } from "vite-plugin-pwa";
 import pluginRewriteAll from "vite-plugin-rewrite-all";
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // Utilities
 import { defineConfig, loadEnv } from "vite";
@@ -46,6 +47,14 @@ export default defineConfig(({ mode }) => {
           type: "module",
         },
       }),
+      viteStaticCopy({
+        targets: [
+          {
+            src: 'node_modules/emulatorjs/data/*',
+            dest: 'assets/emulatorjs/'
+          }
+        ]
+      })
     ],
     define: { "process.env": {} },
     resolve: {

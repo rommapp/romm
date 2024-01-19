@@ -4,7 +4,7 @@ import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import api_rom, { type UpdateRom } from "@/services/api_rom";
+import apiRom, { type UpdateRom } from "@/services/apiRom";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -44,7 +44,7 @@ async function updateRom() {
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
-  await api_rom
+  await apiRom
     .updateRom({ rom: rom.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {

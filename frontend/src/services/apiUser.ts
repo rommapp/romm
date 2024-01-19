@@ -2,7 +2,7 @@ import type { MessageResponse, UserSchema } from "@/__generated__";
 import { api } from "@/services/api";
 import type { User } from "@/stores/users";
 
-export const api_user = api;
+export const apiUser = api;
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
   return api.get("/users");

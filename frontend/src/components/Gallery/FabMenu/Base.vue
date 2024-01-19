@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useRoute } from "vue-router";
 
-import api_rom from "@/services/api_rom";
+import apiRom from "@/services/apiRom";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
@@ -71,7 +71,7 @@ function selectAllRoms() {
 
 function onDownload() {
   romsStore.selectedRoms.forEach((rom) => {
-    api_rom.downloadRom({ rom });
+    apiRom.downloadRom({ rom });
   });
 }
 </script>

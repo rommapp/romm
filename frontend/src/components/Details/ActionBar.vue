@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import storeAuth from "@/stores/auth";
-import api_rom from "@/services/api_rom";
+import apiRom from "@/services/apiRom";
 import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { Rom } from "@/stores/roms";
 
-defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
-const saveFiles = ref(false);
 </script>
 
 <template>
@@ -17,7 +16,7 @@ const saveFiles = ref(false);
     <v-col>
       <v-btn
         @click="
-          api_rom.downloadRom({
+          apiRom.downloadRom({
             rom,
             files: downloadStore.filesToDownloadMultiFileRom,
           })
@@ -31,9 +30,9 @@ const saveFiles = ref(false);
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn rounded="0" block disabled
-        ><v-icon icon="mdi-play" size="large"
-      /></v-btn>
+      <v-btn rounded="0" block :href="`/play/${rom.id}`" :disabled="false">
+        <v-icon icon="mdi-play" size="large"/>
+      </v-btn>
     </v-col>
     <v-col>
       <v-menu location="bottom">

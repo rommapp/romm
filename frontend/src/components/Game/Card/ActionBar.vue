@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import api_rom from "@/services/api_rom";
+import apiRom from "@/services/apiRom";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { Rom } from "@/stores/roms";
 
 // Props
-defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom }>();
 const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
@@ -17,21 +17,22 @@ const downloadStore = storeDownload();
       <v-col class="pa-0">
         <v-btn
           class="action-bar-btn"
-          @click="api_rom.downloadRom({ rom })"
+          @click="apiRom.downloadRom({ rom })"
           :disabled="downloadStore.value.includes(rom.id)"
           icon="mdi-download"
           size="x-small"
           rounded="0"
           variant="text"
         />
-        <!-- <v-btn
-        class="action-bar-btn"
+        <v-btn
+          class="action-bar-btn"
+          :href="`/play/${rom.id}`"
+          :disabled="false"
           icon="mdi-play"
           size="x-small"
           rounded="0"
           variant="text"
-          disabled
-        /> -->
+        />
       </v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
