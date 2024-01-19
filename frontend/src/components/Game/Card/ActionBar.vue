@@ -27,7 +27,6 @@ const downloadStore = storeDownload();
         <v-btn
           class="action-bar-btn"
           :href="`/play/${rom.id}`"
-          :disabled="false"
           icon="mdi-play"
           size="x-small"
           rounded="0"
