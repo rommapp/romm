@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
+import saveApi, { saveApi as api } from "@/services/api/save";
 import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
@@ -39,6 +40,8 @@ declare global {
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
     EJS_onLoadState: () => void;
+    EJS_onSaveSave: (args: { screenshot: File; save: File }) => void;
+    EJS_onLoadSave: () => void;
   }
 }
 
@@ -51,7 +54,7 @@ window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_fullscreenOnLoaded = true;
+window.EJS_fullscreenOnLoaded = false;
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
 };
@@ -70,6 +73,22 @@ function buildStateName(rom: Rom): string {
   }
 
   return stateName;
+}
+
+function buildSaveName(rom: Rom): string {
+  const saves = rom.saves.map((s) => s.file_name);
+  const romName = rom.file_name.replace(EXTENSION_REGEX, "").trim();
+  let saveName = `${romName}.srm`;
+  if (!saves.includes(saveName)) return saveName;
+
+  let i = 2;
+  saveName = `${romName} (${i}).srm`;
+  while (saves.includes(saveName)) {
+    i++;
+    saveName = `${romName} (${i}).srm`;
+  }
+
+  return saveName;
 }
 
 window.EJS_onSaveState = function ({
@@ -115,7 +134,69 @@ window.EJS_onSaveState = function ({
   }
 };
 
+async function getSave(): Promise<Uint8Array> {
+  if (saveRef.value) {
+    const { data } = await api.get(saveRef.value.download_path.replace("/api", ""));
+    var enc = new TextEncoder();
+    return enc.encode(data);
+  } else {
+    const file = await window.EJS_emulator.selectFile();
+    return new Uint8Array(await file.arrayBuffer());
+  }
+};
+
+window.EJS_onLoadSave = async function () {
+  const sav = await getSave();
+  const FS = window.EJS_emulator.Module.FS;
+  const path = window.EJS_emulator.gameManager.getSaveFilePath();
+  const paths = path.split("/");
+  let cp = "";
+  for (let i=0; i<paths.length-1; i++) {
+      if (paths[i] === "") continue;
+      cp += "/"+paths[i];
+      if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
+  }
+  if (FS.analyzePath(path).exists) FS.unlink(path);
+  FS.writeFile(path, sav);
+  window.EJS_emulator.gameManager.loadSaveFiles();
+};
+
+window.EJS_onSaveSave = function ({
+  save,
+}: {
+  screenshot: File;
+  save: File;
+}) {
+  if (saveRef.value) {
+    saveApi
+      .updateSave({
+        save: saveRef.value,
+        file: new File([save], saveRef.value.file_name, {
+          type: "application/octet-stream",
+        }),
+      })
+      .then(({ data }) => {
+        saveRef.value = data;
+      });
+  } else if (rom.value) {
+    saveApi
+      .uploadSaves({
+        rom: rom.value,
+        saves: [
+          new File([save], buildSaveName(rom.value), {
+            type: "application/octet-stream",
+          }),
+        ],
+      })
+      .then(({ data }) => {
+        if (rom.value) rom.value.saves = data.saves;
+        saveRef.value = data.saves.pop() ?? null;
+      });
+  }
+};
+
 window.EJS_onGameStart = () => {
+  if (saveRef.value) window.EJS_onLoadSave();
   gameRunning.value = true;
 };
 
@@ -147,7 +228,6 @@ function onPlay() {
       <v-col v-if="rom && !gameRunning" class="v-col-3">
         <v-select
           clearable
-          disabled
           label="Save"
           v-model="saveRef"
           :items="

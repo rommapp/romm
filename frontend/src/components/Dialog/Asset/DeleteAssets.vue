@@ -47,9 +47,12 @@ async function deleteAssets() {
         });
 
   result
-    .then(({ data }) => {
-      if (romRef.value) {
-        romRef.value[assetType.value] = data;
+    .then(() => {
+      if (romRef.value?.[assetType.value]) {
+        const deletedAssetIds = assets.value.map((asset) => asset.id);
+        romRef.value[assetType.value] = romRef.value[assetType.value].filter(
+          (asset) => !deletedAssetIds.includes(asset.id)
+        );
         romsStore.update(romRef.value);
         emitter?.emit("romUpdated", romRef.value);
       }
