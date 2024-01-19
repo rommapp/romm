@@ -1,14 +1,25 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import storeAuth from "@/stores/auth";
-import romApi from "@/services/api/rom";
-import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
+import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
+const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
+const emulation = ref(false);
+const playInfoIcon = ref("mdi-play")
+
+function toggleEmulation(){
+  emulation.value = !emulation.value
+  playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play"
+  emitter?.emit('showEmulation', null)
+}
 </script>
 
 <template>
@@ -30,8 +41,8 @@ const auth = storeAuth();
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn rounded="0" block :href="`/play/${rom.id}`" :disabled="false">
-        <v-icon icon="mdi-play" size="large"/>
+      <v-btn rounded="0" block @click="toggleEmulation">
+        <v-icon :icon="playInfoIcon" size="large" />
       </v-btn>
     </v-col>
     <v-col>

@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRoute } from "vue-router";
+import type { Rom } from "@/stores/roms";
+import { useDisplay } from "vuetify";
+
+defineProps<{ rom: Rom }>();
+const { xs } = useDisplay();
+
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
-import type { Rom } from "@/stores/roms";
-import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 
 const route = useRoute();
 const rom = ref<Rom | null>(null);
@@ -24,7 +29,7 @@ window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_fullscreenOnLoaded = true;
+window.EJS_fullscreenOnLoaded = false;
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
 };
@@ -113,12 +118,11 @@ function onPlay() {
   document.body.appendChild(script);
 }
 </script>
-
 <template>
-  <v-row no-gutters >
-    <v-col v-if="rom && !gameRunning" cols="3" class="px-3">
-      <v-img class="mx-auto mt-6 mb-5" width="250" src="/assets/powered_by_emulatorjs.png" />
+  <v-row no-gutters>
+    <v-col v-if="rom && !gameRunning" class="12">
       <v-select
+        density="compact"
         class="my-1"
         hide-details
         variant="outlined"
@@ -128,6 +132,7 @@ function onPlay() {
         :items="['gba-bios.zip']"
       />
       <v-select
+        density="compact"
         class="my-1"
         hide-details
         variant="outlined"
@@ -144,6 +149,7 @@ function onPlay() {
         "
       />
       <v-select
+        density="compact"
         class="my-1"
         hide-details
         variant="outlined"
@@ -159,6 +165,7 @@ function onPlay() {
         "
       />
       <v-select
+        density="compact"
         class="my-1"
         hide-details
         variant="outlined"
@@ -170,23 +177,35 @@ function onPlay() {
           'War Room Sturm (AW1) by Kartal',
         ]"
       />
-      <v-btn
-        class="mt-4"
-        block
-        rounded="0"
-        variant="outlined"
-        size="x-large"
-        @click="onPlay()"
-      >
-        <v-icon class="mr-2">mdi-play</v-icon>Play
-      </v-btn>
+      <v-row no-gutters>
+        <v-col cols="8">
+          <v-btn
+            density="compact"
+            class="mt-4"
+            block
+            rounded="0"
+            variant="outlined"
+            size="x-large"
+            @click="onPlay()"
+          >
+            <v-icon class="mr-2">mdi-play</v-icon>Play
+          </v-btn>
+        </v-col>
+        <v-col cols="4">
+          <img
+            class="ma-3"
+            width="150"
+            src="/assets/powered_by_emulatorjs.png"
+          />
+        </v-col>
+      </v-row>
     </v-col>
 
-    <v-col class="my-4 bg-primary" :cols="gameWindow" rounded id="game-wrapper">
-      <v-img v-if="!gameRunning" :src="`/assets/romm/resources/${rom?.path_cover_l}`" />
+    <v-col cols="12" rounded id="game-wrapper">
       <div id="game"></div>
     </v-col>
   </v-row>
+  <v-row> </v-row>
 </template>
 
 <style>
