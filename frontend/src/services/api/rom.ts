@@ -6,12 +6,12 @@ import type {
   RomSchema,
   RomSearchResponse,
 } from "@/__generated__";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
 
-export const apiRom = api;
+export const romApi = api;
 
 async function uploadRoms({
   platform,

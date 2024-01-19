@@ -1,7 +1,7 @@
 import type { MessageResponse, PlatformSchema } from "@/__generated__";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 
-export const apiPlatform = api;
+export const platformApi = api;
 
 async function getPlatforms(): Promise<{ data: PlatformSchema[] }> {
   return api.get("/platforms");

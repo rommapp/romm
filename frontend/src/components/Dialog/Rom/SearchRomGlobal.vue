@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import apiRom from "@/services/apiRom";
+import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -30,7 +30,7 @@ function clearFilter() {
 async function searchRoms() {
   searching.value = true;
   searchedRoms.value = (
-    await apiRom.getRoms({ searchTerm: searchValue.value, size: 250 })
+    await romApi.getRoms({ searchTerm: searchValue.value, size: 250 })
   ).data.items.sort((a, b) => {
     return a.platform_name.localeCompare(b.platform_name);
   });

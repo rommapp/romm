@@ -1,8 +1,8 @@
 import type { StateSchema } from "@/__generated__";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 import type { Rom } from "@/stores/roms";
 
-export const apiState = api;
+export const stateApi = api;
 
 async function uploadStates({ rom, states }: { rom: Rom; states: File[] }) {
   let formData = new FormData();
