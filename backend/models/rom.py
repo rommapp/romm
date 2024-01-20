@@ -24,6 +24,7 @@ class Rom(BaseModel):
 
     file_name: str = Column(String(length=450), nullable=False)
     file_name_no_tags: str = Column(String(length=450), nullable=False)
+    file_name_no_ext: str = Column(String(length=450), nullable=False)
     file_extension: str = Column(String(length=100), nullable=False)
     file_path: str = Column(String(length=1000), nullable=False)
     file_size_bytes: int = Column(BigInteger(), default=0, nullable=False)

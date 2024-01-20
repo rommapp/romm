@@ -126,7 +126,7 @@ async def scan_platforms(
 
             # Scanning saves
             fs_saves = fs_asset_handler.get_assets(
-                platform.fs_slug, rom.file_name_no_tags, Asset.SAVES
+                platform.fs_slug, rom.file_name_no_ext, Asset.SAVES
             )
             if len(fs_saves) > 0:
                 log.info(f"\t · {len(fs_saves)} saves found")
@@ -185,7 +185,7 @@ async def scan_platforms(
 
             # Scanning screenshots
             fs_screenshots = fs_asset_handler.get_assets(
-                platform.fs_slug, rom.file_name_no_tags, Asset.SCREENSHOTS
+                platform.fs_slug, rom.file_name_no_ext, Asset.SCREENSHOTS
             )
             if len(fs_screenshots) > 0:
                 log.info(f"\t · {len(fs_screenshots)} screenshots found")
