@@ -30,6 +30,14 @@ export type Events = {
     fsSlug: string;
     slug: string;
   };
+  showCreatePlatformVersionDialog: {
+    fsSlug: string;
+    slug: string;
+  };
+  showDeletePlatformVersionDialog: {
+    fsSlug: string;
+    slug: string;
+  };
   showCreateExclusionDialog: { exclude: string };
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;

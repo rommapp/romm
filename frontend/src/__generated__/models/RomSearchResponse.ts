@@ -3,10 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { IGDBRomType } from './IGDBRomType';
+import type { IGDBRom } from './IGDBRom';
 
 export type RomSearchResponse = {
     msg: string;
-    roms: Array<IGDBRomType>;
+    roms: Array<IGDBRom>;
 };
 

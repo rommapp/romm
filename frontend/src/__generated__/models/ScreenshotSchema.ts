@@ -12,6 +12,8 @@ export type ScreenshotSchema = {
     file_size_bytes: number;
     full_path: string;
     download_path: string;
+    created_at: string;
+    updated_at: string;
     rom_id: number;
 };
 

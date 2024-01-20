@@ -17,5 +17,11 @@ export default defineStore("config", {
     removePlatformBinding(fsSlug: string) {
       delete this.value.PLATFORMS_BINDING[fsSlug];
     },
+    addPlatformVersion(fsSlug: string, slug: string) {
+      this.value.PLATFORMS_VERSIONS[fsSlug] = slug;
+    },
+    removePlatformVersion(fsSlug: string) {
+      delete this.value.PLATFORMS_VERSIONS[fsSlug];
+    },
   },
 });

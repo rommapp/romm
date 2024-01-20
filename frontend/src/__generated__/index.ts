@@ -15,7 +15,7 @@ export type { CursorPage_RomSchema_ } from './models/CursorPage_RomSchema_';
 export type { EnhancedRomSchema } from './models/EnhancedRomSchema';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
-export type { IGDBRomType } from './models/IGDBRomType';
+export type { IGDBRom } from './models/IGDBRom';
 export type { MessageResponse } from './models/MessageResponse';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
