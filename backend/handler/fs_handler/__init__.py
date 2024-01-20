@@ -72,7 +72,7 @@ LANGUAGES_BY_SHORTCODE = {lang[0].lower(): lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = [lang[1].lower() for lang in LANGUAGES]
 
 TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
-EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
+EXTENSION_REGEX = r"(\.[a-z]{2,})+$"
 
 
 class CoverSize(Enum):
@@ -104,7 +104,7 @@ class FSHandler(ABC):
 
     @staticmethod
     def get_file_name_with_no_tags(file_name: str) -> str:
-        file_name_no_extension = re.sub(EXTENSION_REGEX, "", file_name).strip()
+        file_name_no_extension = FSHandler.get_file_name_with_no_extension(file_name)
         return re.split(TAG_REGEX, file_name_no_extension)[0].strip()
 
     @staticmethod

@@ -13,9 +13,6 @@ const props = defineProps<{
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
 
-// Uses a different regex for jaavscript
-const EXTENSION_REGEX = new RegExp("\.(([a-z]+\.)*)$");
-
 // Declare global variables for EmulatorJS
 declare global {
   interface Window {
@@ -61,7 +58,7 @@ if (props.rom.name) window.EJS_gameName = props.rom.name;
 
 function buildStateName(): string {
   const states = props.rom.states.map((s) => s.file_name);
-  const romName = props.rom.file_name.replace(EXTENSION_REGEX, "").trim();
+  const romName = props.rom.file_name_no_ext.trim();
   let stateName = `${romName}.state.auto`;
   if (!states.includes(stateName)) return stateName;
 
@@ -77,7 +74,7 @@ function buildStateName(): string {
 
 function buildSaveName(): string {
   const saves = props.rom.saves.map((s) => s.file_name);
-  const romName = props.rom.file_name.replace(EXTENSION_REGEX, "").trim();
+  const romName = props.rom.file_name_no_ext.trim();
   let saveName = `${romName}.srm`;
   if (!saves.includes(saveName)) return saveName;
 

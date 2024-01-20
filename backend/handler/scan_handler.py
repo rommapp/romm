@@ -111,6 +111,9 @@ async def scan_rom(
             "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
                 rom_attrs["file_name"]
             ),
+            "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
+                rom_attrs["file_name"]
+            ),
             "file_extension": fs_rom_handler.parse_file_extension(
                 rom_attrs["file_name"]
             ),
@@ -176,6 +179,7 @@ def _scan_asset(file_name: str, path: str):
         "file_path": path,
         "file_name": file_name,
         "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
+        "file_name_no_ext": fs_asset_handler.get_file_name_with_no_extension(file_name),
         "file_extension": fs_asset_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
