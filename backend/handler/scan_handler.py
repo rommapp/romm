@@ -1,17 +1,38 @@
 import os
 from typing import Any
-import emoji
 
+import emoji
 from config.config_manager import config_manager as cm
-from handler import fs_asset_handler, igdb_handler, fs_resource_handler, fs_rom_handler, db_platform_handler
+from handler import (
+    db_platform_handler,
+    fs_asset_handler,
+    fs_resource_handler,
+    fs_rom_handler,
+    igdb_handler,
+)
 from logger.logger import log
+from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
-from models.assets import Save, Screenshot, State
 
-SWAPPED_PLATFORM_BINDINGS = dict(
-    (v, k) for k, v in cm.config.PLATFORMS_BINDING.items()
-)
+SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in cm.config.PLATFORMS_BINDING.items())
+
+
+def _get_main_platform_igdb_id(platform: Platform):
+    if platform.fs_slug in cm.config.PLATFORMS_VERSIONS.keys():
+        main_platform_slug = cm.config.PLATFORMS_VERSIONS[platform.fs_slug]
+        main_platform = db_platform_handler.get_platform_by_slug(main_platform_slug)
+        if main_platform:
+            main_platform_igdb_id = main_platform.igdb_id
+        else:
+            main_platform_igdb_id = igdb_handler.get_platform(main_platform_slug)[
+                "igdb_id"
+            ]
+            if not main_platform_igdb_id:
+                main_platform_igdb_id = platform.igdb_id
+    else:
+        main_platform_igdb_id = platform.igdb_id
+    return main_platform_igdb_id
 
 
 def scan_platform(fs_slug: str, fs_platforms) -> Platform:
@@ -51,7 +72,9 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
     if platform["igdb_id"]:
         log.info(emoji.emojize(f"  Identified as {platform['name']} :video_game:"))
     else:
-        log.warning(emoji.emojize(f"  {platform_attrs['slug']} not found in IGDB :cross_mark:"))
+        log.warning(
+            emoji.emojize(f"  {platform_attrs['slug']} not found in IGDB :cross_mark:")
+        )
 
     platform_attrs.update(platform)
 
@@ -85,8 +108,12 @@ async def scan_rom(
             "platform_id": platform.id,
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
-            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(rom_attrs["file_name"]),
-            "file_extension": fs_rom_handler.parse_file_extension(rom_attrs["file_name"]),
+            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
+                rom_attrs["file_name"]
+            ),
+            "file_extension": fs_rom_handler.parse_file_extension(
+                rom_attrs["file_name"]
+            ),
             "file_size_bytes": file_size,
             "multi": rom_attrs["multi"],
             "regions": regs,
@@ -96,11 +123,13 @@ async def scan_rom(
         }
     )
 
+    main_platform_igdb_id = _get_main_platform_igdb_id(platform)
+
     # Search in IGDB
     igdb_handler_rom = (
         igdb_handler.get_rom_by_id(int(r_igbd_id_search))
         if r_igbd_id_search
-        else await igdb_handler.get_rom(rom_attrs["file_name"], platform.igdb_id)
+        else await igdb_handler.get_rom(rom_attrs["file_name"], main_platform_igdb_id)
     )
 
     rom_attrs.update(igdb_handler_rom)
@@ -108,11 +137,15 @@ async def scan_rom(
     # Return early if not found in IGDB
     if not igdb_handler_rom["igdb_id"]:
         log.warning(
-            emoji.emojize(f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB :cross_mark:")
+            emoji.emojize(
+                f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB :cross_mark:"
+            )
         )
         return Rom(**rom_attrs)
 
-    log.info(emoji.emojize(f"\t   Identified as {igdb_handler_rom['name']} :alien_monster:"))
+    log.info(
+        emoji.emojize(f"\t   Identified as {igdb_handler_rom['name']} :alien_monster:")
+    )
 
     # Update properties from IGDB
     rom_attrs.update(
@@ -180,6 +213,4 @@ def scan_screenshot(file_name: str, platform_slug: Platform = None) -> Screensho
     if platform_slug:
         return Screenshot(**_scan_asset(file_name, screenshots_path))
 
-    return Screenshot(
-        **_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME)
-    )
+    return Screenshot(**_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME))

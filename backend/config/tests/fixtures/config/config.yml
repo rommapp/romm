@@ -23,6 +23,8 @@ exclude:
 system:
   platforms:
     gc: 'ngc'
+  versions:
+    naomi: 'arcade'
 
 filesystem:
   roms_folder: 'ROMS'
