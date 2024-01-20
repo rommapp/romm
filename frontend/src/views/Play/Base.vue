@@ -43,7 +43,7 @@ function onPlay() {
       <v-img
         class="mx-auto mt-6 mb-5"
         width="250"
-        src="/assets/powered_by_emulatorjs.png"
+        src="/assets/emulatorjs/powered_by_emulatorjs.png"
       />
       <!-- <v-select
         class="my-1"
