@@ -48,6 +48,7 @@ romm_mock
 # testing
 backend/romm_test/resources
 backend/romm_test/logs
+backend/romm_test/config
 .pytest_cache
 
 # service worker

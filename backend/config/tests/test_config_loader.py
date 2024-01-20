@@ -6,7 +6,7 @@ from config.config_manager import ConfigManager
 
 def test_config_loader():
     loader = ConfigManager(
-        os.path.join(Path(__file__).resolve().parent, "fixtures", "config.yml")
+        os.path.join(Path(__file__).resolve().parent, "fixtures", "config/config.yml")
     )
 
     assert loader.config.EXCLUDED_PLATFORMS == ["romm"]
@@ -16,6 +16,7 @@ def test_config_loader():
     assert loader.config.EXCLUDED_MULTI_PARTS_EXT == ["txt"]
     assert loader.config.EXCLUDED_MULTI_PARTS_FILES == ["data.xml"]
     assert loader.config.PLATFORMS_BINDING == {"gc": "ngc"}
+    assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
     assert loader.config.SAVES_FOLDER_NAME == "SAVES"
     assert loader.config.STATES_FOLDER_NAME == "STATES"
@@ -23,7 +24,7 @@ def test_config_loader():
 
 
 def test_empty_config_loader():
-    loader = ConfigManager("")
+    loader = ConfigManager("config/empty_config.yml")
 
     assert loader.config.EXCLUDED_PLATFORMS == []
     assert loader.config.EXCLUDED_SINGLE_EXT == []
@@ -32,6 +33,7 @@ def test_empty_config_loader():
     assert loader.config.EXCLUDED_MULTI_PARTS_EXT == []
     assert loader.config.EXCLUDED_MULTI_PARTS_FILES == []
     assert loader.config.PLATFORMS_BINDING == {}
+    assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.SAVES_FOLDER_NAME == "saves"
     assert loader.config.STATES_FOLDER_NAME == "states"
