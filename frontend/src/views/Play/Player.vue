@@ -43,16 +43,12 @@ declare global {
 
 window.EJS_core = props.rom.platform_slug;
 window.EJS_gameID = props.rom.id;
-window.EJS_backgroundImage =
-  props.rom.url_screenshots[0] ||
-  `/assets/romm/resources/${props.rom.path_cover_l}`;
 window.EJS_gameUrl = props.rom.download_path;
 window.EJS_player = "#game";
 window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_fullscreenOnLoaded = false;
 window.EJS_defaultOptions = { "save-state-location": "browser" };
 if (props.rom.name) window.EJS_gameName = props.rom.name;
 
@@ -230,11 +226,6 @@ window.EJS_onGameStart = async () => {
   <div id="game"></div>
 </template>
 
-<style>
-div.ejs_game {
-  background-color: #191d22;
-}
-</style>
 
 <!-- Other config options: https://emulatorjs.org/docs/Options.html -->
 
