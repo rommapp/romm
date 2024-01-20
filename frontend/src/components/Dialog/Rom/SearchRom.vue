@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-import type { IGDBRomType } from "@/__generated__";
+import type { RomSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeRoms, { type Rom } from "@/stores/roms";
 
@@ -16,7 +16,7 @@ const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
-const matchedRoms = ref<IGDBRomType[]>([]);
+const matchedRoms = ref<RomSchema[]>([]);
 const selectedScrapSource = ref(0);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -41,7 +41,7 @@ async function searchRom() {
         searchBy: searchBy.value,
       })
       .then((response) => {
-        matchedRoms.value = response.data.roms;
+        matchedRoms.value = response.data;
       })
       .catch((error) => {
         console.log(error);
@@ -52,7 +52,7 @@ async function searchRom() {
   }
 }
 
-async function updateRom(matchedRom: IGDBRomType) {
+async function updateRom(matchedRom: Rom) {
   if (!rom.value) return;
 
   show.value = false;

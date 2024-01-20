@@ -1,7 +1,7 @@
 import emoji
 from decorators.auth import protected_route
-from endpoints.responses.search import RomSearchResponse
 from fastapi import APIRouter, Request
+from endpoints.responses.rom import RomSchema
 from handler import db_rom_handler, igdb_handler
 from logger.logger import log
 
@@ -11,7 +11,7 @@ router = APIRouter()
 @protected_route(router.get, "/search/roms", ["roms.read"])
 async def search_rom(
     request: Request, rom_id: str,  source: str, search_term: str = None, search_by: str = "name"
-) -> RomSearchResponse:
+) -> list[RomSchema]:
     """Search rom into IGDB database
 
     Args:
@@ -41,4 +41,4 @@ async def search_rom(
     for m_rom in matched_roms:
         log.info(f"\t - {m_rom['name']}")
 
-    return {"roms": matched_roms, "msg": "success"}
+    return [RomSchema(**m_rom) for m_rom in matched_roms]
