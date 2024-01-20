@@ -36,23 +36,6 @@ const routes = [
         path: "/settings/control-panel/",
         name: "controlPanel",
         component: () => import("@/views/Settings/ControlPanel/Base.vue"),
-        // children: [
-        //   {
-        //     path: "/settings/control-panel/general",
-        //     name: "controlPanelGeneral",
-        //     component: () => import("@/views/Settings/ControlPanel/General/Base.vue"),
-        //   },
-        //   {
-        //     path: "/settings/control-panel/config",
-        //     name: "controlPanelConfig",
-        //     component: () => import("@/views/Settings/ControlPanel/Config/Base.vue"),
-        //   },
-        //   {
-        //     path: "/settings/control-panel/users",
-        //     name: "controlPanelUsers",
-        //     component: () => import("@/views/Settings/ControlPanel/Users/Base.vue"),
-        //   }
-        // ]
       },
       {
         path: "/:pathMatch(.*)*",
@@ -63,7 +46,7 @@ const routes = [
   },
   {
     path: "/play/:rom",
-    component: () => import("@/components/Details/Emulation.vue"),
+    component: () => import("@/views/Play/Base.vue"),
   },
 ];
 
