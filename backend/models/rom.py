@@ -1,5 +1,4 @@
 import re
-import secrets
 from functools import cached_property
 
 from config import (
@@ -86,7 +85,7 @@ class Rom(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}?s={secrets.token_hex(8)}"
+        return f"/api/raw/{self.full_path}"
 
     @cached_property
     def has_cover(self) -> bool:
