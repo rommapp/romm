@@ -3,8 +3,7 @@ import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Rom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import Player from "@/views/Play/Player.vue";
-import { onMounted } from "vue";
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 const props = defineProps<{ rom: Rom }>();
@@ -19,6 +18,9 @@ script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
 function onPlay() {
+  // let backgroundImage = `/assets/romm/resources/${props.rom.platform_slug}/${props.rom.name}/screenshots/states/${stateRef.value?.file_name}.jpg`
+  let backgroundImage = `/assets/romm/resources/${props.rom.path_cover_l}`;
+  window.EJS_backgroundImage = backgroundImage
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;
@@ -31,8 +33,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-row v-if="rom" no-gutters>
-    <v-col v-if="!gameRunning" class="mb-6">
+  <v-row v-if="rom && !gameRunning" no-gutters class="align-center">
+    <v-col cols="5" class="text-truncate mx-1">
       <!-- <v-select
         density="compact"
         class="my-2"
@@ -94,34 +96,43 @@ onMounted(() => {
         color="romm-accent-1"
         label="Full screen"
       />
-      <v-row no-gutters class="align-center">
-        <v-col cols="12" lg="8" xl="8">
-          <v-btn
-            block
-            density="compact"
-            class="text-romm-accent-1"
-            variant="outlined"
-            size="x-large"
-            @click="onPlay()"
-          >
-            <v-icon class="mr-2">mdi-play</v-icon>Play
-          </v-btn>
-        </v-col>
-        <v-col cols="12" lg="4" xl="4">
-          <img
-            :class="{ 'mt-6': smAndDown, 'ml-7': mdAndUp }"
-            width="150"
-            src="/assets/powered_by_emulatorjs.png"
-          />
-        </v-col>
-      </v-row>
     </v-col>
+    <v-col cols="6" class="mx-1">
+      <v-img
+        class="bg-black"
+        height="160"
+        :src="`/assets/romm/resources/${props.rom.platform_slug}/${props.rom.name}/screenshots/states/${stateRef?.file_name}.jpg`"
+      />
+    </v-col>
+  </v-row>
 
-    <v-col cols="12" rounded id="game-wrapper">
+  <v-row no-gutters class="align-center mt-6" v-if="!gameRunning">
+    <v-col cols="12" lg="7" xl="7">
+      <v-btn
+        block
+        density="compact"
+        class="text-romm-accent-1"
+        variant="outlined"
+        size="x-large"
+        @click="onPlay()"
+      >
+        <v-icon class="mr-2">mdi-play</v-icon>Play
+      </v-btn>
+    </v-col>
+    <v-col cols="12" lg="5" xl="5">
+      <img
+        :class="{ 'mt-6': smAndDown, 'ml-7': mdAndUp }"
+        width="150"
+        src="/assets/powered_by_emulatorjs.png"
+      />
+    </v-col>
+  </v-row>
+
+  <v-row no-gutters>
+    <v-col v-if="gameRunning" cols="12" rounded id="game-wrapper">
       <player :rom="rom" :state="stateRef" :save="saveRef" />
     </v-col>
   </v-row>
-  <v-row> </v-row>
 </template>
 
 <style>
