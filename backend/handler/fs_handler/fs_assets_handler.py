@@ -23,7 +23,6 @@ class FSAssetsHandler(FSHandler):
 
         with open(file_location, "wb") as f:
             shutil.copyfileobj(file.file, f)
-               
 
     @staticmethod
     def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):
@@ -68,7 +67,7 @@ class FSAssetsHandler(FSHandler):
         return {"path_screenshots": path_screenshots}
 
     def get_assets(
-        self, platform_slug: str, rom_file_name_no_tags: str, asset_type: Asset
+        self, platform_slug: str, rom_file_name_no_ext: str, asset_type: Asset
     ):
         asset_folder_name = {
             Asset.SAVES: cm.config.SAVES_FOLDER_NAME,
@@ -90,13 +89,14 @@ class FSAssetsHandler(FSHandler):
                 assets += [
                     (emulator, file)
                     for file in list(os.walk(f"{assets_file_path}/{emulator}"))[0][2]
-                    if rom_file_name_no_tags == self.get_file_name_with_no_tags(file)
+                    if rom_file_name_no_ext
+                    == self.get_file_name_with_no_extension(file)
                 ]
 
             assets += [
                 (None, file)
                 for file in list(os.walk(assets_file_path))[0][2]
-                if rom_file_name_no_tags == self.get_file_name_with_no_tags(file)
+                if rom_file_name_no_ext == self.get_file_name_with_no_extension(file)
             ]
         except IndexError:
             pass

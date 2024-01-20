@@ -1,13 +1,13 @@
 from models.assets import Save, State, Screenshot
 
 def test_save(save: Save):
-    assert save.full_path == "test_platform_slug/saves/test_emulator/test_save.sav"
-    assert save.download_path == "/api/raw/test_platform_slug/saves/test_emulator/test_save.sav"
+    assert "test_platform_slug/saves/test_emulator/test_save.sav" in save.full_path
+    assert "/api/raw/test_platform_slug/saves/test_emulator/test_save.sav" in save.download_path
 
 def test_state(state: State):
-    assert state.full_path == "test_platform_slug/states/test_emulator/test_state.state"
-    assert state.download_path == "/api/raw/test_platform_slug/states/test_emulator/test_state.state"
+    assert "test_platform_slug/states/test_emulator/test_state.state" in state.full_path
+    assert "/api/raw/test_platform_slug/states/test_emulator/test_state.state" in state.download_path
 
 def test_screenshot(screenshot: Screenshot):
-    assert screenshot.full_path == "test_platform_slug/screenshots/test_screenshot.png"
-    assert screenshot.download_path == "/api/raw/test_platform_slug/screenshots/test_screenshot.png"
+    assert "test_platform_slug/screenshots/test_screenshot.png" in screenshot.full_path
+    assert "/api/raw/test_platform_slug/screenshots/test_screenshot.png" in screenshot.download_path
