@@ -17,7 +17,13 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler import db_platform_handler, db_rom_handler, fs_asset_handler, fs_resource_handler, fs_rom_handler
+from handler import (
+    db_platform_handler,
+    db_rom_handler,
+    fs_asset_handler,
+    fs_resource_handler,
+    fs_rom_handler,
+)
 from logger.logger import log
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 
@@ -238,6 +244,9 @@ async def update_rom(
     cleaned_data["file_name_no_tags"] = fs_rom_handler.get_file_name_with_no_tags(
         fs_safe_file_name
     )
+    cleaned_data["file_name_no_ext"] = fs_rom_handler.get_file_name_with_no_extension(
+        fs_safe_file_name
+    )
     cleaned_data.update(
         fs_resource_handler.get_rom_cover(
             overwrite=True,
@@ -257,7 +266,11 @@ async def update_rom(
 
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
-        path_cover_l, path_cover_s, artwork_path = fs_resource_handler.build_artwork_path(
+        (
+            path_cover_l,
+            path_cover_s,
+            artwork_path,
+        ) = fs_resource_handler.build_artwork_path(
             cleaned_data["name"], platform_fs_slug, file_ext
         )
 
@@ -312,7 +325,9 @@ async def delete_roms(
         if delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")
             try:
-                fs_rom_handler.remove_file(file_name=rom.file_name, file_path=rom.file_path)
+                fs_rom_handler.remove_file(
+                    file_name=rom.file_name, file_path=rom.file_path
+                )
             except FileNotFoundError:
                 error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
                 log.error(error)

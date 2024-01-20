@@ -71,6 +71,14 @@ class DBRomsHandler(DBHandler):
         ).first()
 
     @begin_session
+    def get_rom_by_filename_no_ext(
+        self, file_name_no_ext: str, session: Session = None
+    ):
+        return session.scalars(
+            select(Rom).filter_by(file_name_no_ext=file_name_no_ext).limit(1)
+        ).first()
+
+    @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None):
         return session.execute(
             update(Rom)
