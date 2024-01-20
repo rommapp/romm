@@ -72,7 +72,7 @@ LANGUAGES_BY_SHORTCODE = {lang[0].lower(): lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = [lang[1].lower() for lang in LANGUAGES]
 
 TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
-EXTENSION_REGEX = r"(\.[a-z]{2,})+$"
+EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
 
 
 class CoverSize(Enum):
