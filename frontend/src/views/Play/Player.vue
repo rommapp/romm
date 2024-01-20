@@ -91,13 +91,13 @@ function buildSaveName(): string {
   return saveName;
 }
 
-async function fetchAsset(
-  asset: SaveSchema | StateSchema | null
-): Promise<Uint8Array> {
-  if (asset) {
-    const { data } = await api.get(asset.download_path.replace("/api", ""));
-    var enc = new TextEncoder();
-    return enc.encode(data);
+async function fetchState(): Promise<Uint8Array> {
+  if (stateRef.value) {
+    const { data } = await api.get(
+      stateRef.value.download_path.replace("/api", ""),
+      { responseType: "arraybuffer" }
+    );
+    return new Uint8Array(data);
   } else if (window.EJS_emulator.saveInBrowserSupported()) {
     const data = await window.EJS_emulator.storage.states.get(
       window.EJS_emulator.getBaseFileName() + ".state"
@@ -108,7 +108,7 @@ async function fetchAsset(
 }
 
 window.EJS_onLoadState = async function () {
-  const stat = await fetchAsset(stateRef.value);
+  const stat = await fetchState();
   window.EJS_emulator.gameManager.loadState(stat);
   window.EJS_emulator.displayMessage("LOADED FROM ROMM");
 };
@@ -157,8 +157,21 @@ window.EJS_onSaveState = function ({
   }
 };
 
+async function fetchSave(): Promise<Uint8Array> {
+  if (saveRef.value) {
+    const { data } = await api.get(
+      saveRef.value.download_path.replace("/api", ""),
+      { responseType: "arraybuffer" }
+    );
+    return new Uint8Array(data);
+  }
+
+  const file = await window.EJS_emulator.selectFile();
+  return new Uint8Array(await file.arrayBuffer());
+}
+
 window.EJS_onLoadSave = async function () {
-  const sav = await fetchAsset(saveRef.value);
+  const sav = await fetchSave();
   const FS = window.EJS_emulator.Module.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
   const paths = path.split("/");
@@ -210,10 +223,9 @@ window.EJS_onGameStart = async () => {
   stateRef.value = props.state;
 
   setTimeout(() => {
-    if (saveRef.value) window.EJS_onLoadSave();
-    window.EJS_emulator.gameManager.restart();
     if (stateRef.value) window.EJS_onLoadState();
-  }, 500);
+    if (saveRef.value) window.EJS_onLoadSave();
+  }, 10);
 };
 </script>
 
