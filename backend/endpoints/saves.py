@@ -32,7 +32,7 @@ def add_saves(
         fs_asset_handler._write_file(file=save, path=saves_path)
 
         # Scan or update save
-        scanned_save = scan_save(rom.platform, save.filename)
+        scanned_save = scan_save(platform=rom.platform, file_name=save.filename)
         db_save = db_save_handler.get_save_by_filename(rom.id, save.filename)
         if db_save:
             db_save_handler.update_save(

@@ -1,8 +1,8 @@
 from functools import cached_property
-
 from models.base import BaseModel
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
+from typing import Optional
 
 
 class BaseAsset(BaseModel):
@@ -45,6 +45,17 @@ class Save(BaseAsset):
 
     rom = relationship("Rom", lazy="selectin", back_populates="saves")
 
+    @cached_property
+    def screenshot(self) -> Optional["Screenshot"]:
+        from handler import db_rom_handler
+
+        db_rom = db_rom_handler.get_roms(self.rom_id)
+        for screenshot in db_rom.screenshots:
+            if screenshot.file_name_no_ext == self.file_name:
+                return screenshot
+
+        return None
+
 
 class State(BaseAsset):
     __tablename__ = "states"
@@ -53,6 +64,17 @@ class State(BaseAsset):
     emulator = Column(String(length=50), nullable=True)
 
     rom = relationship("Rom", lazy="selectin", back_populates="states")
+
+    @cached_property
+    def screenshot(self) -> Optional["Screenshot"]:
+        from handler import db_rom_handler
+
+        db_rom = db_rom_handler.get_roms(self.rom_id)
+        for screenshot in db_rom.screenshots:
+            if screenshot.file_name_no_ext == self.file_name:
+                return screenshot
+
+        return None
 
 
 class Screenshot(BaseAsset):

@@ -2,6 +2,7 @@
 import { ref, onBeforeUnmount } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
+import screenshotApi from "@/services/api/screenshot";
 import type { Rom } from "@/stores/roms";
 import { platformSlugEJSPlatformMap } from "@/utils";
 import type { SaveSchema, StateSchema } from "@/__generated__";
@@ -54,6 +55,7 @@ window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
+window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
 window.EJS_defaultOptions = { "save-state-location": "browser" };
 if (props.rom.name) window.EJS_gameName = props.rom.name;
 
@@ -113,9 +115,10 @@ window.EJS_onLoadState = async function () {
 
 window.EJS_onSaveState = function ({
   state,
+  screenshot,
 }: {
-  screenshot: File;
-  state: File;
+  screenshot: BlobPart;
+  state: BlobPart;
 }) {
   if (window.EJS_emulator.saveInBrowserSupported()) {
     window.EJS_emulator.storage.states.put(
@@ -152,6 +155,23 @@ window.EJS_onSaveState = function ({
         if (props.rom) props.rom.states = allStates;
         stateRef.value = allStates.pop() ?? null;
       });
+
+    screenshotApi
+      .uploadScreenshots({
+        rom: props.rom,
+        screenshots: [
+          new File([screenshot], `${buildStateName()}.png`, {
+            type: "application/octet-stream",
+          }),
+        ],
+      })
+      .then(({ data }) => {
+        if (props.rom) {
+          props.rom.screenshots = data.screenshots;
+          props.rom.url_screenshots = data.url_screenshots;
+          props.rom.merged_screenshots = data.merged_screenshots;
+        }
+      });
   }
 };
 
@@ -184,7 +204,13 @@ window.EJS_onLoadSave = async function () {
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
-window.EJS_onSaveSave = function ({ save }: { screenshot: File; save: File }) {
+window.EJS_onSaveSave = function ({
+  save,
+  screenshot,
+}: {
+  save: BlobPart;
+  screenshot: BlobPart;
+}) {
   if (saveRef.value) {
     saveApi
       .updateSave({
@@ -230,7 +256,6 @@ window.EJS_onGameStart = async () => {
 <template>
   <div id="game"></div>
 </template>
-
 
 <!-- Other config options: https://emulatorjs.org/docs/Options.html -->
 

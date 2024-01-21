@@ -22,9 +22,21 @@ class BaseAsset(BaseModel):
         from_attributes = True
 
 
+class ScreenshotSchema(BaseAsset):
+    rom_id: int
+
+
+class UploadedScreenshotsResponse(TypedDict):
+    uploaded: int
+    screenshots: list[ScreenshotSchema]
+    url_screenshots: list[str]
+    merged_screenshots: list[str]
+
+
 class SaveSchema(BaseAsset):
     rom_id: int
     emulator: Optional[str]
+    screenshot: Optional[ScreenshotSchema]
 
 
 class UploadedSavesResponse(TypedDict):
@@ -35,12 +47,9 @@ class UploadedSavesResponse(TypedDict):
 class StateSchema(BaseAsset):
     rom_id: int
     emulator: Optional[str]
+    screenshot: Optional[ScreenshotSchema]
 
 
 class UploadedStatesResponse(TypedDict):
     uploaded: int
     states: list[StateSchema]
-
-
-class ScreenshotSchema(BaseAsset):
-    rom_id: int

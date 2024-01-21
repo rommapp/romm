@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import rom from "@/services/api/rom";
 import type { Rom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import Player from "@/views/Play/Player.vue";
-import { ref, onMounted } from "vue";
-import { useDisplay } from "vuetify";
+import { ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
 const saveRef = ref<SaveSchema | null>(null);
@@ -17,16 +17,10 @@ script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
 function onPlay() {
-  window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png"
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;
 }
-
-onMounted(() => {
-  const wrapper = document.getElementById("game-wrapper");
-  if (wrapper) wrapper.style.backgroundImage = `url(${window.EJS_backgroundImage})`;
-});
 </script>
 
 <template>
@@ -51,7 +45,7 @@ onMounted(() => {
         label="Save"
         v-model="saveRef"
         :items="
-          rom.saves.map((s) => ({
+          props.rom.saves.map((s) => ({
             title: s.file_name,
             subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
             value: s,
@@ -67,7 +61,7 @@ onMounted(() => {
         label="State"
         v-model="stateRef"
         :items="
-          rom.states.map((s) => ({
+          props.rom.states.map((s) => ({
             title: s.file_name,
             subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
             value: s,
@@ -98,7 +92,11 @@ onMounted(() => {
       <v-img
         class="bg-black"
         height="160"
-        :src="`/assets/romm/resources/${props.rom.platform_slug}/${props.rom.name}/screenshots/states/${stateRef?.file_name}.jpg`"
+        :src="
+          stateRef?.screenshot?.download_path ??
+          props.rom.merged_screenshots[0] ??
+          `/assets/emulatorjs/loading_black.png`
+        "
       />
     </v-col>
   </v-row>
@@ -118,16 +116,13 @@ onMounted(() => {
     </v-col>
     <v-spacer />
     <v-col cols="5">
-      <img
-        width="150"
-        src="/assets/emulatorjs/powered_by_emulatorjs.png"
-      />
+      <img width="150" src="/assets/emulatorjs/powered_by_emulatorjs.png" />
     </v-col>
   </v-row>
 
   <v-row no-gutters>
     <v-col v-if="gameRunning" cols="12" rounded id="game-wrapper">
-      <player :rom="rom" :state="stateRef" :save="saveRef" />
+      <player :rom="props.rom" :state="stateRef" :save="saveRef" />
     </v-col>
   </v-row>
 </template>
@@ -135,7 +130,5 @@ onMounted(() => {
 <style>
 #game-wrapper {
   aspect-ratio: 16 / 9;
-  background-size: contain;
-  background-position: center;
 }
 </style>
