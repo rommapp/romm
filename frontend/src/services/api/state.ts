@@ -1,4 +1,4 @@
-import type { StateSchema } from "@/__generated__";
+import type { StateSchema, UploadedStatesResponse } from "@/__generated__";
 import api from "@/services/api/index";
 import type { Rom } from "@/stores/roms";
 
@@ -10,7 +10,7 @@ async function uploadStates({
 }: {
   rom: Rom;
   states: File[];
-}): Promise<{ data: { uploaded: string; states: StateSchema[] } }> {
+}): Promise<{ data: UploadedStatesResponse }> {
   let formData = new FormData();
   states.forEach((state) => formData.append("states", state));
 

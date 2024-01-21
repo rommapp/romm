@@ -1,10 +1,16 @@
-import type { SaveSchema } from "@/__generated__";
+import type { SaveSchema, UploadedSavesResponse } from "@/__generated__";
 import api from "@/services/api/index";
 import type { Rom } from "@/stores/roms";
 
 export const saveApi = api;
 
-async function uploadSaves({ rom, saves }: { rom: Rom; saves: File[] }) {
+async function uploadSaves({
+  rom,
+  saves,
+}: {
+  rom: Rom;
+  saves: File[];
+}): Promise<{ data: UploadedSavesResponse }> {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
   return api.post("/saves", formData, {

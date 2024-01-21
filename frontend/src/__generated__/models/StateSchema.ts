@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { ScreenshotSchema } from './ScreenshotSchema';
+
 export type StateSchema = {
     id: number;
     file_name: string;
@@ -17,5 +19,6 @@ export type StateSchema = {
     updated_at: string;
     rom_id: number;
     emulator: (string | null);
+    screenshot: (ScreenshotSchema | null);
 };
 

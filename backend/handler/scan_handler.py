@@ -209,12 +209,12 @@ def scan_state(platform: Platform, file_name: str, emulator: str = None) -> Stat
     return State(**_scan_asset(file_name, states_path))
 
 
-def scan_screenshot(file_name: str, platform_slug: Platform = None) -> Screenshot:
+def scan_screenshot(file_name: str, platform: Platform = None) -> Screenshot:
     screenshots_path = fs_asset_handler.get_fs_structure(
-        platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
+        platform.fs_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
     )
 
-    if platform_slug:
+    if platform:
         return Screenshot(**_scan_asset(file_name, screenshots_path))
 
     return Screenshot(**_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME))

@@ -26,14 +26,10 @@ onMounted(() => {
     })
     .catch((error) => {
       console.log(error);
-    }).finally(() => {
-      const wrapper = document.getElementById("game-wrapper");
-      if (wrapper) wrapper.style.backgroundImage = `url(${window.EJS_backgroundImage})`;
     });
 });
 
 function onPlay() {
-  window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png"
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;
@@ -126,7 +122,5 @@ function onPlay() {
 <style>
 #game-wrapper {
   aspect-ratio: 16 / 9;
-  background-size: contain;
-  background-position: center;
 }
 </style>

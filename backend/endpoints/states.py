@@ -32,7 +32,7 @@ def add_states(
         fs_asset_handler._write_file(file=state, path=states_path)
 
         # Scan or update state
-        scanned_state = scan_state(rom.platform, state.filename)
+        scanned_state = scan_state(platform=rom.platform, file_name=state.filename)
         db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
         if db_state:
             db_state_handler.update_state(
