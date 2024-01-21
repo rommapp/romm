@@ -11,7 +11,6 @@ const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const fullScreenOnPlay = ref(true);
 const gameRunning = ref(false);
-const { smAndDown, mdAndUp } = useDisplay();
 
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";

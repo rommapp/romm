@@ -79,12 +79,12 @@ export function convertCronExperssion(expression: string) {
  * @return Formatted string.
  */
 export function formatBytes(bytes: number, decimals = 2) {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
   const dm = Math.max(0, decimals);
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 
 export function regionToEmoji(region: string) {
@@ -241,3 +241,40 @@ export function languageToEmoji(language: string) {
       return language;
   }
 }
+
+export const platformSlugEJSPlatformMap: Record<string, string> = {
+  "3do": "3do",
+  "amiga": "amiga",
+  "arcade": "arcade",
+  "atari2600": "atari2600",
+  "atari5200": "atari5200",
+  "atari7800": "atari7800",
+  "c64": "c64",
+  "colecovision": "coleco",
+  "jaguar": "jaguar",
+  "lynx": "lynx",
+  "mame": "mame2003",
+  "neo-geo-pocket": "ngp",
+  "neo-geo-pocket-color": "ngp",
+  "nes": "nes",
+  "famicom": "nes",
+  "n64": "n64",
+  "nds": "nds",
+  "gba": "gba",
+  "gb": "gb",
+  "pc-fx": "pcfx",
+  "ps": "psx",
+  "psp": "psp",
+  "segacd": "segaCD",
+  "sega32": "sega32x",
+  "gamegear": "segaGG",
+  "sms": "segaMS",
+  "genesis-slash-megadrive": "segaMD",
+  "saturn": "segaSaturn",
+  "snes": "snes",
+  "sfam": "snes",
+  "turbografx16--1": "pce",
+  "virtualboy": "vb",
+  "wonderswan": "ws",
+  "wonderswan-color": "ws",
+} as const;

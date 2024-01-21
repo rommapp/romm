@@ -5,6 +5,7 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { platformSlugEJSPlatformMap } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
@@ -13,12 +14,12 @@ const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const emulation = ref(false);
-const playInfoIcon = ref("mdi-play")
+const playInfoIcon = ref("mdi-play");
 
-function toggleEmulation(){
-  emulation.value = !emulation.value
-  playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play"
-  emitter?.emit('showEmulation', null)
+function toggleEmulation() {
+  emulation.value = !emulation.value;
+  playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play";
+  emitter?.emit("showEmulation", null);
 }
 </script>
 
@@ -41,7 +42,12 @@ function toggleEmulation(){
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn rounded="0" block @click="toggleEmulation">
+      <v-btn
+        :disabled="!(rom.platform_slug in platformSlugEJSPlatformMap)"
+        rounded="0"
+        block
+        @click="toggleEmulation"
+      >
         <v-icon :icon="playInfoIcon" size="large" />
       </v-btn>
     </v-col>
