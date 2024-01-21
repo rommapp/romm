@@ -12,6 +12,7 @@ const rom = ref<Rom | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
+const fullScreenOnPlay = ref(true);
 
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
@@ -32,6 +33,8 @@ onMounted(() => {
 });
 
 function onPlay() {
+  window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png"
+  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;
 }
@@ -96,6 +99,12 @@ function onPlay() {
           'War Room Sturm (AW1) by Kartal',
         ]"
       /> -->
+      <v-checkbox
+        hide-details
+        v-model="fullScreenOnPlay"
+        color="romm-accent-1"
+        label="Full screen"
+      />
       <v-btn
         class="mt-4"
         block

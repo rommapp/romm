@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onBeforeUnmount } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import type { Rom } from "@/stores/roms";
@@ -13,6 +13,10 @@ const props = defineProps<{
 }>();
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
+
+onBeforeUnmount(() => {
+  window.location.reload();
+});
 
 // Declare global variables for EmulatorJS
 declare global {
