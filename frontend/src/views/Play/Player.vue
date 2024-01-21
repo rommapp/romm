@@ -138,6 +138,32 @@ window.EJS_onSaveState = function ({
       .then(({ data }) => {
         stateRef.value = data;
       });
+
+    if (stateRef.value.screenshot) {
+      screenshotApi
+        .updateScreenshot({
+          screenshot: stateRef.value.screenshot,
+          file: new File([screenshot], stateRef.value.screenshot.file_name, {
+            type: "application/octet-stream",
+          }),
+        })
+        .then(({ data }) => {
+          if (stateRef.value) stateRef.value.screenshot = data;
+        });
+    } else {
+      screenshotApi
+        .uploadScreenshots({
+          rom: props.rom,
+          screenshots: [
+            new File([screenshot], `${buildStateName()}.png`, {
+              type: "application/octet-stream",
+            }),
+          ],
+        })
+        .then(({ data }) => {
+          if (stateRef.value) stateRef.value.screenshot = data.screenshots[0];
+        });
+    }
   } else if (props.rom) {
     stateApi
       .uploadStates({
@@ -222,6 +248,32 @@ window.EJS_onSaveSave = function ({
       .then(({ data }) => {
         saveRef.value = data;
       });
+
+    if (saveRef.value.screenshot) {
+      screenshotApi
+        .updateScreenshot({
+          screenshot: saveRef.value.screenshot,
+          file: new File([screenshot], saveRef.value.screenshot.file_name, {
+            type: "application/octet-stream",
+          }),
+        })
+        .then(({ data }) => {
+          if (saveRef.value) saveRef.value.screenshot = data;
+        });
+    } else {
+      screenshotApi
+        .uploadScreenshots({
+          rom: props.rom,
+          screenshots: [
+            new File([screenshot], `${buildSaveName()}.png`, {
+              type: "application/octet-stream",
+            }),
+          ],
+        })
+        .then(({ data }) => {
+          if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
+        });
+    }
   } else if (props.rom) {
     saveApi
       .uploadSaves({
@@ -238,6 +290,23 @@ window.EJS_onSaveSave = function ({
         );
         if (props.rom) props.rom.saves = allSaves;
         saveRef.value = allSaves.pop() ?? null;
+      });
+
+    screenshotApi
+      .uploadScreenshots({
+        rom: props.rom,
+        screenshots: [
+          new File([screenshot], `${buildSaveName()}.png`, {
+            type: "application/octet-stream",
+          }),
+        ],
+      })
+      .then(({ data }) => {
+        if (props.rom) {
+          props.rom.screenshots = data.screenshots;
+          props.rom.url_screenshots = data.url_screenshots;
+          props.rom.merged_screenshots = data.merged_screenshots;
+        }
       });
   }
 };
