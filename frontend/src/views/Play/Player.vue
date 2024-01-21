@@ -162,6 +162,9 @@ window.EJS_onSaveState = function ({
         })
         .then(({ data }) => {
           if (stateRef.value) stateRef.value.screenshot = data.screenshots[0];
+          props.rom.screenshots = data.screenshots;
+          props.rom.url_screenshots = data.url_screenshots;
+          props.rom.merged_screenshots = data.merged_screenshots;
         });
     }
   } else if (props.rom) {
@@ -192,11 +195,9 @@ window.EJS_onSaveState = function ({
         ],
       })
       .then(({ data }) => {
-        if (props.rom) {
-          props.rom.screenshots = data.screenshots;
-          props.rom.url_screenshots = data.url_screenshots;
-          props.rom.merged_screenshots = data.merged_screenshots;
-        }
+        props.rom.screenshots = data.screenshots;
+        props.rom.url_screenshots = data.url_screenshots;
+        props.rom.merged_screenshots = data.merged_screenshots;
       });
   }
 };
@@ -272,6 +273,9 @@ window.EJS_onSaveSave = function ({
         })
         .then(({ data }) => {
           if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
+          props.rom.screenshots = data.screenshots;
+          props.rom.url_screenshots = data.url_screenshots;
+          props.rom.merged_screenshots = data.merged_screenshots;
         });
     }
   } else if (props.rom) {
@@ -302,11 +306,9 @@ window.EJS_onSaveSave = function ({
         ],
       })
       .then(({ data }) => {
-        if (props.rom) {
-          props.rom.screenshots = data.screenshots;
-          props.rom.url_screenshots = data.url_screenshots;
-          props.rom.merged_screenshots = data.merged_screenshots;
-        }
+        props.rom.screenshots = data.screenshots;
+        props.rom.url_screenshots = data.url_screenshots;
+        props.rom.merged_screenshots = data.merged_screenshots;
       });
   }
 };
