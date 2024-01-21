@@ -155,11 +155,11 @@ async def scan_platforms(
 
             # Scanning states
             fs_states = fs_asset_handler.get_assets(
-                platform.fs_slug, rom.file_name_no_tags, Asset.STATES
+                platform.fs_slug, rom.file_name_no_ext, Asset.STATES
             )
             if len(fs_states) > 0:
                 log.info(f"\t · {len(fs_states)} states found")
-            
+
             for fs_emulator, fs_state_filename in fs_states:
                 scanned_state = scan_state(
                     platform=platform,
