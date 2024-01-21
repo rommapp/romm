@@ -3,6 +3,7 @@ import { ref } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import type { Rom } from "@/stores/roms";
+import { platformSlugEJSPlatformMap } from "@/utils";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 
 const props = defineProps<{
@@ -41,7 +42,7 @@ declare global {
   }
 }
 
-window.EJS_core = props.rom.platform_slug;
+window.EJS_core = platformSlugEJSPlatformMap[props.rom.platform_slug];
 window.EJS_gameID = props.rom.id;
 window.EJS_gameUrl = props.rom.download_path;
 window.EJS_player = "#game";
