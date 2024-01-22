@@ -4,7 +4,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedStatesResponse, StateSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler import db_state_handler, db_rom_handler, fs_asset_handler
-from handler.scan_handler import scan_state
+from handler.scan_handler import scan_state, build_asset_file_path
 from logger.logger import log
 from config import LIBRARY_BASE_PATH
 
@@ -13,7 +13,10 @@ router = APIRouter()
 
 @protected_route(router.post, "/states", ["assets.write"])
 def add_states(
-    request: Request, rom_id: int, states: list[UploadFile] = File(...)
+    request: Request,
+    rom_id: int,
+    states: list[UploadFile] = File(...),
+    emulator: str = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
     log.info(f"Uploading states to {rom.name}")
@@ -24,15 +27,19 @@ def add_states(
             detail="No states were uploaded",
         )
 
-    states_path = fs_asset_handler.build_upload_file_path(
-        rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
+    states_path = build_asset_file_path(
+        rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
     )
 
     for state in states:
-        fs_asset_handler._write_file(file=state, path=states_path)
+        fs_asset_handler._write_file(
+            file=state, path=f"{LIBRARY_BASE_PATH}/{states_path}"
+        )
 
         # Scan or update state
-        scanned_state = scan_state(platform=rom.platform, file_name=state.filename)
+        scanned_state = scan_state(
+            platform=rom.platform, file_name=state.filename, emulator=emulator
+        )
         db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
         if db_state:
             db_state_handler.update_state(

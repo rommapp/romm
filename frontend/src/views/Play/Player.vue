@@ -4,7 +4,7 @@ import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import type { Rom } from "@/stores/roms";
-import { platformSlugEJSPlatformMap } from "@/utils";
+import { platformSlugEJSPlatformMap, platformSlugEJSCoreMap } from "@/utils";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 
 const props = defineProps<{
@@ -171,6 +171,7 @@ window.EJS_onSaveState = function ({
     stateApi
       .uploadStates({
         rom: props.rom,
+        emulator: platformSlugEJSCoreMap[props.rom.platform_slug],
         states: [
           new File([state], buildStateName(), {
             type: "application/octet-stream",
@@ -282,6 +283,7 @@ window.EJS_onSaveSave = function ({
     saveApi
       .uploadSaves({
         rom: props.rom,
+        emulator: platformSlugEJSCoreMap[props.rom.platform_slug],
         saves: [
           new File([save], buildSaveName(), {
             type: "application/octet-stream",

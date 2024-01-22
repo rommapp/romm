@@ -4,7 +4,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedSavesResponse, SaveSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler import db_save_handler, fs_asset_handler, db_rom_handler
-from handler.scan_handler import scan_save
+from handler.scan_handler import scan_save, build_asset_file_path
 from logger.logger import log
 from config import LIBRARY_BASE_PATH
 
@@ -13,7 +13,10 @@ router = APIRouter()
 
 @protected_route(router.post, "/saves", ["assets.write"])
 def add_saves(
-    request: Request, rom_id: int, saves: list[UploadFile] = File(...)
+    request: Request,
+    rom_id: int,
+    saves: list[UploadFile] = File(...),
+    emulator: str = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)
     log.info(f"Uploading saves to {rom.name}")
@@ -24,15 +27,19 @@ def add_saves(
             detail="No saves were uploaded",
         )
 
-    saves_path = fs_asset_handler.build_upload_file_path(
-        rom.platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
+    saves_path = build_asset_file_path(
+        rom.platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME, emulator=emulator
     )
 
     for save in saves:
-        fs_asset_handler._write_file(file=save, path=saves_path)
+        fs_asset_handler._write_file(
+            file=save, path=f"{LIBRARY_BASE_PATH}/{saves_path}"
+        )
 
         # Scan or update save
-        scanned_save = scan_save(platform=rom.platform, file_name=save.filename)
+        scanned_save = scan_save(
+            platform=rom.platform, file_name=save.filename, emulator=emulator
+        )
         db_save = db_save_handler.get_save_by_filename(rom.id, save.filename)
         if db_save:
             db_save_handler.update_save(

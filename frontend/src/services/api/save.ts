@@ -7,17 +7,20 @@ export const saveApi = api;
 async function uploadSaves({
   rom,
   saves,
+  emulator,
 }: {
   rom: Rom;
   saves: File[];
+  emulator?: string;
 }): Promise<{ data: UploadedSavesResponse }> {
   let formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
+
   return api.post("/saves", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    params: { rom_id: rom.id },
+    params: { rom_id: rom.id, emulator },
   });
 }
 
