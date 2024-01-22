@@ -122,5 +122,5 @@ class FSHandler(ABC):
     def build_upload_file_path(
         self, fs_slug: str, folder: str = cm.config.ROMS_FOLDER_NAME
     ):
-        rom_path = self.get_fs_structure(fs_slug, folder=folder)
-        return f"{LIBRARY_BASE_PATH}/{rom_path}"
+        file_path = self.get_fs_structure(fs_slug, folder=folder)
+        return f"{LIBRARY_BASE_PATH}/{file_path}"

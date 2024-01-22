@@ -7,9 +7,11 @@ export const stateApi = api;
 async function uploadStates({
   rom,
   states,
+  emulator,
 }: {
   rom: Rom;
   states: File[];
+  emulator?: string;
 }): Promise<{ data: UploadedStatesResponse }> {
   let formData = new FormData();
   states.forEach((state) => formData.append("states", state));
@@ -18,7 +20,7 @@ async function uploadStates({
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    params: { rom_id: rom.id },
+    params: { rom_id: rom.id, emulator },
   });
 }
 
