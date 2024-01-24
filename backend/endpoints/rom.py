@@ -281,10 +281,12 @@ async def update_rom(
         file_location_s = f"{artwork_path}/small.{file_ext}"
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
+        fs_resource_handler.resize_cover(file_location_s)
 
         file_location_l = f"{artwork_path}/big.{file_ext}"
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
+        fs_resource_handler.resize_cover(file_location_l)
 
     db_rom_handler.update_rom(id, cleaned_data)
 
