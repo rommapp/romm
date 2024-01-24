@@ -1,10 +1,5 @@
-from typing_extensions import TypedDict
+from handler.igdb_handler import IGDBRom
 
 
-class IGDBRom(TypedDict):
-    igdb_id: int
-    slug: str
-    name: str
-    summary: str
-    url_cover: str
-    url_screenshots: list[str]
+class SearchRomSchema(IGDBRom):
+    pass

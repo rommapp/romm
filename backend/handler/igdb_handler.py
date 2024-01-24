@@ -10,7 +10,6 @@ import pydash
 import requests
 import xmltodict
 from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
-from endpoints.responses.search import IGDBRom
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
@@ -42,6 +41,15 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 )
 
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
+
+
+class IGDBRom(TypedDict):
+    igdb_id: int
+    slug: str
+    name: str
+    summary: str
+    url_cover: str
+    url_screenshots: list[str]
 
 
 class IGDBPlatform(TypedDict):
