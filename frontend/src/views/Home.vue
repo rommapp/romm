@@ -50,14 +50,9 @@ onMounted(async () => {
     absolute
     fixed
   />
-
   <drawer />
-
   <app-bar v-if="mdAndDown" />
-
-  <v-container class="pa-0" fluid>
-    <router-view />
-  </v-container>
+  <router-view />
 </template>
 
 <style scoped>
