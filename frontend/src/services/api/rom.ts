@@ -4,6 +4,7 @@ import type {
   EnhancedRomSchema,
   MessageResponse,
   RomSchema,
+  SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
@@ -89,7 +90,7 @@ async function searchRom({
   source: string;
   searchTerm: string;
   searchBy: string;
-}): Promise<{ data: RomSchema[] }> {
+}): Promise<{ data: SearchRomSchema[] }> {
   return api.get("/search/roms", {
     params: {
       rom_id: romId,

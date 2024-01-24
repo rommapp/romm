@@ -1,6 +1,6 @@
 import emoji
 from decorators.auth import protected_route
-from endpoints.responses.search import IGDBRom
+from endpoints.responses.search import SearchRomSchema
 from fastapi import APIRouter, Request
 from handler import db_rom_handler, igdb_handler
 from logger.logger import log
@@ -15,7 +15,7 @@ async def search_rom(
     source: str,
     search_term: str = None,
     search_by: str = "name",
-) -> list[IGDBRom]:
+) -> list[SearchRomSchema]:
     """Search rom into IGDB database
 
     Args:
