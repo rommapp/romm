@@ -83,6 +83,7 @@ function rowClick(_: Event, row: any) {
     :items-per-page="romsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
+    :fixed-footer="false"
     :headers="HEADERS"
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
@@ -121,39 +122,37 @@ function rowClick(_: Event, row: any) {
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template>
-        <v-btn
-          class="ma-1"
-          rounded="0"
-          @click.stop="romApi.downloadRom({ rom: item.raw })"
-          :disabled="downloadStore.value.includes(item.raw.id)"
-          download
-          size="small"
-          variant="text"
-        >
+      <v-btn
+        class="ma-1  bg-terciary"
+        rounded="0"
+        @click.stop="romApi.downloadRom({ rom: item.raw })"
+        :disabled="downloadStore.value.includes(item.raw.id)"
+        download
+        size="small"
+        variant="text"
+      >
         <v-icon>mdi-download</v-icon>
       </v-btn>
-      </template>
-        <v-btn
-          size="small"
-          variant="text"
-          :href="`/play/${item.raw.id}`"
-          class="my-1 bg-terciary"
-          rounded="0"
-          :disabled="!(item.raw.platform_slug in platformSlugEJSPlatformMap)"
-          ><v-icon>mdi-play</v-icon></v-btn
-        >
-        <v-menu location="bottom">
-          <template v-slot:activator="{ props }">
-            <v-btn
-              rounded="0"
-              :disabled="!auth.scopes.includes('roms.write')"
-              v-bind="props"
-              size="small"
-              variant="text"
-              class="ma-1 bg-terciary"
-              ><v-icon>mdi-dots-vertical</v-icon></v-btn
-            >
+      <v-btn
+        size="small"
+        variant="text"
+        :href="`/play/${item.raw.id}`"
+        class="my-1 bg-terciary"
+        rounded="0"
+        :disabled="!(item.raw.platform_slug in platformSlugEJSPlatformMap)"
+        ><v-icon>mdi-play</v-icon></v-btn
+      >
+      <v-menu location="bottom">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            rounded="0"
+            :disabled="!auth.scopes.includes('roms.write')"
+            v-bind="props"
+            size="small"
+            variant="text"
+            class="ma-1 bg-terciary"
+            ><v-icon>mdi-dots-vertical</v-icon></v-btn
+          >
         </template>
         <admin-menu :rom="item.raw" />
       </v-menu>
