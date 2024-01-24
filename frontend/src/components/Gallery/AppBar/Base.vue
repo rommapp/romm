@@ -10,6 +10,8 @@ const auth = storeAuth();
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
+    <v-btn class="ml-0" variant="text" rounded="0" icon="mdi-sort" @click="" />
+    <v-btn class="ml-0" variant="text" rounded="0" icon="mdi-filter-variant" @click="" />
     <filter-bar />
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">

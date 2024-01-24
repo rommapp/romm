@@ -33,7 +33,6 @@ onMounted(() => {
     @click:clear="clearFilter"
     @keyup="filterRoms"
     v-model="filterValue"
-    prepend-inner-icon="mdi-filter-variant"
     label="Filter"
     rounded="0"
     hide-details
