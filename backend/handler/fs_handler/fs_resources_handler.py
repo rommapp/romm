@@ -45,7 +45,7 @@ class FSResourceHandler(FSHandler):
         )
 
     @staticmethod
-    def _resize_cover(cover_path: str, size: CoverSize) -> None:
+    def resize_cover(cover_path: str, size: CoverSize = CoverSize.BIG) -> None:
         """Resizes the cover image to the standard size
 
         Args:
@@ -97,7 +97,7 @@ class FSResourceHandler(FSHandler):
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
                 shutil.copyfileobj(res.raw, f)
-            self._resize_cover(f"{cover_path}/{cover_file}", size)
+            self.resize_cover(f"{cover_path}/{cover_file}", size)
 
     @staticmethod
     def _get_cover_path(fs_slug: str, rom_name: str, size: CoverSize):
