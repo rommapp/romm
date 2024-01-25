@@ -103,7 +103,7 @@ async function uploadStates() {
       v-for="state in rom.states"
       :key="state.id"
       :title="state.file_name"
-      :subtitle="`${state.emulator} - ${formatBytes(state.file_size_bytes)}`"
+      :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(state.file_size_bytes)}`"
     >
       <template v-slot:prepend>
         <v-checkbox
