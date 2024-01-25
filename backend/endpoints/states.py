@@ -26,7 +26,7 @@ def add_states(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No states were uploaded",
         )
-
+    
     states_path = build_asset_file_path(
         rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
     )
@@ -50,6 +50,7 @@ def add_states(
             continue
 
         scanned_state.rom_id = rom.id
+        scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
     rom = db_rom_handler.get_roms(rom_id)
