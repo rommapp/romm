@@ -38,7 +38,9 @@ def add_states(
 
         # Scan or update state
         scanned_state = scan_state(
-            platform=rom.platform, file_name=state.filename, emulator=emulator
+            file_name=state.filename,
+            platform_slug=rom.platform.fs_slug,
+            emulator=emulator,
         )
         db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
         if db_state:
