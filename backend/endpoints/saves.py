@@ -50,6 +50,7 @@ def add_saves(
             continue
 
         scanned_save.rom_id = rom.id
+        scanned_save.emulator = emulator
         db_save_handler.add_save(scanned_save)
 
     rom = db_rom_handler.get_roms(rom_id)
