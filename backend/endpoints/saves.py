@@ -38,7 +38,9 @@ def add_saves(
 
         # Scan or update save
         scanned_save = scan_save(
-            platform=rom.platform, file_name=save.filename, emulator=emulator
+            file_name=save.filename,
+            platform_slug=rom.platform.fs_slug,
+            emulator=emulator,
         )
         db_save = db_save_handler.get_save_by_filename(rom.id, save.filename)
         if db_save:

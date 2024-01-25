@@ -106,7 +106,12 @@ async def scan_platforms(
 
         for fs_rom in fs_roms:
             rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
-            if not rom or rom.id in selected_roms or complete_rescan or (rescan_unidentified and not rom.igdb_id):
+            if (
+                not rom
+                or rom.id in selected_roms
+                or complete_rescan
+                or (rescan_unidentified and not rom.igdb_id)
+            ):
                 scanned_rom = await scan_rom(platform, fs_rom)
                 if rom:
                     scanned_rom.id = rom.id
@@ -130,11 +135,11 @@ async def scan_platforms(
             )
             if len(fs_saves) > 0:
                 log.info(f"\t · {len(fs_saves)} saves found")
-           
+
             for fs_emulator, fs_save_filename in fs_saves:
                 scanned_save = scan_save(
-                    platform=platform,
                     file_name=fs_save_filename,
+                    platform_slug=platform.fs_slug,
                     emulator=fs_emulator,
                 )
 
@@ -162,12 +167,14 @@ async def scan_platforms(
 
             for fs_emulator, fs_state_filename in fs_states:
                 scanned_state = scan_state(
-                    platform=platform,
-                    emulator=fs_emulator,
                     file_name=fs_state_filename,
+                    platform_slug=platform.fs_slug,
+                    emulator=fs_emulator,
                 )
 
-                state = db_state_handler.get_state_by_filename(rom.id, fs_state_filename)
+                state = db_state_handler.get_state_by_filename(
+                    rom.id, fs_state_filename
+                )
                 if state:
                     # Update file size if changed
                     if state.file_size_bytes != scanned_state.file_size_bytes:
@@ -189,7 +196,7 @@ async def scan_platforms(
             )
             if len(fs_screenshots) > 0:
                 log.info(f"\t · {len(fs_screenshots)} screenshots found")
-            
+
             for _, fs_screenshot_filename in fs_screenshots:
                 scanned_screenshot = scan_screenshot(
                     file_name=fs_screenshot_filename, platform_slug=platform.fs_slug
@@ -213,8 +220,12 @@ async def scan_platforms(
 
             db_save_handler.purge_saves(rom.id, [s for _e, s in fs_saves])
             db_state_handler.purge_states(rom.id, [s for _e, s in fs_states])
-            db_screenshot_handler.purge_screenshots(rom.id, [s for _e, s in fs_screenshots])
-            db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
+            db_screenshot_handler.purge_screenshots(
+                rom.id, [s for _e, s in fs_screenshots]
+            )
+            db_rom_handler.purge_roms(
+                platform.id, [rom["file_name"] for rom in fs_roms]
+            )
 
     # Scanning screenshots outside platform folders
     fs_screenshots = fs_asset_handler.get_screenshots()
@@ -225,7 +236,9 @@ async def scan_platforms(
             file_name=fs_screenshot_filename, platform_slug=fs_platform
         )
 
-        screenshot = db_screenshot_handler.get_screenshot_by_filename(fs_screenshot_filename)
+        screenshot = db_screenshot_handler.get_screenshot_by_filename(
+            fs_screenshot_filename
+        )
         if screenshot:
             # Update file size if changed
             if screenshot.file_size_bytes != scanned_screenshot.file_size_bytes:
@@ -235,7 +248,9 @@ async def scan_platforms(
                 )
             continue
 
-        rom = db_rom_handler.get_rom_by_filename_no_tags(scanned_screenshot.file_name_no_tags)
+        rom = db_rom_handler.get_rom_by_filename_no_tags(
+            scanned_screenshot.file_name_no_tags
+        )
         if rom:
             scanned_screenshot.rom_id = rom.id
             db_screenshot_handler.add_screenshot(scanned_screenshot)
