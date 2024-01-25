@@ -108,8 +108,8 @@ async function fetchState(): Promise<Uint8Array> {
 }
 
 window.EJS_onLoadState = async function () {
-  const stat = await fetchState();
-  window.EJS_emulator.gameManager.loadState(stat);
+  const state = await fetchState();
+  window.EJS_emulator.gameManager.loadState(state);
   window.EJS_emulator.displayMessage("LOADED FROM ROMM");
 };
 
@@ -332,14 +332,9 @@ window.EJS_onGameStart = async () => {
 
 <!-- Other config options: https://emulatorjs.org/docs/Options.html -->
 
-<!-- config.biosUrl = window.EJS_biosUrl; -->
-<!-- config.VirtualGamepadSettings = window.EJS_VirtualGamepadSettings; -->
-<!-- config.buttonOpts = window.EJS_Buttons; -->
-<!-- config.volume = window.EJS_volume; -->
-<!-- config.defaultControllers = window.EJS_defaultControls; -->
-<!-- config.cheats = window.EJS_cheats; -->
-<!-- config.defaultOptions = window.EJS_defaultOptions; -->
-<!-- config.gamePatchUrl = window.EJS_gamePatchUrl; -->
-<!-- config.gameParentUrl = window.EJS_gameParentUrl; -->
-<!-- config.netplayUrl = window.EJS_netplayServer; -->
-<!-- config.threads = window.EJS_threads; -->
+<!-- window.EJS_biosUrl; -->
+<!-- window.EJS_VirtualGamepadSettings; -->
+<!-- window.EJS_cheats; -->
+<!-- window.EJS_gamePatchUrl; -->
+<!-- window.EJS_gameParentUrl; -->
+<!-- window.EJS_netplayServer; -->
