@@ -3,7 +3,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedSavesResponse, SaveSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import db_save_handler, fs_asset_handler, db_rom_handler
+from handler import db_save_handler, fs_asset_handler, db_rom_handler, db_screenshot_handler
 from handler.scan_handler import scan_save, build_asset_file_path
 from logger.logger import log
 from config import LIBRARY_BASE_PATH
@@ -119,5 +119,18 @@ async def delete_saves(request: Request) -> MessageResponse:
                 error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
                 log.error(error)
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+            
+        if save.screenshot:
+            db_screenshot_handler.delete_screenshot(save.screenshot.id)
+
+            if delete_from_fs:
+                try:
+                    fs_asset_handler.remove_file(
+                        file_name=save.screenshot.file_name,
+                        file_path=save.screenshot.file_path,
+                    )
+                except FileNotFoundError:
+                    error = f"Screenshot file {save.screenshot.file_name} not found for save {save.file_name}"
+                    log.error(error)
 
     return {"msg": f"Successfully deleted {len(save_ids)} saves."}
