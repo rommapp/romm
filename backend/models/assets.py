@@ -20,7 +20,7 @@ class BaseAsset(BaseModel):
     file_name = Column(String(length=450), nullable=False)
     file_name_no_tags = Column(String(length=450), nullable=False)
     file_name_no_ext = Column(String(length=450), nullable=False)
-    file_extension = Column(String(length=10), nullable=False)
+    file_extension = Column(String(length=100), nullable=False)
     file_path = Column(String(length=1000), nullable=False)
     file_size_bytes = Column(Integer(), default=0, nullable=False)
 
