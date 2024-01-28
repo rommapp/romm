@@ -103,7 +103,7 @@ async function uploadSaves() {
       v-for="save in rom.saves"
       :key="save.id"
       :title="save.file_name"
-      :subtitle="`${save.emulator} - ${formatBytes(save.file_size_bytes)}`"
+      :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(save.file_size_bytes)}`"
     >
       <template v-slot:prepend>
         <v-checkbox

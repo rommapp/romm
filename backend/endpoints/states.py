@@ -3,7 +3,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedStatesResponse, StateSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import db_state_handler, db_rom_handler, fs_asset_handler
+from handler import db_state_handler, db_rom_handler, fs_asset_handler, db_screenshot_handler
 from handler.scan_handler import scan_state, build_asset_file_path
 from logger.logger import log
 from config import LIBRARY_BASE_PATH
@@ -26,7 +26,7 @@ def add_states(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No states were uploaded",
         )
-
+    
     states_path = build_asset_file_path(
         rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
     )
@@ -38,7 +38,9 @@ def add_states(
 
         # Scan or update state
         scanned_state = scan_state(
-            platform=rom.platform, file_name=state.filename, emulator=emulator
+            file_name=state.filename,
+            platform_slug=rom.platform.fs_slug,
+            emulator=emulator,
         )
         db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
         if db_state:
@@ -48,6 +50,7 @@ def add_states(
             continue
 
         scanned_state.rom_id = rom.id
+        scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
     rom = db_rom_handler.get_roms(rom_id)
@@ -115,5 +118,18 @@ async def delete_states(request: Request) -> MessageResponse:
                 error = f"Save file {state.file_name} not found for platform {state.rom.platform_slug}"
                 log.error(error)
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+        if state.screenshot:
+            db_screenshot_handler.delete_screenshot(state.screenshot.id)
+
+            if delete_from_fs:
+                try:
+                    fs_asset_handler.remove_file(
+                        file_name=state.screenshot.file_name,
+                        file_path=state.screenshot.file_path,
+                    )
+                except FileNotFoundError:
+                    error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
+                    log.error(error)
 
     return {"msg": f"Successfully deleted {len(state_ids)} states."}

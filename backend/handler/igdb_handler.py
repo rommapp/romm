@@ -43,11 +43,6 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
-class IGDBPlatform(TypedDict):
-    igdb_id: int
-    name: str
-
-
 class IGDBRom(TypedDict):
     igdb_id: int
     slug: str
@@ -55,6 +50,11 @@ class IGDBRom(TypedDict):
     summary: str
     url_cover: str
     url_screenshots: list[str]
+
+
+class IGDBPlatform(TypedDict):
+    igdb_id: int
+    name: str
 
 
 class IGDBHandler:
