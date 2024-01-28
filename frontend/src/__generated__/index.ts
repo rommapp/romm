@@ -23,6 +23,7 @@ export type { RomSchema } from './models/RomSchema';
 export type { SaveSchema } from './models/SaveSchema';
 export type { SchedulerDict } from './models/SchedulerDict';
 export type { ScreenshotSchema } from './models/ScreenshotSchema';
+export type { SearchRomSchema } from './models/SearchRomSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { TaskDict } from './models/TaskDict';

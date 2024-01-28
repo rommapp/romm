@@ -31,7 +31,7 @@ def add_screenshots(
 
         # Scan or update screenshot
         scanned_screenshot = scan_screenshot(
-            file_name=screenshot.filename, platform=rom.platform
+            file_name=screenshot.filename, platform_slug=rom.platform_slug
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             file_name=screenshot.filename, rom_id=rom.id

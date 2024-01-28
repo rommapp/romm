@@ -194,25 +194,25 @@ def build_asset_file_path(fs_slug: str, folder: str, emulator: str = None):
     return saves_path
 
 
-def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
+def scan_save(file_name: str, platform_slug: str, emulator: str = None) -> Save:
     saves_path = build_asset_file_path(
-        platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME, emulator=emulator
+        platform_slug, folder=cm.config.SAVES_FOLDER_NAME, emulator=emulator
     )
     return Save(**_scan_asset(file_name, saves_path))
 
 
-def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
+def scan_state(file_name: str, platform_slug: str, emulator: str = None) -> State:
     states_path = build_asset_file_path(
-        platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
+        platform_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
     )
     return State(**_scan_asset(file_name, states_path))
 
 
-def scan_screenshot(file_name: str, platform: Platform = None) -> Screenshot:
-    if not platform:
+def scan_screenshot(file_name: str, platform_slug: str = None) -> Screenshot:
+    if not platform_slug:
         return Screenshot(**_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME))
 
     screenshots_path = build_asset_file_path(
-        platform.fs_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
+        platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
     )
     return Screenshot(**_scan_asset(file_name, screenshots_path))
