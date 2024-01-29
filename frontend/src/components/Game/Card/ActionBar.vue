@@ -4,7 +4,7 @@ import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { Rom } from "@/stores/roms";
-import { platformSlugEJSPlatformMap } from "@/utils";
+import { platformSlugEJSCoreMap } from "@/utils";
 
 // Props
 const props = defineProps<{ rom: Rom }>();
@@ -32,7 +32,7 @@ const downloadStore = storeDownload();
           size="x-small"
           rounded="0"
           variant="text"
-          :disabled="!(rom.platform_slug in platformSlugEJSPlatformMap)"
+          :disabled="!(rom.platform_slug in platformSlugEJSCoreMap)"
         />
       </v-col>
       <v-menu location="bottom">

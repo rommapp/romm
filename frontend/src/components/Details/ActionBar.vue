@@ -5,7 +5,7 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { platformSlugEJSPlatformMap } from "@/utils";
+import { platformSlugEJSCoreMap } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
@@ -43,7 +43,7 @@ function toggleEmulation() {
     </v-col>
     <v-col>
       <v-btn
-        :disabled="!(rom.platform_slug in platformSlugEJSPlatformMap)"
+        :disabled="!(rom.platform_slug in platformSlugEJSCoreMap)"
         rounded="0"
         block
         @click="toggleEmulation"
