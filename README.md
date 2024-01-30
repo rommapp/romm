@@ -204,6 +204,15 @@ If you like this project, consider buying me a coffee!
 
 [![coffee-donate]][coffee-donate-url]
 
+## Our Friends
+
+Here are a few projects that we think you might like:
+
+- [EmualtorJS](https://emulatorjs.org/): An embeddable, browser-based emulator
+- [RetroDECK](https://retrodeck.net/): Retro gaming on SteamOS and Linux
+- [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
+- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another self-hosted ROM manager
+
 <!-- Sections -->
 
 [folder-structure]: #-folder-structure
