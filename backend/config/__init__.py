@@ -18,6 +18,7 @@ FRONTEND_LIBRARY_PATH: Final = "/assets/romm/library"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
 # DEFAULT RESOURCES
+# TODO: remove since we use the own RomM default cover
 DEFAULT_URL_COVER_L: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
 )

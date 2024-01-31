@@ -104,7 +104,7 @@ function rowClick(_: Event, row: any) {
         <v-img
           :src="
             !item.raw.has_cover
-              ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+              ? `/assets/default/cover/small_${theme.global.name.value}.png`
               : `/assets/romm/resources/${item.raw.path_cover_s}`
           "
           min-height="150"

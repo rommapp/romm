@@ -5,17 +5,13 @@ const theme = useTheme();
 
 const props = defineProps<{ rom: RomSchema }>();
 const imgSrc = !props.rom.has_cover
-  ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+  ? `/assets/default/cover/small_${theme.global.name.value}.png`
   : `/assets/romm/resources/${props.rom.path_cover_s}`;
 </script>
 
 <template>
   <v-card rounded="0" flat>
-    <v-img
-      :src="imgSrc"
-      :lazy-src="imgSrc"
-      cover
-    />
+    <v-img :src="imgSrc" :lazy-src="imgSrc" cover />
   </v-card>
 </template>
 

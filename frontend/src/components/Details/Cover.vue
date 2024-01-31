@@ -17,12 +17,12 @@ defineProps<{ rom: Rom }>();
       :cover="!rom.has_cover"
       :src="
         !rom.has_cover
-          ? `/assets/romm/resources/default/default/cover/big_${theme.global.name.value}.png`
+          ? `/assets/default/cover/big_${theme.global.name.value}.png`
           : `/assets/romm/resources/${rom.path_cover_l}`
       "
       :lazy-src="
         !rom.has_cover
-          ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+          ? `/assets/default/cover/small_${theme.global.name.value}.png`
           : `/assets/romm/resources/${rom.path_cover_s}`
       "
       :aspect-ratio="3 / 4"
