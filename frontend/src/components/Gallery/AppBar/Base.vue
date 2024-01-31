@@ -36,8 +36,12 @@ const auth = storeAuth();
       </v-menu>
     </template>
   </v-app-bar>
-  <sort-bar />
-  <filter-bar />
+
+    <sort-bar />
+  <v-expand-transition>
+
+    <filter-bar />
+  </v-expand-transition>
 </template>
 
 <style scoped>

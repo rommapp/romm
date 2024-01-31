@@ -24,7 +24,7 @@ function showUnmatched() {
     class="tooltip"
     transition="fade-transition"
     text="Filter unmatched games"
-    open-delay="500"
+    open-delay="1000"
     ><template v-slot:activator="{ props }">
       <v-btn
         rounded="0"

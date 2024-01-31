@@ -18,7 +18,7 @@ function showSortBar() {
     class="tooltip"
     text="Order gallery"
     transition="fade-transition"
-    open-delay="500"
+    open-delay="1000"
     ><template v-slot:activator="{ props }">
       <v-btn
         class="ml-0"
