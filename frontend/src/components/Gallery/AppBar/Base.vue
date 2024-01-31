@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/Gallery/AppBar/AdminMenu.vue";
 import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
-import ShowUnmatchedBtn from "@/components/Gallery/AppBar/ShowUnmatchedBtn.vue";
+import FilterUnmatchedBtn from "@/components/Gallery/AppBar/FilterUnmatchedBtn.vue";
 import FilterBtn from "@/components/Gallery/AppBar/FilterBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/FilterTextField.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
@@ -17,7 +17,7 @@ const auth = storeAuth();
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
     <sort-btn />
     <filter-btn />
-    <show-unmatched-btn />
+    <filter-unmatched-btn />
     <filter-text-field />
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
