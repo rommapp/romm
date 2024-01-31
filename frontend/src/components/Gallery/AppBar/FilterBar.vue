@@ -1,41 +1,35 @@
 <script setup lang="ts">
 import type { Events } from "@/types/emitter";
-import { debounce } from "lodash";
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref } from "vue";
-
-import storeGalleryFilter from "@/stores/galleryFilter";
+import { inject, ref } from "vue";
 
 // Props
-const galleryFilter = storeGalleryFilter();
-const filterValue = ref("");
-
-// Event listeners bus
+const showFilterBar = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-
-function clearFilter() {
-  galleryFilter.set("");
-  emitter?.emit("filter", null);
-}
-
-const filterRoms = debounce(() => {
-  galleryFilter.set(filterValue.value);
-  emitter?.emit("filter", null);
-}, 500);
-
-onMounted(() => {
-  filterValue.value = galleryFilter.filter;
+emitter?.on("filterBarShow", () => {
+  showFilterBar.value = !showFilterBar.value;
 });
 </script>
 
 <template>
-  <v-text-field
-    @click:clear="clearFilter"
-    @keyup="filterRoms"
-    v-model="filterValue"
-    label="Filter"
-    rounded="0"
-    hide-details
-    clearable
-  />
+  <v-app-bar
+    v-if="showFilterBar"
+    id="gallery-app-bar-filter"
+    elevation="0"
+    density="compact"
+  >
+    <v-btn
+      rounded="0"
+      variant="text"
+      class="ml-0"
+      icon="mdi-file-find-outline"
+      title="Show unmatched games"
+    />
+    <v-select hide-details label="Genre"></v-select>
+    <v-select hide-details label="Publisher"></v-select>
+    <v-select hide-details label="Developer"></v-select>
+    <v-select hide-details label="Theme"></v-select>
+    <v-select hide-details label="Series"></v-select>
+    <v-select hide-details label="Franchises"></v-select>
+  </v-app-bar>
 </template>

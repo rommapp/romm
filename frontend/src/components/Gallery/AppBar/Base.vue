@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import storeAuth from "@/stores/auth";
+import SortBar from "@/components/Gallery/AppBar/SortBar.vue";
 import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
+import SortBtn from "@/components/Gallery/AppBar/SortBtn.vue";
+import FilterBtn from "@/components/Gallery/AppBar/FilterBtn.vue";
+import FilterTextField from "@/components/Gallery/AppBar/FilterTextField.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
 import AdminMenu from "@/components/Gallery/AppBar/AdminMenu.vue";
 
@@ -10,9 +14,9 @@ const auth = storeAuth();
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
-    <v-btn class="ml-0" variant="text" rounded="0" icon="mdi-sort" @click="" />
-    <v-btn class="ml-0" variant="text" rounded="0" icon="mdi-filter-variant" @click="" />
-    <filter-bar />
+    <sort-btn />
+    <filter-btn />
+    <filter-text-field />
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
       <v-menu location="bottom">
@@ -30,6 +34,8 @@ const auth = storeAuth();
       </v-menu>
     </template>
   </v-app-bar>
+  <sort-bar />
+  <filter-bar />
 </template>
 
 <style scoped>
