@@ -38,8 +38,6 @@ const {
   cursor,
   searchCursor,
 } = storeToRefs(romsStore);
-const showFilterBar = ref(false);
-const showSortBar = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -197,32 +195,6 @@ onBeforeRouteUpdate((to, _) => {
 
 <template>
   <gallery-app-bar />
-
-  <v-app-bar
-    v-if="showFilterBar"
-    id="gallery-app-bar-filter"
-    elevation="0"
-    density="compact"
-  >
-    <v-btn
-      rounded="0"
-      variant="text"
-      class="ml-0"
-      icon="mdi-file-find-outline"
-      title="Show unmatched games"
-    />
-    <v-select hide-details label="Genre"></v-select>
-    <v-select hide-details label="Publisher"></v-select>
-    <v-select hide-details label="Developer"></v-select>
-    <v-select hide-details label="Theme"></v-select>
-    <v-select hide-details label="Series"></v-select>
-    <v-select hide-details label="Franchises"></v-select>
-  </v-app-bar>
-
-  <v-app-bar v-if="showSortBar" id="gallery-app-bar-sort" elevation="0" density="compact">
-    <v-select hide-details label="Release date"></v-select>
-    <v-select hide-details label="IGDB Score"></v-select>
-  </v-app-bar>
 
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters v-scroll="onScroll">

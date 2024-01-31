@@ -1,7 +1,7 @@
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
-import type { SaveSchema, StateSchema } from "@/__generated__";
 
 export type UserItem = User & {
   password: string;
@@ -61,5 +61,7 @@ export type Events = {
   };
   openFabMenu: boolean;
   filter: null;
+  filterBarShow: null;
+  sortBarShow: null;
   romUpdated: Rom;
 };
