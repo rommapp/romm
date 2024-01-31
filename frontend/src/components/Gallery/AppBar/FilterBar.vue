@@ -12,14 +12,9 @@ emitter?.on("filterBarShow", () => {
 </script>
 
 <template>
-  <template v-if="showFilterBar">
-    <div
-      class="px-1 py-2"
-      id="gallery-app-bar-filter"
-      elevation="0"
-      density="compact"
-    >
-      <v-row no-gutters>
+  <v-expand-transition>
+    <div v-if="showFilterBar">
+      <v-row no-gutters  class="pt-1 px-1">
         <v-col cols="6" sm="" md="" lg="4" xl="3">
           <v-select
             hide-details
@@ -75,11 +70,7 @@ emitter?.on("filterBarShow", () => {
           ></v-select>
         </v-col>
       </v-row>
+      <v-divider :thickness="2" class="mx-2 mt-1 border-opacity-25" color="romm-accent-1" />
     </div>
-    <v-divider
-      class="my-0 mx-2 border-opacity-25"
-      :thickness="2"
-      color="romm-accent-1"
-    />
-  </template>
+  </v-expand-transition>
 </template>

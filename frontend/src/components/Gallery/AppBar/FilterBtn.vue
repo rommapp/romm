@@ -18,7 +18,7 @@ function showFilterBar() {
     class="tooltip"
     transition="fade-transition"
     text="Filter gallery"
-    open-delay="500"
+    open-delay="1000"
     ><template v-slot:activator="{ props }">
       <v-btn
         class="ml-0"

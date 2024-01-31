@@ -12,7 +12,7 @@ const galleryView = storeGalleryView();
     class="tooltip"
     transition="fade-transition"
     text="Change view"
-    open-delay="500"
+    open-delay="1000"
     ><template v-slot:activator="{ props }">
       <v-btn
         @click="galleryView.next()"
