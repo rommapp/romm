@@ -254,18 +254,17 @@ onBeforeUnmount(() => {
                   open-delay="1000"
                   >{{ matchedRom.name }}</v-tooltip
                 >
-                <!-- TODO: add default cover if not cover found -->
                 <v-img
                   v-bind="props"
                   :src="
-                    !matchedRom.has_cover
+                    !matchedRom.url_cover
                       ? `/assets/default/cover/big_${theme.global.name.value}.png`
-                      : `/assets/romm/resources/${matchedRom.url_cover}`
+                      : matchedRom.url_cover
                   "
                   :lazy-src="
-                    !matchedRom.has_cover
+                    !matchedRom.url_cover
                       ? `/assets/default/cover/small_${theme.global.name.value}.png`
-                      : `/assets/romm/resources/${matchedRom.url_cover}`
+                      : matchedRom.url_cover
                   "
                   :aspect-ratio="3 / 4"
                 />

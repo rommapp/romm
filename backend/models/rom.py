@@ -1,14 +1,19 @@
 import re
 from functools import cached_property
 
-from config import (
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_PATH_COVER_S,
-    FRONTEND_RESOURCES_PATH,
-)
+from config import FRONTEND_RESOURCES_PATH
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text, BigInteger
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    BigInteger,
+)
 from sqlalchemy.orm import Mapped, relationship
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
@@ -33,9 +38,9 @@ class Rom(BaseModel):
     slug: str = Column(String(length=400))
     summary: str = Column(Text)
 
-    path_cover_s: str = Column(Text, default=DEFAULT_PATH_COVER_S)
-    path_cover_l: str = Column(Text, default=DEFAULT_PATH_COVER_L)
-    url_cover: str = Column(Text, default=DEFAULT_PATH_COVER_L)
+    path_cover_s: str = Column(Text, default="")
+    path_cover_l: str = Column(Text, default="")
+    url_cover: str = Column(Text, default="")
 
     revision: str = Column(String(20))
     regions: JSON = Column(JSON, default=[])
@@ -90,10 +95,7 @@ class Rom(BaseModel):
 
     @cached_property
     def has_cover(self) -> bool:
-        return (
-            self.path_cover_s != DEFAULT_PATH_COVER_S
-            or self.path_cover_l != DEFAULT_PATH_COVER_L
-        )
+        return self.path_cover_s != None or self.path_cover_l != None
 
     @cached_property
     def merged_screenshots(self) -> list[str]:

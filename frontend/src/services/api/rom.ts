@@ -156,7 +156,7 @@ async function updateRom({
   formData.append("slug", rom.slug || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover);
+  formData.append("url_cover", rom.url_cover || "");
   formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
