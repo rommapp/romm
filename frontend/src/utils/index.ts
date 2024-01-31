@@ -262,6 +262,7 @@ export const platformSlugEJSPlatformMap: Record<string, string> = {
   nds: "nds",
   gba: "gba",
   gb: "gb",
+  gbc: "gb",
   "pc-fx": "pcfx",
   ps: "psx",
   psp: "psp",
