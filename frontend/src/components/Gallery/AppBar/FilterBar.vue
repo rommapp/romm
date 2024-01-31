@@ -2,7 +2,6 @@
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import ShowUnmatchedBtn from "@/components/Gallery/AppBar/ShowUnmatchedBtn.vue";
 
 // Props
 const showFilterBar = ref(false);
