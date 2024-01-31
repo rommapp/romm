@@ -30,6 +30,7 @@ onMounted(() => {
 
 <template>
   <v-text-field
+    prepend-inner-icon="mdi-filter-outline"
     @click:clear="clearFilter"
     @keyup="filterRoms"
     v-model="filterValue"
