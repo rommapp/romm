@@ -15,7 +15,6 @@ from handler import (
     db_state_handler,
     fs_asset_handler,
     fs_platform_handler,
-    fs_resource_handler,
     fs_rom_handler,
     socket_handler,
 )
@@ -272,7 +271,6 @@ async def scan_handler(_sid: str, options: dict):
     """
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-    fs_resource_handler.store_default_resources()
 
     platform_slugs = options.get("platforms", [])
     complete_rescan = options.get("completeRescan", False)

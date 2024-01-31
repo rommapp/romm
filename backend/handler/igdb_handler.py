@@ -9,7 +9,7 @@ from typing import Final
 import pydash
 import requests
 import xmltodict
-from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
@@ -155,7 +155,7 @@ class IGDBHandler:
 
         cover = pydash.get(covers, "[0]", None)
         return (
-            DEFAULT_URL_COVER_L
+            ""
             if not cover
             else self._normalize_cover_url(cover["url"])
         )
@@ -333,7 +333,7 @@ class IGDBHandler:
             slug=res.get("slug", ""),
             name=res.get("name", search_term),
             summary=res.get("summary", ""),
-            url_cover=DEFAULT_URL_COVER_L,
+            url_cover="",
             url_screenshots=[],
         )
 

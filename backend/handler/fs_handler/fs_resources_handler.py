@@ -5,12 +5,6 @@ from pathlib import Path
 from urllib.parse import quote
 
 import requests
-from config import (
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_PATH_COVER_S,
-    DEFAULT_URL_COVER_L,
-    DEFAULT_URL_COVER_S,
-)
 from handler.fs_handler import (
     DEFAULT_HEIGHT_COVER_L,
     DEFAULT_HEIGHT_COVER_S,
@@ -123,7 +117,7 @@ class FSResourceHandler(FSHandler):
         path_cover_s = (
             self._get_cover_path(platform_fs_slug, q_rom_name, CoverSize.SMALL)
             if self._cover_exists(platform_fs_slug, rom_name, CoverSize.SMALL)
-            else DEFAULT_PATH_COVER_S
+            else ""
         )
 
         if (
@@ -134,23 +128,13 @@ class FSResourceHandler(FSHandler):
         path_cover_l = (
             self._get_cover_path(platform_fs_slug, q_rom_name, CoverSize.BIG)
             if self._cover_exists(platform_fs_slug, rom_name, CoverSize.BIG)
-            else DEFAULT_PATH_COVER_L
+            else ""
         )
 
         return {
             "path_cover_s": path_cover_s,
             "path_cover_l": path_cover_l,
         }
-
-    def store_default_resources(self):
-        """Store default cover resources in the filesystem"""
-        defaul_covers = [
-            {"url": DEFAULT_URL_COVER_L, "size": CoverSize.BIG},
-            {"url": DEFAULT_URL_COVER_S, "size": CoverSize.SMALL},
-        ]
-        for cover in defaul_covers:
-            if not self._cover_exists("default", "default", cover["size"]):
-                self._store_cover("default", "default", cover["url"], cover["size"])
 
     @staticmethod
     def build_artwork_path(rom_name: str, fs_slug: str, file_ext: str):

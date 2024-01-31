@@ -5,11 +5,11 @@ import { useTheme } from "vuetify";
 const theme = useTheme();
 
 const downloadStore = storeDownload();
-defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom }>();
+console.log(props.rom)
 </script>
 <template>
   <v-card
-    :key="rom.path_cover_s"
     elevation="2"
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
@@ -26,6 +26,7 @@ defineProps<{ rom: Rom }>();
       "
       :aspect-ratio="3 / 4"
     >
+      <!-- <span class="message">{{ rom.file_name }}</span> -->
       <template v-slot:placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
@@ -39,3 +40,9 @@ defineProps<{ rom: Rom }>();
     </v-img>
   </v-card>
 </template>
+<style scoped>
+.message {
+    font-family: 'cassete';
+    font-size: xx-large;
+}
+</style>

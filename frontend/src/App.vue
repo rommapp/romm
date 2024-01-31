@@ -114,7 +114,3 @@ onBeforeMount(async () => {
     </v-main>
   </v-app>
 </template>
-
-<style>
-@import "@/styles/scrollbar.css";
-</style>

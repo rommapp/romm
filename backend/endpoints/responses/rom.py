@@ -28,10 +28,10 @@ class RomSchema(BaseModel):
     summary: Optional[str]
     sort_comparator: str
 
-    path_cover_s: str
-    path_cover_l: str
+    path_cover_s: Optional[str]
+    path_cover_l: Optional[str]
     has_cover: bool
-    url_cover: str
+    url_cover: Optional[str]
 
     revision: Optional[str]
     regions: list[str]

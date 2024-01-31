@@ -17,17 +17,6 @@ LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 FRONTEND_LIBRARY_PATH: Final = "/assets/romm/library"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
-# DEFAULT RESOURCES
-# TODO: remove since we use the own RomM default cover
-DEFAULT_URL_COVER_L: Final = (
-    "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
-)
-DEFAULT_PATH_COVER_L: Final = "default/default/cover/big.png"
-DEFAULT_URL_COVER_S: Final = (
-    "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
-)
-DEFAULT_PATH_COVER_S: Final = "default/default/cover/small.png"
-
 # MARIADB
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
 DB_PORT: Final = int(os.environ.get("DB_PORT", 3306))

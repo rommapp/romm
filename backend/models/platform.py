@@ -1,4 +1,3 @@
-from config import DEFAULT_PATH_COVER_S
 from models.base import BaseModel
 from models.rom import Rom
 from sqlalchemy import Column, Integer, String
@@ -14,7 +13,7 @@ class Platform(BaseModel):
     slug: str = Column(String(length=50), nullable=False)
     fs_slug: str = Column(String(length=50), nullable=False)
     name: str = Column(String(length=400))
-    logo_path: str = Column(String(length=1000), default=DEFAULT_PATH_COVER_S)
+    logo_path: str = Column(String(length=1000), default="")
 
     roms: Mapped[set[Rom]] = relationship(
         "Rom", lazy="selectin", back_populates="platform"
