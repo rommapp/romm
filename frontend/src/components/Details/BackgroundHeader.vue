@@ -7,16 +7,16 @@ defineProps<{ rom: RomSchema }>();
 </script>
 
 <template>
-  <v-card id="header-background" rounded="0" flat>
-    <v-img
-      :src="
-        !rom.has_cover
-          ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
-          : `/assets/romm/resources/${rom.path_cover_s}`
-      "
-      id="header-background-img"
-      cover
-    />
+  <v-card id="header-background" rounded="0">
+      <v-img
+        :src="
+          !rom.has_cover
+            ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+            : `/assets/romm/resources/${rom.path_cover_s}`
+        "
+        id="header-background-img"
+        cover
+      />
   </v-card>
 </template>
 
@@ -30,5 +30,6 @@ defineProps<{ rom: RomSchema }>();
 #header-background-img {
   -webkit-filter: blur(15px);
   filter: blur(15px);
+  transform: scale(1.05);
 }
 </style>
