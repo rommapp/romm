@@ -6,7 +6,8 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
+const theme = useTheme();
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -197,12 +198,26 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
-                <v-tooltip activator="parent" location="top" class="tooltip" transition="fade-transition" open-delay="500">{{
-                  rom.name
-                }}</v-tooltip>
+                <v-tooltip
+                  activator="parent"
+                  location="top"
+                  class="tooltip"
+                  transition="fade-transition"
+                  open-delay="1000"
+                  >{{ rom.name }}</v-tooltip
+                >
                 <v-img
                   v-bind="props"
-                  :src="`/assets/romm/resources/${rom.path_cover_l}`"
+                  :src="
+                    !rom.has_cover
+                      ? `/assets/default/cover/big_${theme.global.name.value}.png`
+                      : `/assets/romm/resources/${rom.path_cover_l}`
+                  "
+                  :lazy-src="
+                    !rom.has_cover
+                      ? `/assets/default/cover/small_${theme.global.name.value}.png`
+                      : `/assets/romm/resources/${rom.path_cover_s}`
+                  "
                   :aspect-ratio="3 / 4"
                 />
                 <v-card-text>

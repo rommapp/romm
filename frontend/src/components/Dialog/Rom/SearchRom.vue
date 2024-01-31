@@ -2,7 +2,8 @@
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
+const theme = useTheme();
 
 import type { SearchRomSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
@@ -245,12 +246,27 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
-                <v-tooltip activator="parent" location="top" class="tooltip" transition="fade-transition" open-delay="500">{{
-                  matchedRom.name
-                }}</v-tooltip>
+                <v-tooltip
+                  activator="parent"
+                  location="top"
+                  class="tooltip"
+                  transition="fade-transition"
+                  open-delay="1000"
+                  >{{ matchedRom.name }}</v-tooltip
+                >
+                <!-- TODO: add default cover if not cover found -->
                 <v-img
                   v-bind="props"
-                  :src="matchedRom.url_cover"
+                  :src="
+                    !matchedRom.has_cover
+                      ? `/assets/default/cover/big_${theme.global.name.value}.png`
+                      : `/assets/romm/resources/${matchedRom.url_cover}`
+                  "
+                  :lazy-src="
+                    !matchedRom.has_cover
+                      ? `/assets/default/cover/small_${theme.global.name.value}.png`
+                      : `/assets/romm/resources/${matchedRom.url_cover}`
+                  "
                   :aspect-ratio="3 / 4"
                 />
                 <v-card-text>

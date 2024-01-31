@@ -14,7 +14,6 @@ defineProps<{ rom: Rom }>();
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
     <v-img
-      :cover="!rom.has_cover"
       :src="
         !rom.has_cover
           ? `/assets/default/cover/big_${theme.global.name.value}.png`
