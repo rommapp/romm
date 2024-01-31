@@ -13,7 +13,6 @@ emitter?.on("sortBarShow", () => {
 
 <template>
   <template v-if="showSortBar">
-    <v-divider class="my-0" />
     <div
       class="px-1 py-2"
       id="gallery-app-bar-sort"
@@ -41,6 +40,10 @@ emitter?.on("sortBarShow", () => {
         </v-col>
       </v-row>
     </div>
-    <v-divider class="my-0" />
+    <v-divider
+      class="my-0 mx-2 border-opacity-25"
+      :thickness="2"
+      color="romm-accent-1"
+    />
   </template>
 </template>

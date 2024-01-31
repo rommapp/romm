@@ -2,6 +2,7 @@
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import ShowUnmatchedBtn from "@/components/Gallery/AppBar/ShowUnmatchedBtn.vue";
 
 // Props
 const showFilterBar = ref(false);
@@ -13,7 +14,6 @@ emitter?.on("filterBarShow", () => {
 
 <template>
   <template v-if="showFilterBar">
-    <v-divider class="my-0" />
     <div
       class="px-1 py-2"
       id="gallery-app-bar-filter"
@@ -23,12 +23,11 @@ emitter?.on("filterBarShow", () => {
       <v-row no-gutters>
         <v-col cols="6" sm="" md="" lg="4" xl="3">
           <v-select
-            cols="6"
             hide-details
             label="Genre"
             density="compact"
             variant="outlined"
-            class="pa-1"
+            class="ma-1"
           ></v-select>
         </v-col>
         <v-col cols="6" sm="" md="" lg="4" xl="3">
@@ -37,7 +36,7 @@ emitter?.on("filterBarShow", () => {
             label="Publisher"
             density="compact"
             variant="outlined"
-            class="pa-1"
+            class="ma-1"
           ></v-select>
         </v-col>
         <v-col cols="6" sm="" md="" lg="4" xl="3">
@@ -46,7 +45,7 @@ emitter?.on("filterBarShow", () => {
             label="Developer"
             density="compact"
             variant="outlined"
-            class="pa-1"
+            class="ma-1"
           ></v-select>
         </v-col>
         <v-col cols="6" sm="" md="" lg="4" xl="3">
@@ -55,7 +54,7 @@ emitter?.on("filterBarShow", () => {
             label="Theme"
             density="compact"
             variant="outlined"
-            class="pa-1"
+            class="ma-1"
           ></v-select>
         </v-col>
         <v-col cols="6" sm="" md="" lg="4" xl="3">
@@ -64,7 +63,7 @@ emitter?.on("filterBarShow", () => {
             label="Series"
             density="compact"
             variant="outlined"
-            class="pa-1"
+            class="ma-1"
           ></v-select>
         </v-col>
         <v-col cols="6" sm="" md="" lg="4" xl="3">
@@ -73,11 +72,15 @@ emitter?.on("filterBarShow", () => {
             label="Franchises"
             density="compact"
             variant="outlined"
-            class="pa-1"
+            class="ma-1"
           ></v-select>
         </v-col>
       </v-row>
     </div>
-    <v-divider class="my-0" />
+    <v-divider
+      class="my-0 mx-2 border-opacity-25"
+      :thickness="2"
+      color="romm-accent-1"
+    />
   </template>
 </template>
