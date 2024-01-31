@@ -3,6 +3,8 @@ import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { ref } from "vue";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 defineProps<{
   rom: Rom;
@@ -81,11 +83,15 @@ function onTouchEnd() {
         :key="rom.id"
         v-bind="props"
         :src="
-          !rom.has_cover && rom.merged_screenshots.length > 0
-            ? rom.merged_screenshots[0]
+          !rom.has_cover
+            ? `/assets/romm/resources/default/default/cover/big_${theme.global.name.value}.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
-        :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
+        :lazy-src="
+          !rom.has_cover
+            ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+            : `/assets/romm/resources/${rom.path_cover_s}`
+        "
         :aspect-ratio="3 / 4"
       >
         <template v-slot:placeholder>

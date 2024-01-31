@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
-                <v-tooltip activator="parent" location="top" class="tooltip">{{
+                <v-tooltip activator="parent" location="top" class="tooltip" transition="fade-transition" open-delay="500">{{
                   rom.name
                 }}</v-tooltip>
                 <v-img

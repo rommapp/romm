@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 const downloadStore = storeDownload();
 defineProps<{ rom: Rom }>();
@@ -14,11 +16,15 @@ defineProps<{ rom: Rom }>();
     <v-img
       :cover="!rom.has_cover"
       :src="
-        !rom.has_cover && rom.merged_screenshots.length > 0
-          ? rom.merged_screenshots[0]
+        !rom.has_cover
+          ? `/assets/romm/resources/default/default/cover/big_${theme.global.name.value}.png`
           : `/assets/romm/resources/${rom.path_cover_l}`
       "
-      :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
+      :lazy-src="
+        !rom.has_cover
+          ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+          : `/assets/romm/resources/${rom.path_cover_s}`
+      "
       :aspect-ratio="3 / 4"
     >
       <template v-slot:placeholder>

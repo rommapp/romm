@@ -14,6 +14,8 @@ import {
   formatBytes,
   platformSlugEJSPlatformMap,
 } from "@/utils";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 const HEADERS = [
   {
@@ -100,8 +102,11 @@ function rowClick(_: Event, row: any) {
           absolute
         />
         <v-img
-          :src="`/assets/romm/resources/${item.raw.path_cover_s}`"
-          :lazy-src="`/assets/romm/resources/${item.raw.path_cover_s}`"
+          :src="
+            !item.raw.has_cover
+              ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+              : `/assets/romm/resources/${item.raw.path_cover_s}`
+          "
           min-height="150"
         />
       </v-avatar>
@@ -123,7 +128,7 @@ function rowClick(_: Event, row: any) {
     </template>
     <template v-slot:item.actions="{ item }">
       <v-btn
-        class="ma-1  bg-terciary"
+        class="ma-1 bg-terciary"
         rounded="0"
         @click.stop="romApi.downloadRom({ rom: item.raw })"
         :disabled="downloadStore.value.includes(item.raw.id)"

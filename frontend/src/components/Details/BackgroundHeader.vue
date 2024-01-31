@@ -1,11 +1,19 @@
 <script setup lang="ts">
-defineProps<{ image: string }>();
+import type { RomSchema } from "../../__generated__/";
+import { useTheme } from "vuetify";
+const theme = useTheme();
+
+defineProps<{ rom: RomSchema }>();
 </script>
 
 <template>
   <v-card id="header-background" rounded="0" flat>
     <v-img
-      :src="`/assets/romm/resources/${image}`"
+      :src="
+        !rom.has_cover
+          ? `/assets/romm/resources/default/default/cover/small_${theme.global.name.value}.png`
+          : `/assets/romm/resources/${rom.path_cover_s}`
+      "
       id="header-background-img"
       cover
     />

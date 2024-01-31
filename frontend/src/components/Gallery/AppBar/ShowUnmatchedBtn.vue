@@ -1,14 +1,20 @@
 <script setup lang="ts">
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { ref, inject } from "vue";
+import { inject, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const isShowSortBar = ref(false);
-function showSortBar() {
-  emitter?.emit("sortBarShow", null);
-  isShowSortBar.value = !isShowSortBar.value;
+const romsStore = storeRoms();
+const isShowUnmatched = ref(false);
+function showUnmatched() {
+  isShowUnmatched.value = !isShowUnmatched.value;
+  if (isShowUnmatched.value) {
+    romsStore.setFilteredUnmatched();
+  } else {
+    emitter?.emit("filter", null);
+  }
 }
 </script>
 
@@ -16,18 +22,18 @@ function showSortBar() {
   <v-tooltip
     location="bottom"
     class="tooltip"
-    text="Order gallery"
     transition="fade-transition"
+    text="Filter unmatched games"
     open-delay="500"
     ><template v-slot:activator="{ props }">
       <v-btn
-        class="ml-0"
-        variant="text"
         rounded="0"
-        icon="mdi-sort"
+        variant="text"
+        class="ml-0"
+        :color="isShowUnmatched ? 'romm-accent-1' : ''"
+        icon="mdi-file-find-outline"
         v-bind="props"
-        :color="isShowSortBar ? 'romm-accent-1' : ''"
-        @click="showSortBar" /></template
+        @click="showUnmatched" /></template
   ></v-tooltip>
 </template>
 <style scoped>

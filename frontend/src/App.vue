@@ -19,11 +19,7 @@ import { inject, onBeforeUnmount, ref } from "vue";
 
 // Props
 const scanningStore = storeScanning();
-const { scanning, scanningPlatforms } = storeToRefs(scanningStore);
-const completeRescan = ref(false);
-const rescanUnidentified = ref(false);
-const platforms = storePlatforms();
-const platformsToScan = ref<Platform[]>([]);
+const { scanningPlatforms } = storeToRefs(scanningStore);
 const romsStore = storeRoms();
 const galleryFilter = storeGalleryFilter();
 const isFiltered = normalizeString(galleryFilter.filter).trim() != "";

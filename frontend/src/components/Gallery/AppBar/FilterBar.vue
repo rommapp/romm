@@ -12,24 +12,72 @@ emitter?.on("filterBarShow", () => {
 </script>
 
 <template>
-  <v-app-bar
-    v-if="showFilterBar"
-    id="gallery-app-bar-filter"
-    elevation="0"
-    density="compact"
-  >
-    <v-btn
-      rounded="0"
-      variant="text"
-      class="ml-0"
-      icon="mdi-file-find-outline"
-      title="Show unmatched games"
-    />
-    <v-select hide-details label="Genre"></v-select>
-    <v-select hide-details label="Publisher"></v-select>
-    <v-select hide-details label="Developer"></v-select>
-    <v-select hide-details label="Theme"></v-select>
-    <v-select hide-details label="Series"></v-select>
-    <v-select hide-details label="Franchises"></v-select>
-  </v-app-bar>
+  <template v-if="showFilterBar">
+    <v-divider class="my-0" />
+    <div
+      class="px-1 py-2"
+      id="gallery-app-bar-filter"
+      elevation="0"
+      density="compact"
+    >
+      <v-row no-gutters>
+        <v-col cols="6" sm="" md="" lg="4" xl="3">
+          <v-select
+            cols="6"
+            hide-details
+            label="Genre"
+            density="compact"
+            variant="outlined"
+            class="pa-1"
+          ></v-select>
+        </v-col>
+        <v-col cols="6" sm="" md="" lg="4" xl="3">
+          <v-select
+            hide-details
+            label="Publisher"
+            density="compact"
+            variant="outlined"
+            class="pa-1"
+          ></v-select>
+        </v-col>
+        <v-col cols="6" sm="" md="" lg="4" xl="3">
+          <v-select
+            hide-details
+            label="Developer"
+            density="compact"
+            variant="outlined"
+            class="pa-1"
+          ></v-select>
+        </v-col>
+        <v-col cols="6" sm="" md="" lg="4" xl="3">
+          <v-select
+            hide-details
+            label="Theme"
+            density="compact"
+            variant="outlined"
+            class="pa-1"
+          ></v-select>
+        </v-col>
+        <v-col cols="6" sm="" md="" lg="4" xl="3">
+          <v-select
+            hide-details
+            label="Series"
+            density="compact"
+            variant="outlined"
+            class="pa-1"
+          ></v-select>
+        </v-col>
+        <v-col cols="6" sm="" md="" lg="4" xl="3">
+          <v-select
+            hide-details
+            label="Franchises"
+            density="compact"
+            variant="outlined"
+            class="pa-1"
+          ></v-select>
+        </v-col>
+      </v-row>
+    </div>
+    <v-divider class="my-0" />
+  </template>
 </template>

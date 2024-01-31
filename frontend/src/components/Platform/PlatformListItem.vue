@@ -17,13 +17,18 @@ defineProps<{ platform: Platform; rail: boolean }>();
     <template v-slot:prepend>
       <v-avatar :rounded="0" size="40">
         <platform-icon :key="platform.slug" :slug="platform.slug" />
-        <div
-          class="igdb-icon"
-          v-if="!platform.igdb_id"
-          title="Not found in IGDB"
+        <v-tooltip
+          location="bottom"
+          class="tooltip"
+          transition="fade-transition"
+          text="Not found in IGDB"
+          open-delay="500"
+          ><template v-slot:activator="{ props }">
+            <div v-bind="props" class="igdb-icon" v-if="!platform.igdb_id">
+              ⚠️
+            </div></template
+          ></v-tooltip
         >
-          ⚠️
-        </div>
       </v-avatar>
     </template>
     <template v-slot:append>
@@ -39,5 +44,9 @@ defineProps<{ platform: Platform; rail: boolean }>();
   position: absolute;
   bottom: 0;
   right: 0;
+}
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(201, 201, 201, 0.98) !important;
+  color: rgb(41, 41, 41) !important;
 }
 </style>
