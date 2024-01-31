@@ -95,7 +95,7 @@ watch(
   <template v-if="rom && platform">
     <v-row no-gutters>
       <v-col>
-        <background-header :image="rom.path_cover_s" />
+        <background-header :rom="rom" />
       </v-col>
     </v-row>
 

@@ -113,6 +113,11 @@ export default defineStore("roms", {
     setFiltered(roms: Rom[]) {
       this._filteredIDs = roms.map((rom) => rom.id);
     },
+    setFilteredUnmatched() {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => !rom.igdb_id)
+        .map((roms) => roms.id);
+    },
     // Search roms
     setSearch(roms: Rom[]) {
       this._searchIDs = roms.map((rom) => rom.id);
