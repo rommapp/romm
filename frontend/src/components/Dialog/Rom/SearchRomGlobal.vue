@@ -29,6 +29,9 @@ function clearFilter() {
 }
 
 async function searchRoms() {
+  // Auto hide android keyboard
+  const inputElement = document.getElementById("search-text-field");
+  inputElement?.blur();
   searching.value = true;
   searchedRoms.value = (
     await romApi.getRoms({ searchTerm: searchValue.value, size: 250 })
@@ -119,6 +122,7 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="6" xs="6" sm="6" md="6" lg="7">
             <v-text-field
+              id="search-text-field"
               autofocus
               @keyup.enter="searchRoms"
               @click:clear="searchRoms"
