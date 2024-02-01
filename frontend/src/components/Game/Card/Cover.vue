@@ -78,18 +78,21 @@ function onTouchEnd() {
     />
     <v-hover v-slot="{ isHovering, props }" open-delay="800">
       <v-img
-        :cover="!rom.has_cover"
         :value="rom.id"
         :key="rom.id"
         v-bind="props"
         :src="
-          !rom.has_cover
-            ? `/assets/default/cover/big_${theme.global.name.value}.png`
+          !rom.igdb_id && !rom.has_cover
+            ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+            : !rom.has_cover
+            ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
         :lazy-src="
-          !rom.has_cover
-            ? `/assets/default/cover/small_${theme.global.name.value}.png`
+          !rom.igdb_id && !rom.has_cover
+            ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+            : !rom.has_cover
+            ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_s}`
         "
         :aspect-ratio="3 / 4"

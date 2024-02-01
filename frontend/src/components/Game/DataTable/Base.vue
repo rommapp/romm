@@ -9,10 +9,10 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 import {
-  regionToEmoji,
-  languageToEmoji,
   formatBytes,
+  languageToEmoji,
   platformSlugEJSPlatformMap,
+  regionToEmoji,
 } from "@/utils";
 import { useTheme } from "vuetify";
 const theme = useTheme();
@@ -103,8 +103,17 @@ function rowClick(_: Event, row: any) {
         />
         <v-img
           :src="
-            !item.raw.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}.png`
+            !item.raw.igdb_id && !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${item.raw.path_cover_s}`
+          "
+          :lazy-src="
+            !item.raw.igdb_id && !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
               : `/assets/romm/resources/${item.raw.path_cover_s}`
           "
           min-height="150"

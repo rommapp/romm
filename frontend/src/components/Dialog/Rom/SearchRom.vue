@@ -258,12 +258,12 @@ onBeforeUnmount(() => {
                   v-bind="props"
                   :src="
                     !matchedRom.url_cover
-                      ? `/assets/default/cover/big_${theme.global.name.value}.png`
+                      ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                       : matchedRom.url_cover
                   "
                   :lazy-src="
                     !matchedRom.url_cover
-                      ? `/assets/default/cover/small_${theme.global.name.value}.png`
+                      ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
                       : matchedRom.url_cover
                   "
                   :aspect-ratio="3 / 4"

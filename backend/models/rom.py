@@ -95,7 +95,7 @@ class Rom(BaseModel):
 
     @cached_property
     def has_cover(self) -> bool:
-        return self.path_cover_s != None or self.path_cover_l != None
+        return bool(self.path_cover_s or self.path_cover_l)
 
     @cached_property
     def merged_screenshots(self) -> list[str]:

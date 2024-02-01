@@ -209,13 +209,17 @@ onBeforeUnmount(() => {
                 <v-img
                   v-bind="props"
                   :src="
-                    !rom.has_cover
-                      ? `/assets/default/cover/big_${theme.global.name.value}.png`
+                    !rom.igdb_id && !rom.has_cover
+                      ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                      : !rom.has_cover
+                      ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                       : `/assets/romm/resources/${rom.path_cover_l}`
                   "
                   :lazy-src="
-                    !rom.has_cover
-                      ? `/assets/default/cover/small_${theme.global.name.value}.png`
+                    !rom.igdb_id && !rom.has_cover
+                      ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                      : !rom.has_cover
+                      ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
                       : `/assets/romm/resources/${rom.path_cover_s}`
                   "
                   :aspect-ratio="3 / 4"
