@@ -151,7 +151,7 @@ class IGDBHandler:
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
-        return f"https:{url.replace('https:', '')}"
+        return f"https:{url.replace('https:', '')}" if url != "" else ""
 
     def _search_rom(
         self, search_term: str, platform_idgb_id: int, category: int = 0

@@ -1,7 +1,7 @@
 interactions:
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    body: search "WWE Smack"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[8] ;
     headers:
       Accept:
       - application/json
@@ -14,7 +14,7 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '148'
+      - '482'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -31,7 +31,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78d01d945a68-VIE
+      - 84e8d2092ec4247e-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -39,21 +39,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:22 GMT
+      - Thu, 01 Feb 2024 08:28:22 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=_kOPxK15YR4iSYKsjblu8SJOiLI70wgQ7FOjvG27hXg-1705671442-1-ATULcbeLOsS/i3DKSecQWlBxz2qoIs0gw2ebsjEKw9Qmdq7dPp9HPCySt3FZZ8vM9LwXzxP93ox0QrXt++SJjow=;
-        path=/; expires=Fri, 19-Jan-24 14:07:22 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=cJK8rK1dJ5c.n5hpqYLM7VrmPPUupWp2gZMW5S.K8lU-1706776102-1-AYYqPuDRXO4+NV1AbdJ//hUmIahawoE+VVVe7YfslMsOOlCSuJG36JeOjmrYbf8czE4udytV6iv1Dt7KR1BLbSk=;
+        path=/; expires=Thu, 01-Feb-24 08:58:22 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 530e9f4b5e6084726110986459f0c18c.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - pLEOGpTtK4jBKry42XQ0jEFNtFMclP5_qTaPiyYCe9AtvesKjCKsxA==
+      - JtSnQ9QdWqC9p_QIK_cI3F4POSECVQkuNkkptt1AvSXHpCVBlQ-cbw==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - ZAG50-C1
       X-Cache:
       - Error from cloudfront
       X-Content-Type-Options:
@@ -61,11 +61,11 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - Rygq3HrsPHcEaRA=
+      - Scpl8FEvPHcEOfw=
       x-amzn-ErrorType:
       - AccessDeniedException
       x-amzn-RequestId:
-      - 572a740f-87ce-45c6-9096-fb30c9a03540
+      - 8d9a54ad-e327-4386-b8a3-831928f6bf6b
     status:
       code: 401
       message: Unauthorized
@@ -86,7 +86,7 @@ interactions:
     uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: '{"access_token":"3oeeqb3l2oufuidp79c708gr8xwseh","expires_in":4828909,"token_type":"bearer"}
+      string: '{"access_token":"rsnn7xyiq9ixov3hw32p0g3x0exrot","expires_in":5277802,"token_type":"bearer"}
 
         '
     headers:
@@ -99,30 +99,30 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:23 GMT
+      - Thu, 01 Feb 2024 08:28:22 GMT
       Server:
       - nginx
       X-Ctxlog-Logid:
-      - 1-65aa7b13-233b8db24633d23a3759fe1a
+      - 1-65bb5626-0ab475b5480e298831e8ddf9
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    body: search "WWE Smack"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[8] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer 3oeeqb3l2oufuidp79c708gr8xwseh
+      - Bearer rsnn7xyiq9ixov3hw32p0g3x0exrot
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '148'
+      - '482'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -134,7 +134,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78da1a425a71-VIE
+      - 84e8d214c948247e-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -142,19 +142,19 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:23 GMT
+      - Thu, 01 Feb 2024 08:28:23 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=Lffs3gVHrcwjJ6hL6ckCIs8r6IEDWRKiDUjFBzPpAi8-1705671443-1-AbmAvDmsKM6FBdoFkxdaqZNV1FWdU4vpfpXwmHnEtQTRj36l9XYcgEX31cUIILCy1pzmZmoau5TITEZC8zly1sM=;
-        path=/; expires=Fri, 19-Jan-24 14:07:23 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=uPoSD3L3_bkKdUsmyZ0dpaDNR0jfx3fWmMTcZmME7VU-1706776103-1-ASxrs9xXTwPTjvdd2tSVPYcLzy4KsrSGJ2aTR7XTx3+neEA8ogkFE4dZFsdz2xcyl6F8iWR8UICI3wDk3S2YdHo=;
+        path=/; expires=Thu, 01-Feb-24 08:58:23 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 a5feee427fe9cff4e87dc473d3d3e300.cloudfront.net (CloudFront)
+      - 1.1 ba761cfda8bfa6cbda2b6c433d6201f6.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - vtfHJv1IXrt9dg17XtXAmCuFDqNmKO4bPK36DAcLWTpH6eXpFSSkOQ==
+      - 2DKdI8nfGNzLbMfOcEr1aYsVjWUVuO35n_XAL1I7I7nSFDsN_Nz16g==
       X-Amz-Cf-Pop:
       - VIE50-C2
       X-Cache:
@@ -166,33 +166,32 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygrHHLzPHcETeg=
+      - ScpmLHCgvHcErNw=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:23 GMT
+      - Thu, 01 Feb 2024 08:28:23 GMT
       x-amzn-RequestId:
-      - ba00326d-56b5-4cdb-b381-890914f1f05d
+      - 0fcbb165-70e2-43a6-856b-36273578437b
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] & category=10;\n
-      \           "
+    body: search "WWE Smack"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[8] & category=10;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer 3oeeqb3l2oufuidp79c708gr8xwseh
+      - Bearer rsnn7xyiq9ixov3hw32p0g3x0exrot
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '161'
+      - '495'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -204,7 +203,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78dd1db35a44-VIE
+      - 84e8d2179ddc2480-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -212,21 +211,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:24 GMT
+      - Thu, 01 Feb 2024 08:28:24 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=iQnfUHnJ5Ufwghyc7Mm8sOgaOSZXRSYGaWZr4jTRHSQ-1705671444-1-AQbNaTR4aNsOi4yogVUgsiwupAoF0THdvbLswX0npqkvUTeXK2C1z7Oyd1fm+0wIg9cCA5ChNoZyUPn/CKOJ/0g=;
-        path=/; expires=Fri, 19-Jan-24 14:07:24 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=ZbadY6uS4fhzHBzrJffx3uBf58TRgKSjitrH6xS4y8g-1706776104-1-AesQx6760lNoiTpwzUFLgO3E5K70NXboKAicRH9WovOg6Zc+HldDXP5uYzzK+df2j4blvB2kq98Hg9APdjSeK0w=;
+        path=/; expires=Thu, 01-Feb-24 08:58:24 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 95c9d51ed7176777d7ac8ca8cb233696.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - uCtbRR46oep4gC4Vadv3RRw6Q2XNTXk3dYWketup8W-TqncGpBZ-pA==
+      - e7iB9-DGER5GxnRSXdlJdnR1cAwr0Sd3QNc9Og9kH72YpHH6eY5A3A==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -236,32 +235,32 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygrPE0yPHcEcZQ=
+      - ScpmTGhKvHcENjA=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:24 GMT
+      - Thu, 01 Feb 2024 08:28:24 GMT
       x-amzn-RequestId:
-      - dd57905d-8c5f-4c16-967b-0430b37bbdb6
+      - 10ce805d-ace3-47cf-a220-c0e150abf69a
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    body: search "WWE Smack"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[8] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer 3oeeqb3l2oufuidp79c708gr8xwseh
+      - Bearer rsnn7xyiq9ixov3hw32p0g3x0exrot
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '148'
+      - '482'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -273,7 +272,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78e21ea86c86-ZAG
+      - 84e8d21c5eff6c86-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -281,21 +280,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:25 GMT
+      - Thu, 01 Feb 2024 08:28:25 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=_16d8qit0KtY.bR8s7LswAB3jHn0M184DpZdm1hHWT4-1705671445-1-AQDCn8JjNm55+Uk8KPbFj2OG7QyU3PN/Hf5mIlIFVmUEGrODJxqNFVDTM6xw4XccrUp4YN8vTIEx3E3sZVludNo=;
-        path=/; expires=Fri, 19-Jan-24 14:07:25 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=jUeSPzmjXCcc4gbOpMZ8SQRTbelJ0aCXziyZkVAMVNk-1706776105-1-AQX36y8j2lLNWyvyvgiUc1o4Rm+4oOLVxSWGF+0Y8FxbtgOzXN2eOOappKQXMSHxVX/Qypyd9vanFSABQ8hKBfs=;
+        path=/; expires=Thu, 01-Feb-24 08:58:25 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 a5feee427fe9cff4e87dc473d3d3e300.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - WNetlDy__DbtmH_i_bvOd0dLp0H6HN1fcv3YU3gGHaLU3-sD7XcJYw==
+      - 9YoieSt-wWaSuCoUuOWe3ygyxxYyeYqLT4osNzHITFKAtQ8CrQeYxg==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -305,20 +304,19 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygrUE0VPHcERRQ=
+      - ScpmaGbkPHcEfww=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:25 GMT
+      - Thu, 01 Feb 2024 08:28:24 GMT
       x-amzn-RequestId:
-      - 9a70e744-3429-4b96-985a-92744d5be3cf
+      - 524350ed-ff1b-4668-81d0-9ea81b4a9e3d
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE SmackDown! vs. RAW\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[8] ;\n
-      \           "
+    body: search "WWE SmackDown! vs. RAW"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[8] ;
     headers:
       Accept:
       - application/json
@@ -331,7 +329,7 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '161'
+      - '495'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -348,7 +346,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78e54989c208-ZAG
+      - 84e8d221ac656c86-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -356,19 +354,19 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:25 GMT
+      - Thu, 01 Feb 2024 08:28:25 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=FtIGhsjzYIIsehRUwdXgO1EsNvVm9BV4Jga_ZE4zqCM-1705671445-1-AehcRuRferKqtUCpChjQegd40BjDxduRFP4jXFWhUXW6OuH5/ApuWVj3+c6dawoyNNAFY35q46Eq0GIW8daV7KU=;
-        path=/; expires=Fri, 19-Jan-24 14:07:25 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=pzhStNjV9I_JBuJQuJwcE2JsYoksFWgi0SJ.MLKU_0s-1706776105-1-AScZCtPPudgJhMerpKcSuOTDQkm3jNHXQwc+qVziinQ9IKlz3wM/zmK29WrV+pWHlThK9l7wYFSyLpQOje3kcp0=;
+        path=/; expires=Thu, 01-Feb-24 08:58:25 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 4e3b2e1fa2acb7612ea516b89c06af70.cloudfront.net (CloudFront)
+      - 1.1 ba761cfda8bfa6cbda2b6c433d6201f6.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - omwvkATR8iV09kN8O3NTlC0I1-CdoeaXzdyDNzgx0RgwM5pFcGjv1A==
+      - 9rIjeBAirWkI4rd8zT3T88O0lme42bVhW8QxV8k2D7gprHBfRfdKtA==
       X-Amz-Cf-Pop:
       - VIE50-C2
       X-Cache:
@@ -378,11 +376,11 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygrZFygvHcEO0A=
+      - ScpmjGbBvHcEL_Q=
       x-amzn-ErrorType:
       - AccessDeniedException
       x-amzn-RequestId:
-      - bdad4265-3048-46fb-b293-a5da8889d32d
+      - 7427e088-ddf4-493c-a13f-20ed6d2b312d
     status:
       code: 401
       message: Unauthorized
@@ -403,7 +401,7 @@ interactions:
     uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: '{"access_token":"wey0sj7h4jksp02joebheczbjkxw0y","expires_in":5202483,"token_type":"bearer"}
+      string: '{"access_token":"76opkjlm5fe25i3avc6v17s0t8ieey","expires_in":5479588,"token_type":"bearer"}
 
         '
     headers:
@@ -416,143 +414,424 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:26 GMT
+      - Thu, 01 Feb 2024 08:28:27 GMT
       Server:
       - nginx
       X-Ctxlog-Logid:
-      - 1-65aa7b16-4159a84625a1bec276e5fc0f
+      - 1-65bb562a-57dae5b4015dcbc13de8d84a
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE SmackDown! vs. RAW\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[8] ;\n
-      \           "
+    body: search "WWE SmackDown! vs. RAW"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[8] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer wey0sj7h4jksp02joebheczbjkxw0y
+      - Bearer 76opkjlm5fe25i3avc6v17s0t8ieey
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '161'
+      - '495'
       User-Agent:
       - python-requests/2.31.0
     method: POST
     uri: https://api.igdb.com/v4/games/
   response:
     body:
-      string: "[\n  {\n    \"id\": 80852,\n    \"name\": \"WWE Smackdown! vs. Raw\",\n
-        \   \"screenshots\": [\n      337102,\n      337103,\n      337104,\n      337105,\n
-        \     337106,\n      337107,\n      337108\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw\",\n
-        \   \"summary\": \"WWE SmackDown! vs. Raw brings two of wrestling\\u0027s
-        most popular game series together on the PS2. The game re-creates WWE programming
-        with voice-overs and commentary throughout the season mode. During matches,
-        you can learn a host of new gameplay moves, such as stare-downs, chop battles,
-        and submission reversals. You can also try out situational challenges or create
-        your own championship. Play as your favorite wrestler, including legends and
-        Divas, and prove to the world that you have what it takes to be the WWE champion.\"\n
-        \ },\n  {\n    \"id\": 2265,\n    \"name\": \"WWE SmackDown vs. Raw 2011\",\n
-        \   \"screenshots\": [\n      25356,\n      25357,\n      25358,\n      25359,\n
-        \     25360\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2011\",\n    \"summary\":
-        \"WWE SmackDown vs. Raw 2011 will empower players more than ever to define
-        their destiny and gameplay experiences in a dynamic and ever-changing WWE.
-        Along the way, your decisions will decide gameplay scenarios, allowing for
-        more spontaneous WWE action in and out of the ring. Enjoy a greater level
+      string: "[\n  {\n    \"id\": 80852,\n    \"alternative_names\": [\n      {\n
+        \       \"id\": 43313,\n        \"name\": \"Exciting Pro Wrestling 6: SmackDown!
+        vs. RAW\"\n      },\n      {\n        \"id\": 43314,\n        \"name\": \"WWE
+        SvR\"\n      }\n    ],\n    \"cover\": {\n      \"id\": 209154,\n      \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co4hdu.jpg\"\n    },\n    \"first_release_date\":
+        1099353600,\n    \"franchises\": [\n      {\n        \"id\": 255,\n        \"name\":
+        \"WWE\"\n      }\n    ],\n    \"game_modes\": [\n      {\n        \"id\":
+        1,\n        \"name\": \"Single player\"\n      },\n      {\n        \"id\":
+        2,\n        \"name\": \"Multiplayer\"\n      }\n    ],\n    \"genres\": [\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Fighting\"\n      },\n      {\n
+        \       \"id\": 14,\n        \"name\": \"Sport\"\n      }\n    ],\n    \"involved_companies\":
+        [\n      {\n        \"id\": 59696,\n        \"company\": {\n          \"id\":
+        14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n      },\n      {\n
+        \       \"id\": 59697,\n        \"company\": {\n          \"id\": 197,\n          \"name\":
+        \"THQ\"\n        }\n      },\n      {\n        \"id\": 59698,\n        \"company\":
+        {\n          \"id\": 14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n
+        \     }\n    ],\n    \"name\": \"WWE Smackdown! vs. Raw\",\n    \"platforms\":
+        [\n      {\n        \"id\": 8,\n        \"name\": \"PlayStation 2\"\n      }\n
+        \   ],\n    \"player_perspectives\": [\n      {\n        \"id\": 2,\n        \"name\":
+        \"Third person\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\":
+        337102,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783y.jpg\"\n
+        \     },\n      {\n        \"id\": 337103,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783z.jpg\"\n
+        \     },\n      {\n        \"id\": 337104,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7840.jpg\"\n
+        \     },\n      {\n        \"id\": 337105,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7841.jpg\"\n
+        \     },\n      {\n        \"id\": 337106,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7842.jpg\"\n
+        \     },\n      {\n        \"id\": 337107,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7843.jpg\"\n
+        \     },\n      {\n        \"id\": 337108,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7844.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 109606,\n
+        \       \"name\": \"Pro Yakyuu Spirits 2019\"\n      },\n      {\n        \"id\":
+        114286,\n        \"name\": \"Madden NFL 20\"\n      },\n      {\n        \"id\":
+        116343,\n        \"name\": \"Real Football 2016\"\n      },\n      {\n        \"id\":
+        116349,\n        \"name\": \"Real Football 2014\"\n      },\n      {\n        \"id\":
+        116350,\n        \"name\": \"Real Football 2015\"\n      },\n      {\n        \"id\":
+        116351,\n        \"name\": \"Real Football 2017\"\n      },\n      {\n        \"id\":
+        116352,\n        \"name\": \"Real Football 2018\"\n      },\n      {\n        \"id\":
+        116353,\n        \"name\": \"Real Football 2019\"\n      },\n      {\n        \"id\":
+        174558,\n        \"name\": \"The Thrill of the Fight\"\n      },\n      {\n
+        \       \"id\": 277704,\n        \"name\": \"Boxing Wrestle\"\n      }\n    ],\n
+        \   \"slug\": \"wwe-smackdown-vs-raw\",\n    \"summary\": \"WWE SmackDown!
+        vs. Raw brings two of wrestling\\u0027s most popular game series together
+        on the PS2. The game re-creates WWE programming with voice-overs and commentary
+        throughout the season mode. During matches, you can learn a host of new gameplay
+        moves, such as stare-downs, chop battles, and submission reversals. You can
+        also try out situational challenges or create your own championship. Play
+        as your favorite wrestler, including legends and Divas, and prove to the world
+        that you have what it takes to be the WWE champion.\",\n    \"total_rating\":
+        79.23101809914306,\n    \"collections\": [\n      {\n        \"id\": 464,\n
+        \       \"name\": \"WWE SmackDown vs. Raw\"\n      }\n    ]\n  },\n  {\n    \"id\":
+        2265,\n    \"aggregated_rating\": 70.0,\n    \"alternative_names\": [\n      {\n
+        \       \"id\": 94956,\n        \"name\": \"WWE \uC2A4\uB9E5\uB2E4\uC6B4 \uB300
+        \uB85C\uC6B0 2011 \"\n      }\n    ],\n    \"cover\": {\n      \"id\": 212984,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co4kc8.jpg\"\n
+        \   },\n    \"first_release_date\": 1288051200,\n    \"franchises\": [\n      {\n
+        \       \"id\": 255,\n        \"name\": \"WWE\"\n      }\n    ],\n    \"game_modes\":
+        [\n      {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      },\n
+        \     {\n        \"id\": 2,\n        \"name\": \"Multiplayer\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Fighting\"\n      },\n      {\n        \"id\": 14,\n        \"name\": \"Sport\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 36716,\n
+        \       \"company\": {\n          \"id\": 197,\n          \"name\": \"THQ\"\n
+        \       }\n      },\n      {\n        \"id\": 220239,\n        \"company\":
+        {\n          \"id\": 14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n
+        \     }\n    ],\n    \"name\": \"WWE SmackDown vs. Raw 2011\",\n    \"platforms\":
+        [\n      {\n        \"id\": 5,\n        \"name\": \"Wii\"\n      },\n      {\n
+        \       \"id\": 8,\n        \"name\": \"PlayStation 2\"\n      },\n      {\n
+        \       \"id\": 9,\n        \"name\": \"PlayStation 3\"\n      },\n      {\n
+        \       \"id\": 12,\n        \"name\": \"Xbox 360\"\n      },\n      {\n        \"id\":
+        38,\n        \"name\": \"PlayStation Portable\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 3,\n        \"name\": \"Bird view / Isometric\"\n
+        \     }\n    ],\n    \"screenshots\": [\n      {\n        \"id\": 25356,\n
+        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ogqcfcsewpcqkpks1vsv.jpg\"\n
+        \     },\n      {\n        \"id\": 25357,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ksfoxuvlsfpv6ec3g0ar.jpg\"\n
+        \     },\n      {\n        \"id\": 25358,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/gctkviyobk57lq7flaxk.jpg\"\n
+        \     },\n      {\n        \"id\": 25359,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/mnag3ua2xuvqinywao1s.jpg\"\n
+        \     },\n      {\n        \"id\": 25360,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/gkldonjgrpwubwszp9sl.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 494,\n
+        \       \"name\": \"Bulletstorm\"\n      },\n      {\n        \"id\": 5294,\n
+        \       \"name\": \"WWE \\u002712\"\n      },\n      {\n        \"id\": 5296,\n
+        \       \"name\": \"WWE All Stars\"\n      },\n      {\n        \"id\": 5298,\n
+        \       \"name\": \"WWE SmackDown vs. Raw 2008\"\n      },\n      {\n        \"id\":
+        5299,\n        \"name\": \"WWE SmackDown vs. Raw 2009\"\n      },\n      {\n
+        \       \"id\": 5300,\n        \"name\": \"WWE SmackDown vs. Raw 2010\"\n
+        \     },\n      {\n        \"id\": 6443,\n        \"name\": \"WWF SmackDown!\"\n
+        \     },\n      {\n        \"id\": 7020,\n        \"name\": \"Inversion\"\n
+        \     },\n      {\n        \"id\": 31558,\n        \"name\": \"WWE 2K18\"\n
+        \     },\n      {\n        \"id\": 36911,\n        \"name\": \"Dragon Ball
+        FighterZ\"\n      }\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2011\",\n
+        \   \"summary\": \"WWE SmackDown vs. Raw 2011 will empower players more than
+        ever to define their destiny and gameplay experiences in a dynamic and ever-changing
+        WWE. Along the way, your decisions will decide gameplay scenarios, allowing
+        for more spontaneous WWE action in and out of the ring. Enjoy a greater level
         of interactivity that allows you to customize your WWE experience and control
         your destinies in all-new Road to WrestleMania story-driven campaigns.\\n\\nYou\\u0027ve
         seen the Superstars\\u0027 greatest moments on WWE programming. You\u2019ve
         shared them and lived through them on television, on the web, and at the arenas.
         Now, it\\u0027s time for you to define your ultimate WWE moment, in the most
-        interactive experience in the WWE Universe. This is your moment.\"\n  },\n
-        \ {\n    \"id\": 5300,\n    \"name\": \"WWE SmackDown vs. Raw 2010\",\n    \"screenshots\":
-        [\n      27682\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2010\",\n    \"summary\":
-        \"The best-selling fighting videogame franchise returns to the virtual ring
-        with the most authentic, entertaining and compelling simulation of WWE programming
-        to date. Featuring unparalleled creation tools, a robust Superstar roster,
-        key franchise improvements and a few surprises, WWE SmackDown vs. Raw 2010
-        delivers the empowering freedom to create, customize and share gameplay experiences.
-        It\\u0027s your world now.\"\n  },\n  {\n    \"id\": 5299,\n    \"name\":
-        \"WWE SmackDown vs. Raw 2009\",\n    \"screenshots\": [\n      27080\n    ],\n
-        \   \"slug\": \"wwe-smackdown-vs-raw-2009\",\n    \"summary\": \"WWE SmackDown
-        vs. Raw 2009 for the Wii builds upon its inaugural offering by significantly
-        expanding its match type options, giving players more ways to enjoy the platform\\u0027s
+        interactive experience in the WWE Universe. This is your moment.\",\n    \"total_rating\":
+        70.37155889101474,\n    \"collections\": [\n      {\n        \"id\": 464,\n
+        \       \"name\": \"WWE SmackDown vs. Raw\"\n      }\n    ]\n  },\n  {\n    \"id\":
+        5300,\n    \"aggregated_rating\": 65.0,\n    \"alternative_names\": [\n      {\n
+        \       \"id\": 95509,\n        \"name\": \"WWE \uC2A4\uB9E5\uB2E4\uC6B4 vs.
+        \uB85C\uC6B0 2010\"\n      }\n    ],\n    \"cover\": {\n      \"id\": 198035,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co48sz.jpg\"\n
+        \   },\n    \"first_release_date\": 1255996800,\n    \"franchise\": {\n      \"id\":
+        255,\n      \"name\": \"WWE\"\n    },\n    \"franchises\": [\n      {\n        \"id\":
+        255,\n        \"name\": \"WWE\"\n      }\n    ],\n    \"game_modes\": [\n
+        \     {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      },\n
+        \     {\n        \"id\": 2,\n        \"name\": \"Multiplayer\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Split screen\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Fighting\"\n      },\n      {\n        \"id\": 14,\n        \"name\": \"Sport\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 12819,\n
+        \       \"company\": {\n          \"id\": 197,\n          \"name\": \"THQ\"\n
+        \       }\n      },\n      {\n        \"id\": 12821,\n        \"company\":
+        {\n          \"id\": 321,\n          \"name\": \"Tose\"\n        }\n      },\n
+        \     {\n        \"id\": 220240,\n        \"company\": {\n          \"id\":
+        14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n      }\n    ],\n
+        \   \"name\": \"WWE SmackDown vs. Raw 2010\",\n    \"platforms\": [\n      {\n
+        \       \"id\": 5,\n        \"name\": \"Wii\"\n      },\n      {\n        \"id\":
+        8,\n        \"name\": \"PlayStation 2\"\n      },\n      {\n        \"id\":
+        9,\n        \"name\": \"PlayStation 3\"\n      },\n      {\n        \"id\":
+        12,\n        \"name\": \"Xbox 360\"\n      },\n      {\n        \"id\": 20,\n
+        \       \"name\": \"Nintendo DS\"\n      },\n      {\n        \"id\": 38,\n
+        \       \"name\": \"PlayStation Portable\"\n      },\n      {\n        \"id\":
+        55,\n        \"name\": \"Legacy Mobile Device\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 27682,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/bgyj0yxnsdatqfmmfosu.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 2265,\n
+        \       \"name\": \"WWE SmackDown vs. Raw 2011\"\n      },\n      {\n        \"id\":
+        3646,\n        \"name\": \"WWF WrestleMania 2000\"\n      },\n      {\n        \"id\":
+        5294,\n        \"name\": \"WWE \\u002712\"\n      },\n      {\n        \"id\":
+        5295,\n        \"name\": \"WWE \\u002713\"\n      },\n      {\n        \"id\":
+        5296,\n        \"name\": \"WWE All Stars\"\n      },\n      {\n        \"id\":
+        5298,\n        \"name\": \"WWE SmackDown vs. Raw 2008\"\n      },\n      {\n
+        \       \"id\": 5299,\n        \"name\": \"WWE SmackDown vs. Raw 2009\"\n
+        \     },\n      {\n        \"id\": 6442,\n        \"name\": \"WWE Smackdown!
+        Here Comes the Pain\"\n      },\n      {\n        \"id\": 6443,\n        \"name\":
+        \"WWF SmackDown!\"\n      },\n      {\n        \"id\": 18323,\n        \"name\":
+        \"WWE SmackDown! vs. Raw 2006\"\n      }\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2010\",\n
+        \   \"summary\": \"The best-selling fighting videogame franchise returns to
+        the virtual ring with the most authentic, entertaining and compelling simulation
+        of WWE programming to date. Featuring unparalleled creation tools, a robust
+        Superstar roster, key franchise improvements and a few surprises, WWE SmackDown
+        vs. Raw 2010 delivers the empowering freedom to create, customize and share
+        gameplay experiences. It\\u0027s your world now.\",\n    \"total_rating\":
+        65.70906213807778,\n    \"collections\": [\n      {\n        \"id\": 464,\n
+        \       \"name\": \"WWE SmackDown vs. Raw\"\n      }\n    ]\n  },\n  {\n    \"id\":
+        5299,\n    \"aggregated_rating\": 65.55555555555556,\n    \"alternative_names\":
+        [\n      {\n        \"id\": 29322,\n        \"name\": \"SvR 2009SvR \\u002709\"\n
+        \     },\n      {\n        \"id\": 44782,\n        \"name\": \"SvR \\u002709\"\n
+        \     },\n      {\n        \"id\": 44783,\n        \"name\": \"SvR 2009\"\n
+        \     },\n      {\n        \"id\": 96093,\n        \"name\": \"WWE \uC2A4\uB9E5\uB2E4\uC6B4
+        \uB300 \uB85C\uC6B0 2009\"\n      }\n    ],\n    \"cover\": {\n      \"id\":
+        198037,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co48t1.jpg\"\n
+        \   },\n    \"first_release_date\": 1225929600,\n    \"franchise\": {\n      \"id\":
+        255,\n      \"name\": \"WWE\"\n    },\n    \"franchises\": [\n      {\n        \"id\":
+        255,\n        \"name\": \"WWE\"\n      }\n    ],\n    \"game_modes\": [\n
+        \     {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      },\n
+        \     {\n        \"id\": 2,\n        \"name\": \"Multiplayer\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Split screen\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Fighting\"\n      },\n      {\n        \"id\": 14,\n        \"name\": \"Sport\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 12816,\n
+        \       \"company\": {\n          \"id\": 197,\n          \"name\": \"THQ\"\n
+        \       }\n      },\n      {\n        \"id\": 12818,\n        \"company\":
+        {\n          \"id\": 321,\n          \"name\": \"Tose\"\n        }\n      },\n
+        \     {\n        \"id\": 220245,\n        \"company\": {\n          \"id\":
+        14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n      }\n    ],\n
+        \   \"name\": \"WWE SmackDown vs. Raw 2009\",\n    \"platforms\": [\n      {\n
+        \       \"id\": 5,\n        \"name\": \"Wii\"\n      },\n      {\n        \"id\":
+        8,\n        \"name\": \"PlayStation 2\"\n      },\n      {\n        \"id\":
+        9,\n        \"name\": \"PlayStation 3\"\n      },\n      {\n        \"id\":
+        12,\n        \"name\": \"Xbox 360\"\n      },\n      {\n        \"id\": 20,\n
+        \       \"name\": \"Nintendo DS\"\n      },\n      {\n        \"id\": 38,\n
+        \       \"name\": \"PlayStation Portable\"\n      },\n      {\n        \"id\":
+        55,\n        \"name\": \"Legacy Mobile Device\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 27080,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/rcfccrsdgff7gkfqrqfn.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 2265,\n
+        \       \"name\": \"WWE SmackDown vs. Raw 2011\"\n      },\n      {\n        \"id\":
+        5181,\n        \"name\": \"Spider-Man: Web of Shadows\"\n      },\n      {\n
+        \       \"id\": 5294,\n        \"name\": \"WWE \\u002712\"\n      },\n      {\n
+        \       \"id\": 5295,\n        \"name\": \"WWE \\u002713\"\n      },\n      {\n
+        \       \"id\": 5298,\n        \"name\": \"WWE SmackDown vs. Raw 2008\"\n
+        \     },\n      {\n        \"id\": 5300,\n        \"name\": \"WWE SmackDown
+        vs. Raw 2010\"\n      },\n      {\n        \"id\": 6443,\n        \"name\":
+        \"WWF SmackDown!\"\n      },\n      {\n        \"id\": 7488,\n        \"name\":
+        \"WWE Legends of WrestleMania\"\n      },\n      {\n        \"id\": 18323,\n
+        \       \"name\": \"WWE SmackDown! vs. Raw 2006\"\n      },\n      {\n        \"id\":
+        36911,\n        \"name\": \"Dragon Ball FighterZ\"\n      }\n    ],\n    \"slug\":
+        \"wwe-smackdown-vs-raw-2009\",\n    \"summary\": \"WWE SmackDown vs. Raw 2009
+        for the Wii builds upon its inaugural offering by significantly expanding
+        its match type options, giving players more ways to enjoy the platform\\u0027s
         unique pick-up-and-play experience. The game also takes full combat sports
         entertainment to the next level by giving players more superstar control with
-        interactive entrances and victory scenes.\"\n  },\n  {\n    \"id\": 18323,\n
-        \   \"name\": \"WWE SmackDown! vs. Raw 2006\",\n    \"screenshots\": [\n      337109,\n
-        \     337110,\n      337111,\n      337112\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2006\",\n
-        \   \"summary\": \"The debut PlayStation Portable offering of THQ and Yuke\\u0027s
-        long-running 3D wrestling series. WWE SmackDown! vs. RAW 2006 expands on THQ\\u0027s
-        popular multi-million unit-selling franchise with a number of key new features.
-        The Buried Alive Casket match, two new wrestler attributes (Stamina and Hardcore),
-        and a realistic momentum system all combine to turn the series away from its
-        arcade roots and towards that of a simulation. The PSP version follows closely
-        on the heels of its PS2 tag-teammate in terms of features and wrestler rosters,
-        with exclusive extras including additional characters and other features for
-        the PSP version, plus USB system link to connect the two versions together.\"\n
-        \ },\n  {\n    \"id\": 7252,\n    \"name\": \"WWE SmackDown vs. Raw 2007\",\n
-        \   \"screenshots\": [\n      27298\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2007\",\n
-        \   \"summary\": \"A brand new Analog Control System makes fighting more realistic
-        than ever with intuitive movement and new elements of control. An enhanced
-        Season Mode provides multiple branching storylines and unprecedented levels
-        of player choice. In and out of the ring, dozens of user-controlled environmental
-        hotspots let players take advantage of anything at their disposal to inflict
-        damage on opponents in new and unique ways. Additionally, new high impact
-        combination moves let players take the power of WWE Superstars into their
-        own hands. Experience the intensity of WWE fans in a brand new, fully loaded
-        interactive fighting area. Players can take advantage of multiple weapons,
-        environmental damage and grabbing signs and weapons from the crowd. WWE SmackDown
-        vs. RAW 2007 offers multiple enhancements, including incredible high definition
-        graphics, updated rosters for both RAW and SmackDown, an expanded General
-        Manager Mode, online multiplayer game play with voice chat support and more.\"\n
-        \ },\n  {\n    \"id\": 5298,\n    \"name\": \"WWE SmackDown vs. Raw 2008\",\n
-        \   \"screenshots\": [\n      26973,\n      178914,\n      178915,\n      178916,\n
-        \     178917,\n      178918,\n      178919,\n      178920,\n      178921,\n
-        \     178922,\n      178923,\n      178924\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2008\",\n
-        \   \"summary\": \"The 2008 edition in the Smackdown vs. Raw series holds
-        new features to the WWE game franchise. This is the first in the series to
-        include the extremists of ECW, including The Sandman, Marcus Cor Von and CM
-        Punk.\\n\\nThe game also features a new struggle submission system, new weapon
-        choices including guitars, and eight superstar fighting styles, including
-        Showman, Powerhouse, High-Flyer and more. Each player can now choose a primary
-        and a secondary fighting style. It continues the legend trend and new arenas,
-        such as Wrestlemania 23, Unforgiven and Summerslam as well as the classic
-        superstars like Undertaker, Shawn Michaels and Ric Flair. The roster largely
-        depends on the platform, and some versions include wrestlers not available
-        in the other ones.\"\n  }\n]"
+        interactive entrances and victory scenes.\",\n    \"total_rating\": 67.82725656420227,\n
+        \   \"collections\": [\n      {\n        \"id\": 464,\n        \"name\": \"WWE
+        SmackDown vs. Raw\"\n      }\n    ]\n  },\n  {\n    \"id\": 18323,\n    \"aggregated_rating\":
+        80.0,\n    \"alternative_names\": [\n      {\n        \"id\": 71530,\n        \"name\":
+        \"Exciting Pro Wrestling 7: SmackDown! vs. Raw 2006\"\n      }\n    ],\n    \"cover\":
+        {\n      \"id\": 168652,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3m4s.jpg\"\n
+        \   },\n    \"first_release_date\": 1131667200,\n    \"franchises\": [\n      {\n
+        \       \"id\": 255,\n        \"name\": \"WWE\"\n      }\n    ],\n    \"game_modes\":
+        [\n      {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Split screen\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Fighting\"\n      },\n      {\n        \"id\": 14,\n        \"name\": \"Sport\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 55019,\n
+        \       \"company\": {\n          \"id\": 197,\n          \"name\": \"THQ\"\n
+        \       }\n      },\n      {\n        \"id\": 220251,\n        \"company\":
+        {\n          \"id\": 14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n
+        \     }\n    ],\n    \"name\": \"WWE SmackDown! vs. Raw 2006\",\n    \"platforms\":
+        [\n      {\n        \"id\": 8,\n        \"name\": \"PlayStation 2\"\n      },\n
+        \     {\n        \"id\": 38,\n        \"name\": \"PlayStation Portable\"\n
+        \     }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
+        2,\n        \"name\": \"Third person\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 337109,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7845.jpg\"\n
+        \     },\n      {\n        \"id\": 337110,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7846.jpg\"\n
+        \     },\n      {\n        \"id\": 337111,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7847.jpg\"\n
+        \     },\n      {\n        \"id\": 337112,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7848.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 2265,\n
+        \       \"name\": \"WWE SmackDown vs. Raw 2011\"\n      },\n      {\n        \"id\":
+        4571,\n        \"name\": \"WWE Day of Reckoning\"\n      },\n      {\n        \"id\":
+        5298,\n        \"name\": \"WWE SmackDown vs. Raw 2008\"\n      },\n      {\n
+        \       \"id\": 6442,\n        \"name\": \"WWE Smackdown! Here Comes the Pain\"\n
+        \     },\n      {\n        \"id\": 6444,\n        \"name\": \"WWF SmackDown!
+        2: Know Your Role\"\n      },\n      {\n        \"id\": 6445,\n        \"name\":
+        \"WWF SmackDown! Just Bring It\"\n      },\n      {\n        \"id\": 6461,\n
+        \       \"name\": \"WWE SmackDown! Shut Your Mouth\"\n      },\n      {\n
+        \       \"id\": 7167,\n        \"name\": \"Rumble Roses XX\"\n      },\n      {\n
+        \       \"id\": 103218,\n        \"name\": \"NBA 2K19\"\n      },\n      {\n
+        \       \"id\": 114286,\n        \"name\": \"Madden NFL 20\"\n      }\n    ],\n
+        \   \"slug\": \"wwe-smackdown-vs-raw-2006\",\n    \"summary\": \"The debut
+        PlayStation Portable offering of THQ and Yuke\\u0027s long-running 3D wrestling
+        series. WWE SmackDown! vs. RAW 2006 expands on THQ\\u0027s popular multi-million
+        unit-selling franchise with a number of key new features. The Buried Alive
+        Casket match, two new wrestler attributes (Stamina and Hardcore), and a realistic
+        momentum system all combine to turn the series away from its arcade roots
+        and towards that of a simulation. The PSP version follows closely on the heels
+        of its PS2 tag-teammate in terms of features and wrestler rosters, with exclusive
+        extras including additional characters and other features for the PSP version,
+        plus USB system link to connect the two versions together.\",\n    \"total_rating\":
+        72.8628709252902,\n    \"collections\": [\n      {\n        \"id\": 464,\n
+        \       \"name\": \"WWE SmackDown vs. Raw\"\n      }\n    ]\n  },\n  {\n    \"id\":
+        7252,\n    \"aggregated_rating\": 78.0,\n    \"alternative_names\": [\n      {\n
+        \       \"id\": 84806,\n        \"name\": \"SVR 2007\"\n      }\n    ],\n
+        \   \"cover\": {\n      \"id\": 212983,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co4kc7.jpg\"\n
+        \   },\n    \"first_release_date\": 1163116800,\n    \"franchise\": {\n      \"id\":
+        255,\n      \"name\": \"WWE\"\n    },\n    \"franchises\": [\n      {\n        \"id\":
+        255,\n        \"name\": \"WWE\"\n      }\n    ],\n    \"game_modes\": [\n
+        \     {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      },\n
+        \     {\n        \"id\": 2,\n        \"name\": \"Multiplayer\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Split screen\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Fighting\"\n      },\n      {\n        \"id\": 14,\n        \"name\": \"Sport\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 17160,\n
+        \       \"company\": {\n          \"id\": 197,\n          \"name\": \"THQ\"\n
+        \       }\n      },\n      {\n        \"id\": 220223,\n        \"company\":
+        {\n          \"id\": 14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n
+        \     }\n    ],\n    \"name\": \"WWE SmackDown vs. Raw 2007\",\n    \"platforms\":
+        [\n      {\n        \"id\": 8,\n        \"name\": \"PlayStation 2\"\n      },\n
+        \     {\n        \"id\": 12,\n        \"name\": \"Xbox 360\"\n      },\n      {\n
+        \       \"id\": 38,\n        \"name\": \"PlayStation Portable\"\n      }\n
+        \   ],\n    \"player_perspectives\": [\n      {\n        \"id\": 2,\n        \"name\":
+        \"Third person\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\":
+        27298,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/uehxhzeprwjyjdz97fpj.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 5229,\n
+        \       \"name\": \"TNA Impact!: Cross the Line\"\n      },\n      {\n        \"id\":
+        7251,\n        \"name\": \"Wrestle Kingdom\"\n      },\n      {\n        \"id\":
+        39499,\n        \"name\": \"The Main Event\"\n      },\n      {\n        \"id\":
+        46089,\n        \"name\": \"Zen-Nippon Pro Wrestling Featuring Virtua\"\n
+        \     },\n      {\n        \"id\": 46092,\n        \"name\": \"Fire Pro Wrestling
+        S: 6 Men Scramble\"\n      },\n      {\n        \"id\": 102805,\n        \"name\":
+        \"WWE 2K19\"\n      },\n      {\n        \"id\": 109606,\n        \"name\":
+        \"Pro Yakyuu Spirits 2019\"\n      },\n      {\n        \"id\": 116352,\n
+        \       \"name\": \"Real Football 2018\"\n      },\n      {\n        \"id\":
+        116353,\n        \"name\": \"Real Football 2019\"\n      },\n      {\n        \"id\":
+        159104,\n        \"name\": \"The Wrestling Code\"\n      }\n    ],\n    \"slug\":
+        \"wwe-smackdown-vs-raw-2007\",\n    \"summary\": \"A brand new Analog Control
+        System makes fighting more realistic than ever with intuitive movement and
+        new elements of control. An enhanced Season Mode provides multiple branching
+        storylines and unprecedented levels of player choice. In and out of the ring,
+        dozens of user-controlled environmental hotspots let players take advantage
+        of anything at their disposal to inflict damage on opponents in new and unique
+        ways. Additionally, new high impact combination moves let players take the
+        power of WWE Superstars into their own hands. Experience the intensity of
+        WWE fans in a brand new, fully loaded interactive fighting area. Players can
+        take advantage of multiple weapons, environmental damage and grabbing signs
+        and weapons from the crowd. WWE SmackDown vs. RAW 2007 offers multiple enhancements,
+        including incredible high definition graphics, updated rosters for both RAW
+        and SmackDown, an expanded General Manager Mode, online multiplayer game play
+        with voice chat support and more.\",\n    \"total_rating\": 76.85937681194272,\n
+        \   \"collections\": [\n      {\n        \"id\": 464,\n        \"name\": \"WWE
+        SmackDown vs. Raw\"\n      }\n    ]\n  },\n  {\n    \"id\": 5298,\n    \"aggregated_rating\":
+        64.16666666666667,\n    \"alternative_names\": [\n      {\n        \"id\":
+        16607,\n        \"name\": \"SVR 2008\"\n      },\n      {\n        \"id\":
+        43167,\n        \"name\": \"SVR 2008\"\n      }\n    ],\n    \"cover\": {\n
+        \     \"id\": 79931,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1pob.jpg\"\n
+        \   },\n    \"first_release_date\": 1194566400,\n    \"franchise\": {\n      \"id\":
+        255,\n      \"name\": \"WWE\"\n    },\n    \"franchises\": [\n      {\n        \"id\":
+        255,\n        \"name\": \"WWE\"\n      }\n    ],\n    \"game_modes\": [\n
+        \     {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      },\n
+        \     {\n        \"id\": 2,\n        \"name\": \"Multiplayer\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Split screen\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Fighting\"\n      },\n      {\n        \"id\": 14,\n        \"name\": \"Sport\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 12813,\n
+        \       \"company\": {\n          \"id\": 197,\n          \"name\": \"THQ\"\n
+        \       }\n      },\n      {\n        \"id\": 12815,\n        \"company\":
+        {\n          \"id\": 1326,\n          \"name\": \"Amaze Entertainment\"\n
+        \       }\n      },\n      {\n        \"id\": 220244,\n        \"company\":
+        {\n          \"id\": 14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n
+        \     }\n    ],\n    \"name\": \"WWE SmackDown vs. Raw 2008\",\n    \"platforms\":
+        [\n      {\n        \"id\": 5,\n        \"name\": \"Wii\"\n      },\n      {\n
+        \       \"id\": 8,\n        \"name\": \"PlayStation 2\"\n      },\n      {\n
+        \       \"id\": 9,\n        \"name\": \"PlayStation 3\"\n      },\n      {\n
+        \       \"id\": 12,\n        \"name\": \"Xbox 360\"\n      },\n      {\n        \"id\":
+        20,\n        \"name\": \"Nintendo DS\"\n      },\n      {\n        \"id\":
+        38,\n        \"name\": \"PlayStation Portable\"\n      },\n      {\n        \"id\":
+        55,\n        \"name\": \"Legacy Mobile Device\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 26973,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/v8bssuerpkakmpmiswvp.jpg\"\n
+        \     },\n      {\n        \"id\": 178914,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/shfjhad9v0npz1lmtpea.jpg\"\n
+        \     },\n      {\n        \"id\": 178915,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ibga6xke6j1zlnkvcwds.jpg\"\n
+        \     },\n      {\n        \"id\": 178916,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/tfa7ilso1utcyocch8ox.jpg\"\n
+        \     },\n      {\n        \"id\": 178917,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/lvaravjw4evvns90m7fj.jpg\"\n
+        \     },\n      {\n        \"id\": 178918,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ctchvws5zhxvlywixant.jpg\"\n
+        \     },\n      {\n        \"id\": 178919,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/vzqzkyi7bqd577oag95z.jpg\"\n
+        \     },\n      {\n        \"id\": 178920,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/qntudzhpiqeeawuvnhl6.jpg\"\n
+        \     },\n      {\n        \"id\": 178921,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/p4iqsehjc0xrkppsvzho.jpg\"\n
+        \     },\n      {\n        \"id\": 178922,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/zancwv6rzfpmowuc6ccy.jpg\"\n
+        \     },\n      {\n        \"id\": 178923,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/xclqdy6liwipbvhoutoj.jpg\"\n
+        \     },\n      {\n        \"id\": 178924,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sastxkgl4olya8rmgt29.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 1244,\n
+        \       \"name\": \"Tekken 3\"\n      },\n      {\n        \"id\": 2265,\n
+        \       \"name\": \"WWE SmackDown vs. Raw 2011\"\n      },\n      {\n        \"id\":
+        2700,\n        \"name\": \"Tony Hawk\\u0027s Proving Ground\"\n      },\n
+        \     {\n        \"id\": 3643,\n        \"name\": \"WWF Attitude\"\n      },\n
+        \     {\n        \"id\": 5294,\n        \"name\": \"WWE \\u002712\"\n      },\n
+        \     {\n        \"id\": 5299,\n        \"name\": \"WWE SmackDown vs. Raw
+        2009\"\n      },\n      {\n        \"id\": 5300,\n        \"name\": \"WWE
+        SmackDown vs. Raw 2010\"\n      },\n      {\n        \"id\": 6442,\n        \"name\":
+        \"WWE Smackdown! Here Comes the Pain\"\n      },\n      {\n        \"id\":
+        6443,\n        \"name\": \"WWF SmackDown!\"\n      },\n      {\n        \"id\":
+        18323,\n        \"name\": \"WWE SmackDown! vs. Raw 2006\"\n      }\n    ],\n
+        \   \"slug\": \"wwe-smackdown-vs-raw-2008\",\n    \"summary\": \"The 2008
+        edition in the Smackdown vs. Raw series holds new features to the WWE game
+        franchise. This is the first in the series to include the extremists of ECW,
+        including The Sandman, Marcus Cor Von and CM Punk.\\n\\nThe game also features
+        a new struggle submission system, new weapon choices including guitars, and
+        eight superstar fighting styles, including Showman, Powerhouse, High-Flyer
+        and more. Each player can now choose a primary and a secondary fighting style.
+        It continues the legend trend and new arenas, such as Wrestlemania 23, Unforgiven
+        and Summerslam as well as the classic superstars like Undertaker, Shawn Michaels
+        and Ric Flair. The roster largely depends on the platform, and some versions
+        include wrestlers not available in the other ones.\",\n    \"total_rating\":
+        67.19892274326853,\n    \"collections\": [\n      {\n        \"id\": 464,\n
+        \       \"name\": \"WWE SmackDown vs. Raw\"\n      }\n    ]\n  }\n]"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78efcac45a4a-VIE
+      - 84e8d22ffd7ac20a-ZAG
       Connection:
       - keep-alive
       Content-Encoding:
       - gzip
       Content-Length:
-      - '2424'
+      - '4883'
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:27 GMT
+      - Thu, 01 Feb 2024 08:28:28 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=8b3MbRlUf_cXtQrYJZGHA3rMoQ7VDbYZ1wS4NEK5.UQ-1705671447-1-AesmmpdP/BC2aBdD44z+9isv4H0hK8t+yU75PyJuCQdNvuheaDZBqD3IG4NUMh/yECYi4HHawzZSWJAMhYyO0rM=;
-        path=/; expires=Fri, 19-Jan-24 14:07:27 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=3yye3DkcbgqbDIsDCAwGOdVAQwZph1eX9nmbHUUqC2g-1706776108-1-AQY2zQeEEhQU/X7XfoV2T8kyAyI/e9R2ssAXIfaqefF01uPFMbnkmF5+7EH3qHREyXAdhQqVycvYsgGDPtbTxzQ=;
+        path=/; expires=Thu, 01-Feb-24 08:58:28 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 a4035907ac3c3ba8d1fd116b6b6b9a4c.cloudfront.net (CloudFront)
+      - 1.1 dcb9765526b3272617b95932c8fefee2.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - WatxWH8uFhodIzj0McFJCYImtw9ehM7P8G2vz_qaWGi4q7WsT2E_Sw==
+      - -Uiri7jrb6sB2g1rdu3Y-Fd3gejlrT6ZWYxhHjO41syEeSxG6ruAbQ==
       X-Amz-Cf-Pop:
       - VIE50-C2
       X-Cache:
@@ -564,159 +843,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygrqF3rvHcEnpg=
+      - Scpm6F1GPHcEjMA=
       x-amzn-Remapped-Content-Length:
-      - '2424'
+      - '4883'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:27 GMT
+      - Thu, 01 Feb 2024 08:28:28 GMT
       x-amzn-RequestId:
-      - a17b1636-e8a9-40be-9c91-35379f66eb7d
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=80852;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer wey0sj7h4jksp02joebheczbjkxw0y
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '29'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/covers/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 209154,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co4hdu.jpg\"\n
-        \ }\n]"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 847f78f37ee25a50-VIE
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 19 Jan 2024 13:37:28 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=5ecjpD04TCwTlrH57YWF1w7277xy8jZryDcULP1MKs0-1705671448-1-AXAzh8GGgViKgB9gSNhdbACQOIN8C26nd5Kj4dDz6Wd7K0QFiNLM5RDm35qvOqqvaGe5l/3sQG/xBsbRC4oJI9w=;
-        path=/; expires=Fri, 19-Jan-24 14:07:28 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 4de71b0a42267b098ed30fff0d8a660a.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - 3qugWTzNrbWm_0zVSD9uGE6qR4JHusZt0cj8a1-SWATPF1bQ-3ekZg==
-      X-Amz-Cf-Pop:
-      - VIE50-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '1'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - RygryG99vHcEVjQ=
-      x-amzn-Remapped-Content-Length:
-      - '97'
-      x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:28 GMT
-      x-amzn-RequestId:
-      - 680e91f5-50da-49f2-bade-44b9247fbd98
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=80852; limit 5;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer wey0sj7h4jksp02joebheczbjkxw0y
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '38'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/screenshots/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 337103,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783z.jpg\"\n
-        \ },\n  {\n    \"id\": 337104,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7840.jpg\"\n
-        \ },\n  {\n    \"id\": 337105,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7841.jpg\"\n
-        \ },\n  {\n    \"id\": 337102,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783y.jpg\"\n
-        \ },\n  {\n    \"id\": 337107,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7843.jpg\"\n
-        \ }\n]"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 847f78f92ae85ae8-VIE
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 19 Jan 2024 13:37:29 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=6X3Z2yBQwumpynWlLt9ocPpOYpl73BjMc.UcYpK6ffk-1705671449-1-AZ+1O4hCGxZIItvpLiUJh8VKfzTLfx00xBiQsSE9Q9GWHgdP2a7LITTX+dG0uiz070PKLR5UAz4iVYq3wX5Vywk=;
-        path=/; expires=Fri, 19-Jan-24 14:07:29 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 95c9d51ed7176777d7ac8ca8cb233696.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - y5xqVB4FhS0ZW1-OLBhrZ0wKfs_ze1YrMYd_o06UP4RvduEfkdA-lg==
-      X-Amz-Cf-Pop:
-      - VIE50-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '7'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - Rygr8H8jvHcES2w=
-      x-amzn-Remapped-Content-Length:
-      - '477'
-      x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:29 GMT
-      x-amzn-RequestId:
-      - 605655b7-bab7-4f34-934e-3197221fb3f2
+      - 4de5923a-db40-44d8-baf4-bcff05db1db3
     status:
       code: 200
       message: OK

@@ -30,7 +30,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78ab4a7a5aa7-VIE
+      - 84e8d1bcd8f5c205-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -38,19 +38,19 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:16 GMT
+      - Thu, 01 Feb 2024 08:28:09 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=ZVbN2keB5NG5FaeoRyKaEvTQBmMdm6YLBvSWV5NgLKQ-1705671436-1-Aag20MSVQtClvha5FrIikBY1ZlgjwbLC9Gww0y/AREeyexQsUS7ppX9MgAzkE1IuM9uki15DGzUjl0+uJQYwXkE=;
-        path=/; expires=Fri, 19-Jan-24 14:07:16 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=nzw1SFkA1Z_hskYwzzNylHMjVgEdF3djErF5UfhdQKQ-1706776089-1-Af0cByfbzBbwul6yBliXBlP6/8pYV3BP/YfygHAIit9iuxy+yLQQ04GJ/I4Z8+xPnnJAXxQARZ7j2I+EgimO+lE=;
+        path=/; expires=Thu, 01-Feb-24 08:58:09 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
       - 1.1 ba761cfda8bfa6cbda2b6c433d6201f6.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - XecUo2xyRCkspvzhpxmMVNSXlvTjAnDL7NiycL747Ev0-SMhNnAUJA==
+      - 4p9uf_2EqpAsjCmg1_qzw9spNavK_mxRnB_v71Ajdll6UViR93GVmA==
       X-Amz-Cf-Pop:
       - VIE50-C2
       X-Cache:
@@ -60,11 +60,11 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - Rygp8FT2PHcEUiw=
+      - Scpj_EhLvHcEqUQ=
       x-amzn-ErrorType:
       - AccessDeniedException
       x-amzn-RequestId:
-      - 95bd8829-ef4f-4432-bd7d-9ccaf436f56a
+      - 106008ac-1329-4785-9513-02c54a5c1730
     status:
       code: 401
       message: Unauthorized
@@ -85,7 +85,7 @@ interactions:
     uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: '{"access_token":"88ukw5q2sqlhctxykq8s8t97iql9yo","expires_in":5080333,"token_type":"bearer"}
+      string: '{"access_token":"w3a92fc3vv93o7cny9526t6jc13ydy","expires_in":5595791,"token_type":"bearer"}
 
         '
     headers:
@@ -98,11 +98,11 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:17 GMT
+      - Thu, 01 Feb 2024 08:28:10 GMT
       Server:
       - nginx
       X-Ctxlog-Logid:
-      - 1-65aa7b0d-4fe3b6b5219e294d30e2f68a
+      - 1-65bb561a-56c660f416bbe8a311ef246f
     status:
       code: 200
       message: OK
@@ -114,7 +114,7 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer test_token
+      - Bearer w3a92fc3vv93o7cny9526t6jc13ydy
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
@@ -132,7 +132,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78b57cc05ad1-VIE
+      - 84e8d1c6dac3247e-ZAG
       Connection:
       - keep-alive
       Content-Encoding:
@@ -140,23 +140,23 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:18 GMT
+      - Thu, 01 Feb 2024 08:28:11 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=FUiEglz.RknY_2kFXKZpmx2WDCOZK3knWG44mWNZju0-1705671438-1-Aaizw6VrbK0SXWkYd2ivuE6KDp9ZHMMKSevd2n0+A4vebUcoB0Sk0zML1IaS33GzxKun+KPo+5Vq0IXAG2z/7f8=;
-        path=/; expires=Fri, 19-Jan-24 14:07:18 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=C61dKD3XgA5J8GtSsItYsqAqfNJw_2fU3PgLnQ78AgA-1706776091-1-AZLkrhMsX2jsz6VQLDdsSxgasE3Hcu4xaDqaQ9T+fOqghtPmH+PCXhX0MYCP3U0QMxp9SNXA3GZjkV1iaGSqgMA=;
+        path=/; expires=Thu, 01-Feb-24 08:58:11 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
       - chunked
       Via:
-      - 1.1 a5feee427fe9cff4e87dc473d3d3e300.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - UxH9BKAeSFcfhHV3VfJu_4LeorACi_x0NrDp2ACA5SDfnWqYSEvZEA==
+      - 7mV1ZNdn9THwdBFHtsbN9z8RfMZw0TBPEKqymAIL1BK3aTFSPeSN8g==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -166,13 +166,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygqPEL5PHcESbg=
+      - ScpkSFsQPHcEF2w=
       x-amzn-Remapped-Content-Length:
       - '50'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:18 GMT
+      - Thu, 01 Feb 2024 08:28:11 GMT
       x-amzn-RequestId:
-      - 81a7c41d-ba91-4740-b50f-01750f498682
+      - 27736191-3f1f-4525-acf1-c7e5655017cf
     status:
       code: 200
       message: OK
@@ -207,7 +207,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78baabe25acf-VIE
+      - 84e8d1cc690c6c85-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -215,21 +215,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:18 GMT
+      - Thu, 01 Feb 2024 08:28:12 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=YzByNhOv.HvkvnHbwnntOLv56C7mh5R4WUmK061VZm0-1705671438-1-Ac+kZrgAttx0RTFabeaWmCVW53EoQxrWKNk0K+i63+ub/zdYYNyXdJcLN3LYN1jwVDiGbsmdZ1V8Ngn7NO+PAgg=;
-        path=/; expires=Fri, 19-Jan-24 14:07:18 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=.t3Mb5NZaICvXH6Ca6xt52vG9OlSjoDTltyNOtdDDfQ-1706776092-1-AZB+vuCgrOh3WW0oS8wVxjat8Pu75+wPCZFLKAN8utUJNx4p6k1NWjsso4V5hoivqkW/Yg6GIuuz1sEhUN93ogk=;
+        path=/; expires=Thu, 01-Feb-24 08:58:12 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 659e81bfffb15e4b314a9b12d4db8946.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - rypdWtoibbAHhuaeJiMf2lEVNZJa3cVDhUfzudW6JJTg2rEEAx4HFw==
+      - EGjzDSAWbGxGirznhYs1axsc48YUp0OGQvMi3qO2Cz_TpaoQ5pK9pg==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - ZAG50-C1
       X-Cache:
       - Error from cloudfront
       X-Content-Type-Options:
@@ -237,11 +237,11 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygqVFdIvHcEn1Q=
+      - ScpkaFR3PHcEXqA=
       x-amzn-ErrorType:
       - AccessDeniedException
       x-amzn-RequestId:
-      - cfd88163-e5bb-4107-9244-711fb1aa034c
+      - d723d56f-f8e4-4839-89f0-2613f37c71f6
     status:
       code: 401
       message: Unauthorized
@@ -262,7 +262,7 @@ interactions:
     uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: '{"access_token":"l3btktkckysdzd6zlb314x4x32yna8","expires_in":5407872,"token_type":"bearer"}
+      string: '{"access_token":"eb2lkmay575jflfa34nvcn8sfv80f3","expires_in":5518313,"token_type":"bearer"}
 
         '
     headers:
@@ -275,11 +275,11 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:20 GMT
+      - Thu, 01 Feb 2024 08:28:13 GMT
       Server:
       - nginx
       X-Ctxlog-Logid:
-      - 1-65aa7b10-745ccbbb55318a497e4c24ab
+      - 1-65bb561d-5d2ce4ba0bd3afaf7cc170d5
     status:
       code: 200
       message: OK
@@ -291,7 +291,7 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer l3btktkckysdzd6zlb314x4x32yna8
+      - Bearer eb2lkmay575jflfa34nvcn8sfv80f3
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
@@ -309,7 +309,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78c9286b5abb-VIE
+      - 84e8d1d85c4d71a3-BEG
       Connection:
       - keep-alive
       Content-Length:
@@ -317,21 +317,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:21 GMT
+      - Thu, 01 Feb 2024 08:28:14 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=xJLCTNTRq9k6whzqynMFRRJli_Gjt1faJWfx.Ae1gvI-1705671441-1-AWU/X5sIGRg6L6Iw62fVfPdsA5uzMFgdLIUsuWqRC1AzNlqv4cVjhimnBRYwzVHWziwMXa+Hex+8SShophh698I=;
-        path=/; expires=Fri, 19-Jan-24 14:07:21 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=UdyaSTN0TsXJV_CN.A8m2EEumEEGcJ2294t2c8Cxx4o-1706776094-1-AWP71t0huoT/TfhRwci63oJSYYrV5tQjy/ntjhSVHUWm+LMj0bMkneuAv1oSjNpZMQ6CVxgTmf8LLuWwAh/Z2tI=;
+        path=/; expires=Thu, 01-Feb-24 08:58:14 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 8ce530783de74227d43f4646291541dc.cloudfront.net (CloudFront)
+      - 1.1 9eb1fb6ac017735c6a952b39f17a0722.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - _V6x0Awmk0Xy12bWXipk8jF0Ce36ltBLkCfY7oGA3aojB5qIOV5QBw==
+      - _sj-Q8t-OqwSJwBS1d2BNTfh2aQr61aH_nUHNt1lmNyHmKZCL_av0g==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - BUD50-P2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -341,13 +341,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygqsH6rvHcEIlg=
+      - ScpkvH0sPHcEUxg=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:21 GMT
+      - Thu, 01 Feb 2024 08:28:14 GMT
       x-amzn-RequestId:
-      - c458910c-6008-4a3f-87f5-f4158bedd84b
+      - 4730b68d-0523-4577-9c55-3de8d5c74ee9
     status:
       code: 200
       message: OK
@@ -359,7 +359,7 @@ interactions:
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer l3btktkckysdzd6zlb314x4x32yna8
+      - Bearer eb2lkmay575jflfa34nvcn8sfv80f3
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
@@ -377,7 +377,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 847f78ccaac55a9e-VIE
+      - 84e8d1de2e822491-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -385,21 +385,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 19 Jan 2024 13:37:21 GMT
+      - Thu, 01 Feb 2024 08:28:14 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=G0tXKWtqGd.9I..1t5lxG6DQ1nTRcGJbXdPYV6oGr3I-1705671441-1-AZ82dbWtoyJTcgJKrAWOZ4rKukiH6JfCsSdKicQvdo4WT+lxkNOCtbpeVo8nYRPNtVEvURBUsFEzESxIDfR0d+s=;
-        path=/; expires=Fri, 19-Jan-24 14:07:21 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=VJuUcmrRhh6NuvVqs31Hl_.Jhl9JSTwMeNmtNujgn2c-1706776094-1-AavlwOUQDEkNS7jPM1K0XmfvpPRvZcpnchzZt9zJ3WC2JLFygQHYJAjilIS0XpZIfKMk3K+rNVWPE1RPz4/9n/s=;
+        path=/; expires=Thu, 01-Feb-24 08:58:14 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 95c9d51ed7176777d7ac8ca8cb233696.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - PLKO6r61VkL3kdn0oN0HnPKcMksqzV6itTEOJtaZ21tEZPsw_AxOqA==
+      - tBJ1aXTHxqMgQz1stKh4w4XsnNHJeLUDVyVaQ6ESth15WAwruBx4eQ==
       X-Amz-Cf-Pop:
-      - VIE50-C2
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -409,13 +409,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RygqxF-JvHcEhbQ=
+      - Scpk0FyBvHcEqGA=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Fri, 19 Jan 2024 13:37:21 GMT
+      - Thu, 01 Feb 2024 08:28:14 GMT
       x-amzn-RequestId:
-      - 9702c7c2-606e-4e08-82af-70e7841e46b6
+      - fccbe86c-67e0-4bda-a460-7fa8fb91bc98
     status:
       code: 200
       message: OK
