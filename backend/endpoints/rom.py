@@ -216,6 +216,8 @@ async def update_rom(
     cleaned_data["summary"] = data.get("summary", db_rom.summary)
     cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
     cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
+    cleaned_data["total_rating"] = data.get("total_rating", db_rom.total_rating)
+    cleaned_data["genres"] = json.loads(data["genres"])
 
     fs_safe_file_name = (
         data.get("file_name", db_rom.file_name).strip().replace("/", "-")

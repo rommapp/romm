@@ -7,6 +7,7 @@ import { useDisplay } from "vuetify";
 
 import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
+import SourceTable from "@/components/Details/SourceTable.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
@@ -113,6 +114,7 @@ watch(
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
+        <source-table class="mt-2" :rom="rom" />
       </v-col>
       <v-col
         cols="12"

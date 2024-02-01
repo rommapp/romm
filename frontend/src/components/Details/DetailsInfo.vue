@@ -4,7 +4,7 @@ import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import storeDownload from "@/stores/download";
 import { formatBytes } from "@/utils";
 
-defineProps<{ rom: EnhancedRomSchema, platform: PlatformSchema }>();
+defineProps<{ rom: EnhancedRomSchema; platform: PlatformSchema }>();
 const downloadStore = storeDownload();
 </script>
 <template>
@@ -55,20 +55,6 @@ const downloadStore = storeDownload();
     </v-col>
     <v-col>
       <span>{{ formatBytes(rom.file_size_bytes) }}</span>
-    </v-col>
-  </v-row>
-  <v-row v-if="rom.igdb_id" class="align-center py-2" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
-      <span>IGDB</span>
-    </v-col>
-    <v-col>
-      <v-chip
-        variant="outlined"
-        class="text-romm-accent-1"
-        label
-      >
-        <a style="text-decoration: none; color: inherit" :href="`https://www.igdb.com/games/${rom.slug}`" target="_blank">{{ rom.igdb_id }}</a>
-      </v-chip>
     </v-col>
   </v-row>
   <v-row v-if="rom.tags.length > 0" class="align-center py-2" no-gutters>

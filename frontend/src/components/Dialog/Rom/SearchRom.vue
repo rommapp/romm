@@ -71,12 +71,7 @@ async function updateRom(matchedRom: SearchRomSchema) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  rom.value.igdb_id = matchedRom.igdb_id;
-  rom.value.name = matchedRom.name;
-  rom.value.slug = matchedRom.slug;
-  rom.value.summary = matchedRom.summary;
-  rom.value.url_cover = matchedRom.url_cover;
-  rom.value.url_screenshots = matchedRom.url_screenshots;
+  Object.assign(rom.value, matchedRom)
 
   await romApi
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })

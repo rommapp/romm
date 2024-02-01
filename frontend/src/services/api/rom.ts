@@ -161,6 +161,8 @@ async function updateRom({
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
   formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
+  formData.append("total_rating", rom.total_rating || "");
+  formData.append("genres", JSON.stringify(rom.genres));
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
   return api.put(`/roms/${rom.id}`, formData, {

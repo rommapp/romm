@@ -24,6 +24,8 @@ export type EnhancedRomSchema = {
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
+    total_rating: (string | null);
+    genres: Array<string>;
     sort_comparator: string;
     path_cover_s: (string | null);
     path_cover_l: (string | null);
