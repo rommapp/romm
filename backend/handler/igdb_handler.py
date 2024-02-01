@@ -59,10 +59,10 @@ class IGDBPlatform(TypedDict):
 
 class IGDBHandler:
     def __init__(self) -> None:
-        self.platform_endpoint = "https://api.igdb.com/v4/platforms/"
-        self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions/"
+        self.platform_endpoint = "https://api.igdb.com/v4/platforms"
+        self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions"
         self.platforms_fields = ["id", "name"]
-        self.games_endpoint = "https://api.igdb.com/v4/games/"
+        self.games_endpoint = "https://api.igdb.com/v4/games"
         self.games_fields = [
             "id",
             "name",
@@ -95,7 +95,7 @@ class IGDBHandler:
             "external_games.uid",
             "external_games.category",
         ]
-        self.search_endpoint = "https://api.igdb.com/v4/search/"
+        self.search_endpoint = "https://api.igdb.com/v4/search"
         self.search_fields = ["game.id", "name"]
         self.twitch_auth = TwitchAuth()
         self.headers = {
@@ -401,6 +401,7 @@ class IGDBHandler:
         )
 
         if not matched_roms or search_extended:
+            log.info("Extended searching...")
             alternative_matched_roms = self._request(
                 self.search_endpoint,
                 data=f'fields {",".join(self.search_fields)}; where platform={platform_idgb_id} & name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*;',
