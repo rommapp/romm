@@ -62,8 +62,36 @@ class IGDBHandler:
         self.platform_url = "https://api.igdb.com/v4/platforms/"
         self.platform_version_url = "https://api.igdb.com/v4/platform_versions/"
         self.games_url = "https://api.igdb.com/v4/games/"
-        self.covers_url = "https://api.igdb.com/v4/covers/"
-        self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
+        self.games_fields = [
+            "id",
+            "name",
+            "slug",
+            "summary",
+            "total_rating",
+            "genres.name",
+            "alternative_names.name",
+            "artworks.url",
+            "cover.url",
+            "screenshots.url",
+            "franchise.name",
+            "franchises.name",
+            "collections.name",
+            "expansions.name",
+            "expansions.cover.url",
+            "dlcs.name",
+            "dlcs.cover.url",
+            "involved_companies.company.name",
+            "platforms.name",
+            "aggregated_rating",
+            "first_release_date",
+            "game_modes.name",
+            "player_perspectives.name",
+            "ports.name",
+            "remakes.name",
+            "remasters.name",
+            "similar_games.name",
+            "language_supports.language.name",
+        ]
         self.twitch_auth = TwitchAuth()
         self.headers = {
             "Client-ID": IGDB_CLIENT_ID,
@@ -81,16 +109,6 @@ class IGDBHandler:
             return func(*args)
 
         return wrapper
-
-    @staticmethod
-    def normalize_search_term(search_term: str) -> str:
-        return (
-            search_term.replace("\u2122", "")  # Remove trademark symbol
-            .replace("\u00ae", "")  # Remove registered symbol
-            .replace("\u00a9", "")  # Remove copywrite symbol
-            .replace("\u2120", "")  # Remove service mark symbol
-            .strip()  # Remove leading and trailing spaces
-        )
 
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
@@ -121,17 +139,27 @@ class IGDBHandler:
 
         return res.json()
 
+    @staticmethod
+    def _normalize_search_term(search_term: str) -> str:
+        return (
+            search_term.replace("\u2122", "")  # Remove trademark symbol
+            .replace("\u00ae", "")  # Remove registered symbol
+            .replace("\u00a9", "")  # Remove copywrite symbol
+            .replace("\u2120", "")  # Remove service mark symbol
+            .strip()  # Remove leading and trailing spaces
+        )
+
+    @staticmethod
+    def _normalize_cover_url(url: str) -> str:
+        return f"https:{url.replace('https:', '')}"
+
     def _search_rom(
         self, search_term: str, platform_idgb_id: int, category: int = 0
     ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
             self.games_url,
-            data=f"""
-                search "{search_term}";
-                fields id, slug, name, summary, screenshots;
-                where platforms=[{platform_idgb_id}] {category_filter};
-            """,
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}] {category_filter};',
         )
 
         exact_matches = [
@@ -142,35 +170,6 @@ class IGDBHandler:
         ]
 
         return pydash.get(exact_matches or roms, "[0]", {})
-
-    @staticmethod
-    def _normalize_cover_url(url: str) -> str:
-        return f"https:{url.replace('https:', '')}"
-
-    def _search_cover(self, rom_id: int) -> str:
-        covers = self._request(
-            self.covers_url,
-            data=f"fields url; where game={rom_id};",
-        )
-
-        cover = pydash.get(covers, "[0]", None)
-        return (
-            ""
-            if not cover
-            else self._normalize_cover_url(cover["url"])
-        )
-
-    def _search_screenshots(self, rom_id: int) -> list:
-        screenshots = self._request(
-            self.screenshots_url,
-            data=f"fields url; where game={rom_id}; limit {N_SCREENSHOTS};",
-        )
-
-        return [
-            self._normalize_cover_url(r["url"]).replace("t_thumb", "t_original")
-            for r in screenshots
-            if "url" in r.keys()
-        ]
 
     @staticmethod
     async def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
@@ -317,9 +316,9 @@ class IGDBHandler:
         if platform_idgb_id in ARCADE_IGDB_IDS:
             search_term = await self._mame_format(search_term)
 
-        search_term = self.normalize_search_term(search_term)
+        search_term = self._normalize_search_term(search_term)
 
-        res = (
+        rom = (
             self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)
             or self._search_rom(
                 uc(search_term), platform_idgb_id, EXPANDED_GAME_CATEGORY
@@ -327,44 +326,49 @@ class IGDBHandler:
             or self._search_rom(uc(search_term), platform_idgb_id)
         )
 
-        igdb_id = res.get("id", None)
-        rom = IGDBRom(
-            igdb_id=igdb_id,
-            slug=res.get("slug", ""),
-            name=res.get("name", search_term),
-            summary=res.get("summary", ""),
-            url_cover="",
-            url_screenshots=[],
+        return IGDBRom(
+            igdb_id=rom.get("id", None),
+            slug=rom.get("slug", ""),
+            name=rom.get("name", search_term),
+            summary=rom.get("summary", ""),
+            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_screenshots=[
+                self._normalize_cover_url(s.get("url", "")).replace(
+                    "t_thumb", "t_original"
+                )
+                for s in rom.get("screenshots", [])
+            ],
         )
-
-        if igdb_id:
-            rom["url_cover"] = self._search_cover(igdb_id)
-            rom["url_screenshots"] = self._search_screenshots(igdb_id)
-
-        return rom
 
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
         roms = self._request(
             self.games_url,
-            f"fields slug, name, summary; where id={igdb_id};",
+            f'fields {",".join(self.games_fields)}; where id={igdb_id};',
         )
         rom = pydash.get(roms, "[0]", {})
 
-        return {
-            "igdb_id": igdb_id,
-            "slug": rom.get("slug", ""),
-            "name": rom.get("name", ""),
-            "summary": rom.get("summary", ""),
-            "url_cover": self._search_cover(igdb_id),
-            "url_screenshots": self._search_screenshots(igdb_id),
-        }
+        return IGDBRom(
+            igdb_id=igdb_id,
+            slug=rom.get("slug", ""),
+            name=rom.get("name", ""),
+            summary=rom.get("summary", ""),
+            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_screenshots=[
+                self._normalize_cover_url(s.get("url", "")).replace(
+                    "t_thumb", "t_original"
+                )
+                for s in rom.get("screenshots", [])
+            ],
+        )
 
     @check_twitch_token
     def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRom]:
         matched_rom = self.get_rom_by_id(igdb_id)
         matched_rom.update(
-            url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),
+            url_cover=matched_rom.get("url_cover", "").replace(
+                "t_thumb", "t_cover_big"
+            ),
         )
         return [matched_rom]
 
@@ -377,23 +381,26 @@ class IGDBHandler:
 
         matched_roms = self._request(
             self.games_url,
-            data=f"""
-                search "{uc(search_term)}";
-                fields id, slug, name, summary;
-                where platforms=[{platform_idgb_id}];
-            """,
+            data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}];',
         )
 
         return [
             IGDBRom(
-                igdb_id=rom["id"],
-                slug=rom["slug"],
-                name=rom["name"],
+                igdb_id=rom.get("id", None),
+                slug=rom.get("slug", ""),
+                name=rom.get("name", search_term),
                 summary=rom.get("summary", ""),
-                url_cover=self._search_cover(rom["id"]).replace(
-                    "t_thumb", "t_cover_big"
+                url_cover=self._normalize_cover_url(
+                    rom.get("cover", {})
+                    .get("url", "")
+                    .replace("t_thumb", "t_cover_big")
                 ),
-                url_screenshots=self._search_screenshots(rom["id"]),
+                url_screenshots=[
+                    self._normalize_cover_url(s.get("url", "")).replace(
+                        "t_thumb", "t_original"
+                    )
+                    for s in rom.get("screenshots", [])
+                ],
             )
             for rom in matched_roms
         ]
