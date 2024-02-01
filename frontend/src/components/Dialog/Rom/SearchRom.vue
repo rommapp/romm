@@ -96,6 +96,8 @@ async function updateRom(matchedRom: SearchRomSchema) {
 
 function closeDialog() {
   show.value = false;
+  searchBy.value = "Name";
+  searchExtended.value = false;
 }
 
 onBeforeUnmount(() => {
