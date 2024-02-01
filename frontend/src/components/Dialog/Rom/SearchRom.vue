@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
 
       <v-card-text class="pa-1 scroll">
         <v-row
-          class="justify-center loader-searching"
+          class="justify-center align-center loader-searching fill-height"
           v-show="searching"
           no-gutters
         >
@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row
-          class="justify-center no-results-searching"
+          class="justify-center align-center loader-searching fill-height"
           v-show="!searching && matchedRoms.length == 0"
           no-gutters
         >
@@ -302,10 +302,6 @@ onBeforeUnmount(() => {
 }
 .scroll {
   overflow-y: scroll;
-}
-.loader-searching,
-.no-results-searching {
-  margin-top: 200px;
 }
 
 .search-content {
