@@ -65,10 +65,9 @@ const downloadStore = storeDownload();
       <v-chip
         variant="outlined"
         class="text-romm-accent-1"
-        :href="`https://www.igdb.com/games/${rom.slug}`"
         label
       >
-        {{ rom.igdb_id }}
+        <a style="text-decoration: none; color: inherit" :href="`https://www.igdb.com/games/${rom.slug}`" target="_blank">{{ rom.igdb_id }}</a>
       </v-chip>
     </v-col>
   </v-row>
