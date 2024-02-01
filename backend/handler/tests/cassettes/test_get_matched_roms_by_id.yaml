@@ -1,61 +1,231 @@
 interactions:
 - request:
-    body: fields slug, name, summary; where id=3340;
+    body: fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where id=3340;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer test_token
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '42'
+      - '455'
       User-Agent:
       - python-requests/2.31.0
     method: POST
     uri: https://api.igdb.com/v4/games/
   response:
     body:
-      string: "[\n  {\n    \"id\": 3340,\n    \"name\": \"Paper Mario\",\n    \"slug\":
-        \"paper-mario\",\n    \"summary\": \"Paper Mario, a turn-based JRPG entry
-        in the Mario franchise with a paper-based aesthetic and platforming elements,
-        sees the titular character working his way through the Mushroom Kingdom\\u0027s
-        diverse locales and biomes, meeting its inhabitants, fighthing unruly enemies
-        and recruiting an array of companions in order to once again save Princess
-        Peach from the clutches of the evil Koopa King Bowser.\"\n  }\n]"
+      string: "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+        1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+        \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+        the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+        Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+        \ \"Discord\": \"https://discord.gg/FrvfwQg\"\n}\n"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f126a05af63a217-YYZ
+      - 84e8d2559cdc2491-ZAG
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '437'
+      Content-Type:
+      - application/json
+      Date:
+      - Thu, 01 Feb 2024 08:28:34 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=FdDZ24A8onR6pvR0pXsv4e.FKwF5A0MeYuUA8CKCgxU-1706776114-1-AfWzd0x/m+ZEAw4tCMf4IrRDUpyxfqxd8xDlLxpvRHi6C+kzSEP1GJf2E8WDvaL7e1sqUi8CPahKo88C2+LMrTE=;
+        path=/; expires=Thu, 01-Feb-24 08:58:34 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 ba761cfda8bfa6cbda2b6c433d6201f6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - k5fwQ2wxdtkUEoR4poZza_4KJ--jMlTo3-VVnANguYmTJFhlyyt7DA==
+      X-Amz-Cf-Pop:
+      - VIE50-C2
+      X-Cache:
+      - Error from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - ScpnzFuKPHcEjnA=
+      x-amzn-ErrorType:
+      - AccessDeniedException
+      x-amzn-RequestId:
+      - 6986b6b6-8eba-49df-b366-52f0a61cea7f
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '0'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+  response:
+    body:
+      string: '{"access_token":"l66rrlyleyapm67963n76014n7y445","expires_in":4851034,"token_type":"bearer"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '93'
+      Content-Type:
+      - application/json
+      Date:
+      - Thu, 01 Feb 2024 08:28:35 GMT
+      Server:
+      - nginx
+      X-Ctxlog-Logid:
+      - 1-65bb5632-4d866895625334e83e55d377
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where id=3340;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer l66rrlyleyapm67963n76014n7y445
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '455'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 3340,\n    \"aggregated_rating\": 90.0,\n    \"alternative_names\":
+        [\n      {\n        \"id\": 39105,\n        \"name\": \"Zhi Pian Mario\"\n
+        \     },\n      {\n        \"id\": 51791,\n        \"name\": \"\u30DE\u30EA\u30AA\u30B9\u30C8\u30FC\u30EA\u30FC\"\n
+        \     },\n      {\n        \"id\": 51792,\n        \"name\": \"\u7EB8\u7247\u9A6C\u91CC\u5965\"\n
+        \     },\n      {\n        \"id\": 78718,\n        \"name\": \"Mario Story\"\n
+        \     },\n      {\n        \"id\": 88088,\n        \"name\": \"Super Mario
+        RPG 2\"\n      },\n      {\n        \"id\": 119107,\n        \"name\": \"\u7EB8\u7247\u9A6C\u529B\u6B27\"\n
+        \     },\n      {\n        \"id\": 137285,\n        \"name\": \"\uD398\uC774\uD37C
+        \uB9C8\uB9AC\uC624\"\n      }\n    ],\n    \"artworks\": [\n      {\n        \"id\":
+        73649,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ar1ktt.jpg\"\n
+        \     }\n    ],\n    \"cover\": {\n      \"id\": 80830,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1qda.jpg\"\n
+        \   },\n    \"first_release_date\": 965952000,\n    \"franchises\": [\n      {\n
+        \       \"id\": 845,\n        \"name\": \"Mario\"\n      }\n    ],\n    \"game_modes\":
+        [\n      {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 12,\n        \"name\":
+        \"Role-playing (RPG)\"\n      },\n      {\n        \"id\": 16,\n        \"name\":
+        \"Turn-based strategy (TBS)\"\n      },\n      {\n        \"id\": 31,\n        \"name\":
+        \"Adventure\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        148214,\n        \"company\": {\n          \"id\": 70,\n          \"name\":
+        \"Nintendo\"\n        }\n      },\n      {\n        \"id\": 148215,\n        \"company\":
+        {\n          \"id\": 765,\n          \"name\": \"Intelligent Systems Co.,
+        Ltd.\"\n        }\n      },\n      {\n        \"id\": 225578,\n        \"company\":
+        {\n          \"id\": 5163,\n          \"name\": \"iQue\"\n        }\n      },\n
+        \     {\n        \"id\": 225579,\n        \"company\": {\n          \"id\":
+        812,\n          \"name\": \"Gradiente\"\n        }\n      }\n    ],\n    \"name\":
+        \"Paper Mario\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Nintendo 64\"\n      },\n      {\n        \"id\": 5,\n        \"name\":
+        \"Wii\"\n      },\n      {\n        \"id\": 41,\n        \"name\": \"Wii U\"\n
+        \     }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
+        2,\n        \"name\": \"Third person\"\n      },\n      {\n        \"id\":
+        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 24167,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
+        \     },\n      {\n        \"id\": 24168,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/hdxgs9nruycvrzcgvseu.jpg\"\n
+        \     },\n      {\n        \"id\": 24169,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ig9ainu9fershqdinox1.jpg\"\n
+        \     },\n      {\n        \"id\": 24170,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/jz66se3deczeta6hd4ys.jpg\"\n
+        \     },\n      {\n        \"id\": 24171,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/kjnf90jnud6njmwto3th.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 358,\n
+        \       \"name\": \"Super Mario Bros.\"\n      },\n      {\n        \"id\":
+        660,\n        \"name\": \"Darkstone\"\n      },\n      {\n        \"id\":
+        1026,\n        \"name\": \"The Legend of Zelda: A Link to the Past\"\n      },\n
+        \     {\n        \"id\": 1035,\n        \"name\": \"The Legend of Zelda: The
+        Minish Cap\"\n      },\n      {\n        \"id\": 1068,\n        \"name\":
+        \"Super Mario Bros. 3\"\n      },\n      {\n        \"id\": 1280,\n        \"name\":
+        \"Breath of Fire IV\"\n      },\n      {\n        \"id\": 2148,\n        \"name\":
+        \"Banjo-Kazooie\"\n      },\n      {\n        \"id\": 3349,\n        \"name\":
+        \"Paper Mario: The Thousand-Year Door\"\n      },\n      {\n        \"id\":
+        3351,\n        \"name\": \"Mario \\u0026 Luigi: Superstar Saga\"\n      },\n
+        \     {\n        \"id\": 22387,\n        \"name\": \"Legrand Legacy\"\n      }\n
+        \   ],\n    \"slug\": \"paper-mario\",\n    \"summary\": \"Paper Mario, a
+        turn-based JRPG entry in the Mario franchise with a paper-based aesthetic
+        and platforming elements, sees the titular character working his way through
+        the Mushroom Kingdom\\u0027s diverse locales and biomes, meeting its inhabitants,
+        fighthing unruly enemies and recruiting an array of companions in order to
+        once again save Princess Peach from the clutches of the evil Koopa King Bowser.\",\n
+        \   \"total_rating\": 88.63944908765737,\n    \"language_supports\": [\n      {\n
+        \       \"id\": 473450,\n        \"language\": {\n          \"id\": 3,\n          \"name\":
+        \"Chinese (Traditional)\"\n        }\n      },\n      {\n        \"id\": 473451,\n
+        \       \"language\": {\n          \"id\": 7,\n          \"name\": \"English\"\n
+        \       }\n      },\n      {\n        \"id\": 473452,\n        \"language\":
+        {\n          \"id\": 16,\n          \"name\": \"Japanese\"\n        }\n      },\n
+        \     {\n        \"id\": 492896,\n        \"language\": {\n          \"id\":
+        12,\n          \"name\": \"French\"\n        }\n      },\n      {\n        \"id\":
+        492897,\n        \"language\": {\n          \"id\": 27,\n          \"name\":
+        \"German\"\n        }\n      },\n      {\n        \"id\": 492898,\n        \"language\":
+        {\n          \"id\": 9,\n          \"name\": \"Spanish (Spain)\"\n        }\n
+        \     }\n    ],\n    \"collections\": [\n      {\n        \"id\": 240,\n        \"name\":
+        \"Super Mario\"\n      },\n      {\n        \"id\": 593,\n        \"name\":
+        \"Paper Mario\"\n      }\n    ]\n  }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 84e8d2605d692480-ZAG
       Connection:
       - keep-alive
       Content-Encoding:
       - gzip
+      Content-Length:
+      - '1439'
       Content-Type:
       - application/json
       Date:
-      - Thu, 03 Aug 2023 23:41:55 GMT
+      - Thu, 01 Feb 2024 08:28:35 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=wDiKbcKQ3m_tAXcetju4HJcp6OPAiMOfUGDv.Qxc9_4-1691106115-0-AR8tebmXr3vUeWSXKfHtRC7jKovYN4NoETfB3B/4U3W30Wy0fVrf8F1zztBw78LNQkPf5x0J9qS+mgWJZ7t3bws=;
-        path=/; expires=Fri, 04-Aug-23 00:11:55 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=xU0__mJAsJa0or_TYvcd1vU9t_iK9DQ3J5nH8sACd3c-1706776115-1-AQITZiZ0yBXbH1nmgDm69a3GoBtQOuUng4jAcSGtDUXthrQ2K2POmedsWsHMblpKItqwRjOHrUvSkZ042Os/1ZY=;
+        path=/; expires=Thu, 01-Feb-24 08:58:35 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
       Via:
-      - 1.1 4eb35caa679bb95c591a03f41b151b8c.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - Q_1fypvitK-OJqC_QYY4ErPjAkJL_3gYmO81HOazZ60lVg_1ANrX3Q==
+      - wony99QypCh_44jEOKeCMtI6HoTXwRU3-BUHfNqL9mWdttrzJUDVvw==
       X-Amz-Cf-Pop:
-      - YTO50-P1
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -65,159 +235,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JG4ymEiEPHcF9MQ=
+      - ScpoHGOdPHcEqUQ=
       x-amzn-Remapped-Content-Length:
-      - '500'
+      - '1439'
       x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:41:55 GMT
+      - Thu, 01 Feb 2024 08:28:35 GMT
       x-amzn-RequestId:
-      - c32482b9-7f14-4042-85df-19320fb5c3a4
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=3340;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '28'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/covers/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 80830,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1qda.jpg\"\n
-        \ }\n]"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 7f126a06de1336b2-YYZ
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json
-      Date:
-      - Thu, 03 Aug 2023 23:41:55 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=cQ_y_kOrw7pQVRj28XC3lPa2OCXVG0rSpcShckzp7p4-1691106115-0-AUjpVxmkEx0lJb7fc+CujKHS29w61WEhRm76yLebdCdDDHwCcp7cZI/jF3OIMs76nYBjR/sZ5zSrISlBVYBR6jU=;
-        path=/; expires=Fri, 04-Aug-23 00:11:55 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - YkMddi8ILsXiEJiU7JrHfsCznI7b2570ZCX1NhS7hrWTn0EGPVVlvg==
-      X-Amz-Cf-Pop:
-      - YTO50-P1
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '1'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - JG4yoHFLPHcFxww=
-      x-amzn-Remapped-Content-Length:
-      - '96'
-      x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:41:55 GMT
-      x-amzn-RequestId:
-      - 7eb9b5fb-ff48-4250-b7b7-647549a4a5ca
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=3340; limit 5;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '37'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/screenshots/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 24169,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ig9ainu9fershqdinox1.jpg\"\n
-        \ },\n  {\n    \"id\": 24168,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/hdxgs9nruycvrzcgvseu.jpg\"\n
-        \ },\n  {\n    \"id\": 24167,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
-        \ },\n  {\n    \"id\": 24171,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/kjnf90jnud6njmwto3th.jpg\"\n
-        \ },\n  {\n    \"id\": 24170,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/jz66se3deczeta6hd4ys.jpg\"\n
-        \ }\n]"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 7f126a092e9339fd-YYZ
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json
-      Date:
-      - Thu, 03 Aug 2023 23:41:56 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=sJV2ROMH3Fq5hOrD12tZoGjjnHrqFJHYmSdMGiNu8EM-1691106116-0-AYpioWmuBfiwlRSk6VVzhKBjMxbqv1bTNaPKkKO/Knr/XHRCvwFfSWmFpycuk/foP08saw07yKTZBpuSBgTtpsY=;
-        path=/; expires=Fri, 04-Aug-23 00:11:56 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 1093497011694314ff008667ee2636c0.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - r5B_vbMuEjRhNugI0GFE7TnuFSipGSMcwX3VtaltcUfEzdx2XUOeHA==
-      X-Amz-Cf-Pop:
-      - YTO50-P1
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '5'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - JG4yrHhCPHcF4Pg=
-      x-amzn-Remapped-Content-Length:
-      - '542'
-      x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:41:56 GMT
-      x-amzn-RequestId:
-      - 54fc6e46-b065-4460-958d-c02ee77c002c
+      - f8fc4a5e-f928-4934-9d58-2bb80f62f76a
     status:
       code: 200
       message: OK

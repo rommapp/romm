@@ -87,9 +87,9 @@ def test_get_matched_roms_by_name():
     assert roms[0]["slug"] == "super-mario-64-shindou-pak-taiou-version"
     assert roms[0]["name"] == "Super Mario 64: Shindou Pak Taiou Version"
 
-    assert roms[1]["igdb_id"] == 3475
-    assert roms[1]["slug"] == "dr-mario-64"
-    assert roms[1]["name"] == "Dr. Mario 64"
+    assert roms[1]["igdb_id"] == 3340
+    assert roms[1]["slug"] == "paper-mario"
+    assert roms[1]["name"] == "Paper Mario"
 
     roms = igdb_handler.get_matched_roms_by_name("Notarealgametitle", 4)
     assert roms == []

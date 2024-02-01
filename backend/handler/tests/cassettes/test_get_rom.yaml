@@ -1,294 +1,647 @@
 interactions:
 - request:
-    body: "\n                search \"Paper Mario\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[4] ;\n            "
+    body: search "Paper Mario"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[4] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer test_token
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '150'
+      - '484'
       User-Agent:
       - python-requests/2.31.0
     method: POST
     uri: https://api.igdb.com/v4/games/
   response:
     body:
-      string: "[\n  {\n    \"id\": 3340,\n    \"name\": \"Paper Mario\",\n    \"screenshots\":
-        [\n      24167,\n      24168,\n      24169,\n      24170,\n      24171\n    ],\n
-        \   \"slug\": \"paper-mario\",\n    \"summary\": \"Paper Mario, a turn-based
-        JRPG entry in the Mario franchise with a paper-based aesthetic and platforming
-        elements, sees the titular character working his way through the Mushroom
-        Kingdom\\u0027s diverse locales and biomes, meeting its inhabitants, fighthing
-        unruly enemies and recruiting an array of companions in order to once again
-        save Princess Peach from the clutches of the evil Koopa King Bowser.\"\n  },\n
-        \ {\n    \"id\": 257636,\n    \"name\": \"Paper Mario TTYD64\",\n    \"screenshots\":
-        [\n      1093074,\n      1093075\n    ],\n    \"slug\": \"paper-mario-ttyd64\",\n
-        \   \"summary\": \"TTYD64 is a PM64 romhack that adds TTYD\\u0027s gameplay
-        into the original Paper Mario plus all new items, badges, and recipes from
-        that game, and a lot of new areas to explore plus other additions.\"\n  },\n
-        \ {\n    \"id\": 159343,\n    \"name\": \"Paper Mario: Black Pit\",\n    \"screenshots\":
-        [\n      552543,\n      552544\n    ],\n    \"slug\": \"paper-mario-black-pit\",\n
-        \   \"summary\": \"Paper Mario: Black Pit is a ROM hack/mod of Paper Mario
-        64, developed by elDexter. It adds a new level layout to the game, based on
-        roguelike mechanics.\"\n  },\n  {\n    \"id\": 187873,\n    \"name\": \"Paper
-        Mario: Master Quest\",\n    \"screenshots\": [\n      714703,\n      714704\n
-        \   ],\n    \"slug\": \"paper-mario-master-quest\",\n    \"summary\": \"Paper
-        Mario: Master Quest is a mod made for \\\"Paper Mario\\\" on the N64. It was
-        created by Emperor_Thamz, Rainchus, JaThePlayer, and Brotenko. It revamps
-        old content and adds plenty of new as well.\\nOften considered \\\"The Dark
-        Souls of Paper Mario\\\", the mod is incredibly difficult.\"\n  },\n  {\n
-        \   \"id\": 159325,\n    \"name\": \"Paper Mario Multiplayer\",\n    \"screenshots\":
-        [\n      552513,\n      552514\n    ],\n    \"slug\": \"paper-mario-multiplayer\",\n
+      string: "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+        1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+        \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+        the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+        Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+        \ \"Discord\": \"https://discord.gg/FrvfwQg\"\n}\n"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 84e8d1e14c3c2482-ZAG
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '437'
+      Content-Type:
+      - application/json
+      Date:
+      - Thu, 01 Feb 2024 08:28:15 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=Tlwq9SqnHAvg1bWkk6RysY18Sjs7Ql0HhhLgbX0Va5g-1706776095-1-AXF4oBKwABx5eqk4JwT4l8zT6OTabVBaM4LwDnWmGLPW6TNommuHyn7INbmB/Ago/mWs/Tuc6iVCq3GROVsFNv4=;
+        path=/; expires=Thu, 01-Feb-24 08:58:15 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - YABS_qZs6nHklgXIzNfYum-GhkzDuPNPQ9dWwizfAevVXRUkBwJWYw==
+      X-Amz-Cf-Pop:
+      - ZAG50-C1
+      X-Cache:
+      - Error from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - Scpk8F6uvHcEXjA=
+      x-amzn-ErrorType:
+      - AccessDeniedException
+      x-amzn-RequestId:
+      - 9865af96-bdc1-4d6c-a357-bf1850a64c0a
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '0'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+  response:
+    body:
+      string: '{"access_token":"g4eg8f579es0q3w88bq8yx8rwtwgbz","expires_in":4855470,"token_type":"bearer"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '93'
+      Content-Type:
+      - application/json
+      Date:
+      - Thu, 01 Feb 2024 08:28:16 GMT
+      Server:
+      - nginx
+      X-Ctxlog-Logid:
+      - 1-65bb5620-57a57be01bc582033d0dc6df
+    status:
+      code: 200
+      message: OK
+- request:
+    body: search "Paper Mario"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[4] ;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer g4eg8f579es0q3w88bq8yx8rwtwgbz
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '484'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games/
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 3340,\n    \"aggregated_rating\": 90.0,\n    \"alternative_names\":
+        [\n      {\n        \"id\": 39105,\n        \"name\": \"Zhi Pian Mario\"\n
+        \     },\n      {\n        \"id\": 51791,\n        \"name\": \"\u30DE\u30EA\u30AA\u30B9\u30C8\u30FC\u30EA\u30FC\"\n
+        \     },\n      {\n        \"id\": 51792,\n        \"name\": \"\u7EB8\u7247\u9A6C\u91CC\u5965\"\n
+        \     },\n      {\n        \"id\": 78718,\n        \"name\": \"Mario Story\"\n
+        \     },\n      {\n        \"id\": 88088,\n        \"name\": \"Super Mario
+        RPG 2\"\n      },\n      {\n        \"id\": 119107,\n        \"name\": \"\u7EB8\u7247\u9A6C\u529B\u6B27\"\n
+        \     },\n      {\n        \"id\": 137285,\n        \"name\": \"\uD398\uC774\uD37C
+        \uB9C8\uB9AC\uC624\"\n      }\n    ],\n    \"artworks\": [\n      {\n        \"id\":
+        73649,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ar1ktt.jpg\"\n
+        \     }\n    ],\n    \"cover\": {\n      \"id\": 80830,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1qda.jpg\"\n
+        \   },\n    \"first_release_date\": 965952000,\n    \"franchises\": [\n      {\n
+        \       \"id\": 845,\n        \"name\": \"Mario\"\n      }\n    ],\n    \"game_modes\":
+        [\n      {\n        \"id\": 1,\n        \"name\": \"Single player\"\n      }\n
+        \   ],\n    \"genres\": [\n      {\n        \"id\": 12,\n        \"name\":
+        \"Role-playing (RPG)\"\n      },\n      {\n        \"id\": 16,\n        \"name\":
+        \"Turn-based strategy (TBS)\"\n      },\n      {\n        \"id\": 31,\n        \"name\":
+        \"Adventure\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        148214,\n        \"company\": {\n          \"id\": 70,\n          \"name\":
+        \"Nintendo\"\n        }\n      },\n      {\n        \"id\": 148215,\n        \"company\":
+        {\n          \"id\": 765,\n          \"name\": \"Intelligent Systems Co.,
+        Ltd.\"\n        }\n      },\n      {\n        \"id\": 225578,\n        \"company\":
+        {\n          \"id\": 5163,\n          \"name\": \"iQue\"\n        }\n      },\n
+        \     {\n        \"id\": 225579,\n        \"company\": {\n          \"id\":
+        812,\n          \"name\": \"Gradiente\"\n        }\n      }\n    ],\n    \"name\":
+        \"Paper Mario\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Nintendo 64\"\n      },\n      {\n        \"id\": 5,\n        \"name\":
+        \"Wii\"\n      },\n      {\n        \"id\": 41,\n        \"name\": \"Wii U\"\n
+        \     }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
+        2,\n        \"name\": \"Third person\"\n      },\n      {\n        \"id\":
+        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 24167,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
+        \     },\n      {\n        \"id\": 24168,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/hdxgs9nruycvrzcgvseu.jpg\"\n
+        \     },\n      {\n        \"id\": 24169,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ig9ainu9fershqdinox1.jpg\"\n
+        \     },\n      {\n        \"id\": 24170,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/jz66se3deczeta6hd4ys.jpg\"\n
+        \     },\n      {\n        \"id\": 24171,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/kjnf90jnud6njmwto3th.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 358,\n
+        \       \"name\": \"Super Mario Bros.\"\n      },\n      {\n        \"id\":
+        660,\n        \"name\": \"Darkstone\"\n      },\n      {\n        \"id\":
+        1026,\n        \"name\": \"The Legend of Zelda: A Link to the Past\"\n      },\n
+        \     {\n        \"id\": 1035,\n        \"name\": \"The Legend of Zelda: The
+        Minish Cap\"\n      },\n      {\n        \"id\": 1068,\n        \"name\":
+        \"Super Mario Bros. 3\"\n      },\n      {\n        \"id\": 1280,\n        \"name\":
+        \"Breath of Fire IV\"\n      },\n      {\n        \"id\": 2148,\n        \"name\":
+        \"Banjo-Kazooie\"\n      },\n      {\n        \"id\": 3349,\n        \"name\":
+        \"Paper Mario: The Thousand-Year Door\"\n      },\n      {\n        \"id\":
+        3351,\n        \"name\": \"Mario \\u0026 Luigi: Superstar Saga\"\n      },\n
+        \     {\n        \"id\": 22387,\n        \"name\": \"Legrand Legacy\"\n      }\n
+        \   ],\n    \"slug\": \"paper-mario\",\n    \"summary\": \"Paper Mario, a
+        turn-based JRPG entry in the Mario franchise with a paper-based aesthetic
+        and platforming elements, sees the titular character working his way through
+        the Mushroom Kingdom\\u0027s diverse locales and biomes, meeting its inhabitants,
+        fighthing unruly enemies and recruiting an array of companions in order to
+        once again save Princess Peach from the clutches of the evil Koopa King Bowser.\",\n
+        \   \"total_rating\": 88.63944908765737,\n    \"language_supports\": [\n      {\n
+        \       \"id\": 473450,\n        \"language\": {\n          \"id\": 3,\n          \"name\":
+        \"Chinese (Traditional)\"\n        }\n      },\n      {\n        \"id\": 473451,\n
+        \       \"language\": {\n          \"id\": 7,\n          \"name\": \"English\"\n
+        \       }\n      },\n      {\n        \"id\": 473452,\n        \"language\":
+        {\n          \"id\": 16,\n          \"name\": \"Japanese\"\n        }\n      },\n
+        \     {\n        \"id\": 492896,\n        \"language\": {\n          \"id\":
+        12,\n          \"name\": \"French\"\n        }\n      },\n      {\n        \"id\":
+        492897,\n        \"language\": {\n          \"id\": 27,\n          \"name\":
+        \"German\"\n        }\n      },\n      {\n        \"id\": 492898,\n        \"language\":
+        {\n          \"id\": 9,\n          \"name\": \"Spanish (Spain)\"\n        }\n
+        \     }\n    ],\n    \"collections\": [\n      {\n        \"id\": 240,\n        \"name\":
+        \"Super Mario\"\n      },\n      {\n        \"id\": 593,\n        \"name\":
+        \"Paper Mario\"\n      }\n    ]\n  },\n  {\n    \"id\": 257636,\n    \"cover\":
+        {\n      \"id\": 317813,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6t85.jpg\"\n
+        \   },\n    \"first_release_date\": 1691884800,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
+        (RPG)\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        223743,\n        \"company\": {\n          \"id\": 36501,\n          \"name\":
+        \"elDexter\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario TTYD64\",\n
+        \   \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo
+        64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
+        3,\n        \"name\": \"Bird view / Isometric\"\n      },\n      {\n        \"id\":
+        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 1093074,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scnff6.jpg\"\n
+        \     },\n      {\n        \"id\": 1093075,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scnff7.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
+        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 25636,\n
+        \       \"name\": \"Nights of Azure 2: Bride of the New Moon\"\n      },\n
+        \     {\n        \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n
+        \     },\n      {\n        \"id\": 55199,\n        \"name\": \"Dragon: Marked
+        for Death\"\n      },\n      {\n        \"id\": 57372,\n        \"name\":
+        \"SoulWorker\"\n      },\n      {\n        \"id\": 80916,\n        \"name\":
+        \"Omensight\"\n      },\n      {\n        \"id\": 96217,\n        \"name\":
+        \"Eternity: The Last Unicorn\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"name\": \"Torchlight III\"\n      },\n      {\n        \"id\": 113109,\n
+        \       \"name\": \"Marvel Ultimate Alliance 3: The Black Order\"\n      },\n
+        \     {\n        \"id\": 113636,\n        \"name\": \"Rangers of Oblivion\"\n
+        \     }\n    ],\n    \"slug\": \"paper-mario-ttyd64\",\n    \"summary\": \"TTYD64
+        is a PM64 romhack that adds TTYD\\u0027s gameplay into the original Paper
+        Mario plus all new items, badges, and recipes from that game, and a lot of
+        new areas to explore plus other additions.\"\n  },\n  {\n    \"id\": 268692,\n
+        \   \"cover\": {\n      \"id\": 338285,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co790t.jpg\"\n
+        \   },\n    \"first_release_date\": 1500249600,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
+        (RPG)\"\n      }\n    ],\n    \"name\": \"Paper Mario: Pro Mode\",\n    \"platforms\":
+        [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo 64\"\n      }\n
+        \   ],\n    \"player_perspectives\": [\n      {\n        \"id\": 2,\n        \"name\":
+        \"Third person\"\n      },\n      {\n        \"id\": 4,\n        \"name\":
+        \"Side view\"\n      }\n    ],\n    \"screenshots\": [\n      {\n        \"id\":
+        1153560,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scoq3c.jpg\"\n
+        \     },\n      {\n        \"id\": 1153561,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scoq3d.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19404,\n
+        \       \"name\": \"Eador: Imperium\"\n      },\n      {\n        \"id\":
+        22790,\n        \"name\": \"Project Awakening\"\n      },\n      {\n        \"id\":
+        23651,\n        \"name\": \"Echo of Soul\"\n      },\n      {\n        \"id\":
+        49414,\n        \"name\": \"Oriental Blue: Ao no Tengai\"\n      },\n      {\n
+        \       \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n      },\n
+        \     {\n        \"id\": 69007,\n        \"name\": \"Aion: Legions of War\"\n
+        \     },\n      {\n        \"id\": 96217,\n        \"name\": \"Eternity: The
+        Last Unicorn\"\n      },\n      {\n        \"id\": 99118,\n        \"name\":
+        \"Dragalia Lost\"\n      },\n      {\n        \"id\": 113910,\n        \"name\":
+        \"Forged Fantasy\"\n      },\n      {\n        \"id\": 115653,\n        \"name\":
+        \"Pok\xE9mon Shield\"\n      }\n    ],\n    \"slug\": \"paper-mario-pro-mode\",\n
+        \   \"language_supports\": [\n      {\n        \"id\": 806045,\n        \"language\":
+        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
+        \   ]\n  },\n  {\n    \"id\": 159343,\n    \"cover\": {\n      \"id\": 162594,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3hgi.jpg\"\n
+        \   },\n    \"first_release_date\": 1625961600,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
+        (RPG)\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        143574,\n        \"company\": {\n          \"id\": 36501,\n          \"name\":
+        \"elDexter\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario: Black
+        Pit\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\":
+        \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n
+        \       \"id\": 3,\n        \"name\": \"Bird view / Isometric\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Side view\"\n      }\n    ],\n
+        \   \"screenshots\": [\n      {\n        \"id\": 552543,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/scbucf.jpg\"\n      },\n      {\n
+        \       \"id\": 552544,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbucg.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
+        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 28309,\n
+        \       \"name\": \"Tanzia\"\n      },\n      {\n        \"id\": 54775,\n
+        \       \"name\": \"Shadows: Awakening\"\n      },\n      {\n        \"id\":
+        55038,\n        \"name\": \"Immortal: Unchained\"\n      },\n      {\n        \"id\":
+        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
+        \       \"id\": 57372,\n        \"name\": \"SoulWorker\"\n      },\n      {\n
+        \       \"id\": 80916,\n        \"name\": \"Omensight\"\n      },\n      {\n
+        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
+        \     {\n        \"id\": 96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n
+        \     },\n      {\n        \"id\": 106987,\n        \"name\": \"Torchlight
+        III\"\n      }\n    ],\n    \"slug\": \"paper-mario-black-pit\",\n    \"summary\":
+        \"Paper Mario: Black Pit is a ROM hack/mod of Paper Mario 64, developed by
+        elDexter. It adds a new level layout to the game, based on roguelike mechanics.\",\n
+        \   \"language_supports\": [\n      {\n        \"id\": 628999,\n        \"language\":
+        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
+        \   ]\n  },\n  {\n    \"id\": 159325,\n    \"cover\": {\n      \"id\": 162585,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co3hg9.jpg\"\n
+        \   },\n    \"first_release_date\": 1489622400,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      },\n      {\n
+        \       \"id\": 2,\n        \"name\": \"Multiplayer\"\n      },\n      {\n
+        \       \"id\": 3,\n        \"name\": \"Co-operative\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
+        (RPG)\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        143536,\n        \"company\": {\n          \"id\": 25040,\n          \"name\":
+        \"SKELUX\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario Multiplayer\",\n
+        \   \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo
+        64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
+        3,\n        \"name\": \"Bird view / Isometric\"\n      },\n      {\n        \"id\":
+        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 552513,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbubl.jpg\"\n
+        \     },\n      {\n        \"id\": 552514,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scbubm.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
+        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 27092,\n
+        \       \"name\": \"GreedFall\"\n      },\n      {\n        \"id\": 54775,\n
+        \       \"name\": \"Shadows: Awakening\"\n      },\n      {\n        \"id\":
+        55038,\n        \"name\": \"Immortal: Unchained\"\n      },\n      {\n        \"id\":
+        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
+        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
+        \     {\n        \"id\": 96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n
+        \     },\n      {\n        \"id\": 103303,\n        \"name\": \"The Elder
+        Scrolls: Blades\"\n      },\n      {\n        \"id\": 106987,\n        \"name\":
+        \"Torchlight III\"\n      },\n      {\n        \"id\": 113360,\n        \"name\":
+        \"Hytale\"\n      }\n    ],\n    \"slug\": \"paper-mario-multiplayer\",\n
         \   \"summary\": \"Paper Mario Multiplayer is a ROM hack/mod of Paper Mario
         (Nintendo 64) developed by SKELUX which adds support for multiplayer, with
-        the second player controlling Mario\\u0027s partner.\"\n  },\n  {\n    \"id\":
-        248349,\n    \"name\": \"Paper Mario: Master Quest + Jr.\",\n    \"screenshots\":
-        [\n      1044412,\n      1044413,\n      1044414,\n      1044415\n    ],\n
-        \   \"slug\": \"paper-mario-master-quest-plus-jr\",\n    \"summary\": \"Paper
-        Mario: Master Quest is a mod made for \u201CPaper Mario\u201D on the N64.
-        It revamps old content and adds plenty of new as well. Often considered \u201CThe
-        Dark Souls of Paper Mario\u201D, the mod is incredibly difficult. It was designed
-        with elite challenge runners in mind, and unless you have extensive knowledge
-        of Paper Mario, you may struggle with much of the content.\\n\\nFor those
-        players there is Paper Mario: Master Quest Jr. which has all of the content
-        the original has, with a much more reasonable difficulty curve. If you want
-        to stream the mod, starting with Jr. is recommended.\"\n  },\n  {\n    \"id\":
-        186399,\n    \"name\": \"The Paper Mario Christmas Special\",\n    \"screenshots\":
-        [\n      705997,\n      705998\n    ],\n    \"slug\": \"the-paper-mario-christmas-special\",\n
-        \   \"summary\": \"Paper Mario Christmas Special is a ROM Hack of Paper Mario.
-        It was developed by Rain, Alex, Fish, Fewffwa, and Den of the Paper Mario
-        Modding Discord.\"\n  },\n  {\n    \"id\": 245039,\n    \"name\": \"Paper
-        Mario Eggstraordinary Egg Hunt\",\n    \"screenshots\": [\n      1030891\n
-        \   ],\n    \"slug\": \"paper-mario-eggstraordinary-egg-hunt\",\n    \"summary\":
-        \"Join Mario \\u0026 Luigi for the annual Easter Egg Hunt in Toad Town and
-        close regions like Koopa Village and Shooting Star Summit!\\n\\nA Paper Mario
-        Mod made by BOSS05 / Miigle and Den / DenNya as a easter present for the Paper
-        Mario Modding Community.\"\n  },\n  {\n    \"id\": 155012,\n    \"name\":
-        \"Bowser\\u0027s Dark Story\",\n    \"screenshots\": [\n      689665\n    ],\n
-        \   \"slug\": \"bowsers-dark-story\",\n    \"summary\": \"Bowser\\u0027s Dark
-        Story is a ROM hack/mod of Paper Mario. The game is an alternative take on
-        the story, from the perspective that tells how it would be if Bowser won against
-        Mario and conquered the Mushroom Kingdom. The player controls the villain,
-        Bowser, through an adventure, finding allies and battling enemies.\"\n  }\n]"
+        the second player controlling Mario\\u0027s partner.\",\n    \"language_supports\":
+        [\n      {\n        \"id\": 628998,\n        \"language\": {\n          \"id\":
+        7,\n          \"name\": \"English\"\n        }\n      }\n    ]\n  },\n  {\n
+        \   \"id\": 187873,\n    \"artworks\": [\n      {\n        \"id\": 107331,\n
+        \       \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ar2atf.jpg\"\n
+        \     }\n    ],\n    \"cover\": {\n      \"id\": 302664,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hjc.jpg\"\n
+        \   },\n    \"first_release_date\": 1576454400,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
+        (RPG)\"\n      },\n      {\n        \"id\": 31,\n        \"name\": \"Adventure\"\n
+        \     }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\": 189258,\n
+        \       \"company\": {\n          \"id\": 43641,\n          \"name\": \"Emperor_Thamz\"\n
+        \       }\n      },\n      {\n        \"id\": 189259,\n        \"company\":
+        {\n          \"id\": 43642,\n          \"name\": \"Rainchus\"\n        }\n
+        \     },\n      {\n        \"id\": 189260,\n        \"company\": {\n          \"id\":
+        43643,\n          \"name\": \"JaThePlayer\"\n        }\n      },\n      {\n
+        \       \"id\": 189261,\n        \"company\": {\n          \"id\": 43644,\n
+        \         \"name\": \"Brotenko\"\n        }\n      }\n    ],\n    \"name\":
+        \"Paper Mario: Master Quest\",\n    \"platforms\": [\n      {\n        \"id\":
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 714703,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/scfbgv.jpg\"\n      },\n      {\n
+        \       \"id\": 714704,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scfbgw.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 28309,\n
+        \       \"name\": \"Tanzia\"\n      },\n      {\n        \"id\": 30245,\n
+        \       \"name\": \"Wanderlust Adventures\"\n      },\n      {\n        \"id\":
+        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
+        \       \"id\": 80916,\n        \"name\": \"Omensight\"\n      },\n      {\n
+        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
+        \     {\n        \"id\": 96217,\n        \"name\": \"Eternity: The Last Unicorn\"\n
+        \     },\n      {\n        \"id\": 103168,\n        \"name\": \"Warhammer:
+        Chaosbane\"\n      },\n      {\n        \"id\": 103303,\n        \"name\":
+        \"The Elder Scrolls: Blades\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"name\": \"Torchlight III\"\n      },\n      {\n        \"id\": 115280,\n
+        \       \"name\": \"Oninaki\"\n      }\n    ],\n    \"slug\": \"paper-mario-master-quest\",\n
+        \   \"summary\": \"Paper Mario: Master Quest is a mod made for \\\"Paper Mario\\\"
+        on the N64. It was created by Emperor_Thamz, Rainchus, JaThePlayer, and Brotenko.
+        It revamps old content and adds plenty of new as well.\\nOften considered
+        \\\"The Dark Souls of Paper Mario\\\", the mod is incredibly difficult.\",\n
+        \   \"language_supports\": [\n      {\n        \"id\": 637078,\n        \"language\":
+        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
+        \   ]\n  },\n  {\n    \"id\": 248349,\n    \"cover\": {\n      \"id\": 302670,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hji.jpg\"\n
+        \   },\n    \"first_release_date\": 1638748800,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 12,\n        \"name\": \"Role-playing
+        (RPG)\"\n      }\n    ],\n    \"involved_companies\": [\n      {\n        \"id\":
+        212708,\n        \"company\": {\n          \"id\": 43641,\n          \"name\":
+        \"Emperor_Thamz\"\n        }\n      }\n    ],\n    \"name\": \"Paper Mario:
+        Master Quest + Jr.\",\n    \"platforms\": [\n      {\n        \"id\": 4,\n
+        \       \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 1044412,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvg.jpg\"\n      },\n      {\n
+        \       \"id\": 1044413,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvh.jpg\"\n
+        \     },\n      {\n        \"id\": 1044414,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvi.jpg\"\n
+        \     },\n      {\n        \"id\": 1044415,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scmdvj.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19404,\n
+        \       \"name\": \"Eador: Imperium\"\n      },\n      {\n        \"id\":
+        23651,\n        \"name\": \"Echo of Soul\"\n      },\n      {\n        \"id\":
+        49414,\n        \"name\": \"Oriental Blue: Ao no Tengai\"\n      },\n      {\n
+        \       \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n      },\n
+        \     {\n        \"id\": 69007,\n        \"name\": \"Aion: Legions of War\"\n
+        \     },\n      {\n        \"id\": 96217,\n        \"name\": \"Eternity: The
+        Last Unicorn\"\n      },\n      {\n        \"id\": 99118,\n        \"name\":
+        \"Dragalia Lost\"\n      },\n      {\n        \"id\": 106987,\n        \"name\":
+        \"Torchlight III\"\n      },\n      {\n        \"id\": 113910,\n        \"name\":
+        \"Forged Fantasy\"\n      },\n      {\n        \"id\": 115653,\n        \"name\":
+        \"Pok\xE9mon Shield\"\n      }\n    ],\n    \"slug\": \"paper-mario-master-quest-plus-jr\",\n
+        \   \"summary\": \"Paper Mario: Master Quest is a mod made for \u201CPaper
+        Mario\u201D on the N64. It revamps old content and adds plenty of new as well.
+        Often considered \u201CThe Dark Souls of Paper Mario\u201D, the mod is incredibly
+        difficult. It was designed with elite challenge runners in mind, and unless
+        you have extensive knowledge of Paper Mario, you may struggle with much of
+        the content.\\n\\nFor those players there is Paper Mario: Master Quest Jr.
+        which has all of the content the original has, with a much more reasonable
+        difficulty curve. If you want to stream the mod, starting with Jr. is recommended.\",\n
+        \   \"language_supports\": [\n      {\n        \"id\": 685974,\n        \"language\":
+        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
+        \   ]\n  },\n  {\n    \"id\": 266504,\n    \"cover\": {\n      \"id\": 330243,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co72tf.jpg\"\n
+        \   },\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
+        \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
+        12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"involved_companies\":
+        [\n      {\n        \"id\": 231243,\n        \"company\": {\n          \"id\":
+        49637,\n          \"name\": \"ShadeBlade\"\n        }\n      }\n    ],\n    \"name\":
+        \"Paper Mario: Dark Star Edition\",\n    \"platforms\": [\n      {\n        \"id\":
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      }\n
+        \   ],\n    \"slug\": \"paper-mario-dark-star-edition\",\n    \"summary\":
+        \"Paper Mario: Dark Star Edition is a mod for Paper Mario created by ShadeBlade
+        that adds a lot of new content to the game and increases the difficulty. Some
+        of the content (various badge and enemy sprites and maps) was taken from Master
+        Quest, but most of it is entirely new. This mod is meant to be about as difficult
+        as Master Quest Jr, but there are badges that increase the health and damage
+        of enemies.\",\n    \"language_supports\": [\n      {\n        \"id\": 798257,\n
+        \       \"language\": {\n          \"id\": 7,\n          \"name\": \"English\"\n
+        \       }\n      }\n    ]\n  },\n  {\n    \"id\": 186399,\n    \"cover\":
+        {\n      \"id\": 302389,\n      \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6hbp.jpg\"\n
+        \   },\n    \"game_modes\": [\n      {\n        \"id\": 1,\n        \"name\":
+        \"Single player\"\n      }\n    ],\n    \"genres\": [\n      {\n        \"id\":
+        12,\n        \"name\": \"Role-playing (RPG)\"\n      }\n    ],\n    \"involved_companies\":
+        [\n      {\n        \"id\": 189250,\n        \"company\": {\n          \"id\":
+        43638,\n          \"name\": \"Rain\"\n        }\n      }\n    ],\n    \"name\":
+        \"The Paper Mario Christmas Special\",\n    \"platforms\": [\n      {\n        \"id\":
+        4,\n        \"name\": \"Nintendo 64\"\n      }\n    ],\n    \"player_perspectives\":
+        [\n      {\n        \"id\": 2,\n        \"name\": \"Third person\"\n      },\n
+        \     {\n        \"id\": 4,\n        \"name\": \"Side view\"\n      }\n    ],\n
+        \   \"screenshots\": [\n      {\n        \"id\": 705997,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/scf4r1.jpg\"\n      },\n      {\n
+        \       \"id\": 705998,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scf4r2.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 19164,\n
+        \       \"name\": \"Borderlands 3\"\n      },\n      {\n        \"id\": 25636,\n
+        \       \"name\": \"Nights of Azure 2: Bride of the New Moon\"\n      },\n
+        \     {\n        \"id\": 54775,\n        \"name\": \"Shadows: Awakening\"\n
+        \     },\n      {\n        \"id\": 55199,\n        \"name\": \"Dragon: Marked
+        for Death\"\n      },\n      {\n        \"id\": 57372,\n        \"name\":
+        \"SoulWorker\"\n      },\n      {\n        \"id\": 80916,\n        \"name\":
+        \"Omensight\"\n      },\n      {\n        \"id\": 96217,\n        \"name\":
+        \"Eternity: The Last Unicorn\"\n      },\n      {\n        \"id\": 106987,\n
+        \       \"name\": \"Torchlight III\"\n      },\n      {\n        \"id\": 113109,\n
+        \       \"name\": \"Marvel Ultimate Alliance 3: The Black Order\"\n      },\n
+        \     {\n        \"id\": 113636,\n        \"name\": \"Rangers of Oblivion\"\n
+        \     }\n    ],\n    \"slug\": \"the-paper-mario-christmas-special\",\n    \"summary\":
+        \"Paper Mario Christmas Special is a ROM Hack of Paper Mario. It was developed
+        by Rain, Alex, Fish, Fewffwa, and Den of the Paper Mario Modding Discord.\",\n
+        \   \"language_supports\": [\n      {\n        \"id\": 637263,\n        \"language\":
+        {\n          \"id\": 7,\n          \"name\": \"English\"\n        }\n      }\n
+        \   ]\n  },\n  {\n    \"id\": 245039,\n    \"cover\": {\n      \"id\": 297342,\n
+        \     \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co6dfi.jpg\"\n
+        \   },\n    \"first_release_date\": 1680998400,\n    \"game_modes\": [\n      {\n
+        \       \"id\": 1,\n        \"name\": \"Single player\"\n      }\n    ],\n
+        \   \"genres\": [\n      {\n        \"id\": 31,\n        \"name\": \"Adventure\"\n
+        \     }\n    ],\n    \"name\": \"Paper Mario Eggstraordinary Egg Hunt\",\n
+        \   \"platforms\": [\n      {\n        \"id\": 4,\n        \"name\": \"Nintendo
+        64\"\n      }\n    ],\n    \"player_perspectives\": [\n      {\n        \"id\":
+        3,\n        \"name\": \"Bird view / Isometric\"\n      },\n      {\n        \"id\":
+        4,\n        \"name\": \"Side view\"\n      }\n    ],\n    \"screenshots\":
+        [\n      {\n        \"id\": 1030891,\n        \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/scm3fv.jpg\"\n
+        \     }\n    ],\n    \"similar_games\": [\n      {\n        \"id\": 25646,\n
+        \       \"name\": \"Don\\u0027t Knock Twice\"\n      },\n      {\n        \"id\":
+        55199,\n        \"name\": \"Dragon: Marked for Death\"\n      },\n      {\n
+        \       \"id\": 80916,\n        \"name\": \"Omensight\"\n      },\n      {\n
+        \       \"id\": 81249,\n        \"name\": \"The Elder Scrolls VI\"\n      },\n
+        \     {\n        \"id\": 87622,\n        \"name\": \"Garena Free Fire\"\n
+        \     },\n      {\n        \"id\": 96217,\n        \"name\": \"Eternity: The
+        Last Unicorn\"\n      },\n      {\n        \"id\": 103292,\n        \"name\":
+        \"Gears 5\"\n      },\n      {\n        \"id\": 106805,\n        \"name\":
+        \"Call of Duty: Mobile\"\n      },\n      {\n        \"id\": 106987,\n        \"name\":
+        \"Torchlight III\"\n      },\n      {\n        \"id\": 111130,\n        \"name\":
+        \"Apsulov: End of Gods\"\n      }\n    ],\n    \"slug\": \"paper-mario-eggstraordinary-egg-hunt\",\n
+        \   \"summary\": \"Join Mario \\u0026 Luigi for the annual Easter Egg Hunt
+        in Toad Town and close regions like Koopa Village and Shooting Star Summit!\\n\\nA
+        Paper Mario Mod made by Miigle and Den / DenNya as a easter present for the
+        Paper Mario Modding Community.\",\n    \"language_supports\": [\n      {\n
+        \       \"id\": 674095,\n        \"language\": {\n          \"id\": 7,\n          \"name\":
+        \"English\"\n        }\n      }\n    ]\n  }\n]"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f126d5f6b293987-YYZ
+      - 84e8d1ecbd9a6c85-ZAG
       Connection:
       - keep-alive
       Content-Encoding:
       - gzip
       Content-Length:
-      - '1595'
+      - '4126'
       Content-Type:
       - application/json
       Date:
-      - Thu, 03 Aug 2023 23:44:12 GMT
+      - Thu, 01 Feb 2024 08:28:17 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=bLLcuaIASi0bZmVFhPmsX64QEIxShbJgYdDg4.c2ovU-1691106252-0-Af/kCgNlQvV1rE830NQoa11FwK9tKYYqJIhdq9Ne70yNfd+9N6roout2ppRMV3hZf2tDUlIkk7VPLq96Jl680lA=;
-        path=/; expires=Fri, 04-Aug-23 00:14:12 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=WwVfmyVJQ8ImmyAy..QIpB_mUxLFOLWH1wLj61NFKR8-1706776097-1-AYIskMTK5iz+yuS3mh3TETsdE6QflHvC4GqfiQqtOwXpzJmQDmknZchJD+2MKZSp0ogHIgSpY8LMA7waTqepV0k=;
+        path=/; expires=Thu, 01-Feb-24 08:58:17 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 60c77d7f2a0954d991174a909a828016.cloudfront.net (CloudFront)
+      - 1.1 ba761cfda8bfa6cbda2b6c433d6201f6.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 8vOBHPI5YpN5BjvXTfZybpQmbmz3-vVi1eqgJu7rgJwJXgxxVmB-9Q==
+      - 1ArASxspT8T_Awp4Jr-fgwt74L1i0y6wq8SvHwGs5asDYmvhmmWRcg==
       X-Amz-Cf-Pop:
-      - YTO50-P1
+      - VIE50-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
       - nosniff
       X-Count:
-      - '9'
+      - '12'
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JG5ICGJyPHcFr6g=
+      - ScplLHESPHcEJug=
       x-amzn-Remapped-Content-Length:
-      - '1595'
+      - '4126'
       x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:12 GMT
+      - Thu, 01 Feb 2024 08:28:17 GMT
       x-amzn-RequestId:
-      - 0e5f62e6-d558-484f-93c3-13f9ddaf5c01
+      - 8c6548dd-ae47-417a-a73e-56924281fb6d
     status:
       code: 200
       message: OK
 - request:
-    body: fields url; where game=3340;
+    body: search "Not a real game title"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[4] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer test_token
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '28'
+      - '494'
       User-Agent:
       - python-requests/2.31.0
     method: POST
-    uri: https://api.igdb.com/v4/covers/
+    uri: https://api.igdb.com/v4/games/
   response:
     body:
-      string: "[\n  {\n    \"id\": 80830,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co1qda.jpg\"\n
-        \ }\n]"
+      string: "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+        1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+        \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+        the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+        Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+        \ \"Discord\": \"https://discord.gg/FrvfwQg\"\n}\n"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f126d622f3236bd-YYZ
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json
-      Date:
-      - Thu, 03 Aug 2023 23:44:13 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=RYYy_LYLPL6J1D0C7dMjF3mdj5vb2BcSNfg5ziPlan0-1691106253-0-AdxlU0S8rRHZvUuYozrUZBqmjNEixJEUWLANTttjOerusnkJG+fHNNMOB2V7TmHwSzfojdfk/IXmHvJ8NPthlVA=;
-        path=/; expires=Fri, 04-Aug-23 00:14:13 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 ea419f8269940bd7231c70acd36c430c.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - 0fticAwqoch2VCjBD18G9UZ-0fuL55bDm4DbU-tT295PetwxbQdHlQ==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '1'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - JG5IGGpaPHcF4gA=
-      x-amzn-Remapped-Content-Length:
-      - '96'
-      x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:13 GMT
-      x-amzn-RequestId:
-      - 4f89ffc9-fac0-4330-92de-818292867e7b
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=3340; limit 5;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - 84e8d1f01cfc2480-ZAG
       Connection:
       - keep-alive
       Content-Length:
-      - '37'
+      - '437'
+      Content-Type:
+      - application/json
+      Date:
+      - Thu, 01 Feb 2024 08:28:18 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=nDSK7g.kktgrlwtuUsvV6Uggg21bX_lzLczdid5HYec-1706776098-1-ActdNxpp+FP2y/m1hZUbPYCQLENmTfKx75ULf2Vq+Rvin7srtMbRGc4oI13oE5GW5ogPeWAYK5I2vmOduuM1STk=;
+        path=/; expires=Thu, 01-Feb-24 08:58:18 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - z-QX6YYNHaAhlLjPVqS0RHF5BQd14N9dC0Vd24BmiIXhUhkVZVwOJA==
+      X-Amz-Cf-Pop:
+      - ZAG50-C1
+      X-Cache:
+      - Error from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - ScplUGKMPHcEqpA=
+      x-amzn-ErrorType:
+      - AccessDeniedException
+      x-amzn-RequestId:
+      - 6e919e46-ba60-4e36-9b02-9ed7a4953bb7
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '0'
       User-Agent:
       - python-requests/2.31.0
     method: POST
-    uri: https://api.igdb.com/v4/screenshots/
+    uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: "[\n  {\n    \"id\": 24169,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/ig9ainu9fershqdinox1.jpg\"\n
-        \ },\n  {\n    \"id\": 24167,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/a5r3k2lf3lgvifrycqeg.jpg\"\n
-        \ },\n  {\n    \"id\": 24168,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/hdxgs9nruycvrzcgvseu.jpg\"\n
-        \ },\n  {\n    \"id\": 24171,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/kjnf90jnud6njmwto3th.jpg\"\n
-        \ },\n  {\n    \"id\": 24170,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/jz66se3deczeta6hd4ys.jpg\"\n
-        \ }\n]"
+      string: '{"access_token":"3bs8grhvuseeqgxy40y78dt50tt6pi","expires_in":5254333,"token_type":"bearer"}
+
+        '
     headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 7f126d64abf3369c-YYZ
+      Access-Control-Allow-Origin:
+      - '*'
       Connection:
       - keep-alive
-      Content-Encoding:
-      - gzip
+      Content-Length:
+      - '93'
       Content-Type:
       - application/json
       Date:
-      - Thu, 03 Aug 2023 23:44:13 GMT
+      - Thu, 01 Feb 2024 08:28:18 GMT
       Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=s4Ce14Sy3VrVUWlPy9dJolmqHh4AdrCbjVqVzyabHi4-1691106253-0-AVXeoHwfSXLWaN5JdVMNdDPv3McFYvMJBnD5X5JtFzQ79/ttXibX8gDdeps0pbUgbt2fB75ZMKR2ASCESOqS8U4=;
-        path=/; expires=Fri, 04-Aug-23 00:14:13 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - 6GbnvP9WqZDoHIjyYWSWYHS1D1PD9E-93l1wkEcx6f-Q9m4-U5YV_Q==
-      X-Amz-Cf-Pop:
-      - YTO50-P1
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '5'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - JG5IKELtvHcFxxQ=
-      x-amzn-Remapped-Content-Length:
-      - '542'
-      x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:13 GMT
-      x-amzn-RequestId:
-      - 7814ec9e-fa3c-4235-8f34-70b6be623622
+      - nginx
+      X-Ctxlog-Logid:
+      - 1-65bb5622-73bd0a1b5f7b31e479b99583
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"Not a real game title\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[4] ;\n
-      \           "
+    body: search "Not a real game title"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[4] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer 3bs8grhvuseeqgxy40y78dt50tt6pi
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '160'
+      - '494'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -300,7 +653,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f126d674fde38e3-YYZ
+      - 84e8d1fbe8e1c20a-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -308,21 +661,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Thu, 03 Aug 2023 23:44:14 GMT
+      - Thu, 01 Feb 2024 08:28:19 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=WTnyz18eCRd0SfvcLc1.HL_GB8_5XtEqwHLupWyo1Dg-1691106254-0-ASe88xYd/xOCRifJo9ibTwxWgMzt+uhs6kXhoZLXnyeeVnKXTUvDvfII11sR7Zajf1MwAGY2KFa+yInFOpOonC8=;
-        path=/; expires=Fri, 04-Aug-23 00:14:14 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=LZ05Ir7RHWxt_3uUE4_SKHZ9ifY0CRkHRsWMKRQzucI-1706776099-1-AYun4+HSGo0Hq1gVEnk2smw7+xacSZuz1b1NK920TVwBPWMGI8wLkQGUpEErNdFvllPwFKI92HsbvxIonQJH+Mw=;
+        path=/; expires=Thu, 01-Feb-24 08:58:19 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 8422f3871db2552d4ad0cc9f31e22c2e.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - NN1HJEq_rY56WFe0PbI_jWbXq6ZqcZAvmSEMBXtoEAzZnft8lUsmDw==
+      - c3pboN_BD0pDsE3EFNhMDoC2npKyyvlAWS1svgl7zmJC4f95HaMJ7Q==
       X-Amz-Cf-Pop:
-      - YUL62-C2
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -332,33 +685,32 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JG5IPEUBvHcFwbw=
+      - ScplnFChPHcEidA=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:14 GMT
+      - Thu, 01 Feb 2024 08:28:19 GMT
       x-amzn-RequestId:
-      - bf6f91b7-25e1-40d7-a740-b428e853bf35
+      - 609416e2-c788-4383-bdd7-1daeb0d861b4
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"Not a real game title\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[4] &
-      category=10;\n            "
+    body: search "Not a real game title"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[4] & category=10;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer 3bs8grhvuseeqgxy40y78dt50tt6pi
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '173'
+      - '507'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -370,7 +722,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f126d6a7e22a222-YYZ
+      - 84e8d2010d352482-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -378,21 +730,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Thu, 03 Aug 2023 23:44:14 GMT
+      - Thu, 01 Feb 2024 08:28:20 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=ZEpgW84if5CBp_nuRPeBszoRejGEuzDMoTTukpl9aGU-1691106254-0-ATQMHD+4OraybHGTUEaQ1WPKsSolum+hEuf2bWGAlNp0QsvyLzkp/ZfeHsIol8op89rWh9p+6q/dE/pA+EAdOL0=;
-        path=/; expires=Fri, 04-Aug-23 00:14:14 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=Yl6pSUDYNssoynQPfgiqNfVvG_qX9Rr4U4EHuiZLmyU-1706776100-1-AdImxf2MN2yWUtTR0gcswQfzQggk4/rcxeYpA/dwcn7LVLHRkjfzLpRO6gBHqRgIYOLpwYO1ARZxVOp//dRqVVc=;
+        path=/; expires=Thu, 01-Feb-24 08:58:20 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
+      - 1.1 dcb9765526b3272617b95932c8fefee2.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - nQj1vjB38m0Jxw89M0oo3I0iBd84uzouIJn25TaRsmHqd13Auqz5cg==
+      - SGSQUYbgy9WI5OYmyxQu4OTwUnmK60op3l9Z5KYWESfEllTJXmxW9g==
       X-Amz-Cf-Pop:
-      - YTO50-P1
+      - VIE50-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -402,33 +754,32 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JG5IVEZRPHcFkfQ=
+      - ScplsF7KPHcEe9A=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:14 GMT
+      - Thu, 01 Feb 2024 08:28:20 GMT
       x-amzn-RequestId:
-      - 213d4393-5519-4c42-907c-95b4e45336ab
+      - d3257cf3-f5ed-47a1-9845-4bf145e67747
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"Not a real game title\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[4] ;\n
-      \           "
+    body: search "Not a real game title"; fields id,name,slug,summary,total_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.cover.url,dlcs.name,dlcs.cover.url,involved_companies.company.name,platforms.name,aggregated_rating,first_release_date,game_modes.name,player_perspectives.name,ports.name,remakes.name,remasters.name,similar_games.name,language_supports.language.name;
+      where platforms=[4] ;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      - Bearer 3bs8grhvuseeqgxy40y78dt50tt6pi
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '160'
+      - '494'
       User-Agent:
       - python-requests/2.31.0
     method: POST
@@ -440,7 +791,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7f126d6d0fb6a247-YYZ
+      - 84e8d2042c246c86-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -448,21 +799,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Thu, 03 Aug 2023 23:44:15 GMT
+      - Thu, 01 Feb 2024 08:28:21 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=EIGZAzE7UTkwHk6Cy4cHYMXe6eCeYp7lRcxqNQKqWTE-1691106255-0-AeryOBWmbTOcAZmG+pm/kc1X6+g6zO/vi6h7g1wfgv9khTpHAybk4gwR1WlF4jxKEQ32GWzW/MBI8HBDbvJjO/Q=;
-        path=/; expires=Fri, 04-Aug-23 00:14:15 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=df1KaBMcK.gb0ngG.exIF6lwedhh.hkDDFXfNe1eTTc-1706776101-1-ARhVdHZwf5aoRYpiO0qkgZAf76xvnEfu0IEYhJSucB0bXiTYVtznz/Lto6Ey77L33S61nEFQBookD610rnlYnYE=;
+        path=/; expires=Thu, 01-Feb-24 08:58:21 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 9a6f07a84b60a85466bb31603767843c.cloudfront.net (CloudFront)
+      - 1.1 eaa5b4468d4ba37bc9733291d72738ec.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - 1seMwudjh6edOHPTjFDA_8sl6LfjJ9AgxwsztlbmygsXuFSzBiD8cg==
+      - eqlV3MhEezmjHk-2p9niFTJK9HSsLYEzsGl_tg1oG0NqLxUgG2UQ1A==
       X-Amz-Cf-Pop:
-      - YUL62-C2
+      - ZAG50-C1
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -472,149 +823,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - JG5IYHasPHcFnLQ=
+      - Scpl0FlEvHcEVqw=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:15 GMT
+      - Thu, 01 Feb 2024 08:28:21 GMT
       x-amzn-RequestId:
-      - 6bc197a6-5b2e-4c0c-b926-9f8d9bb2ac99
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=0;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '25'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/covers/
-  response:
-    body:
-      string: '[]'
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 7f126d6eab87369f-YYZ
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '2'
-      Content-Type:
-      - application/json
-      Date:
-      - Thu, 03 Aug 2023 23:44:15 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=tqA0IF6yWEomy4yV9QiwUwE7.4Kxsxr7TeOmF7saxGU-1691106255-0-AZUVJ/r/9E0qbSxr7pYly6Kp+tI3wluyRdlleI871f+WGkwmIdx8YBIE5DyCJgZ5uC99izspK/cDBsl4g0PX8ss=;
-        path=/; expires=Fri, 04-Aug-23 00:14:15 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 9b2dd59575ce5b546a63dbe37a7ae2de.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - iJ_jvuAeqLXjh4hHIEcWfvv17ywpd4ZHBRXsvheiBcHE-Ay5WI9_-A==
-      X-Amz-Cf-Pop:
-      - YTO50-P1
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '0'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - JG5IaGsUPHcFzjg=
-      x-amzn-Remapped-Content-Length:
-      - '2'
-      x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:15 GMT
-      x-amzn-RequestId:
-      - be9ad64d-2bfc-4678-8469-66e1df44ff1d
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=0; limit 5;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '34'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/screenshots/
-  response:
-    body:
-      string: '[]'
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 7f126d70eb7d3987-YYZ
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '2'
-      Content-Type:
-      - application/json
-      Date:
-      - Thu, 03 Aug 2023 23:44:16 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=Trl8yAz8GxOWXz9JKbgLrhg8c0hxPPnl9cDU5AqEpds-1691106256-0-ATDgj0RSkUa8kxzr+rHLdVTYCTqNT346OCChaC1XS/bJ1EJGEpp7zlXUpDR6dr4iY/0t7uVO1VWp2MllwfxCfe8=;
-        path=/; expires=Fri, 04-Aug-23 00:14:16 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 ea419f8269940bd7231c70acd36c430c.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - f8_2TZSuaneVVFachgZ1rnafKeqO72WMjDtyyT-bRUPfQBwtQeRoGQ==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '0'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - JG5IfFhIPHcFSwA=
-      x-amzn-Remapped-Content-Length:
-      - '2'
-      x-amzn-Remapped-Date:
-      - Thu, 03 Aug 2023 23:44:15 GMT
-      x-amzn-RequestId:
-      - 688c2d14-6d90-4ae5-8132-dcefd35c64ad
+      - 83e97287-05d9-4f0c-8fa9-e752a161911c
     status:
       code: 200
       message: OK
