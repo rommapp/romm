@@ -9,7 +9,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeRoms, { type Rom } from "@/stores/roms";
 
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<Rom | null>(null);
 const romsStore = storeRoms();
@@ -30,6 +30,10 @@ emitter?.on("showSearchRomDialog", (romToSearch) => {
 });
 
 // Functions
+function setExtended() {
+  searchExtended.value = !searchExtended.value;
+}
+
 async function searchRom() {
   if (!rom.value) return;
 
@@ -177,7 +181,7 @@ onBeforeUnmount(() => {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="4" xs="4" sm="5" md="5" lg="7">
+          <v-col cols="5" xs="5" sm="5" md="6" lg="8">
             <v-text-field
               autofocus
               @keyup.enter="searchRom()"
@@ -189,7 +193,7 @@ onBeforeUnmount(() => {
               clearable
             />
           </v-col>
-          <v-col cols="3" xs="3" sm="2" md="2" lg="2">
+          <v-col cols="3" xs="3" sm="3" md="2" lg="2">
             <v-select
               label="by"
               class="bg-terciary"
@@ -198,21 +202,28 @@ onBeforeUnmount(() => {
               hide-details
             />
           </v-col>
-          <v-tooltip
-            location="bottom"
-            class="tooltip"
-            transition="fade-transition"
-            text="Extended search to match by alternative names. This will take longer."
-            open-delay="1000"
-            ><template v-slot:activator="{ props }">
-              <v-col cols="3" xs="3" sm="3" md="3" lg="2" v-bind="props">
-                <v-checkbox
-                  v-model="searchExtended"
-                  label="Extended"
+
+          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+            <v-tooltip
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              text="Extended search to match by alternative names. This will take longer."
+              open-delay="500"
+              ><template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  @click="setExtended"
                   class="bg-terciary"
-                  hide-details
-                /> </v-col></template
-          ></v-tooltip>
+                  :color="searchExtended ? 'romm-accent-1' : ''"
+                  rounded="0"
+                  variant="tonal"
+                  icon="mdi-layers-search-outline"
+                  block
+                  /></template
+              ></v-tooltip
+            ></v-col
+          >
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"
