@@ -38,9 +38,6 @@ class Config:
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
-    SAVES_FOLDER_NAME: str
-    STATES_FOLDER_NAME: str
-    SCREENSHOTS_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
 
     def __init__(self, **entries):
@@ -133,15 +130,6 @@ class ConfigManager:
             ROMS_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.roms_folder", "roms"
             ),
-            SAVES_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.saves_folder", "saves"
-            ),
-            STATES_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.states_folder", "states"
-            ),
-            SCREENSHOTS_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.screenshots_folder", "screenshots"
-            ),
         )
 
     def _validate_config(self):
@@ -209,40 +197,6 @@ class ConfigManager:
         if self.config.ROMS_FOLDER_NAME == "":
             log.critical(
                 "Invalid config.yml: filesystem.roms_folder cannot be an empty string"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.SAVES_FOLDER_NAME, str):
-            log.critical("Invalid config.yml: filesystem.saves_folder must be a string")
-            sys.exit(3)
-
-        if self.config.SAVES_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.saves_folder cannot be an empty string"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.STATES_FOLDER_NAME, str):
-            log.critical(
-                "Invalid config.yml: filesystem.states_folder must be a string"
-            )
-            sys.exit(3)
-
-        if self.config.STATES_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.states_folder cannot be an empty string"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.SCREENSHOTS_FOLDER_NAME, str):
-            log.critical(
-                "Invalid config.yml: filesystem.screenshots_folder must be a string"
-            )
-            sys.exit(3)
-
-        if self.config.SCREENSHOTS_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.screenshots_folder cannot be an empty string"
             )
             sys.exit(3)
 

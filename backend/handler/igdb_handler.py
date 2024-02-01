@@ -82,8 +82,7 @@ class IGDBHandler:
 
         return wrapper
 
-    @staticmethod
-    def normalize_search_term(search_term: str) -> str:
+    def _normalize_search_term(self, search_term: str) -> str:
         return (
             search_term.replace("\u2122", "")  # Remove trademark symbol
             .replace("\u00ae", "")  # Remove registered symbol
@@ -143,8 +142,7 @@ class IGDBHandler:
 
         return pydash.get(exact_matches or roms, "[0]", {})
 
-    @staticmethod
-    def _normalize_cover_url(url: str) -> str:
+    def _normalize_cover_url(self, url: str) -> str:
         return f"https:{url.replace('https:', '')}"
 
     def _search_cover(self, rom_id: int) -> str:
@@ -172,8 +170,7 @@ class IGDBHandler:
             if "url" in r.keys()
         ]
 
-    @staticmethod
-    async def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
+    async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
 
         with open(PS2_OPL_INDEX_FILE, "r") as index_json:
@@ -184,8 +181,7 @@ class IGDBHandler:
 
         return search_term
 
-    @staticmethod
-    async def _switch_titledb_format(match: re.Match[str], search_term: str) -> str:
+    async def _switch_titledb_format(self, match: re.Match[str], search_term: str) -> str:
         titledb_index = {}
         title_id = match.group(1)
 
@@ -207,8 +203,7 @@ class IGDBHandler:
 
         return search_term
 
-    @staticmethod
-    async def _switch_productid_format(match: re.Match[str], search_term: str) -> str:
+    async def _switch_productid_format(self, match: re.Match[str], search_term: str) -> str:
         product_id_index = {}
         product_id = match.group(1)
 
@@ -317,7 +312,7 @@ class IGDBHandler:
         if platform_idgb_id in ARCADE_IGDB_IDS:
             search_term = await self._mame_format(search_term)
 
-        search_term = self.normalize_search_term(search_term)
+        search_term = self._normalize_search_term(search_term)
 
         res = (
             self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)

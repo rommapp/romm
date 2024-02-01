@@ -8,7 +8,16 @@ from config import (
 )
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text, BigInteger
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    BigInteger,
+)
 from sqlalchemy.orm import Mapped, relationship
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
@@ -86,7 +95,7 @@ class Rom(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}"
+        return f"/api/raw/roms/{self.full_path}"
 
     @cached_property
     def has_cover(self) -> bool:

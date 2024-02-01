@@ -20,7 +20,6 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from handler import (
     db_platform_handler,
     db_rom_handler,
-    fs_asset_handler,
     fs_resource_handler,
     fs_rom_handler,
 )
@@ -257,7 +256,7 @@ async def update_rom(
     )
 
     cleaned_data.update(
-        fs_asset_handler.get_rom_screenshots(
+        fs_resource_handler.get_rom_screenshots(
             platform_fs_slug=platform_fs_slug,
             rom_name=cleaned_data["name"],
             url_screenshots=cleaned_data.get("url_screenshots", []),

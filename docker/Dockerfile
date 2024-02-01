@@ -14,6 +14,7 @@ COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
+    ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
 
 # install generall required packages
 RUN apk add --upgrade \

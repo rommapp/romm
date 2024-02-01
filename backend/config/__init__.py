@@ -14,9 +14,10 @@ ROMM_HOST: Final = os.environ.get("ROMM_HOST", DEV_HOST)
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
-FRONTEND_LIBRARY_PATH: Final = "/assets/romm/library"
+RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
+ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
-
+FRONTEND_ASSETS_PATH: Final = "/assets/romm/assets"
 # DEFAULT RESOURCES
 DEFAULT_URL_COVER_L: Final = (
     "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"

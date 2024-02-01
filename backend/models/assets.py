@@ -27,6 +27,9 @@ class BaseAsset(BaseModel):
     rom_id = Column(
         Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
     )
+    user_id = Column(
+        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
 
     @cached_property
     def full_path(self) -> str:
@@ -34,7 +37,7 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}?timestamp={self.updated_at}"
+        return f"/api/raw/assets/{self.full_path}?timestamp={self.updated_at}"
 
 
 class Save(BaseAsset):
@@ -44,6 +47,7 @@ class Save(BaseAsset):
     emulator = Column(String(length=50), nullable=True)
 
     rom = relationship("Rom", lazy="selectin", back_populates="saves")
+    user = relationship("User", lazy="selectin", back_populates="saves")
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
@@ -64,6 +68,7 @@ class State(BaseAsset):
     emulator = Column(String(length=50), nullable=True)
 
     rom = relationship("Rom", lazy="selectin", back_populates="states")
+    user = relationship("User", lazy="selectin", back_populates="states")
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
@@ -82,3 +87,4 @@ class Screenshot(BaseAsset):
     __table_args__ = {"extend_existing": True}
 
     rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
+    user = relationship("User", lazy="selectin", back_populates="screenshots")
