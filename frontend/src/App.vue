@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import socket from "@/services/socket";
 import { onBeforeMount } from "vue";
 import cookie from "js-cookie";
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";

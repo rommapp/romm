@@ -3,7 +3,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref } from "vue";
 import { useRouter } from "vue-router";
-import api_identity from "@/services/api_identity";
+import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 
 // Props
@@ -17,7 +17,7 @@ const logging = ref(false);
 
 function login() {
   logging.value = true;
-  api_identity
+  identityApi
     .login(username.value, password.value)
     .then(() => {
       const next = (router.currentRoute.value.query?.next || "/").toString();

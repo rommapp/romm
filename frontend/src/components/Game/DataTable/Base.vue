@@ -4,11 +4,16 @@ import { useRouter } from "vue-router";
 import { VDataTable } from "vuetify/labs/VDataTable";
 
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import api_rom from "@/services/api_rom";
+import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
-import { regionToEmoji, languageToEmoji, formatBytes } from "@/utils";
+import {
+  regionToEmoji,
+  languageToEmoji,
+  formatBytes,
+  platformSlugEJSCoreMap,
+} from "@/utils";
 
 const HEADERS = [
   {
@@ -61,11 +66,9 @@ const PER_PAGE_OPTIONS = [
 ] as const;
 
 // Props
-const location = window.location.origin;
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const saveFiles = ref(false);
 const auth = storeAuth();
 const romsPerPage = ref(-1);
 
@@ -122,33 +125,35 @@ function rowClick(_: Event, row: any) {
         <v-btn
           class="ma-1"
           rounded="0"
-          @click.stop="api_rom.downloadRom({ rom: item.raw })"
+          @click.stop="romApi.downloadRom({ rom: item.raw })"
           :disabled="downloadStore.value.includes(item.raw.id)"
           download
           size="small"
           variant="text"
-          ><v-icon>mdi-download</v-icon></v-btn
         >
+        <v-icon>mdi-download</v-icon>
+      </v-btn>
       </template>
-      <!-- <v-btn
-        size="small"
-        variant="text"
-        disabled
-        class="my-1 bg-terciary"
-        rounded="0"
-        ><v-icon>mdi-play</v-icon></v-btn
-      > -->
-      <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
-          <v-btn
-            rounded="0"
-            :disabled="!auth.scopes.includes('roms.write')"
-            v-bind="props"
-            size="small"
-            variant="text"
-            class="ma-1 bg-terciary"
-            ><v-icon>mdi-dots-vertical</v-icon></v-btn
-          >
+        <v-btn
+          size="small"
+          variant="text"
+          :href="`/play/${item.raw.id}`"
+          class="my-1 bg-terciary"
+          rounded="0"
+          :disabled="!(item.raw.platform_slug in platformSlugEJSCoreMap)"
+          ><v-icon>mdi-play</v-icon></v-btn
+        >
+        <v-menu location="bottom">
+          <template v-slot:activator="{ props }">
+            <v-btn
+              rounded="0"
+              :disabled="!auth.scopes.includes('roms.write')"
+              v-bind="props"
+              size="small"
+              variant="text"
+              class="ma-1 bg-terciary"
+              ><v-icon>mdi-dots-vertical</v-icon></v-btn
+            >
         </template>
         <admin-menu :rom="item.raw" />
       </v-menu>

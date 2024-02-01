@@ -4,14 +4,14 @@ import type {
   EnhancedRomSchema,
   MessageResponse,
   RomSchema,
-  RomSearchResponse,
+  SearchRomSchema,
 } from "@/__generated__";
-import { api } from "@/services/api";
+import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
 
-export const api_rom = api;
+export const romApi = api;
 
 async function uploadRoms({
   platform,
@@ -90,7 +90,7 @@ async function searchRom({
   source: string;
   searchTerm: string;
   searchBy: string;
-}): Promise<{ data: RomSearchResponse }> {
+}): Promise<{ data: SearchRomSchema[] }> {
   return api.get("/search/roms", {
     params: {
       rom_id: romId,

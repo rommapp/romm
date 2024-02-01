@@ -4,12 +4,12 @@ import type { Emitter } from "mitt";
 
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import api_state from "@/services/api_state";
-import storeRoms from "@/stores/roms";
+import stateApi from "@/services/api/state";
+import storeRoms, { type Rom } from "@/stores/roms";
 
 import type { StateSchema } from "@/__generated__";
 
-const props = defineProps(["rom"]);
+const props = defineProps<{ rom: Rom }>();
 const statesToUpload = ref<File[]>([]);
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -39,7 +39,7 @@ async function uploadStates() {
     color: "romm-accent-1",
   });
 
-  await api_state
+  await stateApi
     .uploadStates({
       states: statesToUpload.value,
       rom: props.rom,
@@ -103,7 +103,7 @@ async function uploadStates() {
       v-for="state in rom.states"
       :key="state.id"
       :title="state.file_name"
-      :subtitle="`${state.emulator} - ${formatBytes(state.file_size_bytes)}`"
+      :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(state.file_size_bytes)}`"
     >
       <template v-slot:prepend>
         <v-checkbox

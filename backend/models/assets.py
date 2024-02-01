@@ -1,8 +1,8 @@
 from functools import cached_property
-
 from models.base import BaseModel
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import relationship
+from typing import Optional
 
 
 class BaseAsset(BaseModel):
@@ -19,7 +19,8 @@ class BaseAsset(BaseModel):
 
     file_name = Column(String(length=450), nullable=False)
     file_name_no_tags = Column(String(length=450), nullable=False)
-    file_extension = Column(String(length=10), nullable=False)
+    file_name_no_ext = Column(String(length=450), nullable=False)
+    file_extension = Column(String(length=100), nullable=False)
     file_path = Column(String(length=1000), nullable=False)
     file_size_bytes = Column(Integer(), default=0, nullable=False)
 
@@ -33,7 +34,7 @@ class BaseAsset(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}"
+        return f"/api/raw/{self.full_path}?timestamp={self.updated_at}"
 
 
 class Save(BaseAsset):
@@ -44,6 +45,17 @@ class Save(BaseAsset):
 
     rom = relationship("Rom", lazy="selectin", back_populates="saves")
 
+    @cached_property
+    def screenshot(self) -> Optional["Screenshot"]:
+        from handler import db_rom_handler
+
+        db_rom = db_rom_handler.get_roms(self.rom_id)
+        for screenshot in db_rom.screenshots:
+            if screenshot.file_name_no_ext == self.file_name:
+                return screenshot
+
+        return None
+
 
 class State(BaseAsset):
     __tablename__ = "states"
@@ -52,6 +64,17 @@ class State(BaseAsset):
     emulator = Column(String(length=50), nullable=True)
 
     rom = relationship("Rom", lazy="selectin", back_populates="states")
+
+    @cached_property
+    def screenshot(self) -> Optional["Screenshot"]:
+        from handler import db_rom_handler
+
+        db_rom = db_rom_handler.get_roms(self.rom_id)
+        for screenshot in db_rom.screenshots:
+            if screenshot.file_name_no_ext == self.file_name:
+                return screenshot
+
+        return None
 
 
 class Screenshot(BaseAsset):

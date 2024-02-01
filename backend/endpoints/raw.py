@@ -6,6 +6,11 @@ from config import LIBRARY_BASE_PATH
 router = APIRouter()
 
 
+@protected_route(router.head, "/raw/{path:path}", ["assets.read"])
+def head_raw_asset(request: Request, path: str):
+    asset_path = f"{LIBRARY_BASE_PATH}/{path}"
+    return FileResponse(path=asset_path, filename=path.split("/")[-1])
+
 @protected_route(router.get, "/raw/{path:path}", ["assets.read"])
 def get_raw_asset(request: Request, path: str):
     """Download a single asset file

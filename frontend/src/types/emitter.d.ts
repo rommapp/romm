@@ -50,6 +50,7 @@ export type Events = {
     rom: Rom;
     states: StateSchema[];
   };
+  showEmulation: null;
   toggleDrawer: null;
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;

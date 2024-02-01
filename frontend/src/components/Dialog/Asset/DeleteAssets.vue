@@ -5,8 +5,8 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
 import storeRoms from "@/stores/roms";
-import api_save from "@/services/api_save";
-import api_state from "@/services/api_state";
+import saveApi from "@/services/api/save";
+import stateApi from "@/services/api/state";
 import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 
@@ -36,20 +36,23 @@ async function deleteAssets() {
   if (!assets.value) return;
 
   const result =
-    (await assetType.value) === "saves"
-      ? api_save.deleteSaves({
+    assetType.value === "saves"
+      ? saveApi.deleteSaves({
           saves: assets.value,
           deleteFromFs: deleteFromFs.value,
         })
-      : api_state.deleteStates({
+      : stateApi.deleteStates({
           states: assets.value,
           deleteFromFs: deleteFromFs.value,
         });
 
   result
-    .then(({ data }) => {
-      if (romRef.value) {
-        romRef.value[assetType.value] = data;
+    .then(() => {
+      if (romRef.value?.[assetType.value]) {
+        const deletedAssetIds = assets.value.map((asset) => asset.id);
+        romRef.value[assetType.value] = romRef.value[assetType.value].filter(
+          (asset) => !deletedAssetIds.includes(asset.id)
+        );
         romsStore.update(romRef.value);
         emitter?.emit("romUpdated", romRef.value);
       }
@@ -63,9 +66,9 @@ async function deleteAssets() {
         color: "red",
         timeout: 4000,
       });
+    }).finally(() => {
+      closeDialog();
     });
-
-  closeDialog();
 }
 
 function closeDialog() {
