@@ -11,7 +11,7 @@ import storeRoms from "@/stores/roms";
 import {
   formatBytes,
   languageToEmoji,
-  platformSlugEJSPlatformMap,
+  platformSlugEJSCoreMap,
   regionToEmoji,
 } from "@/utils";
 import { useTheme } from "vuetify";
@@ -153,7 +153,7 @@ function rowClick(_: Event, row: any) {
         :href="`/play/${item.raw.id}`"
         class="my-1 bg-terciary"
         rounded="0"
-        :disabled="!(item.raw.platform_slug in platformSlugEJSPlatformMap)"
+        :disabled="!(item.raw.platform_slug in platformSlugEJSCoreMap)"
         ><v-icon>mdi-play</v-icon></v-btn
       >
       <v-menu location="bottom">
