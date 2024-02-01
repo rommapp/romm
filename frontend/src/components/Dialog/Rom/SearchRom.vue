@@ -17,6 +17,7 @@ const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
+const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const selectedScrapSource = ref(0);
 
@@ -40,12 +41,17 @@ async function searchRom() {
         source: "igdb",
         searchTerm: searchTerm.value,
         searchBy: searchBy.value,
+        searchExtended: searchExtended.value,
       })
       .then((response) => {
         matchedRoms.value = response.data;
       })
       .catch((error) => {
-        console.log(error);
+        emitter?.emit("snackbarShow", {
+          msg: error.response.data.detail,
+          icon: "mdi-close-circle",
+          color: "red",
+        });
       })
       .finally(() => {
         searching.value = false;
@@ -169,7 +175,7 @@ onBeforeUnmount(() => {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="7" xs="7" sm="8" md="8" lg="9">
+          <v-col cols="4" xs="4" sm="5" md="5" lg="7">
             <v-text-field
               autofocus
               @keyup.enter="searchRom()"
@@ -190,6 +196,21 @@ onBeforeUnmount(() => {
               hide-details
             />
           </v-col>
+          <v-tooltip
+            location="bottom"
+            class="tooltip"
+            transition="fade-transition"
+            text="Extended search to match by alternative names. This will take longer."
+            open-delay="1000"
+            ><template v-slot:activator="{ props }">
+              <v-col cols="3" xs="3" sm="3" md="3" lg="2" v-bind="props">
+                <v-checkbox
+                  v-model="searchExtended"
+                  label="Extended"
+                  class="bg-terciary"
+                  hide-details
+                /> </v-col></template
+          ></v-tooltip>
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"

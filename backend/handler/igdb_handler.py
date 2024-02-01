@@ -59,9 +59,10 @@ class IGDBPlatform(TypedDict):
 
 class IGDBHandler:
     def __init__(self) -> None:
-        self.platform_url = "https://api.igdb.com/v4/platforms/"
-        self.platform_version_url = "https://api.igdb.com/v4/platform_versions/"
-        self.games_url = "https://api.igdb.com/v4/games/"
+        self.platform_endpoint = "https://api.igdb.com/v4/platforms/"
+        self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions/"
+        self.platforms_fields = ["id", "name"]
+        self.games_endpoint = "https://api.igdb.com/v4/games/"
         self.games_fields = [
             "id",
             "name",
@@ -91,7 +92,11 @@ class IGDBHandler:
             "remasters.name",
             "similar_games.name",
             "language_supports.language.name",
+            "external_games.uid",
+            "external_games.category",
         ]
+        self.search_endpoint = "https://api.igdb.com/v4/search/"
+        self.search_fields = ["game.id", "name"]
         self.twitch_auth = TwitchAuth()
         self.headers = {
             "Client-ID": IGDB_CLIENT_ID,
@@ -158,9 +163,20 @@ class IGDBHandler:
     ) -> dict:
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
-            self.games_url,
+            self.games_endpoint,
             data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}] {category_filter};',
         )
+
+        if not roms:
+            roms = self._request(
+                self.search_endpoint,
+                data=f'fields {",".join(self.search_fields)}; where platform={platform_idgb_id} & name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*;',
+            )
+            if roms:
+                roms = self._request(
+                    self.games_endpoint,
+                    f'fields {",".join(self.games_fields)}; where id={roms[0]["game"]["id"]};',
+                )
 
         exact_matches = [
             rom
@@ -265,8 +281,8 @@ class IGDBHandler:
     @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatform:
         platforms = self._request(
-            self.platform_url,
-            data=f'fields id, name; where slug="{slug.lower()}";',
+            self.platform_endpoint,
+            data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
         )
 
         platform = pydash.get(platforms, "[0]", None)
@@ -274,21 +290,21 @@ class IGDBHandler:
         # Check if platform is a version if not found
         if not platform:
             platform_versions = self._request(
-                self.platform_version_url,
-                data=f'fields id, name; where slug="{slug.lower()}";',
+                self.platform_version_endpoint,
+                data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
             )
             version = pydash.get(platform_versions, "[0]", None)
             if not version:
                 return IGDBPlatform(igdb_id=None, name=slug.replace("-", " ").title())
 
             return IGDBPlatform(
-                igdb_id=version["id"],
-                name=version["name"],
+                igdb_id=version.get("id", None),
+                name=version.get("name", slug),
             )
 
         return IGDBPlatform(
-            igdb_id=platform["id"],
-            name=platform["name"],
+            igdb_id=platform.get("id", None),
+            name=platform.get("name", slug),
         )
 
     @check_twitch_token
@@ -343,7 +359,7 @@ class IGDBHandler:
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
         roms = self._request(
-            self.games_url,
+            self.games_endpoint,
             f'fields {",".join(self.games_fields)}; where id={igdb_id};',
         )
         rom = pydash.get(roms, "[0]", {})
@@ -374,19 +390,39 @@ class IGDBHandler:
 
     @check_twitch_token
     def get_matched_roms_by_name(
-        self, search_term: str, platform_idgb_id: int
+        self, search_term: str, platform_idgb_id: int, search_extended: bool = False
     ) -> list[IGDBRom]:
         if not platform_idgb_id:
             return []
 
         matched_roms = self._request(
-            self.games_url,
+            self.games_endpoint,
             data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}];',
         )
 
+        if not matched_roms or search_extended:
+            alternative_matched_roms = self._request(
+                self.search_endpoint,
+                data=f'fields {",".join(self.search_fields)}; where platform={platform_idgb_id} & name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*;',
+            )
+
+            if alternative_matched_roms:
+                for rom in alternative_matched_roms:
+                    rom_igdb_id = (
+                        rom.get("game").get("id", "")
+                        if "game" in rom.keys()
+                        else rom.get("id", "")
+                    )
+                    if rom_igdb_id:
+                        matched_rom = self._request(
+                            self.games_endpoint,
+                            f'fields {",".join(self.games_fields)}; where id={rom_igdb_id};',
+                        )
+                        matched_roms.extend(matched_rom)
+
         return [
             IGDBRom(
-                igdb_id=rom.get("id", None),
+                igdb_id=rom.get("id"),
                 slug=rom.get("slug", ""),
                 name=rom.get("name", search_term),
                 summary=rom.get("summary", ""),
