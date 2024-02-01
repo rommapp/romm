@@ -53,8 +53,7 @@ class AuthHandler:
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
 
-    @staticmethod
-    def clear_session(req: HTTPConnection | Request):
+    def clear_session(self, req: HTTPConnection | Request):
         session_id = req.session.get("session_id")
         if session_id:
             cache.delete(f"romm:{session_id}")  # type: ignore[attr-defined]

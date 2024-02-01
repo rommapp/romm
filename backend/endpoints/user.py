@@ -6,13 +6,15 @@ from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from handler import auth_handler, db_user_handler, fs_resource_handler
+from handler import auth_handler, db_user_handler, fs_asset_handler
 from models.user import Role, User
 
 router = APIRouter()
 
 
-@protected_route(router.post, "/users", ["users.write"], status_code=status.HTTP_201_CREATED)
+@protected_route(
+    router.post, "/users", ["users.write"], status_code=status.HTTP_201_CREATED
+)
 def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
     """Create user endpoint
 
@@ -131,7 +133,9 @@ def update_user(
         cleaned_data["username"] = form_data.username.lower()
 
     if form_data.password:
-        cleaned_data["hashed_password"] = auth_handler.get_password_hash(form_data.password)
+        cleaned_data["hashed_password"] = auth_handler.get_password_hash(
+            form_data.password
+        )
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
@@ -142,10 +146,9 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        cleaned_data["avatar_path"], avatar_user_path = fs_resource_handler.build_avatar_path(
-            form_data.avatar.filename, form_data.username
-        )
-        file_location = f"{avatar_user_path}/{form_data.avatar.filename}"
+        user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
+        file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
+        cleaned_data["avatar_path"] = file_location
         with open(file_location, "wb+") as file_object:
             file_object.write(form_data.avatar.file.read())
 

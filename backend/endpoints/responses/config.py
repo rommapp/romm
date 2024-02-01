@@ -11,7 +11,4 @@ class ConfigResponse(TypedDict):
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
-    SAVES_FOLDER_NAME: str
-    STATES_FOLDER_NAME: str
-    SCREENSHOTS_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
