@@ -93,11 +93,7 @@ watch(
 
 <template>
   <template v-if="rom && platform">
-    <v-row no-gutters>
-      <v-col>
-        <background-header :rom="rom" />
-      </v-col>
-    </v-row>
+    <background-header :rom="rom" />
 
     <v-row
       :class="{
@@ -145,13 +141,23 @@ watch(
           }"
           no-gutters
         >
-          <v-tabs v-if="!showEmulation" v-model="tab" slider-color="romm-accent-1" rounded="0">
+          <v-tabs
+            v-if="!showEmulation"
+            v-model="tab"
+            slider-color="romm-accent-1"
+            rounded="0"
+          >
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0">Saves</v-tab>
             <v-tab value="states" rounded="0">States</v-tab>
             <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
           </v-tabs>
-          <v-tabs v-if="showEmulation" v-model="tab" slider-color="romm-accent-1" rounded="0">
+          <v-tabs
+            v-if="showEmulation"
+            v-model="tab"
+            slider-color="romm-accent-1"
+            rounded="0"
+          >
             <v-tab value="emulation" rounded="0">Emulation</v-tab>
           </v-tabs>
         </v-row>

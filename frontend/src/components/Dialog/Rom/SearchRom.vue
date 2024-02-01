@@ -1,15 +1,13 @@
 <script setup lang="ts">
+import type { SearchRomSchema } from "@/__generated__";
+import romApi from "@/services/api/rom";
+import storeRoms, { type Rom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay, useTheme } from "vuetify";
-const theme = useTheme();
 
-import type { SearchRomSchema } from "@/__generated__";
-import romApi from "@/services/api/rom";
-import storeRoms, { type Rom } from "@/stores/roms";
-
-const { xs, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
+const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<Rom | null>(null);
 const romsStore = storeRoms();
@@ -19,8 +17,8 @@ const searchTerm = ref("");
 const searchBy = ref("Name");
 const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
+const theme = useTheme();
 const selectedScrapSource = ref(0);
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
@@ -36,6 +34,10 @@ function setExtended() {
 
 async function searchRom() {
   if (!rom.value) return;
+
+  // Auto hide android keyboard
+  const inputElement = document.getElementById("search-text-field");
+  inputElement?.blur();
 
   if (!searching.value) {
     searching.value = true;
@@ -183,6 +185,7 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="5" xs="5" sm="5" md="6" lg="8">
             <v-text-field
+              id="search-text-field"
               autofocus
               @keyup.enter="searchRom()"
               @click:clear="searchTerm = ''"
@@ -219,11 +222,8 @@ onBeforeUnmount(() => {
                   rounded="0"
                   variant="tonal"
                   icon="mdi-layers-search-outline"
-                  block
-                  /></template
-              ></v-tooltip
-            ></v-col
-          >
+                  block /></template></v-tooltip
+          ></v-col>
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"
