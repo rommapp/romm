@@ -11,9 +11,6 @@ source /backend/bin/activate
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="true"}"
 
-# Set redis to false if not set by docker env
-ENABLE_EXPERIMENTAL_REDIS="${ENABLE_EXPERIMENTAL_REDIS:="false"}"
-
 # Set INIT_DEBUG to false if not set by docker env
 # (this env var is currently undocumented and usually just needed for development purposes)
 INIT_DEBUG="${INIT_DEBUG:="false"}"
@@ -121,15 +118,12 @@ while true; do
         watchdog_process_pid python watcher
     fi
 
-    # Start background worker processes when we have a REDIS configured
-    # ENABLE_EXPERIMENTAL_REDIS is defaulted to false, unless its set from our docker env
-    if [[ ${ENABLE_EXPERIMENTAL_REDIS} == "true" ]]; then
-        debug_log "ENABLE_EXPERIMENTAL_REDIS true, starting worker and scheduler"
-        # Start worker if we dont have a corresponding PID file
-        watchdog_process_pid python worker
-        # Start scheduler if we dont have a corresponding PID file
-        watchdog_process_pid python scheduler
-    fi
+    # Start background worker processes
+    debug_log "Starting worker and scheduler"
+    # Start worker if we dont have a corresponding PID file
+    watchdog_process_pid python worker
+    # Start scheduler if we dont have a corresponding PID file
+    watchdog_process_pid python scheduler
     
     # check for died processes every 5 seconds
     sleep 5

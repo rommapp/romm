@@ -12,7 +12,6 @@ def test_heartbeat():
     
     heartbeat = response.json()
     assert heartbeat.get('VERSION') == github_handler.get_version()
-    assert heartbeat.get('ROMM_AUTH_ENABLED')
     assert heartbeat.get('WATCHER').get('ENABLED')
     assert heartbeat.get('WATCHER').get('TITLE') == "Rescan on filesystem change"
     assert heartbeat.get('SCHEDULER').get('RESCAN').get('ENABLED')

@@ -15,7 +15,11 @@ const FULL_SCOPES_LIST = [
 ] as const;
 
 export default defineStore("auth", {
-  state: () => ({ enabled: false, user: null as User | null, oauth_scopes: [] as string[] }),
+  state: () => ({
+    enabled: true,
+    user: null as User | null,
+    oauth_scopes: [] as string[],
+  }),
 
   getters: {
     scopes: (state) => {
@@ -27,9 +31,6 @@ export default defineStore("auth", {
   actions: {
     setUser(user: User | null) {
       this.user = user;
-    },
-    setEnabled(enabled: boolean) {
-      this.enabled = enabled;
     },
   },
 });

@@ -46,6 +46,7 @@ class RomSchema(BaseModel):
     url_screenshots: list[str]
     merged_screenshots: list[str]
     full_path: str
+    download_path: str
 
     class Config:
         from_attributes = True

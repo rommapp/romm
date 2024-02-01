@@ -97,7 +97,7 @@ class ConfigManager:
         # DEPRECATED
         if ROMM_DB_DRIVER == "sqlite":
             log.critical(
-                "Sqlite is not supported anymore, change to MariaDB is needed."
+                "Sqlite is not supported anymore, migrate to mariaDB"
             )
             sys.exit(6)
         # DEPRECATED

@@ -1,6 +1,5 @@
 from typing import Annotated
 
-from config import ROMM_AUTH_ENABLED
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
@@ -24,18 +23,9 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         password (str): User password
         role (str): RomM Role object represented as string
 
-    Raises:
-        HTTPException: ROMM_AUTH_ENABLED is disabled
-
     Returns:
         UserSchema: Created user info
     """
-
-    if not ROMM_AUTH_ENABLED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot create user: ROMM_AUTH_ENABLED is set to False",
-        )
 
     user = User(
         username=username,
@@ -104,7 +94,6 @@ def update_user(
         form_data (Annotated[UserUpdateForm, Depends): Form Data with user updated info
 
     Raises:
-        HTTPException: ROMM_AUTH_ENABLED is disabled
         HTTPException: User is not found in database
         HTTPException: Username already in use by another user
 
@@ -112,11 +101,6 @@ def update_user(
         UserSchema: Updated user info
     """
 
-    if not ROMM_AUTH_ENABLED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot update user: ROMM_AUTH_ENABLED is set to False",
-        )
     user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -174,7 +158,6 @@ def delete_user(request: Request, id: int) -> MessageResponse:
         user_id (int): User internal id
 
     Raises:
-        HTTPException: ROMM_AUTH_ENABLED is disabled
         HTTPException: User is not found in database
         HTTPException: User deleting itself
         HTTPException: User is the last admin user
@@ -182,12 +165,6 @@ def delete_user(request: Request, id: int) -> MessageResponse:
     Returns:
         MessageResponse: Standard message response
     """
-
-    if not ROMM_AUTH_ENABLED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot delete user: ROMM_AUTH_ENABLED is set to False",
-        )
 
     user = db_user_handler.get_user(id)
     if not user:
