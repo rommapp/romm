@@ -79,12 +79,12 @@ export function convertCronExperssion(expression: string) {
  * @return Formatted string.
  */
 export function formatBytes(bytes: number, decimals = 2) {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
   const dm = Math.max(0, decimals);
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 
 export function regionToEmoji(region: string) {
@@ -241,3 +241,39 @@ export function languageToEmoji(language: string) {
       return language;
   }
 }
+
+export const platformSlugEJSCoreMap: Record<string, string> = {
+  "3do": "opera",
+  amiga: "puae",
+  arcade: "mame2003_plus", // fbneo
+  atari2600: "stella2014",
+  atari5200: "a5200",
+  atari7800: "prosystem",
+  c64: "vice_x64",
+  colecovision: "gearcoleco",
+  jaguar: "virtualjaguar",
+  lynx: "handy",
+  "neo-geo-pocket": "mednafen_ngp",
+  "neo-geo-pocket-color": "mednafen_ngp",
+  nes: "fceumm",
+  "famicom": "fceumm",
+  n64: "mupen64plus_next",
+  nds: "melonds",
+  gba: "mgba",
+  gb: "gambatte",
+  "pc-fx": "mednafen_pcfx",
+  ps: "pcsx_rearmed",
+  psp: "ppsspp",
+  segacd: "genesis_plus_gx",
+  sega32: "picodrive",
+  gamegear: "genesis_plus_gx",
+  sms: "genesis_plus_gx",
+  "genesis-slash-megadrive": "genesis_plus_gx",
+  saturn: "yabause",
+  snes: "snes9x",
+  sfam: "snes9x",
+  "turbografx16--1": "mednafen_pce",
+  virtualboy: "beetle_vb",
+  wonderswan: "mednafen_wswan",
+  "wonderswan-color": "mednafen_wswan",
+} as const;

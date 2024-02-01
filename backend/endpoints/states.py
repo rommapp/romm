@@ -1,18 +1,22 @@
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.assets import UploadedStatesResponse
+from endpoints.responses.assets import UploadedStatesResponse, StateSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import db_state_handler, db_rom_handler, fs_asset_handler
-from handler.scan_handler import scan_state
+from handler import db_state_handler, db_rom_handler, fs_asset_handler, db_screenshot_handler
+from handler.scan_handler import scan_state, build_asset_file_path
 from logger.logger import log
+from config import LIBRARY_BASE_PATH
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/states", ["assets.write"])
 def add_states(
-    request: Request, rom_id: int, states: list[UploadFile] = File(...)
+    request: Request,
+    rom_id: int,
+    states: list[UploadFile] = File(...),
+    emulator: str = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
     log.info(f"Uploading states to {rom.name}")
@@ -22,17 +26,23 @@ def add_states(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No states were uploaded",
         )
-
-    states_path = fs_asset_handler.build_upload_file_path(
-        rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
+    
+    states_path = build_asset_file_path(
+        rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
     )
 
     for state in states:
-        fs_asset_handler._write_file(file=state, path=states_path)
+        fs_asset_handler._write_file(
+            file=state, path=f"{LIBRARY_BASE_PATH}/{states_path}"
+        )
 
         # Scan or update state
-        scanned_state = scan_state(rom.platform, state.filename)
-        db_state = db_state_handler.get_state(rom.id)
+        scanned_state = scan_state(
+            file_name=state.filename,
+            platform_slug=rom.platform.fs_slug,
+            emulator=emulator,
+        )
+        db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
         if db_state:
             db_state_handler.update_state(
                 db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
@@ -40,8 +50,10 @@ def add_states(
             continue
 
         scanned_state.rom_id = rom.id
+        scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
+    rom = db_rom_handler.get_roms(rom_id)
     return {"uploaded": len(states), "states": rom.states}
 
 
@@ -55,9 +67,25 @@ def add_states(
 #     pass
 
 
-# @protected_route(router.put, "/states/{id}", ["assets.write"])
-# def update_state(request: Request, id: int) -> MessageResponse:
-#     pass
+@protected_route(router.put, "/states/{id}", ["assets.write"])
+async def update_state(request: Request, id: int) -> StateSchema:
+    data = await request.form()
+
+    db_state = db_state_handler.get_state(id)
+    if not db_state:
+        error = f"Save with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    if "file" in data:
+        file: UploadFile = data["file"]
+        fs_asset_handler._write_file(
+            file=file, path=f"{LIBRARY_BASE_PATH}/{db_state.file_path}"
+        )
+        db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
+
+    db_state = db_state_handler.get_state(id)
+    return db_state
 
 
 @protected_route(router.post, "/states/delete", ["assets.write"])
@@ -90,5 +118,18 @@ async def delete_states(request: Request) -> MessageResponse:
                 error = f"Save file {state.file_name} not found for platform {state.rom.platform_slug}"
                 log.error(error)
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+        if state.screenshot:
+            db_screenshot_handler.delete_screenshot(state.screenshot.id)
+
+            if delete_from_fs:
+                try:
+                    fs_asset_handler.remove_file(
+                        file_name=state.screenshot.file_name,
+                        file_path=state.screenshot.file_path,
+                    )
+                except FileNotFoundError:
+                    error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
+                    log.error(error)
 
     return {"msg": f"Successfully deleted {len(state_ids)} states."}

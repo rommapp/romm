@@ -15,9 +15,14 @@ class DBScreenshotsHandler(DBHandler):
         return session.get(Screenshot, id)
 
     @begin_session
-    def get_screenshot_by_filename(self, file_name: str, session: Session = None):
+    def get_screenshot_by_filename(
+        self, file_name: str, rom_id: str = None, session: Session = None
+    ):
         return session.scalars(
-            select(Screenshot).filter_by(file_name=file_name).limit(1)
+            select(Screenshot)
+            .filter_by(file_name=file_name)
+            .where(Screenshot.rom_id == rom_id if rom_id else True)
+            .limit(1)
         ).first()
 
     @begin_session

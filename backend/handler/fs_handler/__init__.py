@@ -99,12 +99,12 @@ class FSHandler(ABC):
         )
 
     @staticmethod
-    def _get_file_name_with_no_extension(file_name: str) -> str:
+    def get_file_name_with_no_extension(file_name: str) -> str:
         return re.sub(EXTENSION_REGEX, "", file_name).strip()
 
     @staticmethod
     def get_file_name_with_no_tags(file_name: str) -> str:
-        file_name_no_extension = re.sub(EXTENSION_REGEX, "", file_name).strip()
+        file_name_no_extension = FSHandler.get_file_name_with_no_extension(file_name)
         return re.split(TAG_REGEX, file_name_no_extension)[0].strip()
 
     @staticmethod
@@ -122,5 +122,5 @@ class FSHandler(ABC):
     def build_upload_file_path(
         self, fs_slug: str, folder: str = cm.config.ROMS_FOLDER_NAME
     ):
-        rom_path = self.get_fs_structure(fs_slug, folder=folder)
-        return f"{LIBRARY_BASE_PATH}/{rom_path}"
+        file_path = self.get_fs_structure(fs_slug, folder=folder)
+        return f"{LIBRARY_BASE_PATH}/{file_path}"

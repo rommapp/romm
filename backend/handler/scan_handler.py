@@ -111,6 +111,9 @@ async def scan_rom(
             "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
                 rom_attrs["file_name"]
             ),
+            "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
+                rom_attrs["file_name"]
+            ),
             "file_extension": fs_rom_handler.parse_file_extension(
                 rom_attrs["file_name"]
             ),
@@ -176,41 +179,40 @@ def _scan_asset(file_name: str, path: str):
         "file_path": path,
         "file_name": file_name,
         "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
+        "file_name_no_ext": fs_asset_handler.get_file_name_with_no_extension(file_name),
         "file_extension": fs_asset_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
 
 
-def scan_save(platform: Platform, file_name: str, emulator: str = None) -> Save:
-    saves_path = fs_asset_handler.get_fs_structure(
-        platform.fs_slug, folder=cm.config.SAVES_FOLDER_NAME
-    )
+def build_asset_file_path(fs_slug: str, folder: str, emulator: str = None):
+    saves_path = fs_asset_handler.get_fs_structure(fs_slug, folder=folder)
 
-    #  Scan asset with the sames path and emulator folder name
     if emulator:
-        return Save(**_scan_asset(file_name, os.path.join(saves_path, emulator)))
+        return os.path.join(saves_path, emulator)
 
+    return saves_path
+
+
+def scan_save(file_name: str, platform_slug: str, emulator: str = None) -> Save:
+    saves_path = build_asset_file_path(
+        platform_slug, folder=cm.config.SAVES_FOLDER_NAME, emulator=emulator
+    )
     return Save(**_scan_asset(file_name, saves_path))
 
 
-def scan_state(platform: Platform, file_name: str, emulator: str = None) -> State:
-    states_path = fs_asset_handler.get_fs_structure(
-        platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME
+def scan_state(file_name: str, platform_slug: str, emulator: str = None) -> State:
+    states_path = build_asset_file_path(
+        platform_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
     )
-
-    #  Scan asset with the sames path and emulator folder name
-    if emulator:
-        return State(**_scan_asset(file_name, os.path.join(states_path, emulator)))
-
     return State(**_scan_asset(file_name, states_path))
 
 
-def scan_screenshot(file_name: str, platform_slug: Platform = None) -> Screenshot:
-    screenshots_path = fs_asset_handler.get_fs_structure(
+def scan_screenshot(file_name: str, platform_slug: str = None) -> Screenshot:
+    if not platform_slug:
+        return Screenshot(**_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME))
+
+    screenshots_path = build_asset_file_path(
         platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
     )
-
-    if platform_slug:
-        return Screenshot(**_scan_asset(file_name, screenshots_path))
-
-    return Screenshot(**_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME))
+    return Screenshot(**_scan_asset(file_name, screenshots_path))

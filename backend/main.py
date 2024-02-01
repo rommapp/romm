@@ -18,6 +18,7 @@ from endpoints import (
     tasks,
     user,
     webrcade,
+    screenshots,
 )
 import endpoints.sockets.scan # noqa
 from fastapi import FastAPI
@@ -74,6 +75,7 @@ app.include_router(webrcade.router)
 app.include_router(config.router)
 app.include_router(stats.router)
 app.include_router(raw.router)
+app.include_router(screenshots.router)
 
 add_pagination(app)
 app.mount("/ws", socket_handler.socket_app)

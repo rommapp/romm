@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import api_identity from "@/services/api_identity";
+import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
@@ -27,7 +27,7 @@ function dismissNewVersion() {
 }
 
 async function logout() {
-  api_identity
+  identityApi
     .logout()
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {

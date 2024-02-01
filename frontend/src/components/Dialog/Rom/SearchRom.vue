@@ -4,8 +4,8 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-import type { IGDBRomType } from "@/__generated__";
-import api_rom from "@/services/api_rom";
+import type { SearchRomSchema } from "@/__generated__";
+import romApi from "@/services/api/rom";
 import storeRoms, { type Rom } from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -16,7 +16,7 @@ const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
-const matchedRoms = ref<IGDBRomType[]>([]);
+const matchedRoms = ref<SearchRomSchema[]>([]);
 const selectedScrapSource = ref(0);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -33,7 +33,7 @@ async function searchRom() {
 
   if (!searching.value) {
     searching.value = true;
-    await api_rom
+    await romApi
       .searchRom({
         romId: rom.value.id,
         source: "igdb",
@@ -41,7 +41,7 @@ async function searchRom() {
         searchBy: searchBy.value,
       })
       .then((response) => {
-        matchedRoms.value = response.data.roms;
+        matchedRoms.value = response.data;
       })
       .catch((error) => {
         console.log(error);
@@ -52,7 +52,7 @@ async function searchRom() {
   }
 }
 
-async function updateRom(matchedRom: IGDBRomType) {
+async function updateRom(matchedRom: SearchRomSchema) {
   if (!rom.value) return;
 
   show.value = false;
@@ -65,7 +65,7 @@ async function updateRom(matchedRom: IGDBRomType) {
   rom.value.url_cover = matchedRom.url_cover;
   rom.value.url_screenshots = matchedRom.url_screenshots;
 
-  await api_rom
+  await romApi
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import api_config from "@/services/api_config";
+import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -19,7 +19,7 @@ emitter?.on("showCreatePlatformBindingDialog", ({ fsSlug = "", slug = "" }) => {
 
 // Functions
 function addBindPlatform() {
-  api_config
+  configApi
     .addPlatformBindConfig({
       fsSlug: fsSlugToCreate.value,
       slug: slugToCreate.value,
@@ -102,3 +102,4 @@ function closeDialog() {
     </v-card>
   </v-dialog>
 </template>
+@/services/configApi

@@ -3,10 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { IGDBRom } from './IGDBRom';
-
-export type RomSearchResponse = {
-    msg: string;
-    roms: Array<IGDBRom>;
+export type Body_add_screenshots_screenshots_post = {
+    screenshots: Array<Blob>;
 };
 

@@ -4,7 +4,7 @@ import type { Emitter } from "mitt";
 
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import api_save from "@/services/api_save";
+import saveApi from "@/services/api/save";
 import storeRoms, { type Rom } from "@/stores/roms";
 
 import type { SaveSchema } from "@/__generated__";
@@ -39,7 +39,7 @@ async function uploadSaves() {
     color: "romm-accent-1",
   });
 
-  await api_save
+  await saveApi
     .uploadSaves({
       saves: savesToUpload.value,
       rom: props.rom,
@@ -103,7 +103,7 @@ async function uploadSaves() {
       v-for="save in rom.saves"
       :key="save.id"
       :title="save.file_name"
-      :subtitle="`${save.emulator} - ${formatBytes(save.file_size_bytes)}`"
+      :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(save.file_size_bytes)}`"
     >
       <template v-slot:prepend>
         <v-checkbox

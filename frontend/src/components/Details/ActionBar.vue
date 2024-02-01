@@ -1,15 +1,26 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import storeAuth from "@/stores/auth";
-import api_rom from "@/services/api_rom";
-import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
+import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import { platformSlugEJSCoreMap } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
-defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
+const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
-const saveFiles = ref(false);
+const emulation = ref(false);
+const playInfoIcon = ref("mdi-play");
+
+function toggleEmulation() {
+  emulation.value = !emulation.value;
+  playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play";
+  emitter?.emit("showEmulation", null);
+}
 </script>
 
 <template>
@@ -17,7 +28,7 @@ const saveFiles = ref(false);
     <v-col>
       <v-btn
         @click="
-          api_rom.downloadRom({
+          romApi.downloadRom({
             rom,
             files: downloadStore.filesToDownloadMultiFileRom,
           })
@@ -31,9 +42,14 @@ const saveFiles = ref(false);
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn rounded="0" block disabled
-        ><v-icon icon="mdi-play" size="large"
-      /></v-btn>
+      <v-btn
+        :disabled="!(rom.platform_slug in platformSlugEJSCoreMap)"
+        rounded="0"
+        block
+        @click="toggleEmulation"
+      >
+        <v-icon :icon="playInfoIcon" size="large" />
+      </v-btn>
     </v-col>
     <v-col>
       <v-menu location="bottom">

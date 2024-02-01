@@ -2,7 +2,7 @@ import router from "@/plugins/router";
 
 import axios from "axios";
 
-export const api = axios.create({ baseURL: "/api", timeout: 120000 });
+const api = axios.create({ baseURL: "/api", timeout: 120000 });
 
 api.interceptors.response.use(
   (response) => response,
@@ -16,3 +16,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export default api

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type IGDBRom = {
+export type SearchRomSchema = {
     igdb_id: number;
     slug: string;
     name: string;
