@@ -10,5 +10,7 @@ export type SearchRomSchema = {
     summary: string;
     url_cover: string;
     url_screenshots: Array<string>;
+    genres: Array<string>;
+    total_rating: string;
 };
 

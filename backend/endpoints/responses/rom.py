@@ -26,6 +26,9 @@ class RomSchema(BaseModel):
     name: Optional[str]
     slug: Optional[str]
     summary: Optional[str]
+    total_rating: Optional[str]
+    genres: list[str]
+
     sort_comparator: str
 
     path_cover_s: Optional[str]

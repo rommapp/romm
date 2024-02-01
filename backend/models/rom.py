@@ -10,6 +10,7 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     Integer,
+    Float,
     String,
     Text,
     BigInteger,
@@ -37,6 +38,34 @@ class Rom(BaseModel):
     name: str = Column(String(length=350))
     slug: str = Column(String(length=400))
     summary: str = Column(Text)
+    total_rating: str = Column(String(length=350))
+    # aggregated_rating: str = Column(String(length=350))
+    genres: JSON = Column(JSON, default=[])
+    # alternative_names: JSON = Column(JSON, default=[])
+    # path_artwork: str = Column(Text, default="")
+    # url_artwork: str = Column(Text, default="")
+    # franchises: JSON = Column(JSON, default=[])
+    # collections: JSON = Column(JSON, default=[])
+    # expansions: JSON = Column(JSON, default=[])
+    # path_cover_s_expansions: str = Column(Text, default="")
+    # path_cover_l_expansions: str = Column(Text, default="")
+    # url_cover_expansions: str = Column(Text, default="")
+    # dlcs: JSON = Column(JSON, default=[])
+    # path_cover_s_dlcs: str = Column(Text, default="")
+    # path_cover_l_dlcs: str = Column(Text, default="")
+    # url_cover_dlcs: str = Column(Text, default="")
+    # companies: JSON = Column(JSON, default=[])
+    # platforms: JSON = Column(JSON, default=[])
+    # first_release_date: int = Column(BigInteger(), default=0, nullable=False)
+    # game_modes: JSON = Column(JSON, default=[])
+    # player_perspectives: JSON = Column(JSON, default=[])
+    # ports: JSON = Column(JSON, default=[])
+    # remakes: JSON = Column(JSON, default=[])
+    # remaster: JSON = Column(JSON, default=[])
+    # similar_games: JSON = Column(JSON, default=[])
+    # language_supports: JSON = Column(JSON, default=[])
+    # external_games: JSON = Column(JSON, default=[])
+    # external_games_category: JSON = Column(JSON, default=[]) 
 
     path_cover_s: str = Column(Text, default="")
     path_cover_l: str = Column(Text, default="")
@@ -47,8 +76,8 @@ class Rom(BaseModel):
     languages: JSON = Column(JSON, default=[])
     tags: JSON = Column(JSON, default=[])
 
-    url_screenshots: JSON = Column(JSON, default=[])
     path_screenshots: JSON = Column(JSON, default=[])
+    url_screenshots: JSON = Column(JSON, default=[])
 
     multi: bool = Column(Boolean, default=False)
     files: JSON = Column(JSON, default=[])

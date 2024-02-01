@@ -50,6 +50,8 @@ class IGDBRom(TypedDict):
     summary: str
     url_cover: str
     url_screenshots: list[str]
+    genres: list[str]
+    total_rating: str
 
 
 class IGDBPlatform(TypedDict):
@@ -69,6 +71,7 @@ class IGDBHandler:
             "slug",
             "summary",
             "total_rating",
+            "aggregated_rating",
             "genres.name",
             "alternative_names.name",
             "artworks.url",
@@ -83,7 +86,6 @@ class IGDBHandler:
             "dlcs.cover.url",
             "involved_companies.company.name",
             "platforms.name",
-            "aggregated_rating",
             "first_release_date",
             "game_modes.name",
             "player_perspectives.name",
@@ -97,7 +99,7 @@ class IGDBHandler:
         ]
         self.search_endpoint = "https://api.igdb.com/v4/search"
         self.search_fields = ["game.id", "name"]
-        self.pagination_limit = 100
+        self.pagination_limit = 200
         self.twitch_auth = TwitchAuth()
         self.headers = {
             "Client-ID": IGDB_CLIENT_ID,
@@ -364,6 +366,8 @@ class IGDBHandler:
                 )
                 for s in rom.get("screenshots", [])
             ],
+            total_rating=str(round(rom.get("total_rating", 0.0), 2)),
+            genres=[genre.get("name", "") for genre in rom.get("genres", [])]
         )
 
     @check_twitch_token
@@ -386,6 +390,8 @@ class IGDBHandler:
                 )
                 for s in rom.get("screenshots", [])
             ],
+            total_rating=str(round(rom.get("total_rating", 0.0), 2)),
+            genres=[genre.get("name", "") for genre in rom.get("genres", [])]
         )
 
     @check_twitch_token
@@ -469,6 +475,8 @@ class IGDBHandler:
                     )
                     for s in rom.get("screenshots", [])
                 ],
+                total_rating=str(round(rom.get("total_rating", 0.0), 2)),
+                genres=[genre.get("name", "") for genre in rom.get("genres", [])]
             )
             for rom in matched_roms
         ]
