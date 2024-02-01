@@ -72,6 +72,7 @@ async function fetchRoms(platformId: number) {
     .then(({ data }) => {
       // Add any new roms to the store
       const allRomsSet = [...allRoms.value, ...data.items];
+      console.log(allRomsSet)
       romsStore.set(allRomsSet);
       romsStore.setFiltered(allRomsSet);
       romsStore.setPlatform(platformId);

@@ -2,7 +2,7 @@ import { uniqBy, groupBy, isNull } from "lodash";
 import { defineStore } from "pinia";
 import { nanoid } from "nanoid";
 
-import type { RomSchema } from "../__generated__/";
+import type { RomSchema } from "@/__generated__/";
 
 export type Rom = RomSchema & {
   sibling_roms?: RomSchema[]; // Returned by the API
