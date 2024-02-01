@@ -1,5 +1,4 @@
 import socketio  # type: ignore
-from config import ENABLE_EXPERIMENTAL_REDIS
 from handler.redis_handler import redis_url
 
 
@@ -10,9 +9,7 @@ class SocketHandler:
             async_mode="asgi",
             logger=False,
             engineio_logger=False,
-            client_manager=socketio.AsyncRedisManager(redis_url)
-            if ENABLE_EXPERIMENTAL_REDIS
-            else None,
+            client_manager=socketio.AsyncRedisManager(redis_url),
         )
 
         self.socket_app = socketio.ASGIApp(self.socket_server)

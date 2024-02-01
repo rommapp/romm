@@ -4,7 +4,6 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_MAME_XML,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    ROMM_AUTH_ENABLED,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_MAME_XML_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
@@ -27,7 +26,6 @@ def heartbeat() -> HeartbeatResponse:
     return {
         "VERSION": github_handler.get_version(),
         "NEW_VERSION": github_handler.check_new_version(),
-        "ROMM_AUTH_ENABLED": ROMM_AUTH_ENABLED,
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",

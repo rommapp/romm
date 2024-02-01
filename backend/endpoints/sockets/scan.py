@@ -1,6 +1,5 @@
 import emoji
 import socketio  # type: ignore
-from config import ENABLE_EXPERIMENTAL_REDIS
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
 from exceptions.fs_exceptions import (
@@ -25,11 +24,7 @@ from logger.logger import log
 
 def _get_socket_manager():
     # Connect to external socketio server
-    return (
-        socketio.AsyncRedisManager(redis_url, write_only=True)
-        if ENABLE_EXPERIMENTAL_REDIS
-        else socket_handler.socket_server
-    )
+    return socketio.AsyncRedisManager(redis_url, write_only=True)
 
 
 async def scan_platforms(
@@ -148,16 +143,11 @@ async def scan_handler(_sid: str, options: dict):
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
-    if ENABLE_EXPERIMENTAL_REDIS:
-        return high_prio_queue.enqueue(
-            scan_platforms,
-            platform_slugs,
-            complete_rescan,
-            rescan_unidentified,
-            selected_roms,
-            job_timeout=14400,  # Timeout after 4 hours
-        )
-    else:
-        await scan_platforms(
-            platform_slugs, complete_rescan, rescan_unidentified, selected_roms
-        )
+    return high_prio_queue.enqueue(
+        scan_platforms,
+        platform_slugs,
+        complete_rescan,
+        rescan_unidentified,
+        selected_roms,
+        job_timeout=14400,  # Timeout after 4 hours
+    )

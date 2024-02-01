@@ -20,6 +20,5 @@ class SchedulerDict(TypedDict):
 class HeartbeatResponse(TypedDict):
     VERSION: str
     NEW_VERSION: str
-    ROMM_AUTH_ENABLED: bool
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict

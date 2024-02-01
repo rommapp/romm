@@ -6,9 +6,7 @@ services:
     image: zurdi15/romm:latest
     container_name: romm
     environment:
-      - ROMM_DB_DRIVER=mariadb # mariadb | sqlite (default: sqlite)
-      - ROMM_HOST=https://localhost:3000 # [Optional] your host ip or domain name (including http(s)://, subdomain and port if needed). Being used only for webRcade feed for now.
-      # [Optional] Only required if using MariaDB as the database
+      - ROMM_HOST=https://localhost:3000 # Your host ip or domain name (including http(s)://, subdomain and port if needed)
       - DB_HOST=romm_db
       - DB_PORT=3306
       - DB_USER=romm-user
@@ -16,34 +14,16 @@ services:
       - DB_PASSWD=<database password>
       - IGDB_CLIENT_ID=<IGDB client id>
       - IGDB_CLIENT_SECRET=<IGDB client secret>
-      # [Optional - WIP] Use SteamGridDB as a source for covers
-      # - STEAMGRIDDB_API_KEY=<SteamGridDB api key>
-      # [Optional] Will enable user management and require authentication to access the interface (disabled by default)
-      - ROMM_AUTH_ENABLED=true # default: false
       - ROMM_AUTH_SECRET_KEY=<secret key> # Generate a key with `openssl rand -hex 32`
-      - ROMM_AUTH_USERNAME=admin # default: admin
+      - ROMM_AUTH_USERNAME=admin
       - ROMM_AUTH_PASSWORD=<admin password> # default: admin
-      # [Optional] Only required if authentication is enabled
-      - ENABLE_EXPERIMENTAL_REDIS=true # default: false
-      - REDIS_HOST=redis # default: localhost
-      - REDIS_PORT=6379 # default: 6379
-      - REDIS_PASSWORD=<redis password> # [Optional] Support for secured redis
-      # [Optional] Will enable asynchronous tasks (all disabled by default)
-      # Important: Do NOT wrap the cron expression in quotes
-      - ENABLE_RESCAN_ON_FILESYSTEM_CHANGE=true # Runs a quick scan on the library when a file is added or removed 
-      - RESCAN_ON_FILESYSTEM_CHANGE_DELAY=5 # Delay in seconds before running the quick scan (default: 5)
-      - ENABLE_SCHEDULED_RESCAN=true # Runs a quick scan on the library at a given time
-      - SCHEDULED_RESCAN_CRON=0 3 * * * # Cron expression for the scheduled scan (default: 0 3 * * * - At 3:00 AM every day)
-      - ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB=true # Updates the Switch TitleDB database at a given time
-      - SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON=0 4 * * * # Cron expression for the scheduled update (default: 0 4 * * * - At 4:00 AM every day)
-      - ENABLE_SCHEDULED_UPDATE_MAME_XML=true # Updates the MAME XML database at a given time
-      - SCHEDULED_UPDATE_MAME_XML_CRON=0 5 * * * # Cron expression for the scheduled update (default: 0 5 * * * - At 5:00 AM every day)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       - "/path/to/library:/romm/library"
       - "/path/to/assets:/romm/assets" # Path where saves, states and other assets are stored
       - "/path/to/resources:/romm/resources" # Path where roms metadata (covers) are stored
-      - "/path/to/config:/romm/config" # [Optional] Path where config is stored
-      - "/path/to/database:/romm/database" # [Optional] Only needed if ROMM_DB_DRIVER=sqlite or not set
+      - "/path/to/config:/romm/config" # [Optional] Path where config.yml is stored
       - "/path/to/logs:/romm/logs" # [Optional] Path where logs are stored
     ports:
       - 80:8080
@@ -51,7 +31,6 @@ services:
       - romm_db
     restart: "unless-stopped"
 
-  # [Optional] Only required if using MariaDB as the database
   romm_db:
     image: mariadb:latest
     container_name: romm_db
@@ -61,12 +40,11 @@ services:
       - MYSQL_USER=romm-user
       - MYSQL_PASSWORD=<database password>
     volumes:
-      - mysql_data:/var/lib/mysql # Can also be mounted locally
+      - mysql_data:/var/lib/mysql
     ports:
       - 3306:3306
     restart: "unless-stopped"
 
-  # [Optional] Only required if experimental Redis is enabled
   redis:
     image: redis:alpine
     container_name: redis

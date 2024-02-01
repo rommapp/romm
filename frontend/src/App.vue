@@ -102,7 +102,6 @@ onBeforeUnmount(() => {
 onBeforeMount(async () => {
   const { data: heartBeatData } = await api.get("/heartbeat");
   heartbeatStore.set(heartBeatData);
-  authStore.setEnabled(heartBeatData.ROMM_AUTH_ENABLED ?? false);
   const { data: configData } = await api.get("/config");
   configStore.set(configData);
   // Set CSRF token for all requests
