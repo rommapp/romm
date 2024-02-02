@@ -8,7 +8,7 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from models.assets import Save, State, Screenshot
-from models.user import Role
+from models.user import Role, User
 from handler import db_user_handler, db_platform_handler, db_rom_handler, db_save_handler, db_state_handler, auth_handler, db_screenshot_handler
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
@@ -56,9 +56,10 @@ def rom(platform: Platform):
 
 
 @pytest.fixture
-def save(rom: Rom, platform: Platform):
+def save(rom: Rom, platform: Platform, admin_user: User):
     save = Save(
         rom_id=rom.id,
+        user_id=admin_user.id,
         file_name="test_save.sav",
         file_name_no_tags="test_save",
         file_name_no_ext="test_save",
@@ -71,9 +72,10 @@ def save(rom: Rom, platform: Platform):
 
 
 @pytest.fixture
-def state(rom: Rom, platform: Platform):
+def state(rom: Rom, platform: Platform, admin_user: User):
     state = State(
         rom_id=rom.id,
+        user_id=admin_user.id,
         file_name="test_state.state",
         file_name_no_tags="test_state",
         file_name_no_ext="test_state",
@@ -86,9 +88,10 @@ def state(rom: Rom, platform: Platform):
 
 
 @pytest.fixture
-def screenshot(rom: Rom, platform: Platform):
+def screenshot(rom: Rom, platform: Platform, admin_user: User):
     screenshot = Screenshot(
         rom_id=rom.id,
+        user_id=admin_user.id,
         file_name="test_screenshot.png",
         file_name_no_tags="test_screenshot",
         file_name_no_ext="test_screenshot",
