@@ -2,21 +2,23 @@
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 import type { RomSchema, PlatformSchema } from "@/__generated__/"
+import { useDisplay } from "vuetify";
 
 defineProps<{ rom: RomSchema, platform: PlatformSchema }>();
+const { smAndDown } = useDisplay();
 </script>
 <template>
-  <v-row class="text-white text-shadow" no-gutters>
-    <v-col cols="12" class="text-h5 font-weight-bold px-1">
+  <v-row class="text-white text-shadow" :class="{'text-center': smAndDown}" no-gutters>
+    <v-col cols="12" class="text-h5 font-weight-bold">
       <span>{{ rom.name }}</span>
     </v-col>
     <v-col cols="12">
       <v-chip
-        class="font-italic px-3 my-2"
+        class="font-italic my-2 pl-4"
         :to="{ name: 'platform', params: { platform: platform.id } }"
       >
         {{ platform.name }}
-        <v-avatar :rounded="0" size="40" class="ml-2 pa-2">
+        <v-avatar :rounded="0" size="40" class="ml-2 py-2">
           <platform-icon :key="platform.slug" :slug="platform.slug" />
         </v-avatar>
       </v-chip>

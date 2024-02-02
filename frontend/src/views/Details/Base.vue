@@ -98,6 +98,7 @@ watch(
 
     <v-row
       :class="{
+        'mx-12': mdAndUp,
         'justify-center': smAndDown,
       }"
       no-gutters
@@ -108,9 +109,6 @@ watch(
           'cover-lg': mdAndUp,
           'cover-xs': smAndDown,
         }"
-        cols="12"
-        md="6"
-        lg="6"
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
@@ -118,25 +116,30 @@ watch(
       </v-col>
       <v-col
         cols="12"
-        md="6"
-        lg="6"
-        class="px-6"
+        sm="12"
+        md="7"
+        lg="7"
+        xl="8"
+        class="px-5"
         :class="{
-          'mr-16 info-lg': mdAndUp,
+          'info-lg': mdAndUp,
           'info-xs': smAndDown,
         }"
       >
-        <v-row
+        <v-col
+          cols="12"
+          sm="12"
+          md="6"
+          lg="5"
+          xl="6"
+          class="px-0"
           :class="{
-            'position-absolute title-lg mr-16': mdAndUp,
+            'position-absolute title-lg': mdAndUp,
             'justify-center': smAndDown,
           }"
-          no-gutters
         >
-          <v-col cols="12">
-            <title-info :rom="rom" :platform="platform" />
-          </v-col>
-        </v-row>
+          <title-info :rom="rom" :platform="platform" />
+        </v-col>
         <v-row
           :class="{
             'justify-center': smAndDown,
@@ -187,6 +190,9 @@ watch(
           </v-col>
         </v-row>
       </v-col>
+      <!-- <v-divider vertical v-if="mdAndUp" />
+      <v-col class="extra-info px-5 bg-primary">
+      </v-col> -->
     </v-row>
   </template>
 
@@ -206,15 +212,20 @@ watch(
 }
 .cover-lg {
   margin-top: -230px;
-  margin-left: 110px;
-}
-.cover-xs {
-  margin-top: -280px;
 }
 .title-lg {
   margin-top: -190px;
 }
+.cover-xs {
+  margin-top: -280px;
+}
 .info-xs {
   margin-top: 60px;
+}
+.extra-info {
+  margin-top: -230px;
+  z-index: 0;
+}
+.extra-info-xs {
 }
 </style>

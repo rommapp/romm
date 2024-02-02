@@ -114,11 +114,11 @@ function onTouchEnd() {
             <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="ml-2 pt-0 text-shadow position-absolute flags">
+        <v-row no-gutters class="px-1">
           <v-chip
             v-if="rom.regions.filter((i: string) => i).length > 0"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            class="bg-chip px-2 py-3"
+            class="bg-chip mr-1 mt-1"
             density="compact"
           >
             <span class="px-1" v-for="region in rom.regions">
@@ -128,7 +128,7 @@ function onTouchEnd() {
           <v-chip
             v-if="rom.languages.filter((i: string) => i).length > 0"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            class="bg-chip px-2 py-3"
+            class="bg-chip mr-1 mt-1"
             density="compact"
           >
             <span class="px-1" v-for="language in rom.languages">
@@ -138,12 +138,12 @@ function onTouchEnd() {
           <v-chip
             v-if="rom.siblings && rom.siblings.length > 0"
             :title="`${rom.siblings.length + 1} versions`"
-            class="bg-chip px-2 py-3"
+            class="bg-chip mr-1 mt-1"
             density="compact"
           >
             +{{ rom.siblings.length }}
           </v-chip>
-        </v-chip-group>
+        </v-row>
         <v-icon
           v-show="isHoveringTop && showSelector"
           @click="onSelectRom"
@@ -167,12 +167,5 @@ function onTouchEnd() {
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
-}
-.flags {
-  bottom: -0.25rem;
-  left: 0;
-}
-.text-shadow {
-  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
 }
 </style>

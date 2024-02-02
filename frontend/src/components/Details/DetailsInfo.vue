@@ -62,13 +62,27 @@ const downloadStore = storeDownload();
       <span>Tags</span>
     </v-col>
     <v-col>
-      <v-chip-group class="pt-0">
-        <v-chip v-for="tag in rom.tags" :key="tag" class="bg-chip" label>
-          {{ tag }}
-        </v-chip>
-      </v-chip-group>
+      <v-chip v-for="tag in rom.tags" :key="tag" class="bg-chip mr-1" label>
+        {{ tag }}
+      </v-chip>
     </v-col>
   </v-row>
+  <v-row v-if="rom.genres.length > 0" class="align-center py-2" no-gutters>
+    <v-col cols="3" sm="2" xl="1">
+      <span>Genres</span>
+    </v-col>
+    <v-col>
+      <v-chip
+        v-for="tag in rom.genres"
+        :key="tag"
+        class="bg-chip mr-1 mt-1"
+        label
+      >
+        {{ tag }}
+      </v-chip>
+    </v-col>
+  </v-row>
+  <v-divider class="ma-2" />
   <v-row class="py-3" no-gutters>
     <v-col class="text-caption">
       <p>{{ rom.summary }}</p>
