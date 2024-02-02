@@ -91,7 +91,7 @@ async function searchRom({
   source: string;
   searchTerm: string;
   searchBy: string;
-  searchExtended: boolean
+  searchExtended: boolean;
 }): Promise<{ data: SearchRomSchema[] }> {
   return api.get("/search/roms", {
     params: {
@@ -166,8 +166,13 @@ async function updateRom({
   formData.append("franchises", JSON.stringify(rom.franchises));
   formData.append("collections", JSON.stringify(rom.collections));
   formData.append("expansions", JSON.stringify(rom.expansions));
+  formData.append("dlcs", JSON.stringify(rom.dlcs));
+  formData.append("remakes", JSON.stringify(rom.remakes));
   formData.append("companies", JSON.stringify(rom.companies));
-  formData.append("first_release_date", rom.first_release_date?.toString() || "");
+  formData.append(
+    "first_release_date",
+    rom.first_release_date?.toString() || ""
+  );
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
   return api.put(`/roms/${rom.id}`, formData, {

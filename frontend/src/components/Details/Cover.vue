@@ -13,6 +13,8 @@ defineProps<{ rom: Rom }>();
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
     <v-img
+      :value="rom.id"
+      :key="rom.id"
       :src="
         !rom.igdb_id && !rom.has_cover
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`

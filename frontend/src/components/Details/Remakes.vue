@@ -4,15 +4,18 @@ import type { Rom } from "@/stores/roms";
 defineProps<{ rom: Rom }>();
 </script>
 <template>
-  <v-row class="mb-3" no-gutters v-for="dlc in rom.dlcs">
+  <v-row class="mt-2 mb-3" no-gutters v-for="remake in rom.remakes">
     <v-img
       class="cover"
-      :src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_big')}`"
-      :lazy-src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_small')}`"
+      :src="`https:${remake.cover.url.replace('t_thumb', 't_cover_big')}`"
+      :lazy-src="`https:${remake.cover.url.replace(
+        't_thumb',
+        't_cover_small'
+      )}`"
       :aspect-ratio="3 / 4"
     ></v-img>
     <v-col class="ml-3">
-      <span>{{ dlc.name }}</span>
+      <span>{{ remake.name }}</span>
     </v-col>
   </v-row>
 </template>

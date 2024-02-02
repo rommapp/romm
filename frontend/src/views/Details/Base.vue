@@ -7,8 +7,9 @@ import { useDisplay } from "vuetify";
 
 import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
-import SourceTable from "@/components/Details/SourceTable.vue";
 import Dlcs from "@/components/Details/Dlcs.vue";
+import Expansions from "@/components/Details/Expansions.vue";
+import Remakes from "@/components/Details/Remakes.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
@@ -32,8 +33,8 @@ const tab = ref<
   | "details"
   | "saves"
   | "states"
-  | "dlcs"
-  | "sources"
+  | "remakes"
+  | "expansions"
   | "screenshots"
   | "emulation"
 >("details");
@@ -121,7 +122,10 @@ watch(
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
-        <source-table class="mt-2" :rom="rom" v-if="mdAndUp" />
+        <v-row v-if="mdAndUp && rom.remakes.length > 0" class="mt-6" no-gutters>
+          <v-card-title class="pa-0">Remakes</v-card-title>
+          <remakes :rom="rom" />
+        </v-row>
       </v-col>
       <v-col
         cols="12"
@@ -164,8 +168,20 @@ watch(
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0">Saves</v-tab>
             <v-tab value="states" rounded="0">States</v-tab>
-            <v-tab v-if="mdAndDown" value="dlcs" rounded="0">Expansions / DLCs</v-tab>
-            <v-tab v-if="smAndDown" value="sources" rounded="0">Sources</v-tab>
+            <v-tab
+              v-if="smAndDown && rom.remakes.length > 0"
+              value="remakes"
+              rounded="0"
+              >Remakes</v-tab
+            >
+            <v-tab
+              v-if="
+                mdAndDown && (rom.expansions.length > 0 || rom.dlcs.length > 0)
+              "
+              value="expansions"
+              rounded="0"
+              >Expansions / DLCs</v-tab
+            >
             <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
           </v-tabs>
           <v-tabs
@@ -189,11 +205,18 @@ watch(
               <v-window-item value="states">
                 <states :rom="rom" />
               </v-window-item>
-              <v-window-item v-if="mdAndDown" value="dlcs">
-                <dlcs :rom="rom" />
+              <v-window-item v-if="smAndDown" value="remakes">
+                <remakes :rom="rom" />
               </v-window-item>
-              <v-window-item v-if="mdAndDown" value="sources">
-                <source-table :rom="rom" />
+              <v-window-item v-if="mdAndDown" value="expansions">
+                <template v-if="rom.expansions.length > 0">
+                  <v-card-title class="pa-0 mb-2">Expansions</v-card-title>
+                  <expansions :rom="rom" />
+                </template>
+                <template v-if="rom.dlcs.length > 0">
+                  <v-card-title class="pa-0 mt-6 mb-2">DLCs</v-card-title>
+                  <dlcs class="mt-1" :rom="rom" />
+                </template>
               </v-window-item>
               <v-window-item value="screenshots">
                 <screenshots :rom="rom" />
@@ -207,12 +230,25 @@ watch(
           </v-col>
         </v-row>
       </v-col>
-      <template v-if="lgAndUp && (rom.expansions.length > 0 || rom.dlcs.length > 0)">
-        <v-col class="dlcs">
-          <v-card class="translucent">
-            <v-card-title>Expansions / DLCs</v-card-title>
+
+      <template v-if="lgAndUp">
+        <v-col class="side-info">
+          <v-card
+            title="Expansions"
+            class="translucent text-white"
+            v-if="rom.expansions.length > 0"
+          >
             <v-card-text>
-              <dlcs :rom="rom" />
+              <expansions :rom="rom" />
+            </v-card-text>
+          </v-card>
+          <v-card
+            title="DLCs"
+            class="translucent text-white"
+            v-if="rom.dlcs.length > 0"
+          >
+            <v-card-text>
+              <dlcs class="mt-1" :rom="rom" />
             </v-card-text>
           </v-card>
         </v-col>
@@ -246,7 +282,7 @@ watch(
 .info-xs {
   margin-top: 60px;
 }
-.dlcs {
+.side-info {
   margin-top: -230px;
   z-index: 0;
 }
