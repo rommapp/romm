@@ -1,49 +1,51 @@
 version: "3"
+
 volumes:
   mysql_data:
+  romm_resources:
+
 services:
   romm:
     image: zurdi15/romm:latest
     container_name: romm
+    restart: unless-stopped
     environment:
-      - ROMM_HOST=https://localhost:3000 # Your host ip or domain name (including http(s)://, subdomain and port if needed)
-      - DB_HOST=romm_db
+      - DB_HOST=mariadb
       - DB_PORT=3306
-      - DB_USER=romm-user
-      - DB_NAME=romm # Should match the MYSQL_DATABASE value in the mariadb container
-      - DB_PASSWD=<database password>
-      - IGDB_CLIENT_ID=<IGDB client id>
-      - IGDB_CLIENT_SECRET=<IGDB client secret>
-      - ROMM_AUTH_SECRET_KEY=<secret key> # Generate a key with `openssl rand -hex 32`
+      - DB_NAME=romm # Should match MYSQL_DATABASE in mariadb
+      - DB_USER=romm-user # Should match MYSQL_USER in mariadb
+      - DB_PASSWORD= # Should match MYSQL_PASSWORD in mariadb
+      - IGDB_CLIENT_ID= # Generate an ID and SECRET in IGDB
+      - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
+      - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
       - ROMM_AUTH_USERNAME=admin
-      - ROMM_AUTH_PASSWORD=<admin password> # default: admin
+      - ROMM_AUTH_PASSWORD= # default: admin
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - "/path/to/library:/romm/library"
-      - "/path/to/assets:/romm/assets" # Path where saves, states and other assets are stored
-      - "/path/to/resources:/romm/resources" # Path where roms metadata (covers) are stored
+      - romm_resources:/romm/resources" # Resources fetched from IGDB (covers, screenshots, etc.)
+      - "/path/to/library:/romm/library" # Your game library
+      - "/path/to/assets:/romm/assets" # Uploaded saves, states, etc.
       - "/path/to/config:/romm/config" # [Optional] Path where config.yml is stored
       - "/path/to/logs:/romm/logs" # [Optional] Path where logs are stored
     ports:
       - 80:8080
     depends_on:
-      - romm_db
-    restart: "unless-stopped"
+      - mariadb
 
-  romm_db:
+  mariadb:
     image: mariadb:latest
-    container_name: romm_db
+    container_name: mariadb
+    restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=<root password>
+      - MYSQL_ROOT_PASSWORD= # Use a unique, secure password
       - MYSQL_DATABASE=romm
       - MYSQL_USER=romm-user
-      - MYSQL_PASSWORD=<database password>
+      - MYSQL_PASSWORD=
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
       - 3306:3306
-    restart: "unless-stopped"
 
   redis:
     image: redis:alpine

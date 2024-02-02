@@ -85,8 +85,11 @@ app.mount("/ws", socket_handler.socket_app)
 def startup() -> None:
     """Event to handle RomM startup logic."""
 
+    if "pytest" in sys.modules:
+        return
+
     # Create default admin user if no admin user exists
-    if len(db_user_handler.get_admin_users()) == 0 and "pytest" not in sys.modules:
+    if len(db_user_handler.get_admin_users()) == 0:
         auth_handler.create_default_admin_user()
 
 
