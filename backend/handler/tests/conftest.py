@@ -8,7 +8,7 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 from models.assets import Save, State, Screenshot
-from models.user import Role, User
+from models.user import Role
 from handler import db_user_handler, db_platform_handler, db_rom_handler, db_save_handler, db_state_handler, auth_handler, db_screenshot_handler
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
