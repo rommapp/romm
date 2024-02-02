@@ -220,6 +220,9 @@ async def update_rom(
     cleaned_data["genres"] = json.loads(data["genres"])
     cleaned_data["franchises"] = json.loads(data["franchises"])
     cleaned_data["collections"] = json.loads(data["collections"])
+    cleaned_data["expansions"] = json.loads(data["expansions"])
+    cleaned_data["dlcs"] = json.loads(data["dlcs"])
+    cleaned_data["remakes"] = json.loads(data["remakes"])
     cleaned_data["companies"] = json.loads(data["companies"])
     cleaned_data["first_release_date"] = data.get("first_release_date", db_rom.first_release_date) or None
 
