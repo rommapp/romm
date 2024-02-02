@@ -23,12 +23,12 @@ const style = reactive({
   height: "330px",
   "-webkit-filter": "blur(3px)",
   filter: "blur(3px)",
-  transform: "scale(7)",
+  transform: "scale(8)",
 });
 </script>
 
 <template>
-  <v-card>
+  <v-card rounded="0">
     <v-img :src="imgSrc" :lazy-src="imgSrcLazy" :style="style" />
   </v-card>
 </template>
