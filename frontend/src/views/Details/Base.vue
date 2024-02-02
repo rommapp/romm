@@ -8,7 +8,7 @@ import { useDisplay } from "vuetify";
 import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import SourceTable from "@/components/Details/SourceTable.vue";
-import ExtraInfo from "@/components/Details/ExtraInfo.vue";
+import Dlcs from "@/components/Details/Dlcs.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
@@ -28,7 +28,15 @@ import romApi from "@/services/api/rom";
 const route = useRoute();
 const rom = ref<EnhancedRomSchema>();
 const platform = ref<PlatformSchema>();
-const tab = ref<"details" | "saves" | "states" | "extrainfo" | "sources" | "screenshots" | "emulation">("details");
+const tab = ref<
+  | "details"
+  | "saves"
+  | "states"
+  | "dlcs"
+  | "sources"
+  | "screenshots"
+  | "emulation"
+>("details");
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const showEmulation = ref(false);
@@ -142,7 +150,9 @@ watch(
           <title-info :rom="rom" :platform="platform" />
         </v-col>
         <v-row
-          class="justify-center"
+          :class="{
+            'justify-center': smAndDown,
+          }"
           no-gutters
         >
           <v-tabs
@@ -154,7 +164,7 @@ watch(
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0">Saves</v-tab>
             <v-tab value="states" rounded="0">States</v-tab>
-            <v-tab v-if="mdAndDown" value="extrainfo" rounded="0">Extra info</v-tab>
+            <v-tab v-if="mdAndDown" value="dlcs" rounded="0">Expansions / DLCs</v-tab>
             <v-tab v-if="smAndDown" value="sources" rounded="0">Sources</v-tab>
             <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
           </v-tabs>
@@ -179,8 +189,8 @@ watch(
               <v-window-item value="states">
                 <states :rom="rom" />
               </v-window-item>
-              <v-window-item v-if="mdAndDown" value="extrainfo">
-                <extra-info :rom="rom" />
+              <v-window-item v-if="mdAndDown" value="dlcs">
+                <dlcs :rom="rom" />
               </v-window-item>
               <v-window-item v-if="mdAndDown" value="sources">
                 <source-table :rom="rom" />
@@ -197,10 +207,13 @@ watch(
           </v-col>
         </v-row>
       </v-col>
-      <template v-if="lgAndUp">
-        <v-col class="extra-info">
+      <template v-if="lgAndUp && (rom.expansions.length > 0 || rom.dlcs.length > 0)">
+        <v-col class="dlcs">
           <v-card class="translucent">
-            <extra-info :rom="rom" />
+            <v-card-title>Expansions / DLCs</v-card-title>
+            <v-card-text>
+              <dlcs :rom="rom" />
+            </v-card-text>
           </v-card>
         </v-col>
       </template>
@@ -233,11 +246,11 @@ watch(
 .info-xs {
   margin-top: 60px;
 }
-.extra-info {
+.dlcs {
   margin-top: -230px;
   z-index: 0;
 }
-.translucent{
+.translucent {
   background-color: rgba(15, 15, 15, 0.5);
 }
 </style>

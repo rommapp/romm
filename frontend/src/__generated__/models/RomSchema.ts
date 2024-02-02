@@ -24,7 +24,14 @@ export type RomSchema = {
     slug: (string | null);
     summary: (string | null);
     total_rating: (string | null);
-    genres: Array<string>;
+    genres: Array<Record<string, any>>;
+    franchises: Array<Record<string, any>>;
+    collections: Array<Record<string, any>>;
+    expansions: Array<Record<string, any>>;
+    dlcs: Array<Record<string, any>>;
+    remakes: Array<Record<string, any>>;
+    companies: Array<Record<string, any>>;
+    first_release_date: (number | null);
     sort_comparator: string;
     path_cover_s: (string | null);
     path_cover_l: (string | null);

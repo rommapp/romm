@@ -163,6 +163,11 @@ async function updateRom({
   formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
   formData.append("total_rating", rom.total_rating || "");
   formData.append("genres", JSON.stringify(rom.genres));
+  formData.append("franchises", JSON.stringify(rom.franchises));
+  formData.append("collections", JSON.stringify(rom.collections));
+  formData.append("expansions", JSON.stringify(rom.expansions));
+  formData.append("companies", JSON.stringify(rom.companies));
+  formData.append("first_release_date", rom.first_release_date?.toString() || "");
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
   return api.put(`/roms/${rom.id}`, formData, {

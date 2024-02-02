@@ -4,7 +4,7 @@ import os
 import re
 import sys
 import time
-from typing import Final
+from typing import Final, Optional
 
 import pydash
 import requests
@@ -44,14 +44,23 @@ MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame
 
 
 class IGDBRom(TypedDict):
-    igdb_id: int
-    slug: str
-    name: str
-    summary: str
+    igdb_id: Optional[int]
+    name: Optional[str]
+    slug: Optional[str]
+    summary: Optional[str]
     url_cover: str
     url_screenshots: list[str]
-    genres: list[str]
-    total_rating: str
+    total_rating: Optional[str]
+    genres: list[dict]
+    franchises: list[dict]
+    collections: list[dict]
+    expansions: list[dict]
+    dlcs: list[dict]
+    # remasters: list[dict]
+    remakes: list[dict]
+    # expanded_games: list[dict]
+    companies: list[dict]
+    first_release_date: Optional[int]
 
 
 class IGDBPlatform(TypedDict):
@@ -82,16 +91,20 @@ class IGDBHandler:
             "collections.name",
             "expansions.name",
             "expansions.cover.url",
+            "expanded_games.name",
+            "expanded_games.cover.url",
             "dlcs.name",
             "dlcs.cover.url",
+            "remakes.name",
+            "remakes.cover.url",
+            "remasters.name",
+            "remasters.cover.url",
             "involved_companies.company.name",
             "platforms.name",
             "first_release_date",
             "game_modes.name",
             "player_perspectives.name",
             "ports.name",
-            "remakes.name",
-            "remasters.name",
             "similar_games.name",
             "language_supports.language.name",
             "external_games.uid",
@@ -356,8 +369,8 @@ class IGDBHandler:
 
         return IGDBRom(
             igdb_id=rom.get("id", None),
-            slug=rom.get("slug", ""),
             name=rom.get("name", search_term),
+            slug=rom.get("slug", ""),
             summary=rom.get("summary", ""),
             url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
             url_screenshots=[
@@ -367,7 +380,16 @@ class IGDBHandler:
                 for s in rom.get("screenshots", [])
             ],
             total_rating=str(round(rom.get("total_rating", 0.0), 2)),
-            genres=[genre.get("name", "") for genre in rom.get("genres", [])]
+            genres=rom.get("genres", []),
+            franchises=rom.get("franchises", []),
+            collections=rom.get("collections", []),
+            expansions=rom.get("expansions", []),
+            dlcs=rom.get("dlcs", []),
+            # remasters=rom.get("remasters", []),
+            remakes=rom.get("remakes", []),
+            # expanded_games=rom.get("expanded_games", []),
+            companies=rom.get("involved_companies", []),
+            first_release_date=rom.get("first_release_date", None),
         )
 
     @check_twitch_token
@@ -380,8 +402,8 @@ class IGDBHandler:
 
         return IGDBRom(
             igdb_id=igdb_id,
-            slug=rom.get("slug", ""),
             name=rom.get("name", ""),
+            slug=rom.get("slug", ""),
             summary=rom.get("summary", ""),
             url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
             url_screenshots=[
@@ -391,7 +413,16 @@ class IGDBHandler:
                 for s in rom.get("screenshots", [])
             ],
             total_rating=str(round(rom.get("total_rating", 0.0), 2)),
-            genres=[genre.get("name", "") for genre in rom.get("genres", [])]
+            genres=rom.get("genres", []),
+            franchises=rom.get("franchises", []),
+            collections=rom.get("collections", []),
+            expansions=rom.get("expansions", []),
+            dlcs=rom.get("dlcs", []),
+            # remasters=rom.get("remasters", []),
+            remakes=rom.get("remakes", []),
+            # expanded_games=rom.get("expanded_games", []),
+            companies=rom.get("involved_companies", []),
+            first_release_date=rom.get("first_release_date", None),
         )
 
     @check_twitch_token
@@ -461,8 +492,8 @@ class IGDBHandler:
         return [
             IGDBRom(
                 igdb_id=rom.get("id"),
-                slug=rom.get("slug", ""),
                 name=rom.get("name", search_term),
+                slug=rom.get("slug", ""),
                 summary=rom.get("summary", ""),
                 url_cover=self._normalize_cover_url(
                     rom.get("cover", {})
@@ -476,7 +507,16 @@ class IGDBHandler:
                     for s in rom.get("screenshots", [])
                 ],
                 total_rating=str(round(rom.get("total_rating", 0.0), 2)),
-                genres=[genre.get("name", "") for genre in rom.get("genres", [])]
+                genres=rom.get("genres", []),
+                franchises=rom.get("franchises", []),
+                collections=rom.get("collections", []),
+                expansions=rom.get("expansions", []),
+                dlcs=rom.get("dlcs", []),
+                # remasters=rom.get("remasters", []),
+                remakes=rom.get("remakes", []),
+                # expanded_games=rom.get("expanded_games", []),
+                companies=rom.get("involved_companies", []),
+                first_release_date=rom.get("first_release_date", None),
             )
             for rom in matched_roms
         ]
