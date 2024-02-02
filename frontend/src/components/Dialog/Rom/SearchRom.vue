@@ -181,7 +181,6 @@ onBeforeUnmount(() => {
           <v-col cols="5" xs="5" sm="5" md="6" lg="8">
             <v-text-field
               id="search-text-field"
-              autofocus
               @keyup.enter="searchRom()"
               @click:clear="searchTerm = ''"
               class="bg-terciary"
