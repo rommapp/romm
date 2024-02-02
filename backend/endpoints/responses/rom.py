@@ -27,7 +27,16 @@ class RomSchema(BaseModel):
     slug: Optional[str]
     summary: Optional[str]
     total_rating: Optional[str]
-    genres: list[str]
+    genres: list[dict]
+    franchises: list[dict]
+    collections: list[dict]
+    expansions: list[dict]
+    dlcs: list[dict]
+    # remasters: list[dict]
+    remakes: list[dict]
+    # expanded_games: list[dict]
+    companies: list[dict]
+    first_release_date: Optional[int]
 
     sort_comparator: str
 

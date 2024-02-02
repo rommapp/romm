@@ -121,7 +121,7 @@ function onTouchEnd() {
             class="bg-chip mr-1 mt-1"
             density="compact"
           >
-            <span class="px-1" v-for="region in rom.regions">
+            <span class="px-0" v-for="region in rom.regions">
               {{ regionToEmoji(region) }}
             </span>
           </v-chip>

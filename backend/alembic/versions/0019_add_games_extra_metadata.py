@@ -2,7 +2,7 @@
 
 Revision ID: 0019_add_games_extra_metadata
 Revises: 0018_increase_file_extension
-Create Date: 2024-02-01 17:53:53.562928
+Create Date: 2024-02-02 16:47:26.098480
 
 """
 from alembic import op
@@ -21,14 +21,30 @@ def upgrade() -> None:
     with op.batch_alter_table('roms', schema=None) as batch_op:
         batch_op.add_column(sa.Column('total_rating', sa.String(length=350), nullable=True))
         batch_op.add_column(sa.Column('genres', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('franchises', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('collections', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('expansions', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('dlcs', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('companies', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('first_release_date', sa.BigInteger(), nullable=True))
+        batch_op.add_column(sa.Column('remaster', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('remakes', sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column('expanded_games', sa.JSON(), nullable=True))
         batch_op.alter_column('file_extension',
                existing_type=mysql.VARCHAR(length=100),
                nullable=False)
-        
+
     with op.batch_alter_table('roms', schema=None) as batch_op:
         # Set default values for JSON columns
         batch_op.execute("UPDATE roms SET genres = '[]'")
-
+        batch_op.execute("UPDATE roms SET franchises = '[]'")
+        batch_op.execute("UPDATE roms SET collections = '[]'")
+        batch_op.execute("UPDATE roms SET expansions = '[]'")
+        batch_op.execute("UPDATE roms SET dlcs = '[]'")
+        batch_op.execute("UPDATE roms SET remaster = '[]'")
+        batch_op.execute("UPDATE roms SET remakes = '[]'")
+        batch_op.execute("UPDATE roms SET expanded_games = '[]'")
+        batch_op.execute("UPDATE roms SET companies = '[]'")
     # ### end Alembic commands ###
 
 
@@ -38,6 +54,15 @@ def downgrade() -> None:
         batch_op.alter_column('file_extension',
                existing_type=mysql.VARCHAR(length=100),
                nullable=True)
+        batch_op.drop_column('expanded_games')
+        batch_op.drop_column('remakes')
+        batch_op.drop_column('remaster')
+        batch_op.drop_column('first_release_date')
+        batch_op.drop_column('companies')
+        batch_op.drop_column('dlcs')
+        batch_op.drop_column('expansions')
+        batch_op.drop_column('collections')
+        batch_op.drop_column('franchises')
         batch_op.drop_column('genres')
         batch_op.drop_column('total_rating')
 
