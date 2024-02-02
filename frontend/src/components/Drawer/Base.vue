@@ -36,7 +36,7 @@ onMounted(() => {});
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    width="270"
+    width="220"
     rail-width="70"
     elevation="0"
   >

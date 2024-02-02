@@ -126,6 +126,6 @@ onBeforeMount(async () => {
   background-size: cover;
 }
 #card {
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: rgba(15, 15, 15, 0.5);
 }
 </style>

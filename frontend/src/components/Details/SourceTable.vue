@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import type { Rom } from "@/stores/roms";
-import { useDisplay } from "vuetify";
 
 defineProps<{ rom: Rom }>();
-const { mdAndUp } = useDisplay();
 </script>
 
 <template>
-  <div rounded="0" class="table" v-if="mdAndUp">
+  <div rounded="0" class="table">
     <v-row
       v-if="rom.igdb_id"
       class="align-center justify-center pa-2"
