@@ -34,7 +34,7 @@ const tab = ref<
   | "saves"
   | "states"
   | "remakes"
-  | "expansions"
+  | "aditionalcontent"
   | "screenshots"
   | "emulation"
 >("details");
@@ -178,9 +178,9 @@ watch(
               v-if="
                 mdAndDown && (rom.expansions.length > 0 || rom.dlcs.length > 0)
               "
-              value="expansions"
+              value="aditionalcontent"
               rounded="0"
-              >Expansions / DLCs</v-tab
+              >Aditional content</v-tab
             >
             <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
           </v-tabs>
@@ -208,7 +208,7 @@ watch(
               <v-window-item v-if="smAndDown" value="remakes">
                 <remakes :rom="rom" />
               </v-window-item>
-              <v-window-item v-if="mdAndDown" value="expansions">
+              <v-window-item v-if="mdAndDown" value="aditionalcontent">
                 <template v-if="rom.expansions.length > 0">
                   <v-card-title class="pa-0 mb-2">Expansions</v-card-title>
                   <expansions :rom="rom" />
