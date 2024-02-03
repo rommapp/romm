@@ -30,7 +30,9 @@ export type EnhancedRomSchema = {
     collections: Array<Record<string, any>>;
     expansions: Array<Record<string, any>>;
     dlcs: Array<Record<string, any>>;
+    remasters: Array<Record<string, any>>;
     remakes: Array<Record<string, any>>;
+    expanded_games: Array<Record<string, any>>;
     companies: Array<Record<string, any>>;
     first_release_date: (number | null);
     sort_comparator: string;

@@ -114,3 +114,8 @@ onBeforeMount(async () => {
     </v-main>
   </v-app>
 </template>
+<style>
+body {
+  background-color: rgba(var(--v-theme-background));
+}
+</style>
