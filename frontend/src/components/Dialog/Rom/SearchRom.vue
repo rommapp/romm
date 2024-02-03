@@ -82,6 +82,7 @@ async function updateRom(matchedRom: SearchRomSchema) {
         color: "green",
       });
       romsStore.update(data);
+      emitter?.emit("refreshView", null);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {

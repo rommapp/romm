@@ -123,7 +123,7 @@ watch(
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
         <v-row v-if="mdAndUp && rom.remakes.length > 0" class="mt-6" no-gutters>
-          <v-card-title class="pa-0">Remakes</v-card-title>
+          <v-card-title class="pa-0 mb-2">Remakes</v-card-title>
           <remakes :rom="rom" />
         </v-row>
       </v-col>
@@ -235,7 +235,7 @@ watch(
         <v-col class="side-info">
           <v-card
             title="Expansions"
-            class="translucent text-white"
+            class="translucent text-white mb-2"
             v-if="rom.expansions.length > 0"
           >
             <v-card-text>
