@@ -56,9 +56,9 @@ class IGDBRom(TypedDict):
     collections: list[dict]
     expansions: list[dict]
     dlcs: list[dict]
-    # remasters: list[dict]
+    remasters: list[dict]
     remakes: list[dict]
-    # expanded_games: list[dict]
+    expanded_games: list[dict]
     companies: list[dict]
     first_release_date: Optional[int]
 
@@ -385,9 +385,9 @@ class IGDBHandler:
             collections=rom.get("collections", []),
             expansions=rom.get("expansions", []),
             dlcs=rom.get("dlcs", []),
-            # remasters=rom.get("remasters", []),
+            remasters=rom.get("remasters", []),
             remakes=rom.get("remakes", []),
-            # expanded_games=rom.get("expanded_games", []),
+            expanded_games=rom.get("expanded_games", []),
             companies=rom.get("involved_companies", []),
             first_release_date=rom.get("first_release_date", None),
         )
@@ -418,9 +418,9 @@ class IGDBHandler:
             collections=rom.get("collections", []),
             expansions=rom.get("expansions", []),
             dlcs=rom.get("dlcs", []),
-            # remasters=rom.get("remasters", []),
+            remasters=rom.get("remasters", []),
             remakes=rom.get("remakes", []),
-            # expanded_games=rom.get("expanded_games", []),
+            expanded_games=rom.get("expanded_games", []),
             companies=rom.get("involved_companies", []),
             first_release_date=rom.get("first_release_date", None),
         )
@@ -512,9 +512,9 @@ class IGDBHandler:
                 collections=rom.get("collections", []),
                 expansions=rom.get("expansions", []),
                 dlcs=rom.get("dlcs", []),
-                # remasters=rom.get("remasters", []),
+                remasters=rom.get("remasters", []),
                 remakes=rom.get("remakes", []),
-                # expanded_games=rom.get("expanded_games", []),
+                expanded_games=rom.get("expanded_games", []),
                 companies=rom.get("involved_companies", []),
                 first_release_date=rom.get("first_release_date", None),
             )

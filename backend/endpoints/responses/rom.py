@@ -32,9 +32,9 @@ class RomSchema(BaseModel):
     collections: list[dict]
     expansions: list[dict]
     dlcs: list[dict]
-    # remasters: list[dict]
+    remasters: list[dict]
     remakes: list[dict]
-    # expanded_games: list[dict]
+    expanded_games: list[dict]
     companies: list[dict]
     first_release_date: Optional[int]
 

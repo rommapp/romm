@@ -6,12 +6,12 @@ defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-row class="mb-3" no-gutters>
-    <v-col cols="4" sm="2" md="3" lg="6" v-for="dlc in rom.dlcs">
+    <v-col cols="4" sm="2" md="3" lg="3" v-for="remaster in rom.remasters">
       <v-card class="ma-1">
         <v-img
           class="cover"
-          :src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_big')}`"
-          :lazy-src="`https:${dlc.cover.url.replace(
+          :src="`https:${remaster.cover.url.replace('t_thumb', 't_cover_big')}`"
+          :lazy-src="`https:${remaster.cover.url.replace(
             't_thumb',
             't_cover_small'
           )}`"
