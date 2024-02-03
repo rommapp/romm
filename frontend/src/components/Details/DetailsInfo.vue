@@ -13,7 +13,7 @@ const downloadStore = storeDownload();
     class="align-center my-3"
     no-gutters
   >
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Ver.</span>
     </v-col>
     <v-col>
@@ -21,7 +21,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>File</span>
     </v-col>
     <v-col class="text-body-1">
@@ -29,7 +29,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Files</span>
     </v-col>
     <v-col>
@@ -50,7 +50,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Size</span>
     </v-col>
     <v-col>
@@ -58,7 +58,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Tags</span>
     </v-col>
     <v-col>
@@ -74,7 +74,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.genres.length > 0" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Genres</span>
     </v-col>
     <v-col>
@@ -90,7 +90,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.franchises.length > 0" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Franchises</span>
     </v-col>
     <v-col>
@@ -106,7 +106,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.collections.length > 0" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Collections</span>
     </v-col>
     <v-col>
@@ -122,7 +122,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.companies.length > 0" class="align-center" no-gutters>
-    <v-col cols="3" sm="2" xl="1">
+    <v-col cols="3" sm="3" md="2" xl="1">
       <span>Companies</span>
     </v-col>
     <v-col>
