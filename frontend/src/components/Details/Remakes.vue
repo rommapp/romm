@@ -4,7 +4,7 @@ import type { Rom } from "@/stores/roms";
 defineProps<{ rom: Rom }>();
 </script>
 <template>
-  <v-row class="mt-2 mb-3" no-gutters v-for="remake in rom.remakes">
+  <v-row class="mb-3" no-gutters v-for="remake in rom.remakes">
     <v-img
       class="cover"
       :src="`https:${remake.cover.url.replace('t_thumb', 't_cover_big')}`"
