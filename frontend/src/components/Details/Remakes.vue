@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import type { Rom } from "@/stores/roms";
+import ActionBar from "../Game/Card/ActionBar.vue";
 
 defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-row class="mb-3" no-gutters v-for="remake in rom.remakes">
+    <v-col cols="3" lg="4" v-for="remake in rom.remakes">
+      <v-card class="ma-2">
     <v-img
       class="cover"
       :src="`https:${remake.cover.url.replace('t_thumb', 't_cover_big')}`"
@@ -13,10 +16,13 @@ defineProps<{ rom: Rom }>();
         't_cover_small'
       )}`"
       :aspect-ratio="3 / 4"
-    ></v-img>
-    <v-col class="ml-3">
-      <span>{{ remake.name }}</span>
+    />
+    <action-bar :rom="rom" />
+    </v-card>
     </v-col>
+    <!-- <v-col class="ml-3">
+      <span class="text-caption">{{ remake.name }}</span>
+    </v-col> -->
   </v-row>
 </template>
 
