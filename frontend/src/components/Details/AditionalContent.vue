@@ -1,0 +1,89 @@
+<script setup lang="ts">
+import type { Rom } from "@/stores/roms";
+import { onMounted, ref } from "vue";
+
+const props = defineProps<{ rom: Rom }>();
+const combined = ref();
+onMounted(() => {
+  props.rom.expansions.forEach((rom) => {
+    rom.type = "expansion";
+  });
+  props.rom.dlcs.forEach((rom) => {
+    rom.type = "dlc";
+  });
+  combined.value = [...props.rom.expansions, ...props.rom.dlcs];
+});
+</script>
+<template>
+  <v-row no-gutters>
+    <v-col
+      class="pa-0"
+      cols="6"
+      sm="3"
+      md="3"
+      lg="4"
+      xl="3"
+      v-for="expansion in rom.expansions"
+    >
+      <v-card class="ma-1">
+        <v-img
+          class="cover"
+          :src="`https:${expansion.cover.url.replace('t_thumb', 't_cover_big')}`"
+          :lazy-src="`https:${expansion.cover.url.replace(
+            't_thumb',
+            't_cover_small'
+          )}`"
+          :aspect-ratio="3 / 4"
+          ><v-chip
+            class="px-2 position-absolute chip-type text-white translucent"
+            density="compact"
+            label
+          >
+            <span>expansion</span>
+          </v-chip></v-img
+        >
+      </v-card>
+    </v-col>
+  </v-row>
+  <v-row no-gutters>
+    <v-col
+      class="pa-0"
+      cols="6"
+      sm="3"
+      md="3"
+      lg="4"
+      xl="3"
+      v-for="dlc in rom.dlcs"
+    >
+      <v-card class="ma-1">
+        <v-img
+          class="cover"
+          :src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_big')}`"
+          :lazy-src="`https:${dlc.cover.url.replace(
+            't_thumb',
+            't_cover_small'
+          )}`"
+          :aspect-ratio="3 / 4"
+          ><v-chip
+            class="px-2 position-absolute chip-type text-white translucent"
+            density="compact"
+            label
+          >
+            <span>dlc</span>
+          </v-chip></v-img
+        >
+      </v-card>
+    </v-col>
+  </v-row>
+</template>
+<style scoped>
+.chip-type {
+  top: -0.1rem;
+  left: -0.1rem;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+</style>

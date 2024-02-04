@@ -7,15 +7,14 @@ import { useDisplay } from "vuetify";
 
 import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
-import Dlcs from "@/components/Details/Dlcs.vue";
-import Expansions from "@/components/Details/Expansions.vue";
-import Remakes from "@/components/Details/Remakes.vue";
-import Remasters from "@/components/Details/Remasters.vue";
-import ExpandedGames from "@/components/Details/ExpandedGames.vue";
+import AditionalContent from "@/components/Details/AditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
 import DetailsInfo from "@/components/Details/DetailsInfo.vue";
+import Dlcs from "@/components/Details/Dlcs.vue";
 import Emulation from "@/components/Details/Emulation.vue";
+import Expansions from "@/components/Details/Expansions.vue";
+import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import Screenshots from "@/components/Details/Screenshots.vue";
 import States from "@/components/Details/States.vue";
@@ -124,6 +123,7 @@ watch(
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
+        <related-games class="mt-2" v-if="mdAndUp" :rom="rom" />
       </v-col>
       <v-col
         cols="12"
@@ -177,9 +177,10 @@ watch(
             <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
             <v-tab
               v-if="
-                rom.remakes.length > 0 ||
-                rom.remasters.length > 0 ||
-                rom.expanded_games.length > 0
+                smAndDown &&
+                (rom.remakes.length > 0 ||
+                  rom.remasters.length > 0 ||
+                  rom.expanded_games.length > 0)
               "
               value="relatedgames"
               rounded="0"
@@ -207,39 +208,28 @@ watch(
               <v-window-item value="states">
                 <states :rom="rom" />
               </v-window-item>
-              <v-window-item v-if="mdAndDown" value="aditionalcontent">
-                <template v-if="rom.expansions.length > 0">
-                  <v-card-title class="pa-0 mb-2">Expansions</v-card-title>
-                  <expansions :rom="rom" />
-                </template>
-                <template v-if="rom.dlcs.length > 0">
-                  <v-card-title class="pa-0 mt-6 mb-2">DLCs</v-card-title>
-                  <dlcs class="mt-1" :rom="rom" />
-                </template>
+              <v-window-item
+                v-if="
+                  mdAndDown &&
+                  (rom.expansions.length > 0 || rom.dlcs.length > 0)
+                "
+                value="aditionalcontent"
+              >
+                <aditional-content :rom="rom" />
               </v-window-item>
               <v-window-item value="screenshots">
                 <screenshots :rom="rom" />
               </v-window-item>
               <v-window-item
                 v-if="
-                  rom.remakes.length > 0 ||
-                  rom.remasters.length > 0 ||
-                  rom.expanded_games.length > 0
+                  smAndDown &&
+                  (rom.remakes.length > 0 ||
+                    rom.remasters.length > 0 ||
+                    rom.expanded_games.length > 0)
                 "
                 value="relatedgames"
               >
-                <template v-if="rom.remakes.length > 0">
-                  <!-- <v-card-title class="pa-0 mb-2">Remakes</v-card-title> -->
-                  <remakes :rom="rom" />
-                  <expanded-games :rom="rom" />
-                </template>
-                <template v-if="rom.remasters.length > 0">
-                  <!-- <v-card-title class="pa-0 mb-2">Remasters</v-card-title> -->
-                  <remasters :rom="rom" />
-                </template>
-                <template v-if="rom.expanded_games.length > 0">
-                  <!-- <v-card-title class="pa-0 mb-2">Expanded games</v-card-title> -->
-                </template>
+                <related-games :rom="rom" />
               </v-window-item>
             </v-window>
             <v-window v-if="showEmulation" v-model="tab" class="py-2">
@@ -252,19 +242,8 @@ watch(
       </v-col>
 
       <template v-if="lgAndUp">
-        <v-col class="side-info">
-          <v-row no-gutters v-if="rom.expansions.length > 0">
-            <v-card class="text-white translucent">
-              <v-card-title>Expansions</v-card-title>
-              <expansions class="px-3" :rom="rom" />
-            </v-card>
-          </v-row>
-          <v-row class="mt-2" no-gutters v-if="rom.dlcs.length > 0">
-            <v-card class="text-white translucent">
-              <v-card-title>DLCs</v-card-title>
-              <dlcs class="px-3" :rom="rom" />
-            </v-card>
-          </v-row>
+        <v-col>
+          <aditional-content :rom="rom" />
         </v-col>
       </template>
     </v-row>
@@ -295,10 +274,6 @@ watch(
 }
 .info-xs {
   margin-top: 60px;
-}
-.side-info {
-  margin-top: -230px;
-  z-index: 1;
 }
 .translucent {
   background: rgba(0, 0, 0, 0.35);
