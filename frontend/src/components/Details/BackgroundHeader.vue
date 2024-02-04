@@ -20,9 +20,9 @@ const imgSrcLazy =
 
 const style = reactive({
   width: "100%",
-  height: "330px",
-  "-webkit-filter": "blur(3px)",
-  filter: "blur(3px)",
+  height: "300px",
+  "-webkit-filter": "blur(2px)",
+  filter: "blur(2px)",
   transform: "scale(8)",
 });
 </script>
