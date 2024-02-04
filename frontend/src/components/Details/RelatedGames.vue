@@ -33,7 +33,16 @@ onMounted(() => {
       v-for="game in combined"
     >
       <v-card class="ma-1">
+        <v-tooltip
+          activator="parent"
+          location="top"
+          class="tooltip"
+          transition="fade-transition"
+          open-delay="1000"
+          >{{ game.name }}</v-tooltip
+        >
         <v-img
+          v-bind="props"
           class="cover"
           :src="`https:${game.cover.url.replace('t_thumb', 't_cover_big')}`"
           :lazy-src="`https:${game.cover.url.replace(
@@ -64,5 +73,9 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(201, 201, 201, 0.98) !important;
+  color: rgb(41, 41, 41) !important;
 }
 </style>

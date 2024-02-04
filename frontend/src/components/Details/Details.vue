@@ -64,7 +64,6 @@ const downloadStore = storeDownload();
     <v-col>
       <v-chip
         v-for="tag in rom.tags"
-        :key="tag"
         class="mr-2 py-1"
         label
         variant="outlined"
@@ -79,14 +78,12 @@ const downloadStore = storeDownload();
     </v-col>
     <v-col>
       <v-chip
-        v-for="{ id, name } in rom.genres"
-        :key="id"
+        v-for="genre in rom.genres"
         class="my-1 mr-2"
         label
-        variant="outlined"
       >
-        {{ name }}
-      </v-chip>
+        {{ genre.name }}
+    </v-chip>
     </v-col>
   </v-row>
   <v-row v-if="rom.franchises.length > 0" class="align-center my-3" no-gutters>
@@ -96,10 +93,8 @@ const downloadStore = storeDownload();
     <v-col>
       <v-chip
         v-for="{ id, name } in rom.franchises"
-        :key="id"
         class="my-1 mr-2"
         label
-        variant="outlined"
       >
         {{ name }}
       </v-chip>
@@ -112,10 +107,8 @@ const downloadStore = storeDownload();
     <v-col>
       <v-chip
         v-for="{ id, name } in rom.collections"
-        :key="id"
         class="my-1 mr-2"
         label
-        variant="outlined"
       >
         {{ name }}
       </v-chip>
@@ -128,10 +121,8 @@ const downloadStore = storeDownload();
     <v-col>
       <v-chip
         v-for="{ id, company } in rom.companies"
-        :key="id"
         class="my-1 mr-2"
         label
-        variant="outlined"
       >
         {{ company.name }}
       </v-chip>

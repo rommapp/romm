@@ -10,10 +10,8 @@ import ActionBar from "@/components/Details/ActionBar.vue";
 import AditionalContent from "@/components/Details/AditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
-import DetailsInfo from "@/components/Details/DetailsInfo.vue";
-import Dlcs from "@/components/Details/Dlcs.vue";
+import DetailsInfo from "@/components/Details/Details.vue";
 import Emulation from "@/components/Details/Emulation.vue";
-import Expansions from "@/components/Details/Expansions.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import Screenshots from "@/components/Details/Screenshots.vue";
@@ -129,7 +127,7 @@ watch(
         cols="12"
         sm="12"
         md="7"
-        lg="7"
+        lg="6"
         xl="8"
         class="px-5"
         :class="{
@@ -273,7 +271,7 @@ watch(
   margin-top: -280px;
 }
 .info-xs {
-  margin-top: 60px;
+  margin-top: 50px;
 }
 .translucent {
   background: rgba(0, 0, 0, 0.35);
