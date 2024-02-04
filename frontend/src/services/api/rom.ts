@@ -17,7 +17,7 @@ async function uploadRoms({
   platform,
   romsToUpload,
 }: {
-  platform: string;
+  platform: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
   let formData = new FormData();
