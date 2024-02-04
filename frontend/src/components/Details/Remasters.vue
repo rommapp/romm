@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Rom } from "@/stores/roms";
-import ActionBar from "../Game/Card/ActionBar.vue";
 
 defineProps<{ rom: Rom }>();
 </script>
