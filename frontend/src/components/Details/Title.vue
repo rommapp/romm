@@ -14,9 +14,9 @@ const { smAndDown } = useDisplay();
     no-gutters
   >
     <v-col>
-      <v-chip class="text-h5 font-weight-bold px-1 mb-1" variant="text" label>{{
+      <span class="text-h5 font-weight-bold px-1 mb-1" variant="text" label>{{
         rom.name
-      }}</v-chip>
+      }}</span>
       <v-chip
         class="font-italic ml-2"
         size="x-small"
@@ -41,7 +41,7 @@ const { smAndDown } = useDisplay();
     no-gutters
   >
     <v-col cols="12">
-      <v-chip :to="{ name: 'platform', params: { platform: platform.id } }">
+      <v-chip class="mr-1" :to="{ name: 'platform', params: { platform: platform.id } }">
         {{ platform.name }}
         <v-avatar :rounded="0" size="40" class="ml-1 py-1">
           <platform-icon :key="platform.slug" :slug="platform.slug" />
@@ -49,7 +49,7 @@ const { smAndDown } = useDisplay();
       </v-chip>
       <v-chip
         size="small"
-        class="mr-2 my-2"
+        class="mr-1 my-2"
         v-if="rom.regions.filter((i: string) => i).length > 0"
         :title="`Regions: ${rom.regions.join(', ')}`"
       >
@@ -59,7 +59,7 @@ const { smAndDown } = useDisplay();
       </v-chip>
       <v-chip
         size="small"
-        class="mr-2 my-2"
+        class="mr-1 my-2"
         v-if="rom.languages.filter((i: string) => i).length > 0"
         :title="`Languages: ${rom.languages.join(', ')}`"
       >
