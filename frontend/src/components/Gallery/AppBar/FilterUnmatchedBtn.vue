@@ -9,9 +9,9 @@ import { inject } from "vue";
 const galleryFilterStore = storeGalleryFilter();
 const { filterUnmatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
-function setUnmatched(){
-  galleryFilterStore.setFilterUnmatched()
-  emitter?.emit('filter', null);
+function setUnmatched() {
+  galleryFilterStore.setFilterUnmatched();
+  emitter?.emit("filter", null);
 }
 </script>
 
@@ -30,7 +30,11 @@ function setUnmatched(){
         :color="filterUnmatched ? 'romm-accent-1' : 'romm-gray'"
         v-bind="props"
         @click="setUnmatched()"
-        ><v-icon class="mx-5">mdi-file-find-outline</v-icon></v-btn
+        ><v-icon
+          class="mx-5"
+          :color="filterUnmatched ? 'romm-accent-1' : 'romm-white'"
+          >mdi-file-find-outline</v-icon
+        ></v-btn
       ></template
     ></v-tooltip
   >

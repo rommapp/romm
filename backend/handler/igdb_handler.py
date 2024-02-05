@@ -390,7 +390,10 @@ class IGDBHandler:
             remasters=rom.get("remasters", []),
             remakes=rom.get("remakes", []),
             expanded_games=rom.get("expanded_games", []),
-            companies=rom.get("involved_companies", []),
+            companies=[
+                company.get("company", [])
+                for company in rom.get("involved_companies", [])
+            ],
             first_release_date=rom.get("first_release_date", None),
         )
 
@@ -423,7 +426,10 @@ class IGDBHandler:
             remasters=rom.get("remasters", []),
             remakes=rom.get("remakes", []),
             expanded_games=rom.get("expanded_games", []),
-            companies=rom.get("involved_companies", []),
+            companies=[
+                company.get("company", [])
+                for company in rom.get("involved_companies", [])
+            ],
             first_release_date=rom.get("first_release_date", None),
         )
 
@@ -468,9 +474,11 @@ class IGDBHandler:
                 id_filter = " | ".join(
                     list(
                         map(
-                            lambda rom: f'id={rom.get("game").get("id", "")}'
-                            if "game" in rom.keys()
-                            else f'id={rom.get("id", "")}',
+                            lambda rom: (
+                                f'id={rom.get("game").get("id", "")}'
+                                if "game" in rom.keys()
+                                else f'id={rom.get("id", "")}'
+                            ),
                             alternative_matched_roms,
                         )
                     )
@@ -517,7 +525,10 @@ class IGDBHandler:
                 remasters=rom.get("remasters", []),
                 remakes=rom.get("remakes", []),
                 expanded_games=rom.get("expanded_games", []),
-                companies=rom.get("involved_companies", []),
+                companies=[
+                    company.get("company", [])
+                    for company in rom.get("involved_companies", [])
+                ],
                 first_release_date=rom.get("first_release_date", None),
             )
             for rom in matched_roms

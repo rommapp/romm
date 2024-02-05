@@ -29,13 +29,8 @@ const authStore = storeAuth();
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 
-function scrollToBottom() {
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
 socket.on("scan:scanning_platform", ({ name, slug, id }) => {
   scanningPlatforms.value.push({ name, slug, id, roms: [] });
-  window.setTimeout(scrollToBottom, 100);
 });
 
 socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
@@ -71,7 +66,6 @@ socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
   }
 
   scannedPlatform?.roms.push(rom);
-  window.setTimeout(scrollToBottom, 100);
 });
 
 socket.on("scan:done", () => {
