@@ -63,6 +63,7 @@ export type Events = {
   openFabMenu: boolean;
   filter: null;
   filterBarShow: null;
+  filterBarReset: null;
   sortBarShow: null;
   romUpdated: Rom;
 };

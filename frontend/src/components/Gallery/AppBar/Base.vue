@@ -15,9 +15,8 @@ const auth = storeAuth();
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
-    <sort-btn />
+    <!-- <sort-btn /> -->
     <filter-btn />
-    <filter-unmatched-btn />
     <filter-text-field />
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
@@ -37,9 +36,10 @@ const auth = storeAuth();
     </template>
   </v-app-bar>
 
-    <sort-bar />
   <v-expand-transition>
-
+    <sort-bar />
+  </v-expand-transition>
+  <v-expand-transition>
     <filter-bar />
   </v-expand-transition>
 </template>
