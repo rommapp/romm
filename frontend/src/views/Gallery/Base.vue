@@ -19,8 +19,8 @@ import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { inject, onMounted, ref } from "vue";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 
 // Props
 const route = useRoute();
@@ -228,11 +228,15 @@ onMounted(async () => {
   setFilters();
 });
 
-onBeforeUnmount(() => {
-  romsStore.resetSelection();
+onBeforeRouteLeave((to, from, next) => {
+  if (!to.fullPath.includes(from.path)) {
+    resetGallery();
+  }
+  next();
 });
 
 onBeforeRouteUpdate(async (to, _) => {
+  // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
   const { data: newPlatform } = await platformApi.getPlatform(
