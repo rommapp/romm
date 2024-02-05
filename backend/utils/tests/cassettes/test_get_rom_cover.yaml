@@ -206,7 +206,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Thu, 01 Feb 2024 08:47:06 GMT
+      - Mon, 05 Feb 2024 10:20:04 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -214,9 +214,9 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 76991fdca074ecae847653e013587ff8.cloudfront.net (CloudFront)
+      - 1.1 eea0826c9064fc2d08f21b43b4a26010.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - ZH4nHO3vNT6wzz20PO9zyX3ZwIvT-TByLf_-R0mYartifTo95qucRg==
+      - sfZfVwMVXuSDFxC_sXRyf59KBFGv7dsFuqLHaL9hVLX2jjbpvAZNcA==
       X-Amz-Cf-Pop:
       - ZAG50-C1
       X-Cache:
@@ -1424,7 +1424,7 @@ interactions:
         AAAAAElFTkSuQmCC
     headers:
       Age:
-      - '8563'
+      - '34191'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -1434,7 +1434,7 @@ interactions:
       Content-Type:
       - image/png
       Date:
-      - Thu, 01 Feb 2024 06:24:24 GMT
+      - Mon, 05 Feb 2024 00:50:14 GMT
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
@@ -1442,9 +1442,9 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 2285d262a6b5edcf46f904cd07877cdc.cloudfront.net (CloudFront)
+      - 1.1 a0b6e5bd6cf5596d4f38f0df8fa929e0.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - rgYQxN7lF5mkoN6s7wLMgM7aJULKdJpRHOqSQaZaqj0oR6id4QIfGA==
+      - cut1iVqLtV29U25-T3XocruoP62-o3IA_-h2ioyahqPbFJgi7HN-1Q==
       X-Amz-Cf-Pop:
       - ZAG50-C1
       X-Cache:
