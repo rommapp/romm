@@ -10,11 +10,10 @@ import ActionBar from "@/components/Details/ActionBar.vue";
 import AditionalContent from "@/components/Details/AditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
-import DetailsInfo from "@/components/Details/Details.vue";
+import Info from "@/components/Details/Info/Base.vue";
 import Emulation from "@/components/Details/Emulation.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
-import Screenshots from "@/components/Details/Screenshots.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
@@ -199,7 +198,7 @@ watch(
           <v-col cols="12">
             <v-window v-if="!showEmulation" v-model="tab" class="py-2">
               <v-window-item value="details">
-                <details-info :rom="rom" :platform="platform" />
+                <info :rom="rom" :platform="platform" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />
