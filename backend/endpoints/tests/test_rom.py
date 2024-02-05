@@ -50,6 +50,16 @@ def test_update_rom(update_rom, access_token, rom):
                     "https://images.igdb.com/igdb/image/upload/t_original/kqkixazzsokqgoxmuish.jpg",
                 ]
             ),
+            "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
+            "franchises": '[{"id": 756, "name": "Metroid"}]',
+            "collections": '[{"id": 243, "name": "Metroid"}, {"id": 6240, "name": "Metroid Prime"}]',
+            "expansions": '[]',
+            "dlcs": '[]',
+            "companies": '[{"id": 203227, "company": {"id": 70, "name": "Nintendo"}}, {"id": 203307, "company": {"id": 766, "name": "Retro Studios"}}]',
+            "first_release_date": 1675814400,
+            "remasters": '[]',
+            "remakes": '[]',
+            "expanded_games": '[]'
         },
     )
     assert response.status_code == 200
