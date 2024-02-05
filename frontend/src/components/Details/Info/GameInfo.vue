@@ -1,50 +1,22 @@
 <script setup lang="ts">
 import type { EnhancedRomSchema } from "@/__generated__";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import { useDisplay } from "vuetify";
 
 defineProps<{ rom: EnhancedRomSchema }>();
 const { xs } = useDisplay();
+const galleryFilter = storeGalleryFilter();
 </script>
 <template>
-  <template v-if="rom.genres.length > 0 || rom.franchises.length > 0 || rom.collections.length > 0 || rom.companies.length > 0">
-    <v-divider class="mx-2 my-4" />
-    <v-row v-if="rom.genres.length > 0" class="align-center my-3" no-gutters>
+  <v-divider class="mx-2 my-4" />
+  <template v-for="filter in galleryFilter.filters">
+    <v-row v-if="rom[filter].length > 0" class="align-center my-3" no-gutters>
       <v-col cols="3" sm="3" md="2" xl="1">
         <span>Genres</span>
       </v-col>
       <v-col>
-        <v-chip v-for="genre in rom.genres" class="my-1 mr-2" label>
-          {{ genre.name }}
-        </v-chip>
-      </v-col>
-    </v-row>
-    <v-row v-if="rom.franchises.length > 0" class="align-center my-3" no-gutters>
-      <v-col cols="3" sm="3" md="2" xl="1">
-        <span>Franchises</span>
-      </v-col>
-      <v-col>
-        <v-chip v-for="franchise in rom.franchises" class="my-1 mr-2" label>
-          {{ franchise.name }}
-        </v-chip>
-      </v-col>
-    </v-row>
-    <v-row v-if="rom.collections.length > 0" class="align-center my-3" no-gutters>
-      <v-col cols="3" sm="3" md="2" xl="1">
-        <span>Collections</span>
-      </v-col>
-      <v-col>
-        <v-chip v-for="collection in rom.collections" class="my-1 mr-2" label>
-          {{ collection.name }}
-        </v-chip>
-      </v-col>
-    </v-row>
-    <v-row v-if="rom.companies.length > 0" class="align-center" no-gutters>
-      <v-col cols="3" sm="3" md="2" xl="1">
-        <span>Companies</span>
-      </v-col>
-      <v-col>
-        <v-chip v-for="company in rom.companies" class="my-1 mr-2" label>
-          {{ company.company.name }}
+        <v-chip v-for="value in rom[filter]" class="my-1 mr-2" label>
+          {{ value.name }}
         </v-chip>
       </v-col>
     </v-row>
@@ -93,3 +65,9 @@ const { xs } = useDisplay();
     </v-row>
   </template>
 </template>
+<style scoped>
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(3px);
+}
+</style>

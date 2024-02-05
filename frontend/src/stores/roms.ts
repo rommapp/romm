@@ -168,7 +168,7 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.companies.some(
-            (company) => company.company.name === companyToFilter
+            (company) => company.name === companyToFilter
           )
         )
         .map((rom) => rom.id);

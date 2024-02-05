@@ -188,7 +188,7 @@ function setFilters() {
   galleryFilterStore.setFilterCompany([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company.company.name))
+        .flatMap((rom) => rom.companies.map((company) => company.name))
         .sort()
     ),
   ]);
