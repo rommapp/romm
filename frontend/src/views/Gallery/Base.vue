@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
-
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
@@ -15,12 +9,18 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
+import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 
 // Props
 const route = useRoute();
@@ -37,6 +37,7 @@ const {
   searchRoms,
   cursor,
   searchCursor,
+  platform,
 } = storeToRefs(romsStore);
 
 // Event listeners bus
@@ -47,7 +48,8 @@ emitter?.on("openFabMenu", (open) => {
 });
 
 // Functions
-async function fetchRoms(platformId: number) {
+async function fetchRoms() {
+  console.log(`Fetginh roms from: ${platform.value.name}`);
   const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
 
   if (
@@ -65,7 +67,7 @@ async function fetchRoms(platformId: number) {
 
   await romApi
     .getRoms({
-      platformId: platformId,
+      platformId: platform.value.id,
       cursor: isFiltered ? searchCursor.value : cursor.value,
       searchTerm: normalizeString(galleryFilter.filter),
     })
@@ -74,7 +76,6 @@ async function fetchRoms(platformId: number) {
       const allRomsSet = [...allRoms.value, ...data.items];
       romsStore.set(allRomsSet);
       romsStore.setFiltered(allRomsSet);
-      romsStore.setPlatform(platformId);
 
       if (isFiltered) {
         if (data.next_page !== undefined) searchCursor.value = data.next_page;
@@ -88,12 +89,12 @@ async function fetchRoms(platformId: number) {
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for ${platformId}: ${error}`,
+        msg: `Couldn't fetch roms for ${platform.value.name}: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
       });
-      console.error(`Couldn't fetch roms for ${platformId}: ${error}`);
+      console.error(`Couldn't fetch roms for ${platform.value.name}: ${error}`);
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -155,18 +156,21 @@ function resetGallery() {
   scrolledToTop.value = true;
 }
 
-onMounted(() => {
-  const platformId = Number(route.params.platform);
+onMounted(async () => {
+  const { data: platform } = await platformApi.getPlatform(
+    Number(route.params.platform)
+  );
+  romsStore.setPlatform(platform);
 
   // If platform is different, reset store and fetch roms
-  if (platformId != romsStore.platform) {
+  if (platform.id != romsStore.platform.id) {
     resetGallery();
-    fetchRoms(platformId);
+    fetchRoms();
   }
 
   // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
-    fetchRoms(platformId);
+    fetchRoms();
   }
 });
 
@@ -182,14 +186,17 @@ onBeforeRouteLeave((to, from, next) => {
   } else {
     resetGallery();
   }
-
   next();
 });
 
-onBeforeRouteUpdate((to, _) => {
+onBeforeRouteUpdate(async (to, _) => {
   // Reset store if switching to another platform
   resetGallery();
-  fetchRoms(Number(to.params.platform));
+  const { data: newPlatform } = await platformApi.getPlatform(
+    Number(to.params.platform)
+  );
+  romsStore.setPlatform(newPlatform);
+  fetchRoms();
 });
 </script>
 

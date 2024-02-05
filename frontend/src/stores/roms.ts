@@ -2,7 +2,7 @@ import { uniqBy, groupBy, isNull } from "lodash";
 import { defineStore } from "pinia";
 import { nanoid } from "nanoid";
 
-import type { RomSchema } from "@/__generated__/";
+import type { RomSchema, PlatformSchema } from "@/__generated__/";
 
 export type Rom = RomSchema & {
   sibling_roms?: RomSchema[]; // Returned by the API
@@ -11,13 +11,13 @@ export type Rom = RomSchema & {
 
 export default defineStore("roms", {
   state: () => ({
-    _platform: Number(undefined),
-    recentRoms: [] as Rom[],
+    _platform: {} as PlatformSchema,
     _all: [] as Rom[],
     _grouped: [] as Rom[],
     _filteredIDs: [] as number[],
     _searchIDs: [] as number[],
     _selectedIDs: [] as number[],
+    recentRoms: [] as Rom[],
     lastSelectedIndex: -1,
     cursor: "" as string | null,
     searchCursor: "" as string | null,
@@ -65,7 +65,7 @@ export default defineStore("roms", {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });
     },
-    setPlatform(platform: number) {
+    setPlatform(platform: PlatformSchema) {
       this._platform = platform;
     },
     setRecentRoms(roms: Rom[]) {
