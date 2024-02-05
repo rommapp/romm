@@ -1,8 +1,7 @@
-import { uniqBy, groupBy, isNull } from "lodash";
-import { defineStore } from "pinia";
+import type { PlatformSchema, RomSchema } from "@/__generated__/";
+import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
-
-import type { RomSchema, PlatformSchema } from "@/__generated__/";
+import { defineStore } from "pinia";
 
 export type Rom = RomSchema & {
   sibling_roms?: RomSchema[]; // Returned by the API
@@ -110,13 +109,69 @@ export default defineStore("roms", {
       this.lastSelectedIndex = -1;
     },
     // Filtered roms
-    setFiltered(roms: Rom[]) {
+    setFiltered(
+      roms: Rom[],
+      filterUnmatched: boolean,
+      filterGenre: string | null = null,
+      filterFranchise: string | null = null,
+      filterCollection: string | null = null,
+      filterCompany: string | null = null
+    ) {
       this._filteredIDs = roms.map((rom) => rom.id);
+      if (filterUnmatched) {
+        this.filterUnmatched();
+      }
+      if (filterGenre) {
+        this.filterGenre(filterGenre);
+      }
+      if (filterFranchise) {
+        this.filterFranchise(filterFranchise);
+      }
+      if (filterCollection) {
+        this.filterCollection(filterCollection);
+      }
+      if (filterCompany) {
+        this.filterCompany(filterCompany);
+      }
     },
-    setFilteredUnmatched() {
+    filterUnmatched() {
       this._filteredIDs = this.filteredRoms
         .filter((rom) => !rom.igdb_id)
         .map((roms) => roms.id);
+    },
+    filterGenre(genreToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.genres.some((genre) => genre.name === genreToFilter)
+        )
+        .map((rom) => rom.id);
+    },
+    filterFranchise(franchiseToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.franchises.some(
+            (franchise) => franchise.name === franchiseToFilter
+          )
+        )
+        .map((rom) => rom.id);
+    },
+    filterCollection(collectionToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.collections.some(
+            (collection) => collection.name === collectionToFilter
+          )
+        )
+        .map((rom) => rom.id);
+    },
+    filterCompany(companyToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.companies.some(
+            (company) => company.company.name === companyToFilter
+          )
+        )
+        .map((rom) => rom.id);
     },
     // Search roms
     setSearch(roms: Rom[]) {

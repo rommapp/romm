@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import { storeToRefs } from "pinia";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject } from "vue";
 
 // Props
+const galleryFilterStore = storeGalleryFilter();
+const { filterUnmatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
-const romsStore = storeRoms();
-const isShowUnmatched = ref(false);
-function showUnmatched() {
-  isShowUnmatched.value = !isShowUnmatched.value;
-  if (isShowUnmatched.value) {
-    romsStore.setFilteredUnmatched();
-  } else {
-    emitter?.emit("filter", null);
-  }
+function setUnmatched(){
+  galleryFilterStore.setFilterUnmatched()
+  emitter?.emit('filter', null);
 }
 </script>
 
@@ -27,14 +24,16 @@ function showUnmatched() {
     open-delay="1000"
     ><template v-slot:activator="{ props }">
       <v-btn
-        rounded="0"
-        variant="text"
-        class="ml-0"
-        :color="isShowUnmatched ? 'romm-accent-1' : ''"
-        icon="mdi-file-find-outline"
+        class="ma-1"
+        variant="outlined"
+        size="compact"
+        :color="filterUnmatched ? 'romm-accent-1' : 'romm-gray'"
         v-bind="props"
-        @click="showUnmatched" /></template
-  ></v-tooltip>
+        @click="setUnmatched()"
+        ><v-icon class="mx-5">mdi-file-find-outline</v-icon></v-btn
+      ></template
+    ></v-tooltip
+  >
 </template>
 <style scoped>
 .tooltip :deep(.v-overlay__content) {

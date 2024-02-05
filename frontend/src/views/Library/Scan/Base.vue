@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
-import type { Events } from "@/types/emitter";
-import { normalizeString } from "@/utils";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { ref } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -31,13 +26,6 @@ async function scan() {
     rescanUnidentified: rescanUnidentified.value,
   });
 }
-
-onBeforeUnmount(() => {
-  // socket.off("scan:scanning_platform");
-  // socket.off("scan:scanning_rom");
-  // socket.off("scan:done");
-  // socket.off("scan:done_ko");
-});
 </script>
 
 <template>
