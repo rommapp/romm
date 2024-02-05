@@ -197,6 +197,8 @@ interactions:
         A3Q8RFKkojMoLW5QL/BIVOECBLKE6/DNgNshcXHJW8grAIL21tCELgk0gtbBnWTNJBm4G2/DxpIX
         0fYgCoXyfxmGxbQkSwt6AAAAAElFTkSuQmCC
     headers:
+      Age:
+      - '42698'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -214,13 +216,13 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 eea0826c9064fc2d08f21b43b4a26010.cloudfront.net (CloudFront)
+      - 1.1 0e761f7a5b2481acd893422a702c9fa8.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - sfZfVwMVXuSDFxC_sXRyf59KBFGv7dsFuqLHaL9hVLX2jjbpvAZNcA==
+      - D3U-qTbT0WEQMLImQGHoYOmDFbwzao9J2gc26yueerZk5sfBoZhiog==
       X-Amz-Cf-Pop:
-      - ZAG50-C1
+      - YTO50-P2
       X-Cache:
-      - Miss from cloudfront
+      - Hit from cloudfront
       X-Powered-By:
       - Express
     status:
@@ -1424,7 +1426,7 @@ interactions:
         AAAAAElFTkSuQmCC
     headers:
       Age:
-      - '34191'
+      - '76888'
       Alt-Svc:
       - h3=":443"; ma=86400
       Cache-Control:
@@ -1442,11 +1444,11 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 a0b6e5bd6cf5596d4f38f0df8fa929e0.cloudfront.net (CloudFront)
+      - 1.1 6889869bf680fe34cca722f0a05e1106.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - cut1iVqLtV29U25-T3XocruoP62-o3IA_-h2ioyahqPbFJgi7HN-1Q==
+      - xr1Lru-cbDXk3vO0FxDLFXxTj_Uf4m0Aak_jdtQq2whwHApV9bHDVg==
       X-Amz-Cf-Pop:
-      - ZAG50-C1
+      - YTO50-P2
       X-Cache:
       - Hit from cloudfront
       X-Powered-By:
