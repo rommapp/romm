@@ -121,7 +121,7 @@ watch(
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
-        <related-games class="mt-2" v-if="mdAndUp" :rom="rom" />
+        <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
       </v-col>
       <v-col
         cols="12"
@@ -172,7 +172,8 @@ watch(
               rounded="0"
               >Aditional content</v-tab
             >
-            <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
+            <!-- TODO: user screenshots -->
+            <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
             <v-tab
               v-if="
                 smAndDown &&
@@ -215,9 +216,10 @@ watch(
               >
                 <aditional-content :rom="rom" />
               </v-window-item>
-              <v-window-item value="screenshots">
+              <!-- TODO: user screenshots -->
+              <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
                 <screenshots :rom="rom" />
-              </v-window-item>
+              </v-window-item> -->
               <v-window-item
                 v-if="
                   smAndDown &&
@@ -240,7 +242,7 @@ watch(
       </v-col>
 
       <template v-if="lgAndUp">
-        <v-col>
+        <v-col class="px-6">
           <aditional-content :rom="rom" />
         </v-col>
       </template>

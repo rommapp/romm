@@ -25,7 +25,7 @@ onMounted(() => {
   <v-row no-gutters>
     <v-col
       class="pa-0"
-      cols="6"
+      cols="4"
       sm="3"
       md="6"
       lg="6"

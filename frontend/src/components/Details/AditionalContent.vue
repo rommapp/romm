@@ -18,82 +18,94 @@ onMounted(() => {
   <v-row no-gutters>
     <v-col
       class="pa-0"
-      cols="6"
+      cols="4"
       sm="3"
       md="3"
       lg="4"
       xl="3"
       v-for="expansion in rom.expansions"
     >
-      <v-card class="ma-1">
-        <v-tooltip
-          activator="parent"
-          location="top"
-          class="tooltip"
-          transition="fade-transition"
-          open-delay="1000"
-          >{{ expansion.name }}</v-tooltip
-        >
-        <v-img
-          v-bind="props"
-          class="cover"
-          :src="`https:${expansion.cover.url.replace(
-            't_thumb',
-            't_cover_big'
-          )}`"
-          :lazy-src="`https:${expansion.cover.url.replace(
-            't_thumb',
-            't_cover_small'
-          )}`"
-          :aspect-ratio="3 / 4"
-          ><v-chip
-            class="px-2 position-absolute chip-type text-white translucent"
-            density="compact"
-            label
+      <a
+        style="text-decoration: none; color: inherit"
+        :href="`https://www.igdb.com/games/${expansion.slug}`"
+        target="_blank"
+      >
+        <v-card class="ma-1">
+          <v-tooltip
+            activator="parent"
+            location="top"
+            class="tooltip"
+            transition="fade-transition"
+            open-delay="1000"
+            >{{ expansion.name }}</v-tooltip
           >
-            <span>expansion</span>
-          </v-chip></v-img
-        >
-      </v-card>
+          <v-img
+            v-bind="props"
+            class="cover"
+            :src="`https:${expansion.cover.url.replace(
+              't_thumb',
+              't_cover_big'
+            )}`"
+            :lazy-src="`https:${expansion.cover.url.replace(
+              't_thumb',
+              't_cover_small'
+            )}`"
+            :aspect-ratio="3 / 4"
+            ><v-chip
+              class="px-2 position-absolute chip-type text-white translucent"
+              density="compact"
+              label
+            >
+              <span>expansion</span>
+            </v-chip></v-img
+          >
+        </v-card>
+      </a>
     </v-col>
   </v-row>
   <v-row no-gutters>
     <v-col
       class="pa-0"
-      cols="6"
+      cols="4"
       sm="3"
       md="3"
       lg="4"
       xl="3"
       v-for="dlc in rom.dlcs"
     >
-      <v-card class="ma-1">
-        <v-tooltip
-          activator="parent"
-          location="top"
-          class="tooltip"
-          transition="fade-transition"
-          open-delay="1000"
-          >{{ dlc.name }}</v-tooltip
-        >
-        <v-img
-          v-bind="props"
-          class="cover"
-          :src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_big')}`"
-          :lazy-src="`https:${dlc.cover.url.replace(
-            't_thumb',
-            't_cover_small'
-          )}`"
-          :aspect-ratio="3 / 4"
-          ><v-chip
-            class="px-2 position-absolute chip-type text-white translucent"
-            density="compact"
-            label
+      <a
+        style="text-decoration: none; color: inherit"
+        :href="`https://www.igdb.com/games/${dlc.slug}`"
+        target="_blank"
+      >
+        <v-card class="ma-1">
+          <v-tooltip
+            activator="parent"
+            location="top"
+            class="tooltip"
+            transition="fade-transition"
+            open-delay="1000"
+            >{{ dlc.name }}</v-tooltip
           >
-            <span>dlc</span>
-          </v-chip></v-img
-        >
-      </v-card>
+          <v-img
+            v-bind="props"
+            class="cover"
+            :src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_big')}`"
+            :lazy-src="`https:${dlc.cover.url.replace(
+              't_thumb',
+              't_cover_small'
+            )}`"
+            :aspect-ratio="3 / 4"
+            ><v-chip
+              class="px-2 position-absolute chip-type text-white translucent"
+              density="compact"
+              label
+            >
+              <span>dlc</span>
+            </v-chip></v-img
+          >
+        </v-card>
+      </a>
     </v-col>
   </v-row>
 </template>
