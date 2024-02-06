@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from stat import S_IFREG
 from typing import Annotated, Optional
@@ -23,6 +22,7 @@ from handler import (
     fs_asset_handler,
     fs_resource_handler,
     fs_rom_handler,
+    igdb_handler,
 )
 from logger.logger import log
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
@@ -211,20 +211,13 @@ async def update_rom(
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
+
+    if cleaned_data["igdb_id"]:
+        igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        cleaned_data.update(igdb_rom)
+
     cleaned_data["name"] = data.get("name", db_rom.name)
-    cleaned_data["slug"] = data.get("slug", db_rom.slug)
     cleaned_data["summary"] = data.get("summary", db_rom.summary)
-    cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
-    cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
-    cleaned_data["total_rating"] = data.get("total_rating", db_rom.total_rating)
-    cleaned_data["genres"] = json.loads(data["genres"])
-    cleaned_data["franchises"] = json.loads(data["franchises"])
-    cleaned_data["collections"] = json.loads(data["collections"])
-    cleaned_data["expansions"] = json.loads(data["expansions"])
-    cleaned_data["dlcs"] = json.loads(data["dlcs"])
-    cleaned_data["remakes"] = json.loads(data["remakes"])
-    cleaned_data["companies"] = json.loads(data["companies"])
-    cleaned_data["first_release_date"] = data.get("first_release_date", db_rom.first_release_date) or None
 
     fs_safe_file_name = (
         data.get("file_name", db_rom.file_name).strip().replace("/", "-")

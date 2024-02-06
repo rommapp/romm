@@ -165,7 +165,8 @@ watch(
             <v-tab value="states" rounded="0">States</v-tab>
             <v-tab
               v-if="
-                mdAndDown && (rom.expansions.length > 0 || rom.dlcs.length > 0)
+                mdAndDown &&
+                (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
               "
               value="aditionalcontent"
               rounded="0"
@@ -176,9 +177,9 @@ watch(
             <v-tab
               v-if="
                 smAndDown &&
-                (rom.remakes.length > 0 ||
-                  rom.remasters.length > 0 ||
-                  rom.expanded_games.length > 0)
+                (rom.igdb_metadata?.remakes ||
+                  rom.igdb_metadata?.remasters ||
+                  rom.igdb_metadata?.expanded_games)
               "
               value="relatedgames"
               rounded="0"
@@ -209,7 +210,7 @@ watch(
               <v-window-item
                 v-if="
                   mdAndDown &&
-                  (rom.expansions.length > 0 || rom.dlcs.length > 0)
+                  (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
                 "
                 value="aditionalcontent"
               >
@@ -222,9 +223,9 @@ watch(
               <v-window-item
                 v-if="
                   smAndDown &&
-                  (rom.remakes.length > 0 ||
-                    rom.remasters.length > 0 ||
-                    rom.expanded_games.length > 0)
+                  (rom.igdb_metadata?.remakes ||
+                    rom.igdb_metadata?.remasters ||
+                    rom.igdb_metadata?.expanded_games)
                 "
                 value="relatedgames"
               >

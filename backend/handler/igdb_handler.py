@@ -43,6 +43,35 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
+class IGDBRelatedGame(TypedDict):
+    name: str
+    type: str
+    cover_url: str
+
+
+class IGDBRomExpansion(IGDBRelatedGame):
+    id: int
+    slug: str
+
+
+class IGDBDlc(IGDBRelatedGame):
+    slug: str
+
+
+class IGDBMetadata(TypedDict):
+    total_rating: str
+    first_release_date: int | None
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    expansions: list[IGDBRomExpansion]
+    dlcs: list[IGDBDlc]
+    remasters: list[IGDBRelatedGame]
+    remakes: list[IGDBRelatedGame]
+    expanded_games: list[IGDBRelatedGame]
+
+
 class IGDBRom(TypedDict):
     igdb_id: Optional[int]
     name: Optional[str]
@@ -50,22 +79,45 @@ class IGDBRom(TypedDict):
     summary: Optional[str]
     url_cover: str
     url_screenshots: list[str]
-    total_rating: Optional[str]
-    genres: list[dict]
-    franchises: list[dict]
-    collections: list[dict]
-    expansions: list[dict]
-    dlcs: list[dict]
-    remasters: list[dict]
-    remakes: list[dict]
-    expanded_games: list[dict]
-    companies: list[dict]
-    first_release_date: Optional[int]
+    metadata: Optional[IGDBMetadata]
 
 
 class IGDBPlatform(TypedDict):
     igdb_id: int
     name: str
+
+
+def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
+    return IGDBMetadata(
+        {
+            "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "first_release_date": rom.get("first_release_date", None),
+            "genres": pydash.map_(rom.get("genres", []), "name"),
+            "franchises": pydash.map_(rom.get("franchises", []), "name"),
+            "collections": pydash.map_(rom.get("collections", []), "name"),
+            "expansions": [
+                {"cover_url": pydash.get(e, "cover.url", ""), "type": "expansion", **e}
+                for e in rom.get("expansions", [])
+            ],
+            "dlcs": [
+                {"cover_url": pydash.get(d, "cover.url", ""), "type": "dlc", **d}
+                for d in rom.get("dlcs", [])
+            ],
+            "remasters": [
+                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remaster", **r}
+                for r in rom.get("remasters", [])
+            ],
+            "remakes": [
+                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remake", **r}
+                for r in rom.get("remakes", [])
+            ],
+            "expanded_games": [
+                {"cover_url": pydash.get(g, "cover.url", ""), "type": "expanded", **g}
+                for g in rom.get("expanded_games", [])
+            ],
+            "companies": pydash.map_(rom.get("involved_companies", []), "company.name"),
+        }
+    )
 
 
 class IGDBHandler:
@@ -74,44 +126,7 @@ class IGDBHandler:
         self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions"
         self.platforms_fields = ["id", "name"]
         self.games_endpoint = "https://api.igdb.com/v4/games"
-        self.games_fields = [
-            "id",
-            "name",
-            "slug",
-            "summary",
-            "total_rating",
-            "aggregated_rating",
-            "genres.name",
-            "alternative_names.name",
-            "artworks.url",
-            "cover.url",
-            "screenshots.url",
-            "franchise.name",
-            "franchises.name",
-            "collections.name",
-            "expansions.name",
-            "expansions.slug",
-            "expansions.cover.url",
-            "expanded_games.name",
-            "expanded_games.cover.url",
-            "dlcs.name",
-            "dlcs.slug",
-            "dlcs.cover.url",
-            "remakes.name",
-            "remakes.cover.url",
-            "remasters.name",
-            "remasters.cover.url",
-            "involved_companies.company.name",
-            "platforms.name",
-            "first_release_date",
-            "game_modes.name",
-            "player_perspectives.name",
-            "ports.name",
-            "similar_games.name",
-            "language_supports.language.name",
-            "external_games.uid",
-            "external_games.category",
-        ]
+        self.games_fields = GAMES_FIELDS
         self.search_endpoint = "https://api.igdb.com/v4/search"
         self.search_fields = ["game.id", "name"]
         self.pagination_limit = 200
@@ -381,20 +396,7 @@ class IGDBHandler:
                 )
                 for s in rom.get("screenshots", [])
             ],
-            total_rating=str(round(rom.get("total_rating", 0.0), 2)),
-            genres=rom.get("genres", []),
-            franchises=rom.get("franchises", []),
-            collections=rom.get("collections", []),
-            expansions=rom.get("expansions", []),
-            dlcs=rom.get("dlcs", []),
-            remasters=rom.get("remasters", []),
-            remakes=rom.get("remakes", []),
-            expanded_games=rom.get("expanded_games", []),
-            companies=[
-                company.get("company", [])
-                for company in rom.get("involved_companies", [])
-            ],
-            first_release_date=rom.get("first_release_date", None),
+            igdb_metadata=extract_metadata_from_igdb_rom(rom),
         )
 
     @check_twitch_token
@@ -417,20 +419,7 @@ class IGDBHandler:
                 )
                 for s in rom.get("screenshots", [])
             ],
-            total_rating=str(round(rom.get("total_rating", 0.0), 2)),
-            genres=rom.get("genres", []),
-            franchises=rom.get("franchises", []),
-            collections=rom.get("collections", []),
-            expansions=rom.get("expansions", []),
-            dlcs=rom.get("dlcs", []),
-            remasters=rom.get("remasters", []),
-            remakes=rom.get("remakes", []),
-            expanded_games=rom.get("expanded_games", []),
-            companies=[
-                company.get("company", [])
-                for company in rom.get("involved_companies", [])
-            ],
-            first_release_date=rom.get("first_release_date", None),
+            igdb_metadata=extract_metadata_from_igdb_rom(rom),
         )
 
     @check_twitch_token
@@ -516,20 +505,7 @@ class IGDBHandler:
                     )
                     for s in rom.get("screenshots", [])
                 ],
-                total_rating=str(round(rom.get("total_rating", 0.0), 2)),
-                genres=rom.get("genres", []),
-                franchises=rom.get("franchises", []),
-                collections=rom.get("collections", []),
-                expansions=rom.get("expansions", []),
-                dlcs=rom.get("dlcs", []),
-                remasters=rom.get("remasters", []),
-                remakes=rom.get("remakes", []),
-                expanded_games=rom.get("expanded_games", []),
-                companies=[
-                    company.get("company", [])
-                    for company in rom.get("involved_companies", [])
-                ],
-                first_release_date=rom.get("first_release_date", None),
+                igdb_metadata=extract_metadata_from_igdb_rom(rom),
             )
             for rom in matched_roms
         ]
@@ -577,3 +553,43 @@ class TwitchAuth:
             return self._update_twitch_token()
 
         return token
+
+
+GAMES_FIELDS = [
+    "id",
+    "name",
+    "slug",
+    "summary",
+    "total_rating",
+    "aggregated_rating",
+    "genres.name",
+    "alternative_names.name",
+    "artworks.url",
+    "cover.url",
+    "screenshots.url",
+    "franchise.name",
+    "franchises.name",
+    "collections.name",
+    "expansions.name",
+    "expansions.slug",
+    "expansions.cover.url",
+    "expanded_games.name",
+    "expanded_games.cover.url",
+    "dlcs.name",
+    "dlcs.slug",
+    "dlcs.cover.url",
+    "remakes.name",
+    "remakes.cover.url",
+    "remasters.name",
+    "remasters.cover.url",
+    "involved_companies.company.name",
+    "platforms.name",
+    "first_release_date",
+    "game_modes.name",
+    "player_perspectives.name",
+    "ports.name",
+    "similar_games.name",
+    "language_supports.language.name",
+    "external_games.uid",
+    "external_games.category",
+]

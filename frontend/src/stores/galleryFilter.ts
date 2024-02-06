@@ -4,7 +4,7 @@ import { normalizeString } from "@/utils";
 export default defineStore("galleryFilter", {
   state: () => ({
     filterSearch: "",
-    filters: ["genres", "franchises", "collections", "companies"],
+    filters: ["genres", "franchises", "collections", "companies"] as const,
     filterGenres: [] as string[],
     filterFranchises: [] as string[],
     filterCollections: [] as string[],

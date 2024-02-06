@@ -17,7 +17,7 @@ const capitalizeString = (str: string) => str.charAt(0).toUpperCase() + str.slic
       </v-col>
       <v-col>
         <v-chip v-for="value in rom[filter]" class="my-1 mr-2" label>
-          {{ value.name }}
+          {{ value }}
         </v-chip>
       </v-col>
     </v-row>

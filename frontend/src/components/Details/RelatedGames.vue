@@ -3,23 +3,11 @@ import type { Rom } from "@/stores/roms";
 import { onMounted, ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
-const combined = ref();
-onMounted(() => {
-  props.rom.remakes.forEach((rom) => {
-    rom.type = "remake";
-  });
-  props.rom.remasters.forEach((rom) => {
-    rom.type = "remaster";
-  });
-  props.rom.expanded_games.forEach((rom) => {
-    rom.type = "expanded";
-  });
-  combined.value = [
-    ...props.rom.remakes,
-    ...props.rom.remasters,
-    ...props.rom.expanded_games,
-  ];
-});
+const combined = ref([
+    ...props.rom.igdb_metadata?.remakes ?? [],
+    ...props.rom.igdb_metadata?.remasters ?? [],
+    ...props.rom.igdb_metadata?.expanded_games ?? [],
+  ]);
 </script>
 <template>
   <v-row no-gutters>
@@ -44,8 +32,8 @@ onMounted(() => {
         <v-img
           v-bind="props"
           class="cover"
-          :src="`https:${game.cover.url.replace('t_thumb', 't_cover_big')}`"
-          :lazy-src="`https:${game.cover.url.replace(
+          :src="`https:${game.cover_url.replace('t_thumb', 't_cover_big')}`"
+          :lazy-src="`https:${game.cover_url.replace(
             't_thumb',
             't_cover_small'
           )}`"
