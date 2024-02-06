@@ -6,13 +6,14 @@ import { useDisplay } from "vuetify";
 defineProps<{ rom: EnhancedRomSchema }>();
 const { xs } = useDisplay();
 const galleryFilter = storeGalleryFilter();
+const capitalizeString = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 </script>
 <template>
   <v-divider class="mx-2 my-4" />
   <template v-for="filter in galleryFilter.filters">
     <v-row v-if="rom[filter].length > 0" class="align-center my-3" no-gutters>
       <v-col cols="3" sm="3" md="2" xl="1">
-        <span>{{ filter.charAt(0).toUpperCase() + filter.slice(1) }}</span>
+        <span>{{ capitalizeString(filter) }}</span>
       </v-col>
       <v-col>
         <v-chip v-for="value in rom[filter]" class="my-1 mr-2" label>
