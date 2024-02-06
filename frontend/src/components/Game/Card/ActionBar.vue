@@ -13,8 +13,7 @@ const downloadStore = storeDownload();
 </script>
 
 <template>
-  <v-card-text>
-    <v-row>
+    <v-row no-gutters>
       <v-col class="pa-0">
         <v-btn
           class="action-bar-btn"
@@ -50,7 +49,6 @@ const downloadStore = storeDownload();
         <admin-menu :rom="rom" />
       </v-menu>
     </v-row>
-  </v-card-text>
 </template>
 
 <style scoped>

@@ -71,7 +71,7 @@ async function updateRom(matchedRom: SearchRomSchema) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  Object.assign(rom.value, matchedRom)
+  Object.assign(rom.value, matchedRom);
 
   await romApi
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
@@ -275,33 +275,47 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
-                <v-tooltip
-                  activator="parent"
-                  location="top"
-                  class="tooltip"
-                  transition="fade-transition"
-                  open-delay="1000"
-                  >{{ matchedRom.name }}</v-tooltip
+                <v-hover v-slot="{ isHovering, props }" open-delay="800">
+                  <v-img
+                    v-bind="props"
+                    :src="
+                      !matchedRom.url_cover
+                        ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                        : matchedRom.url_cover
+                    "
+                    :lazy-src="
+                      !matchedRom.url_cover
+                        ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                        : matchedRom.url_cover
+                    "
+                    :aspect-ratio="3 / 4"
+                  >
+                    <template v-slot:placeholder>
+                      <div
+                        class="d-flex align-center justify-center fill-height"
+                      >
+                        <v-progress-circular
+                          color="romm-accent-1"
+                          :width="2"
+                          indeterminate
+                        />
+                      </div>
+                    </template>
+                    <v-expand-transition>
+                      <div
+                        v-if="isHovering || !matchedRom.url_cover"
+                        class="translucent text-caption"
+                      >
+                        <v-list-item>{{ matchedRom.name }}</v-list-item>
+                      </div>
+                    </v-expand-transition>
+                  </v-img></v-hover
                 >
-                <v-img
-                  v-bind="props"
-                  :src="
-                    !matchedRom.url_cover
-                      ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                      : matchedRom.url_cover
-                  "
-                  :lazy-src="
-                    !matchedRom.url_cover
-                      ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                      : matchedRom.url_cover
-                  "
-                  :aspect-ratio="3 / 4"
-                />
                 <v-card-text>
-                  <v-row class="pa-1">
-                    <span class="d-inline-block text-truncate">{{
-                      matchedRom.name
-                    }}</span>
+                  <v-row class="pa-1 align-center">
+                    <v-col class="pa-0 ml-1 text-truncate">
+                      <span>{{ matchedRom.name }}</span>
+                    </v-col>
                   </v-row>
                 </v-card-text>
               </v-card>
@@ -325,10 +339,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
 .scroll {
   overflow-y: scroll;
 }
@@ -353,7 +363,11 @@ onBeforeUnmount(() => {
 }
 .matched-rom.on-hover {
   z-index: 1 !important;
-  opacity: 1;
   transform: scale(1.05);
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
 }
 </style>

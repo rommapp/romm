@@ -73,6 +73,7 @@ onMounted(() => {});
           </v-list-item>
         </template>
         <platform-list-item
+          class="py-4"
           v-for="platform in platforms.filledPlatforms"
           :platform="platform"
           :rail="rail"

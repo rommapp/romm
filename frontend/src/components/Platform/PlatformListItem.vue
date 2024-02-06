@@ -11,7 +11,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
     :to="{ name: 'platform', params: { platform: platform.id } }"
     :value="platform.slug"
     :key="platform.slug"
-    class="pt-4 pb-4 bg-terciary"
+    class="bg-terciary"
   >
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
     <template v-slot:prepend>
