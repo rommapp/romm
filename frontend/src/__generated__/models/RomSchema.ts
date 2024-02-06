@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { RomMetadata } from './RomMetadata';
 import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { StateSchema } from './StateSchema';
@@ -23,11 +24,21 @@ export type RomSchema = {
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
+    total_rating: (string | null);
+    aggregated_rating: (string | null);
+    first_release_date: (number | null);
+    alternative_names: Array<string>;
+    genres: Array<string>;
+    franchises: Array<string>;
+    collections: Array<string>;
+    companies: Array<string>;
+    game_modes: Array<string>;
+    igdb_metadata: (RomMetadata | null);
     sort_comparator: string;
-    path_cover_s: string;
-    path_cover_l: string;
+    path_cover_s: (string | null);
+    path_cover_l: (string | null);
     has_cover: boolean;
-    url_cover: string;
+    url_cover: (string | null);
     revision: (string | null);
     regions: Array<string>;
     languages: Array<string>;

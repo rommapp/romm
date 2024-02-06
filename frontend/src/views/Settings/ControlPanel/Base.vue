@@ -1,31 +1,18 @@
 <script setup lang="ts">
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeScanning from "@/stores/scanning";
 import ControlPanelConfig from "@/views/Settings/ControlPanel/Config/Base.vue";
 import ControlPanelGeneral from "@/views/Settings/ControlPanel/General/Base.vue";
 import ControlPanelUsers from "@/views/Settings/ControlPanel/Users/Base.vue";
-import { storeToRefs } from "pinia";
 import { ref } from "vue";
 
 // Props
 const authStore = storeAuth();
 const heartbeatStore = storeHeartbeat();
 const tab = ref("general");
-const scanningStore = storeScanning();
-const { scanning } = storeToRefs(scanningStore);
 </script>
 <template>
-  <!-- Settings tabs -->
   <v-app-bar elevation="0" density="compact">
-    <v-progress-linear
-      id="scan-progress-bar"
-      color="romm-accent-1"
-      :active="scanning"
-      :indeterminate="true"
-      absolute
-      fixed
-    />
     <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
       <v-tab value="general" rounded="0">General</v-tab>
       <v-tab value="config" rounded="0">Config</v-tab>

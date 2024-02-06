@@ -1,17 +1,10 @@
-import datetime
 import os
 import shutil
 from pathlib import Path
 from urllib.parse import quote
 
 import requests
-from config import (
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_PATH_COVER_S,
-    DEFAULT_URL_COVER_L,
-    DEFAULT_URL_COVER_S,
-    RESOURCES_BASE_PATH,
-)
+from config import RESOURCES_BASE_PATH
 from handler.fs_handler import (
     DEFAULT_HEIGHT_COVER_L,
     DEFAULT_HEIGHT_COVER_S,
@@ -43,7 +36,7 @@ class FSResourceHandler(FSHandler):
             )
         )
 
-    def _resize_cover(self, cover_path: str, size: CoverSize) -> None:
+    def resize_cover(self, cover_path: str, size: CoverSize = CoverSize.BIG) -> None:
         """Resizes the cover image to the standard size
 
         Args:
@@ -95,7 +88,7 @@ class FSResourceHandler(FSHandler):
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
                 shutil.copyfileobj(res.raw, f)
-            self._resize_cover(f"{cover_path}/{cover_file}", size)
+            self.resize_cover(f"{cover_path}/{cover_file}", size)
 
     def _get_cover_path(self, fs_slug: str, rom_name: str, size: CoverSize):
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -105,8 +98,7 @@ class FSResourceHandler(FSHandler):
             file_name: name of rom file
             size: size of the cover
         """
-        strtime = str(datetime.datetime.now().timestamp())
-        return f"{fs_slug}/{rom_name}/cover/{size.value}.png?timestamp={strtime}"
+        return f"{fs_slug}/{rom_name}/cover/{size.value}.png"
 
     def get_rom_cover(
         self, overwrite: bool, platform_fs_slug: str, rom_name: str, url_cover: str = ""
@@ -120,7 +112,7 @@ class FSResourceHandler(FSHandler):
         path_cover_s = (
             self._get_cover_path(platform_fs_slug, q_rom_name, CoverSize.SMALL)
             if self._cover_exists(platform_fs_slug, rom_name, CoverSize.SMALL)
-            else DEFAULT_PATH_COVER_S
+            else ""
         )
 
         if (
@@ -131,7 +123,7 @@ class FSResourceHandler(FSHandler):
         path_cover_l = (
             self._get_cover_path(platform_fs_slug, q_rom_name, CoverSize.BIG)
             if self._cover_exists(platform_fs_slug, rom_name, CoverSize.BIG)
-            else DEFAULT_PATH_COVER_L
+            else ""
         )
 
         return {
@@ -139,22 +131,11 @@ class FSResourceHandler(FSHandler):
             "path_cover_l": path_cover_l,
         }
 
-    def store_default_resources(self):
-        """Store default cover resources in the filesystem"""
-        defaul_covers = [
-            {"url": DEFAULT_URL_COVER_L, "size": CoverSize.BIG},
-            {"url": DEFAULT_URL_COVER_S, "size": CoverSize.SMALL},
-        ]
-        for cover in defaul_covers:
-            if not self._cover_exists("default", "default", cover["size"]):
-                self._store_cover("default", "default", cover["url"], cover["size"])
-
     def build_artwork_path(self, rom_name: str, fs_slug: str, file_ext: str):
         q_rom_name = quote(rom_name)
-        strtime = str(datetime.datetime.now().timestamp())
 
-        path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}?timestamp={strtime}"
-        path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}?timestamp={strtime}"
+        path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
+        path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
         artwork_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
         Path(artwork_path).mkdir(parents=True, exist_ok=True)
         return path_cover_l, path_cover_s, artwork_path

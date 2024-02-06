@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
-import type { Events } from "@/types/emitter";
-import { normalizeString } from "@/utils";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { ref } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -18,71 +13,6 @@ const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
 const platforms = storePlatforms();
 const platformsToScan = ref<Platform[]>([]);
-const romsStore = storeRoms();
-const galleryFilter = storeGalleryFilter();
-const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
-
-// Event listeners bus
-// const emitter = inject<Emitter<Events>>("emitter");
-
-// socket.on("scan:scanning_platform", ({ name, slug, id }) => {
-//   scanningPlatforms.value.push({ name, slug, id, roms: [] });
-//   window.setTimeout(scrollToBottom, 100);
-// });
-
-// socket.on(
-//   "scan:scanning_rom",
-//   ({ platform_name, platform_slug, platform_id, ...rom }) => {
-//     romsStore.add([rom]);
-//     if (isFiltered) {
-//       romsStore.setFiltered(romsStore.filteredRoms);
-//     } else {
-//       romsStore.setFiltered(romsStore.allRoms);
-//     }
-
-//     let scannedPlatform = scanningPlatforms.value.find(
-//       (p) => p.slug === platform_slug
-//     );
-
-//     // Add the platform if the socket dropped and it's missing
-//     if (scannedPlatform) {
-//       scanningPlatforms.value.push(scannedPlatform);
-//       scannedPlatform = scanningPlatforms.value.pop();
-//     }
-
-//     scannedPlatform?.roms.push(rom);
-//     window.setTimeout(scrollToBottom, 100);
-//   }
-// );
-
-// socket.on("scan:done", () => {
-//   scanningStore.set(false);
-//   socket.disconnect();
-
-//   emitter?.emit("refreshDrawer", null);
-//   emitter?.emit("snackbarShow", {
-//     msg: "Scan completed successfully!",
-//     icon: "mdi-check-bold",
-//     color: "green",
-//     timeout: 4000,
-//   });
-// });
-
-// socket.on("scan:done_ko", (msg) => {
-//   scanningStore.set(false);
-
-//   emitter?.emit("snackbarShow", {
-//     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-//     icon: "mdi-close-circle",
-//     color: "red",
-//   });
-//   socket.disconnect();
-// });
-
-// Functions
-// function scrollToBottom() {
-//   window.scrollTo(0, document.body.scrollHeight);
-// }
 
 async function scan() {
   scanningStore.set(true);
@@ -96,13 +26,6 @@ async function scan() {
     rescanUnidentified: rescanUnidentified.value,
   });
 }
-
-onBeforeUnmount(() => {
-  // socket.off("scan:scanning_platform");
-  // socket.off("scan:scanning_rom");
-  // socket.off("scan:done");
-  // socket.off("scan:done_ko");
-});
 </script>
 
 <template>

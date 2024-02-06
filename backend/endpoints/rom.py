@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from stat import S_IFREG
 from typing import Annotated, Optional
@@ -22,6 +21,7 @@ from handler import (
     db_rom_handler,
     fs_resource_handler,
     fs_rom_handler,
+    igdb_handler,
 )
 from logger.logger import log
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
@@ -210,11 +210,13 @@ async def update_rom(
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
+
+    if cleaned_data["igdb_id"]:
+        igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        cleaned_data.update(igdb_rom)
+
     cleaned_data["name"] = data.get("name", db_rom.name)
-    cleaned_data["slug"] = data.get("slug", db_rom.slug)
     cleaned_data["summary"] = data.get("summary", db_rom.summary)
-    cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
-    cleaned_data["url_screenshots"] = json.loads(data["url_screenshots"])
 
     fs_safe_file_name = (
         data.get("file_name", db_rom.file_name).strip().replace("/", "-")
@@ -280,10 +282,12 @@ async def update_rom(
         file_location_s = f"{artwork_path}/small.{file_ext}"
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
+        fs_resource_handler.resize_cover(file_location_s)
 
         file_location_l = f"{artwork_path}/big.{file_ext}"
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
+        fs_resource_handler.resize_cover(file_location_l)
 
     db_rom_handler.update_rom(id, cleaned_data)
 
