@@ -9,11 +9,13 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 import {
-  regionToEmoji,
-  languageToEmoji,
   formatBytes,
+  languageToEmoji,
   platformSlugEJSCoreMap,
+  regionToEmoji,
 } from "@/utils";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 const HEADERS = [
   {
@@ -83,6 +85,7 @@ function rowClick(_: Event, row: any) {
     :items-per-page="romsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
+    :fixed-footer="false"
     :headers="HEADERS"
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
@@ -99,8 +102,20 @@ function rowClick(_: Event, row: any) {
           absolute
         />
         <v-img
-          :src="`/assets/romm/resources/${item.raw.path_cover_s}`"
-          :lazy-src="`/assets/romm/resources/${item.raw.path_cover_s}`"
+          :src="
+            !item.raw.igdb_id && !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${item.raw.path_cover_s}`
+          "
+          :lazy-src="
+            !item.raw.igdb_id && !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${item.raw.path_cover_s}`
+          "
           min-height="150"
         />
       </v-avatar>
@@ -121,39 +136,37 @@ function rowClick(_: Event, row: any) {
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template>
-        <v-btn
-          class="ma-1"
-          rounded="0"
-          @click.stop="romApi.downloadRom({ rom: item.raw })"
-          :disabled="downloadStore.value.includes(item.raw.id)"
-          download
-          size="small"
-          variant="text"
-        >
+      <v-btn
+        class="ma-1 bg-terciary"
+        rounded="0"
+        @click.stop="romApi.downloadRom({ rom: item.raw })"
+        :disabled="downloadStore.value.includes(item.raw.id)"
+        download
+        size="small"
+        variant="text"
+      >
         <v-icon>mdi-download</v-icon>
       </v-btn>
-      </template>
-        <v-btn
-          size="small"
-          variant="text"
-          :href="`/play/${item.raw.id}`"
-          class="my-1 bg-terciary"
-          rounded="0"
-          :disabled="!(item.raw.platform_slug in platformSlugEJSCoreMap)"
-          ><v-icon>mdi-play</v-icon></v-btn
-        >
-        <v-menu location="bottom">
-          <template v-slot:activator="{ props }">
-            <v-btn
-              rounded="0"
-              :disabled="!auth.scopes.includes('roms.write')"
-              v-bind="props"
-              size="small"
-              variant="text"
-              class="ma-1 bg-terciary"
-              ><v-icon>mdi-dots-vertical</v-icon></v-btn
-            >
+      <v-btn
+        size="small"
+        variant="text"
+        :href="`/play/${item.raw.id}`"
+        class="my-1 bg-terciary"
+        rounded="0"
+        :disabled="!(item.raw.platform_slug in platformSlugEJSCoreMap)"
+        ><v-icon>mdi-play</v-icon></v-btn
+      >
+      <v-menu location="bottom">
+        <template v-slot:activator="{ props }">
+          <v-btn
+            rounded="0"
+            :disabled="!auth.scopes.includes('roms.write')"
+            v-bind="props"
+            size="small"
+            variant="text"
+            class="ma-1 bg-terciary"
+            ><v-icon>mdi-dots-vertical</v-icon></v-btn
+          >
         </template>
         <admin-menu :rom="item.raw" />
       </v-menu>

@@ -1,10 +1,11 @@
+import { registerPlugins } from "@/plugins";
+import "@/styles/fonts.css";
+import "@/styles/scrollbar.css";
+import type { Events } from "@/types/emitter";
+import mitt from "mitt";
 import { createApp } from "vue";
 import { createVuetify } from "vuetify";
-import mitt from "mitt";
-
-import { registerPlugins } from "@/plugins";
 import App from "./App.vue";
-import type { Events } from "@/types/emitter";
 
 const emitter = mitt<Events>();
 

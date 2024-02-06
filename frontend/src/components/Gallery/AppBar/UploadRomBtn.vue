@@ -2,14 +2,17 @@
 import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import storeRoms from "@/stores/roms";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
+const romsStore = storeRoms();
 </script>
 
 <template>
   <v-list-item
-    @click="emitter?.emit('showUploadRomDialog', null)"
+  v-if="romsStore.platform"
+    @click="emitter?.emit('showUploadRomDialog', romsStore.platform)"
     class="py-4 pr-5"
   >
     <v-list-item-title class="d-flex"

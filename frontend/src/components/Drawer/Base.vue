@@ -36,7 +36,7 @@ onMounted(() => {});
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    width="270"
+    width="220"
     rail-width="70"
     elevation="0"
   >
@@ -73,6 +73,7 @@ onMounted(() => {});
           </v-list-item>
         </template>
         <platform-list-item
+          class="py-4"
           v-for="platform in platforms.filledPlatforms"
           :platform="platform"
           :rail="rail"

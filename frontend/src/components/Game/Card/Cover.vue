@@ -3,6 +3,8 @@ import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { ref } from "vue";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 defineProps<{
   rom: Rom;
@@ -76,16 +78,23 @@ function onTouchEnd() {
     />
     <v-hover v-slot="{ isHovering, props }" open-delay="800">
       <v-img
-        :cover="!rom.has_cover"
         :value="rom.id"
         :key="rom.id"
         v-bind="props"
         :src="
-          !rom.has_cover && rom.merged_screenshots.length > 0
-            ? rom.merged_screenshots[0]
+          !rom.igdb_id && !rom.has_cover
+            ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+            : !rom.has_cover
+            ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
-        :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
+        :lazy-src="
+          !rom.igdb_id && !rom.has_cover
+            ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+            : !rom.has_cover
+            ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+            : `/assets/romm/resources/${rom.path_cover_s}`
+        "
         :aspect-ratio="3 / 4"
       >
         <template v-slot:placeholder>
@@ -100,26 +109,26 @@ function onTouchEnd() {
         <v-expand-transition>
           <div
             v-if="isHovering || !rom.has_cover"
-            class="rom-title bg-tooltip text-caption"
+            class="translucent text-caption"
           >
             <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
         </v-expand-transition>
-        <v-chip-group class="ml-2 pt-0 text-shadow position-absolute flags">
+        <v-row no-gutters class="text-white px-1">
           <v-chip
             v-if="rom.regions.filter((i: string) => i).length > 0"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            class="bg-chip px-2 py-3"
+            class="translucent mr-1 mt-1"
             density="compact"
           >
-            <span class="px-1" v-for="region in rom.regions">
+            <span class="px-0" v-for="region in rom.regions">
               {{ regionToEmoji(region) }}
             </span>
           </v-chip>
           <v-chip
             v-if="rom.languages.filter((i: string) => i).length > 0"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            class="bg-chip px-2 py-3"
+            class="translucent mr-1 mt-1"
             density="compact"
           >
             <span class="px-1" v-for="language in rom.languages">
@@ -129,12 +138,12 @@ function onTouchEnd() {
           <v-chip
             v-if="rom.siblings && rom.siblings.length > 0"
             :title="`${rom.siblings.length + 1} versions`"
-            class="bg-chip px-2 py-3"
+            class="translucent mr-1 mt-1"
             density="compact"
           >
             +{{ rom.siblings.length }}
           </v-chip>
-        </v-chip-group>
+        </v-row>
         <v-icon
           v-show="isHoveringTop && showSelector"
           @click="onSelectRom"
@@ -149,21 +158,13 @@ function onTouchEnd() {
 </template>
 
 <style scoped>
-.rom-title {
-  opacity: 0.85;
-}
-.rom-title.on-hover {
-  opacity: 1;
-}
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
 }
-.flags {
-  bottom: -0.25rem;
-  left: 0;
-}
-.text-shadow {
-  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
 }
 </style>

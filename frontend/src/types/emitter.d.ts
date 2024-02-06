@@ -1,7 +1,7 @@
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
-import type { SaveSchema, StateSchema } from "@/__generated__";
 
 export type UserItem = User & {
   password: string;
@@ -21,7 +21,7 @@ export type Events = {
   showSearchRomGlobalDialog: null;
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
-  showUploadRomDialog: null;
+  showUploadRomDialog: Platform;
   showCreatePlatformBindingDialog: {
     fsSlug: string;
     slug: string;
@@ -55,11 +55,15 @@ export type Events = {
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
   refreshDrawer: null;
+  refreshView: null;
   showLoadingDialog: {
     loading: boolean;
     scrim: boolean;
   };
   openFabMenu: boolean;
   filter: null;
+  filterBarShow: null;
+  filterBarReset: null;
+  sortBarShow: null;
   romUpdated: Rom;
 };

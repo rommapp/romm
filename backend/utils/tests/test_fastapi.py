@@ -6,7 +6,7 @@ from models.platform import Platform
 from models.rom import Rom
 
 
-@pytest.mark.vcr()
+@pytest.mark.vcr
 def test_scan_platform():
     platform = scan_platform("n64", "n64")
 
@@ -22,7 +22,7 @@ def test_scan_platform():
         assert "Roms not found for platform" in str(e)
 
 
-@pytest.mark.vcr()
+@pytest.mark.vcr
 async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
     rom = await scan_rom(
