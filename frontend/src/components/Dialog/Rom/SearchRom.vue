@@ -211,7 +211,7 @@ onBeforeUnmount(() => {
               ><template v-slot:activator="{ props }">
                 <v-btn
                   v-bind="props"
-                  @click="setExtended"
+                  @click="toggleExtended"
                   class="bg-terciary"
                   :color="searchExtended ? 'romm-accent-1' : ''"
                   rounded="0"

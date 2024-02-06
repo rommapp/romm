@@ -103,7 +103,7 @@ class FSResourceHandler(FSHandler):
             size: size of the cover
         """
         strtime = str(datetime.datetime.now().timestamp())
-        return f"{fs_slug}/{rom_name}/cover/{size.value}.png?timestamp={strtime}"
+        return f"{fs_slug}/{rom_name}/cover/{size.value}.png"
 
     def get_rom_cover(
         self, overwrite: bool, platform_fs_slug: str, rom_name: str, url_cover: str = ""
@@ -141,8 +141,8 @@ class FSResourceHandler(FSHandler):
         q_rom_name = quote(rom_name)
         strtime = str(datetime.datetime.now().timestamp())
 
-        path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}?timestamp={strtime}"
-        path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}?timestamp={strtime}"
+        path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
+        path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
         artwork_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
         Path(artwork_path).mkdir(parents=True, exist_ok=True)
         return path_cover_l, path_cover_s, artwork_path

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Rom } from "@/stores/roms";
-import { onMounted, ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
+import { useTheme } from "vuetify";
+const theme = useTheme();
 </script>
 <template>
   <v-row no-gutters>
@@ -32,14 +33,22 @@ const props = defineProps<{ rom: Rom }>();
           <v-img
             v-bind="props"
             class="cover"
-            :src="`https:${expansion.cover_url.replace(
-              't_thumb',
-              't_cover_big'
-            )}`"
-            :lazy-src="`https:${expansion.cover_url.replace(
-              't_thumb',
-              't_cover_small'
-            )}`"
+            :src="
+              `${expansion.cover_url}`
+                ? `https:${expansion.cover_url.replace(
+                    't_thumb',
+                    't_cover_big'
+                  )}`
+                : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+            "
+            :lazy-src="
+              `${expansion.cover_url}`
+                ? `https:${expansion.cover_url.replace(
+                    't_thumb',
+                    't_cover_big'
+                  )}`
+                : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+            "
             :aspect-ratio="3 / 4"
             ><v-chip
               class="px-2 position-absolute chip-type text-white translucent"
@@ -80,11 +89,16 @@ const props = defineProps<{ rom: Rom }>();
           <v-img
             v-bind="props"
             class="cover"
-            :src="`https:${dlc.cover_url.replace('t_thumb', 't_cover_big')}`"
-            :lazy-src="`https:${dlc.cover_url.replace(
-              't_thumb',
-              't_cover_small'
-            )}`"
+            :src="
+              `${dlc.cover_url}`
+                ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_big')}`
+                : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+            "
+            :lazy-src="
+              `${dlc.cover_url}`
+                ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_small')}`
+                : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+            "
             :aspect-ratio="3 / 4"
             ><v-chip
               class="px-2 position-absolute chip-type text-white translucent"
