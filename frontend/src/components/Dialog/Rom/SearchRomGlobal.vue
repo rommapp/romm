@@ -3,11 +3,13 @@ import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
+import { languageToEmoji, regionToEmoji } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
+const theme = useTheme();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
@@ -28,6 +30,9 @@ function clearFilter() {
 }
 
 async function searchRoms() {
+  // Auto hide android keyboard
+  const inputElement = document.getElementById("search-text-field");
+  inputElement?.blur();
   searching.value = true;
   searchedRoms.value = (
     await romApi.getRoms({ searchTerm: searchValue.value, size: 250 })
@@ -119,6 +124,7 @@ onBeforeUnmount(() => {
           <v-col cols="6" xs="6" sm="6" md="6" lg="7">
             <v-text-field
               autofocus
+              id="search-text-field"
               @keyup.enter="searchRoms"
               @click:clear="searchRoms"
               v-model="searchValue"
@@ -160,7 +166,7 @@ onBeforeUnmount(() => {
 
       <v-card-text class="pa-1 scroll">
         <v-row
-          class="justify-center loader-searching"
+          class="justify-center align-center loader-searching fill-height"
           v-show="searching"
           no-gutters
         >
@@ -172,7 +178,7 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row
-          class="justify-center no-results-searching"
+          class="justify-center align-center loader-searching fill-height"
           v-show="!searching && searchedRoms?.length == 0"
           no-gutters
         >
@@ -197,14 +203,78 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
-                <v-tooltip activator="parent" location="top" class="tooltip">{{
-                  rom.name
-                }}</v-tooltip>
-                <v-img
-                  v-bind="props"
-                  :src="`/assets/romm/resources/${rom.path_cover_l}`"
-                  :aspect-ratio="3 / 4"
-                />
+                <v-hover v-slot="{ isHovering, props }" open-delay="800">
+                  <v-img
+                    v-bind="props"
+                    :src="
+                      !rom.igdb_id && !rom.has_cover
+                        ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                        : !rom.has_cover
+                        ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                        : `/assets/romm/resources/${rom.path_cover_l}`
+                    "
+                    :lazy-src="
+                      !rom.igdb_id && !rom.has_cover
+                        ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                        : !rom.has_cover
+                        ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                        : `/assets/romm/resources/${rom.path_cover_s}`
+                    "
+                    :aspect-ratio="3 / 4"
+                  >
+                    <template v-slot:placeholder>
+                      <div
+                        class="d-flex align-center justify-center fill-height"
+                      >
+                        <v-progress-circular
+                          color="romm-accent-1"
+                          :width="2"
+                          indeterminate
+                        />
+                      </div>
+                    </template>
+                    <v-expand-transition>
+                      <div
+                        v-if="isHovering || !rom.has_cover"
+                        class="translucent text-caption"
+                      >
+                        <v-list-item>{{
+                          rom.name || rom.file_name
+                        }}</v-list-item>
+                      </div>
+                    </v-expand-transition>
+                    <v-row no-gutters class="text-white px-1">
+                      <v-chip
+                        v-if="rom.regions.filter((i: string) => i).length > 0"
+                        :title="`Regions: ${rom.regions.join(', ')}`"
+                        class="translucent mr-1 mt-1"
+                        density="compact"
+                      >
+                        <span class="px-0" v-for="region in rom.regions">
+                          {{ regionToEmoji(region) }}
+                        </span>
+                      </v-chip>
+                      <v-chip
+                        v-if="rom.languages.filter((i: string) => i).length > 0"
+                        :title="`Languages: ${rom.languages.join(', ')}`"
+                        class="translucent mr-1 mt-1"
+                        density="compact"
+                      >
+                        <span class="px-1" v-for="language in rom.languages">
+                          {{ languageToEmoji(language) }}
+                        </span>
+                      </v-chip>
+                      <v-chip
+                        v-if="rom.siblings && rom.siblings.length > 0"
+                        :title="`${rom.siblings.length + 1} versions`"
+                        class="translucent mr-1 mt-1"
+                        density="compact"
+                      >
+                        +{{ rom.siblings.length }}
+                      </v-chip>
+                    </v-row></v-img
+                  ></v-hover
+                >
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">
@@ -235,10 +305,6 @@ onBeforeUnmount(() => {
 .scroll {
   overflow-y: scroll;
 }
-.loader-searching,
-.no-results-searching {
-  margin-top: 200px;
-}
 
 .search-content {
   width: 60vw;
@@ -260,7 +326,11 @@ onBeforeUnmount(() => {
 }
 .matched-rom.on-hover {
   z-index: 1 !important;
-  opacity: 1;
   transform: scale(1.05);
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
 }
 </style>

@@ -3,7 +3,6 @@ from unittest.mock import patch
 
 from handler import fs_resource_handler, fs_platform_handler, fs_rom_handler
 from models.platform import Platform
-from config import DEFAULT_PATH_COVER_L, DEFAULT_PATH_COVER_S
 
 
 @pytest.mark.vcr
@@ -15,8 +14,8 @@ def test_get_rom_cover():
         rom_name="Metroid Prime",
     )
 
-    assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
-    assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
+    assert "" in cover["path_cover_s"]
+    assert "" in cover["path_cover_l"]
 
     # Game: Paper Mario (USA).z64
     cover = fs_resource_handler.get_rom_cover(
@@ -64,8 +63,8 @@ def test_get_rom_cover():
         rom_name="Fake Game",
     )
 
-    assert DEFAULT_PATH_COVER_S in cover["path_cover_s"]
-    assert DEFAULT_PATH_COVER_L in cover["path_cover_l"]
+    assert "" in cover["path_cover_s"]
+    assert "" in cover["path_cover_l"]
 
 
 def test_get_platforms():

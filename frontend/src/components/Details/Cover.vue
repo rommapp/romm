@@ -1,24 +1,34 @@
 <script setup lang="ts">
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 const downloadStore = storeDownload();
 defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-card
-    :key="rom.path_cover_s"
     elevation="2"
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
     <v-img
-      :cover="!rom.has_cover"
+      :value="rom.id"
+      :key="rom.id"
       :src="
-        !rom.has_cover && rom.merged_screenshots.length > 0
-          ? rom.merged_screenshots[0]
+        !rom.igdb_id && !rom.has_cover
+          ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+          : !rom.has_cover
+          ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
           : `/assets/romm/resources/${rom.path_cover_l}`
       "
-      :lazy-src="`/assets/romm/resources/${rom.path_cover_s}`"
+      :lazy-src="
+        !rom.igdb_id && !rom.has_cover
+          ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+          : !rom.has_cover
+          ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+          : `/assets/romm/resources/${rom.path_cover_s}`
+      "
       :aspect-ratio="3 / 4"
     >
       <template v-slot:placeholder>

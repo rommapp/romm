@@ -1,22 +1,19 @@
 <script setup lang="ts">
-import { inject } from "vue";
-import { useRoute } from "vue-router";
-import type { Emitter } from "mitt";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import storePlatforms from "@/stores/platforms";
+import type { Emitter } from "mitt";
+import { inject } from "vue";
 
 // Props
-const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
-const route = useRoute();
-const platform = platformsStore.get(Number(route.params.platform));
+const romsStore = storeRoms();
 </script>
 
 <template>
   <v-list-item
-    v-if="platform"
+    v-if="romsStore.platform"
     class="py-4 pr-5 text-romm-red"
-    @click="emitter?.emit('showDeletePlatformDialog', platform)"
+    @click="emitter?.emit('showDeletePlatformDialog', romsStore.platform)"
   >
     <v-list-item-title class="d-flex">
       <v-icon icon="mdi-delete" color="red" class="mr-2" />

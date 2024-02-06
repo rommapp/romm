@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-
+import { type Platform } from "@/stores/platforms";
 import socket from "@/services/socket";
 import romApi from "@/services/api/rom";
 import storeScanning from "@/stores/scanning";
@@ -13,15 +13,17 @@ const { xs, mdAndDown, lgAndUp } = useDisplay();
 const route = useRoute();
 const show = ref(false);
 const romsToUpload = ref([]);
-const scanning = storeScanning();
+const scanningStore = storeScanning();
+const platform = ref<Platform | null>(null);
 
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showUploadRomDialog", () => {
+emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
+  platform.value = platformWhereUpload;
   show.value = true;
 });
 
 socket.on("scan:done", () => {
-  scanning.set(false);
+  scanningStore.set(false);
   socket.disconnect();
   emitter?.emit("refreshDrawer", null);
   emitter?.emit("snackbarShow", {
@@ -32,7 +34,7 @@ socket.on("scan:done", () => {
 });
 
 socket.on("scan:done_ko", (msg) => {
-  scanning.set(false);
+  scanningStore.set(false);
   emitter?.emit("snackbarShow", {
     msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
     icon: "mdi-close-circle",
@@ -43,10 +45,11 @@ socket.on("scan:done_ko", (msg) => {
 
 // Functions
 async function uploadRoms() {
+  if (!platform.value) return;
   show.value = false;
-  scanning.set(true);
+  scanningStore.set(true);
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${romsToUpload.value.length} roms to ${route.params.platform}...`,
+    msg: `Uploading ${romsToUpload.value.length} roms to ${platform.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -54,7 +57,7 @@ async function uploadRoms() {
   await romApi
     .uploadRoms({
       romsToUpload: romsToUpload.value,
-      platform: route.params.platform as string,
+      platform: platform.value.id,
     })
     .then(({ data }) => {
       const { uploaded_roms, skipped_roms } = data;
@@ -78,7 +81,7 @@ async function uploadRoms() {
       if (!socket.connected) socket.connect();
       setTimeout(() => {
         socket.emit("scan", {
-          platforms: [route.params.platform],
+          platforms: [platform.value?.id],
           rescan: false,
         });
       }, 2000);
@@ -93,9 +96,6 @@ async function uploadRoms() {
         timeout: 4000,
       });
     })
-    .finally(() => {
-      scanning.set(false);
-    });
 }
 
 function closeDialog() {
@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
         <v-row class="pa-2" no-gutters>
           <v-file-input
             @keyup.enter="uploadRoms()"
-            :label="`Upload rom(s) to ${route.params.platform}`"
+            :label="`Upload rom(s) to ${platform?.name}`"
             v-model="romsToUpload"
             prepend-inner-icon="mdi-disc"
             prepend-icon=""

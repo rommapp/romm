@@ -34,7 +34,7 @@ onMounted(async () => {
       ></v-toolbar
     >
     <v-divider class="border-opacity-25" />
-    <v-card-text>
+    <v-card-text class="scroll">
       <v-row
         ref="scroll_container"
         @mousewheel="scrollX"
@@ -70,3 +70,8 @@ onMounted(async () => {
   <delete-rom-dialog />
   <loading-dialog />
 </template>
+<style scoped>
+.scroll {
+  overflow-x: visible;
+}
+</style>

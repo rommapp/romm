@@ -17,7 +17,7 @@ async function uploadRoms({
   platform,
   romsToUpload,
 }: {
-  platform: string;
+  platform: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
   let formData = new FormData();
@@ -85,11 +85,13 @@ async function searchRom({
   source,
   searchTerm,
   searchBy,
+  searchExtended: searchExtended,
 }: {
   romId: number;
   source: string;
   searchTerm: string;
   searchBy: string;
+  searchExtended: boolean;
 }): Promise<{ data: SearchRomSchema[] }> {
   return api.get("/search/roms", {
     params: {
@@ -97,6 +99,7 @@ async function searchRom({
       source: source,
       search_term: searchTerm,
       search_by: searchBy,
+      search_extended: searchExtended,
     },
   });
 }
@@ -153,11 +156,8 @@ async function updateRom({
   var formData = new FormData();
   formData.append("igdb_id", rom.igdb_id?.toString() || "");
   formData.append("name", rom.name || "");
-  formData.append("slug", rom.slug || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover);
-  formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
   return api.put(`/roms/${rom.id}`, formData, {

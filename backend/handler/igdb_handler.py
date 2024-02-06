@@ -4,12 +4,12 @@ import os
 import re
 import sys
 import time
-from typing import Final
+from typing import Final, Optional
 
 import pydash
 import requests
 import xmltodict
-from config import DEFAULT_URL_COVER_L, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
@@ -43,27 +43,110 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
-class IGDBRom(TypedDict):
-    igdb_id: int
-    slug: str
-    name: str
-    summary: str
-    url_cover: str
-    url_screenshots: list[str]
-
-
 class IGDBPlatform(TypedDict):
     igdb_id: int
     name: str
 
 
+class IGDBRelatedGame(TypedDict):
+    id: int
+    name: str
+    slug: str
+    type: str
+    cover_url: str
+
+
+class IGDBMetadata(TypedDict):
+    total_rating: str
+    aggregated_rating: str
+    first_release_date: int | None
+    genres: list[str]
+    franchises: list[str]
+    alternative_names: list[str]
+    collections: list[str]
+    companies: list[str]
+    game_modes: list[str]
+    platforms: list[IGDBPlatform]
+    expansions: list[IGDBRelatedGame]
+    dlcs: list[IGDBRelatedGame]
+    remasters: list[IGDBRelatedGame]
+    remakes: list[IGDBRelatedGame]
+    expanded_games: list[IGDBRelatedGame]
+    ports: list[IGDBRelatedGame]
+    similar_games: list[IGDBRelatedGame]
+
+
+class IGDBRom(TypedDict):
+    igdb_id: Optional[int]
+    name: Optional[str]
+    slug: Optional[str]
+    summary: Optional[str]
+    url_cover: str
+    url_screenshots: list[str]
+    igdb_metadata: Optional[IGDBMetadata]
+
+
+def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
+    return IGDBMetadata(
+        {
+            "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
+            "first_release_date": rom.get("first_release_date", None),
+            "genres": pydash.map_(rom.get("genres", []), "name"),
+            "franchises": pydash.compact(
+                [rom.get("franchise.name", None)]
+                + pydash.map_(rom.get("franchises", []), "name")
+            ),
+            "alternative_names": pydash.map_(rom.get("alternative_names", []), "name"),
+            "collections": pydash.map_(rom.get("collections", []), "name"),
+            "game_modes": pydash.map_(rom.get("game_modes", []), "name"),
+            "companies": pydash.map_(rom.get("involved_companies", []), "company.name"),
+            "platforms": [
+                {"igdb_id": p.get("id", ""), "name": p.get("name", "")}
+                for p in rom.get("platforms", [])
+            ],
+            "expansions": [
+                {"cover_url": pydash.get(e, "cover.url", ""), "type": "expansion", **e}
+                for e in rom.get("expansions", [])
+            ],
+            "dlcs": [
+                {"cover_url": pydash.get(d, "cover.url", ""), "type": "dlc", **d}
+                for d in rom.get("dlcs", [])
+            ],
+            "remasters": [
+                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remaster", **r}
+                for r in rom.get("remasters", [])
+            ],
+            "remakes": [
+                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remake", **r}
+                for r in rom.get("remakes", [])
+            ],
+            "expanded_games": [
+                {"cover_url": pydash.get(g, "cover.url", ""), "type": "expanded", **g}
+                for g in rom.get("expanded_games", [])
+            ],
+            "ports": [
+                {"cover_url": pydash.get(p, "cover.url", ""), "type": "port", **p}
+                for p in rom.get("ports", [])
+            ],
+            "similar_games": [
+                {"cover_url": pydash.get(s, "cover.url", ""), "type": "similar", **s}
+                for s in rom.get("similar_games", [])
+            ],
+        }
+    )
+
+
 class IGDBHandler:
     def __init__(self) -> None:
-        self.platform_url = "https://api.igdb.com/v4/platforms/"
-        self.platform_version_url = "https://api.igdb.com/v4/platform_versions/"
-        self.games_url = "https://api.igdb.com/v4/games/"
-        self.covers_url = "https://api.igdb.com/v4/covers/"
-        self.screenshots_url = "https://api.igdb.com/v4/screenshots/"
+        self.platform_endpoint = "https://api.igdb.com/v4/platforms"
+        self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions"
+        self.platforms_fields = ["id", "name"]
+        self.games_endpoint = "https://api.igdb.com/v4/games"
+        self.games_fields = GAMES_FIELDS
+        self.search_endpoint = "https://api.igdb.com/v4/search"
+        self.search_fields = ["game.id", "name"]
+        self.pagination_limit = 200
         self.twitch_auth = TwitchAuth()
         self.headers = {
             "Client-ID": IGDB_CLIENT_ID,
@@ -82,18 +165,14 @@ class IGDBHandler:
 
         return wrapper
 
-    def _normalize_search_term(self, search_term: str) -> str:
-        return (
-            search_term.replace("\u2122", "")  # Remove trademark symbol
-            .replace("\u00ae", "")  # Remove registered symbol
-            .replace("\u00a9", "")  # Remove copywrite symbol
-            .replace("\u2120", "")  # Remove service mark symbol
-            .strip()  # Remove leading and trailing spaces
-        )
-
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
-            res = requests.post(url, data, headers=self.headers, timeout=timeout)
+            res = requests.post(
+                url,
+                f"{data} limit {self.pagination_limit};",
+                headers=self.headers,
+                timeout=timeout,
+            )
             res.raise_for_status()
             return res.json()
         except HTTPError as err:
@@ -111,7 +190,12 @@ class IGDBHandler:
             pass
 
         try:
-            res = requests.post(url, data, headers=self.headers, timeout=timeout)
+            res = requests.post(
+                url,
+                f"{data} limit {self.pagination_limit};",
+                headers=self.headers,
+                timeout=timeout,
+            )
             res.raise_for_status()
         except (HTTPError, Timeout) as err:
             # Log the error and return an empty list if the request fails again
@@ -120,18 +204,40 @@ class IGDBHandler:
 
         return res.json()
 
+    @staticmethod
+    def _normalize_search_term(search_term: str) -> str:
+        return (
+            search_term.replace("\u2122", "")  # Remove trademark symbol
+            .replace("\u00ae", "")  # Remove registered symbol
+            .replace("\u00a9", "")  # Remove copywrite symbol
+            .replace("\u2120", "")  # Remove service mark symbol
+            .strip()  # Remove leading and trailing spaces
+        )
+
+    @staticmethod
+    def _normalize_cover_url(url: str) -> str:
+        return f"https:{url.replace('https:', '')}" if url != "" else ""
+
     def _search_rom(
         self, search_term: str, platform_idgb_id: int, category: int = 0
     ) -> dict:
+        search_term = uc(search_term)
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
-            self.games_url,
-            data=f"""
-                search "{search_term}";
-                fields id, slug, name, summary, screenshots;
-                where platforms=[{platform_idgb_id}] {category_filter};
-            """,
+            self.games_endpoint,
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}] {category_filter};',
         )
+
+        if not roms:
+            roms = self._request(
+                self.search_endpoint,
+                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_idgb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+            )
+            if roms:
+                roms = self._request(
+                    self.games_endpoint,
+                    f'fields {",".join(self.games_fields)}; where id={roms[0]["game"]["id"]};',
+                )
 
         exact_matches = [
             rom
@@ -141,34 +247,6 @@ class IGDBHandler:
         ]
 
         return pydash.get(exact_matches or roms, "[0]", {})
-
-    def _normalize_cover_url(self, url: str) -> str:
-        return f"https:{url.replace('https:', '')}"
-
-    def _search_cover(self, rom_id: int) -> str:
-        covers = self._request(
-            self.covers_url,
-            data=f"fields url; where game={rom_id};",
-        )
-
-        cover = pydash.get(covers, "[0]", None)
-        return (
-            DEFAULT_URL_COVER_L
-            if not cover
-            else self._normalize_cover_url(cover["url"])
-        )
-
-    def _search_screenshots(self, rom_id: int) -> list:
-        screenshots = self._request(
-            self.screenshots_url,
-            data=f"fields url; where game={rom_id}; limit {N_SCREENSHOTS};",
-        )
-
-        return [
-            self._normalize_cover_url(r["url"]).replace("t_thumb", "t_original")
-            for r in screenshots
-            if "url" in r.keys()
-        ]
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
@@ -261,8 +339,8 @@ class IGDBHandler:
     @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatform:
         platforms = self._request(
-            self.platform_url,
-            data=f'fields id, name; where slug="{slug.lower()}";',
+            self.platform_endpoint,
+            data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
         )
 
         platform = pydash.get(platforms, "[0]", None)
@@ -270,21 +348,21 @@ class IGDBHandler:
         # Check if platform is a version if not found
         if not platform:
             platform_versions = self._request(
-                self.platform_version_url,
-                data=f'fields id, name; where slug="{slug.lower()}";',
+                self.platform_version_endpoint,
+                data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
             )
             version = pydash.get(platform_versions, "[0]", None)
             if not version:
                 return IGDBPlatform(igdb_id=None, name=slug.replace("-", " ").title())
 
             return IGDBPlatform(
-                igdb_id=version["id"],
-                name=version["name"],
+                igdb_id=version.get("id", None),
+                name=version.get("name", slug),
             )
 
         return IGDBPlatform(
-            igdb_id=platform["id"],
-            name=platform["name"],
+            igdb_id=platform.get("id", None),
+            name=platform.get("name", slug),
         )
 
     @check_twitch_token
@@ -314,81 +392,134 @@ class IGDBHandler:
 
         search_term = self._normalize_search_term(search_term)
 
-        res = (
-            self._search_rom(uc(search_term), platform_idgb_id, MAIN_GAME_CATEGORY)
-            or self._search_rom(
-                uc(search_term), platform_idgb_id, EXPANDED_GAME_CATEGORY
-            )
-            or self._search_rom(uc(search_term), platform_idgb_id)
+        rom = (
+            self._search_rom(search_term, platform_idgb_id, MAIN_GAME_CATEGORY)
+            or self._search_rom(search_term, platform_idgb_id, EXPANDED_GAME_CATEGORY)
+            or self._search_rom(search_term, platform_idgb_id)
         )
 
-        igdb_id = res.get("id", None)
-        rom = IGDBRom(
-            igdb_id=igdb_id,
-            slug=res.get("slug", ""),
-            name=res.get("name", search_term),
-            summary=res.get("summary", ""),
-            url_cover=DEFAULT_URL_COVER_L,
-            url_screenshots=[],
+        return IGDBRom(
+            igdb_id=rom.get("id", None),
+            name=rom.get("name", search_term),
+            slug=rom.get("slug", ""),
+            summary=rom.get("summary", ""),
+            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_screenshots=[
+                self._normalize_cover_url(s.get("url", "")).replace(
+                    "t_thumb", "t_original"
+                )
+                for s in rom.get("screenshots", [])
+            ],
+            igdb_metadata=extract_metadata_from_igdb_rom(rom),
         )
-
-        if igdb_id:
-            rom["url_cover"] = self._search_cover(igdb_id)
-            rom["url_screenshots"] = self._search_screenshots(igdb_id)
-
-        return rom
 
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
         roms = self._request(
-            self.games_url,
-            f"fields slug, name, summary; where id={igdb_id};",
+            self.games_endpoint,
+            f'fields {",".join(self.games_fields)}; where id={igdb_id};',
         )
         rom = pydash.get(roms, "[0]", {})
 
-        return {
-            "igdb_id": igdb_id,
-            "slug": rom.get("slug", ""),
-            "name": rom.get("name", ""),
-            "summary": rom.get("summary", ""),
-            "url_cover": self._search_cover(igdb_id),
-            "url_screenshots": self._search_screenshots(igdb_id),
-        }
+        return IGDBRom(
+            igdb_id=igdb_id,
+            name=rom.get("name", ""),
+            slug=rom.get("slug", ""),
+            summary=rom.get("summary", ""),
+            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_screenshots=[
+                self._normalize_cover_url(s.get("url", "")).replace(
+                    "t_thumb", "t_original"
+                )
+                for s in rom.get("screenshots", [])
+            ],
+            igdb_metadata=extract_metadata_from_igdb_rom(rom),
+        )
 
     @check_twitch_token
     def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRom]:
         matched_rom = self.get_rom_by_id(igdb_id)
         matched_rom.update(
-            url_cover=matched_rom["url_cover"].replace("t_thumb", "t_cover_big"),
+            url_cover=matched_rom.get("url_cover", "").replace(
+                "t_thumb", "t_cover_big"
+            ),
         )
         return [matched_rom]
 
     @check_twitch_token
     def get_matched_roms_by_name(
-        self, search_term: str, platform_idgb_id: int
+        self, search_term: str, platform_idgb_id: int, search_extended: bool = False
     ) -> list[IGDBRom]:
         if not platform_idgb_id:
             return []
 
+        search_term = uc(search_term)
         matched_roms = self._request(
-            self.games_url,
-            data=f"""
-                search "{uc(search_term)}";
-                fields id, slug, name, summary;
-                where platforms=[{platform_idgb_id}];
-            """,
+            self.games_endpoint,
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}];',
         )
+
+        if not matched_roms or search_extended:
+            log.info("Extended searching...")
+            alternative_matched_roms = self._request(
+                self.search_endpoint,
+                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_idgb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+            )
+
+            if alternative_matched_roms:
+                alternative_roms_ids = []
+                for rom in alternative_matched_roms:
+                    alternative_roms_ids.append(
+                        rom.get("game").get("id", "")
+                        if "game" in rom.keys()
+                        else rom.get("id", "")
+                    )
+                id_filter = " | ".join(
+                    list(
+                        map(
+                            lambda rom: (
+                                f'id={rom.get("game").get("id", "")}'
+                                if "game" in rom.keys()
+                                else f'id={rom.get("id", "")}'
+                            ),
+                            alternative_matched_roms,
+                        )
+                    )
+                )
+                alternative_matched_roms = self._request(
+                    self.games_endpoint,
+                    f'fields {",".join(self.games_fields)}; where {id_filter};',
+                )
+                matched_roms.extend(alternative_matched_roms)
+
+        # Use a dictionary to keep track of unique ids
+        unique_ids = {}
+
+        # Use a list comprehension to filter duplicates based on the 'id' key
+        matched_roms = [
+            unique_ids.setdefault(rom["id"], rom)
+            for rom in matched_roms
+            if rom["id"] not in unique_ids
+        ]
 
         return [
             IGDBRom(
-                igdb_id=rom["id"],
-                slug=rom["slug"],
-                name=rom["name"],
+                igdb_id=rom.get("id"),
+                name=rom.get("name", search_term),
+                slug=rom.get("slug", ""),
                 summary=rom.get("summary", ""),
-                url_cover=self._search_cover(rom["id"]).replace(
-                    "t_thumb", "t_cover_big"
+                url_cover=self._normalize_cover_url(
+                    rom.get("cover", {})
+                    .get("url", "")
+                    .replace("t_thumb", "t_cover_big")
                 ),
-                url_screenshots=self._search_screenshots(rom["id"]),
+                url_screenshots=[
+                    self._normalize_cover_url(s.get("url", "")).replace(
+                        "t_thumb", "t_original"
+                    )
+                    for s in rom.get("screenshots", [])
+                ],
+                igdb_metadata=extract_metadata_from_igdb_rom(rom),
             )
             for rom in matched_roms
         ]
@@ -436,3 +567,54 @@ class TwitchAuth:
             return self._update_twitch_token()
 
         return token
+
+
+GAMES_FIELDS = [
+    "id",
+    "name",
+    "slug",
+    "summary",
+    "total_rating",
+    "aggregated_rating",
+    "first_release_date",
+    "artworks.url",
+    "cover.url",
+    "screenshots.url",
+    "platforms.id",
+    "platforms.name",
+    "alternative_names.name",
+    "genres.name",
+    "franchise.name",
+    "franchises.name",
+    "collections.name",
+    "game_modes.name",
+    "involved_companies.company.name",
+    "expansions.id",
+    "expansions.slug",
+    "expansions.name",
+    "expansions.cover.url",
+    "expanded_games.id",
+    "expanded_games.slug",
+    "expanded_games.name",
+    "expanded_games.cover.url",
+    "dlcs.id",
+    "dlcs.name",
+    "dlcs.slug",
+    "dlcs.cover.url",
+    "remakes.id",
+    "remakes.slug",
+    "remakes.name",
+    "remakes.cover.url",
+    "remasters.id",
+    "remasters.slug",
+    "remasters.name",
+    "remasters.cover.url",
+    "ports.id",
+    "ports.slug",
+    "ports.name",
+    "ports.cover.url",
+    "similar_games.id",
+    "similar_games.slug",
+    "similar_games.name",
+    "similar_games.cover.url",
+]
