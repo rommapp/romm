@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import type { Rom } from "@/stores/roms";
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
 const combined = ref([
-    ...props.rom.igdb_metadata?.remakes ?? [],
-    ...props.rom.igdb_metadata?.remasters ?? [],
-    ...props.rom.igdb_metadata?.expanded_games ?? [],
-  ]);
+  ...(props.rom.igdb_metadata?.remakes ?? []),
+  ...(props.rom.igdb_metadata?.remasters ?? []),
+  ...(props.rom.igdb_metadata?.expanded_games ?? []),
+]);
+import { useTheme } from "vuetify";
+const theme = useTheme();
 </script>
 <template>
   <v-row no-gutters>
@@ -32,11 +34,16 @@ const combined = ref([
         <v-img
           v-bind="props"
           class="cover"
-          :src="`https:${game.cover_url.replace('t_thumb', 't_cover_big')}`"
-          :lazy-src="`https:${game.cover_url.replace(
-            't_thumb',
-            't_cover_small'
-          )}`"
+          :src="
+            `${game.cover_url}`
+              ? `https:${game.cover_url.replace('t_thumb', 't_cover_big')}`
+              : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+          "
+          :lazy-src="
+            `${game.cover_url}`
+              ? `https:${game.cover_url.replace('t_thumb', 't_cover_small')}`
+              : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+          "
           :aspect-ratio="3 / 4"
           ><v-chip
             class="px-2 position-absolute chip-type text-white translucent"

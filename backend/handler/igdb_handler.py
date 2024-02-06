@@ -79,7 +79,7 @@ class IGDBRom(TypedDict):
     summary: Optional[str]
     url_cover: str
     url_screenshots: list[str]
-    metadata: Optional[IGDBMetadata]
+    igdb_metadata: Optional[IGDBMetadata]
 
 
 class IGDBPlatform(TypedDict):
