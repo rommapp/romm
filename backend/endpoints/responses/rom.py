@@ -7,6 +7,22 @@ from pydantic import BaseModel
 from typing_extensions import TypedDict
 
 
+class RelatedGameCover(TypedDict):
+    id: int
+    url: str
+
+
+class RelatedGame(TypedDict):
+    id: int
+    cover: RelatedGameCover
+    name: str
+
+
+class Filter(TypedDict):
+    id: int
+    name: str
+
+
 class RomSchema(BaseModel):
     id: int
     igdb_id: Optional[int]
@@ -27,15 +43,15 @@ class RomSchema(BaseModel):
     slug: Optional[str]
     summary: Optional[str]
     total_rating: Optional[str]
-    genres: list[dict]
-    franchises: list[dict]
-    collections: list[dict]
-    expansions: list[dict]
-    dlcs: list[dict]
-    remasters: list[dict]
-    remakes: list[dict]
-    expanded_games: list[dict]
-    companies: list[dict]
+    genres: list[Filter]
+    franchises: list[Filter]
+    collections: list[Filter]
+    companies: list[Filter]
+    expansions: list[RelatedGame]
+    dlcs: list[RelatedGame]
+    remasters: list[RelatedGame]
+    remakes: list[RelatedGame]
+    expanded_games: list[RelatedGame]
     first_release_date: Optional[int]
 
     sort_comparator: str
