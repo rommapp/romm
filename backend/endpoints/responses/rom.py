@@ -14,8 +14,8 @@ class RomMetadata(TypedDict):
     remasters: NotRequired[list[IGDBRelatedGame]]
     remakes: NotRequired[list[IGDBRelatedGame]]
     expanded_games: NotRequired[list[IGDBRelatedGame]]
-    ports: list[IGDBRelatedGame]
-    similar_games: list[IGDBRelatedGame]
+    ports: NotRequired[list[IGDBRelatedGame]]
+    similar_games: NotRequired[list[IGDBRelatedGame]]
 
 
 class RomSchema(BaseModel):

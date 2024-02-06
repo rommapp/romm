@@ -11,7 +11,7 @@ export type RomMetadata = {
     remasters?: Array<IGDBRelatedGame>;
     remakes?: Array<IGDBRelatedGame>;
     expanded_games?: Array<IGDBRelatedGame>;
-    ports: Array<IGDBRelatedGame>;
-    similar_games: Array<IGDBRelatedGame>;
+    ports?: Array<IGDBRelatedGame>;
+    similar_games?: Array<IGDBRelatedGame>;
 };
 
