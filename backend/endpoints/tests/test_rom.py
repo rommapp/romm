@@ -61,6 +61,8 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
             "remasters": "[]",
             "remakes": "[]",
             "expanded_games": "[]",
+            "ports": "[]",
+            "similar_games": "[]",
         },
     )
     assert response.status_code == 200
