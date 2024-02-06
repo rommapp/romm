@@ -1,7 +1,7 @@
 """empty message
 
 Revision ID: 0020_assets_user_id
-Revises: 0019_migrate_to_mysql
+Revises: 0019_add_games_extra_metadata
 Create Date: 2024-02-01 17:08:02.103046
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "0020_assets_user_id"
-down_revision = "0019_migrate_to_mysql"
+down_revision = "0019_add_games_extra_metadata"
 branch_labels = None
 depends_on = None
 

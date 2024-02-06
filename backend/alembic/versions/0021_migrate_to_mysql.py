@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0019_migrate_to_mysql
-Revises: 0018_increase_file_extension
+Revision ID: 0021_migrate_to_mysql
+Revises: 0020_assets_user_id
 Create Date: 2024-01-24 13:54:32.458301
 
 """
@@ -14,8 +14,8 @@ from config.config_manager import ConfigManager, SQLITE_DB_BASE_PATH
 
 
 # revision identifiers, used by Alembic.
-revision = '0019_migrate_to_mysql'
-down_revision = '0018_increase_file_extension'
+revision = '0021_migrate_to_mysql'
+down_revision = '0020_assets_user_id'
 branch_labels = None
 depends_on = None
 
