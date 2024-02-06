@@ -8,25 +8,20 @@ import socket from "@/services/socket";
 import { onBeforeMount } from "vue";
 import cookie from "js-cookie";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { inject, onBeforeUnmount } from "vue";
 
 // Props
 const scanningStore = storeScanning();
-const { scanning, scanningPlatforms } = storeToRefs(scanningStore);
-const completeRescan = ref(false);
-const rescanUnidentified = ref(false);
-const platforms = storePlatforms();
-const platformsToScan = ref<Platform[]>([]);
+const { scanningPlatforms } = storeToRefs(scanningStore);
 const romsStore = storeRoms();
 const galleryFilter = storeGalleryFilter();
-const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
+const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Props
@@ -34,39 +29,44 @@ const authStore = storeAuth();
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 
-function scrollToBottom() {
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
 socket.on("scan:scanning_platform", ({ name, slug, id }) => {
   scanningPlatforms.value.push({ name, slug, id, roms: [] });
-  window.setTimeout(scrollToBottom, 100);
 });
 
-socket.on(
-  "scan:scanning_rom",
-  ({ platform_name, platform_slug, ...rom }) => {
-    romsStore.add([rom]);
-    if (isFiltered) {
-      romsStore.setFiltered(romsStore.filteredRoms);
-    } else {
-      romsStore.setFiltered(romsStore.allRoms);
-    }
-
-    let scannedPlatform = scanningPlatforms.value.find(
-      (p) => p.slug === platform_slug
+socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
+  romsStore.add([rom]);
+  if (isFiltered) {
+    romsStore.setFiltered(
+      romsStore.filteredRoms,
+      galleryFilter.filterUnmatched,
+      galleryFilter.selectedGenre,
+      galleryFilter.selectedFranchise,
+      galleryFilter.selectedCollection,
+      galleryFilter.selectedCompany
     );
-
-    // Add the platform if the socket dropped and it's missing
-    if (scannedPlatform) {
-      scanningPlatforms.value.push(scannedPlatform);
-      scannedPlatform = scanningPlatforms.value.pop();
-    }
-
-    scannedPlatform?.roms.push(rom);
-    window.setTimeout(scrollToBottom, 100);
+  } else {
+    romsStore.setFiltered(
+      romsStore.allRoms,
+      galleryFilter.filterUnmatched,
+      galleryFilter.selectedGenre,
+      galleryFilter.selectedFranchise,
+      galleryFilter.selectedCollection,
+      galleryFilter.selectedCompany
+    );
   }
-);
+
+  let scannedPlatform = scanningPlatforms.value.find(
+    (p) => p.slug === platform_slug
+  );
+
+  // Add the platform if the socket dropped and it's missing
+  if (scannedPlatform) {
+    scanningPlatforms.value.push(scannedPlatform);
+    scannedPlatform = scanningPlatforms.value.pop();
+  }
+
+  scannedPlatform?.roms.push(rom);
+});
 
 socket.on("scan:done", () => {
   scanningStore.set(false);
@@ -118,7 +118,8 @@ onBeforeMount(async () => {
     </v-main>
   </v-app>
 </template>
-
 <style>
-@import "@/styles/scrollbar.css";
+body {
+  background-color: rgba(var(--v-theme-background));
+}
 </style>

@@ -7,12 +7,13 @@ import { useDisplay } from "vuetify";
 
 import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
+import AditionalContent from "@/components/Details/AditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
-import DetailsInfo from "@/components/Details/DetailsInfo.vue";
+import Info from "@/components/Details/Info/Base.vue";
 import Emulation from "@/components/Details/Emulation.vue";
+import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
-import Screenshots from "@/components/Details/Screenshots.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
@@ -26,8 +27,16 @@ import romApi from "@/services/api/rom";
 const route = useRoute();
 const rom = ref<EnhancedRomSchema>();
 const platform = ref<PlatformSchema>();
-const tab = ref<"details" | "saves" | "screenshots" | "emulation">("details");
-const { smAndDown, mdAndUp } = useDisplay();
+const tab = ref<
+  | "details"
+  | "saves"
+  | "states"
+  | "aditionalcontent"
+  | "screenshots"
+  | "relatedgames"
+  | "emulation"
+>("details");
+const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const showEmulation = ref(false);
 emitter?.on("showEmulation", () => {
@@ -93,14 +102,11 @@ watch(
 
 <template>
   <template v-if="rom && platform">
-    <v-row no-gutters>
-      <v-col>
-        <background-header :image="rom.path_cover_s" />
-      </v-col>
-    </v-row>
+    <background-header :rom="rom" />
 
     <v-row
       :class="{
+        'mx-12': mdAndUp,
         'justify-center': smAndDown,
       }"
       no-gutters
@@ -111,47 +117,81 @@ watch(
           'cover-lg': mdAndUp,
           'cover-xs': smAndDown,
         }"
-        cols="12"
-        md="6"
-        lg="6"
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
+        <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
       </v-col>
       <v-col
         cols="12"
-        md="6"
+        sm="12"
+        md="7"
         lg="6"
-        class="px-6"
+        xl="8"
+        class="px-5"
         :class="{
-          'mr-16 info-lg': mdAndUp,
+          'info-lg': mdAndUp,
           'info-xs': smAndDown,
         }"
       >
+        <v-col
+          cols="12"
+          sm="12"
+          md="6"
+          lg="5"
+          xl="6"
+          class="px-0"
+          :class="{
+            'position-absolute title-lg': mdAndUp,
+            'justify-center': smAndDown,
+          }"
+        >
+          <title-info :rom="rom" :platform="platform" />
+        </v-col>
         <v-row
           :class="{
-            'position-absolute title-lg mr-16': mdAndUp,
             'justify-center': smAndDown,
           }"
           no-gutters
         >
-          <v-col cols="12">
-            <title-info :rom="rom" :platform="platform" />
-          </v-col>
-        </v-row>
-        <v-row
-          :class="{
-            'justify-center': smAndDown,
-          }"
-          no-gutters
-        >
-          <v-tabs v-if="!showEmulation" v-model="tab" slider-color="romm-accent-1" rounded="0">
+          <v-tabs
+            v-if="!showEmulation"
+            v-model="tab"
+            slider-color="romm-accent-1"
+            rounded="0"
+          >
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0">Saves</v-tab>
             <v-tab value="states" rounded="0">States</v-tab>
-            <v-tab value="screenshots" rounded="0">Screenshots</v-tab>
+            <v-tab
+              v-if="
+                mdAndDown &&
+                (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
+              "
+              value="aditionalcontent"
+              rounded="0"
+              >Aditional content</v-tab
+            >
+            <!-- TODO: user screenshots -->
+            <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
+            <v-tab
+              v-if="
+                smAndDown &&
+                (rom.igdb_metadata?.remakes ||
+                  rom.igdb_metadata?.remasters ||
+                  rom.igdb_metadata?.expanded_games)
+              "
+              value="relatedgames"
+              rounded="0"
+              >Related Games</v-tab
+            >
           </v-tabs>
-          <v-tabs v-if="showEmulation" v-model="tab" slider-color="romm-accent-1" rounded="0">
+          <v-tabs
+            v-if="showEmulation"
+            v-model="tab"
+            slider-color="romm-accent-1"
+            rounded="0"
+          >
             <v-tab value="emulation" rounded="0">Emulation</v-tab>
           </v-tabs>
         </v-row>
@@ -159,7 +199,7 @@ watch(
           <v-col cols="12">
             <v-window v-if="!showEmulation" v-model="tab" class="py-2">
               <v-window-item value="details">
-                <details-info :rom="rom" :platform="platform" />
+                <info :rom="rom" :platform="platform" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />
@@ -167,8 +207,29 @@ watch(
               <v-window-item value="states">
                 <states :rom="rom" />
               </v-window-item>
-              <v-window-item value="screenshots">
+              <v-window-item
+                v-if="
+                  mdAndDown &&
+                  (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
+                "
+                value="aditionalcontent"
+              >
+                <aditional-content :rom="rom" />
+              </v-window-item>
+              <!-- TODO: user screenshots -->
+              <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
                 <screenshots :rom="rom" />
+              </v-window-item> -->
+              <v-window-item
+                v-if="
+                  smAndDown &&
+                  (rom.igdb_metadata?.remakes ||
+                    rom.igdb_metadata?.remasters ||
+                    rom.igdb_metadata?.expanded_games)
+                "
+                value="relatedgames"
+              >
+                <related-games :rom="rom" />
               </v-window-item>
             </v-window>
             <v-window v-if="showEmulation" v-model="tab" class="py-2">
@@ -179,6 +240,12 @@ watch(
           </v-col>
         </v-row>
       </v-col>
+
+      <template v-if="lgAndUp">
+        <v-col class="px-6">
+          <aditional-content :rom="rom" />
+        </v-col>
+      </template>
     </v-row>
   </template>
 
@@ -198,15 +265,18 @@ watch(
 }
 .cover-lg {
   margin-top: -230px;
-  margin-left: 110px;
-}
-.cover-xs {
-  margin-top: -280px;
 }
 .title-lg {
   margin-top: -190px;
 }
+.cover-xs {
+  margin-top: -280px;
+}
 .info-xs {
-  margin-top: 60px;
+  margin-top: 50px;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 </style>

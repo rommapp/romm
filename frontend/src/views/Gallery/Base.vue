@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
-
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
@@ -15,17 +9,23 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
+import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, ref } from "vue";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 
 // Props
 const route = useRoute();
-const galleryView = storeGalleryView();
-const galleryFilter = storeGalleryFilter();
+const galleryViewStore = storeGalleryView();
+const galleryFilterStore = storeGalleryFilter();
 const gettingRoms = ref(false);
 const fabMenu = ref(false);
 const scrolledToTop = ref(true);
@@ -37,6 +37,7 @@ const {
   searchRoms,
   cursor,
   searchCursor,
+  platform,
 } = storeToRefs(romsStore);
 
 // Event listeners bus
@@ -47,12 +48,10 @@ emitter?.on("openFabMenu", (open) => {
 });
 
 // Functions
-async function fetchRoms(platformId: number) {
-  const isFiltered = normalizeString(galleryFilter.filter).trim() != "";
-
+async function fetchRoms() {
   if (
-    (searchCursor.value === null && isFiltered) ||
-    (cursor.value === null && !isFiltered) ||
+    (searchCursor.value === null && galleryFilterStore.isFiltered()) ||
+    (cursor.value === null && !galleryFilterStore.isFiltered()) ||
     gettingRoms.value
   )
     return;
@@ -65,35 +64,50 @@ async function fetchRoms(platformId: number) {
 
   await romApi
     .getRoms({
-      platformId: platformId,
-      cursor: isFiltered ? searchCursor.value : cursor.value,
-      searchTerm: normalizeString(galleryFilter.filter),
+      platformId: platform.value.id,
+      cursor: galleryFilterStore.isFiltered()
+        ? searchCursor.value
+        : cursor.value,
+      searchTerm: normalizeString(galleryFilterStore.filterSearch),
     })
     .then(({ data }) => {
       // Add any new roms to the store
       const allRomsSet = [...allRoms.value, ...data.items];
       romsStore.set(allRomsSet);
-      romsStore.setFiltered(allRomsSet);
-      romsStore.setPlatform(platformId);
+      romsStore.setFiltered(
+        allRomsSet,
+        galleryFilterStore.filterUnmatched,
+        galleryFilterStore.selectedGenre,
+        galleryFilterStore.selectedFranchise,
+        galleryFilterStore.selectedCollection,
+        galleryFilterStore.selectedCompany
+      );
 
-      if (isFiltered) {
+      if (galleryFilterStore.isFiltered()) {
         if (data.next_page !== undefined) searchCursor.value = data.next_page;
 
         const serchedRomsSet = [...searchRoms.value, ...data.items];
         romsStore.setSearch(serchedRomsSet);
-        romsStore.setFiltered(serchedRomsSet);
+        romsStore.setFiltered(
+          serchedRomsSet,
+          galleryFilterStore.filterUnmatched,
+          galleryFilterStore.selectedGenre,
+          galleryFilterStore.selectedFranchise,
+          galleryFilterStore.selectedCollection,
+          galleryFilterStore.selectedCompany
+        );
       } else if (data.next_page !== undefined) {
         cursor.value = data.next_page;
       }
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for ${platformId}: ${error}`,
+        msg: `Couldn't fetch roms for ${platform.value.name}: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
       });
-      console.error(`Couldn't fetch roms for ${platformId}: ${error}`);
+      console.error(`Couldn't fetch roms for ${platform.value.name}: ${error}`);
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -104,19 +118,25 @@ async function fetchRoms(platformId: number) {
     });
 }
 
-function onFilterChange() {
+async function onFilterChange() {
   searchCursor.value = "";
   romsStore.setSearch([]);
-
-  if (galleryFilter.filter === "") {
-    romsStore.setFiltered(allRoms.value);
+  if (!galleryFilterStore.isFiltered()) {
+    romsStore.setFiltered(
+      allRoms.value,
+      galleryFilterStore.filterUnmatched,
+      galleryFilterStore.selectedGenre,
+      galleryFilterStore.selectedFranchise,
+      galleryFilterStore.selectedCollection,
+      galleryFilterStore.selectedCompany
+    );
     return;
   }
-
-  fetchRoms(Number(route.params.platform));
+  await fetchRoms();
 }
 
-function onScroll() {
+async function onScroll() {
+  // Fetch more roms if near to bottom page
   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
   scrolledToTop.value = scrollTop === 0;
 
@@ -124,11 +144,13 @@ function onScroll() {
 
   const scrollOffset = 60;
   if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-    fetchRoms(Number(route.params.platform));
+    await fetchRoms();
+    setFilters();
   }
 }
 
 function selectRom({ event, index, selected }: RomSelectEvent) {
+  // Add rom to selected roms
   if (event.shiftKey) {
     const [start, end] = [romsStore.lastSelectedIndex, index].sort(
       (a, b) => a - b
@@ -148,65 +170,99 @@ function selectRom({ event, index, selected }: RomSelectEvent) {
   }
 }
 
+function setFilters() {
+  galleryFilterStore.setFilterGenre([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.genres.map((genre) => genre))
+        .sort()
+    ),
+  ]);
+  galleryFilterStore.setFilterFranchise([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
+        .sort()
+    ),
+  ]);
+  galleryFilterStore.setFilterCompany([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.companies.map((company) => company))
+        .sort()
+    ),
+  ]);
+  galleryFilterStore.setFilterCollection([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.collections.map((collection) => collection))
+        .sort()
+    ),
+  ]);
+}
+
 function resetGallery() {
   cursor.value = "";
   searchCursor.value = "";
   romsStore.reset();
   scrolledToTop.value = true;
+  galleryFilterStore.reset();
 }
 
-onMounted(() => {
-  const platformId = Number(route.params.platform);
+onMounted(async () => {
+  const { data: platform } = await platformApi.getPlatform(
+    Number(route.params.platform)
+  );
+  romsStore.setPlatform(platform);
 
   // If platform is different, reset store and fetch roms
-  if (platformId != romsStore.platform) {
+  if (platform.id != romsStore.platform.id) {
     resetGallery();
-    fetchRoms(platformId);
+    await fetchRoms();
   }
 
   // If platform is the same but there are no roms, fetch them
   if (filteredRoms.value.length == 0) {
-    fetchRoms(platformId);
+    await fetchRoms();
   }
-});
-
-onBeforeUnmount(() => {
-  romsStore.resetSelection();
+  setFilters();
 });
 
 onBeforeRouteLeave((to, from, next) => {
-  // Reset only the selection if platform is the same
-  if (to.fullPath.includes(from.path)) {
-    romsStore.resetSelection();
-    // Otherwise reset the entire store
-  } else {
+  if (!to.fullPath.includes(from.path)) {
     resetGallery();
   }
-
   next();
 });
 
-onBeforeRouteUpdate((to, _) => {
+onBeforeRouteUpdate(async (to, _) => {
+  // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
-  fetchRoms(Number(to.params.platform));
+  const { data: newPlatform } = await platformApi.getPlatform(
+    Number(to.params.platform)
+  );
+  romsStore.setPlatform(newPlatform);
+  await fetchRoms();
+  setFilters();
 });
 </script>
 
 <template>
   <gallery-app-bar />
+
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters v-scroll="onScroll">
       <!-- Gallery cards view -->
       <v-col
         class="pa-1"
-        v-show="galleryView.current != 2"
-        :cols="views[galleryView.current]['size-cols']"
-        :xs="views[galleryView.current]['size-xs']"
-        :sm="views[galleryView.current]['size-sm']"
-        :md="views[galleryView.current]['size-md']"
-        :lg="views[galleryView.current]['size-lg']"
-        :xl="views[galleryView.current]['size-xl']"
+        v-show="galleryViewStore.current != 2"
+        :cols="views[galleryViewStore.current]['size-cols']"
+        :xs="views[galleryViewStore.current]['size-xs']"
+        :sm="views[galleryViewStore.current]['size-sm']"
+        :md="views[galleryViewStore.current]['size-md']"
+        :lg="views[galleryViewStore.current]['size-lg']"
+        :xl="views[galleryViewStore.current]['size-xl']"
         v-for="rom in filteredRoms"
         :key="rom.id"
       >
@@ -220,7 +276,7 @@ onBeforeRouteUpdate((to, _) => {
       </v-col>
 
       <!-- Gallery list view -->
-      <v-col v-show="galleryView.current == 2">
+      <v-col v-show="galleryViewStore.current == 2">
         <game-data-table />
       </v-col>
     </v-row>

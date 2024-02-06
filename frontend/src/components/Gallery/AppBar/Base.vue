@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import storeAuth from "@/stores/auth";
-import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
 import AdminMenu from "@/components/Gallery/AppBar/AdminMenu.vue";
+import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
+import FilterUnmatchedBtn from "@/components/Gallery/AppBar/FilterUnmatchedBtn.vue";
+import FilterBtn from "@/components/Gallery/AppBar/FilterBtn.vue";
+import FilterTextField from "@/components/Gallery/AppBar/FilterTextField.vue";
+import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
+import SortBar from "@/components/Gallery/AppBar/SortBar.vue";
+import SortBtn from "@/components/Gallery/AppBar/SortBtn.vue";
+import storeAuth from "@/stores/auth";
 
 // Props
 const auth = storeAuth();
@@ -10,7 +15,9 @@ const auth = storeAuth();
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
-    <filter-bar />
+    <!-- <sort-btn /> -->
+    <filter-btn />
+    <filter-text-field />
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
       <v-menu location="bottom">
@@ -28,6 +35,13 @@ const auth = storeAuth();
       </v-menu>
     </template>
   </v-app-bar>
+
+  <v-expand-transition>
+    <sort-bar />
+  </v-expand-transition>
+  <v-expand-transition>
+    <filter-bar />
+  </v-expand-transition>
 </template>
 
 <style scoped>

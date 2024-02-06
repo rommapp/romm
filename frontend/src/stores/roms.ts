@@ -1,8 +1,7 @@
-import { uniqBy, groupBy, isNull } from "lodash";
-import { defineStore } from "pinia";
+import type { PlatformSchema, RomSchema } from "@/__generated__/";
+import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
-
-import type { RomSchema } from "../__generated__/";
+import { defineStore } from "pinia";
 
 export type Rom = RomSchema & {
   sibling_roms?: RomSchema[]; // Returned by the API
@@ -11,13 +10,13 @@ export type Rom = RomSchema & {
 
 export default defineStore("roms", {
   state: () => ({
-    _platform: Number(undefined),
-    recentRoms: [] as Rom[],
+    _platform: {} as PlatformSchema,
     _all: [] as Rom[],
     _grouped: [] as Rom[],
     _filteredIDs: [] as number[],
     _searchIDs: [] as number[],
     _selectedIDs: [] as number[],
+    recentRoms: [] as Rom[],
     lastSelectedIndex: -1,
     cursor: "" as string | null,
     searchCursor: "" as string | null,
@@ -65,7 +64,7 @@ export default defineStore("roms", {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });
     },
-    setPlatform(platform: number) {
+    setPlatform(platform: PlatformSchema) {
       this._platform = platform;
     },
     setRecentRoms(roms: Rom[]) {
@@ -110,8 +109,69 @@ export default defineStore("roms", {
       this.lastSelectedIndex = -1;
     },
     // Filtered roms
-    setFiltered(roms: Rom[]) {
+    setFiltered(
+      roms: Rom[],
+      filterUnmatched: boolean,
+      filterGenre: string | null = null,
+      filterFranchise: string | null = null,
+      filterCollection: string | null = null,
+      filterCompany: string | null = null
+    ) {
       this._filteredIDs = roms.map((rom) => rom.id);
+      if (filterUnmatched) {
+        this.filterUnmatched();
+      }
+      if (filterGenre) {
+        this.filterGenre(filterGenre);
+      }
+      if (filterFranchise) {
+        this.filterFranchise(filterFranchise);
+      }
+      if (filterCollection) {
+        this.filterCollection(filterCollection);
+      }
+      if (filterCompany) {
+        this.filterCompany(filterCompany);
+      }
+    },
+    filterUnmatched() {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => !rom.igdb_id)
+        .map((roms) => roms.id);
+    },
+    filterGenre(genreToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.genres.some((genre) => genre === genreToFilter)
+        )
+        .map((rom) => rom.id);
+    },
+    filterFranchise(franchiseToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.franchises.some(
+            (franchise) => franchise === franchiseToFilter
+          )
+        )
+        .map((rom) => rom.id);
+    },
+    filterCollection(collectionToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.collections.some(
+            (collection) => collection === collectionToFilter
+          )
+        )
+        .map((rom) => rom.id);
+    },
+    filterCompany(companyToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.companies.some(
+            (company) => company === companyToFilter
+          )
+        )
+        .map((rom) => rom.id);
     },
     // Search roms
     setSearch(roms: Rom[]) {

@@ -45,7 +45,7 @@ export const views: Record<
   },
 };
 
-export const defaultAvatarPath = "/assets/default_avatar.png";
+export const defaultAvatarPath = "/assets/default/user.png";
 
 export function toTop() {
   window.scrollTo({
@@ -261,6 +261,7 @@ export const platformSlugEJSCoreMap: Record<string, string> = {
   nds: "melonds",
   gba: "mgba",
   gb: "gambatte",
+  gbc: "gambatte",
   "pc-fx": "mednafen_pcfx",
   ps: "pcsx_rearmed",
   psp: "ppsspp",

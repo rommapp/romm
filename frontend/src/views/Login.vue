@@ -66,7 +66,7 @@ onBeforeMount(async () => {
             height="200"
           />
 
-          <v-row class="justify-center">
+          <v-row class="text-white justify-center">
             <v-col cols="10" md="8">
               <v-text-field
                 @keyup.enter="login()"
@@ -94,6 +94,7 @@ onBeforeMount(async () => {
               <v-btn
                 @click="login()"
                 :disabled="logging"
+                color="terciary"
                 append-icon="mdi-chevron-right-circle-outline"
                 block
                 :loading="logging"
@@ -126,6 +127,7 @@ onBeforeMount(async () => {
   background-size: cover;
 }
 #card {
-  background-color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px); 
 }
 </style>

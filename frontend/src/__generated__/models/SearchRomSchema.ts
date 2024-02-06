@@ -3,12 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { IGDBMetadata } from './IGDBMetadata';
+
 export type SearchRomSchema = {
-    igdb_id: number;
-    slug: string;
-    name: string;
-    summary: string;
+    igdb_id: (number | null);
+    name: (string | null);
+    slug: (string | null);
+    summary: (string | null);
     url_cover: string;
     url_screenshots: Array<string>;
+    igdb_metadata: (IGDBMetadata | null);
 };
 

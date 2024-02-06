@@ -1,14 +1,20 @@
 import re
 from functools import cached_property
 
-from config import (
-    DEFAULT_PATH_COVER_L,
-    DEFAULT_PATH_COVER_S,
-    FRONTEND_RESOURCES_PATH,
-)
+from config import FRONTEND_RESOURCES_PATH
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text, BigInteger
+from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    BigInteger,
+)
 from sqlalchemy.orm import Mapped, relationship
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
@@ -32,18 +38,19 @@ class Rom(BaseModel):
     name: str = Column(String(length=350))
     slug: str = Column(String(length=400))
     summary: str = Column(Text)
+    igdb_metadata: MySQLJSON = Column(MySQLJSON, default=dict)
 
-    path_cover_s: str = Column(Text, default=DEFAULT_PATH_COVER_S)
-    path_cover_l: str = Column(Text, default=DEFAULT_PATH_COVER_L)
-    url_cover: str = Column(Text, default=DEFAULT_PATH_COVER_L)
+    path_cover_s: str = Column(Text, default="")
+    path_cover_l: str = Column(Text, default="")
+    url_cover: str = Column(Text, default="", doc="URL to cover image stored in IGDB")
 
     revision: str = Column(String(20))
     regions: JSON = Column(JSON, default=[])
     languages: JSON = Column(JSON, default=[])
     tags: JSON = Column(JSON, default=[])
 
-    url_screenshots: JSON = Column(JSON, default=[])
     path_screenshots: JSON = Column(JSON, default=[])
+    url_screenshots: JSON = Column(JSON, default=[], doc="URLs to screenshots stored in IGDB")
 
     multi: bool = Column(Boolean, default=False)
     files: JSON = Column(JSON, default=[])
@@ -90,10 +97,7 @@ class Rom(BaseModel):
 
     @cached_property
     def has_cover(self) -> bool:
-        return (
-            self.path_cover_s != DEFAULT_PATH_COVER_S
-            or self.path_cover_l != DEFAULT_PATH_COVER_L
-        )
+        return bool(self.path_cover_s or self.path_cover_l)
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
@@ -128,6 +132,43 @@ class Rom(BaseModel):
                     Rom.igdb_id == self.igdb_id,
                 )
             ).all()
+    
+    # Metadata fields
+    @property
+    def total_rating(self) -> str:
+        return self.igdb_metadata.get("total_rating", "")
+    
+    @property
+    def aggregated_rating(self) -> str:
+        return self.igdb_metadata.get("aggregated_rating", "")
+    
+    @property
+    def alternative_names(self) -> list[str]:
+        return self.igdb_metadata.get("alternative_names", [])
+    
+    @property
+    def first_release_date(self) -> int:
+        return self.igdb_metadata.get("first_release_date", 0)
+    
+    @property
+    def genres(self) -> list[str]:
+        return self.igdb_metadata.get("genres", [])
+    
+    @property
+    def franchises(self) -> list[str]:
+        return self.igdb_metadata.get("franchises", [])
+    
+    @property
+    def collections(self) -> list[str]:
+        return self.igdb_metadata.get("collections", [])    
+    
+    @property
+    def companies(self) -> list[str]:
+        return self.igdb_metadata.get("companies", [])
+    
+    @property
+    def game_modes(self) -> list[str]:
+        return self.igdb_metadata.get("game_modes", [])
 
     def __repr__(self) -> str:
         return self.file_name
