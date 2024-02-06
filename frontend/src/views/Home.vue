@@ -27,7 +27,7 @@ emitter?.on("refreshDrawer", async () => {
   platformsStore.set(platformData);
 });
 emitter?.on("refreshView", async () => {
-  refreshView.value = refreshView.value+1;
+  refreshView.value = refreshView.value + 1;
 });
 
 // Functions
@@ -50,8 +50,6 @@ onMounted(async () => {
     color="romm-accent-1"
     :active="scanning"
     :indeterminate="true"
-    absolute
-    fixed
   />
   <drawer />
   <app-bar v-if="mdAndDown" />
@@ -60,6 +58,7 @@ onMounted(async () => {
 
 <style scoped>
 #scan-progress-bar {
-  z-index: 1001 !important;
+  z-index: 2015 !important;
+  position: fixed;
 }
 </style>
