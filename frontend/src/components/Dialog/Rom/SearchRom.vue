@@ -28,7 +28,7 @@ emitter?.on("showSearchRomDialog", (romToSearch) => {
 });
 
 // Functions
-function setExtended() {
+function toggleExtended() {
   searchExtended.value = !searchExtended.value;
 }
 
