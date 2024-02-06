@@ -5,6 +5,7 @@ Revises: 0018_increase_file_extension
 Create Date: 2024-02-02 16:47:26.098480
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
@@ -25,6 +26,9 @@ def upgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.execute("UPDATE roms SET igdb_metadata = '\\{\\}'")
+        batch_op.execute(
+            "UPDATE roms SET path_cover_s = '', path_cover_l = '', url_cover = '' where url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png'"
+        )
 
 
 def downgrade() -> None:
