@@ -12,6 +12,6 @@ export type SearchRomSchema = {
     summary: (string | null);
     url_cover: string;
     url_screenshots: Array<string>;
-    metadata: (IGDBMetadata | null);
+    igdb_metadata: (IGDBMetadata | null);
 };
 

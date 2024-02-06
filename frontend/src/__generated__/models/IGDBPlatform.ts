@@ -3,11 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type IGDBRomExpansion = {
+export type IGDBPlatform = {
+    igdb_id: number;
     name: string;
-    type: string;
-    cover_url: string;
-    id: number;
-    slug: string;
 };
 
