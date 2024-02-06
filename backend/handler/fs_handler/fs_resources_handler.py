@@ -1,4 +1,3 @@
-import datetime
 import os
 import shutil
 from pathlib import Path
@@ -102,7 +101,6 @@ class FSResourceHandler(FSHandler):
             file_name: name of rom file
             size: size of the cover
         """
-        strtime = str(datetime.datetime.now().timestamp())
         return f"{fs_slug}/{rom_name}/cover/{size.value}.png"
 
     def get_rom_cover(
@@ -139,7 +137,6 @@ class FSResourceHandler(FSHandler):
     @staticmethod
     def build_artwork_path(rom_name: str, fs_slug: str, file_ext: str):
         q_rom_name = quote(rom_name)
-        strtime = str(datetime.datetime.now().timestamp())
 
         path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
         path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"

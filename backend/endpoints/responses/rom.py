@@ -3,17 +3,19 @@ from typing import Optional
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi.responses import StreamingResponse
 from handler import socket_handler
-from handler.igdb_handler import IGDBRomExpansion, IGDBDlc, IGDBRelatedGame
+from handler.igdb_handler import IGDBRelatedGame
 from pydantic import BaseModel
 from typing_extensions import TypedDict, NotRequired
 
 
 class RomMetadata(TypedDict):
-    expansions: NotRequired[list[IGDBRomExpansion]]
-    dlcs: NotRequired[list[IGDBDlc]]
+    expansions: NotRequired[list[IGDBRelatedGame]]
+    dlcs: NotRequired[list[IGDBRelatedGame]]
     remasters: NotRequired[list[IGDBRelatedGame]]
     remakes: NotRequired[list[IGDBRelatedGame]]
     expanded_games: NotRequired[list[IGDBRelatedGame]]
+    ports: list[IGDBRelatedGame]
+    similar_games: list[IGDBRelatedGame]
 
 
 class RomSchema(BaseModel):
@@ -38,11 +40,14 @@ class RomSchema(BaseModel):
 
     # Metadata fields
     total_rating: Optional[str]
+    aggregated_rating: Optional[str]
     first_release_date: Optional[int]
+    alternative_names: list[str]
     genres: list[str]
     franchises: list[str]
     collections: list[str]
     companies: list[str]
+    game_modes: list[str]
     igdb_metadata: Optional[RomMetadata]
 
     # Used for sorting on the frontend

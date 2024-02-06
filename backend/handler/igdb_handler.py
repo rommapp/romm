@@ -43,33 +43,37 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
 
-class IGDBRelatedGame(TypedDict):
+class IGDBPlatform(TypedDict):
+    igdb_id: int
     name: str
+
+
+class IGDBRelatedGame(TypedDict):
+    id: int
+    name: str
+    slug: str
     type: str
     cover_url: str
 
 
-class IGDBRomExpansion(IGDBRelatedGame):
-    id: int
-    slug: str
-
-
-class IGDBDlc(IGDBRelatedGame):
-    slug: str
-
-
 class IGDBMetadata(TypedDict):
     total_rating: str
+    aggregated_rating: str
     first_release_date: int | None
     genres: list[str]
     franchises: list[str]
+    alternative_names: list[str]
     collections: list[str]
     companies: list[str]
-    expansions: list[IGDBRomExpansion]
-    dlcs: list[IGDBDlc]
+    game_modes: list[str]
+    platforms: list[IGDBPlatform]
+    expansions: list[IGDBRelatedGame]
+    dlcs: list[IGDBRelatedGame]
     remasters: list[IGDBRelatedGame]
     remakes: list[IGDBRelatedGame]
     expanded_games: list[IGDBRelatedGame]
+    ports: list[IGDBRelatedGame]
+    similar_games: list[IGDBRelatedGame]
 
 
 class IGDBRom(TypedDict):
@@ -82,19 +86,25 @@ class IGDBRom(TypedDict):
     igdb_metadata: Optional[IGDBMetadata]
 
 
-class IGDBPlatform(TypedDict):
-    igdb_id: int
-    name: str
-
-
 def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
     return IGDBMetadata(
         {
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
             "genres": pydash.map_(rom.get("genres", []), "name"),
-            "franchises": pydash.map_(rom.get("franchises", []), "name"),
+            "franchises": pydash.compact(
+                [rom.get("franchise.name", None)]
+                + pydash.map_(rom.get("franchises", []), "name")
+            ),
+            "alternative_names": pydash.map_(rom.get("alternative_names", []), "name"),
             "collections": pydash.map_(rom.get("collections", []), "name"),
+            "game_modes": pydash.map_(rom.get("game_modes", []), "name"),
+            "companies": pydash.map_(rom.get("involved_companies", []), "company.name"),
+            "platforms": [
+                {"igdb_id": p.get("id", ""), "name": p.get("name", "")}
+                for p in rom.get("platforms", [])
+            ],
             "expansions": [
                 {"cover_url": pydash.get(e, "cover.url", ""), "type": "expansion", **e}
                 for e in rom.get("expansions", [])
@@ -115,7 +125,14 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                 {"cover_url": pydash.get(g, "cover.url", ""), "type": "expanded", **g}
                 for g in rom.get("expanded_games", [])
             ],
-            "companies": pydash.map_(rom.get("involved_companies", []), "company.name"),
+            "ports": [
+                {"cover_url": pydash.get(p, "cover.url", ""), "type": "port", **p}
+                for p in rom.get("ports", [])
+            ],
+            "similar_games": [
+                {"cover_url": pydash.get(s, "cover.url", ""), "type": "similar", **s}
+                for s in rom.get("similar_games", [])
+            ],
         }
     )
 
@@ -562,34 +579,45 @@ GAMES_FIELDS = [
     "summary",
     "total_rating",
     "aggregated_rating",
-    "genres.name",
-    "alternative_names.name",
+    "first_release_date",
     "artworks.url",
     "cover.url",
     "screenshots.url",
+    "platforms.id",
+    "platforms.name",
+    "alternative_names.name",
+    "genres.name",
     "franchise.name",
     "franchises.name",
     "collections.name",
-    "expansions.name",
+    "game_modes.name",
+    "involved_companies.company.name",
+    "expansions.id",
     "expansions.slug",
+    "expansions.name",
     "expansions.cover.url",
+    "expanded_games.id",
+    "expanded_games.slug",
     "expanded_games.name",
     "expanded_games.cover.url",
+    "dlcs.id",
     "dlcs.name",
     "dlcs.slug",
     "dlcs.cover.url",
+    "remakes.id",
+    "remakes.slug",
     "remakes.name",
     "remakes.cover.url",
+    "remasters.id",
+    "remasters.slug",
     "remasters.name",
     "remasters.cover.url",
-    "involved_companies.company.name",
-    "platforms.name",
-    "first_release_date",
-    "game_modes.name",
-    "player_perspectives.name",
+    "ports.id",
+    "ports.slug",
     "ports.name",
+    "ports.cover.url",
+    "similar_games.id",
+    "similar_games.slug",
     "similar_games.name",
-    "language_supports.language.name",
-    "external_games.uid",
-    "external_games.category",
+    "similar_games.cover.url",
 ]

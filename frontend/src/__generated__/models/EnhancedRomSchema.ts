@@ -26,11 +26,14 @@ export type EnhancedRomSchema = {
     slug: (string | null);
     summary: (string | null);
     total_rating: (string | null);
+    aggregated_rating: (string | null);
     first_release_date: (number | null);
+    alternative_names: Array<string>;
     genres: Array<string>;
     franchises: Array<string>;
     collections: Array<string>;
     companies: Array<string>;
+    game_modes: Array<string>;
     igdb_metadata: (RomMetadata | null);
     sort_comparator: string;
     path_cover_s: (string | null);

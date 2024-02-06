@@ -42,7 +42,7 @@ class Rom(BaseModel):
 
     path_cover_s: str = Column(Text, default="")
     path_cover_l: str = Column(Text, default="")
-    url_cover: str = Column(Text, default="")
+    url_cover: str = Column(Text, default="", doc="URL to cover image stored in IGDB")
 
     revision: str = Column(String(20))
     regions: JSON = Column(JSON, default=[])
@@ -50,7 +50,7 @@ class Rom(BaseModel):
     tags: JSON = Column(JSON, default=[])
 
     path_screenshots: JSON = Column(JSON, default=[])
-    url_screenshots: JSON = Column(JSON, default=[])
+    url_screenshots: JSON = Column(JSON, default=[], doc="URLs to screenshots stored in IGDB")
 
     multi: bool = Column(Boolean, default=False)
     files: JSON = Column(JSON, default=[])
@@ -139,6 +139,14 @@ class Rom(BaseModel):
         return self.igdb_metadata.get("total_rating", "")
     
     @property
+    def aggregated_rating(self) -> str:
+        return self.igdb_metadata.get("aggregated_rating", "")
+    
+    @property
+    def alternative_names(self) -> list[str]:
+        return self.igdb_metadata.get("alternative_names", [])
+    
+    @property
     def first_release_date(self) -> int:
         return self.igdb_metadata.get("first_release_date", 0)
     
@@ -157,6 +165,10 @@ class Rom(BaseModel):
     @property
     def companies(self) -> list[str]:
         return self.igdb_metadata.get("companies", [])
+    
+    @property
+    def game_modes(self) -> list[str]:
+        return self.igdb_metadata.get("game_modes", [])
 
     def __repr__(self) -> str:
         return self.file_name
