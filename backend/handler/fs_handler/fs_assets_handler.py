@@ -20,9 +20,10 @@ class FSAssetsHandler(FSHandler):
             shutil.rmtree(os.path.join(ASSETS_BASE_PATH, file_path, file_name))
 
     def write_file(self, file: UploadFile, path: str) -> None:
+        Path(os.path.join(ASSETS_BASE_PATH, path)).mkdir(parents=True, exist_ok=True)
+        
         log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(ASSETS_BASE_PATH, path, file.filename)
-        Path(path).mkdir(parents=True, exist_ok=True)
 
         with open(file_location, "wb") as f:
             shutil.copyfileobj(file.file, f)
