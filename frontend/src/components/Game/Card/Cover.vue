@@ -109,7 +109,7 @@ function onTouchEnd() {
         <v-expand-transition>
           <div
             v-if="isHovering || !rom.has_cover"
-            class="rom-title bg-tooltip text-caption"
+            class="translucent text-caption"
           >
             <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
           </div>
@@ -158,12 +158,6 @@ function onTouchEnd() {
 </template>
 
 <style scoped>
-.rom-title {
-  opacity: 0.85;
-}
-.rom-title.on-hover {
-  opacity: 1;
-}
 .checkbox {
   bottom: 0.2rem;
   right: 0.2rem;
