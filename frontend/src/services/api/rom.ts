@@ -156,23 +156,8 @@ async function updateRom({
   var formData = new FormData();
   formData.append("igdb_id", rom.igdb_id?.toString() || "");
   formData.append("name", rom.name || "");
-  formData.append("slug", rom.slug || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover || "");
-  formData.append("url_screenshots", JSON.stringify(rom.url_screenshots));
-  formData.append("total_rating", rom.total_rating || "");
-  formData.append("genres", JSON.stringify(rom.genres));
-  formData.append("franchises", JSON.stringify(rom.franchises));
-  formData.append("collections", JSON.stringify(rom.collections));
-  formData.append("expansions", JSON.stringify(rom.expansions));
-  formData.append("dlcs", JSON.stringify(rom.dlcs));
-  formData.append("remakes", JSON.stringify(rom.remakes));
-  formData.append("companies", JSON.stringify(rom.companies));
-  formData.append(
-    "first_release_date",
-    rom.first_release_date?.toString() || ""
-  );
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
   return api.put(`/roms/${rom.id}`, formData, {

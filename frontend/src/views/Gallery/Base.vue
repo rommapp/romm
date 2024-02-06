@@ -174,28 +174,28 @@ function setFilters() {
   galleryFilterStore.setFilterGenre([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre.name))
+        .flatMap((rom) => rom.genres.map((genre) => genre))
         .sort()
     ),
   ]);
   galleryFilterStore.setFilterFranchise([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise.name))
+        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
         .sort()
     ),
   ]);
   galleryFilterStore.setFilterCompany([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company.name))
+        .flatMap((rom) => rom.companies.map((company) => company))
         .sort()
     ),
   ]);
   galleryFilterStore.setFilterCollection([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.collections.map((collection) => collection.name))
+        .flatMap((rom) => rom.collections.map((collection) => collection))
         .sort()
     ),
   ]);

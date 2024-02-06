@@ -5,15 +5,15 @@ defineProps<{ rom: Rom }>();
 </script>
 <template>
   <v-row no-gutters>
-    <v-col cols="4" sm="3" md="4" lg="6" xl="4" v-for="expansion in rom.expansions">
+    <v-col cols="4" sm="3" md="4" lg="6" xl="4" v-for="expansion in rom.igdb_metadata?.expansions">
       <v-card class="ma-1">
         <v-img
           class="cover"
-          :src="`https:${expansion.cover.url.replace(
+          :src="`https:${expansion.cover_url.replace(
             't_thumb',
             't_cover_big'
           )}`"
-          :lazy-src="`https:${expansion.cover.url.replace(
+          :lazy-src="`https:${expansion.cover_url.replace(
             't_thumb',
             't_cover_small'
           )}`"

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { RomMetadata } from './RomMetadata';
 import type { RomSchema } from './RomSchema';
 import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
@@ -25,16 +26,12 @@ export type EnhancedRomSchema = {
     slug: (string | null);
     summary: (string | null);
     total_rating: (string | null);
-    genres: Array<Record<string, any>>;
-    franchises: Array<Record<string, any>>;
-    collections: Array<Record<string, any>>;
-    expansions: Array<Record<string, any>>;
-    dlcs: Array<Record<string, any>>;
-    remasters: Array<Record<string, any>>;
-    remakes: Array<Record<string, any>>;
-    expanded_games: Array<Record<string, any>>;
-    companies: Array<Record<string, any>>;
     first_release_date: (number | null);
+    genres: Array<string>;
+    franchises: Array<string>;
+    collections: Array<string>;
+    companies: Array<string>;
+    igdb_metadata: (RomMetadata | null);
     sort_comparator: string;
     path_cover_s: (string | null);
     path_cover_l: (string | null);

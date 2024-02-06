@@ -3,16 +3,6 @@ import type { Rom } from "@/stores/roms";
 import { onMounted, ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
-const combined = ref();
-onMounted(() => {
-  props.rom.expansions.forEach((rom) => {
-    rom.type = "expansion";
-  });
-  props.rom.dlcs.forEach((rom) => {
-    rom.type = "dlc";
-  });
-  combined.value = [...props.rom.expansions, ...props.rom.dlcs];
-});
 </script>
 <template>
   <v-row no-gutters>
@@ -23,7 +13,7 @@ onMounted(() => {
       md="3"
       lg="4"
       xl="3"
-      v-for="expansion in rom.expansions"
+      v-for="expansion in rom.igdb_metadata?.expansions"
     >
       <a
         style="text-decoration: none; color: inherit"
@@ -42,11 +32,11 @@ onMounted(() => {
           <v-img
             v-bind="props"
             class="cover"
-            :src="`https:${expansion.cover.url.replace(
+            :src="`https:${expansion.cover_url.replace(
               't_thumb',
               't_cover_big'
             )}`"
-            :lazy-src="`https:${expansion.cover.url.replace(
+            :lazy-src="`https:${expansion.cover_url.replace(
               't_thumb',
               't_cover_small'
             )}`"
@@ -71,7 +61,7 @@ onMounted(() => {
       md="3"
       lg="4"
       xl="3"
-      v-for="dlc in rom.dlcs"
+      v-for="dlc in rom.igdb_metadata?.dlcs"
     >
       <a
         style="text-decoration: none; color: inherit"
@@ -90,8 +80,8 @@ onMounted(() => {
           <v-img
             v-bind="props"
             class="cover"
-            :src="`https:${dlc.cover.url.replace('t_thumb', 't_cover_big')}`"
-            :lazy-src="`https:${dlc.cover.url.replace(
+            :src="`https:${dlc.cover_url.replace('t_thumb', 't_cover_big')}`"
+            :lazy-src="`https:${dlc.cover_url.replace(
               't_thumb',
               't_cover_small'
             )}`"

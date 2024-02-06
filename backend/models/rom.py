@@ -4,13 +4,13 @@ from functools import cached_property
 from config import FRONTEND_RESOURCES_PATH
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
+from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy import (
     JSON,
     Boolean,
     Column,
     ForeignKey,
     Integer,
-    Float,
     String,
     Text,
     BigInteger,
@@ -38,36 +38,7 @@ class Rom(BaseModel):
     name: str = Column(String(length=350))
     slug: str = Column(String(length=400))
     summary: str = Column(Text)
-    total_rating: str = Column(String(length=350))
-    # aggregated_rating: str = Column(String(length=350))
-    genres: JSON = Column(JSON, default=[])
-    # alternative_names: JSON = Column(JSON, default=[])
-    # path_artwork: str = Column(Text, default="")
-    # url_artwork: str = Column(Text, default="")
-    franchises: JSON = Column(JSON, default=[])
-    collections: JSON = Column(JSON, default=[])
-    expansions: JSON = Column(JSON, default=[])
-    # path_cover_s_expansions: str = Column(Text, default="")
-    # path_cover_l_expansions: str = Column(Text, default="")
-    # url_cover_expansions: str = Column(Text, default="")
-    dlcs: JSON = Column(JSON, default=[])
-    # path_cover_s_dlcs: str = Column(Text, default="")
-    # path_cover_l_dlcs: str = Column(Text, default="")
-    # url_cover_dlcs: str = Column(Text, default="")
-    companies: JSON = Column(JSON, default=[])
-    # platforms: JSON = Column(JSON, default=[])
-    first_release_date: int = Column(BigInteger(), default=0)
-    # game_modes: JSON = Column(JSON, default=[])
-    # player_perspectives: JSON = Column(JSON, default=[])
-    # ports: JSON = Column(JSON, default=[])
-    remasters: JSON = Column(JSON, default=[])
-    remakes: JSON = Column(JSON, default=[])
-    # similar_games: JSON = Column(JSON, default=[])
-    # language_supports: JSON = Column(JSON, default=[])
-    # external_games: JSON = Column(JSON, default=[])
-    # external_games_category: JSON = Column(JSON, default=[])
-    expanded_games: JSON = Column(JSON, default=[])
-    # expanded_games_category: JSON = Column(JSON, default=[])
+    igdb_metadata: MySQLJSON = Column(MySQLJSON, default=dict)
 
     path_cover_s: str = Column(Text, default="")
     path_cover_l: str = Column(Text, default="")
@@ -161,6 +132,31 @@ class Rom(BaseModel):
                     Rom.igdb_id == self.igdb_id,
                 )
             ).all()
+    
+    # Metadata fields
+    @property
+    def total_rating(self) -> str:
+        return self.igdb_metadata.get("total_rating", "")
+    
+    @property
+    def first_release_date(self) -> int:
+        return self.igdb_metadata.get("first_release_date", 0)
+    
+    @property
+    def genres(self) -> list[str]:
+        return self.igdb_metadata.get("genres", [])
+    
+    @property
+    def franchises(self) -> list[str]:
+        return self.igdb_metadata.get("franchises", [])
+    
+    @property
+    def collections(self) -> list[str]:
+        return self.igdb_metadata.get("collections", [])    
+    
+    @property
+    def companies(self) -> list[str]:
+        return self.igdb_metadata.get("companies", [])
 
     def __repr__(self) -> str:
         return self.file_name

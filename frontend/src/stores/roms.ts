@@ -142,7 +142,7 @@ export default defineStore("roms", {
     filterGenre(genreToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.genres.some((genre) => genre.name === genreToFilter)
+          rom.genres.some((genre) => genre === genreToFilter)
         )
         .map((rom) => rom.id);
     },
@@ -150,7 +150,7 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.franchises.some(
-            (franchise) => franchise.name === franchiseToFilter
+            (franchise) => franchise === franchiseToFilter
           )
         )
         .map((rom) => rom.id);
@@ -159,7 +159,7 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.collections.some(
-            (collection) => collection.name === collectionToFilter
+            (collection) => collection === collectionToFilter
           )
         )
         .map((rom) => rom.id);
@@ -168,7 +168,7 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.companies.some(
-            (company) => company.name === companyToFilter
+            (company) => company === companyToFilter
           )
         )
         .map((rom) => rom.id);
