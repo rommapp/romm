@@ -5,8 +5,9 @@ Revises: 0012_add_regions_languages
 Create Date: 2024-01-02 16:51:20.485746
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0013_upgrade_file_extension"
