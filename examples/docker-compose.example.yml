@@ -14,7 +14,7 @@ services:
       - DB_PORT=3306
       - DB_NAME=romm # Should match MYSQL_DATABASE in mariadb
       - DB_USER=romm-user # Should match MYSQL_USER in mariadb
-      - DB_PASSWORD= # Should match MYSQL_PASSWORD in mariadb
+      - DB_PASSWD= # Should match MYSQL_PASSWORD in mariadb
       - IGDB_CLIENT_ID= # Generate an ID and SECRET in IGDB
       - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
       - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
