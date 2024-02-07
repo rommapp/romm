@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src=".github/resources/romm.svg" height="220px" width="auto" alt="romm logo">
+  <img src=".github/resources/romm_complete.svg" height="220px" width="auto" alt="romm logo">
   
   <h3 style="font-size: 25px;">
     A beautiful, powerful, self-hosted rom manager.
