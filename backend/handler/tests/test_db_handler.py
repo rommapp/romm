@@ -110,10 +110,11 @@ def test_users(admin_user):
         assert "Duplicate entry 'test_admin' for key" in str(e)
 
 
-def test_saves(save: Save, platform: Platform):
+def test_saves(save: Save, platform: Platform, admin_user: User):
     db_save_handler.add_save(
         Save(
             rom_id=save.rom_id,
+            user_id=admin_user.id,
             file_name="test_save_2.sav",
             file_name_no_tags="test_save_2",
             file_name_no_ext="test_save_2",
@@ -140,10 +141,11 @@ def test_saves(save: Save, platform: Platform):
     assert len(rom.saves) == 1
 
 
-def test_states(state: State, platform: Platform):
+def test_states(state: State, platform: Platform, admin_user: User):
     db_state_handler.add_state(
         State(
             rom_id=state.rom_id,
+            user_id=admin_user.id,
             file_name="test_state_2.state",
             file_name_no_tags="test_state_2",
             file_name_no_ext="test_state_2",
@@ -169,10 +171,11 @@ def test_states(state: State, platform: Platform):
     assert len(rom.states) == 1
 
 
-def test_screenshots(screenshot: Screenshot, platform: Platform):
+def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: User):
     db_screenshot_handler.add_screenshot(
         Screenshot(
             rom_id=screenshot.rom_id,
+            user_id=admin_user.id,
             file_name="test_screenshot_2.png",
             file_name_no_tags="test_screenshot_2",
             file_name_no_ext="test_screenshot_2",

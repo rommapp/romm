@@ -9,7 +9,6 @@ import type { WatcherDict } from './WatcherDict';
 export type HeartbeatResponse = {
     VERSION: string;
     NEW_VERSION: string;
-    ROMM_AUTH_ENABLED: boolean;
     WATCHER: WatcherDict;
     SCHEDULER: SchedulerDict;
 };

@@ -61,7 +61,7 @@ async function logout() {
         <v-img
           :src="
             auth.user?.avatar_path
-              ? `/assets/romm/resources/${auth.user?.avatar_path}`
+              ? `/assets/romm/assets/${auth.user?.avatar_path}`
               : defaultAvatarPath
           "
         />

@@ -1,12 +1,15 @@
-from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedStatesResponse, StateSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import db_state_handler, db_rom_handler, fs_asset_handler, db_screenshot_handler
-from handler.scan_handler import scan_state, build_asset_file_path
+from handler import (
+    db_state_handler,
+    db_rom_handler,
+    fs_asset_handler,
+    db_screenshot_handler,
+)
+from handler.scan_handler import scan_state
 from logger.logger import log
-from config import LIBRARY_BASE_PATH
 
 router = APIRouter()
 
@@ -26,20 +29,19 @@ def add_states(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No states were uploaded",
         )
-    
-    states_path = build_asset_file_path(
-        rom.platform.fs_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
+
+    states_path = fs_asset_handler.build_states_file_path(
+        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
     )
 
     for state in states:
-        fs_asset_handler._write_file(
-            file=state, path=f"{LIBRARY_BASE_PATH}/{states_path}"
-        )
+        fs_asset_handler.write_file(file=state, path=states_path)
 
         # Scan or update state
         scanned_state = scan_state(
             file_name=state.filename,
-            platform_slug=rom.platform.fs_slug,
+            user=request.user,
+            platform_fs_slug=rom.platform.fs_slug,
             emulator=emulator,
         )
         db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
@@ -50,6 +52,7 @@ def add_states(
             continue
 
         scanned_state.rom_id = rom.id
+        scanned_state.user_id = request.user.id
         scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
@@ -79,9 +82,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
 
     if "file" in data:
         file: UploadFile = data["file"]
-        fs_asset_handler._write_file(
-            file=file, path=f"{LIBRARY_BASE_PATH}/{db_state.file_path}"
-        )
+        fs_asset_handler.write_file(file=file, path=db_state.file_path)
         db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
 
     db_state = db_state_handler.get_state(id)

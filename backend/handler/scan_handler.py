@@ -1,4 +1,3 @@
-import os
 from typing import Any
 
 import emoji
@@ -14,6 +13,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
+from models.user import User
 
 SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in cm.config.PLATFORMS_BINDING.items())
 
@@ -160,7 +160,7 @@ async def scan_rom(
         )
     )
     rom_attrs.update(
-        fs_asset_handler.get_rom_screenshots(
+        fs_resource_handler.get_rom_screenshots(
             platform_fs_slug=platform.slug,
             rom_name=rom_attrs["name"],
             url_screenshots=rom_attrs["url_screenshots"],
@@ -185,34 +185,28 @@ def _scan_asset(file_name: str, path: str):
     }
 
 
-def build_asset_file_path(fs_slug: str, folder: str, emulator: str = None):
-    saves_path = fs_asset_handler.get_fs_structure(fs_slug, folder=folder)
-
-    if emulator:
-        return os.path.join(saves_path, emulator)
-
-    return saves_path
-
-
-def scan_save(file_name: str, platform_slug: str, emulator: str = None) -> Save:
-    saves_path = build_asset_file_path(
-        platform_slug, folder=cm.config.SAVES_FOLDER_NAME, emulator=emulator
+def scan_save(
+    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+) -> Save:
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
     )
     return Save(**_scan_asset(file_name, saves_path))
 
 
-def scan_state(file_name: str, platform_slug: str, emulator: str = None) -> State:
-    states_path = build_asset_file_path(
-        platform_slug, folder=cm.config.STATES_FOLDER_NAME, emulator=emulator
+def scan_state(
+    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+) -> State:
+    states_path = fs_asset_handler.build_states_file_path(
+        user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
     )
     return State(**_scan_asset(file_name, states_path))
 
 
-def scan_screenshot(file_name: str, platform_slug: str = None) -> Screenshot:
-    if not platform_slug:
-        return Screenshot(**_scan_asset(file_name, cm.config.SCREENSHOTS_FOLDER_NAME))
-
-    screenshots_path = build_asset_file_path(
-        platform_slug, folder=cm.config.SCREENSHOTS_FOLDER_NAME
+def scan_screenshot(
+    file_name: str, user: User, platform_fs_slug: str = None
+) -> Screenshot:
+    screenshots_path = fs_asset_handler.build_screenshots_file_path(
+        user=user, platform_fs_slug=platform_fs_slug
     )
     return Screenshot(**_scan_asset(file_name, screenshots_path))

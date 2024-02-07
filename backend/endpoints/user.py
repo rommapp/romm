@@ -1,18 +1,19 @@
 from typing import Annotated
 
-from config import ROMM_AUTH_ENABLED
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from handler import auth_handler, db_user_handler, fs_resource_handler
+from handler import auth_handler, db_user_handler, fs_asset_handler
 from models.user import Role, User
 
 router = APIRouter()
 
 
-@protected_route(router.post, "/users", ["users.write"], status_code=status.HTTP_201_CREATED)
+@protected_route(
+    router.post, "/users", ["users.write"], status_code=status.HTTP_201_CREATED
+)
 def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
     """Create user endpoint
 
@@ -22,18 +23,9 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         password (str): User password
         role (str): RomM Role object represented as string
 
-    Raises:
-        HTTPException: ROMM_AUTH_ENABLED is disabled
-
     Returns:
         UserSchema: Created user info
     """
-
-    if not ROMM_AUTH_ENABLED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot create user: ROMM_AUTH_ENABLED is set to False",
-        )
 
     user = User(
         username=username,
@@ -102,7 +94,6 @@ def update_user(
         form_data (Annotated[UserUpdateForm, Depends): Form Data with user updated info
 
     Raises:
-        HTTPException: ROMM_AUTH_ENABLED is disabled
         HTTPException: User is not found in database
         HTTPException: Username already in use by another user
 
@@ -110,11 +101,6 @@ def update_user(
         UserSchema: Updated user info
     """
 
-    if not ROMM_AUTH_ENABLED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot update user: ROMM_AUTH_ENABLED is set to False",
-        )
     user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -131,7 +117,9 @@ def update_user(
         cleaned_data["username"] = form_data.username.lower()
 
     if form_data.password:
-        cleaned_data["hashed_password"] = auth_handler.get_password_hash(form_data.password)
+        cleaned_data["hashed_password"] = auth_handler.get_password_hash(
+            form_data.password
+        )
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
@@ -142,10 +130,9 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        cleaned_data["avatar_path"], avatar_user_path = fs_resource_handler.build_avatar_path(
-            form_data.avatar.filename, form_data.username
-        )
-        file_location = f"{avatar_user_path}/{form_data.avatar.filename}"
+        user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
+        file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
+        cleaned_data["avatar_path"] = file_location
         with open(file_location, "wb+") as file_object:
             file_object.write(form_data.avatar.file.read())
 
@@ -171,7 +158,6 @@ def delete_user(request: Request, id: int) -> MessageResponse:
         user_id (int): User internal id
 
     Raises:
-        HTTPException: ROMM_AUTH_ENABLED is disabled
         HTTPException: User is not found in database
         HTTPException: User deleting itself
         HTTPException: User is the last admin user
@@ -179,12 +165,6 @@ def delete_user(request: Request, id: int) -> MessageResponse:
     Returns:
         MessageResponse: Standard message response
     """
-
-    if not ROMM_AUTH_ENABLED:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot delete user: ROMM_AUTH_ENABLED is set to False",
-        )
 
     user = db_user_handler.get_user(id)
     if not user:

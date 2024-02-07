@@ -13,9 +13,6 @@ export type ConfigResponse = {
     PLATFORMS_BINDING: Record<string, string>;
     PLATFORMS_VERSIONS: Record<string, string>;
     ROMS_FOLDER_NAME: string;
-    SAVES_FOLDER_NAME: string;
-    STATES_FOLDER_NAME: string;
-    SCREENSHOTS_FOLDER_NAME: string;
     HIGH_PRIO_STRUCTURE_PATH: string;
 };
 

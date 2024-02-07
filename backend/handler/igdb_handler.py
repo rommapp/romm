@@ -248,8 +248,7 @@ class IGDBHandler:
 
         return pydash.get(exact_matches or roms, "[0]", {})
 
-    @staticmethod
-    async def _ps2_opl_format(match: re.Match[str], search_term: str) -> str:
+    async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
 
         with open(PS2_OPL_INDEX_FILE, "r") as index_json:
@@ -260,8 +259,7 @@ class IGDBHandler:
 
         return search_term
 
-    @staticmethod
-    async def _switch_titledb_format(match: re.Match[str], search_term: str) -> str:
+    async def _switch_titledb_format(self, match: re.Match[str], search_term: str) -> str:
         titledb_index = {}
         title_id = match.group(1)
 
@@ -283,8 +281,7 @@ class IGDBHandler:
 
         return search_term
 
-    @staticmethod
-    async def _switch_productid_format(match: re.Match[str], search_term: str) -> str:
+    async def _switch_productid_format(self, match: re.Match[str], search_term: str) -> str:
         product_id_index = {}
         product_id = match.group(1)
 

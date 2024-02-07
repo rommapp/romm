@@ -11,8 +11,7 @@ class GHHandler:
     def __init__(self) -> None:
         pass
 
-    @staticmethod
-    def get_version() -> str:
+    def get_version(self) -> str:
         """Returns current version or branch name."""
         if not __version__ == "<version>":
             return __version__

@@ -9,11 +9,12 @@ RUN npm run build
 FROM nginx:1.24-alpine3.17-slim as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
-COPY ./frontend/assets/default_avatar.png ${WEBSERVER_FOLDER}/assets/
+COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources
+    ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
+    ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
 
 # install generall required packages
 RUN apk add --upgrade \

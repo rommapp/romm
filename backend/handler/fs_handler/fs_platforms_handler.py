@@ -10,8 +10,7 @@ class FSPlatformsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    @staticmethod
-    def _exclude_platforms(platforms: list):
+    def _exclude_platforms(self, platforms: list):
         return [
             platform
             for platform in platforms

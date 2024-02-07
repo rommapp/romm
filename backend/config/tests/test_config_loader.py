@@ -18,9 +18,6 @@ def test_config_loader():
     assert loader.config.PLATFORMS_BINDING == {"gc": "ngc"}
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
-    assert loader.config.SAVES_FOLDER_NAME == "SAVES"
-    assert loader.config.STATES_FOLDER_NAME == "STATES"
-    assert loader.config.SCREENSHOTS_FOLDER_NAME == "SCREENSHOTS"
 
 
 def test_empty_config_loader():
@@ -35,6 +32,3 @@ def test_empty_config_loader():
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
-    assert loader.config.SAVES_FOLDER_NAME == "saves"
-    assert loader.config.STATES_FOLDER_NAME == "states"
-    assert loader.config.SCREENSHOTS_FOLDER_NAME == "screenshots"
