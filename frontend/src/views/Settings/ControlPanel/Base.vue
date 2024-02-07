@@ -44,6 +44,10 @@ const tab = ref("general");
     <v-row class="align-center justify-center" no-gutters>
       <span class="text-romm-accent-1">RomM</span>
       <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>
+      <v-icon>mdi-circle-small</v-icon><v-icon>mdi-github</v-icon>
+      <span class="ml-1"><a style="text-decoration: none; color: inherit" href="https://github.com/zurdi15/romm" target="_blank">Github</a></span>
+      <v-icon>mdi-circle-small</v-icon>
+      <span class="ml-1"><a style="text-decoration: none; color: inherit" href="https://discord.com/invite/P5HtHnhUDH" target="_blank">Join to our Discord</a></span>
     </v-row>
   </v-bottom-navigation>
 </template>
