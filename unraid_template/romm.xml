@@ -15,7 +15,7 @@
    <Date>2023-08-06</Date>
    <WebUI>http://[IP]:[PORT:8080]</WebUI>
    <TemplateURL/>
-   <Icon>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/romm.png</Icon>
+   <Icon>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/isotipo.png</Icon>
    <ExtraParams/>
    <PostArgs/>
    <CPUset/>
