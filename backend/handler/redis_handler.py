@@ -1,6 +1,7 @@
+import sys
 from enum import Enum
 
-from config import ENABLE_EXPERIMENTAL_REDIS, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
+from config import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 from logger.logger import log
 from redis import Redis
 from rq import Queue
@@ -52,15 +53,15 @@ high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
 low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
 
-# A seperate client that auto-decodes responses is needed
-_cache_client = Redis(
-    host=REDIS_HOST,
-    port=int(REDIS_PORT),
-    password=REDIS_PASSWORD,
-    db=0,
-    decode_responses=True,
-)
-_fallback_cache = FallbackCache()
-if ENABLE_EXPERIMENTAL_REDIS:
-    log.info("Redis enabled: Connecting...")
-cache = _cache_client if ENABLE_EXPERIMENTAL_REDIS else _fallback_cache
+if "pytest" in sys.modules:
+    cache = FallbackCache()
+else:
+    log.info("Connecting to redis...")
+    # A seperate client that auto-decodes responses is needed
+    cache = Redis(
+        host=REDIS_HOST,
+        port=int(REDIS_PORT),
+        password=REDIS_PASSWORD,
+        db=0,
+        decode_responses=True,
+    )

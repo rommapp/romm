@@ -1,130 +1,67 @@
 import os
 import shutil
 from pathlib import Path
-from urllib.parse import quote
 
-import requests
-from config import LIBRARY_BASE_PATH
-from config.config_manager import config_manager as cm
 from fastapi import UploadFile
-from handler.fs_handler import RESOURCES_BASE_PATH, Asset, FSHandler
+from handler.fs_handler import FSHandler
 from logger.logger import log
+from models.user import User
+from config import ASSETS_BASE_PATH
 
 
 class FSAssetsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    @staticmethod
-    def _write_file(file: UploadFile, path: str) -> None:
+    def remove_file(self, file_name: str, file_path: str):
+        try:
+            os.remove(os.path.join(ASSETS_BASE_PATH, file_path, file_name))
+        except IsADirectoryError:
+            shutil.rmtree(os.path.join(ASSETS_BASE_PATH, file_path, file_name))
+
+    def write_file(self, file: UploadFile, path: str) -> None:
+        Path(os.path.join(ASSETS_BASE_PATH, path)).mkdir(parents=True, exist_ok=True)
+        
         log.info(f" - Uploading {file.filename}")
-        file_location = f"{path}/{file.filename}"
-        Path(path).mkdir(parents=True, exist_ok=True)
+        file_location = os.path.join(ASSETS_BASE_PATH, path, file.filename)
 
         with open(file_location, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-    @staticmethod
-    def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):
-        """Store roms resources in filesystem
+    def get_asset_size(self, file_name: str, asset_path: str) -> int:
+        return os.path.getsize(os.path.join(ASSETS_BASE_PATH, asset_path, file_name))
 
-        Args:
-            fs_slug: short name of the platform
-            file_name: name of rom
-            url: url to get the screenshot
-        """
-        screenshot_file: str = f"{idx}.jpg"
-        screenshot_path: str = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
-        res = requests.get(url, stream=True, timeout=120)
-        if res.status_code == 200:
-            Path(screenshot_path).mkdir(parents=True, exist_ok=True)
-            with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:
-                shutil.copyfileobj(res.raw, f)
+    def user_folder_path(self, user: User):
+        return os.path.join("users", user.fs_safe_folder_name)
 
-    @staticmethod
-    def _get_screenshot_path(fs_slug: str, rom_name: str, idx: str):
-        """Returns rom cover filesystem path adapted to frontend folder structure
-
-        Args:
-            fs_slug: short name of the platform
-            file_name: name of rom
-            idx: index number of screenshot
-        """
-        return f"{fs_slug}/{rom_name}/screenshots/{idx}.jpg"
-
-    def get_rom_screenshots(
-        self, platform_fs_slug: str, rom_name: str, url_screenshots: list
-    ) -> dict:
-        q_rom_name = quote(rom_name)
-
-        path_screenshots: list[str] = []
-        for idx, url in enumerate(url_screenshots):
-            self._store_screenshot(platform_fs_slug, rom_name, url, idx)
-            path_screenshots.append(
-                self._get_screenshot_path(platform_fs_slug, q_rom_name, str(idx))
-            )
-
-        return {"path_screenshots": path_screenshots}
-
-    def get_assets(
-        self, platform_slug: str, rom_file_name_no_ext: str, asset_type: Asset
-    ):
-        asset_folder_name = {
-            Asset.SAVES: cm.config.SAVES_FOLDER_NAME,
-            Asset.STATES: cm.config.STATES_FOLDER_NAME,
-            Asset.SCREENSHOTS: cm.config.SCREENSHOTS_FOLDER_NAME,
-        }
-
-        assets_path = self.get_fs_structure(
-            platform_slug, folder=asset_folder_name[asset_type]
+    # /users/557365723a31/profile
+    def build_avatar_path(self, user: User):
+        user_avatar_path = os.path.join(
+            ASSETS_BASE_PATH, self.user_folder_path(user), "profile"
         )
+        Path(user_avatar_path).mkdir(parents=True, exist_ok=True)
+        return user_avatar_path
 
-        assets_file_path = f"{LIBRARY_BASE_PATH}/{assets_path}"
+    def _build_asset_file_path(
+        self, user: User, folder: str, platform_fs_slug, emulator: str = None
+    ):
+        user_folder_path = self.user_folder_path(user)
+        if emulator:
+            return os.path.join(user_folder_path, folder, platform_fs_slug, emulator)
+        return os.path.join(user_folder_path, folder, platform_fs_slug)
 
-        assets: list[str] = []
+    # /users/557365723a31/saves/n64/mupen64plus
+    def build_saves_file_path(
+        self, user: User, platform_fs_slug: str, emulator: str = None
+    ):
+        return self._build_asset_file_path(user, "saves", platform_fs_slug, emulator)
 
-        try:
-            emulators = list(os.walk(assets_file_path))[0][1]
-            for emulator in emulators:
-                assets += [
-                    (emulator, file)
-                    for file in list(os.walk(f"{assets_file_path}/{emulator}"))[0][2]
-                    if rom_file_name_no_ext
-                    == self.get_file_name_with_no_extension(file)
-                ]
+    # /users/557365723a31/states/n64/mupen64plus
+    def build_states_file_path(
+        self, user: User, platform_fs_slug: str, emulator: str = None
+    ):
+        return self._build_asset_file_path(user, "states", platform_fs_slug, emulator)
 
-            assets += [
-                (None, file)
-                for file in list(os.walk(assets_file_path))[0][2]
-                if rom_file_name_no_ext == self.get_file_name_with_no_extension(file)
-            ]
-        except IndexError:
-            pass
-
-        return assets
-
-    @staticmethod
-    def get_screenshots():
-        screenshots_path = f"{LIBRARY_BASE_PATH}/{cm.config.SCREENSHOTS_FOLDER_NAME}"
-
-        fs_screenshots = []
-
-        try:
-            platforms = list(os.walk(screenshots_path))[0][1]
-            for platform in platforms:
-                fs_screenshots += [
-                    (platform, file)
-                    for file in list(os.walk(f"{screenshots_path}/{platform}"))[0][2]
-                ]
-
-            fs_screenshots += [
-                (None, file) for file in list(os.walk(screenshots_path))[0][2]
-            ]
-        except IndexError:
-            pass
-
-        return fs_screenshots
-
-    @staticmethod
-    def get_asset_size(asset_path: str, file_name: str):
-        return os.stat(f"{LIBRARY_BASE_PATH}/{asset_path}/{file_name}").st_size
+    # /users/557365723a31/screenshots/n64
+    def build_screenshots_file_path(self, user: User, platform_fs_slug: str):
+        return self._build_asset_file_path(user, "screenshots", platform_fs_slug)

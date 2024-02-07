@@ -122,7 +122,7 @@ function closeDialog() {
                 <v-img
                   :src="
                     user.avatar_path
-                      ? `/assets/romm/resources/${user.avatar_path}`
+                      ? `/assets/romm/assets/${user.avatar_path}`
                       : defaultAvatarPath
                   "
                 />

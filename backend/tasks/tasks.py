@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
 import requests
-from config import ENABLE_EXPERIMENTAL_REDIS
 from exceptions.task_exceptions import SchedulerException
 from logger.logger import log
 from rq_scheduler import Scheduler
@@ -44,11 +43,6 @@ class PeriodicTask(ABC):
         pass
 
     def schedule(self):
-        if not ENABLE_EXPERIMENTAL_REDIS:
-            raise SchedulerException(
-                f"Redis not connectable, {self.description} is not scheduled."
-            )
-
         if not self.enabled:
             raise SchedulerException(f"Scheduled {self.description} is not enabled.")
 

@@ -2,6 +2,7 @@ import fnmatch
 import os
 import re
 from pathlib import Path
+import shutil
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -21,8 +22,20 @@ class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    @staticmethod
-    def parse_tags(file_name: str) -> tuple:
+    def get_fs_structure(self, fs_slug: str):
+        return (
+            f"{cm.config.ROMS_FOLDER_NAME}/{fs_slug}"
+            if os.path.exists(cm.config.HIGH_PRIO_STRUCTURE_PATH)
+            else f"{fs_slug}/{cm.config.ROMS_FOLDER_NAME}"
+        )
+
+    def remove_file(self, file_name: str, file_path: str):
+        try:
+            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+        except IsADirectoryError:
+            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+
+    def parse_tags(self, file_name: str) -> tuple:
         rev = ""
         regs = []
         langs = []
@@ -91,8 +104,7 @@ class FSRomsHandler(FSHandler):
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]
 
-    @staticmethod
-    def _exclude_multi_roms(roms) -> list[str]:
+    def _exclude_multi_roms(self, roms) -> list[str]:
         excluded_names = cm.config.EXCLUDED_MULTI_FILES
         filtered_files: list = []
 
@@ -148,9 +160,8 @@ class FSRomsHandler(FSHandler):
             for rom in fs_roms
         ]
 
-    @staticmethod
     def get_rom_file_size(
-        roms_path: str, file_name: str, multi: bool, multi_files: list = []
+        self, roms_path: str, file_name: str, multi: bool, multi_files: list = []
     ):
         files = (
             [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
@@ -162,8 +173,7 @@ class FSRomsHandler(FSHandler):
         )
         return sum([os.stat(file).st_size for file in files])
 
-    @staticmethod
-    def file_exists(path: str, file_name: str):
+    def file_exists(self, path: str, file_name: str):
         """Check if file exists in filesystem
 
         Args:
@@ -183,3 +193,7 @@ class FSRomsHandler(FSHandler):
                 f"{LIBRARY_BASE_PATH}/{file_path}/{old_name}",
                 f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
             )
+
+    def build_upload_file_path(self, fs_slug: str):
+        file_path = self.get_fs_structure(fs_slug)
+        return f"{LIBRARY_BASE_PATH}/{file_path}"

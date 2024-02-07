@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from typing import Final
 
 from config import (
-    ROMM_AUTH_ENABLED,
     ROMM_AUTH_PASSWORD,
     ROMM_AUTH_SECRET_KEY,
     ROMM_AUTH_USERNAME,
@@ -53,8 +52,7 @@ class AuthHandler:
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
 
-    @staticmethod
-    def clear_session(req: HTTPConnection | Request):
+    def clear_session(self, req: HTTPConnection | Request):
         session_id = req.session.get("session_id")
         if session_id:
             cache.delete(f"romm:{session_id}")  # type: ignore[attr-defined]
@@ -106,9 +104,6 @@ class AuthHandler:
     def create_default_admin_user(self):
         from handler import db_user_handler
         from models.user import Role, User
-
-        if not ROMM_AUTH_ENABLED:
-            return
 
         try:
             db_user_handler.add_user(

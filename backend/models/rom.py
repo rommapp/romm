@@ -93,7 +93,7 @@ class Rom(BaseModel):
 
     @cached_property
     def download_path(self) -> str:
-        return f"/api/raw/{self.full_path}"
+        return f"/api/raw/roms/{self.full_path}"
 
     @cached_property
     def has_cover(self) -> bool:

@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 
 
 class DBRomsHandler(DBHandler):
-    @staticmethod
-    def _filter(data, platform_id, search_term):
+    def _filter(self, data, platform_id, search_term):
         if platform_id:
             data = data.filter_by(platform_id=platform_id)
 
@@ -21,8 +20,7 @@ class DBRomsHandler(DBHandler):
 
         return data
 
-    @staticmethod
-    def _order(data, order_by, order_dir):
+    def _order(self, data, order_by, order_dir):
         if order_by == "id":
             _column = Rom.id
         else:
