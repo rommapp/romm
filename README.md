@@ -18,6 +18,10 @@
   </div>
 </div>
 
+# ⚠️ Breaking changes in version 3.0 ⚠️
+
+Version 3.0 introduces exciting new fetures that require some changes to how RomM is setup and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/zurdi15/romm/wiki/Upgrading-to-3.0) before upgrading.**
+
 # Overview
 
 RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
