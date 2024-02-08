@@ -34,7 +34,6 @@ export type RomSchema = {
     companies: Array<string>;
     game_modes: Array<string>;
     igdb_metadata: (RomMetadata | null);
-    sort_comparator: string;
     path_cover_s: (string | null);
     path_cover_l: (string | null);
     has_cover: boolean;
@@ -53,5 +52,6 @@ export type RomSchema = {
     user_saves?: Array<SaveSchema>;
     user_states?: Array<StateSchema>;
     user_screenshots?: Array<ScreenshotSchema>;
+    readonly sort_comparator: string;
 };
 
