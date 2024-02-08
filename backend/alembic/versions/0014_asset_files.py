@@ -155,12 +155,22 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+
+    # Drop the constraint to platform slug
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.drop_constraint("fk_platform_roms", type_="foreignkey")
+
+    # Drop the primary key (slug)
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.execute(
-            "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
-        )
+        batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
         batch_op.drop_column("n_roms")
 
+    # Switch to new id column as platform primary key
+    op.execute(
+        "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
+    )
+
+    # Add new columns to roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column("file_name_no_ext", sa.String(length=450), nullable=False)
@@ -170,18 +180,19 @@ def upgrade() -> None:
         )
         batch_op.add_column(sa.Column("igdb_metadata", mysql.JSON(), nullable=True))
         batch_op.add_column(sa.Column("platform_id", sa.Integer(), nullable=False))
-        batch_op.drop_constraint("fk_platform_roms", type_="foreignkey")
+
+    # Move data around
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.execute("update roms set igdb_metadata = '\\{\\}'")
+        batch_op.execute(
+            "update roms set path_cover_s = '', path_cover_l = '', url_cover = '' where url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png'"
+        )
+        batch_op.execute(
+            "update roms set file_name_no_ext = regexp_replace(file_name, '\\.[a-z]{2,}$', '')"
+        )
         batch_op.execute(
             "update roms inner join platforms on roms.platform_slug = platforms.slug set roms.platform_id = platforms.id"
         )
-        batch_op.create_foreign_key(
-            None, "platforms", ["platform_id"], ["id"], ondelete="CASCADE"
-        )
-
-    # Set file_name_no_ext on existing roms
-    op.execute(
-        "UPDATE roms SET file_name_no_ext = regexp_replace(file_name, '\\.[a-z]{2,}$', '')"
-    )
 
     # Process filesize data and prepare for bulk update
     connection = op.get_bind()
@@ -200,6 +211,9 @@ def upgrade() -> None:
 
     # Cleanup roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.create_foreign_key(
+            None, "platforms", ["platform_id"], ["id"], ondelete="CASCADE"
+        )
         batch_op.drop_column("file_size")
         batch_op.drop_column("file_size_units")
         batch_op.drop_column("p_sgdb_id")
