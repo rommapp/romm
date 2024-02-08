@@ -45,11 +45,11 @@ function onPlay() {
         label="Save"
         v-model="saveRef"
         :items="
-          props.rom.saves.map((s) => ({
+          props.rom.user_saves?.map((s) => ({
             title: s.file_name,
             subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
             value: s,
-          }))
+          })) ?? []
         "
       />
       <v-select
@@ -61,11 +61,11 @@ function onPlay() {
         label="State"
         v-model="stateRef"
         :items="
-          props.rom.states.map((s) => ({
+          props.rom.user_states?.map((s) => ({
             title: s.file_name,
             subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
             value: s,
-          }))
+          })) ?? []
         "
       />
       <!-- <v-select

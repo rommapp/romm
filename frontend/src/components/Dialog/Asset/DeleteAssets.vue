@@ -4,29 +4,28 @@ import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
-import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const romsStore = storeRoms();
 const show = ref(false);
-const assetType = ref<"saves" | "states">("saves");
+const assetType = ref<"user_saves" | "user_states">("user_saves");
 const romRef = ref<Rom | null>(null);
 const assets = ref<(SaveSchema | StateSchema)[]>([]);
 const deleteFromFs = ref(false);
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteSavesDialog", ({ rom, saves }) => {
-  assetType.value = "saves";
+  assetType.value = "user_saves";
   assets.value = saves;
   show.value = true;
   romRef.value = rom;
 });
 emitter?.on("showDeleteStatesDialog", ({ rom, states }) => {
-  assetType.value = "states";
+  assetType.value = "user_states";
   assets.value = states;
   show.value = true;
   romRef.value = rom;
@@ -36,7 +35,7 @@ async function deleteAssets() {
   if (!assets.value) return;
 
   const result =
-    assetType.value === "saves"
+    assetType.value === "user_saves"
       ? saveApi.deleteSaves({
           saves: assets.value,
           deleteFromFs: deleteFromFs.value,
@@ -50,9 +49,9 @@ async function deleteAssets() {
     .then(() => {
       if (romRef.value?.[assetType.value]) {
         const deletedAssetIds = assets.value.map((asset) => asset.id);
-        romRef.value[assetType.value] = romRef.value[assetType.value].filter(
+        romRef.value[assetType.value] = romRef.value[assetType.value]?.filter(
           (asset) => !deletedAssetIds.includes(asset.id)
-        );
+        ) ?? [];
         romsStore.update(romRef.value);
         emitter?.emit("romUpdated", romRef.value);
       }

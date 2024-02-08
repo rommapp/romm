@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import type { Rom } from "@/stores/roms";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 import romApi from "@/services/api/rom";
 import { useRoute } from "vue-router";
 import Player from "@/views/Play/Player.vue";
+import type { Rom } from "@/stores/roms";
 
 const route = useRoute();
 const rom = ref<Rom | null>(null);
@@ -61,11 +61,11 @@ function onPlay() {
         label="Save"
         v-model="saveRef"
         :items="
-          rom.saves.map((s) => ({
+          rom.user_saves?.map((s) => ({
             title: s.file_name,
             subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
             value: s,
-          }))
+          })) ?? []
         "
       />
       <v-select
@@ -76,11 +76,11 @@ function onPlay() {
         label="State"
         v-model="stateRef"
         :items="
-          rom.states.map((s) => ({
+          rom.user_states?.map((s) => ({
             title: s.file_name,
             subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
             value: s,
-          }))
+          })) ?? []
         "
       />
       <!-- <v-select

@@ -7,6 +7,8 @@ from typing_extensions import TypedDict
 
 class BaseAsset(BaseModel):
     id: int
+    rom_id: int
+    user_id: int
     file_name: str
     file_name_no_tags: str
     file_name_no_ext: str
@@ -23,7 +25,7 @@ class BaseAsset(BaseModel):
 
 
 class ScreenshotSchema(BaseAsset):
-    rom_id: int
+    pass
 
 
 class UploadedScreenshotsResponse(TypedDict):
@@ -34,7 +36,6 @@ class UploadedScreenshotsResponse(TypedDict):
 
 
 class SaveSchema(BaseAsset):
-    rom_id: int
     emulator: Optional[str]
     screenshot: Optional[ScreenshotSchema]
 
@@ -45,7 +46,6 @@ class UploadedSavesResponse(TypedDict):
 
 
 class StateSchema(BaseAsset):
-    rom_id: int
     emulator: Optional[str]
     screenshot: Optional[ScreenshotSchema]
 
