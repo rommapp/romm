@@ -1,4 +1,5 @@
 import emoji
+from handler.scan_handler import _get_main_platform_igdb_id
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchRomSchema
 from fastapi import APIRouter, Request, HTTPException, status
@@ -43,11 +44,12 @@ async def search_rom(
         except ValueError:
             log.error(f"Search error: invalid ID '{search_term}'")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Search error: invalid ID '{search_term}'"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Search error: invalid ID '{search_term}'",
             )
     elif search_by.lower() == "name":
         matched_roms = igdb_handler.get_matched_roms_by_name(
-            search_term, rom.platform.igdb_id, search_extended
+            search_term, _get_main_platform_igdb_id(rom.platform), search_extended
         )
 
     log.info("Results:")
