@@ -16,10 +16,12 @@ class DBStatesHandler(DBHandler):
 
     @begin_session
     def get_state_by_filename(
-        self, rom_id: str, file_name: str, session: Session = None
+        self, rom_id: int, user_id: int, file_name: str, session: Session = None
     ):
         return session.scalars(
-            select(State).filter_by(rom_id=rom_id, file_name=file_name).limit(1)
+            select(State)
+            .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
+            .limit(1)
         ).first()
 
     @begin_session
@@ -40,9 +42,17 @@ class DBStatesHandler(DBHandler):
         )
 
     @begin_session
-    def purge_states(self, rom_id: int, states: list[str], session: Session = None):
+    def purge_states(
+        self, rom_id: int, user_id: int, states: list[str], session: Session = None
+    ):
         return session.execute(
             delete(State)
-            .where(and_(State.rom_id == rom_id, State.file_name.not_in(states)))
+            .where(
+                and_(
+                    State.rom_id == rom_id,
+                    State.user_id == user_id,
+                    State.file_name.not_in(states),
+                )
+            )
             .execution_options(synchronize_session="evaluate")
         )

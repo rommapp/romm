@@ -5,9 +5,9 @@ import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
-import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
+import type { PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
-import AditionalContent from "@/components/Details/AditionalContent.vue";
+import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
 import Info from "@/components/Details/Info/Base.vue";
@@ -23,15 +23,16 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
+import type { Rom } from "@/stores/roms";
 
 const route = useRoute();
-const rom = ref<EnhancedRomSchema>();
+const rom = ref<Rom>();
 const platform = ref<PlatformSchema>();
 const tab = ref<
   | "details"
   | "saves"
   | "states"
-  | "aditionalcontent"
+  | "additionalcontent"
   | "screenshots"
   | "relatedgames"
   | "emulation"
@@ -168,9 +169,9 @@ watch(
                 mdAndDown &&
                 (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
               "
-              value="aditionalcontent"
+              value="additionalcontent"
               rounded="0"
-              >Aditional content</v-tab
+              >Additional content</v-tab
             >
             <!-- TODO: user screenshots -->
             <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
@@ -212,9 +213,9 @@ watch(
                   mdAndDown &&
                   (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
                 "
-                value="aditionalcontent"
+                value="additionalcontent"
               >
-                <aditional-content :rom="rom" />
+                <additional-content :rom="rom" />
               </v-window-item>
               <!-- TODO: user screenshots -->
               <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
@@ -243,7 +244,7 @@ watch(
 
       <template v-if="lgAndUp">
         <v-col class="px-6">
-          <aditional-content :rom="rom" />
+          <additional-content :rom="rom" />
         </v-col>
       </template>
     </v-row>

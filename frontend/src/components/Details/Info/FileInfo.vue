@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
+import type { PlatformSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import storeDownload from "@/stores/download";
+import type { Rom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 
-defineProps<{ rom: EnhancedRomSchema; platform: PlatformSchema }>();
+defineProps<{ rom: Rom; platform: PlatformSchema }>();
 const downloadStore = storeDownload();
 </script>
 <template>
   <v-row
-    v-if="rom?.sibling_roms && rom.sibling_roms.length > 0"
+    v-if="rom.sibling_roms && rom.sibling_roms.length > 0"
     class="align-center my-3"
     no-gutters
   >

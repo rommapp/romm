@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { EnhancedRomSchema, PlatformSchema } from "@/__generated__";
+import type { PlatformSchema } from "@/__generated__";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
-import storeDownload from "@/stores/download";
-import { useDisplay } from "vuetify";
+import type { Rom } from "@/stores/roms";
 
-defineProps<{ rom: EnhancedRomSchema; platform: PlatformSchema }>();
+defineProps<{ rom: Rom; platform: PlatformSchema }>();
 </script>
 <template>
   <file-info :rom="rom" :platform="platform" />

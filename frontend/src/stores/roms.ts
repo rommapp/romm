@@ -4,7 +4,6 @@ import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 
 export type Rom = RomSchema & {
-  sibling_roms?: RomSchema[]; // Returned by the API
   siblings?: RomSchema[]; // Added by the frontend
 };
 

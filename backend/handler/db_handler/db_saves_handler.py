@@ -16,10 +16,12 @@ class DBSavesHandler(DBHandler):
 
     @begin_session
     def get_save_by_filename(
-        self, rom_id: str, file_name: str, session: Session = None
+        self, rom_id: int, user_id: int, file_name: str, session: Session = None
     ):
         return session.scalars(
-            select(Save).filter_by(rom_id=rom_id, file_name=file_name).limit(1)
+            select(Save)
+            .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
+            .limit(1)
         ).first()
 
     @begin_session
@@ -40,9 +42,17 @@ class DBSavesHandler(DBHandler):
         )
 
     @begin_session
-    def purge_saves(self, rom_id: int, saves: list[str], session: Session = None):
+    def purge_saves(
+        self, rom_id: int, user_id: int, saves: list[str], session: Session = None
+    ):
         return session.execute(
             delete(Save)
-            .where(and_(Save.rom_id == rom_id, Save.file_name.not_in(saves)))
+            .where(
+                and_(
+                    Save.rom_id == rom_id,
+                    Save.user_id == user_id,
+                    Save.file_name.not_in(saves),
+                )
+            )
             .execution_options(synchronize_session="evaluate")
         )
