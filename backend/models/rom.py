@@ -1,4 +1,3 @@
-import re
 from functools import cached_property
 
 from config import FRONTEND_RESOURCES_PATH
@@ -16,8 +15,6 @@ from sqlalchemy import (
     BigInteger,
 )
 from sqlalchemy.orm import Mapped, relationship
-
-SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
 
 class Rom(BaseModel):
@@ -104,18 +101,6 @@ class Rom(BaseModel):
         return [s.download_path for s in self.screenshots] + [
             f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
         ]
-
-    @cached_property
-    def sort_comparator(self) -> str:
-        return (
-            re.sub(
-                SORT_COMPARE_REGEX,
-                "",
-                self.name or self.file_name_no_tags,
-            )
-            .strip()
-            .lower()
-        )
 
     # This is an expensive operation so don't call it on a list of roms
     def get_sibling_roms(self) -> list["Rom"]:

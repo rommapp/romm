@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
@@ -5,9 +6,12 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler import socket_handler
 from handler.igdb_handler import IGDBRelatedGame
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
 from typing_extensions import TypedDict, NotRequired
+
+
+SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
 
 class RomMetadata(TypedDict):
@@ -52,9 +56,6 @@ class RomSchema(BaseModel):
     game_modes: list[str]
     igdb_metadata: Optional[RomMetadata]
 
-    # Used for sorting on the frontend
-    sort_comparator: str
-
     path_cover_s: Optional[str]
     path_cover_l: Optional[str]
     has_cover: bool
@@ -72,13 +73,26 @@ class RomSchema(BaseModel):
     full_path: str
     download_path: str
 
-    sibling_roms: list["RomSchema"] = []
-    user_saves: list[SaveSchema] = []
-    user_states: list[StateSchema] = []
-    user_screenshots: list[ScreenshotSchema] = []
+    sibling_roms: list["RomSchema"] = Field(default_factory=list)
+    user_saves: list[SaveSchema] = Field(default_factory=list)
+    user_states: list[StateSchema] = Field(default_factory=list)
+    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
+
+    @computed_field
+    @property
+    def sort_comparator(self) -> str:
+        return (
+            re.sub(
+                SORT_COMPARE_REGEX,
+                "",
+                self.name or self.file_name_no_tags,
+            )
+            .strip()
+            .lower()
+        )
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "RomSchema":
