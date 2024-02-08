@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { EnhancedRomSchema } from "@/__generated__";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Rom } from "@/stores/roms";
 import { useDisplay } from "vuetify";
 
-defineProps<{ rom: EnhancedRomSchema }>();
+defineProps<{ rom: Rom }>();
 const { xs } = useDisplay();
 const galleryFilter = storeGalleryFilter();
 const capitalizeString = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);

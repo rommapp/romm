@@ -3,9 +3,9 @@ import { ref, onBeforeUnmount } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import type { Rom } from "@/stores/roms";
 import { platformSlugEJSCoreMap } from "@/utils";
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { Rom } from "@/stores/roms";
 
 const props = defineProps<{
   rom: Rom;
@@ -60,7 +60,7 @@ window.EJS_defaultOptions = { "save-state-location": "browser" };
 if (props.rom.name) window.EJS_gameName = props.rom.name;
 
 function buildStateName(): string {
-  const states = props.rom.states.map((s) => s.file_name);
+  const states = props.rom.user_states?.map((s) => s.file_name) ?? [];
   const romName = props.rom.file_name_no_ext.trim();
   let stateName = `${romName}.state.auto`;
   if (!states.includes(stateName)) return stateName;
@@ -76,7 +76,7 @@ function buildStateName(): string {
 }
 
 function buildSaveName(): string {
-  const saves = props.rom.saves.map((s) => s.file_name);
+  const saves = props.rom.user_saves?.map((s) => s.file_name) ?? [];
   const romName = props.rom.file_name_no_ext.trim();
   let saveName = `${romName}.srm`;
   if (!saves.includes(saveName)) return saveName;
@@ -162,7 +162,7 @@ window.EJS_onSaveState = function ({
         })
         .then(({ data }) => {
           if (stateRef.value) stateRef.value.screenshot = data.screenshots[0];
-          props.rom.screenshots = data.screenshots;
+          props.rom.user_screenshots = data.screenshots;
           props.rom.url_screenshots = data.url_screenshots;
           props.rom.merged_screenshots = data.merged_screenshots;
         });
@@ -182,7 +182,7 @@ window.EJS_onSaveState = function ({
         const allStates = data.states.sort(
           (a: StateSchema, b: StateSchema) => a.id - b.id
         );
-        if (props.rom) props.rom.states = allStates;
+        if (props.rom) props.rom.user_states = allStates;
         stateRef.value = allStates.pop() ?? null;
       });
 
@@ -196,7 +196,7 @@ window.EJS_onSaveState = function ({
         ],
       })
       .then(({ data }) => {
-        props.rom.screenshots = data.screenshots;
+        props.rom.user_screenshots = data.screenshots;
         props.rom.url_screenshots = data.url_screenshots;
         props.rom.merged_screenshots = data.merged_screenshots;
       });
@@ -274,7 +274,7 @@ window.EJS_onSaveSave = function ({
         })
         .then(({ data }) => {
           if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
-          props.rom.screenshots = data.screenshots;
+          props.rom.user_screenshots = data.screenshots;
           props.rom.url_screenshots = data.url_screenshots;
           props.rom.merged_screenshots = data.merged_screenshots;
         });
@@ -294,7 +294,7 @@ window.EJS_onSaveSave = function ({
         const allSaves = data.saves.sort(
           (a: SaveSchema, b: SaveSchema) => a.id - b.id
         );
-        if (props.rom) props.rom.saves = allSaves;
+        if (props.rom) props.rom.user_saves = allSaves;
         saveRef.value = allSaves.pop() ?? null;
       });
 
@@ -308,7 +308,7 @@ window.EJS_onSaveSave = function ({
         ],
       })
       .then(({ data }) => {
-        props.rom.screenshots = data.screenshots;
+        props.rom.user_screenshots = data.screenshots;
         props.rom.url_screenshots = data.url_screenshots;
         props.rom.merged_screenshots = data.merged_screenshots;
       });

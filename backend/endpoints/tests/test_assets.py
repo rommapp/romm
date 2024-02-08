@@ -14,7 +14,7 @@ def test_delete_saves(access_token, save):
     assert response.status_code == 200
 
     body = response.json()
-    assert body['msg'] == "Successfully deleted 1 saves."
+    assert body['msg'] == "Successfully deleted 1 saves"
 
 
 def test_delete_states(access_token, state):
@@ -26,4 +26,4 @@ def test_delete_states(access_token, state):
     assert response.status_code == 200
 
     body = response.json()
-    assert body['msg'] == "Successfully deleted 1 states."
+    assert body['msg'] == "Successfully deleted 1 states"

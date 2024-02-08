@@ -17,7 +17,7 @@ const romsStore = storeRoms();
 
 emitter?.on("romUpdated", (rom) => {
   if (rom?.id === props.rom.id) {
-    props.rom.states = rom.states;
+    props.rom.user_states = rom.user_states;
   }
 });
 
@@ -46,7 +46,7 @@ async function uploadStates() {
     })
     .then(({ data }) => {
       const { states, uploaded } = data;
-      props.rom.states = states;
+      props.rom.user_states = states;
       romsStore.update(props.rom);
       statesToUpload.value = [];
 
@@ -100,7 +100,7 @@ async function uploadStates() {
   <v-list rounded="0" class="pa-0">
     <v-list-item
       class="pa-2 pl-4"
-      v-for="state in rom.states"
+      v-for="state in rom.user_states"
       :key="state.id"
       :title="state.file_name"
       :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(state.file_size_bytes)}`"

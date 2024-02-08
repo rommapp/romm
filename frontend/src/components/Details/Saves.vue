@@ -17,7 +17,7 @@ const romsStore = storeRoms();
 
 emitter?.on("romUpdated", (rom) => {
   if (rom?.id === props.rom.id) {
-    props.rom.saves = rom.saves;
+    props.rom.user_saves = rom.user_saves;
   }
 });
 
@@ -46,7 +46,7 @@ async function uploadSaves() {
     })
     .then(({ data }) => {
       const { saves, uploaded } = data;
-      props.rom.saves = saves;
+      props.rom.user_saves = saves;
       romsStore.update(props.rom);
       savesToUpload.value = [];
 
@@ -100,7 +100,7 @@ async function uploadSaves() {
   <v-list rounded="0" class="pa-0">
     <v-list-item
       class="px-3"
-      v-for="save in rom.saves"
+      v-for="save in rom.user_saves"
       :key="save.id"
       :title="save.file_name"
       :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(save.file_size_bytes)}`"

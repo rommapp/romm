@@ -22,7 +22,9 @@ def add_saves(
     emulator: str = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)
+    current_user = request.user
     log.info(f"Uploading saves to {rom.name}")
+
     if saves is None:
         log.error("No saves were uploaded")
         raise HTTPException(
@@ -44,7 +46,9 @@ def add_saves(
             platform_fs_slug=rom.platform.fs_slug,
             emulator=emulator,
         )
-        db_save = db_save_handler.get_save_by_filename(rom.id, save.filename)
+        db_save = db_save_handler.get_save_by_filename(
+            rom_id=rom.id, user_id=current_user.id, file_name=save.filename
+        )
         if db_save:
             db_save_handler.update_save(
                 db_save.id, {"file_size_bytes": scanned_save.file_size_bytes}
@@ -52,12 +56,15 @@ def add_saves(
             continue
 
         scanned_save.rom_id = rom.id
-        scanned_save.user_id = request.user.id
+        scanned_save.user_id = current_user.id
         scanned_save.emulator = emulator
         db_save_handler.add_save(scanned_save)
 
     rom = db_rom_handler.get_roms(rom_id)
-    return {"uploaded": len(saves), "saves": rom.saves}
+    return {
+        "uploaded": len(saves),
+        "saves": [s for s in rom.saves if s.user_id == current_user.id],
+    }
 
 
 # @protected_route(router.get, "/saves", ["assets.read"])
@@ -79,6 +86,11 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         error = f"Save with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    if db_save.user_id != request.user.id:
+        error = "You are not authorized to update this save"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
     if "file" in data:
         file: UploadFile = data["file"]
@@ -107,6 +119,11 @@ async def delete_saves(request: Request) -> MessageResponse:
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+        if save.user_id != request.user.id:
+            error = "You are not authorized to delete this save"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
+
         db_save_handler.delete_save(save_id)
 
         if delete_from_fs:
@@ -134,4 +151,4 @@ async def delete_saves(request: Request) -> MessageResponse:
                     error = f"Screenshot file {save.screenshot.file_name} not found for save {save.file_name}"
                     log.error(error)
 
-    return {"msg": f"Successfully deleted {len(save_ids)} saves."}
+    return {"msg": f"Successfully deleted {len(save_ids)} saves"}
