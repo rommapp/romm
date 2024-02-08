@@ -1,10 +1,12 @@
 from typing import Optional
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
+from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler import socket_handler
 from handler.igdb_handler import IGDBRelatedGame
 from pydantic import BaseModel
+from models.rom import Rom
 from typing_extensions import TypedDict, NotRequired
 
 
@@ -65,20 +67,34 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[str]
-    saves: list[SaveSchema]
-    states: list[StateSchema]
-    screenshots: list[ScreenshotSchema]
     url_screenshots: list[str]
     merged_screenshots: list[str]
     full_path: str
     download_path: str
 
+    sibling_roms: list["RomSchema"] = []
+    user_saves: list[SaveSchema] = []
+    user_states: list[StateSchema] = []
+    user_screenshots: list[ScreenshotSchema] = []
+
     class Config:
         from_attributes = True
 
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "RomSchema":
+        rom = cls.model_validate(db_rom)
+        user_id = request.user.id
 
-class EnhancedRomSchema(RomSchema):
-    sibling_roms: list["RomSchema"]
+        rom.sibling_roms = db_rom.get_sibling_roms()
+        rom.user_saves = [save for save in db_rom.saves if save.user_id == user_id]
+        rom.user_states = [state for state in db_rom.states if state.user_id == user_id]
+        rom.user_screenshots = [
+            screenshot
+            for screenshot in db_rom.screenshots
+            if screenshot.user_id == user_id
+        ]
+
+        return rom
 
 
 class AddRomsResponse(TypedDict):

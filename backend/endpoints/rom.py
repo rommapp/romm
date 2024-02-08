@@ -8,7 +8,6 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
-    EnhancedRomSchema,
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -102,7 +101,7 @@ def get_roms(
         id (int, optional): Rom internal id
 
     Returns:
-        EnhancedRomSchema: Rom stored in RomM's database
+        RomSchema: Rom stored in the database
     """
 
     with db_rom_handler.session.begin() as session:
@@ -117,7 +116,7 @@ def get_roms(
 
 
 @protected_route(router.get, "/roms/{id}", ["roms.read"])
-def get_rom(request: Request, id: int) -> EnhancedRomSchema:
+def get_rom(request: Request, id: int) -> RomSchema:
     """Get rom endpoint
 
     Args:
@@ -125,10 +124,9 @@ def get_rom(request: Request, id: int) -> EnhancedRomSchema:
         id (int): Rom internal id
 
     Returns:
-        EnhancedRomSchema: Rom stored in RomM's database
+        RomSchema: Rom stored in the database
     """
-
-    return db_rom_handler.get_roms(id)
+    return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(router.get, "/roms/{id}/content", ["roms.read"])
@@ -200,7 +198,7 @@ async def update_rom(
         HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
 
     Returns:
-        RomSchema: Rom stored in RomM's database
+        RomSchema: Rom stored in the database
     """
 
     data = await request.form()

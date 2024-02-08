@@ -16,12 +16,11 @@ class DBScreenshotsHandler(DBHandler):
 
     @begin_session
     def get_screenshot_by_filename(
-        self, file_name: str, rom_id: str = None, session: Session = None
+        self, rom_id: int, user_id: int, file_name: str, session: Session = None
     ):
         return session.scalars(
             select(Screenshot)
-            .filter_by(file_name=file_name)
-            .where(Screenshot.rom_id == rom_id if rom_id else True)
+            .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
             .limit(1)
         ).first()
 
@@ -44,12 +43,13 @@ class DBScreenshotsHandler(DBHandler):
 
     @begin_session
     def purge_screenshots(
-        self, rom_id: int, screenshots: list[str], session: Session = None
+        self, rom_id: int, user_id: int, screenshots: list[str], session: Session = None
     ):
         return session.execute(
             delete(Screenshot)
             .where(
                 Screenshot.rom_id == rom_id,
+                Screenshot.user_id == user_id,
                 Screenshot.file_name.not_in(screenshots),
             )
             .execution_options(synchronize_session="evaluate")

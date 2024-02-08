@@ -7,6 +7,8 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
 
 export type SaveSchema = {
     id: number;
+    rom_id: number;
+    user_id: number;
     file_name: string;
     file_name_no_tags: string;
     file_name_no_ext: string;
@@ -17,7 +19,6 @@ export type SaveSchema = {
     download_path: string;
     created_at: string;
     updated_at: string;
-    rom_id: number;
     emulator: (string | null);
     screenshot: (ScreenshotSchema | null);
 };

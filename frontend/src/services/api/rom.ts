@@ -1,7 +1,6 @@
 import type {
   AddRomsResponse,
   CursorPage_RomSchema_,
-  EnhancedRomSchema,
   MessageResponse,
   RomSchema,
   SearchRomSchema,
@@ -68,7 +67,7 @@ async function getRom({
   romId,
 }: {
   romId: number;
-}): Promise<{ data: EnhancedRomSchema }> {
+}): Promise<{ data: Rom }> {
   return api.get(`/roms/${romId}`);
 }
 

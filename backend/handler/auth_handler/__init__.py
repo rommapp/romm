@@ -23,12 +23,12 @@ DEFAULT_SCOPES_MAP: Final = {
     "roms.read": "View ROMs",
     "platforms.read": "View platforms",
     "assets.read": "View assets",
+    "assets.write": "Modify assets",
 }
 
 WRITE_SCOPES_MAP: Final = {
     "roms.write": "Modify ROMs",
     "platforms.write": "Modify platforms",
-    "assets.write": "Modify assets",
 }
 
 FULL_SCOPES_MAP: Final = {

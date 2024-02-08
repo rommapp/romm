@@ -22,7 +22,9 @@ def add_states(
     emulator: str = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
+    current_user = request.user
     log.info(f"Uploading states to {rom.name}")
+
     if states is None:
         log.error("No states were uploaded")
         raise HTTPException(
@@ -44,7 +46,9 @@ def add_states(
             platform_fs_slug=rom.platform.fs_slug,
             emulator=emulator,
         )
-        db_state = db_state_handler.get_state_by_filename(rom.id, state.filename)
+        db_state = db_state_handler.get_state_by_filename(
+            rom_id=rom.id, user_id=current_user.id, file_name=state.filename
+        )
         if db_state:
             db_state_handler.update_state(
                 db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
@@ -52,12 +56,15 @@ def add_states(
             continue
 
         scanned_state.rom_id = rom.id
-        scanned_state.user_id = request.user.id
+        scanned_state.user_id = current_user.id
         scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
     rom = db_rom_handler.get_roms(rom_id)
-    return {"uploaded": len(states), "states": rom.states}
+    return {
+        "uploaded": len(states),
+        "states": [s for s in rom.states if s.user_id == current_user.id],
+    }
 
 
 # @protected_route(router.get, "/states", ["assets.read"])
@@ -79,6 +86,11 @@ async def update_state(request: Request, id: int) -> StateSchema:
         error = f"Save with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    if db_state.user_id != request.user.id:
+        error = "You are not authorized to update this save state"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
     if "file" in data:
         file: UploadFile = data["file"]
@@ -107,6 +119,11 @@ async def delete_states(request: Request) -> MessageResponse:
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
+        if state.user_id != request.user.id:
+            error = "You are not authorized to delete this save state"
+            log.error(error)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
+
         db_state_handler.delete_state(state_id)
 
         if delete_from_fs:
@@ -133,4 +150,4 @@ async def delete_states(request: Request) -> MessageResponse:
                     error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
                     log.error(error)
 
-    return {"msg": f"Successfully deleted {len(state_ids)} states."}
+    return {"msg": f"Successfully deleted {len(state_ids)} states"}
