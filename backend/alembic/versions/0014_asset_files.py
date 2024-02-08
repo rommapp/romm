@@ -212,7 +212,7 @@ def upgrade() -> None:
     # Cleanup roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.create_foreign_key(
-            None, "platforms", ["platform_id"], ["id"], ondelete="CASCADE"
+            "fk_platform_id_roms", "platforms", ["platform_id"], ["id"], ondelete="CASCADE"
         )
         batch_op.drop_column("file_size")
         batch_op.drop_column("file_size_units")
@@ -240,14 +240,18 @@ def downgrade() -> None:
             sa.Column("file_size_units", mysql.VARCHAR(length=10), nullable=False)
         )
         batch_op.add_column(sa.Column("file_size", mysql.FLOAT(), nullable=False))
-        batch_op.drop_constraint(None, type_="foreignkey")
-        batch_op.create_foreign_key(
-            "fk_platform_roms", "platforms", ["platform_slug"], ["slug"]
-        )
+        batch_op.drop_constraint("fk_platform_id_roms", type_="foreignkey")
 
-    op.execute(
-        "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
-    )
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.create_foreign_key(
+            "fk_platform_roms", "platforms", ["platform_slug"], ["slug"], ondelete="CASCADE"
+        )
+        batch_op.execute(
+            "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
+        )
+        batch_op.execute(
+            "update roms set url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png' where url_cover = ''"
+        )
 
     # Process filesize data and prepare for bulk update
     connection = op.get_bind()
