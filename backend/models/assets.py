@@ -1,6 +1,6 @@
 from functools import cached_property
 from models.base import BaseModel
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func, BigInteger
 from sqlalchemy.orm import relationship
 from typing import Optional
 
@@ -22,7 +22,7 @@ class BaseAsset(BaseModel):
     file_name_no_ext = Column(String(length=450), nullable=False)
     file_extension = Column(String(length=100), nullable=False)
     file_path = Column(String(length=1000), nullable=False)
-    file_size_bytes = Column(Integer(), default=0, nullable=False)
+    file_size_bytes = Column(BigInteger(), default=0, nullable=False)
 
     rom_id = Column(
         Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
