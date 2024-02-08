@@ -99,13 +99,19 @@ class RomSchema(BaseModel):
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
-        rom.sibling_roms = db_rom.get_sibling_roms()
-        rom.user_saves = [save for save in db_rom.saves if save.user_id == user_id]
-        rom.user_states = [state for state in db_rom.states if state.user_id == user_id]
+        rom.sibling_roms = [
+            RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
+        ]
+        rom.user_saves = [
+            SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
+        ]
+        rom.user_states = [
+            StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
+        ]
         rom.user_screenshots = [
-            screenshot
-            for screenshot in db_rom.screenshots
-            if screenshot.user_id == user_id
+            ScreenshotSchema.model_validate(s)
+            for s in db_rom.screenshots
+            if s.user_id == user_id
         ]
 
         return rom
