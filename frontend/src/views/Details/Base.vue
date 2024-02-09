@@ -167,7 +167,8 @@ watch(
             <v-tab
               v-if="
                 mdAndDown &&
-                (Boolean(rom.igdb_metadata?.expansions) || Boolean(rom.igdb_metadata?.dlcs))
+                ((rom.igdb_metadata?.expansions ?? []).length > 0 ||
+                  (rom.igdb_metadata?.dlcs ?? []).length > 0)
               "
               value="additionalcontent"
               rounded="0"
@@ -178,9 +179,9 @@ watch(
             <v-tab
               v-if="
                 smAndDown &&
-                (Boolean(rom.igdb_metadata?.remakes) ||
-                  Boolean(rom.igdb_metadata?.remasters) ||
-                  Boolean(rom.igdb_metadata?.expanded_games))
+                ((rom.igdb_metadata?.remakes ?? []).length > 0 ||
+                  (rom.igdb_metadata?.remasters ?? []).length > 0 ||
+                  (rom.igdb_metadata?.expanded_games ?? []).length > 0)
               "
               value="relatedgames"
               rounded="0"
