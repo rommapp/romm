@@ -36,8 +36,8 @@ class EventHandler(FileSystemEventHandler):
         if event.src_path.endswith(".DS_Store"):
             return
 
-        # Ignore modified events
-        if event.event_type == "modified":
+        # Ignore some event types
+        if event.event_type in ["modified", "opened", "closed"]:
             return
 
         event_src = event.src_path.split(path)[-1]
