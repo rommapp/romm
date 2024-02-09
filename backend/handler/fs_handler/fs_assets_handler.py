@@ -36,9 +36,7 @@ class FSAssetsHandler(FSHandler):
 
     # /users/557365723a31/profile
     def build_avatar_path(self, user: User):
-        user_avatar_path = os.path.join(
-            ASSETS_BASE_PATH, self.user_folder_path(user), "profile"
-        )
+        user_avatar_path = os.path.join(self.user_folder_path(user), "profile")
         Path(user_avatar_path).mkdir(parents=True, exist_ok=True)
         return user_avatar_path
 
