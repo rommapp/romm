@@ -71,7 +71,6 @@ class RomSchema(BaseModel):
     url_screenshots: list[str]
     merged_screenshots: list[str]
     full_path: str
-    download_path: str
 
     sibling_roms: list["RomSchema"] = Field(default_factory=list)
     user_saves: list[SaveSchema] = Field(default_factory=list)

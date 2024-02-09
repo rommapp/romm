@@ -49,7 +49,7 @@ declare global {
 
 window.EJS_core = platformSlugEJSCoreMap[props.rom.platform_slug];
 window.EJS_gameID = props.rom.id;
-window.EJS_gameUrl = props.rom.download_path;
+window.EJS_gameUrl = `/api/roms/${props.rom.id}/content`;
 window.EJS_player = "#game";
 window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
