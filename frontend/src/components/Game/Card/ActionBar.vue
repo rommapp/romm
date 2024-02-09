@@ -25,13 +25,13 @@ const downloadStore = storeDownload();
           variant="text"
         />
         <v-btn
+          v-if="rom.platform_slug in platformSlugEJSCoreMap"
           class="action-bar-btn"
           :href="`/play/${rom.id}`"
           icon="mdi-play"
           size="x-small"
           rounded="0"
           variant="text"
-          :disabled="!(rom.platform_slug in platformSlugEJSCoreMap)"
         />
       </v-col>
       <v-menu location="bottom">
