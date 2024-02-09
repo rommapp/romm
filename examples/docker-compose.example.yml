@@ -32,6 +32,7 @@ services:
       - 80:8080
     depends_on:
       - mariadb
+      - redis
 
   mariadb:
     image: mariadb:latest
