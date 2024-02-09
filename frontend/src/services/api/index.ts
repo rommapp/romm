@@ -7,7 +7,7 @@ const api = axios.create({ baseURL: "/api", timeout: 120000 });
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response.status === 403) {
+    if (error.response?.status === 403) {
       router.push({
         name: "login",
         params: { next: router.currentRoute.value.path },
