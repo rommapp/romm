@@ -41,7 +41,7 @@ class Rom(BaseModel):
     path_cover_l: str = Column(Text, default="")
     url_cover: str = Column(Text, default="", doc="URL to cover image stored in IGDB")
 
-    revision: str = Column(String(20))
+    revision: str = Column(String(100))
     regions: JSON = Column(JSON, default=[])
     languages: JSON = Column(JSON, default=[])
     tags: JSON = Column(JSON, default=[])

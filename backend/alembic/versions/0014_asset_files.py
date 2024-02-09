@@ -180,6 +180,12 @@ def upgrade() -> None:
         )
         batch_op.add_column(sa.Column("igdb_metadata", mysql.JSON(), nullable=True))
         batch_op.add_column(sa.Column("platform_id", sa.Integer(), nullable=False))
+        batch_op.alter_column(
+            "revision",
+            existing_type=mysql.VARCHAR(length=20),
+            type_=sa.String(length=100),
+            existing_nullable=True,
+        )
 
     # Move data around
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -212,7 +218,11 @@ def upgrade() -> None:
     # Cleanup roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.create_foreign_key(
-            "fk_platform_id_roms", "platforms", ["platform_id"], ["id"], ondelete="CASCADE"
+            "fk_platform_id_roms",
+            "platforms",
+            ["platform_id"],
+            ["id"],
+            ondelete="CASCADE",
         )
         batch_op.drop_column("file_size")
         batch_op.drop_column("file_size_units")
@@ -244,7 +254,11 @@ def downgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.create_foreign_key(
-            "fk_platform_roms", "platforms", ["platform_slug"], ["slug"], ondelete="CASCADE"
+            "fk_platform_roms",
+            "platforms",
+            ["platform_slug"],
+            ["slug"],
+            ondelete="CASCADE",
         )
         batch_op.execute(
             "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
@@ -277,6 +291,12 @@ def downgrade() -> None:
         batch_op.drop_column("igdb_metadata")
         batch_op.drop_column("file_size_bytes")
         batch_op.drop_column("file_name_no_ext")
+        batch_op.alter_column(
+            "revision",
+            existing_type=sa.String(length=100),
+            type_=mysql.VARCHAR(length=20),
+            existing_nullable=True,
+        )
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(
