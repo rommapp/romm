@@ -19,31 +19,6 @@ const romsStore = storeRoms();
 const scanningStore = storeScanning();
 const route = useRoute();
 
-socket.on("scan:scanning_rom", ({ id }) => {
-  const rom = romsStore.selectedRoms.find((r) => r.id === id);
-  if (rom) romsStore.removeFromSelection(rom);
-});
-
-socket.on("scan:done", () => {
-  scanningStore.set(false);
-  emitter?.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
-    icon: "mdi-check-bold",
-    color: "green",
-  });
-  socket.disconnect();
-});
-
-socket.on("scan:done_ko", (msg: string) => {
-  scanningStore.set(false);
-  emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-    icon: "mdi-close-circle",
-    color: "red",
-  });
-  socket.disconnect();
-});
-
 // Functions
 async function onScan() {
   scanningStore.set(true);

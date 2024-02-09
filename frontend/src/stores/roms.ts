@@ -1,7 +1,11 @@
 import type { PlatformSchema, RomSchema } from "@/__generated__/";
 import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
-import { defineStore } from "pinia";
+import { defineStore, type Store } from "pinia";
+import storeGalleryFilter from "./galleryFilter";
+import type { ExtractPiniaStoreType } from "@/types";
+
+type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 export type Rom = RomSchema & {
   siblings?: RomSchema[]; // Added by the frontend
@@ -107,30 +111,21 @@ export default defineStore("roms", {
       this._selectedIDs = [];
       this.lastSelectedIndex = -1;
     },
-    // Filtered roms
-    setFiltered(
-      roms: Rom[],
-      filterUnmatched: boolean,
-      filterGenre: string | null = null,
-      filterFranchise: string | null = null,
-      filterCollection: string | null = null,
-      filterCompany: string | null = null
-    ) {
+    // Filter roms by gallery filter store state
+    setFiltered(roms: Rom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = roms.map((rom) => rom.id);
-      if (filterUnmatched) {
-        this.filterUnmatched();
+      if (galleryFilter.filterUnmatched) this.filterUnmatched();
+      if (galleryFilter.selectedGenre) {
+        this.filterGenre(galleryFilter.selectedGenre);
       }
-      if (filterGenre) {
-        this.filterGenre(filterGenre);
+      if (galleryFilter.selectedFranchise) {
+        this.filterFranchise(galleryFilter.selectedFranchise);
       }
-      if (filterFranchise) {
-        this.filterFranchise(filterFranchise);
+      if (galleryFilter.selectedCollection) {
+        this.filterCollection(galleryFilter.selectedCollection);
       }
-      if (filterCollection) {
-        this.filterCollection(filterCollection);
-      }
-      if (filterCompany) {
-        this.filterCompany(filterCompany);
+      if (galleryFilter.selectedCompany) {
+        this.filterCompany(galleryFilter.selectedCompany);
       }
     },
     filterUnmatched() {
@@ -140,17 +135,13 @@ export default defineStore("roms", {
     },
     filterGenre(genreToFilter: string) {
       this._filteredIDs = this.filteredRoms
-        .filter((rom) =>
-          rom.genres.some((genre) => genre === genreToFilter)
-        )
+        .filter((rom) => rom.genres.some((genre) => genre === genreToFilter))
         .map((rom) => rom.id);
     },
     filterFranchise(franchiseToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.franchises.some(
-            (franchise) => franchise === franchiseToFilter
-          )
+          rom.franchises.some((franchise) => franchise === franchiseToFilter)
         )
         .map((rom) => rom.id);
     },
@@ -166,9 +157,7 @@ export default defineStore("roms", {
     filterCompany(companyToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.companies.some(
-            (company) => company === companyToFilter
-          )
+          rom.companies.some((company) => company === companyToFilter)
         )
         .map((rom) => rom.id);
     },
