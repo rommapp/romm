@@ -124,8 +124,8 @@ export default defineStore("roms", {
       if (galleryFilter.selectedCollection) {
         this.filterCollection(galleryFilter.selectedCollection);
       }
-      if (galleryFilter.selectedCollection) {
-        this.filterCompany(galleryFilter.selectedCollection);
+      if (galleryFilter.selectedCompany) {
+        this.filterCompany(galleryFilter.selectedCompany);
       }
     },
     filterUnmatched() {
