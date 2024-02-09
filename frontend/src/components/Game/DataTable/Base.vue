@@ -148,14 +148,15 @@ function rowClick(_: Event, row: any) {
         <v-icon>mdi-download</v-icon>
       </v-btn>
       <v-btn
+        v-if="item.raw.platform_slug in platformSlugEJSCoreMap"
         size="small"
         variant="text"
         :href="`/play/${item.raw.id}`"
         class="my-1 bg-terciary"
         rounded="0"
-        :disabled="!(item.raw.platform_slug in platformSlugEJSCoreMap)"
-        ><v-icon>mdi-play</v-icon></v-btn
       >
+        <v-icon>mdi-play</v-icon>
+      </v-btn>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn

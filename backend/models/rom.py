@@ -89,10 +89,6 @@ class Rom(BaseModel):
         return f"{self.file_path}/{self.file_name}"
 
     @cached_property
-    def download_path(self) -> str:
-        return f"/api/raw/roms/{self.full_path}"
-
-    @cached_property
     def has_cover(self) -> bool:
         return bool(self.path_cover_s or self.path_cover_l)
 

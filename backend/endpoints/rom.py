@@ -129,6 +129,32 @@ def get_rom(request: Request, id: int) -> RomSchema:
     return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
+@protected_route(router.head, "/roms/{id}/content", ["roms.read"])
+def head_rom_content(request: Request, id: int):
+    """Head rom content endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Rom internal id
+
+    Returns:
+        FileResponse: Returns the response with headers
+    """
+
+    rom = db_rom_handler.get_roms(id)
+    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+
+    return FileResponse(
+        path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
+        filename=rom.file_name,
+        headers={
+            "Content-Disposition": f"attachment; filename={rom.name}.zip",
+            "Content-Type": "application/zip",
+            "Content-Length": str(rom.file_size_bytes),
+        },
+    )
+
+
 @protected_route(router.get, "/roms/{id}/content", ["roms.read"])
 def get_rom_content(
     request: Request, id: int, files: Annotated[list[str] | None, Query()] = None
@@ -152,7 +178,7 @@ def get_rom_content(
 
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)
-
+    
     # Builds a generator of tuples for each member file
     def local_files():
         def contents(file_name):
@@ -165,7 +191,15 @@ def get_rom_content(
 
         return [
             (file_name, datetime.now(), S_IFREG | 0o600, ZIP_64, contents(file_name))
-            for file_name in files
+            for file_name in rom.files
+        ] + [
+            (
+                f"{rom.file_name}.m3u",
+                datetime.now(),
+                S_IFREG | 0o600,
+                ZIP_64,
+                [str.encode(f"{rom.files[i]}\n") for i in range(len(rom.files))],
+            )
         ]
 
     zipped_chunks = stream_zip(local_files())
@@ -174,7 +208,7 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={rom.name}.zip"},
+        headers={"Content-Disposition": f"attachment; filename={rom.file_name}.zip"},
         emit_body={"id": rom.id},
     )
 

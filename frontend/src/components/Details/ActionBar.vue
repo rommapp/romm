@@ -15,6 +15,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const emulation = ref(false);
 const playInfoIcon = ref("mdi-play");
+const emulationSupported = props.rom.platform_slug in platformSlugEJSCoreMap;
 
 function toggleEmulation() {
   emulation.value = !emulation.value;
@@ -42,14 +43,24 @@ function toggleEmulation() {
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn
-        :disabled="!(rom.platform_slug in platformSlugEJSCoreMap)"
-        rounded="0"
-        block
-        @click="toggleEmulation"
+      <v-tooltip
+        text="Emulation not currently supported"
+        location="bottom"
+        :disabled="emulationSupported"
       >
-        <v-icon :icon="playInfoIcon" size="large" />
-      </v-btn>
+        <template v-slot:activator="{ props }">
+          <div v-bind="props">
+            <v-btn
+              rounded="0"
+              block
+              @click="toggleEmulation"
+              :disabled="!emulationSupported"
+            >
+              <v-icon :icon="playInfoIcon" size="large" />
+            </v-btn>
+          </div>
+        </template>
+      </v-tooltip>
     </v-col>
     <v-col>
       <v-menu location="bottom">
