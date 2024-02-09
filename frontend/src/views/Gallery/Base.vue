@@ -74,28 +74,14 @@ async function fetchRoms() {
       // Add any new roms to the store
       const allRomsSet = [...allRoms.value, ...data.items];
       romsStore.set(allRomsSet);
-      romsStore.setFiltered(
-        allRomsSet,
-        galleryFilterStore.filterUnmatched,
-        galleryFilterStore.selectedGenre,
-        galleryFilterStore.selectedFranchise,
-        galleryFilterStore.selectedCollection,
-        galleryFilterStore.selectedCompany
-      );
+      romsStore.setFiltered(allRomsSet, galleryFilterStore);
 
       if (galleryFilterStore.isFiltered()) {
         if (data.next_page !== undefined) searchCursor.value = data.next_page;
 
         const serchedRomsSet = [...searchRoms.value, ...data.items];
         romsStore.setSearch(serchedRomsSet);
-        romsStore.setFiltered(
-          serchedRomsSet,
-          galleryFilterStore.filterUnmatched,
-          galleryFilterStore.selectedGenre,
-          galleryFilterStore.selectedFranchise,
-          galleryFilterStore.selectedCollection,
-          galleryFilterStore.selectedCompany
-        );
+        romsStore.setFiltered(serchedRomsSet, galleryFilterStore);
       } else if (data.next_page !== undefined) {
         cursor.value = data.next_page;
       }
@@ -122,14 +108,7 @@ async function onFilterChange() {
   searchCursor.value = "";
   romsStore.setSearch([]);
   if (!galleryFilterStore.isFiltered()) {
-    romsStore.setFiltered(
-      allRoms.value,
-      galleryFilterStore.filterUnmatched,
-      galleryFilterStore.selectedGenre,
-      galleryFilterStore.selectedFranchise,
-      galleryFilterStore.selectedCollection,
-      galleryFilterStore.selectedCompany
-    );
+    romsStore.setFiltered(allRoms.value, galleryFilterStore);
     return;
   }
   await fetchRoms();
