@@ -17,7 +17,7 @@ def test_platforms():
     platforms = db_platform_handler.get_platforms()
     assert len(platforms) == 1
 
-    platform = db_platform_handler.get_platform_by_slug(platform.slug)
+    platform = db_platform_handler.get_platform_by_fs_slug(platform.fs_slug)
     assert platform.name == "test_platform"
 
     db_platform_handler.purge_platforms([])
