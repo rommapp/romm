@@ -25,7 +25,6 @@ const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Props
-const authStore = storeAuth();
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 
@@ -36,25 +35,10 @@ socket.on("scan:scanning_platform", ({ name, slug, id }) => {
 socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
   if (romsStore.platform.name === platform_name) {
     romsStore.add([rom]);
-    if (isFiltered) {
-      romsStore.setFiltered(
-        romsStore.filteredRoms,
-        galleryFilter.filterUnmatched,
-        galleryFilter.selectedGenre,
-        galleryFilter.selectedFranchise,
-        galleryFilter.selectedCollection,
-        galleryFilter.selectedCompany
-      );
-    } else {
-      romsStore.setFiltered(
-        romsStore.allRoms,
-        galleryFilter.filterUnmatched,
-        galleryFilter.selectedGenre,
-        galleryFilter.selectedFranchise,
-        galleryFilter.selectedCollection,
-        galleryFilter.selectedCompany
-      );
-    }
+    romsStore.setFiltered(
+      isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
+      galleryFilter
+    );
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
