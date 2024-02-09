@@ -22,27 +22,6 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
   show.value = true;
 });
 
-socket.on("scan:done", () => {
-  scanningStore.set(false);
-  socket.disconnect();
-  emitter?.emit("refreshDrawer", null);
-  emitter?.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
-    icon: "mdi-check-bold",
-    color: "green",
-  });
-});
-
-socket.on("scan:done_ko", (msg) => {
-  scanningStore.set(false);
-  emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-    icon: "mdi-close-circle",
-    color: "red",
-  });
-  socket.disconnect();
-});
-
 // Functions
 async function uploadRoms() {
   if (!platform.value) return;
@@ -95,17 +74,12 @@ async function uploadRoms() {
         color: "red",
         timeout: 4000,
       });
-    })
+    });
 }
 
 function closeDialog() {
   show.value = false;
 }
-
-onBeforeUnmount(() => {
-  socket.off("scan:done");
-  socket.off("scan:done_ko");
-});
 </script>
 
 <template>
