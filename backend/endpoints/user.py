@@ -7,6 +7,7 @@ from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler import auth_handler, db_user_handler, fs_asset_handler
 from models.user import Role, User
+from config import ASSETS_BASE_PATH
 
 router = APIRouter()
 
@@ -133,7 +134,7 @@ def update_user(
         user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
         cleaned_data["avatar_path"] = file_location
-        with open(file_location, "wb+") as file_object:
+        with open(f"{ASSETS_BASE_PATH}/{file_location}", "wb+") as file_object:
             file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
