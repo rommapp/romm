@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Annotated
 
 from decorators.auth import protected_route
@@ -132,10 +134,13 @@ def update_user(
 
     if form_data.avatar is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
+
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
         cleaned_data["avatar_path"] = file_location
-        with open(f"{ASSETS_BASE_PATH}/{file_location}", "wb+") as file_object:
-            file_object.write(form_data.avatar.file.read())
+        if not os.path.exists(f"{ASSETS_BASE_PATH}/{user_avatar_path}"):
+            Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(parents=True, exist_ok=True)
+            with open(f"{ASSETS_BASE_PATH}/{file_location}", "wb+") as file_object:
+                file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
