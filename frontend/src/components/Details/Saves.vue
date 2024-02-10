@@ -75,7 +75,7 @@ async function uploadSaves() {
       <v-list-item class="px-0">
         <v-file-input
           @keyup.enter="uploadSaves()"
-          :label="`Upload ${props.rom.name}`"
+          label="Select save files..."
           v-model="savesToUpload"
           prepend-inner-icon="mdi-file"
           prepend-icon=""
@@ -88,6 +88,7 @@ async function uploadSaves() {
         />
         <template v-slot:append>
           <v-btn
+            :disabled="!savesToUpload.length"
             @click="uploadSaves()"
             class="text-romm-green ml-3 bg-terciary"
           >
