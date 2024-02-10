@@ -2,7 +2,8 @@ import os
 import shutil
 from pathlib import Path
 from urllib.parse import quote
-
+from urllib3.exceptions import ProtocolError
+from logger.logger import log
 import requests
 from config import RESOURCES_BASE_PATH
 from handler.fs_handler import (
@@ -135,11 +136,13 @@ class FSResourceHandler(FSHandler):
         q_rom_name = quote(rom_name)
 
         path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
-        path_cover_s = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
+        path_cover_s = (
+            f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
+        )
         artwork_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
         Path(artwork_path).mkdir(parents=True, exist_ok=True)
         return path_cover_l, path_cover_s, artwork_path
-    
+
     def _store_screenshot(self, fs_slug: str, rom_name: str, url: str, idx: int):
         """Store roms resources in filesystem
 
@@ -154,7 +157,12 @@ class FSResourceHandler(FSHandler):
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
             with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:
-                shutil.copyfileobj(res.raw, f)
+                try:
+                    shutil.copyfileobj(res.raw, f)
+                except ProtocolError:
+                    log.warning(
+                        f"Failure writing screenshot {url} to file (ProtocolError)"
+                    )
 
     def _get_screenshot_path(self, fs_slug: str, rom_name: str, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
