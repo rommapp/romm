@@ -1,7 +1,7 @@
 [tool.poetry]
 package-mode = false
 name = "romm"
-version = "3.0.0-rc.2"
+version = "0.0.1"
 description = "A beautiful, powerful, self-hosted rom manager"
 license = "GNU GPLv3"
 repository = "https://github.com/zurdi15/romm"
