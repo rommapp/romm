@@ -63,7 +63,7 @@ async def scan_platforms(
         log.info(f"Found {len(platform_list)} platforms in file system ")
 
     for platform_slug in platform_list:
-        platform = db_platform_handler.get_platform_by_slug(platform_slug)
+        platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
         scanned_platform = scan_platform(platform_slug, fs_platforms)
 
         if platform:
@@ -135,7 +135,7 @@ async def scan_handler(_sid: str, options: dict):
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
 
-    platform_slugs = options.get("platforms", [])
+    platform_ids = options.get("platforms", [])
     complete_rescan = options.get("completeRescan", False)
     rescan_unidentified = options.get("rescanUnidentified", False)
     selected_roms = options.get("roms", [])
@@ -143,7 +143,7 @@ async def scan_handler(_sid: str, options: dict):
     # Run in worker if redis is available
     return high_prio_queue.enqueue(
         scan_platforms,
-        platform_slugs,
+        platform_ids,
         complete_rescan,
         rescan_unidentified,
         selected_roms,

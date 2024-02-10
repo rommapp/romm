@@ -21,7 +21,7 @@ SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in cm.config.PLATFORMS_BINDING.
 def _get_main_platform_igdb_id(platform: Platform):
     if platform.fs_slug in cm.config.PLATFORMS_VERSIONS.keys():
         main_platform_slug = cm.config.PLATFORMS_VERSIONS[platform.fs_slug]
-        main_platform = db_platform_handler.get_platform_by_slug(main_platform_slug)
+        main_platform = db_platform_handler.get_platform_by_fs_slug(main_platform_slug)
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
