@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Annotated
 
+from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
@@ -9,7 +10,6 @@ from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler import auth_handler, db_user_handler, fs_asset_handler
 from models.user import Role, User
-from config import ASSETS_BASE_PATH
 
 router = APIRouter()
 
@@ -134,13 +134,13 @@ def update_user(
 
     if form_data.avatar is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
-
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
         cleaned_data["avatar_path"] = file_location
-        if not os.path.exists(f"{ASSETS_BASE_PATH}/{user_avatar_path}"):
-            Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(parents=True, exist_ok=True)
-            with open(f"{ASSETS_BASE_PATH}/{file_location}", "wb+") as file_object:
-                file_object.write(form_data.avatar.file.read())
+        Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(
+            parents=True, exist_ok=True
+        )
+        with open(f"{ASSETS_BASE_PATH}/{file_location}", "wb+") as file_object:
+            file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
