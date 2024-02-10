@@ -11,6 +11,7 @@ import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
 import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
+import platformApi from "@/services/api/platform";
 
 // Props
 const { lgAndUp } = useDisplay();
@@ -27,6 +28,12 @@ emitter?.on("toggleDrawer", () => {
 emitter?.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
   localStorage.setItem("rail", rail.value.toString());
+
+
+async function addPlatform(){
+  const { data: message } = await platformApi.uploadPlatform("romm");
+  console.log(message)
+}
 });
 
 onMounted(() => {});
@@ -102,6 +109,14 @@ onMounted(() => {});
           <template v-slot:prepend>
             <v-avatar :rounded="0" size="40"
               ><v-icon>mdi-magnify-scan</v-icon></v-avatar
+            >
+          </template>
+        </v-list-item>
+        <v-list-item class="bg-terciary" @click="addPlatform">
+          <span v-if="!rail" class="text-body-2 text-truncate">Add platform</span>
+          <template v-slot:prepend>
+            <v-avatar :rounded="0" size="40"
+              ><v-icon>mdi-plus</v-icon></v-avatar
             >
           </template>
         </v-list-item>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
-import { useRoute } from "vue-router";
+import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
@@ -10,7 +9,6 @@ import romApi from "@/services/api/rom";
 import storeScanning from "@/stores/scanning";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const route = useRoute();
 const show = ref(false);
 const romsToUpload = ref([]);
 const scanningStore = storeScanning();

@@ -2,14 +2,14 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from fastapi import APIRouter, HTTPException, Request, status
-from handler import db_platform_handler
+from handler import db_platform_handler, igdb_handler
 from logger.logger import log
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/platforms", ["platforms.write"])
-def add_platforms(request: Request) -> MessageResponse:
+async def add_platforms(request: Request) -> MessageResponse:
     """Create platform endpoint
 
     Args:
@@ -19,7 +19,12 @@ def add_platforms(request: Request) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    pass
+    data = await request.json()
+    fs_slug = data["fs_slug"]
+    platform = igdb_handler.get_platform(fs_slug)
+    log.debug(platform)
+
+    return {"msg": f"Platform created successfully!"}
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])

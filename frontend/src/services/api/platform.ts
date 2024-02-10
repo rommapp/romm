@@ -3,6 +3,10 @@ import api from "@/services/api/index";
 
 export const platformApi = api;
 
+async function uploadPlatform(slug: string): Promise<{ data: MessageResponse[] }> {
+  return api.post("/platforms", {"slug": slug});
+}
+
 async function getPlatforms(): Promise<{ data: PlatformSchema[] }> {
   return api.get("/platforms");
 }
@@ -30,6 +34,7 @@ async function deletePlatform({
 }
 
 export default {
+  uploadPlatform,
   getPlatforms,
   getPlatform,
   deletePlatform,
