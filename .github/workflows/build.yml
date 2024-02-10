@@ -1,7 +1,9 @@
 name: Build and Push Docker Image
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -41,13 +43,18 @@ jobs:
             name=zurdi15/romm
             name=ghcr.io/zurdi15/romm
           tags: |
-            type=raw,value=$(awk -F' = ' '/^version =/ {print $2}' pyproject.toml)
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'release') }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
           labels: |
-            org.opencontainers.image.version=$(awk -F' = ' '/^version =/ {print $2}' pyproject.toml)
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.title="zurdi15/romm"
             org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
             org.opencontainers.image.licenses="GPL-3.0"
+
+      - name: Set version
+        run: |
+          sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
+
       - name: Build image
         uses: docker/build-push-action@v4
         with:

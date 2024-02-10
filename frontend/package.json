@@ -1,7 +1,7 @@
 {
   "name": "romm",
   "private": true,
-  "version": "3.0.0-rc.2",
+  "version": "0.0.1",
   "author": "Zurdi <https://github.com/zurdi15>",
   "description": "A beautiful, powerful, self-hosted rom manager",
   "license": "GPL-3.0-only",
@@ -22,7 +22,7 @@
     "dev": "vite --host",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --fix && npmPkgJsonLint .",
+    "lint": "eslint . --fix",
     "postinstall": "cd node_modules/emulatorjs/data/minify/ && npm i && npm run build",
     "typecheck": "vue-tsc --noEmit",
     "generate": "openapi --input http://localhost:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
