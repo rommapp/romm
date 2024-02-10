@@ -1,5 +1,14 @@
 [tool.poetry]
 package-mode = false
+name = "romm"
+version = "3.0.0-rc.2"
+description = "A beautiful, powerful, self-hosted rom manager"
+license = "GNU GPLv3"
+repository = "https://github.com/zurdi15/romm"
+authors = [
+    "Zurdi <https://github.com/zurdi15/>",
+    "Georges-Antoine Assi <contact@me.gantoine.com>",
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
