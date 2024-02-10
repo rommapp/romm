@@ -75,7 +75,7 @@ async function uploadStates() {
       <v-list-item class="px-0">
         <v-file-input
           @keyup.enter="uploadStates()"
-          :label="`Upload ${props.rom.name}`"
+          label="Select state files..."
           v-model="statesToUpload"
           prepend-inner-icon="mdi-file"
           prepend-icon=""
@@ -88,6 +88,7 @@ async function uploadStates() {
         />
         <template v-slot:append>
           <v-btn
+            :disabled="!statesToUpload.length"
             @click="uploadStates()"
             class="text-romm-green ml-3 bg-terciary"
           >

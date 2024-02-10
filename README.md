@@ -28,12 +28,13 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Features
 
-- Scans your existing games library [folder-structure] and enchances it with metadata from [IGDB][igdb]
+- Scans your existing games library and enchances it with metadata from [IGDB][igdb]
 - Supports a large number of **[platforms][platform-support]**
+- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs-url]
+- Built-in [authentication][authentication] with multiple users and permissions
 - Supports [MAME][mame-xml-update], [Nintendo Switch][switch-titledb-update] and PS2 naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
 - Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
-- Built-in [authentication][authentication] with multiple users and permissions
 - View, upload, update, and delete games from any modern web browser
 
 ## Preview
@@ -120,7 +121,7 @@ As mentioned in the installation section, RomM requires a specific folder struct
  </tr>
 </table>
 
-For device naming conventions, review the [Platforms Support][platform-support] section. To override default system names in the folder structure (if your directories are named differently), see the [Configuration File][configuration-file] section.
+For folder naming conventions, review the [Platform Support][platform-support] section. To override default system names in the folder structure (if your directories are named differently), see the [Configuration File][configuration-file] section.
 
 ## Configuration File
 
@@ -180,7 +181,9 @@ When a change is detected, a scan will be scheduled for sometime in the future (
 
 ## Platform Support
 
-If you adhere to the [RomM folder structure][folder-structure], RomM supports any platform listed in the [IGDB platforms list][igdb-platforms-list]. RomM will retrieve game information, metadata, and covers for platforms in that list. Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons-url]).
+If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][wiki-supported-platforms-url] page. **The folder is is case sensitive and must be used exactly how it appears in the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
+
+Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons-url]).
 
 ## Tag Support
 
@@ -235,9 +238,11 @@ Here are a few projects that we think you might like:
 <!-- Wiki links -->
 
 [wiki-url]: https://github.com/zurdi15/romm/wiki
+[wiki-supported-platforms-url]: https://github.com/zurdi15/romm/wiki/Supported-Platforms
 [wiki-authentication-url]: https://github.com/zurdi15/romm/wiki/Authentication
 [wiki-platforms-icons-url]: https://github.com/zurdi15/romm/wiki/Custom-Platform-Icons
 [wiki-troubleshooting-url]: https://github.com/zurdi15/romm/wiki/Troubleshooting
+[wiki-emulatorjs-url]: https://github.com/zurdi15/romm/wiki/EmulatorJS-Player
 
 <!-- Badges -->
 
