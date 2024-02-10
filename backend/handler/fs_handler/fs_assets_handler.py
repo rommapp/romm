@@ -21,7 +21,6 @@ class FSAssetsHandler(FSHandler):
 
     def write_file(self, file: UploadFile, path: str) -> None:
         Path(os.path.join(ASSETS_BASE_PATH, path)).mkdir(parents=True, exist_ok=True)
-        
         log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(ASSETS_BASE_PATH, path, file.filename)
 
@@ -36,9 +35,7 @@ class FSAssetsHandler(FSHandler):
 
     # /users/557365723a31/profile
     def build_avatar_path(self, user: User):
-        user_avatar_path = os.path.join(self.user_folder_path(user), "profile")
-        Path(user_avatar_path).mkdir(parents=True, exist_ok=True)
-        return user_avatar_path
+        return os.path.join(self.user_folder_path(user), "profile")
 
     def _build_asset_file_path(
         self, user: User, folder: str, platform_fs_slug, emulator: str = None
