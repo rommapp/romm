@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 from urllib.parse import quote
 from urllib3.exceptions import ProtocolError
+from logger.logger import log
 import requests
 from config import RESOURCES_BASE_PATH
 from handler.fs_handler import (
@@ -159,7 +160,9 @@ class FSResourceHandler(FSHandler):
                 try:
                     shutil.copyfileobj(res.raw, f)
                 except ProtocolError:
-                    pass
+                    log.warning(
+                        f"Failure writing screenshot {url} to file (ProtocolError)"
+                    )
 
     def _get_screenshot_path(self, fs_slug: str, rom_name: str, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
