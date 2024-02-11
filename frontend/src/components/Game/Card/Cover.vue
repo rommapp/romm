@@ -128,9 +128,8 @@ function onTouchEnd() {
           <v-chip
             v-if="rom.regions.filter(identity).length > 0 && showRegions"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            :class="`translucent mr-1 mt-1 px-2 ${
-              rom.regions.length > 3 && 'emoji-collection'
-            }`"
+            class="translucent mr-1 mt-1 px-1"
+            :class="{ 'emoji-collection': rom.regions.length > 3 }"
             density="compact"
           >
             <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
@@ -140,9 +139,8 @@ function onTouchEnd() {
           <v-chip
             v-if="rom.languages.filter(identity).length > 0 && showLanguages"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            :class="`translucent mr-1 mt-1 px-2 ${
-              rom.regions.length > 3 && 'emoji-collection'
-            }`"
+            class="translucent mr-1 mt-1 px-1"
+            :class="{ 'emoji-collection': rom.languages.length > 3 }"
             density="compact"
           >
             <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
