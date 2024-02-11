@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { identity } from "lodash";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 import type { RomSchema, PlatformSchema } from "@/__generated__/";
@@ -50,7 +51,7 @@ const { smAndDown } = useDisplay();
       <v-chip
         size="small"
         class="mr-1 my-2"
-        v-if="rom.regions.filter((i: string) => i).length > 0"
+        v-if="rom.regions.filter(identity).length > 0"
         :title="`Regions: ${rom.regions.join(', ')}`"
       >
         <span class="px-1" v-for="region in rom.regions">{{
@@ -60,7 +61,7 @@ const { smAndDown } = useDisplay();
       <v-chip
         size="small"
         class="mr-1 my-2"
-        v-if="rom.languages.filter((i: string) => i).length > 0"
+        v-if="rom.languages.filter(identity).length > 0"
         :title="`Languages: ${rom.languages.join(', ')}`"
       >
         <span class="px-1" v-for="language in rom.languages">{{
