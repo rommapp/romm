@@ -2,6 +2,7 @@
 import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import storeGalleryView from "@/stores/galleryView";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 
@@ -16,6 +17,7 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const card = ref();
 const emit = defineEmits(["selectRom"]);
+const galleryViewStore = storeGalleryView();
 const showRegions = localStorage.getItem("settings.showRegions") === "true";
 const showLanguages = localStorage.getItem("settings.showLanguages") === "true";
 const showSiblings = localStorage.getItem("settings.showSiblings") === "true";
@@ -123,9 +125,15 @@ function onTouchEnd() {
             class="translucent mr-1 mt-1"
             density="compact"
           >
-            <span class="px-1" v-for="region in rom.regions">
-              {{ regionToEmoji(region) }}
-            </span>
+            <span
+              class="px-1"
+              v-for="region in rom.regions.slice(
+                0,
+                galleryViewStore.current == 0 ? 2 : 4
+              )"
+            >
+              {{ regionToEmoji(region) }} </span
+            ><span v-if="rom.regions.length > 3">+</span>
           </v-chip>
           <v-chip
             v-if="rom.languages.filter((i: string) => i).length > 0 && showLanguages"
@@ -133,9 +141,15 @@ function onTouchEnd() {
             class="translucent mr-1 mt-1"
             density="compact"
           >
-            <span class="px-1" v-for="language in rom.languages">
-              {{ languageToEmoji(language) }}
-            </span>
+            <span
+              class="px-1"
+              v-for="language in rom.languages.slice(
+                0,
+                galleryViewStore.current == 0 ? 2 : 4
+              )"
+            >
+              {{ languageToEmoji(language) }} </span
+            ><span v-if="rom.languages.length > 3">+</span>
           </v-chip>
           <v-chip
             v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
