@@ -4,7 +4,6 @@ import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
-const theme = useTheme();
 
 defineProps<{
   rom: Rom;
@@ -12,11 +11,14 @@ defineProps<{
   showSelector: boolean;
   selected: boolean;
 }>();
+const theme = useTheme();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const card = ref();
 const emit = defineEmits(["selectRom"]);
-
+const showRegions = localStorage.getItem("settings.showRegions") === "true";
+const showLanguages = localStorage.getItem("settings.showLanguages") === "true";
+const showSiblings = localStorage.getItem("settings.showSiblings") === "true";
 let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
@@ -116,17 +118,17 @@ function onTouchEnd() {
         </v-expand-transition>
         <v-row no-gutters class="text-white px-1">
           <v-chip
-            v-if="rom.regions.filter((i: string) => i).length > 0"
+            v-if="rom.regions.filter((i: string) => i).length > 0 && showRegions"
             :title="`Regions: ${rom.regions.join(', ')}`"
             class="translucent mr-1 mt-1"
             density="compact"
           >
-            <span class="px-0" v-for="region in rom.regions">
+            <span class="px-1" v-for="region in rom.regions">
               {{ regionToEmoji(region) }}
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.languages.filter((i: string) => i).length > 0"
+            v-if="rom.languages.filter((i: string) => i).length > 0 && showLanguages"
             :title="`Languages: ${rom.languages.join(', ')}`"
             class="translucent mr-1 mt-1"
             density="compact"
@@ -136,7 +138,7 @@ function onTouchEnd() {
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.siblings && rom.siblings.length > 0"
+            v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
             :title="`${rom.siblings.length + 1} versions`"
             class="translucent mr-1 mt-1"
             density="compact"
