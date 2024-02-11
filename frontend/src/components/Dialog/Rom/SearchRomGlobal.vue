@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { isNull, identity } from "lodash";
 import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import type { Events } from "@/types/emitter";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import { identity, isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -12,6 +13,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 const theme = useTheme();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
+const galleryViewStore = storeGalleryView();
 const show = ref(false);
 const searching = ref(false);
 const router = useRouter();
@@ -247,10 +249,12 @@ onBeforeUnmount(() => {
                       <div
                         v-if="isHovering || !rom.has_cover"
                         class="translucent text-caption"
+                        :class="{
+                          'text-truncate':
+                            galleryViewStore.current == 0 && !isHovering,
+                        }"
                       >
-                        <v-list-item>{{
-                          rom.name || rom.file_name
-                        }}</v-list-item>
+                        <v-list-item>{{ rom.name }}</v-list-item>
                       </div>
                     </v-expand-transition>
                     <v-row no-gutters class="text-white px-1">

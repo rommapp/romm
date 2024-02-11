@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { identity } from "lodash";
 import storeDownload from "@/stores/download";
+import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import { identity, isNull } from "lodash";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
-import { isNull } from "lodash";
 
 defineProps<{
   rom: Rom;
@@ -15,6 +15,7 @@ defineProps<{
 }>();
 const theme = useTheme();
 const downloadStore = storeDownload();
+const galleryViewStore = storeGalleryView();
 const romsStore = storeRoms();
 const card = ref();
 const emit = defineEmits(["selectRom"]);
@@ -120,8 +121,12 @@ function onTouchEnd() {
           <div
             v-if="isHovering || !rom.has_cover"
             class="translucent text-caption"
+            :class="{
+              'text-truncate': galleryViewStore.current == 0 && !isHovering,
+            }"
           >
-            <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
+            
+            <v-list-item>{{ rom.name }}</v-list-item>
           </div>
         </v-expand-transition>
         <v-row no-gutters class="text-white px-1">
@@ -186,5 +191,27 @@ function onTouchEnd() {
 
 .emoji {
   margin: 0 2px;
+}
+
+.text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: max-height 0.5s; /* Add a transition for a smooth effect */
+}
+
+.expand-on-hover:hover {
+  max-height: 1000px; /* Adjust to a sufficiently large value to ensure the full expansion */
+}
+
+/* Apply styles to v-expand-transition component */
+.v-expand-transition-enter-active,
+.v-expand-transition-leave-active {
+  transition: max-height 0.5s; /* Adjust the transition duration if needed */
+}
+
+.v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
+  max-height: 0; /* Set max-height to 0 when entering or leaving */
+  overflow: hidden;
 }
 </style>
