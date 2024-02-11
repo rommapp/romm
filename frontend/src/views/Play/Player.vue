@@ -107,6 +107,17 @@ async function fetchState(): Promise<Uint8Array> {
   return new Uint8Array();
 }
 
+function downloadFallback(data: BlobPart, name: string) {
+  const url = window.URL.createObjectURL(
+    new Blob([data], { type: "application/octet-stream" })
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
 window.EJS_onLoadState = async function () {
   const state = await fetchState();
   window.EJS_emulator.gameManager.loadState(state);
@@ -125,7 +136,6 @@ window.EJS_onSaveState = function ({
       window.EJS_emulator.getBaseFileName() + ".state",
       state
     );
-    window.EJS_emulator.displayMessage("SAVED TO ROMM");
   }
   if (stateRef.value) {
     stateApi
@@ -137,6 +147,10 @@ window.EJS_onSaveState = function ({
       })
       .then(({ data }) => {
         stateRef.value = data;
+        window.EJS_emulator.displayMessage("SAVED TO ROMM");
+      })
+      .catch(() => {
+        downloadFallback(state, stateRef.value?.file_name ?? "state");
       });
 
     if (stateRef.value.screenshot) {
@@ -149,6 +163,12 @@ window.EJS_onSaveState = function ({
         })
         .then(({ data }) => {
           if (stateRef.value) stateRef.value.screenshot = data;
+        })
+        .catch(() => {
+          downloadFallback(
+            screenshot,
+            stateRef.value?.screenshot?.file_name ?? "screenshot"
+          );
         });
     } else {
       screenshotApi
@@ -165,6 +185,9 @@ window.EJS_onSaveState = function ({
           props.rom.user_screenshots = data.screenshots;
           props.rom.url_screenshots = data.url_screenshots;
           props.rom.merged_screenshots = data.merged_screenshots;
+        })
+        .catch(() => {
+          downloadFallback(screenshot, `${buildStateName()}.png`);
         });
     }
   } else if (props.rom) {
@@ -184,6 +207,10 @@ window.EJS_onSaveState = function ({
         );
         if (props.rom) props.rom.user_states = allStates;
         stateRef.value = allStates.pop() ?? null;
+        window.EJS_emulator.displayMessage("SAVED TO ROMM");
+      })
+      .catch(() => {
+        downloadFallback(state, buildStateName());
       });
 
     screenshotApi
@@ -199,6 +226,9 @@ window.EJS_onSaveState = function ({
         props.rom.user_screenshots = data.screenshots;
         props.rom.url_screenshots = data.url_screenshots;
         props.rom.merged_screenshots = data.merged_screenshots;
+      })
+      .catch(() => {
+        downloadFallback(screenshot, `${buildStateName()}.png`);
       });
   }
 };
@@ -249,6 +279,9 @@ window.EJS_onSaveSave = function ({
       })
       .then(({ data }) => {
         saveRef.value = data;
+      })
+      .catch(() => {
+        downloadFallback(save, saveRef.value?.file_name ?? "save");
       });
 
     if (saveRef.value.screenshot) {
@@ -261,6 +294,12 @@ window.EJS_onSaveSave = function ({
         })
         .then(({ data }) => {
           if (saveRef.value) saveRef.value.screenshot = data;
+        })
+        .catch(() => {
+          downloadFallback(
+            screenshot,
+            saveRef.value?.screenshot?.file_name ?? "screenshot"
+          );
         });
     } else {
       screenshotApi
@@ -277,6 +316,9 @@ window.EJS_onSaveSave = function ({
           props.rom.user_screenshots = data.screenshots;
           props.rom.url_screenshots = data.url_screenshots;
           props.rom.merged_screenshots = data.merged_screenshots;
+        })
+        .catch(() => {
+          downloadFallback(screenshot, `${buildSaveName()}.png`);
         });
     }
   } else if (props.rom) {
@@ -296,6 +338,9 @@ window.EJS_onSaveSave = function ({
         );
         if (props.rom) props.rom.user_saves = allSaves;
         saveRef.value = allSaves.pop() ?? null;
+      })
+      .catch(() => {
+        downloadFallback(save, buildSaveName());
       });
 
     screenshotApi
@@ -311,6 +356,9 @@ window.EJS_onSaveSave = function ({
         props.rom.user_screenshots = data.screenshots;
         props.rom.url_screenshots = data.url_screenshots;
         props.rom.merged_screenshots = data.merged_screenshots;
+      })
+      .catch(() => {
+        downloadFallback(screenshot, `${buildSaveName()}.png`);
       });
   }
 };
