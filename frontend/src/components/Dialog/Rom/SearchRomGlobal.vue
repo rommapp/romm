@@ -255,26 +255,35 @@ onBeforeUnmount(() => {
                     </v-expand-transition>
                     <v-row no-gutters class="text-white px-1">
                       <v-chip
-                        v-if="rom.regions.filter(identity).length > 0 && showRegions"
+                        v-if="
+                          rom.regions.filter(identity).length > 0 && showRegions
+                        "
                         :title="`Regions: ${rom.regions.join(', ')}`"
-                        class="translucent mr-1 mt-1 px-2"
+                        class="translucent mr-1 mt-1 px-1"
+                        :class="{ 'emoji-collection': rom.regions.length > 3 }"
                         density="compact"
                       >
                         <span
-                          class="emoji-collection"
+                          class="emoji"
                           v-for="region in rom.regions.slice(0, 3)"
                         >
                           {{ regionToEmoji(region) }}
                         </span>
                       </v-chip>
                       <v-chip
-                        v-if="rom.languages.filter(identity).length > 0 && showLanguages"
+                        v-if="
+                          rom.languages.filter(identity).length > 0 &&
+                          showLanguages
+                        "
                         :title="`Languages: ${rom.languages.join(', ')}`"
-                        class="translucent mr-1 mt-1 px-2"
+                        class="translucent mr-1 mt-1 px-1"
+                        :class="{
+                          'emoji-collection': rom.languages.length > 3,
+                        }"
                         density="compact"
                       >
                         <span
-                          class="emoji-collection"
+                          class="emoji"
                           v-for="language in rom.languages.slice(0, 3)"
                         >
                           {{ languageToEmoji(language) }}
@@ -355,6 +364,10 @@ onBeforeUnmount(() => {
 }
 
 .emoji-collection {
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
+}
+
+.emoji {
   margin: 0 2px;
 }
 </style>
