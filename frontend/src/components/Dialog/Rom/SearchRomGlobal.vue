@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isNull, identity } from "lodash";
 import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
@@ -19,9 +20,15 @@ const filteredRoms = ref();
 const platforms = ref();
 const selectedPlatform = ref();
 const searchValue = ref("");
-const showRegions = localStorage.getItem("settings.showRegions") === "true";
-const showLanguages = localStorage.getItem("settings.showLanguages") === "true";
-const showSiblings = localStorage.getItem("settings.showSiblings") === "true";
+const showRegions = isNull(localStorage.getItem("settings.showRegions"))
+  ? true
+  : localStorage.getItem("settings.showRegions") === "true";
+const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
+  ? true
+  : localStorage.getItem("settings.showLanguages") === "true";
+const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
+  ? true
+  : localStorage.getItem("settings.showSiblings") === "true";
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomGlobalDialog", () => {
@@ -248,30 +255,30 @@ onBeforeUnmount(() => {
                     </v-expand-transition>
                     <v-row no-gutters class="text-white px-1">
                       <v-chip
-                        v-if="rom.regions.filter((i: string) => i).length > 0 && showRegions"
+                        v-if="rom.regions.filter(identity).length > 0 && showRegions"
                         :title="`Regions: ${rom.regions.join(', ')}`"
-                        class="translucent mr-1 mt-1"
+                        class="translucent mr-1 mt-1 px-2"
                         density="compact"
                       >
                         <span
-                          class="px-1"
+                          class="emoji-collection"
                           v-for="region in rom.regions.slice(0, 3)"
                         >
-                          {{ regionToEmoji(region) }} </span
-                        ><span v-if="rom.regions.length > 3">+</span>
+                          {{ regionToEmoji(region) }}
+                        </span>
                       </v-chip>
                       <v-chip
-                        v-if="rom.languages.filter((i: string) => i).length > 0 && showLanguages"
+                        v-if="rom.languages.filter(identity).length > 0 && showLanguages"
                         :title="`Languages: ${rom.languages.join(', ')}`"
-                        class="translucent mr-1 mt-1"
+                        class="translucent mr-1 mt-1 px-2"
                         density="compact"
                       >
                         <span
-                          class="px-1"
+                          class="emoji-collection"
                           v-for="language in rom.languages.slice(0, 3)"
                         >
-                          {{ languageToEmoji(language) }} </span
-                        ><span v-if="rom.languages.length > 3">+</span>
+                          {{ languageToEmoji(language) }}
+                        </span>
                       </v-chip>
                       <v-chip
                         v-if="
@@ -345,5 +352,9 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+
+.emoji-collection {
+  margin: 0 2px;
 }
 </style>
