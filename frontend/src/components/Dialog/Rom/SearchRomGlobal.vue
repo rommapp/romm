@@ -19,6 +19,9 @@ const filteredRoms = ref();
 const platforms = ref();
 const selectedPlatform = ref();
 const searchValue = ref("");
+const showRegions = localStorage.getItem("settings.showRegions") === "true";
+const showLanguages = localStorage.getItem("settings.showLanguages") === "true";
+const showSiblings = localStorage.getItem("settings.showSiblings") === "true";
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomGlobalDialog", () => {
@@ -245,7 +248,7 @@ onBeforeUnmount(() => {
                     </v-expand-transition>
                     <v-row no-gutters class="text-white px-1">
                       <v-chip
-                        v-if="rom.regions.filter((i: string) => i).length > 0"
+                        v-if="rom.regions.filter((i: string) => i).length > 0 && showRegions"
                         :title="`Regions: ${rom.regions.join(', ')}`"
                         class="translucent mr-1 mt-1"
                         density="compact"
@@ -255,7 +258,7 @@ onBeforeUnmount(() => {
                         </span>
                       </v-chip>
                       <v-chip
-                        v-if="rom.languages.filter((i: string) => i).length > 0"
+                        v-if="rom.languages.filter((i: string) => i).length > 0 && showLanguages"
                         :title="`Languages: ${rom.languages.join(', ')}`"
                         class="translucent mr-1 mt-1"
                         density="compact"
@@ -265,7 +268,11 @@ onBeforeUnmount(() => {
                         </span>
                       </v-chip>
                       <v-chip
-                        v-if="rom.siblings && rom.siblings.length > 0"
+                        v-if="
+                          rom.siblings &&
+                          rom.siblings.length > 0 &&
+                          showSiblings
+                        "
                         :title="`${rom.siblings.length + 1} versions`"
                         class="translucent mr-1 mt-1"
                         density="compact"
