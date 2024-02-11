@@ -253,9 +253,12 @@ onBeforeUnmount(() => {
                         class="translucent mr-1 mt-1"
                         density="compact"
                       >
-                        <span class="px-0" v-for="region in rom.regions">
-                          {{ regionToEmoji(region) }}
-                        </span>
+                        <span
+                          class="px-1"
+                          v-for="region in rom.regions.slice(0, 3)"
+                        >
+                          {{ regionToEmoji(region) }} </span
+                        ><span v-if="rom.regions.length > 3">+</span>
                       </v-chip>
                       <v-chip
                         v-if="rom.languages.filter((i: string) => i).length > 0 && showLanguages"
@@ -263,9 +266,12 @@ onBeforeUnmount(() => {
                         class="translucent mr-1 mt-1"
                         density="compact"
                       >
-                        <span class="px-1" v-for="language in rom.languages">
-                          {{ languageToEmoji(language) }}
-                        </span>
+                        <span
+                          class="px-1"
+                          v-for="language in rom.languages.slice(0, 3)"
+                        >
+                          {{ languageToEmoji(language) }} </span
+                        ><span v-if="rom.languages.length > 3">+</span>
                       </v-chip>
                       <v-chip
                         v-if="
