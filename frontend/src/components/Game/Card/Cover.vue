@@ -2,6 +2,7 @@
 import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import storeGalleryView from "@/stores/galleryView";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 const theme = useTheme();
@@ -14,6 +15,7 @@ defineProps<{
 }>();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
+const galleryViewStore = storeGalleryView();
 const card = ref();
 const emit = defineEmits(["selectRom"]);
 
@@ -121,7 +123,13 @@ function onTouchEnd() {
             class="translucent mr-1 mt-1"
             density="compact"
           >
-            <span class="px-0" v-for="region in rom.regions">
+            <span
+              class="region-emoji"
+              v-for="region in rom.regions.slice(
+                0,
+                galleryViewStore.current == 0 ? 2: 4
+              )"
+            >
               {{ regionToEmoji(region) }}
             </span>
           </v-chip>
@@ -131,7 +139,13 @@ function onTouchEnd() {
             class="translucent mr-1 mt-1"
             density="compact"
           >
-            <span class="px-1" v-for="language in rom.languages">
+            <span
+              class="language-emoji"
+              v-for="language in rom.languages.slice(
+                0,
+                galleryViewStore.current == 0 ? 2 :4
+              )"
+            >
               {{ languageToEmoji(language) }}
             </span>
           </v-chip>
@@ -166,5 +180,10 @@ function onTouchEnd() {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+
+.region-emoji,
+.language-emoji {
+  margin: 0 2px;
 }
 </style>

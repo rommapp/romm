@@ -250,7 +250,7 @@ onBeforeUnmount(() => {
                         class="translucent mr-1 mt-1"
                         density="compact"
                       >
-                        <span class="px-0" v-for="region in rom.regions">
+                        <span class="region-emoji" v-for="region in rom.regions.slice(0, 3)">
                           {{ regionToEmoji(region) }}
                         </span>
                       </v-chip>
@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
                         class="translucent mr-1 mt-1"
                         density="compact"
                       >
-                        <span class="px-1" v-for="language in rom.languages">
+                        <span class="language-emoji" v-for="language in rom.languages.slice(0, 3)">
                           {{ languageToEmoji(language) }}
                         </span>
                       </v-chip>
@@ -332,5 +332,10 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+
+.region-emoji,
+.language-emoji {
+  margin: 0 2px;
 }
 </style>
