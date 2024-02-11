@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { identity } from "lodash";
 import storeDownload from "@/stores/download";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
-import storeGalleryView from "@/stores/galleryView";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
+import { isNull } from "lodash";
 
 defineProps<{
   rom: Rom;
@@ -17,12 +18,17 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const card = ref();
 const emit = defineEmits(["selectRom"]);
-const galleryViewStore = storeGalleryView();
-const showRegions = localStorage.getItem("settings.showRegions") === "true";
-const showLanguages = localStorage.getItem("settings.showLanguages") === "true";
-const showSiblings = localStorage.getItem("settings.showSiblings") === "true";
-let timeout: ReturnType<typeof setTimeout>;
+const showRegions = isNull(localStorage.getItem("settings.showRegions"))
+  ? true
+  : localStorage.getItem("settings.showRegions") === "true";
+const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
+  ? true
+  : localStorage.getItem("settings.showLanguages") === "true";
+const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
+  ? true
+  : localStorage.getItem("settings.showSiblings") === "true";
 
+let timeout: ReturnType<typeof setTimeout>;
 // Functions
 function onSelectRom(event: MouseEvent) {
   if (!event.ctrlKey && !event.shiftKey) {
@@ -120,36 +126,28 @@ function onTouchEnd() {
         </v-expand-transition>
         <v-row no-gutters class="text-white px-1">
           <v-chip
-            v-if="rom.regions.filter((i: string) => i).length > 0 && showRegions"
+            v-if="rom.regions.filter(identity).length > 0 && showRegions"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            class="translucent mr-1 mt-1"
+            :class="`translucent mr-1 mt-1 px-2 ${
+              rom.regions.length > 3 && 'emoji-collection'
+            }`"
             density="compact"
           >
-            <span
-              class="px-1"
-              v-for="region in rom.regions.slice(
-                0,
-                galleryViewStore.current == 0 ? 2 : 4
-              )"
-            >
-              {{ regionToEmoji(region) }} </span
-            ><span v-if="rom.regions.length > 3">+</span>
+            <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
+              {{ regionToEmoji(region) }}
+            </span>
           </v-chip>
           <v-chip
-            v-if="rom.languages.filter((i: string) => i).length > 0 && showLanguages"
+            v-if="rom.languages.filter(identity).length > 0 && showLanguages"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            class="translucent mr-1 mt-1"
+            :class="`translucent mr-1 mt-1 px-2 ${
+              rom.regions.length > 3 && 'emoji-collection'
+            }`"
             density="compact"
           >
-            <span
-              class="px-1"
-              v-for="language in rom.languages.slice(
-                0,
-                galleryViewStore.current == 0 ? 2 : 4
-              )"
-            >
-              {{ languageToEmoji(language) }} </span
-            ><span v-if="rom.languages.length > 3">+</span>
+            <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
+              {{ languageToEmoji(language) }}
+            </span>
           </v-chip>
           <v-chip
             v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
@@ -182,5 +180,13 @@ function onTouchEnd() {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+
+.emoji-collection {
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
+}
+
+.emoji {
+  margin: 0 2px;
 }
 </style>

@@ -108,6 +108,7 @@ export function regionToEmoji(region: string) {
       return "🇨🇳";
     case "e":
     case "eu":
+    case "eur": 
     case "europe":
       return "🇪🇺";
     case "f":
