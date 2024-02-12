@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import storeDownload from "@/stores/download";
+import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type Rom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import { identity, isNull } from "lodash";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
-const theme = useTheme();
 
 defineProps<{
   rom: Rom;
@@ -12,13 +13,23 @@ defineProps<{
   showSelector: boolean;
   selected: boolean;
 }>();
+const theme = useTheme();
 const downloadStore = storeDownload();
+const galleryViewStore = storeGalleryView();
 const romsStore = storeRoms();
 const card = ref();
 const emit = defineEmits(["selectRom"]);
+const showRegions = isNull(localStorage.getItem("settings.showRegions"))
+  ? true
+  : localStorage.getItem("settings.showRegions") === "true";
+const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
+  ? true
+  : localStorage.getItem("settings.showLanguages") === "true";
+const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
+  ? true
+  : localStorage.getItem("settings.showSiblings") === "true";
 
 let timeout: ReturnType<typeof setTimeout>;
-
 // Functions
 function onSelectRom(event: MouseEvent) {
   if (!event.ctrlKey && !event.shiftKey) {
@@ -110,33 +121,39 @@ function onTouchEnd() {
           <div
             v-if="isHovering || !rom.has_cover"
             class="translucent text-caption"
+            :class="{
+              'text-truncate': galleryViewStore.current == 0 && !isHovering,
+            }"
           >
-            <v-list-item>{{ rom.name || rom.file_name }}</v-list-item>
+            
+            <v-list-item>{{ rom.name }}</v-list-item>
           </div>
         </v-expand-transition>
         <v-row no-gutters class="text-white px-1">
           <v-chip
-            v-if="rom.regions.filter((i: string) => i).length > 0"
+            v-if="rom.regions.filter(identity).length > 0 && showRegions"
             :title="`Regions: ${rom.regions.join(', ')}`"
-            class="translucent mr-1 mt-1"
+            class="translucent mr-1 mt-1 px-1"
+            :class="{ 'emoji-collection': rom.regions.length > 3 }"
             density="compact"
           >
-            <span class="px-0" v-for="region in rom.regions">
+            <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
               {{ regionToEmoji(region) }}
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.languages.filter((i: string) => i).length > 0"
+            v-if="rom.languages.filter(identity).length > 0 && showLanguages"
             :title="`Languages: ${rom.languages.join(', ')}`"
-            class="translucent mr-1 mt-1"
+            class="translucent mr-1 mt-1 px-1"
+            :class="{ 'emoji-collection': rom.languages.length > 3 }"
             density="compact"
           >
-            <span class="px-1" v-for="language in rom.languages">
+            <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
               {{ languageToEmoji(language) }}
             </span>
           </v-chip>
           <v-chip
-            v-if="rom.siblings && rom.siblings.length > 0"
+            v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
             :title="`${rom.siblings.length + 1} versions`"
             class="translucent mr-1 mt-1"
             density="compact"
@@ -166,5 +183,35 @@ function onTouchEnd() {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+
+.emoji-collection {
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
+}
+
+.emoji {
+  margin: 0 2px;
+}
+
+.text-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: max-height 0.5s; /* Add a transition for a smooth effect */
+}
+
+.expand-on-hover:hover {
+  max-height: 1000px; /* Adjust to a sufficiently large value to ensure the full expansion */
+}
+
+/* Apply styles to v-expand-transition component */
+.v-expand-transition-enter-active,
+.v-expand-transition-leave-active {
+  transition: max-height 0.5s; /* Adjust the transition duration if needed */
+}
+
+.v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
+  max-height: 0; /* Set max-height to 0 when entering or leaving */
+  overflow: hidden;
 }
 </style>

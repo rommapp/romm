@@ -45,27 +45,31 @@ class FSResourceHandler(FSHandler):
             size: size of the cover
         """
         cover = Image.open(cover_path)
-        if cover.size[1] > DEFAULT_HEIGHT_COVER_L:
-            if size == CoverSize.BIG:
-                big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
-                background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
-                cover.thumbnail(big_dimensions)
-                offset = (
-                    int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)),
-                    0,
-                )
-            elif size == CoverSize.SMALL:
-                small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
-                background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
-                cover.thumbnail(small_dimensions)
-                offset = (
-                    int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)),
-                    0,
-                )
-            else:
-                return
-            background.paste(cover, offset)
+        if size == CoverSize.BIG and cover.size[1] > DEFAULT_HEIGHT_COVER_L:
+
+            big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
+            background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
+            cover.thumbnail(big_dimensions)
+            offset = (
+                int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)),
+                0,
+            )
+        elif size == CoverSize.SMALL and cover.size[1] > DEFAULT_HEIGHT_COVER_S:
+            small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
+            background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
+            cover.thumbnail(small_dimensions)
+            offset = (
+                int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)),
+                0,
+            )
+        else:
+            return
+        background.paste(cover, offset)
+        try:
             background.save(cover_path)
+        except OSError:
+            rgb_background = background.convert("RGB")
+            rgb_background.save(cover_path)
 
     def _store_cover(
         self, fs_slug: str, rom_name: str, url_cover: str, size: CoverSize
