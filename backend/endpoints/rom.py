@@ -22,6 +22,7 @@ from handler import (
     fs_rom_handler,
     igdb_handler,
 )
+from handler.fs_handler import CoverSize
 from logger.logger import log
 from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
 
@@ -178,7 +179,7 @@ def get_rom_content(
 
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)
-    
+
     # Builds a generator of tuples for each member file
     def local_files():
         def contents(file_name):
@@ -314,12 +315,12 @@ async def update_rom(
         file_location_s = f"{artwork_path}/small.{file_ext}"
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
-        fs_resource_handler.resize_cover(file_location_s)
+        fs_resource_handler.resize_cover(file_location_s, CoverSize.SMALL)
 
         file_location_l = f"{artwork_path}/big.{file_ext}"
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
-        fs_resource_handler.resize_cover(file_location_l)
+        fs_resource_handler.resize_cover(file_location_l, CoverSize.BIG)
 
     db_rom_handler.update_rom(id, cleaned_data)
 
