@@ -5,7 +5,7 @@ from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler import socket_handler
-from handler.igdb_handler import IGDBRelatedGame
+from handler.metadata_handler.igdb_handler import IGDBRelatedGame
 from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
 from typing_extensions import TypedDict, NotRequired
@@ -28,6 +28,7 @@ class RomSchema(BaseModel):
     id: int
     igdb_id: Optional[int]
     sgdb_id: Optional[int]
+    moby_id: Optional[int]
 
     platform_id: int
     platform_slug: str

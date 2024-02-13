@@ -74,6 +74,7 @@ const { smAndDown } = useDisplay();
     </v-col>
   </v-row>
   <v-row
+    v-if="rom.igdb_id"
     class="text-white text-shadow"
     :class="{ 'text-center': smAndDown }"
     no-gutters
@@ -88,6 +89,28 @@ const { smAndDown } = useDisplay();
           <span>IGDB</span>
           <v-divider class="mx-2 border-opacity-25" vertical />
           <span>ID: {{ rom.igdb_id }}</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>Rating: {{ rom.total_rating }}</span>
+        </v-chip>
+      </a>
+    </v-col>
+  </v-row>
+  <v-row
+    v-if="rom.moby_id"
+    class="text-white text-shadow"
+    :class="{ 'text-center': smAndDown }"
+    no-gutters
+  >
+    <v-col cols="12">
+      <a
+        style="text-decoration: none; color: inherit"
+        :href="`http://www.mobygames.com/game/${rom.moby_id}`"
+        target="_blank"
+      >
+        <v-chip size="x-small" @click="">
+          <span>MobyGames</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>ID: {{ rom.moby_id }}</span>
           <v-divider class="mx-2 border-opacity-25" vertical />
           <span>Rating: {{ rom.total_rating }}</span>
         </v-chip>

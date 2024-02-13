@@ -31,7 +31,7 @@ defineProps<{ rom: Rom }>();
         <v-chip variant="outlined" class="text-romm-accent-1" @click="" label>
           <a
             style="text-decoration: none; color: inherit"
-            href=https://www.igdb.com
+            href="https://www.igdb.com/games/"
             target="_blank"
             >IGDB</a
           >
@@ -44,6 +44,37 @@ defineProps<{ rom: Rom }>();
             :href="`https://www.igdb.com/games/${rom.slug}`"
             target="_blank"
             >{{ rom.igdb_id }}</a
+          >
+        </v-chip>
+      </v-col>
+      <v-col class="text-center">
+        <v-chip variant="text" label>
+          {{ rom.total_rating }}
+        </v-chip>
+      </v-col>
+    </v-row>
+    <v-row
+      v-if="rom.moby_id"
+      class="align-center justify-center pa-2"
+      no-gutters
+    >
+      <v-col class="text-center">
+        <v-chip variant="outlined" class="text-romm-accent-1" @click="" label>
+          <a
+            style="text-decoration: none; color: inherit"
+            href="https://www.mobygames.com/game/"
+            target="_blank"
+            >MobyGames</a
+          >
+        </v-chip>
+      </v-col>
+      <v-col class="text-center">
+        <v-chip variant="tonal" class="text-romm-accent-1" @click="" label>
+          <a
+            style="text-decoration: none; color: inherit"
+            :href="`http://www.mobygames.com/game/${rom.moby_id}`"
+            target="_blank"
+            >{{ rom.moby_id }}</a
           >
         </v-chip>
       </v-col>

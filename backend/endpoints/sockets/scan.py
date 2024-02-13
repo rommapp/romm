@@ -96,7 +96,7 @@ async def scan_platforms(
                 not rom
                 or rom.id in selected_roms
                 or complete_rescan
-                or (rescan_unidentified and not rom.igdb_id)
+                or (rescan_unidentified and not rom.igdb_id and not rom.moby_id)
             ):
                 scanned_rom = await scan_rom(platform, fs_rom)
                 if rom:
@@ -115,9 +115,7 @@ async def scan_platforms(
                     },
                 )
 
-            db_rom_handler.purge_roms(
-                platform.id, [rom["file_name"] for rom in fs_roms]
-            )
+        db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
     db_platform_handler.purge_platforms(fs_platforms)
 
     log.info(emoji.emojize(":check_mark:  Scan completed "))

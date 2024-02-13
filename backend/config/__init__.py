@@ -41,6 +41,9 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
+# MOBYGAMES
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
+
 # DB DRIVERS
 ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
