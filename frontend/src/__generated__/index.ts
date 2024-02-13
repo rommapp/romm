@@ -15,8 +15,6 @@ export type { ConfigResponse } from './models/ConfigResponse';
 export type { CursorPage_RomSchema_ } from './models/CursorPage_RomSchema_';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
-export type { IGDBMetadata } from './models/IGDBMetadata';
-export type { IGDBPlatform } from './models/IGDBPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { MessageResponse } from './models/MessageResponse';
 export type { PlatformSchema } from './models/PlatformSchema';

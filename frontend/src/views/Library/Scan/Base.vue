@@ -117,11 +117,11 @@ async function scan() {
         class="text-body-2 romm-grey"
         :to="{ name: 'rom', params: { rom: rom.id } }"
       >
-        <span v-if="rom.igdb_id" class="ml-10">
+        <span v-if="rom.igdb_id || rom.moby_id" class="ml-10">
           • Identified <b>{{ rom.name }} 👾</b>
         </span>
         <span v-else class="ml-10">
-          • {{ rom.file_name }} not found in IGDB ❌
+          • {{ rom.file_name }} not found ❌
         </span>
       </v-list-item>
     </v-col>
