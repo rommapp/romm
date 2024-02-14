@@ -17,12 +17,12 @@ async def search_rom(
     search_by: str = "name",
     search_extended: bool = False,
 ) -> list[SearchRomSchema]:
-    """Search rom into IGDB database
+    """Search for rom in metadata providers
 
     Args:
         request (Request): Fastapi Request object
         rom_id (str): Rom internal id
-        query (str, optional): Query to search the rom (IGDB name or IGDB id). Defaults to None.
+        query (str, optional): Query to search the rom (by name or external id). Defaults to None.
         field (str, optional): field with which to search for the rom (name | id). Defaults to "Name".
 
     Returns:
@@ -35,7 +35,7 @@ async def search_rom(
 
     search_term = search_term or rom.file_name_no_tags
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers..."))
     matched_roms: list = []
 
     log.info(f"Searching by {search_by.lower()}: {search_term}")

@@ -9,7 +9,7 @@ from typing_extensions import NotRequired, TypedDict
 from requests.exceptions import HTTPError, Timeout
 from logger.logger import log
 from unidecode import unidecode as uc
-from urllib.parse import quote_plus
+from urllib.parse import quote
 
 from . import (
     MetadataHandler,
@@ -100,8 +100,8 @@ class MobyGamesHandler(MetadataHandler):
 
         search_term = uc(search_term)
         url = yarl.URL(self.games_url).with_query(
-            platform=[platform_moby_id or 0],
-            title=quote_plus(search_term),
+            platform=[platform_moby_id],
+            title=quote(search_term, safe="/ "),
         )
         roms = self._request(str(url)).get("games", [])
 
@@ -168,7 +168,7 @@ class MobyGamesHandler(MetadataHandler):
 
         return MobyGamesRom({k: v for k, v in rom.items() if v})
 
-    def _get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
+    def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         url = yarl.URL(self.games_url).with_query(id=moby_id)
         roms = self._request(str(url)).get("games", [])
         res = pydash.get(roms, "[0]", None)
@@ -199,7 +199,7 @@ class MobyGamesHandler(MetadataHandler):
 
         search_term = uc(search_term)
         url = yarl.URL(self.games_url).with_query(
-            platform=[platform_moby_id or 0], title=quote_plus(search_term)
+            platform=[platform_moby_id], title=quote(search_term, safe="/ ")
         )
         matched_roms = self._request(str(url))["games"]
 

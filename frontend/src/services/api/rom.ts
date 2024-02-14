@@ -150,7 +150,8 @@ async function updateRom({
   renameAsIGDB?: boolean;
 }): Promise<{ data: RomSchema }> {
   var formData = new FormData();
-  formData.append("igdb_id", rom.igdb_id?.toString() || "");
+  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
+  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");

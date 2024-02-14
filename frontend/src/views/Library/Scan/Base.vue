@@ -65,7 +65,7 @@ async function scan() {
         v-model="rescanUnidentified"
         label="Rescan Unidentified"
         prepend-icon="mdi-file-search-outline"
-        hint="Rescan only unidentified games by IGDB"
+        hint="Rescan only unidentified games"
         persistent-hint
       />
     </v-col>
