@@ -15,8 +15,7 @@ const emitter = inject<Emitter<Events>>("emitter");
       class="py-4 pr-5"
     >
       <v-list-item-title class="d-flex"
-        ><v-icon icon="mdi-search-web" class="mr-2" />Search
-        IGDB</v-list-item-title
+        ><v-icon icon="mdi-search-web" class="mr-2" />Search…</v-list-item-title
       >
     </v-list-item>
     <v-divider class="border-opacity-25" />
