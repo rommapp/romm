@@ -49,7 +49,7 @@ defineProps<{ rom: Rom }>();
       </v-col>
       <v-col class="text-center">
         <v-chip variant="text" label>
-          {{ rom.total_rating }}
+          {{ rom.igdb_metadata?.total_rating }}
         </v-chip>
       </v-col>
     </v-row>
@@ -80,7 +80,7 @@ defineProps<{ rom: Rom }>();
       </v-col>
       <v-col class="text-center">
         <v-chip variant="text" label>
-          {{ rom.total_rating }}
+          {{ rom.moby_metadata?.moby_score }}
         </v-chip>
       </v-col>
     </v-row>

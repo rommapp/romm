@@ -4,10 +4,12 @@ import yarl
 import re
 import time
 from config import MOBYGAMES_API_KEY
-from typing import Final, TypedDict, NotRequired, Optional
+from typing import Final, Optional
+from typing_extensions import NotRequired, TypedDict
 from requests.exceptions import HTTPError, Timeout
 from logger.logger import log
 from unidecode import unidecode as uc
+from urllib.parse import quote_plus
 
 from . import (
     MetadataHandler,
@@ -23,7 +25,6 @@ ARCADE_MOBY_IDS: Final = [143, 36]
 
 class MobyGamesPlatform(TypedDict):
     moby_id: int
-    slug: str
     name: NotRequired[str]
 
 
@@ -53,7 +54,6 @@ def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
             "platforms": [
                 {
                     "moby_id": p["platform_id"],
-                    "slug": MOBY_ID_TO_SLUG[p["platform_id"]],
                     "name": p["platform_name"],
                 }
                 for p in rom.get("platforms", [])
@@ -95,8 +95,13 @@ class MobyGamesHandler(MetadataHandler):
         return res.json()
 
     def _search_rom(self, search_term: str, platform_moby_id: int) -> dict | None:
+        if not platform_moby_id:
+            return None
+
+        search_term = uc(search_term)
         url = yarl.URL(self.games_url).with_query(
-            platform=[platform_moby_id or 0], title=search_term
+            platform=[platform_moby_id or 0],
+            title=quote_plus(search_term),
         )
         roms = self._request(str(url)).get("games", [])
 
@@ -121,6 +126,9 @@ class MobyGamesHandler(MetadataHandler):
     async def get_rom(self, file_name: str, platform_moby_id: int) -> MobyGamesRom:
         from handler import fs_rom_handler
 
+        if not platform_moby_id:
+            return MobyGamesRom(moby_id=None)
+
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
 
         # Support for PS2 OPL filename format
@@ -143,7 +151,7 @@ class MobyGamesHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
 
         search_term = self.normalize_search_term(search_term)
-        res = self._search_rom(uc(search_term), platform_moby_id)
+        res = self._search_rom(search_term, platform_moby_id)
 
         if not res:
             return MobyGamesRom(moby_id=None)
@@ -155,6 +163,7 @@ class MobyGamesHandler(MetadataHandler):
             "summary": res.get("description", ""),
             "url_cover": res.get("sample_cover.image", ""),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
+            "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
         return MobyGamesRom({k: v for k, v in rom.items() if v})
@@ -174,6 +183,7 @@ class MobyGamesHandler(MetadataHandler):
             "summary": res.get("description", None),
             "url_cover": res.get("sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
+            "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
         return MobyGamesRom({k: v for k, v in rom.items() if v})
@@ -187,8 +197,9 @@ class MobyGamesHandler(MetadataHandler):
         if not platform_moby_id:
             return []
 
+        search_term = uc(search_term)
         url = yarl.URL(self.games_url).with_query(
-            platform=[platform_moby_id or 0], title=search_term
+            platform=[platform_moby_id or 0], title=quote_plus(search_term)
         )
         matched_roms = self._request(str(url))["games"]
 
@@ -205,6 +216,7 @@ class MobyGamesHandler(MetadataHandler):
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
                         ],
+                        "moby_metadata": extract_metadata_from_moby_rom(rom),
                     }.items()
                     if v
                 }

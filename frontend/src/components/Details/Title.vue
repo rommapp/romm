@@ -90,7 +90,7 @@ const { smAndDown } = useDisplay();
           <v-divider class="mx-2 border-opacity-25" vertical />
           <span>ID: {{ rom.igdb_id }}</span>
           <v-divider class="mx-2 border-opacity-25" vertical />
-          <span>Rating: {{ rom.total_rating }}</span>
+          <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
         </v-chip>
       </a>
     </v-col>
@@ -112,7 +112,7 @@ const { smAndDown } = useDisplay();
           <v-divider class="mx-2 border-opacity-25" vertical />
           <span>ID: {{ rom.moby_id }}</span>
           <v-divider class="mx-2 border-opacity-25" vertical />
-          <span>Rating: {{ rom.total_rating }}</span>
+          <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
         </v-chip>
       </a>
     </v-col>

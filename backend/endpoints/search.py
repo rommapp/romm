@@ -13,7 +13,6 @@ router = APIRouter()
 async def search_rom(
     request: Request,
     rom_id: str,
-    source: str,
     search_term: str = None,
     search_by: str = "name",
     search_extended: bool = False,

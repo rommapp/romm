@@ -2,7 +2,8 @@ import functools
 import re
 import sys
 import time
-from typing import Final, Optional, TypedDict, NotRequired
+from typing import Final, Optional
+from typing_extensions import NotRequired, TypedDict
 
 import pydash
 import requests
@@ -29,7 +30,6 @@ ARCADE_IGDB_IDS: Final = [52, 79, 80]
 
 class IGDBPlatform(TypedDict):
     igdb_id: int
-    slug: str
     name: NotRequired[str]
 
 
@@ -190,19 +190,22 @@ class IGDBHandler(MetadataHandler):
         return res.json()
 
     def _search_rom(
-        self, search_term: str, platform_idgb_id: int, category: int = 0
+        self, search_term: str, platform_igdb_id: int, category: int = 0
     ) -> dict | None:
+        if not platform_igdb_id:
+            return None
+
         search_term = uc(search_term)
         category_filter: str = f"& category={category}" if category else ""
         roms = self._request(
             self.games_endpoint,
-            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}] {category_filter};',
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
         )
 
         if not roms:
             roms = self._request(
                 self.search_endpoint,
-                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_idgb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
             )
             if roms:
                 roms = self._request(
@@ -250,36 +253,39 @@ class IGDBHandler(MetadataHandler):
         return IGDBPlatform(igdb_id=None, slug=slug)
 
     @check_twitch_token
-    async def get_rom(self, file_name: str, platform_idgb_id: int) -> IGDBRom:
+    async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler import fs_rom_handler
+
+        if not platform_igdb_id:
+            return IGDBRom(igdb_id=None)
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
 
         # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)
-        if platform_idgb_id == PS2_IGDB_ID and match:
+        if platform_igdb_id == PS2_IGDB_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
 
         # Support for switch titleID filename format
         match = re.search(SWITCH_TITLEDB_REGEX, file_name)
-        if platform_idgb_id == SWITCH_IGDB_ID and match:
+        if platform_igdb_id == SWITCH_IGDB_ID and match:
             search_term = await self._switch_titledb_format(match, search_term)
 
         # Support for switch productID filename format
         match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
-        if platform_idgb_id == SWITCH_IGDB_ID and match:
+        if platform_igdb_id == SWITCH_IGDB_ID and match:
             search_term = await self._switch_productid_format(match, search_term)
 
         # Support for MAME arcade filename format
-        if platform_idgb_id in ARCADE_IGDB_IDS:
+        if platform_igdb_id in ARCADE_IGDB_IDS:
             search_term = await self._mame_format(search_term)
 
-        search_term = self._normalize_search_term(search_term)
+        search_term = self.normalize_search_term(search_term)
 
         rom = (
-            self._search_rom(search_term, platform_idgb_id, MAIN_GAME_CATEGORY)
-            or self._search_rom(search_term, platform_idgb_id, EXPANDED_GAME_CATEGORY)
-            or self._search_rom(search_term, platform_idgb_id)
+            self._search_rom(search_term, platform_igdb_id, MAIN_GAME_CATEGORY)
+            or self._search_rom(search_term, platform_igdb_id, EXPANDED_GAME_CATEGORY)
+            or self._search_rom(search_term, platform_igdb_id)
         )
 
         if not rom:
@@ -332,22 +338,22 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     def get_matched_roms_by_name(
-        self, search_term: str, platform_idgb_id: int, search_extended: bool = False
+        self, search_term: str, platform_igdb_id: int, search_extended: bool = False
     ) -> list[IGDBRom]:
-        if not platform_idgb_id:
+        if not platform_igdb_id:
             return []
 
         search_term = uc(search_term)
         matched_roms = self._request(
             self.games_endpoint,
-            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_idgb_id}];',
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}];',
         )
 
         if not matched_roms or search_extended:
             log.info("Extended searching...")
             alternative_matched_roms = self._request(
                 self.search_endpoint,
-                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_idgb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
             )
 
             if alternative_matched_roms:

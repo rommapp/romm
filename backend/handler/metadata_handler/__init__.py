@@ -40,7 +40,7 @@ class MetadataHandler:
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
         return f"https:{url.replace('https:', '')}"
-    
+
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
 
@@ -52,7 +52,9 @@ class MetadataHandler:
 
         return search_term
 
-    async def _switch_titledb_format(self, match: re.Match[str], search_term: str) -> str:
+    async def _switch_titledb_format(
+        self, match: re.Match[str], search_term: str
+    ) -> str:
         titledb_index = {}
         title_id = match.group(1)
 
@@ -74,7 +76,9 @@ class MetadataHandler:
 
         return search_term
 
-    async def _switch_productid_format(self, match: re.Match[str], search_term: str) -> str:
+    async def _switch_productid_format(
+        self, match: re.Match[str], search_term: str
+    ) -> str:
         product_id_index = {}
         product_id = match.group(1)
 

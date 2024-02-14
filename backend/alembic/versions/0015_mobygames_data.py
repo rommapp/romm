@@ -25,6 +25,9 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("moby_id", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("moby_metadata", mysql.JSON(), nullable=True))
 
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.execute("update roms set moby_metadata = '\\{\\}'")
+
     # ### end Alembic commands ###
 
 
