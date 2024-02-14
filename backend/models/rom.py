@@ -119,18 +119,6 @@ class Rom(BaseModel):
 
     # Metadata fields
     @property
-    def total_rating(self) -> str:
-        return (
-            self.igdb_metadata.get("total_rating", None)
-            or self.moby_metadata.get("moby_score", None)
-            or ""
-        )
-
-    @property
-    def aggregated_rating(self) -> str:
-        return self.igdb_metadata.get("aggregated_rating", "")
-
-    @property
     def alternative_names(self) -> list[str]:
         return (
             self.igdb_metadata.get("alternative_names", None)

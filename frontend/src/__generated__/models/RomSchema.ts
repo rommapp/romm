@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { RomMetadata } from './RomMetadata';
+import type { RomIGDBMetadata } from './RomIGDBMetadata';
+import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { StateSchema } from './StateSchema';
@@ -25,8 +26,6 @@ export type RomSchema = {
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
-    total_rating: (string | null);
-    aggregated_rating: (string | null);
     first_release_date: (number | null);
     alternative_names: Array<string>;
     genres: Array<string>;
@@ -34,7 +33,8 @@ export type RomSchema = {
     collections: Array<string>;
     companies: Array<string>;
     game_modes: Array<string>;
-    igdb_metadata: (RomMetadata | null);
+    igdb_metadata: (RomIGDBMetadata | null);
+    moby_metadata: (RomMobyMetadata | null);
     path_cover_s: (string | null);
     path_cover_l: (string | null);
     has_cover: boolean;
