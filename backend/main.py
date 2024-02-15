@@ -3,7 +3,7 @@ import sys
 
 import alembic.config
 import uvicorn
-from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY
+from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY, DISABLE_CSRF_PROTECTION
 from endpoints import (
     auth,
     config,
@@ -40,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if "pytest" not in sys.modules:
+if "pytest" not in sys.modules and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,
