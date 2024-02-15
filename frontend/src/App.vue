@@ -8,7 +8,7 @@ import socket from "@/services/socket";
 import { onBeforeMount } from "vue";
 import cookie from "js-cookie";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
@@ -28,12 +28,18 @@ const emitter = inject<Emitter<Events>>("emitter");
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 
-socket.on("scan:scanning_platform", ({ name, slug, id }) => {
+socket.on("scan:scanning_platform", ({ name, slug, id }: {
+  name: string;
+  slug: string;
+  id: number;
+}) => {
+  scanningStore.set(true);
   scanningPlatforms.value.push({ name, slug, id, roms: [] });
 });
 
-socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
-  if (romsStore.platform.name === platform_name) {
+socket.on("scan:scanning_rom", (rom: Rom) => {
+  scanningStore.set(true);
+  if (romsStore.platform.name === rom.platform_name) {
     romsStore.add([rom]);
     romsStore.setFiltered(
       isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
@@ -42,12 +48,17 @@ socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
-    (p) => p.slug === platform_slug
+    (p) => p.slug === rom.platform_slug
   );
 
   // Add the platform if the socket dropped and it's missing
-  if (scannedPlatform) {
-    scanningPlatforms.value.push(scannedPlatform);
+  if (!scannedPlatform) {
+    scanningPlatforms.value.push({
+      name: rom.platform_name,
+      slug: rom.platform_slug,
+      id: rom.platform_id,
+      roms: [],
+    });
     scannedPlatform = scanningPlatforms.value.pop();
   }
 
