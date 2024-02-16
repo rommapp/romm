@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
-import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import socket from "@/services/socket";
@@ -28,14 +27,13 @@ const emitter = inject<Emitter<Events>>("emitter");
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 
-socket.on("scan:scanning_platform", ({ name, slug, id }: {
-  name: string;
-  slug: string;
-  id: number;
-}) => {
-  scanningStore.set(true);
-  scanningPlatforms.value.push({ name, slug, id, roms: [] });
-});
+socket.on(
+  "scan:scanning_platform",
+  ({ name, slug, id }: { name: string; slug: string; id: number }) => {
+    scanningStore.set(true);
+    scanningPlatforms.value.push({ name, slug, id, roms: [] });
+  }
+);
 
 socket.on("scan:scanning_rom", (rom: Rom) => {
   scanningStore.set(true);
@@ -96,11 +94,13 @@ onBeforeUnmount(() => {
   socket.off("scan:done_ko");
 });
 
-onBeforeMount(async () => {
-  const { data: heartBeatData } = await api.get("/heartbeat");
-  heartbeatStore.set(heartBeatData);
-  const { data: configData } = await api.get("/config");
-  configStore.set(configData);
+onBeforeMount(() => {
+  api.get("/heartbeat").then(({ data: heartBeatData }) => {
+    heartbeatStore.set(heartBeatData);
+  });
+  api.get("/config").then(({ data: configData }) => {
+    configStore.set(configData);
+  });
   // Set CSRF token for all requests
   api.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
 });
