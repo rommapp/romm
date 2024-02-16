@@ -1,4 +1,3 @@
-import secrets
 from datetime import timedelta
 from typing import Annotated, Final
 
@@ -9,7 +8,6 @@ from exceptions.auth_exceptions import AuthCredentialsException, DisabledExcepti
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
 from handler import auth_handler, oauth_handler
-from handler.redis_handler import cache
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
@@ -45,7 +43,9 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
+        user, payload = await oauth_handler.get_current_active_user_from_bearer_token(
+            token
+        )
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -54,6 +54,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         access_token = oauth_handler.create_oauth_token(
             data={
                 "sub": user.username,
+                "iss": "romm:oauth",
                 "scopes": payload.get("scopes"),
                 "type": "access",
             },
@@ -105,6 +106,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
     access_token = oauth_handler.create_oauth_token(
         data={
             "sub": user.username,
+            "iss": "romm:oauth",
             "scopes": " ".join(form_data.scopes),
             "type": "access",
         },
@@ -114,6 +116,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
     refresh_token = oauth_handler.create_oauth_token(
         data={
             "sub": user.username,
+            "iss": "romm:oauth",
             "scopes": " ".join(form_data.scopes),
             "type": "refresh",
         },
@@ -151,9 +154,7 @@ def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse
     if not user.enabled:
         raise DisabledException
 
-    # Generate unique session key and store in cache
-    request.session["session_id"] = secrets.token_hex(16)
-    cache.set(f'romm:{request.session["session_id"]}', user.username)  # type: ignore[attr-defined]
+    request.session.update({"iss": "romm:auth", "sub": user.username})
 
     return {"msg": "Successfully logged in"}
 
@@ -169,14 +170,6 @@ def logout(request: Request) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    # Check if session key already stored in cache
-    session_id = request.session.get("session_id")
-    if not session_id:
-        return {"msg": "Already logged out"}
-
-    if not request.user.is_authenticated:
-        return {"msg": "Already logged out"}
-
-    auth_handler.clear_session(request)
+    request.session.clear()
 
     return {"msg": "Successfully logged out"}
