@@ -31,15 +31,24 @@ emitter?.on("refreshView", async () => {
 });
 
 // Functions
-onMounted(async () => {
-  try {
-    const { data: platforms } = await platformApi.getPlatforms();
-    platformsStore.set(platforms);
-    const { data: currentUser } = await userApi.fetchCurrentUser();
-    if (currentUser) auth.setUser(currentUser);
-  } catch (error) {
-    console.error(error);
-  }
+onMounted(() => {
+  platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
+  userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 });
 </script>
 
