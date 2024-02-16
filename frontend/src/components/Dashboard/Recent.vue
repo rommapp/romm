@@ -20,9 +20,15 @@ function scrollX(e: WheelEvent) {
   scroll_container.value.scrollLeft += e.deltaY;
 }
 
-onMounted(async () => {
-  const { data: recentData } = await romApi.getRecentRoms();
-  romsStore.setRecentRoms(recentData.items);
+onMounted(() => {
+  romApi
+    .getRecentRoms()
+    .then(({ data: recentData }) => {
+      romsStore.setRecentRoms(recentData.items);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 });
 </script>
 <template>

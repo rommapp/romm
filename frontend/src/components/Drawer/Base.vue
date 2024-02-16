@@ -28,8 +28,6 @@ emitter?.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
   localStorage.setItem("rail", rail.value.toString());
 });
-
-onMounted(() => {});
 </script>
 
 <template>

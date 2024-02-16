@@ -15,7 +15,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const emulation = ref(false);
 const playInfoIcon = ref("mdi-play");
-const emulationSupported = props.rom.platform_slug in platformSlugEJSCoreMap;
+const emulationSupported = props.rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap;
 
 function toggleEmulation() {
   emulation.value = !emulation.value;
