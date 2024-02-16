@@ -11,9 +11,10 @@ const stats = ref({
   FILESIZE: 0,
 });
 
-onBeforeMount(async () => {
-  const { data } = await api.get("/stats");
-  stats.value = data;
+onBeforeMount(() => {
+  api.get("/stats").then(({ data }) => {
+    stats.value = data;
+  });
 });
 </script>
 <template>

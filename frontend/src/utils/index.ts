@@ -243,7 +243,7 @@ export function languageToEmoji(language: string) {
   }
 }
 
-export const platformSlugEJSCoreMap: Record<string, string> = {
+export const platformSlugEJSCoreMap = {
   // "3do": "opera", Disabled until BIOS file support is added
   amiga: "puae",
   // arcade: "mame2003_plus", Disabled until BIOS file support is added
