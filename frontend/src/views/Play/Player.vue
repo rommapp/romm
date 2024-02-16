@@ -6,6 +6,7 @@ import screenshotApi from "@/services/api/screenshot";
 import { platformSlugEJSCoreMap } from "@/utils";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Rom } from "@/stores/roms";
+import type { ValueOf } from "@/types";
 
 const props = defineProps<{
   rom: Rom;
@@ -19,10 +20,13 @@ onBeforeUnmount(() => {
   window.location.reload();
 });
 
+type EJSPlatformSlug = keyof typeof platformSlugEJSCoreMap;
+type EJSCore = ValueOf<typeof platformSlugEJSCoreMap>;
+
 // Declare global variables for EmulatorJS
 declare global {
   interface Window {
-    EJS_core: string;
+    EJS_core: EJSCore;
     EJS_player: string;
     EJS_pathtodata: string;
     EJS_color: string;
@@ -47,7 +51,10 @@ declare global {
   }
 }
 
-window.EJS_core = platformSlugEJSCoreMap[props.rom.platform_slug];
+window.EJS_core =
+  platformSlugEJSCoreMap[
+    props.rom.platform_slug.toLowerCase() as EJSPlatformSlug
+  ];
 window.EJS_gameID = props.rom.id;
 window.EJS_gameUrl = `/api/roms/${props.rom.id}/content`;
 window.EJS_player = "#game";
@@ -102,7 +109,7 @@ async function fetchState(): Promise<Uint8Array> {
       return new Uint8Array(data);
     }
   }
-  
+
   if (window.EJS_emulator.saveInBrowserSupported()) {
     const data = await window.EJS_emulator.storage.states.get(
       window.EJS_emulator.getBaseFileName() + ".state"
@@ -112,7 +119,7 @@ async function fetchState(): Promise<Uint8Array> {
       return data;
     }
   }
- 
+
   const file = await window.EJS_emulator.selectFile();
   return new Uint8Array(await file.arrayBuffer());
 }
@@ -205,7 +212,7 @@ window.EJS_onSaveState = function ({
     stateApi
       .uploadStates({
         rom: props.rom,
-        emulator: platformSlugEJSCoreMap[props.rom.platform_slug],
+        emulator: window.EJS_core,
         states: [
           new File([state], buildStateName(), {
             type: "application/octet-stream",
@@ -331,7 +338,7 @@ window.EJS_onSaveSave = function ({
     saveApi
       .uploadSaves({
         rom: props.rom,
-        emulator: platformSlugEJSCoreMap[props.rom.platform_slug],
+        emulator: window.EJS_core,
         saves: [
           new File([save], buildSaveName(), {
             type: "application/octet-stream",
