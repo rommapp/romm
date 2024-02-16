@@ -10,6 +10,7 @@ from ..auth import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 def access_token(admin_user):  # noqa
     data = {
         "sub": admin_user.username,
+        "iss": "romm:oauth",
         "scopes": " ".join(admin_user.oauth_scopes),
         "type": "access",
     }
@@ -23,6 +24,7 @@ def access_token(admin_user):  # noqa
 def refresh_token(admin_user):  # noqa
     data = {
         "sub": admin_user.username,
+        "iss": "romm:oauth",
         "scopes": " ".join(admin_user.oauth_scopes),
         "type": "refresh",
     }

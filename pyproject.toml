@@ -48,6 +48,7 @@ watchdog = "^3.0.0"
 xmltodict = "^0.13.0"
 Pillow = "10.1.0"
 numpy = "^1.26.2"
+starlette-authlib = "^0.1.38"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.0"
