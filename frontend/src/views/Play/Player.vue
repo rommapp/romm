@@ -39,7 +39,7 @@ declare global {
     EJS_cheats: string;
     EJS_gamePatchUrl: string;
     EJS_netplayServer: string;
-    EJS_alignStartButton: string;
+    EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
     EJS_emulator: any;
