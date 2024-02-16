@@ -37,7 +37,6 @@ onMounted(async () => {
     platformsStore.set(platforms);
     const { data: currentUser } = await userApi.fetchCurrentUser();
     if (currentUser) auth.setUser(currentUser);
-    emitter?.emit("refreshDrawer", null);
   } catch (error) {
     console.error(error);
   }
