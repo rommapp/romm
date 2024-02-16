@@ -59,7 +59,7 @@ socket.on("scan:scanning_rom", (rom: Rom) => {
       id: rom.platform_id,
       roms: [],
     });
-    scannedPlatform = scanningPlatforms.value.pop();
+    scannedPlatform = scanningPlatforms.value[0];
   }
 
   scannedPlatform?.roms.push(rom);
