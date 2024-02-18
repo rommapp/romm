@@ -39,6 +39,9 @@ class MetadataHandler:
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
+        if not url:
+            return url
+
         return f"https:{url.replace('https:', '')}"
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
