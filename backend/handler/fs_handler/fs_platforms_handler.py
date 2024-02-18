@@ -14,7 +14,7 @@ class FSPlatformsHandler(FSHandler):
         return [
             platform
             for platform in platforms
-            if platform not in cm.config.EXCLUDED_PLATFORMS
+            if platform not in cm.get_config().EXCLUDED_PLATFORMS
         ]
 
     def get_platforms(self) -> list[str]:
@@ -25,8 +25,8 @@ class FSPlatformsHandler(FSHandler):
         """
         try:
             platforms: list[str] = (
-                list(os.walk(cm.config.HIGH_PRIO_STRUCTURE_PATH))[0][1]
-                if os.path.exists(cm.config.HIGH_PRIO_STRUCTURE_PATH)
+                list(os.walk(cm.get_config().HIGH_PRIO_STRUCTURE_PATH))[0][1]
+                if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH)
                 else list(os.walk(LIBRARY_BASE_PATH))[0][1]
             )
             return self._exclude_platforms(platforms)

@@ -15,12 +15,12 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
-SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in cm.config.PLATFORMS_BINDING.items())
+SWAPPED_PLATFORM_BINDINGS = dict((v, k) for k, v in cm.get_config().PLATFORMS_BINDING.items())
 
 
 def _get_main_platform_igdb_id(platform: Platform):
-    if platform.fs_slug in cm.config.PLATFORMS_VERSIONS.keys():
-        main_platform_slug = cm.config.PLATFORMS_VERSIONS[platform.fs_slug]
+    if platform.fs_slug in cm.get_config().PLATFORMS_VERSIONS.keys():
+        main_platform_slug = cm.get_config().PLATFORMS_VERSIONS[platform.fs_slug]
         main_platform = db_platform_handler.get_platform_by_fs_slug(main_platform_slug)
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
@@ -60,8 +60,8 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
                 platform_attrs["fs_slug"] = SWAPPED_PLATFORM_BINDINGS[platform.slug]
 
     try:
-        if fs_slug in cm.config.PLATFORMS_BINDING.keys():
-            platform_attrs["slug"] = cm.config.PLATFORMS_BINDING[fs_slug]
+        if fs_slug in cm.get_config().PLATFORMS_BINDING.keys():
+            platform_attrs["slug"] = cm.get_config().PLATFORMS_BINDING[fs_slug]
         else:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
