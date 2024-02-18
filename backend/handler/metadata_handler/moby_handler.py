@@ -150,11 +150,22 @@ class MobyGamesHandler(MetadataHandler):
         if platform_moby_id in ARCADE_MOBY_IDS:
             search_term = await self._mame_format(search_term)
 
+        search_term = self.normalize_search_term(search_term)
+        res = self._search_rom(search_term, platform_moby_id)
+        
         # Split the search term since mobygames search doesn't support special caracters
-        for term in self.normalize_search_term(search_term).split(":")[::-1]:
-            res = self._search_rom(term, platform_moby_id)
-            if res:
-                break
+        if not res and ":" in search_term:
+            for term in search_term.split(":")[::-1]:
+                res = self._search_rom(term, platform_moby_id)
+                if res:
+                    break
+        
+        # Some MAME games have two titles split by a slash
+        if not res and "/" in search_term:
+            for term in search_term.split("/"):
+                res = self._search_rom(term.strip(), platform_moby_id)
+                if res:
+                    break
 
         if not res:
             return MobyGamesRom(moby_id=None)

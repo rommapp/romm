@@ -288,6 +288,20 @@ class IGDBHandler(MetadataHandler):
             or self._search_rom(search_term, platform_igdb_id)
         )
 
+        # Split the search term since igdb struggles with colons
+        if not rom and ":" in search_term:
+            for term in search_term.split(":")[::-1]:
+                rom = self._search_rom(term, platform_igdb_id)
+                if rom:
+                    break
+        
+        # Some MAME games have two titles split by a slash
+        if not rom and "/" in search_term:
+            for term in search_term.split("/"):
+                rom = self._search_rom(term.strip(), platform_igdb_id)
+                if rom:
+                    break
+
         if not rom:
             return IGDBRom(igdb_id=None)
 
