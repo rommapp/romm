@@ -1,5 +1,6 @@
 import emoji
 import socketio  # type: ignore
+from typing import Literal
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
 from exceptions.fs_exceptions import (
@@ -28,16 +29,16 @@ def _get_socket_manager():
 
 async def scan_platforms(
     platform_ids: list[int],
-    complete_rescan: bool = False,
-    rescan_unidentified: bool = False,
+    scan_type: Literal[
+        "new_platforms", "quick", "unidentified", "partial", "complete"
+    ] = "quick",
     selected_roms: list[str] = (),
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
     Args:
         platform_slugs (list[str]): List of platform slugs to be scanned
-        complete_rescan (bool, optional): Flag to rescan already scanned platforms. Defaults to False.
-        rescan_unidentified (bool, optional): Flag to rescan only unidentified roms. Defaults to False.
+        scan_type (str): Type of scan to be performed. Defaults to "quick".
         selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to ().
     """
 
@@ -64,8 +65,10 @@ async def scan_platforms(
 
     for platform_slug in platform_list:
         platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
-        scanned_platform = scan_platform(platform_slug, fs_platforms)
+        if platform and scan_type == "new_platforms":
+            continue
 
+        scanned_platform = scan_platform(platform_slug, fs_platforms)
         if platform:
             scanned_platform.id = platform.id
 
@@ -92,12 +95,15 @@ async def scan_platforms(
 
         for fs_rom in fs_roms:
             rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
-            if (
-                not rom
+            should_scan_rom = (
+                (scan_type == "quick" and not rom)
+                or (scan_type == "unidentified" and not rom.igdb_id and not rom.moby_id)
+                or (scan_type == "partial" and (not rom.igdb_id or not rom.moby_id))
+                or (scan_type == "complete")
                 or rom.id in selected_roms
-                or complete_rescan
-                or (rescan_unidentified and not rom.igdb_id and not rom.moby_id)
-            ):
+            )
+
+            if should_scan_rom:
                 scanned_rom = await scan_rom(platform, fs_rom)
                 if rom:
                     scanned_rom.id = rom.id
@@ -134,16 +140,14 @@ async def scan_handler(_sid: str, options: dict):
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
 
     platform_ids = options.get("platforms", [])
-    complete_rescan = options.get("completeRescan", False)
-    rescan_unidentified = options.get("rescanUnidentified", False)
+    scan_type = options.get("type", False)
     selected_roms = options.get("roms", [])
 
     # Run in worker if redis is available
     return high_prio_queue.enqueue(
         scan_platforms,
         platform_ids,
-        complete_rescan,
-        rescan_unidentified,
+        scan_type,
         selected_roms,
         job_timeout=14400,  # Timeout after 4 hours
     )
