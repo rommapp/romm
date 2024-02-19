@@ -3,7 +3,7 @@ import sys
 
 import alembic.config
 import uvicorn
-from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY
+from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY, DISABLE_CSRF_PROTECTION
 from endpoints import (
     auth,
     config,
@@ -20,15 +20,16 @@ from endpoints import (
     webrcade,
     screenshots,
 )
-import endpoints.sockets.scan # noqa
+import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from handler import auth_handler, db_user_handler, github_handler, socket_handler
+from handler.auth_handler import ALGORITHM
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
 from handler.auth_handler.middleware import CustomCSRFMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.middleware.sessions import SessionMiddleware
+from starlette_authlib.middleware import AuthlibMiddleware as SessionMiddleware
 
 app = FastAPI(title="RomM API", version=github_handler.get_version())
 
@@ -40,7 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if "pytest" not in sys.modules:
+if "pytest" not in sys.modules and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,
@@ -60,6 +61,7 @@ app.add_middleware(
     secret_key=ROMM_AUTH_SECRET_KEY,
     same_site="strict",
     https_only=False,
+    jwt_alg=ALGORITHM,
 )
 
 app.include_router(heartbeat.router)
