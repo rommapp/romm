@@ -11,3 +11,5 @@ export type ExtractPiniaStoreType<D> = D extends (
 ) => infer R
   ? R
   : never;
+
+export type ValueOf<T> = T[keyof T];

@@ -148,7 +148,7 @@ function rowClick(_: Event, row: any) {
         <v-icon>mdi-download</v-icon>
       </v-btn>
       <v-btn
-        v-if="item.raw.platform_slug in platformSlugEJSCoreMap"
+        v-if="item.raw.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
         size="small"
         variant="text"
         :href="`/play/${item.raw.id}`"

@@ -14,6 +14,9 @@ const rescanUnidentified = ref(false);
 const platforms = storePlatforms();
 const platformsToScan = ref<Platform[]>([]);
 
+// Connect to socket on load to catch running scans
+if (!socket.connected) socket.connect();
+
 async function scan() {
   scanningStore.set(true);
   scanningPlatforms.value = [];
