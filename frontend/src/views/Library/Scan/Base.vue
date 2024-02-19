@@ -9,10 +9,37 @@ import { ref } from "vue";
 // Props
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms } = storeToRefs(scanningStore);
-const completeRescan = ref(false);
-const rescanUnidentified = ref(false);
 const platforms = storePlatforms();
 const platformsToScan = ref<Platform[]>([]);
+const scanType = ref("quick");
+
+const scanOptions = [
+  {
+    title: "New platforms",
+    subtitle: "Scan new platforms only (fastest)",
+    value: "new_platforms",
+  },
+  {
+    title: "Quick scan",
+    subtitle: "Scan new files only",
+    value: "quick",
+  },
+  {
+    title: "Unidentified games",
+    subtitle: "Scan games with no metadata match",
+    value: "unidentified",
+  },
+  {
+    title: "Partial metadata",
+    subtitle: "Scan games with partial metadata matches",
+    value: "partial",
+  },
+  {
+    title: "Complete rescan",
+    subtitle: "Total rescan of all platforms and files (slowest)",
+    value: "complete",
+  },
+];
 
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
@@ -25,8 +52,7 @@ async function scan() {
 
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
-    completeRescan: completeRescan.value,
-    rescanUnidentified: rescanUnidentified.value,
+    type: scanType.value,
   });
 }
 </script>
@@ -50,52 +76,50 @@ async function scan() {
     />
   </v-row>
 
-  <v-row class="pa-4" no-gutters>
+  <v-row class="px-4 pt-2" no-gutters>
     <!-- Complete rescan option -->
-    <v-col cols="12" xs="12" sm="6" md="4" lg="4" xl="4">
-      <v-checkbox
-        v-model="completeRescan"
-        label="Complete Rescan"
-        prepend-icon="mdi-cached"
-        hint="Rescan every rom, including already scanned roms"
-        persistent-hint
-      />
+    <v-col cols="4" class="text-truncate">
+      <v-select
+        density="compact"
+        class="my-1"
+        variant="outlined"
+        label="Scan option"
+        v-model="scanType"
+        :items="scanOptions"
+      >
+        <template v-slot:item="{ props, item }">
+          <v-list-item
+            v-bind="props"
+            :subtitle="item.raw.subtitle"
+          ></v-list-item>
+        </template>
+      </v-select>
     </v-col>
-
-    <!-- Rescan unidentified option -->
-    <v-col cols="12" xs="12" sm="6" md="4" lg="4" xl="4">
-      <v-checkbox
-        v-model="rescanUnidentified"
-        label="Rescan Unidentified"
-        prepend-icon="mdi-file-search-outline"
-        hint="Rescan only unidentified games"
-        persistent-hint
-      />
+    <v-col cols="2" class="pt-1 px-4">
+      <v-btn
+        @click="scan()"
+        :disabled="scanning"
+        prepend-icon="mdi-magnify-scan"
+        rounded="4"
+        height="40"
+        color="romm-accent-1"
+        :loading="scanning"
+      >
+        Scan
+        <template v-slot:loader>
+          <v-progress-circular
+            color="romm-accent-1"
+            :width="2"
+            :size="20"
+            indeterminate
+          />
+        </template>
+      </v-btn>
     </v-col>
-  </v-row>
-
-  <!-- Scan button -->
-  <v-row class="pa-4" no-gutters>
-    <v-btn
-      @click="scan()"
-      :disabled="scanning"
-      prepend-icon="mdi-magnify-scan"
-      rounded="0"
-      :loading="scanning"
-      >Scan
-      <template v-slot:loader>
-        <v-progress-circular
-          color="romm-accent-1"
-          :width="2"
-          :size="20"
-          indeterminate
-        />
-      </template>
-    </v-btn>
   </v-row>
 
   <v-divider
-    class="border-opacity-100 ma-4"
+    class="border-opacity-100 mx-4"
     color="romm-accent-1"
     :thickness="1"
   />
@@ -123,9 +147,7 @@ async function scan() {
         <span v-if="rom.igdb_id || rom.moby_id" class="ml-10">
           • Identified <b>{{ rom.name }} 👾</b>
         </span>
-        <span v-else class="ml-10">
-          • {{ rom.file_name }} not found ❌
-        </span>
+        <span v-else class="ml-10"> • {{ rom.file_name }} not found ❌ </span>
       </v-list-item>
     </v-col>
   </v-row>
