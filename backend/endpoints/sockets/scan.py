@@ -1,6 +1,5 @@
 import emoji
 import socketio  # type: ignore
-from typing import Literal
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
 from exceptions.fs_exceptions import (
@@ -18,6 +17,7 @@ from handler.redis_handler import high_prio_queue, redis_url
 from handler.scan_handler import (
     scan_platform,
     scan_rom,
+    ScanType,
 )
 from logger.logger import log
 
@@ -29,9 +29,7 @@ def _get_socket_manager():
 
 async def scan_platforms(
     platform_ids: list[int],
-    scan_type: Literal[
-        "new_platforms", "quick", "unidentified", "partial", "complete"
-    ] = "quick",
+    scan_type: ScanType = "quick",
     selected_roms: list[str] = (),
 ):
     """Scan all the listed platforms and fetch metadata from different sources
@@ -104,11 +102,7 @@ async def scan_platforms(
             )
 
             if should_scan_rom:
-                scanned_rom = await scan_rom(platform, fs_rom)
-                if rom:
-                    scanned_rom.id = rom.id
-
-                scanned_rom.platform_id = platform.id
+                scanned_rom = await scan_rom(platform, fs_rom, rom, scan_type=scan_type)
                 _added_rom = db_rom_handler.add_rom(scanned_rom)
                 rom = db_rom_handler.get_roms(_added_rom.id)
 
