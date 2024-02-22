@@ -197,8 +197,8 @@ async def scan_rom(
     if (
         not rom
         or scan_type == "complete"
-        or (scan_type == "partial" and (not rom.igdb_id or not rom.moby_id))
-        or (scan_type == "unidentified" and not rom.igdb_id and not rom.moby_id)
+        or (scan_type == "partial" and rom and (not rom.igdb_id or not rom.moby_id))
+        or (scan_type == "unidentified" and rom and not rom.igdb_id and not rom.moby_id)
     ):
         rom_attrs.update(
             fs_resource_handler.get_rom_cover(

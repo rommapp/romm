@@ -16,9 +16,12 @@ from . import (
     PS2_OPL_REGEX,
     SWITCH_TITLEDB_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
+    SONY_SERIAL_REGEX,
 )
 
+PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
+PSP_MOBY_ID: Final = 46
 SWITCH_MOBY_ID: Final = 203
 ARCADE_MOBY_IDS: Final = [143, 36]
 
@@ -136,6 +139,17 @@ class MobyGamesHandler(MetadataHandler):
         if platform_moby_id == PS2_MOBY_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
 
+        # Support for sony serial filename format (PS, PS3, PS3)
+        match = re.search(SONY_SERIAL_REGEX, file_name, re.IGNORECASE)
+        if platform_moby_id == PS1_MOBY_ID and match:
+            search_term = await self._ps1_serial_format(match, search_term)
+
+        if platform_moby_id == PS2_MOBY_ID and match:
+            search_term = await self._ps2_serial_format(match, search_term)
+
+        if platform_moby_id == PSP_MOBY_ID and match:
+            search_term = await self._psp_serial_format(match, search_term)
+
         # Support for switch titleID filename format
         match = re.search(SWITCH_TITLEDB_REGEX, file_name)
         if platform_moby_id == SWITCH_MOBY_ID and match:
@@ -152,14 +166,14 @@ class MobyGamesHandler(MetadataHandler):
 
         search_term = self.normalize_search_term(search_term)
         res = self._search_rom(search_term, platform_moby_id)
-        
+
         # Split the search term since mobygames search doesn't support special caracters
         if not res and ":" in search_term:
             for term in search_term.split(":")[::-1]:
                 res = self._search_rom(term, platform_moby_id)
                 if res:
                     break
-        
+
         # Some MAME games have two titles split by a slash
         if not res and "/" in search_term:
             for term in search_term.split("/"):

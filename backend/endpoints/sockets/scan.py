@@ -95,8 +95,8 @@ async def scan_platforms(
             rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
             should_scan_rom = (
                 (scan_type == "quick" and not rom)
-                or (scan_type == "unidentified" and not rom.igdb_id and not rom.moby_id)
-                or (scan_type == "partial" and (not rom.igdb_id or not rom.moby_id))
+                or (scan_type == "unidentified" and rom and not rom.igdb_id and not rom.moby_id)
+                or (scan_type == "partial" and rom and (not rom.igdb_id or not rom.moby_id))
                 or (scan_type == "complete")
                 or rom.id in selected_roms
             )

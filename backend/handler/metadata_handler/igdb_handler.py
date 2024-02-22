@@ -18,12 +18,15 @@ from . import (
     PS2_OPL_REGEX,
     SWITCH_TITLEDB_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
+    SONY_SERIAL_REGEX,
 )
 
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
+PS1_IGDB_ID: Final = 7
 PS2_IGDB_ID: Final = 8
+PSP_IGDB_ID: Final = 38
 SWITCH_IGDB_ID: Final = 130
 ARCADE_IGDB_IDS: Final = [52, 79, 80]
 
@@ -265,6 +268,17 @@ class IGDBHandler(MetadataHandler):
         match = re.match(PS2_OPL_REGEX, file_name)
         if platform_igdb_id == PS2_IGDB_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
+            
+        # Support for sony serial filename format (PS, PS3, PS3)
+        match = re.search(SONY_SERIAL_REGEX, file_name, re.IGNORECASE)
+        if platform_igdb_id == PS1_IGDB_ID and match:
+            search_term = await self._ps1_serial_format(match, search_term)
+
+        if platform_igdb_id == PS2_IGDB_ID and match:
+            search_term = await self._ps2_serial_format(match, search_term)
+
+        if platform_igdb_id == PSP_IGDB_ID and match:
+            search_term = await self._psp_serial_format(match, search_term)
 
         # Support for switch titleID filename format
         match = re.search(SWITCH_TITLEDB_REGEX, file_name)
