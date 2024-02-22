@@ -25,6 +25,16 @@ SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
 
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
+SONY_SERIAL_REGEX: Final = r".*([a-zA-Z]{4}-\d{5}).*$"
+PS1_SERIAL_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "ps1_serial_index.json"
+)
+PS2_SERIAL_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "ps2_serial_index.json"
+)
+PSP_SERIAL_INDEX_FILE: Final = os.path.join(
+    os.path.dirname(__file__), "fixtures", "psp_serial_index.json"
+)
 
 class MetadataHandler:
     @staticmethod
@@ -54,6 +64,27 @@ class MetadataHandler:
                 search_term = index_entry["Name"]  # type: ignore
 
         return search_term
+    
+    async def _sony_serial_format(self, index_file: str, serial_code: str) -> str | None:
+        with open(index_file, "r") as index_json:
+            opl_index = json.loads(index_json.read())
+            index_entry = opl_index.get(serial_code.upper(), None)
+            if index_entry:
+                return index_entry["title"]
+
+        return None
+    
+    async def _ps1_serial_format(self, match: re.Match[str], search_term: str) -> str:
+        serial_code = match.group(1)
+        return await self._sony_serial_format(PS1_SERIAL_INDEX_FILE, serial_code) or search_term
+    
+    async def _ps2_serial_format(self, match: re.Match[str], search_term: str) -> str:
+        serial_code = match.group(1)
+        return await self._sony_serial_format(PS2_SERIAL_INDEX_FILE, serial_code) or search_term
+    
+    async def _psp_serial_format(self, match: re.Match[str], search_term: str) -> str:
+        serial_code = match.group(1)
+        return await self._sony_serial_format(PSP_SERIAL_INDEX_FILE, serial_code) or search_term
 
     async def _switch_titledb_format(
         self, match: re.Match[str], search_term: str
