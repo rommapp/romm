@@ -79,7 +79,7 @@ socket.on("scan:done_ko", (msg) => {
   scanningStore.set(false);
 
   emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
+    msg: `Scan failed: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",
   });
