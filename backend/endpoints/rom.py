@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from stat import S_IFREG
 from typing import Annotated, Optional
@@ -24,7 +25,7 @@ from handler import (
 )
 from handler.fs_handler import CoverSize
 from logger.logger import log
-from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
+from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
 
 router = APIRouter()
 
@@ -194,16 +195,23 @@ def get_rom_content(
             except FileNotFoundError:
                 log.error(f"File {rom_path}/{f} not found!")
 
+        m3u_file = [str.encode(f"{rom.files[i]}\n") for i in range(len(rom.files))]
         return [
-            (f, datetime.now(), S_IFREG | 0o600, ZIP_64, contents(f))
+            (
+                f,
+                datetime.now(),
+                S_IFREG | 0o600,
+                ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}")),
+                contents(f),
+            )
             for f in rom.files
         ] + [
             (
                 f"{file_name}.m3u",
                 datetime.now(),
                 S_IFREG | 0o600,
-                ZIP_64,
-                [str.encode(f"{rom.files[i]}\n") for i in range(len(rom.files))],
+                ZIP_AUTO(sum([len(f) for f in m3u_file])),
+                m3u_file,
             )
         ]
 
