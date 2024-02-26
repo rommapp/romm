@@ -5,7 +5,6 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import socket from "@/services/socket";
 import { onBeforeMount } from "vue";
-import cookie from "js-cookie";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type Rom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
@@ -80,7 +79,7 @@ socket.on("scan:done_ko", (msg) => {
   scanningStore.set(false);
 
   emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
+    msg: `Scan failed: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",
   });
@@ -101,8 +100,6 @@ onBeforeMount(() => {
   api.get("/config").then(({ data: configData }) => {
     configStore.set(configData);
   });
-  // Set CSRF token for all requests
-  api.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
 });
 </script>
 

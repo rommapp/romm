@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from stat import S_IFREG
 from typing import Annotated, Optional
@@ -24,7 +25,7 @@ from handler import (
 )
 from handler.fs_handler import CoverSize
 from logger.logger import log
-from stream_zip import ZIP_64, stream_zip  # type: ignore[import]
+from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
 
 router = APIRouter()
 
@@ -130,13 +131,14 @@ def get_rom(request: Request, id: int) -> RomSchema:
     return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
-@protected_route(router.head, "/roms/{id}/content", ["roms.read"])
-def head_rom_content(request: Request, id: int):
+@protected_route(router.head, "/roms/{id}/content/{file_name}", ["roms.read"])
+def head_rom_content(request: Request, id: int, file_name: str):
     """Head rom content endpoint
 
     Args:
         request (Request): Fastapi Request object
         id (int): Rom internal id
+        file_name (str): Required due to a bug in emulatorjs
 
     Returns:
         FileResponse: Returns the response with headers
@@ -147,7 +149,7 @@ def head_rom_content(request: Request, id: int):
 
     return FileResponse(
         path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
-        filename=rom.file_name,
+        filename=file_name,
         headers={
             "Content-Disposition": f"attachment; filename={rom.name}.zip",
             "Content-Type": "application/zip",
@@ -156,9 +158,12 @@ def head_rom_content(request: Request, id: int):
     )
 
 
-@protected_route(router.get, "/roms/{id}/content", ["roms.read"])
+@protected_route(router.get, "/roms/{id}/content/{file_name}", ["roms.read"])
 def get_rom_content(
-    request: Request, id: int, files: Annotated[list[str] | None, Query()] = None
+    request: Request,
+    id: int,
+    file_name: str,
+    files: Annotated[list[str] | None, Query()] = None,
 ):
     """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
 
@@ -178,28 +183,35 @@ def get_rom_content(
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     if not rom.multi:
-        return FileResponse(path=rom_path, filename=rom.file_name)
+        return FileResponse(path=rom_path, filename=file_name)
 
     # Builds a generator of tuples for each member file
     def local_files():
-        def contents(file_name):
+        def contents(f):
             try:
-                with open(f"{rom_path}/{file_name}", "rb") as f:
+                with open(f"{rom_path}/{f}", "rb") as f:
                     while chunk := f.read(65536):
                         yield chunk
             except FileNotFoundError:
-                log.error(f"File {rom_path}/{file_name} not found!")
+                log.error(f"File {rom_path}/{f} not found!")
 
+        m3u_file = [str.encode(f"{rom.files[i]}\n") for i in range(len(rom.files))]
         return [
-            (file_name, datetime.now(), S_IFREG | 0o600, ZIP_64, contents(file_name))
-            for file_name in rom.files
-        ] + [
             (
-                f"{rom.file_name}.m3u",
+                f,
                 datetime.now(),
                 S_IFREG | 0o600,
-                ZIP_64,
-                [str.encode(f"{rom.files[i]}\n") for i in range(len(rom.files))],
+                ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}")),
+                contents(f),
+            )
+            for f in rom.files
+        ] + [
+            (
+                f"{file_name}.m3u",
+                datetime.now(),
+                S_IFREG | 0o600,
+                ZIP_AUTO(sum([len(f) for f in m3u_file])),
+                m3u_file,
             )
         ]
 
@@ -209,7 +221,7 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={rom.file_name}.zip"},
+        headers={"Content-Disposition": f"attachment; filename={file_name}.zip"},
         emit_body={"id": rom.id},
     )
 

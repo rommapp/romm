@@ -117,9 +117,9 @@ def test_rom_size():
 def test_exclude_files():
     from config.config_manager import config_manager as cm
 
-    cm.config.EXCLUDED_SINGLE_FILES = ["Super Mario 64 (J) (Rev A) [Part 1].z64"]
+    cm.add_exclusion("EXCLUDED_SINGLE_FILES", "Super Mario 64 (J) (Rev A) [Part 1].z64")
 
-    patch("utils.fs.config", cm.config)
+    patch("utils.fs.config", cm.get_config())
 
     filtered_files = fs_rom_handler._exclude_files(
         files=[
@@ -131,7 +131,7 @@ def test_exclude_files():
 
     assert len(filtered_files) == 1
 
-    cm.config.EXCLUDED_SINGLE_EXT = ["z64"]
+    cm.add_exclusion("EXCLUDED_SINGLE_EXT", "z64")
 
     filtered_files = fs_rom_handler._exclude_files(
         files=[
@@ -143,7 +143,7 @@ def test_exclude_files():
 
     assert len(filtered_files) == 0
 
-    cm.config.EXCLUDED_SINGLE_FILES = ["*.z64"]
+    cm.add_exclusion("EXCLUDED_SINGLE_FILES", "*.z64")
 
     filtered_files = fs_rom_handler._exclude_files(
         files=[
@@ -155,7 +155,7 @@ def test_exclude_files():
 
     assert len(filtered_files) == 0
 
-    cm.config.EXCLUDED_SINGLE_FILES = ["_.*"]
+    cm.add_exclusion("EXCLUDED_SINGLE_FILES", "_.*")
 
     filtered_files = fs_rom_handler._exclude_files(
         files=[

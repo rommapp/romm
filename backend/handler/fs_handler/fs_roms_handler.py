@@ -23,10 +23,11 @@ class FSRomsHandler(FSHandler):
         pass
 
     def get_fs_structure(self, fs_slug: str):
+        cnfg = cm.get_config()
         return (
-            f"{cm.config.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cm.config.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cm.config.ROMS_FOLDER_NAME}"
+            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
         )
 
     def remove_file(self, file_name: str, file_path: str):
@@ -81,8 +82,9 @@ class FSRomsHandler(FSHandler):
         return regs, rev, langs, other_tags
 
     def _exclude_files(self, files, filetype) -> list[str]:
-        excluded_extensions = getattr(cm.config, f"EXCLUDED_{filetype.upper()}_EXT")
-        excluded_names = getattr(cm.config, f"EXCLUDED_{filetype.upper()}_FILES")
+        cnfg = cm.get_config()
+        excluded_extensions = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_EXT")
+        excluded_names = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_FILES")
         excluded_files: list = []
 
         for file_name in files:
@@ -105,7 +107,7 @@ class FSRomsHandler(FSHandler):
         return [f for f in files if f not in excluded_files]
 
     def _exclude_multi_roms(self, roms) -> list[str]:
-        excluded_names = cm.config.EXCLUDED_MULTI_FILES
+        excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
         filtered_files: list = []
 
         for rom in roms:
