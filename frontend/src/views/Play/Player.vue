@@ -56,7 +56,7 @@ window.EJS_core =
     props.rom.platform_slug.toLowerCase() as EJSPlatformSlug
   ];
 window.EJS_gameID = props.rom.id;
-window.EJS_gameUrl = `/api/roms/${props.rom.id}/content`;
+window.EJS_gameUrl = `/api/roms/${props.rom.id}/content/${props.rom.file_name}`;
 window.EJS_player = "#game";
 window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
