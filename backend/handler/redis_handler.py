@@ -40,7 +40,7 @@ class FallbackCache:
 
 
 redis_client = Redis(
-    host=REDIS_HOST, port=int(REDIS_PORT), password=REDIS_PASSWORD, db=0
+    host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, db=0
 )
 
 redis_url = (
@@ -60,7 +60,7 @@ else:
     # A seperate client that auto-decodes responses is needed
     cache = Redis(
         host=REDIS_HOST,
-        port=int(REDIS_PORT),
+        port=REDIS_PORT,
         password=REDIS_PASSWORD,
         db=0,
         decode_responses=True,
