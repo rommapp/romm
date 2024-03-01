@@ -19,7 +19,6 @@ services:
       - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
       - ROMM_AUTH_USERNAME=admin
       - ROMM_AUTH_PASSWORD= # default: admin
-      - REDIS_HOST=romm-redis
     volumes:
       - romm_resources:/romm/resources" # Resources fetched from IGDB (covers, screenshots, etc.)
       - "/path/to/library:/romm/library" # Your game library
@@ -30,7 +29,6 @@ services:
       - 80:8080
     depends_on:
       - romm-db
-      - romm-redis
 
   romm-db:
     image: mariadb:latest
@@ -43,8 +41,3 @@ services:
       - MYSQL_PASSWORD=
     volumes:
       - mysql_data:/var/lib/mysql
-
-  romm-redis:
-    image: redis:alpine
-    container_name: romm-redis
-    restart: unless-stopped

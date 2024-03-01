@@ -26,9 +26,8 @@ DB_PASSWD: Final = os.environ.get("DB_PASSWD")
 DB_NAME: Final = os.environ.get("DB_NAME", "romm")
 
 # REDIS
-REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT: Final = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
+REDIS_HOST: Final = "localhost"
+REDIS_PORT: Final = 6379
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
