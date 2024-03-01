@@ -17,6 +17,6 @@ services:
     container_name: redis
     restart: unless-stopped
     ports:
-      - ${REDIS_PORT}:6379
+      - $REDIS_PORT:6379
     env_file:
       - .env
