@@ -81,10 +81,15 @@ RUN wget -O redis.tar.gz "$REDIS_DOWNLOAD_URL"; \
 	mkdir -p /usr/src/redis; \
 	tar -xzf redis.tar.gz -C /usr/src/redis --strip-components=1; \
 	rm redis.tar.gz; \
+    # disable Redis protected mode as it is unnecessary in context of Docker
+    # (ports are not automatically exposed when running inside Docker, but rather explicitly by specifying -p / -P)
 	grep -E '^ *createBoolConfig[(]"protected-mode",.*, *1 *,.*[)],$' /usr/src/redis/src/config.c; \
 	sed -ri 's!^( *createBoolConfig[(]"protected-mode",.*, *)1( *,.*[)],)$!\10\2!' /usr/src/redis/src/config.c; \
 	grep -E '^ *createBoolConfig[(]"protected-mode",.*, *0 *,.*[)],$' /usr/src/redis/src/config.c; \
-	gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
+    # for future reference, we modify this directly in the source instead of just supplying a default configuration flag because apparently "if you specify any argument to redis-server, [it assumes] you are going to specify everything"
+    # (more exactly, this makes sure the default behavior of "save on SIGTERM" stays functional by default)
+	# (also, we do cross-builds, so we need to embed the appropriate "--build=xxx" values to that "./configure" invocation)
+    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
 	extraJemallocConfigureFlags="--build=$gnuArch"; \
 	dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in (amd64 | i386 | x32) extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-page=12";; (*) extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-page=16";; esac; \
