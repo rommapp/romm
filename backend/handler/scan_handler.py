@@ -38,7 +38,11 @@ def _get_main_platform_igdb_id(platform: Platform):
     return main_platform_igdb_id
 
 
-def scan_platform(fs_slug: str, fs_platforms: list[str]) -> Platform:
+def scan_platform(
+    fs_slug: str,
+    fs_platforms: list[str],
+    metadata_sources: list[str] = ["igdb", "moby"],
+) -> Platform:
     """Get platform details
 
     Args:
@@ -73,8 +77,16 @@ def scan_platform(fs_slug: str, fs_platforms: list[str]) -> Platform:
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    igdb_platform = igdb_handler.get_platform(platform_attrs["slug"])
-    moby_platform = moby_handler.get_platform(platform_attrs["slug"])
+    igdb_platform = (
+        igdb_handler.get_platform(platform_attrs["slug"])
+        if "igdb" in metadata_sources
+        else {"igdb_id": None}
+    )
+    moby_platform = (
+        moby_handler.get_platform(platform_attrs["slug"])
+        if "moby" in metadata_sources
+        else {"moby_id": None}
+    )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
@@ -94,6 +106,7 @@ async def scan_rom(
     rom_attrs: dict,
     rom: Rom | None = None,
     scan_type: ScanType = "quick",
+    metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Rom:
     roms_path = fs_rom_handler.get_fs_structure(platform.fs_slug)
 
@@ -167,7 +180,7 @@ async def scan_rom(
     igdb_handler_rom = {}
     moby_handler_rom = {}
 
-    if (
+    if "igdb" in metadata_sources and (
         not rom
         or scan_type == "complete"
         or (scan_type == "partial" and not rom.igdb_id)
@@ -178,7 +191,7 @@ async def scan_rom(
             rom_attrs["file_name"], main_platform_igdb_id
         )
 
-    if (
+    if "moby" in metadata_sources and (
         not rom
         or scan_type == "complete"
         or (scan_type == "partial" and not rom.moby_id)
