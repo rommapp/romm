@@ -21,14 +21,12 @@ def get_config() -> ConfigResponse:
     """
 
     try:
-        cm.read_config()
+        return cm.get_config().__dict__
     except ConfigNotReadableException as e:
         log.critical(e.message)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message
         )
-
-    return cm.config.__dict__
 
 
 @protected_route(router.post, "/config/system/platforms", ["platforms.write"])
@@ -40,7 +38,7 @@ async def add_platform_binding(request: Request) -> MessageResponse:
     slug = data["slug"]
 
     try:
-        cm.add_binding(fs_slug, slug)
+        cm.add_platform_binding(fs_slug, slug)
     except ConfigNotWritableException as e:
         log.critical(e.message)
         raise HTTPException(
@@ -57,7 +55,7 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResp
     """Delete platform binding from the configuration"""
 
     try:
-        cm.remove_binding(fs_slug)
+        cm.remove_platform_binding(fs_slug)
     except ConfigNotWritableException as e:
         log.critical(e.message)
         raise HTTPException(
@@ -76,7 +74,7 @@ async def add_platform_version(request: Request) -> MessageResponse:
     slug = data["slug"]
 
     try:
-        cm.add_version(fs_slug, slug)
+        cm.add_platform_version(fs_slug, slug)
     except ConfigNotWritableException as e:
         log.critical(e.message)
         raise HTTPException(
@@ -93,7 +91,7 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
     """Delete platform version from the configuration"""
 
     try:
-        cm.remove_version(fs_slug)
+        cm.remove_platform_version(fs_slug)
     except ConfigNotWritableException as e:
         log.critical(e.message)
         raise HTTPException(
