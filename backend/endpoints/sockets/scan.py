@@ -42,85 +42,89 @@ async def scan_platforms(
 
     sm = _get_socket_manager()
 
-    # Scanning file system
     try:
         fs_platforms: list[str] = fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
         return
+    
+    try:
 
-    platform_list = [
-        db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
-    ] or fs_platforms
+        platform_list = [
+            db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
+        ] or fs_platforms
 
-    if len(platform_list) == 0:
-        log.warn(
-            "⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly "
-        )
-    else:
-        log.info(f"Found {len(platform_list)} platforms in file system ")
-
-    for platform_slug in platform_list:
-        platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
-        if platform and scan_type == "new_platforms":
-            continue
-
-        scanned_platform = scan_platform(platform_slug, fs_platforms)
-        if platform:
-            scanned_platform.id = platform.id
-
-        platform = db_platform_handler.add_platform(scanned_platform)
-
-        await sm.emit(
-            "scan:scanning_platform",
-            PlatformSchema.model_validate(platform).model_dump(),
-        )
-
-        # Scanning roms
-        try:
-            fs_roms = fs_rom_handler.get_roms(platform)
-        except RomsNotFoundException as e:
-            log.error(e)
-            continue
-
-        if len(fs_roms) == 0:
-            log.warning(
-                "  ⚠️ No roms found, verify that the folder structure is correct"
+        if len(platform_list) == 0:
+            log.warn(
+                "⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly "
             )
         else:
-            log.info(f"  {len(fs_roms)} roms found")
+            log.info(f"Found {len(platform_list)} platforms in file system ")
 
-        for fs_rom in fs_roms:
-            rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
-            should_scan_rom = (
-                (scan_type == "quick" and not rom)
-                or (scan_type == "unidentified" and rom and not rom.igdb_id and not rom.moby_id)
-                or (scan_type == "partial" and rom and (not rom.igdb_id or not rom.moby_id))
-                or (scan_type == "complete")
-                or rom.id in selected_roms
+        for platform_slug in platform_list:
+            platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+            if platform and scan_type == "new_platforms":
+                continue
+
+            scanned_platform = scan_platform(platform_slug, fs_platforms)
+            if platform:
+                scanned_platform.id = platform.id
+
+            platform = db_platform_handler.add_platform(scanned_platform)
+
+            await sm.emit(
+                "scan:scanning_platform",
+                PlatformSchema.model_validate(platform).model_dump(),
             )
 
-            if should_scan_rom:
-                scanned_rom = await scan_rom(platform, fs_rom, rom, scan_type=scan_type)
-                _added_rom = db_rom_handler.add_rom(scanned_rom)
-                rom = db_rom_handler.get_roms(_added_rom.id)
+            # Scanning roms
+            try:
+                fs_roms = fs_rom_handler.get_roms(platform)
+            except RomsNotFoundException as e:
+                log.error(e)
+                continue
 
-                await sm.emit(
-                    "scan:scanning_rom",
-                    {
-                        "platform_name": platform.name,
-                        "platform_slug": platform.slug,
-                        **RomSchema.model_validate(rom).model_dump(),
-                    },
+            if len(fs_roms) == 0:
+                log.warning(
+                    "  ⚠️ No roms found, verify that the folder structure is correct"
+                )
+            else:
+                log.info(f"  {len(fs_roms)} roms found")
+
+            for fs_rom in fs_roms:
+                rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
+                should_scan_rom = (
+                    (scan_type == "quick" and not rom)
+                    or (scan_type == "unidentified" and rom and not rom.igdb_id and not rom.moby_id)
+                    or (scan_type == "partial" and rom and (not rom.igdb_id or not rom.moby_id))
+                    or (scan_type == "complete")
+                    or rom.id in selected_roms
                 )
 
-        db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
-    db_platform_handler.purge_platforms(fs_platforms)
+                if should_scan_rom:
+                    scanned_rom = await scan_rom(platform, fs_rom, rom, scan_type=scan_type)
+                    _added_rom = db_rom_handler.add_rom(scanned_rom)
+                    rom = db_rom_handler.get_roms(_added_rom.id)
 
-    log.info(emoji.emojize(":check_mark:  Scan completed "))
+                    await sm.emit(
+                        "scan:scanning_rom",
+                        {
+                            "platform_name": platform.name,
+                            "platform_slug": platform.slug,
+                            **RomSchema.model_validate(rom).model_dump(),
+                        },
+                    )
 
-    await sm.emit("scan:done", {})
+            db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
+        db_platform_handler.purge_platforms(fs_platforms)
+
+        log.info(emoji.emojize(":check_mark:  Scan completed "))
+        await sm.emit("scan:done", {})
+    except Exception as e:
+        log.error(e)
+        # Catch all exceptions and emit error to the client
+        await sm.emit("scan:done_ko", str(e))
 
 
 @socket_handler.socket_server.on("scan")

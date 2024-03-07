@@ -15,8 +15,8 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 path = (
-    cm.config.HIGH_PRIO_STRUCTURE_PATH
-    if os.path.exists(cm.config.HIGH_PRIO_STRUCTURE_PATH)
+    cm.get_config().HIGH_PRIO_STRUCTURE_PATH
+    if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH)
     else LIBRARY_BASE_PATH
 )
 
