@@ -263,7 +263,7 @@ export const platformSlugEJSCoreMap = {
   famicom: "fceumm",
   "game-televisison": "fceumm",
   "new-style-nes": "fceumm",
-  n64: "mupen64plus_next",
+  // n64: "mupen64plus_next",
   "ique-player": "mupen64plus_next",
   nds: "melonds",
   "nintendo-ds-lite": "melonds",
