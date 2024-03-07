@@ -19,6 +19,8 @@ from . import (
     SONY_SERIAL_REGEX,
 )
 
+MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
+
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
 PSP_MOBY_ID: Final = 46
@@ -115,6 +117,9 @@ class MobyGamesHandler(MetadataHandler):
         return pydash.get(exact_matches or roms, "[0]", None)
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
+        if not MOBY_API_ENABLED:
+            return MobyGamesPlatform(moby_id=None, slug=slug)
+
         platform = SLUG_TO_MOBY_ID.get(slug, None)
 
         if not platform:
@@ -128,6 +133,9 @@ class MobyGamesHandler(MetadataHandler):
 
     async def get_rom(self, file_name: str, platform_moby_id: int) -> MobyGamesRom:
         from handler import fs_rom_handler
+
+        if not MOBY_API_ENABLED:
+            return MobyGamesRom(moby_id=None)
 
         if not platform_moby_id:
             return MobyGamesRom(moby_id=None)
@@ -197,6 +205,9 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesRom({k: v for k, v in rom.items() if v})
 
     def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
+        if not MOBY_API_ENABLED:
+            return MobyGamesRom(moby_id=moby_id)
+
         url = yarl.URL(self.games_url).with_query(id=moby_id)
         roms = self._request(str(url)).get("games", [])
         res = pydash.get(roms, "[0]", None)
@@ -217,11 +228,17 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesRom({k: v for k, v in rom.items() if v})
 
     def get_matched_roms_by_id(self, moby_id: int) -> list[MobyGamesRom]:
+        if not MOBY_API_ENABLED:
+            return []
+
         return [self.get_rom_by_id(moby_id)]
 
     def get_matched_roms_by_name(
         self, search_term: str, platform_moby_id: int
     ) -> list[MobyGamesRom]:
+        if not MOBY_API_ENABLED:
+            return []
+
         if not platform_moby_id:
             return []
 

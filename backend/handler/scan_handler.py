@@ -109,6 +109,8 @@ async def scan_rom(
             "id": rom.id if rom else None,
             "platform_id": platform.id,
             "name": rom_attrs["file_name"],
+            "url_cover": "",
+            "url_screenshots": [],
         }
     )
 
