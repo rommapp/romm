@@ -31,13 +31,15 @@ async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = "quick",
     selected_roms: list[str] = (),
+    metadata_sources: list[str] = (),
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
     Args:
         platform_slugs (list[str]): List of platform slugs to be scanned
         scan_type (str): Type of scan to be performed. Defaults to "quick".
-        selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to ().
+        selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to [].
+        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to [].
     """
 
     sm = _get_socket_manager()
@@ -48,9 +50,8 @@ async def scan_platforms(
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
         return
-    
-    try:
 
+    try:
         platform_list = [
             db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
         ] or fs_platforms
@@ -67,7 +68,9 @@ async def scan_platforms(
             if platform and scan_type == "new_platforms":
                 continue
 
-            scanned_platform = scan_platform(platform_slug, fs_platforms)
+            scanned_platform = scan_platform(
+                platform_slug, fs_platforms, metadata_sources
+            )
             if platform:
                 scanned_platform.id = platform.id
 
@@ -93,17 +96,34 @@ async def scan_platforms(
                 log.info(f"  {len(fs_roms)} roms found")
 
             for fs_rom in fs_roms:
-                rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
+                rom = db_rom_handler.get_rom_by_filename(
+                    platform.id, fs_rom["file_name"]
+                )
                 should_scan_rom = (
                     (scan_type == "quick" and not rom)
-                    or (scan_type == "unidentified" and rom and not rom.igdb_id and not rom.moby_id)
-                    or (scan_type == "partial" and rom and (not rom.igdb_id or not rom.moby_id))
+                    or (
+                        scan_type == "unidentified"
+                        and rom
+                        and not rom.igdb_id
+                        and not rom.moby_id
+                    )
+                    or (
+                        scan_type == "partial"
+                        and rom
+                        and (not rom.igdb_id or not rom.moby_id)
+                    )
                     or (scan_type == "complete")
                     or rom.id in selected_roms
                 )
 
                 if should_scan_rom:
-                    scanned_rom = await scan_rom(platform, fs_rom, rom, scan_type=scan_type)
+                    scanned_rom = await scan_rom(
+                        platform,
+                        fs_rom,
+                        rom,
+                        scan_type=scan_type,
+                        metadata_sources=metadata_sources,
+                    )
                     _added_rom = db_rom_handler.add_rom(scanned_rom)
                     rom = db_rom_handler.get_roms(_added_rom.id)
 
@@ -116,7 +136,9 @@ async def scan_platforms(
                         },
                     )
 
-            db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
+            db_rom_handler.purge_roms(
+                platform.id, [rom["file_name"] for rom in fs_roms]
+            )
         db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))
@@ -140,6 +162,7 @@ async def scan_handler(_sid: str, options: dict):
     platform_ids = options.get("platforms", [])
     scan_type = options.get("type", False)
     selected_roms = options.get("roms", [])
+    metadata_sources = options.get("apis", [])
 
     # Run in worker if redis is available
     return high_prio_queue.enqueue(
@@ -147,5 +170,6 @@ async def scan_handler(_sid: str, options: dict):
         platform_ids,
         scan_type,
         selected_roms,
+        metadata_sources,
         job_timeout=14400,  # Timeout after 4 hours
     )

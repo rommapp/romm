@@ -18,6 +18,7 @@ export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBPlatform } from './models/IGDBPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { MessageResponse } from './models/MessageResponse';
+export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyGamesPlatform } from './models/MobyGamesPlatform';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';

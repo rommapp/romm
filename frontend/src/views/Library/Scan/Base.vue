@@ -3,6 +3,7 @@ import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import storeHeartbeat from "@/stores/heartbeat";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 
@@ -10,8 +11,7 @@ import { ref } from "vue";
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
-const platformsToScan = ref<Platform[]>([]);
-const scanType = ref("quick");
+const heartbeat = storeHeartbeat();
 
 const scanOptions = [
   {
@@ -41,6 +41,25 @@ const scanOptions = [
   },
 ];
 
+const metadataOptions = [
+  {
+    name: "IGDB",
+    value: "igdb",
+    disabled: !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+  },
+  {
+    name: "MobyGames",
+    value: "moby",
+    disabled: !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+  },
+];
+
+const platformsToScan = ref<Platform[]>([]);
+const scanType = ref("quick");
+const metadataSources = ref<typeof metadataOptions>(
+  metadataOptions.filter((s) => !s.disabled)
+);
+
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
 
@@ -53,6 +72,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
+    apis: metadataSources.value.map((s) => s.value),
   });
 }
 </script>
@@ -77,7 +97,37 @@ async function scan() {
   </v-row>
 
   <v-row class="px-4 pt-2" no-gutters>
-    <!-- Complete rescan option -->
+    <!-- Scan options -->
+    <v-col cols="2" class="pt-1 px-4">
+      <v-select
+        label="Metadata sources"
+        item-title="name"
+        v-model="metadataSources"
+        :items="metadataOptions"
+        variant="outlined"
+        density="compact"
+        multiple
+        return-object
+        clearable
+        hide-details
+        rounded="0"
+        chips
+      >
+        <template v-slot:item="{ props, item }">
+          <v-list-item
+            v-bind="props"
+            :title="item.raw.name"
+            :subtitle="item.raw.disabled ? 'API key missing or invalid' : ''"
+            :disabled="item.raw.disabled"
+            :prepend-icon="
+              metadataSources.map((s) => s.value).includes(item.raw.value)
+                ? 'mdi-checkbox-marked'
+                : 'mdi-square-outline'
+            "
+          ></v-list-item>
+        </template>
+      </v-select>
+    </v-col>
     <v-col cols="4" class="text-truncate">
       <v-select
         density="compact"

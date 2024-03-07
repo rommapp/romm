@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { MetadataSourcesDict } from './MetadataSourcesDict';
 import type { SchedulerDict } from './SchedulerDict';
 import type { WatcherDict } from './WatcherDict';
 
@@ -11,5 +12,6 @@ export type HeartbeatResponse = {
     NEW_VERSION: string;
     WATCHER: WatcherDict;
     SCHEDULER: SchedulerDict;
+    METADATA_SOURCES: MetadataSourcesDict;
 };
 
