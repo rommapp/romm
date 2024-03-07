@@ -21,6 +21,9 @@ from . import (
     SONY_SERIAL_REGEX,
 )
 
+# Used to display the IGDB API status in the frontend
+IGDB_API_ENABLED: Final = bool(IGDB_CLIENT_ID) and bool(IGDB_CLIENT_SECRET)
+
 MAIN_GAME_CATEGORY: Final = 0
 EXPANDED_GAME_CATEGORY: Final = 10
 N_SCREENSHOTS: Final = 5
@@ -227,6 +230,9 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatform:
+        if not IGDB_API_ENABLED:
+            return IGDBPlatform(igdb_id=None, slug=slug)
+
         platforms = self._request(
             self.platform_endpoint,
             data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
@@ -258,6 +264,9 @@ class IGDBHandler(MetadataHandler):
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler import fs_rom_handler
+
+        if not IGDB_API_ENABLED:
+            return IGDBRom(igdb_id=None)
 
         if not platform_igdb_id:
             return IGDBRom(igdb_id=None)
@@ -336,6 +345,9 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
+        if not IGDB_API_ENABLED:
+            return IGDBRom(igdb_id=None)
+
         roms = self._request(
             self.games_endpoint,
             f'fields {",".join(self.games_fields)}; where id={igdb_id};',
@@ -362,12 +374,18 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRom]:
+        if not IGDB_API_ENABLED:
+            return []
+
         return [self.get_rom_by_id(igdb_id)]
 
     @check_twitch_token
     def get_matched_roms_by_name(
         self, search_term: str, platform_igdb_id: int, search_extended: bool = False
     ) -> list[IGDBRom]:
+        if not IGDB_API_ENABLED:
+            return []
+
         if not platform_igdb_id:
             return []
 
@@ -451,6 +469,9 @@ class IGDBHandler(MetadataHandler):
 
 class TwitchAuth:
     def _update_twitch_token(self) -> str:
+        if not IGDB_API_ENABLED:
+            return ""
+
         res = requests.post(
             url="https://id.twitch.tv/oauth2/token",
             params={
@@ -481,6 +502,9 @@ class TwitchAuth:
         # Use a fake token when running tests
         if "pytest" in sys.modules:
             return "test_token"
+        
+        if not IGDB_API_ENABLED:
+            return ""
 
         # Fetch the token cache
         token = cache.get("romm:twitch_token")  # type: ignore[attr-defined]
