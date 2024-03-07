@@ -56,6 +56,19 @@ start_bin_nginx () {
     fi
 }
 
+start_bin_redis-server () {
+    info_log "starting redis-server"
+
+    # Check if /usr/local/etc/redis/redis.conf exists and use it if so
+    if [ -f /usr/local/etc/redis/redis.conf ]; then
+        redis-server /usr/local/etc/redis/redis.conf &
+    else
+        redis-server &
+    fi
+    REDIS_PID=$!
+    echo $REDIS_PID > /tmp/redis-server.pid
+}
+
 # function that runs our independent python scripts and creates corresponding PID files,
 start_python () {
     SCRIPT="${1}"
@@ -93,6 +106,9 @@ cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
 # function definition done, lets start our main loop
 while true; do
+    # Start redis server if we dont have a corresponding PID file
+    watchdog_process_pid bin redis-server
+
     # Run needed database migrations on startup,
     # but only if it was not successful since the last full docker container start
     if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
