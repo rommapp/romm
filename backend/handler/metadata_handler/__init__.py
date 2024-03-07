@@ -147,13 +147,13 @@ class MetadataHandler:
             with open(MAME_XML_FILE, "r") as index_xml:
                 mame_index = xmltodict.parse(index_xml.read())
         except FileNotFoundError:
-            log.warning("Fetching the MAME XML file from HyperspinFE...")
+            log.warning("Fetching the MAME XML file from Github...")
             await update_mame_xml_task.run(force=True)
             try:
                 with open(MAME_XML_FILE, "r") as index_xml:
                     mame_index = xmltodict.parse(index_xml.read())
             except FileNotFoundError:
-                log.error("Could not fetch the MAME XML file from HyperspinFE")
+                log.error("Could not fetch the MAME XML file from Github")
         finally:
             index_entry = [
                 game
