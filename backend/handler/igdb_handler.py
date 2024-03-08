@@ -10,6 +10,7 @@ import pydash
 import requests
 import xmltodict
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from fastapi import HTTPException, status
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
@@ -158,12 +159,13 @@ class IGDBHandler:
     def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].headers[
-                "Authorization"
-            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
+            args[0].headers["Authorization"] = (
+                f"Bearer {args[0].twitch_auth.get_oauth_token()}"
+            )
             return func(*args)
 
         return wrapper
+
 
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
@@ -173,8 +175,15 @@ class IGDBHandler:
                 headers=self.headers,
                 timeout=timeout,
             )
+
             res.raise_for_status()
             return res.json()
+        except requests.exceptions.ConnectionError:
+            log.critical("Connection error: can't connect to IGDB", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection",
+            )
         except HTTPError as err:
             # Retry once if the auth token is invalid
             if err.response.status_code != 401:
@@ -259,7 +268,9 @@ class IGDBHandler:
 
         return search_term
 
-    async def _switch_titledb_format(self, match: re.Match[str], search_term: str) -> str:
+    async def _switch_titledb_format(
+        self, match: re.Match[str], search_term: str
+    ) -> str:
         titledb_index = {}
         title_id = match.group(1)
 
@@ -281,7 +292,9 @@ class IGDBHandler:
 
         return search_term
 
-    async def _switch_productid_format(self, match: re.Match[str], search_term: str) -> str:
+    async def _switch_productid_format(
+        self, match: re.Match[str], search_term: str
+    ) -> str:
         product_id_index = {}
         product_id = match.group(1)
 
@@ -527,23 +540,31 @@ class IGDBHandler:
 
 class TwitchAuth:
     def _update_twitch_token(self) -> str:
-        res = requests.post(
-            url="https://id.twitch.tv/oauth2/token",
-            params={
-                "client_id": IGDB_CLIENT_ID,
-                "client_secret": IGDB_CLIENT_SECRET,
-                "grant_type": "client_credentials",
-            },
-            timeout=30,
-        ).json()
-
-        token = res.get("access_token", "")
-        expires_in = res.get("expires_in", 0)
-        if not token or expires_in == 0:
-            log.error(
-                "Could not get twitch auth token: check client_id and client_secret"
+        token = ""
+        expires_in = 0
+        try:
+            res = requests.post(
+                url="https://id.twitch.tv/oauth2/token",
+                params={
+                    "client_id": IGDB_CLIENT_ID,
+                    "client_secret": IGDB_CLIENT_SECRET,
+                    "grant_type": "client_credentials",
+                },
+                timeout=10,
             )
-            sys.exit(2)
+
+            if res.status_code == 400:
+                log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
+                return token
+            else:
+                token = res.json().get("access_token", "")
+                expires_in = res.json().get("expires_in", 0)
+        except requests.exceptions.ConnectionError:
+            log.critical("Can't connect to IGDB, check your internet connection.")
+            return token
+
+        if not token or expires_in == 0:
+            return token
 
         # Set token in redis to expire in <expires_in> seconds
         cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
