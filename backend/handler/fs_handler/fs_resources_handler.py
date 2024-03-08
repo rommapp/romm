@@ -86,6 +86,7 @@ class FSResourceHandler(FSHandler):
         """
         cover_file = f"{size.value}.png"
         cover_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
+        
         try:
             res = requests.get(
                 url_cover.replace("t_thumb", f"t_cover_{size.value}"),
@@ -93,14 +94,12 @@ class FSResourceHandler(FSHandler):
                 timeout=120,
             )
         except requests.exceptions.ConnectionError:
-            msg = (
-                "Connection error: couldn't get game cover. Check internet connection."
-            )
-            log.critical(msg)
+            log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=msg,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection.",
             )
+        
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
@@ -169,15 +168,16 @@ class FSResourceHandler(FSHandler):
         """
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
+        
         try:
             res = requests.get(url, stream=True, timeout=120)
         except requests.exceptions.ConnectionError:
-            msg = "Connection error: couldn't get game screenshots. Check internet connection."
-            log.critical(msg)
+            log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=msg,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection.",
             )
+        
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
             with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:

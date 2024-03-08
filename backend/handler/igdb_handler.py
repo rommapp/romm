@@ -159,42 +159,31 @@ class IGDBHandler:
     def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].headers[
-                "Authorization"
-            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
+            args[0].headers["Authorization"] = (
+                f"Bearer {args[0].twitch_auth.get_oauth_token()}"
+            )
             return func(*args)
 
         return wrapper
 
-    def check_internet_connection(self) -> bool:
-        try:
-            requests.get(url=self.platform_endpoint, timeout=10)
-            return True
-        except requests.exceptions.ConnectionError:
-            return False
-
-    def check_igdb_credentials(self) -> bool:
-        return True if self.twitch_auth._update_twitch_token() else False
 
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
-            try:
-                res = requests.post(
-                    url,
-                    f"{data} limit {self.pagination_limit};",
-                    headers=self.headers,
-                    timeout=timeout,
-                )
-            except requests.exceptions.ConnectionError:
-                msg = "Connection error: couldn't connect to IGDB. Check internet connection."
-                log.critical(msg)
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=msg,
-                )
+            res = requests.post(
+                url,
+                f"{data} limit {self.pagination_limit};",
+                headers=self.headers,
+                timeout=timeout,
+            )
 
             res.raise_for_status()
             return res.json()
+        except requests.exceptions.ConnectionError:
+            log.critical("Connection error: can't connect to IGDB", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection",
+            )
         except HTTPError as err:
             # Retry once if the auth token is invalid
             if err.response.status_code != 401:
@@ -571,9 +560,7 @@ class TwitchAuth:
                 token = res.json().get("access_token", "")
                 expires_in = res.json().get("expires_in", 0)
         except requests.exceptions.ConnectionError:
-            log.critical(
-                "Connection error: Couldn't connect to IGDB. Check internet connection."
-            )
+            log.critical("Can't connect to IGDB, check your internet connection.")
             return token
 
         if not token or expires_in == 0:

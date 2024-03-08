@@ -86,11 +86,7 @@ class RemoteFilePullTask(PeriodicTask):
         log.info(f"Scheduled {self.description} started...")
 
         try:
-            try:
-                response = requests.get(self.url)
-            except requests.exceptions.ConnectionError:
-                log.error(f"Scheduled {self.description} failed. Check internet connection", exc_info=True)
-                return None
+            response = requests.get(self.url)
             response.raise_for_status()
 
             with open(self.file_path, "wb") as fixture:
