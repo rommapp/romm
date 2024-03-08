@@ -173,6 +173,9 @@ class IGDBHandler:
         except requests.exceptions.ConnectionError:
             return False
 
+    def check_igdb_credentials(self) -> bool:
+        return True if self.twitch_auth._update_twitch_token() else False
+
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
             try:
@@ -189,7 +192,7 @@ class IGDBHandler:
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=msg,
                 )
-                
+
             res.raise_for_status()
             return res.json()
         except HTTPError as err:
@@ -562,22 +565,16 @@ class TwitchAuth:
             )
 
             if res.status_code == 400:
-                msg = "IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
-                log.critical(msg)
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=msg,
-                )
+                log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
+                return token
             else:
                 token = res.json().get("access_token", "")
                 expires_in = res.json().get("expires_in", 0)
         except requests.exceptions.ConnectionError:
-            msg = "Connection error: Couldn't connect to IGDB. Check internet connection."
-            log.critical(msg)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=msg,
+            log.critical(
+                "Connection error: Couldn't connect to IGDB. Check internet connection."
             )
+            return token
 
         if not token or expires_in == 0:
             return token
