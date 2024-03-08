@@ -12,6 +12,7 @@ from handler import (
     fs_platform_handler,
     fs_rom_handler,
     socket_handler,
+    igdb_handler,
 )
 from handler.redis_handler import high_prio_queue, redis_url
 from handler.scan_handler import (
@@ -42,6 +43,12 @@ async def scan_platforms(
     """
 
     sm = _get_socket_manager()
+
+    if not igdb_handler.check_internet_connection():
+        msg = "Couldn't connect to IGDB. Check internet connection."
+        log.error(msg)
+        await sm.emit("scan:done_ko", msg)
+        return
 
     try:
         # Scanning file system
