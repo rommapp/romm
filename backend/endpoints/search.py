@@ -30,9 +30,16 @@ async def search_rom(
         RomSearchResponse: List of objects with all the matched roms
     """
 
-    results = []
     if not igdb_handler.check_internet_connection():
         msg = "Connection error: couldn't connect to IGDB. Check internet connection."
+        log.critical(msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=msg,
+        )
+
+    if not igdb_handler.check_igdb_credentials():
+        msg = "IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
         log.critical(msg)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -63,6 +70,7 @@ async def search_rom(
         )
 
     log.info("Results:")
+    results = []
     for m_rom in matched_roms:
         log.info(f"\t - {m_rom['name']}")
         results.append(m_rom)

@@ -51,6 +51,12 @@ async def scan_platforms(
         await sm.emit("scan:done_ko", msg)
         return
 
+    if not igdb_handler.check_igdb_credentials():
+        msg = "IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
+        log.critical(msg)
+        await sm.emit("scan:done_ko", msg)
+        return
+
     try:
         # Scanning file system
         try:
