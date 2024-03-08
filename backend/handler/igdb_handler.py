@@ -10,6 +10,7 @@ import pydash
 import requests
 import xmltodict
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from fastapi import HTTPException, status
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
@@ -164,10 +165,10 @@ class IGDBHandler:
             return func(*args)
 
         return wrapper
-    
+
     def check_internet_connection(self) -> bool:
         try:
-            requests.get(url=self.platform_endpoint,timeout=10)
+            requests.get(url=self.platform_endpoint, timeout=10)
             return True
         except requests.exceptions.ConnectionError:
             return False
@@ -182,8 +183,13 @@ class IGDBHandler:
                     timeout=timeout,
                 )
             except requests.exceptions.ConnectionError:
-                log.warning("Couldn't connect to IGDB. Check internet connection.")
-                return
+                msg = "Connection error: couldn't connect to IGDB. Check internet connection."
+                log.critical(msg)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=msg,
+                )
+                
             res.raise_for_status()
             return res.json()
         except HTTPError as err:
@@ -270,7 +276,9 @@ class IGDBHandler:
 
         return search_term
 
-    async def _switch_titledb_format(self, match: re.Match[str], search_term: str) -> str:
+    async def _switch_titledb_format(
+        self, match: re.Match[str], search_term: str
+    ) -> str:
         titledb_index = {}
         title_id = match.group(1)
 
@@ -292,7 +300,9 @@ class IGDBHandler:
 
         return search_term
 
-    async def _switch_productid_format(self, match: re.Match[str], search_term: str) -> str:
+    async def _switch_productid_format(
+        self, match: re.Match[str], search_term: str
+    ) -> str:
         product_id_index = {}
         product_id = match.group(1)
 
@@ -552,14 +562,22 @@ class TwitchAuth:
             )
 
             if res.status_code == 400:
-                msg = "Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
-                log.error(msg)
-                raise ValueError(msg)
+                msg = "IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
+                log.critical(msg)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=msg,
+                )
             else:
                 token = res.json().get("access_token", "")
                 expires_in = res.json().get("expires_in", 0)
         except requests.exceptions.ConnectionError:
-            log.error("Couldn't connect to IGDB. Check internet connection.")
+            msg = "Connection error: Couldn't connect to IGDB. Check internet connection."
+            log.critical(msg)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=msg,
+            )
 
         if not token or expires_in == 0:
             return token

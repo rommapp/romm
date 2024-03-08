@@ -30,6 +30,15 @@ async def search_rom(
         RomSearchResponse: List of objects with all the matched roms
     """
 
+    results = []
+    if not igdb_handler.check_internet_connection():
+        msg = "Connection error: couldn't connect to IGDB. Check internet connection."
+        log.critical(msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=msg,
+        )
+
     rom = db_rom_handler.get_roms(rom_id)
     search_term = search_term or rom.file_name_no_tags
 
@@ -42,10 +51,11 @@ async def search_rom(
         try:
             matched_roms = igdb_handler.get_matched_roms_by_id(int(search_term))
         except ValueError:
-            log.error(f"Search error: invalid ID '{search_term}'")
+            msg = f"Search error: invalid ID '{search_term}'"
+            log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Search error: invalid ID '{search_term}'",
+                detail=msg,
             )
     elif search_by.lower() == "name":
         matched_roms = igdb_handler.get_matched_roms_by_name(
@@ -53,7 +63,6 @@ async def search_rom(
         )
 
     log.info("Results:")
-    results = []
     for m_rom in matched_roms:
         log.info(f"\t - {m_rom['name']}")
         results.append(m_rom)
