@@ -84,11 +84,15 @@ class FSResourceHandler(FSHandler):
         """
         cover_file = f"{size.value}.png"
         cover_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
-        res = requests.get(
-            url_cover.replace("t_thumb", f"t_cover_{size.value}"),
-            stream=True,
-            timeout=120,
-        )
+        try:
+            res = requests.get(
+                url_cover.replace("t_thumb", f"t_cover_{size.value}"),
+                stream=True,
+                timeout=120,
+            )
+        except requests.exceptions.ConnectionError:
+            log.warning("Couldn't get game cover. Check internet connection.")
+            return
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
@@ -157,7 +161,11 @@ class FSResourceHandler(FSHandler):
         """
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
-        res = requests.get(url, stream=True, timeout=120)
+        try:
+            res = requests.get(url, stream=True, timeout=120)
+        except requests.exceptions.ConnectionError:
+            log.warning("Couldn't get game screenshots. Check internet connection.")
+            return        
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
             with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:

@@ -40,6 +40,9 @@ class GHHandler:
         except ReadTimeout:
             log.warning("Couldn't check last RomM version.")
             return ""
+        except requests.exceptions.ConnectionError:
+            log.warning("Couldn't check last RomM version. Check internet connection")
+            return ""
         try:
             last_version = response.json()["name"][
                 1:

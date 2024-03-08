@@ -164,15 +164,26 @@ class IGDBHandler:
             return func(*args)
 
         return wrapper
+    
+    def check_internet_connection(self) -> bool:
+        try:
+            requests.get(url=self.platform_endpoint,timeout=10)
+            return True
+        except requests.exceptions.ConnectionError:
+            return False
 
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
-            res = requests.post(
-                url,
-                f"{data} limit {self.pagination_limit};",
-                headers=self.headers,
-                timeout=timeout,
-            )
+            try:
+                res = requests.post(
+                    url,
+                    f"{data} limit {self.pagination_limit};",
+                    headers=self.headers,
+                    timeout=timeout,
+                )
+            except requests.exceptions.ConnectionError:
+                log.warning("Couldn't connect to IGDB. Check internet connection.")
+                return
             res.raise_for_status()
             return res.json()
         except HTTPError as err:
@@ -527,23 +538,29 @@ class IGDBHandler:
 
 class TwitchAuth:
     def _update_twitch_token(self) -> str:
-        res = requests.post(
-            url="https://id.twitch.tv/oauth2/token",
-            params={
-                "client_id": IGDB_CLIENT_ID,
-                "client_secret": IGDB_CLIENT_SECRET,
-                "grant_type": "client_credentials",
-            },
-            timeout=30,
-        ).json()
-
-        token = res.get("access_token", "")
-        expires_in = res.get("expires_in", 0)
-        if not token or expires_in == 0:
-            log.error(
-                "Could not get twitch auth token: check client_id and client_secret"
+        token = ""
+        expires_in = 0
+        try:
+            res = requests.post(
+                url="https://id.twitch.tv/oauth2/token",
+                params={
+                    "client_id": IGDB_CLIENT_ID,
+                    "client_secret": IGDB_CLIENT_SECRET,
+                    "grant_type": "client_credentials",
+                },
+                timeout=10,
             )
-            sys.exit(2)
+
+            if res.status_code == 400:
+                log.error("Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
+            else:
+                token = res.json().get("access_token", "")
+                expires_in = res.json().get("expires_in", 0)
+        except requests.exceptions.ConnectionError:
+            log.error("Couldn't connect to IGDB. Check internet connection.")
+
+        if not token or expires_in == 0:
+            return token
 
         # Set token in redis to expire in <expires_in> seconds
         cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
