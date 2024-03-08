@@ -552,7 +552,9 @@ class TwitchAuth:
             )
 
             if res.status_code == 400:
-                log.error("Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
+                msg = "Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
+                log.error(msg)
+                raise ValueError(msg)
             else:
                 token = res.json().get("access_token", "")
                 expires_in = res.json().get("expires_in", 0)
