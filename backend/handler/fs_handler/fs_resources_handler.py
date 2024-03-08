@@ -2,10 +2,10 @@ import os
 import shutil
 from pathlib import Path
 from urllib.parse import quote
-from urllib3.exceptions import ProtocolError
-from logger.logger import log
+
 import requests
 from config import RESOURCES_BASE_PATH
+from fastapi import HTTPException, status
 from handler.fs_handler import (
     DEFAULT_HEIGHT_COVER_L,
     DEFAULT_HEIGHT_COVER_S,
@@ -14,7 +14,9 @@ from handler.fs_handler import (
     CoverSize,
     FSHandler,
 )
+from logger.logger import log
 from PIL import Image
+from urllib3.exceptions import ProtocolError
 
 
 class FSResourceHandler(FSHandler):
@@ -91,8 +93,14 @@ class FSResourceHandler(FSHandler):
                 timeout=120,
             )
         except requests.exceptions.ConnectionError:
-            log.warning("Couldn't get game cover. Check internet connection.")
-            return
+            msg = (
+                "Connection error: couldn't get game cover. Check internet connection."
+            )
+            log.critical(msg)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=msg,
+            )
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
@@ -164,8 +172,12 @@ class FSResourceHandler(FSHandler):
         try:
             res = requests.get(url, stream=True, timeout=120)
         except requests.exceptions.ConnectionError:
-            log.warning("Couldn't get game screenshots. Check internet connection.")
-            return        
+            msg = "Connection error: couldn't get game screenshots. Check internet connection."
+            log.critical(msg)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=msg,
+            )
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
             with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:
