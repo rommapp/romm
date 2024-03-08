@@ -2,7 +2,6 @@ import emoji
 import socketio  # type: ignore
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
-from fastapi import HTTPException
 from exceptions.fs_exceptions import (
     FolderStructureNotMatchException,
     RomsNotFoundException,
@@ -13,7 +12,6 @@ from handler import (
     fs_platform_handler,
     fs_rom_handler,
     socket_handler,
-    igdb_handler,
 )
 from handler.redis_handler import high_prio_queue, redis_url
 from handler.scan_handler import (
@@ -44,18 +42,6 @@ async def scan_platforms(
     """
 
     sm = _get_socket_manager()
-
-    if not igdb_handler.check_internet_connection():
-        msg = "Connection error: couldn't connect to IGDB. Check internet connection."
-        log.critical(msg)
-        await sm.emit("scan:done_ko", msg)
-        return
-
-    if not igdb_handler.check_igdb_credentials():
-        msg = "IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET"
-        log.critical(msg)
-        await sm.emit("scan:done_ko", msg)
-        return
 
     try:
         # Scanning file system
@@ -140,10 +126,6 @@ async def scan_platforms(
         log.info(emoji.emojize(":check_mark:  Scan completed "))
 
         await sm.emit("scan:done", {})
-    except HTTPException as e:
-        log.critical(e.detail)
-        await sm.emit("scan:done_ko", e.detail)
-        return
     except Exception as e:
         log.error(e)
         # Catch all exceptions and emit error to the client
