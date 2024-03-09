@@ -219,6 +219,9 @@ class IGDBHandler:
         name = name.lower()
         name = re.sub(r'_', ' ', name)
 
+        # Remove apostrophes and quotes
+        name = re.sub(r'[\'\"]', '', name)
+
         # Remove leading and trailing articles
         name = re.sub(r'^(a|an|the)\b', '', name)
         name = re.sub(r',\b(a|an|the)\b', '', name)
