@@ -8,6 +8,7 @@ from typing import Final, Optional
 
 import pydash
 import requests
+import unicodedata
 import xmltodict
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
