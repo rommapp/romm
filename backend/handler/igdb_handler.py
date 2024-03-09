@@ -274,7 +274,6 @@ class IGDBHandler:
             if rom["name"].lower() == search_term.lower()
             or rom["slug"].lower() == search_term.lower()
             or self._normalize_rom_name(rom["name"]) == self._normalize_rom_name(search_term)
-            or self._normalize_rom_name(rom["slug"]) == self._normalize_rom_name(search_term)
         ]
 
         return pydash.get(exact_matches or roms, "[0]", {})
