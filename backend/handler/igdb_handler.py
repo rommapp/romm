@@ -214,6 +214,23 @@ class IGDBHandler:
         return res.json()
 
     @staticmethod
+    def _normalize_rom_name(name: str) -> str:
+        # Convert to lower case, replace underscores with spaces
+        name = name.lower()
+        name = re.sub(r'_', ' ', name)
+
+        # Remove leading and trailing articles
+        name = re.sub(r'^(a|an|the)\b', '', name)
+        name = re.sub(r',\b(a|an|the)\b', '', name)
+
+        # Remove special characters and punctuation
+        converted_name = ' '.join((re.findall(r'\w+', name)))  # only keep words, no special characters or punctuation
+        normalized_name = unicodedata.normalize('NFD', converted_name)  # convert to normal form
+        canonical_form = ''.join([c for c in normalized_name if not unicodedata.combining(c)])  # remove accents
+
+        return canonical_form.strip()
+
+    @staticmethod
     def _normalize_search_term(search_term: str) -> str:
         return (
             search_term.replace("\u2122", "")  # Remove trademark symbol
@@ -253,6 +270,8 @@ class IGDBHandler:
             for rom in roms
             if rom["name"].lower() == search_term.lower()
             or rom["slug"].lower() == search_term.lower()
+            or self._normalize_rom_name(rom["name"]) == self._normalize_rom_name(search_term)
+            or self._normalize_rom_name(rom["slug"]) == self._normalize_rom_name(search_term)
         ]
 
         return pydash.get(exact_matches or roms, "[0]", {})
