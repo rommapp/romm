@@ -38,7 +38,10 @@ class GHHandler:
                 "https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=5
             )
         except ReadTimeout:
-            log.warning("Couldn't check last RomM version.")
+            log.warning("Timeout while connecting to Github")
+            return ""
+        except requests.exceptions.ConnectionError:
+            log.warning("Could not connect to Github, check your internet connection")
             return ""
         try:
             last_version = response.json()["name"][

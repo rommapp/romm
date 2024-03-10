@@ -182,9 +182,13 @@ def get_rom_content(
 
     rom = db_rom_handler.get_roms(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+    files_to_download = files or rom.files
 
     if not rom.multi:
-        return FileResponse(path=rom_path, filename=file_name)
+        return FileResponse(path=rom_path, filename=rom.file_name)
+    
+    if len(files_to_download) == 1:
+        return FileResponse(path=f"{rom_path}/{files_to_download[0]}", filename=files_to_download[0])
 
     # Builds a generator of tuples for each member file
     def local_files():
@@ -196,7 +200,7 @@ def get_rom_content(
             except FileNotFoundError:
                 log.error(f"File {rom_path}/{f} not found!")
 
-        m3u_file = [str.encode(f"{rom.files[i]}\n") for i in range(len(rom.files))]
+        m3u_file = [str.encode(f"{files_to_download[i]}\n") for i in range(len(files_to_download))]
         return [
             (
                 f,
@@ -205,7 +209,7 @@ def get_rom_content(
                 ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}")),
                 contents(f),
             )
-            for f in rom.files
+            for f in files_to_download
         ] + [
             (
                 f"{file_name}.m3u",

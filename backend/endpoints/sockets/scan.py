@@ -147,6 +147,7 @@ async def scan_platforms(
         log.error(e)
         # Catch all exceptions and emit error to the client
         await sm.emit("scan:done_ko", str(e))
+        return
 
 
 @socket_handler.socket_server.on("scan")

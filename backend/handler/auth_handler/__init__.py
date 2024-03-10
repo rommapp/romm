@@ -77,7 +77,7 @@ class AuthHandler:
         # Key exists therefore user is probably authenticated
         user = db_user_handler.get_user_by_username(username)
         if user is None:
-            conn.session.clear()
+            conn.session = {}
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -85,7 +85,7 @@ class AuthHandler:
             )
 
         if not user.enabled:
-            conn.session.clear()
+            conn.session = {}
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"

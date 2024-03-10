@@ -127,7 +127,7 @@ async function downloadRom({
   a.click();
 
   // Only connect socket if multi-file download
-  if (rom.multi) {
+  if (rom.multi && files.length > 1) {
     if (!socket.connected) socket.connect();
     storeDownload().add(rom.id);
 

@@ -1,7 +1,7 @@
 import sys
 from enum import Enum
 
-from config import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
+from config import REDIS_HOST, REDIS_PORT
 from logger.logger import log
 from redis import Redis
 from rq import Queue
@@ -39,15 +39,8 @@ class FallbackCache:
         return repr(self)
 
 
-redis_client = Redis(
-    host=REDIS_HOST, port=int(REDIS_PORT), password=REDIS_PASSWORD, db=0
-)
-
-redis_url = (
-    f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
-    if REDIS_PASSWORD
-    else f"redis://{REDIS_HOST}:{REDIS_PORT}"
-)
+redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
@@ -60,8 +53,7 @@ else:
     # A seperate client that auto-decodes responses is needed
     cache = Redis(
         host=REDIS_HOST,
-        port=int(REDIS_PORT),
-        password=REDIS_PASSWORD,
+        port=REDIS_PORT,
         db=0,
         decode_responses=True,
     )

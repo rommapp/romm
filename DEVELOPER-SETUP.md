@@ -42,8 +42,7 @@ pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-packa
 
 More info: https://github.com/python-poetry/poetry/pull/8650
 
-
-Then creat the virtual environment
+Then create the virtual environment
 
 ```sh
 # Fix disable parallel installation stuck: $> poetry_npm config experimental.new-installer false
