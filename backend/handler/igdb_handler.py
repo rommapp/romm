@@ -228,11 +228,11 @@ class IGDBHandler:
         name = re.sub(r',\b(a|an|the)\b', '', name)
 
         # Remove special characters and punctuation
-        converted_name = ' '.join((re.findall(r'\w+', name)))  # only keep words, no special characters or punctuation
+        converted_name = ''.join((re.findall(r'\w+', name)))  # only keep words, no special characters or punctuation
         normalized_name = unicodedata.normalize('NFD', converted_name)  # convert to normal form
         canonical_form = ''.join([c for c in normalized_name if not unicodedata.combining(c)])  # remove accents
 
-        return canonical_form.strip()
+        return canonical_form
 
     @staticmethod
     def _normalize_search_term(search_term: str) -> str:
