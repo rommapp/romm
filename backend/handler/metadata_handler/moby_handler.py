@@ -10,6 +10,7 @@ from requests.exceptions import HTTPError, Timeout
 from logger.logger import log
 from unidecode import unidecode as uc
 from urllib.parse import quote
+from fastapi import HTTPException, status
 
 from . import (
     MetadataHandler,
@@ -78,6 +79,12 @@ class MobyGamesHandler(MetadataHandler):
             res = requests.get(authorized_url, timeout=timeout)
             res.raise_for_status()
             return res.json()
+        except requests.exceptions.ConnectionError:
+            log.critical("Connection error: can't connect to IGDB", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection",
+            )
         except HTTPError as err:
             if err.response.status_code != 429:
                 log.error(err)

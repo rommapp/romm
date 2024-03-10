@@ -3,14 +3,18 @@ import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import type { Rom } from "@/stores/roms";
+import storeHeartbeat from "@/stores/heartbeat";
 
 defineProps<{ rom: Rom }>();
 const emitter = inject<Emitter<Events>>("emitter");
+const heartbeat = storeHeartbeat();
 </script>
 
 <template>
   <v-list rounded="0" class="pa-0">
     <v-list-item
+      :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
+      :title="!heartbeat.value.ANY_SOURCE_ENABLED ? 'No metadata source enabled' : ''"
       @click="emitter?.emit('showSearchRomDialog', rom)"
       class="py-4 pr-5"
     >

@@ -27,4 +27,5 @@ class HeartbeatResponse(TypedDict):
     NEW_VERSION: str
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
+    ANY_SOURCE_ENABLED: bool
     METADATA_SOURCES: MetadataSourcesDict
