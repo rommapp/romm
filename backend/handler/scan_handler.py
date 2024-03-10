@@ -180,22 +180,30 @@ async def scan_rom(
     igdb_handler_rom = {}
     moby_handler_rom = {}
 
-    if "igdb" in metadata_sources and (
-        not rom
-        or scan_type == "complete"
-        or (scan_type == "partial" and not rom.igdb_id)
-        or (scan_type == "unidentified" and not rom.igdb_id)
+    if (
+        "igdb" in metadata_sources
+        and platform.igdb_id
+        and (
+            not rom
+            or scan_type == "complete"
+            or (scan_type == "partial" and not rom.igdb_id)
+            or (scan_type == "unidentified" and not rom.igdb_id)
+        )
     ):
         main_platform_igdb_id = _get_main_platform_igdb_id(platform)
         igdb_handler_rom = await igdb_handler.get_rom(
             rom_attrs["file_name"], main_platform_igdb_id
         )
 
-    if "moby" in metadata_sources and (
-        not rom
-        or scan_type == "complete"
-        or (scan_type == "partial" and not rom.moby_id)
-        or (scan_type == "unidentified" and not rom.moby_id)
+    if (
+        "moby" in metadata_sources
+        and platform.moby_id
+        and (
+            not rom
+            or scan_type == "complete"
+            or (scan_type == "partial" and not rom.moby_id)
+            or (scan_type == "unidentified" and not rom.moby_id)
+        )
     ):
         moby_handler_rom = await moby_handler.get_rom(
             rom_attrs["file_name"], platform.moby_id
