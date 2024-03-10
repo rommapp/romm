@@ -478,28 +478,12 @@ class IGDBHandler(MetadataHandler):
 
 class TwitchAuth:
     def _update_twitch_token(self) -> str:
-<<<<<<< HEAD:backend/handler/metadata_handler/igdb_handler.py
-        if not IGDB_API_ENABLED:
-            return ""
-
-        res = requests.post(
-            url="https://id.twitch.tv/oauth2/token",
-            params={
-                "client_id": IGDB_CLIENT_ID,
-                "client_secret": IGDB_CLIENT_SECRET,
-                "grant_type": "client_credentials",
-            },
-            timeout=30,
-        ).json()
-
-        token = res.get("access_token", "")
-        expires_in = res.get("expires_in", 0)
-        if not token or expires_in == 0:
-            log.error(
-                "Could not get twitch auth token: check client_id and client_secret"
-=======
         token = ""
         expires_in = 0
+        
+        if not IGDB_API_ENABLED:
+            return token
+
         try:
             res = requests.post(
                 url="https://id.twitch.tv/oauth2/token",
@@ -509,7 +493,6 @@ class TwitchAuth:
                     "grant_type": "client_credentials",
                 },
                 timeout=10,
->>>>>>> master:backend/handler/igdb_handler.py
             )
 
             if res.status_code == 400:
