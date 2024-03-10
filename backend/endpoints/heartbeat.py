@@ -28,6 +28,7 @@ def heartbeat() -> HeartbeatResponse:
     return {
         "VERSION": github_handler.get_version(),
         "NEW_VERSION": github_handler.check_new_version(),
+        "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
         "METADATA_SOURCES": {
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,

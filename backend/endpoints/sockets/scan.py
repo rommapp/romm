@@ -19,6 +19,8 @@ from handler.scan_handler import (
     scan_rom,
     ScanType,
 )
+from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
+from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
 from logger.logger import log
 
 
@@ -43,6 +45,11 @@ async def scan_platforms(
     """
 
     sm = _get_socket_manager()
+
+    if not IGDB_API_ENABLED and not MOBY_API_ENABLED:
+        log.error("Search error: No metadata providers enabled")
+        await sm.emit("scan:done_ko", "No metadata providers enabled")
+        return
 
     try:
         fs_platforms: list[str] = fs_platform_handler.get_platforms()
