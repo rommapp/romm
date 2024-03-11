@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { views } from "@/utils";
-import api from "@/services/api";
-import storeRoms from "@/stores/roms";
-import GameCard from "@/components/Game/Card/Base.vue";
+import LoadingDialog from "@/components/Dialog/Loading.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import LoadingDialog from "@/components/Dialog/Loading.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
+import romApi from "@/services/api/rom";
+import storeRoms from "@/stores/roms";
+import { views } from "@/utils";
+import { onMounted, ref } from "vue";
 
 // Props
 const romsStore = storeRoms();
@@ -20,9 +20,15 @@ function scrollX(e: WheelEvent) {
   scroll_container.value.scrollLeft += e.deltaY;
 }
 
-onMounted(async () => {
-  const { data: recentData } = await api.fetchRecentRoms();
-  romsStore.setRecentRoms(recentData);
+onMounted(() => {
+  romApi
+    .getRecentRoms()
+    .then(({ data: recentData }) => {
+      romsStore.setRecentRoms(recentData.items);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 });
 </script>
 <template>
@@ -34,7 +40,7 @@ onMounted(async () => {
       ></v-toolbar
     >
     <v-divider class="border-opacity-25" />
-    <v-card-text>
+    <v-card-text class="scroll">
       <v-row
         ref="scroll_container"
         @mousewheel="scrollX"
@@ -70,3 +76,8 @@ onMounted(async () => {
   <delete-rom-dialog />
   <loading-dialog />
 </template>
+<style scoped>
+.scroll {
+  overflow-x: visible;
+}
+</style>

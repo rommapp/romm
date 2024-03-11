@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useRoute } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
+import romApi from "@/services/api/rom";
+import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
-import socket from "@/services/socket";
 import storeScanning from "@/stores/scanning";
-import api from "@/services/api";
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -16,37 +16,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 // Props
 const auth = storeAuth();
 const romsStore = storeRoms();
-const scanning = storeScanning();
+const scanningStore = storeScanning();
 const route = useRoute();
-
-socket.on("scan:scanning_rom", ({ id }) => {
-  const rom = romsStore.selectedRoms.find((r) => r.id === id);
-  if (rom) romsStore.removeFromSelection(rom);
-});
-
-socket.on("scan:done", () => {
-  scanning.set(false);
-  emitter?.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
-    icon: "mdi-check-bold",
-    color: "green",
-  });
-  socket.disconnect();
-});
-
-socket.on("scan:done_ko", (msg: string) => {
-  scanning.set(false);
-  emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-    icon: "mdi-close-circle",
-    color: "red",
-  });
-  socket.disconnect();
-});
 
 // Functions
 async function onScan() {
-  scanning.set(true);
+  scanningStore.set(true);
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${route.params.platform}...`,
     icon: "mdi-loading mdi-spin",
@@ -71,7 +46,7 @@ function selectAllRoms() {
 
 function onDownload() {
   romsStore.selectedRoms.forEach((rom) => {
-    api.downloadRom({ rom });
+    romApi.downloadRom({ rom });
   });
 }
 </script>

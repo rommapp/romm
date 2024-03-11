@@ -1,7 +1,8 @@
 import os
 import secrets
-from dotenv import load_dotenv
 from typing import Final
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -12,28 +13,10 @@ ROMM_HOST: Final = os.environ.get("ROMM_HOST", DEV_HOST)
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
-ROMS_FOLDER_NAME: Final = os.environ.get("ROMS_FOLDER_NAME", "roms")
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
-FRONT_LIBRARY_PATH: Final = "/assets/romm/library"
-ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config.yml"
-SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
-LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
-HIGH_PRIO_STRUCTURE_PATH: Final = f"{LIBRARY_BASE_PATH}/{ROMS_FOLDER_NAME}"
-
-# DEFAULT RESOURCES
-DEFAULT_URL_COVER_L: Final = (
-    "https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png"
-)
-DEFAULT_PATH_COVER_L: Final = "default/default/cover/big.png"
-DEFAULT_WIDTH_COVER_L: Final = 264 # Width of big cover of IGDB
-DEFAULT_HEIGHT_COVER_L: Final = 352 # Height of big cover of IGDB
-DEFAULT_URL_COVER_S: Final = (
-    "https://images.igdb.com/igdb/image/upload/t_cover_small/nocover.png"
-)
-DEFAULT_PATH_COVER_S: Final = "default/default/cover/small.png"
-DEFAULT_WIDTH_COVER_S: Final = 90 # Width of small cover of IGDB
-DEFAULT_HEIGHT_COVER_S: Final = 120 # Height of small cover of IGDB
+ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
+FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
 # MARIADB
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
@@ -43,12 +26,8 @@ DB_PASSWD: Final = os.environ.get("DB_PASSWD")
 DB_NAME: Final = os.environ.get("DB_NAME", "romm")
 
 # REDIS
-ENABLE_EXPERIMENTAL_REDIS: Final = (
-    os.environ.get("ENABLE_EXPERIMENTAL_REDIS", "false") == "true"
-)
-REDIS_HOST: Final = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT: Final = os.environ.get("REDIS_PORT", "6379")
-REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
+REDIS_HOST: Final = "127.0.0.1"
+REDIS_PORT: Final = 6379
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
@@ -62,15 +41,15 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
 # DB DRIVERS
-ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "sqlite")
+ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # AUTH
-ROMM_AUTH_ENABLED: Final = os.environ.get("ROMM_AUTH_ENABLED", "false") == "true"
 ROMM_AUTH_USERNAME: Final = os.environ.get("ROMM_AUTH_USERNAME", "admin")
 ROMM_AUTH_PASSWORD: Final = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
+DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
 
 # TASKS
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
@@ -83,17 +62,20 @@ ENABLE_SCHEDULED_RESCAN: Final = (
     os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
 )
 SCHEDULED_RESCAN_CRON: Final = os.environ.get(
-    "SCHEDULED_RESCAN_CRON", "0 3 * * *"  # At 3:00 AM every day
+    "SCHEDULED_RESCAN_CRON",
+    "0 3 * * *",  # At 3:00 AM every day
 )
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
     os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
 )
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
-    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON", "0 4 * * *"  # At 4:00 AM every day
+    "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
+    "0 4 * * *",  # At 4:00 AM every day
 )
 ENABLE_SCHEDULED_UPDATE_MAME_XML: Final = (
     os.environ.get("ENABLE_SCHEDULED_UPDATE_MAME_XML", "false") == "true"
 )
 SCHEDULED_UPDATE_MAME_XML_CRON: Final = os.environ.get(
-    "SCHEDULED_UPDATE_MAME_XML_CRON", "0 5 * * *"  # At 5:00 AM every day
+    "SCHEDULED_UPDATE_MAME_XML_CRON",
+    "0 5 * * *",  # At 5:00 AM every day
 )

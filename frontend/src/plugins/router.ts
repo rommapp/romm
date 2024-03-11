@@ -23,7 +23,7 @@ const routes = [
         component: () => import("@/views/Gallery/Base.vue"),
       },
       {
-        path: "/platform/:platform/:rom",
+        path: "/rom/:rom",
         name: "rom",
         component: () => import("@/views/Details/Base.vue"),
       },
@@ -33,7 +33,7 @@ const routes = [
         component: () => import("@/views/Library/Scan/Base.vue"),
       },
       {
-        path: "/settings/control-panel",
+        path: "/settings/control-panel/",
         name: "controlPanel",
         component: () => import("@/views/Settings/ControlPanel/Base.vue"),
       },
@@ -43,6 +43,10 @@ const routes = [
         component: () => import("@/views/Dashboard/Base.vue"),
       },
     ],
+  },
+  {
+    path: "/play/:rom",
+    component: () => import("@/views/Play/Base.vue"),
   },
 ];
 

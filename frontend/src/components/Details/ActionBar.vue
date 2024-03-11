@@ -1,15 +1,27 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import storeAuth from "@/stores/auth";
-import api from "@/services/api";
-import storeDownload from "@/stores/download";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
+import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import { platformSlugEJSCoreMap } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
-defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom }>();
 const downloadStore = storeDownload();
+const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
-const saveFiles = ref(false);
+const emulation = ref(false);
+const playInfoIcon = ref("mdi-play");
+const emulationSupported = props.rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap;
+
+function toggleEmulation() {
+  emulation.value = !emulation.value;
+  playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play";
+  emitter?.emit("showEmulation", null);
+}
 </script>
 
 <template>
@@ -17,7 +29,7 @@ const saveFiles = ref(false);
     <v-col>
       <v-btn
         @click="
-          api.downloadRom({
+          romApi.downloadRom({
             rom,
             files: downloadStore.filesToDownloadMultiFileRom,
           })
@@ -31,9 +43,25 @@ const saveFiles = ref(false);
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn rounded="0" block :disabled="!saveFiles"
-        ><v-icon icon="mdi-content-save-all" size="large"
-      /></v-btn>
+      <v-tooltip
+        class="tooltip"
+        text="Emulation not currently supported"
+        location="bottom"
+        :disabled="emulationSupported"
+      >
+        <template v-slot:activator="{ props }">
+          <div v-bind="props">
+            <v-btn
+              rounded="0"
+              block
+              @click="toggleEmulation"
+              :disabled="!emulationSupported"
+            >
+              <v-icon :icon="playInfoIcon" size="large" />
+            </v-btn>
+          </div>
+        </template>
+      </v-tooltip>
     </v-col>
     <v-col>
       <v-menu location="bottom">
@@ -52,3 +80,9 @@ const saveFiles = ref(false);
     </v-col>
   </v-row>
 </template>
+<style scoped>
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(201, 201, 201, 0.98) !important;
+  color: rgb(41, 41, 41) !important;
+}
+</style>

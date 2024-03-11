@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { inject } from "vue";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject } from "vue";
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");

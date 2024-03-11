@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-
-import api from "@/services/api";
+import type { SearchRomSchema } from "@/__generated__";
+import romApi from "@/services/api/rom";
 import storeRoms, { type Rom } from "@/stores/roms";
-import type { IGDBRomType } from "@/__generated__";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeUnmount, ref } from "vue";
+import { useDisplay, useTheme } from "vuetify";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -16,33 +15,49 @@ const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
 const searchBy = ref("Name");
-const matchedRoms = ref<IGDBRomType[]>([]);
+const searchExtended = ref(false);
+const matchedRoms = ref<SearchRomSchema[]>([]);
+const theme = useTheme();
 const selectedScrapSource = ref(0);
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.file_name_no_tags;
   show.value = true;
-  searchIGDB();
+  searchRom();
 });
 
-async function searchIGDB() {
+// Functions
+function toggleExtended() {
+  searchExtended.value = !searchExtended.value;
+}
+
+async function searchRom() {
   if (!rom.value) return;
+
+  // Auto hide android keyboard
+  const inputElement = document.getElementById("search-text-field");
+  inputElement?.blur();
 
   if (!searching.value) {
     searching.value = true;
-    await api
-      .searchIGDB({
+    await romApi
+      .searchRom({
         romId: rom.value.id,
-        query: searchTerm.value,
-        field: searchBy.value,
+        source: "igdb",
+        searchTerm: searchTerm.value,
+        searchBy: searchBy.value,
+        searchExtended: searchExtended.value,
       })
       .then((response) => {
-        matchedRoms.value = response.data.roms;
+        matchedRoms.value = response.data;
       })
       .catch((error) => {
-        console.log(error);
+        emitter?.emit("snackbarShow", {
+          msg: error.response.data.detail,
+          icon: "mdi-close-circle",
+          color: "red",
+        });
       })
       .finally(() => {
         searching.value = false;
@@ -50,20 +65,15 @@ async function searchIGDB() {
   }
 }
 
-async function updateRom(matchedRom: IGDBRomType) {
+async function updateRom(matchedRom: SearchRomSchema) {
   if (!rom.value) return;
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  rom.value.igdb_id = matchedRom.igdb_id;
-  rom.value.name = matchedRom.name;
-  rom.value.slug = matchedRom.slug;
-  rom.value.summary = matchedRom.summary;
-  rom.value.url_cover = matchedRom.url_cover;
-  rom.value.url_screenshots = matchedRom.url_screenshots;
+  Object.assign(rom.value, matchedRom);
 
-  await api
+  await romApi
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
@@ -72,6 +82,7 @@ async function updateRom(matchedRom: IGDBRomType) {
         color: "green",
       });
       romsStore.update(data);
+      emitter?.emit("refreshView", null);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -85,6 +96,12 @@ async function updateRom(matchedRom: IGDBRomType) {
     });
 }
 
+function closeDialog() {
+  show.value = false;
+  searchBy.value = "Name";
+  searchExtended.value = false;
+}
+
 onBeforeUnmount(() => {
   emitter?.off("showSearchRomDialog");
 });
@@ -95,9 +112,9 @@ onBeforeUnmount(() => {
     :modelValue="show"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    :scrim="true"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
   >
@@ -115,7 +132,7 @@ onBeforeUnmount(() => {
             <v-icon icon="mdi-search-web" class="ml-5" />
           </v-col>
 
-          <v-col cols="8" xs="8" sm="9" md="9" lg="10">
+          <v-col cols="8" xs="8" sm="9" md="10" lg="10">
             <v-item-group mandatory v-model="selectedScrapSource">
               <v-item v-slot="{ isSelected, toggle }">
                 <v-chip
@@ -146,9 +163,9 @@ onBeforeUnmount(() => {
             </v-item-group>
           </v-col>
 
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+          <v-col cols="2" xs="2" sm="2" md="1" lg="1">
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -162,9 +179,10 @@ onBeforeUnmount(() => {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="7" xs="7" sm="8" md="8" lg="9">
+          <v-col cols="5" xs="5" sm="5" md="6" lg="8">
             <v-text-field
-              @keyup.enter="searchIGDB()"
+              id="search-text-field"
+              @keyup.enter="searchRom()"
               @click:clear="searchTerm = ''"
               class="bg-terciary"
               v-model="searchTerm"
@@ -173,7 +191,7 @@ onBeforeUnmount(() => {
               clearable
             />
           </v-col>
-          <v-col cols="3" xs="3" sm="2" md="2" lg="2">
+          <v-col cols="3" xs="3" sm="3" md="2" lg="2">
             <v-select
               label="by"
               class="bg-terciary"
@@ -182,10 +200,29 @@ onBeforeUnmount(() => {
               hide-details
             />
           </v-col>
+
+          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+            <v-tooltip
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              text="Extended search to match by alternative names. This will take longer."
+              open-delay="500"
+              ><template v-slot:activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  @click="toggleExtended"
+                  class="bg-terciary"
+                  :color="searchExtended ? 'romm-accent-1' : ''"
+                  rounded="0"
+                  variant="tonal"
+                  icon="mdi-layers-search-outline"
+                  block /></template></v-tooltip
+          ></v-col>
           <v-col cols="2" xs="2" sm="2" md="2" lg="1">
             <v-btn
               type="submit"
-              @click="searchIGDB()"
+              @click="searchRom()"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -201,7 +238,7 @@ onBeforeUnmount(() => {
 
       <v-card-text class="pa-1 scroll">
         <v-row
-          class="justify-center loader-searching"
+          class="justify-center align-center loader-searching fill-height"
           v-show="searching"
           no-gutters
         >
@@ -213,7 +250,7 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row
-          class="justify-center no-results-searching"
+          class="justify-center align-center loader-searching fill-height"
           v-show="!searching && matchedRoms.length == 0"
           no-gutters
         >
@@ -238,19 +275,47 @@ onBeforeUnmount(() => {
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
               >
-                <v-tooltip activator="parent" location="top" class="tooltip">{{
-                  matchedRom.name
-                }}</v-tooltip>
-                <v-img
-                  v-bind="props"
-                  :src="matchedRom.url_cover"
-                  :aspect-ratio="3 / 4"
-                />
+                <v-hover v-slot="{ isHovering, props }" open-delay="800">
+                  <v-img
+                    v-bind="props"
+                    :src="
+                      !matchedRom.url_cover
+                        ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                        : matchedRom.url_cover
+                    "
+                    :lazy-src="
+                      !matchedRom.url_cover
+                        ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                        : matchedRom.url_cover
+                    "
+                    :aspect-ratio="3 / 4"
+                  >
+                    <template v-slot:placeholder>
+                      <div
+                        class="d-flex align-center justify-center fill-height"
+                      >
+                        <v-progress-circular
+                          color="romm-accent-1"
+                          :width="2"
+                          indeterminate
+                        />
+                      </div>
+                    </template>
+                    <v-expand-transition>
+                      <div
+                        v-if="isHovering || !matchedRom.url_cover"
+                        class="translucent text-caption"
+                      >
+                        <v-list-item>{{ matchedRom.name }}</v-list-item>
+                      </div>
+                    </v-expand-transition>
+                  </v-img></v-hover
+                >
                 <v-card-text>
-                  <v-row class="pa-1">
-                    <span class="d-inline-block text-truncate">{{
-                      matchedRom.name
-                    }}</span>
+                  <v-row class="pa-1 align-center">
+                    <v-col class="pa-0 ml-1 text-truncate">
+                      <span>{{ matchedRom.name }}</span>
+                    </v-col>
                   </v-row>
                 </v-card-text>
               </v-card>
@@ -274,25 +339,17 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
 .scroll {
   overflow-y: scroll;
 }
-.loader-searching,
-.no-results-searching {
-  margin-top: 200px;
-}
 
 .search-content {
-  width: 900px;
-  height: 640px;
+  width: 60vw;
+  height: 80vh;
 }
 
 .search-content-tablet {
-  width: 570px;
+  width: 75vw;
   height: 640px;
 }
 
@@ -306,7 +363,11 @@ onBeforeUnmount(() => {
 }
 .matched-rom.on-hover {
   z-index: 1 !important;
-  opacity: 1;
   transform: scale(1.05);
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
 }
 </style>

@@ -1,33 +1,57 @@
 <script setup lang="ts">
-import { useDisplay } from "vuetify";
+import { identity } from "lodash";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
-import type { Rom } from "@/stores/roms";
+import type { RomSchema, PlatformSchema } from "@/__generated__/";
+import { useDisplay } from "vuetify";
 
-defineProps<{ rom: Rom }>();
-const { mdAndUp } = useDisplay();
+defineProps<{ rom: RomSchema; platform: PlatformSchema }>();
+const { smAndDown } = useDisplay();
 </script>
 <template>
-  <v-row class="text-white text-shadow" :class="{ 'mr-16': mdAndUp }" no-gutters>
-    <v-col
-      cols="12"
-      class="text-h5 font-weight-bold px-1"
-    >
-      <span>{{ rom.name }}</span>
-    </v-col>
-    <v-col cols="12">
+  <v-row
+    class="text-white text-shadow mb-2"
+    :class="{ 'text-center': smAndDown }"
+    no-gutters
+  >
+    <v-col>
+      <span class="text-h5 font-weight-bold px-1 mb-1" variant="text" label>{{
+        rom.name
+      }}</span>
       <v-chip
-        class="font-italic px-3 my-2"
-        :to="`/platform/${rom.platform_slug}`"
+        class="font-italic ml-2"
+        size="x-small"
+        v-if="Number(rom.first_release_date) > 0"
       >
-        {{ rom.platform_name || rom.platform_slug }}
-        <v-avatar :rounded="0" size="40" class="ml-2 pa-1">
-          <platform-icon :platform="rom.platform_slug"></platform-icon>
+        {{
+          new Date(Number(rom.first_release_date) * 1000).toLocaleDateString(
+            "en-US",
+            {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }
+          )
+        }}
+      </v-chip>
+    </v-col>
+  </v-row>
+  <v-row
+    class="text-white text-shadow mb-2"
+    :class="{ 'text-center': smAndDown }"
+    no-gutters
+  >
+    <v-col cols="12">
+      <v-chip class="mr-1" :to="{ name: 'platform', params: { platform: platform.id } }">
+        {{ platform.name }}
+        <v-avatar :rounded="0" size="40" class="ml-1 py-1">
+          <platform-icon :key="platform.slug" :slug="platform.slug" />
         </v-avatar>
       </v-chip>
       <v-chip
-        class="ml-2 my-2"
-        v-if="rom.regions.filter((i: string) => i).length > 0"
+        size="small"
+        class="mr-1 my-2"
+        v-if="rom.regions.filter(identity).length > 0"
         :title="`Regions: ${rom.regions.join(', ')}`"
       >
         <span class="px-1" v-for="region in rom.regions">{{
@@ -35,17 +59,39 @@ const { mdAndUp } = useDisplay();
         }}</span>
       </v-chip>
       <v-chip
-        class="ml-2 my-2"
-        v-if="rom.languages.filter((i: string) => i).length > 0"
+        size="small"
+        class="mr-1 my-2"
+        v-if="rom.languages.filter(identity).length > 0"
         :title="`Languages: ${rom.languages.join(', ')}`"
       >
         <span class="px-1" v-for="language in rom.languages">{{
           languageToEmoji(language)
         }}</span>
       </v-chip>
-      <v-chip v-show="rom.revision" class="ml-2 my-2"
+      <v-chip size="small" v-if="rom.revision" class="my-2"
         >Revision {{ rom.revision }}
       </v-chip>
+    </v-col>
+  </v-row>
+  <v-row
+    class="text-white text-shadow"
+    :class="{ 'text-center': smAndDown }"
+    no-gutters
+  >
+    <v-col cols="12">
+      <a
+        style="text-decoration: none; color: inherit"
+        :href="`https://www.igdb.com/games/${rom.slug}`"
+        target="_blank"
+      >
+        <v-chip size="x-small" @click="">
+          <span>IGDB</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>ID: {{ rom.igdb_id }}</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>Rating: {{ rom.total_rating }}</span>
+        </v-chip>
+      </a>
     </v-col>
   </v-row>
 </template>

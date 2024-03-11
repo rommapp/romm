@@ -8,6 +8,8 @@
 mkdir -p romm_mock/library/roms/switch
 touch romm_mock/library/roms/switch/metroid.xci
 mkdir -p romm_mock/resources
+mkdir -p romm_mock/assets
+mkdir -p romm_mock/config
 touch romm_mock/config.yml
 ```
 
@@ -40,8 +42,7 @@ pipx install --suffix _npm git+https://github.com/radoering/poetry.git@non-packa
 
 More info: https://github.com/python-poetry/poetry/pull/8650
 
-
-Then creat the virtual environment
+Then create the virtual environment
 
 ```sh
 # Fix disable parallel installation stuck: $> poetry_npm config experimental.new-installer false
@@ -85,8 +86,8 @@ npm install
 ### - Create symlink to library and resources
 ```sh
 mkdir assets/romm
-ln -s ../../../romm_mock/library assets/romm/library
 ln -s ../../../romm_mock/resources assets/romm/resources
+ln -s ../../../romm_mock/assets assets/romm/assets
 ```
 
 ### - Run the frontend

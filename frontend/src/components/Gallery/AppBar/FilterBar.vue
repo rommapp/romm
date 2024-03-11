@@ -1,41 +1,81 @@
 <script setup lang="ts">
-import { inject, ref, onMounted } from "vue";
-import { debounce } from "lodash";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-
+import FilterUnmatchedBtn from "@/components/Gallery/AppBar/FilterUnmatchedBtn.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
 
 // Props
-const galleryFilter = storeGalleryFilter();
-const filterValue = ref("");
-
-// Event listeners bus
+const showFilterBar = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-onMounted(() => {
-  filterValue.value = galleryFilter.filter;
+emitter?.on("filterBarShow", () => {
+  showFilterBar.value = !showFilterBar.value;
 });
+emitter?.on("filterBarReset", () => {});
 
-function clearFilter() {
-  galleryFilter.set("");
-  emitter?.emit("filter", null);
-}
-
-const filterRoms = debounce(() => {
-  galleryFilter.set(filterValue.value);
-  emitter?.emit("filter", null);
-}, 500);
+const galleryFilterStore = storeGalleryFilter();
+const {
+  selectedGenre,
+  selectedFranchise,
+  selectedCollection,
+  selectedCompany,
+} = storeToRefs(galleryFilterStore);
 </script>
 
 <template>
-  <v-text-field
-    @click:clear="clearFilter"
-    @keyup="filterRoms"
-    v-model="filterValue"
-    prepend-inner-icon="mdi-magnify"
-    label="search"
-    rounded="0"
-    hide-details
-    clearable
-  />
+  <div v-if="showFilterBar">
+    <v-row no-gutters class="pa-1">
+      <filter-unmatched-btn />
+      <v-select
+        hide-details
+        clearable
+        label="Genre"
+        density="compact"
+        variant="outlined"
+        class="ma-1"
+        @update:model-value="emitter?.emit('filter', null);"
+        v-model="selectedGenre"
+        :items="galleryFilterStore.filterGenres"
+      ></v-select>
+      <v-select
+        hide-details
+        clearable
+        label="Franchise"
+        density="compact"
+        variant="outlined"
+        class="ma-1"
+        @update:model-value="emitter?.emit('filter', null)"
+        v-model="selectedFranchise"
+        :items="galleryFilterStore.filterFranchises"
+      ></v-select>
+      <v-select
+        hide-details
+        clearable
+        label="Collection"
+        density="compact"
+        variant="outlined"
+        class="ma-1"
+        @update:model-value="emitter?.emit('filter', null)"
+        v-model="selectedCollection"
+        :items="galleryFilterStore.filterCollections"
+      ></v-select>
+      <v-select
+        hide-details
+        clearable
+        label="Company"
+        density="compact"
+        variant="outlined"
+        class="ma-1"
+        @update:model-value="emitter?.emit('filter', null)"
+        v-model="selectedCompany"
+        :items="galleryFilterStore.filterCompanies"
+      ></v-select>
+    </v-row>
+    <v-divider
+      :thickness="2"
+      class="mx-2 border-opacity-25"
+      color="romm-accent-1"
+    />
+  </div>
 </template>

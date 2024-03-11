@@ -1,96 +1,34 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeUnmount } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import type { Rom } from "@/stores/roms";
+import { storeToRefs } from "pinia";
+import { ref } from "vue";
 
 // Props
-const platforms = storePlatforms();
-const platformsToScan = ref<Platform[]>([]);
-const scanning = storeScanning();
-const scannedPlatforms = ref<{ name: string; slug: string; roms: Rom[] }[]>([]);
+const scanningStore = storeScanning();
+const { scanning, scanningPlatforms } = storeToRefs(scanningStore);
 const completeRescan = ref(false);
 const rescanUnidentified = ref(false);
+const platforms = storePlatforms();
+const platformsToScan = ref<Platform[]>([]);
 
-// Event listeners bus
-const emitter = inject<Emitter<Events>>("emitter");
+// Connect to socket on load to catch running scans
+if (!socket.connected) socket.connect();
 
-socket.on("scan:scanning_platform", ({ name, slug }) => {
-  scannedPlatforms.value.push({ name, slug, roms: [] });
-  window.setTimeout(scrollToBottom, 100);
-});
-
-socket.on("scan:scanning_rom", ({ platform_slug, platform_name, ...rom }) => {
-  let platform = scannedPlatforms.value.find((p) => p.slug === platform_slug);
-
-  // Add the platform if the socket dropped and it's missing
-  if (!platform) {
-    scannedPlatforms.value.push({
-      name: platform_name,
-      slug: platform_slug,
-      roms: [],
-    });
-
-    platform = scannedPlatforms.value.pop();
-  }
-
-  platform?.roms.push(rom);
-  window.setTimeout(scrollToBottom, 100);
-});
-
-socket.on("scan:done", () => {
-  scanning.set(false);
-  socket.disconnect();
-
-  emitter?.emit("refreshDrawer", null);
-  emitter?.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
-    icon: "mdi-check-bold",
-    color: "green",
-    timeout: 4000,
-  });
-});
-
-socket.on("scan:done_ko", (msg) => {
-  scanning.set(false);
-
-  emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-    icon: "mdi-close-circle",
-    color: "red",
-  });
-  socket.disconnect();
-});
-
-// Functions
-function scrollToBottom() {
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
-async function onScan() {
-  scanning.set(true);
-  scannedPlatforms.value = [];
+async function scan() {
+  scanningStore.set(true);
+  scanningPlatforms.value = [];
 
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.slug),
+    platforms: platformsToScan.value.map((p) => p.id),
     completeRescan: completeRescan.value,
     rescanUnidentified: rescanUnidentified.value,
   });
 }
-
-onBeforeUnmount(() => {
-  socket.off("scan:scanning_platform");
-  socket.off("scan:scanning_rom");
-  socket.off("scan:done");
-  socket.off("scan:done_ko");
-});
 </script>
 
 <template>
@@ -139,11 +77,11 @@ onBeforeUnmount(() => {
   <!-- Scan button -->
   <v-row class="pa-4" no-gutters>
     <v-btn
-      @click="onScan()"
-      :disabled="scanning.value"
+      @click="scan()"
+      :disabled="scanning"
       prepend-icon="mdi-magnify-scan"
       rounded="0"
-      :loading="scanning.value"
+      :loading="scanning"
       >Scan
       <template v-slot:loader>
         <v-progress-circular
@@ -166,19 +104,27 @@ onBeforeUnmount(() => {
   <v-row
     no-gutters
     class="align-center pa-4"
-    v-for="platform in scannedPlatforms"
+    v-for="platform in scanningPlatforms"
   >
     <v-col>
-      <v-avatar :rounded="0" size="40">
-        <platform-icon :platform="platform.slug"></platform-icon>
-      </v-avatar>
-      <span class="text-body-2 ml-5"> {{ platform.name }}</span>
-      <v-list-item v-for="rom in platform.roms" class="text-body-2" disabled>
+      <v-list-item
+        :to="{ name: 'platform', params: { platform: platform.id } }"
+      >
+        <v-avatar :rounded="0" size="40">
+          <platform-icon :key="platform.slug" :slug="platform.slug" />
+        </v-avatar>
+        <span class="text-body-2 ml-5"> {{ platform.name }}</span>
+      </v-list-item>
+      <v-list-item
+        v-for="rom in platform.roms"
+        class="text-body-2 romm-grey"
+        :to="{ name: 'rom', params: { rom: rom.id } }"
+      >
         <span v-if="rom.igdb_id" class="ml-10">
           • Identified <b>{{ rom.name }} 👾</b>
         </span>
         <span v-else class="ml-10">
-          • {{ rom.file_name }} not found in IGDB
+          • {{ rom.file_name }} not found in IGDB ❌
         </span>
       </v-list-item>
     </v-col>

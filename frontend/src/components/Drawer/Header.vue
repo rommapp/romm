@@ -4,13 +4,13 @@ import RailBtn from "@/components/Drawer/RailBtn.vue";
 defineProps<{ rail: boolean }>();
 </script>
 <template>
-  <v-list-item :class="{ 'ml-9': !rail, 'ml-0': rail }" class="my-2">
+  <v-list-item :class="{ 'ml-1': !rail, 'ml-0': rail }" class="my-2">
     <template v-slot:prepend>
-      <router-link to="/">
-        <v-avatar :rounded="0" :size="rail ? 40 : 60" class="mr-3"
+      <router-link :to="{ name: 'dashboard' }">
+        <v-avatar :rounded="0" :size="rail ? 40 : 60"
           ><v-img src="/assets/isotipo.svg"
         /></v-avatar>
-        <v-avatar v-if="!rail" :rounded="0" size="60"
+        <v-avatar v-if="!rail" :rounded="0" size="60" class="ml-3 mt-1"
           ><v-img src="/assets/logotipo.svg"
         /></v-avatar>
       </router-link>

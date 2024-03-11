@@ -2,10 +2,13 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Final
 
-from config import LOGS_BASE_PATH
-from .stdout_formatter import StdoutFormatter
-from .file_formatter import FileFormatter
+from config import ROMM_BASE_PATH
+from logger.file_formatter import FileFormatter
+from logger.stdout_formatter import StdoutFormatter
+
+LOGS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/logs"
 
 # Create logs folder if not exists
 Path(LOGS_BASE_PATH).mkdir(parents=True, exist_ok=True)
@@ -25,3 +28,6 @@ log.addHandler(stdout_handler)
 file_handler = logging.FileHandler(logs_file)
 file_handler.setFormatter(FileFormatter())
 log.addHandler(file_handler)
+
+# Hush passlib warnings
+logging.getLogger("passlib").setLevel(logging.ERROR)

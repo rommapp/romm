@@ -1,41 +1,63 @@
 import emoji
-from fastapi import APIRouter, Request
-from typing_extensions import TypedDict
-
+from handler.scan_handler import _get_main_platform_igdb_id
+from decorators.auth import protected_route
+from endpoints.responses.search import SearchRomSchema
+from fastapi import APIRouter, Request, HTTPException, status
+from handler import db_rom_handler, igdb_handler
 from logger.logger import log
-from handler import igdbh, dbh
-from handler.igdb_handler import IGDBRomType
-from utils.oauth import protected_route
 
 router = APIRouter()
 
 
-class RomSearchResponse(TypedDict):
-    msg: str
-    roms: list[IGDBRomType]
+@protected_route(router.get, "/search/roms", ["roms.read"])
+async def search_rom(
+    request: Request,
+    rom_id: str,
+    source: str,
+    search_term: str = None,
+    search_by: str = "name",
+    search_extended: bool = False,
+) -> list[SearchRomSchema]:
+    """Search rom into IGDB database
 
+    Args:
+        request (Request): FastAPI request
+        rom_id (str): Rom ID
+        source (str): Source of the rom
+        search_term (str, optional): Search term. Defaults to None.
+        search_by (str, optional): Search by name or ID. Defaults to "name".
+        search_extended (bool, optional): Search extended info. Defaults to False.
 
-@protected_route(router.put, "/search/roms/igdb", ["roms.read"])
-async def search_rom_igdb(
-    request: Request, rom_id: str, query: str = None, field: str = "Name"
-) -> RomSearchResponse:
-    """Search IGDB for ROMs"""
+    Returns:
+        list[SearchRomSchema]: List of matched roms
+    """
 
-    rom = dbh.get_rom(rom_id)
-    query = query or rom.file_name_no_tags
+    rom = db_rom_handler.get_roms(rom_id)
+    search_term = search_term or rom.file_name_no_tags
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: IGDB Searching"))
     matched_roms: list = []
 
-    log.info(f"Searching by {field}: {query}")
+    log.info(f"Searching by {search_by.lower()}: {search_term}")
     log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
-    if field.lower() == "id":
-        matched_roms = igdbh.get_matched_roms_by_id(int(query))
-    elif field.lower() == "name":
-        matched_roms = igdbh.get_matched_roms_by_name(query, rom.platform.igdb_id)
+    if search_by.lower() == "id":
+        try:
+            matched_roms = igdb_handler.get_matched_roms_by_id(int(search_term))
+        except ValueError:
+            log.error(f"Search error: invalid ID '{search_term}'")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
+            )
+    elif search_by.lower() == "name":
+        matched_roms = igdb_handler.get_matched_roms_by_name(
+            search_term, _get_main_platform_igdb_id(rom.platform), search_extended
+        )
 
     log.info("Results:")
+    results = []
     for m_rom in matched_roms:
         log.info(f"\t - {m_rom['name']}")
+        results.append(m_rom)
 
-    return {"roms": matched_roms, "msg": "success"}
+    return results

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
+import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -22,7 +22,7 @@ emitter?.on("showDeleteRomDialog", (romsToDelete) => {
 });
 
 async function deleteRoms() {
-  await api
+  await romApi
     .deleteRoms({ roms: roms.value, deleteFromFs: deleteFromFs.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
@@ -42,20 +42,20 @@ async function deleteRoms() {
       return;
     });
 
-  await router.push({
-    name: "platform",
-    params: { platform: roms.value[0].platform_slug },
-  });
-
   romsStore.remove(roms.value);
   emitter?.emit("refreshDrawer", null);
-  closeDialog()
+  closeDialog();
+
+  await router.push({
+    name: "platform",
+    params: { platform: roms.value[0].platform_id },
+  });
 }
 
 function closeDialog() {
   deleteFromFs.value = false;
   show.value = false;
-};
+}
 </script>
 
 <template>
@@ -66,6 +66,7 @@ function closeDialog() {
     @keydown.esc="closeDialog"
     no-click-animation
     persistent
+    :scrim="true"
   >
     <v-card
       rounded="0"
@@ -82,7 +83,7 @@ function closeDialog() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -114,7 +115,7 @@ function closeDialog() {
       </v-card-text>
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="deleteRoms()" class="text-romm-red bg-terciary ml-5"
             >Confirm</v-btn
           >

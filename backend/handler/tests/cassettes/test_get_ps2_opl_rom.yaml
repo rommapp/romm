@@ -1,7 +1,7 @@
 interactions:
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    body: search "WWE Smack"; fields id,name,slug,summary,total_rating,aggregated_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.slug,expansions.cover.url,expanded_games.name,expanded_games.cover.url,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.name,remakes.cover.url,remasters.name,remasters.cover.url,involved_companies.company.name,platforms.name,first_release_date,game_modes.name,player_perspectives.name,ports.name,similar_games.name,language_supports.language.name,external_games.uid,external_games.category;
+      where platforms=[8] ; limit 200;
     headers:
       Accept:
       - application/json
@@ -14,11 +14,11 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '148'
+      - '645'
       User-Agent:
       - python-requests/2.31.0
     method: POST
-    uri: https://api.igdb.com/v4/games/
+    uri: https://api.igdb.com/v4/games
   response:
     body:
       string: "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
@@ -31,7 +31,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 840e1def59b553ef-YYZ
+      - 850a6a6cc862248a-ZAG
       Connection:
       - keep-alive
       Content-Length:
@@ -39,21 +39,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 05 Jan 2024 19:27:09 GMT
+      - Mon, 05 Feb 2024 10:19:33 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=UaS11VA2fB8atCFOx97aBLqoxkRUnsy_5rrNYIL3YoU-1704482829-1-AdzDyNg7l51RyROpA43PUQnVRrzVRtMP8CRdttBmqJFmha5lAkwAgZnY4Ph2NBm43oQ71fP5Tz8xSl3SeV4jfT4=;
-        path=/; expires=Fri, 05-Jan-24 19:57:09 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=q9RZ2oX2yUNILpRZVW5OoxHlMGDvBPehxTGDol4K2oI-1707128373-1-AV4dvQqWExP3Dtve1W7vyWoYIbFdjDLAuobb7kXhAgK9VeOuXyVdYFt4J8CHGqbLYqRqXo2qRom19qjprAWkxH4=;
+        path=/; expires=Mon, 05-Feb-24 10:49:33 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 f7da5d3db9ee44e1812f138a4bdfd564.cloudfront.net (CloudFront)
+      - 1.1 c8710a117c1dfdaea4e9dfc4d41970d2.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - cY3sSQbEy2b71uGVJZ8qt0KgtzDfyrJqc8WVhXjxCfPiztfGVWglGg==
+      - V2CITeT8MTu0_1ivYUqp2mwvEhRlhwvKoYXDsDCNwCQ7nS_Jp8vl9w==
       X-Amz-Cf-Pop:
-      - YUL62-C2
+      - VIE50-C2
       X-Cache:
       - Error from cloudfront
       X-Content-Type-Options:
@@ -61,11 +61,11 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RFKyDFjYPHcEgLw=
+      - SqFobF8DPHcEaEA=
       x-amzn-ErrorType:
       - AccessDeniedException
       x-amzn-RequestId:
-      - 4db631d7-10ca-4505-99b0-000e64fab321
+      - 303a827f-7960-4f11-9625-6da894bd89f0
     status:
       code: 401
       message: Unauthorized
@@ -86,7 +86,7 @@ interactions:
     uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
   response:
     body:
-      string: '{"access_token":"ycmxc7vv0hesse6mjvg9hium4iku9s","expires_in":4762653,"token_type":"bearer"}
+      string: '{"access_token":"ceowppsaubbqnesvgmn8bxq2bz1e93","expires_in":5232645,"token_type":"bearer"}
 
         '
     headers:
@@ -99,34 +99,34 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 05 Jan 2024 19:27:09 GMT
+      - Mon, 05 Feb 2024 10:19:34 GMT
       Server:
       - nginx
       X-Ctxlog-Logid:
-      - 1-6598580d-72814aa35ddb1dba5cc27010
+      - 1-65c0b636-7add0780529675930d3892c4
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] ;\n            "
+    body: search "WWE Smack"; fields id,name,slug,summary,total_rating,aggregated_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.slug,expansions.cover.url,expanded_games.name,expanded_games.cover.url,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.name,remakes.cover.url,remasters.name,remasters.cover.url,involved_companies.company.name,platforms.name,first_release_date,game_modes.name,player_perspectives.name,ports.name,similar_games.name,language_supports.language.name,external_games.uid,external_games.category;
+      where platforms=[8] ; limit 200;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer ycmxc7vv0hesse6mjvg9hium4iku9s
+      - Bearer ceowppsaubbqnesvgmn8bxq2bz1e93
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '148'
+      - '645'
       User-Agent:
       - python-requests/2.31.0
     method: POST
-    uri: https://api.igdb.com/v4/games/
+    uri: https://api.igdb.com/v4/games
   response:
     body:
       string: '[]'
@@ -134,7 +134,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 840e1df61ff9a1e4-YYZ
+      - 850a6a78ea775a8f-VIE
       Connection:
       - keep-alive
       Content-Length:
@@ -142,21 +142,21 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 05 Jan 2024 19:27:10 GMT
+      - Mon, 05 Feb 2024 10:19:35 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=cBz3M1IzatwlfWTrENffjuZWUox3KdMY_ruN2OU8nT0-1704482830-1-AfBxgPXgQ/M/YsHGDYtUnb3VK8BHBhrI5of44hGUBp+KE03mKP2SH/Ui+s/O3vbcAmwr5cQdKCi7wvrP3MPpkL0=;
-        path=/; expires=Fri, 05-Jan-24 19:57:10 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=nPdFOwqHSK8.4iUCLhlaW0RLKE7sXiBFWo5bapNv8ls-1707128375-1-AcopgG+rfx+1lCOkCsQcixVy6AX38T9d2mao1At8n1nrFCEuHamBbEaQf6lAvFoih7fZq0e6PlmEhTImjuBUUtQ=;
+        path=/; expires=Mon, 05-Feb-24 10:49:35 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Via:
-      - 1.1 5fa5e473f638d77357bb0fccef4ca526.cloudfront.net (CloudFront)
+      - 1.1 881b12332738e10f6e80298fbdcd7e8e.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - mNE9nHzWA6zBTPOM0rq4pQC4IyRVgWBPIx7HGN6u8T8nv7cZLq5ZPg==
+      - hm6HNEMABW_ZnDuFNHPpzFNwTht8Xx3NuBKJpXRQp7TkBKOlSRoQgw==
       X-Amz-Cf-Pop:
-      - YUL62-C2
+      - VIE50-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -166,442 +166,58 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RFKyNFyyvHcEKyA=
+      - SqForGNWPHcEl2w=
       x-amzn-Remapped-Content-Length:
       - '2'
       x-amzn-Remapped-Date:
-      - Fri, 05 Jan 2024 19:27:10 GMT
+      - Mon, 05 Feb 2024 10:19:35 GMT
       x-amzn-RequestId:
-      - ea9517b3-ad01-416d-99dd-7a9a73868337
+      - 6ea19906-7c95-44bd-a145-9455a3105a3e
     status:
       code: 200
       message: OK
 - request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] & category=10;\n
-      \           "
+    body: fields game.id,name; where game.platforms=[8] & (name ~ *"WWE Smack"* |
+      alternative_name ~ *"WWE Smack"*); limit 200;
     headers:
       Accept:
       - application/json
       Accept-Encoding:
       - gzip, deflate
       Authorization:
-      - Bearer ycmxc7vv0hesse6mjvg9hium4iku9s
+      - Bearer ceowppsaubbqnesvgmn8bxq2bz1e93
       Client-ID:
       - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       Connection:
       - keep-alive
       Content-Length:
-      - '161'
+      - '117'
       User-Agent:
       - python-requests/2.31.0
     method: POST
-    uri: https://api.igdb.com/v4/games/
+    uri: https://api.igdb.com/v4/search
   response:
     body:
-      string: '[]'
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 840e1df959f8a21d-YYZ
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '2'
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 05 Jan 2024 19:27:10 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=QiozKIK2Ap6T3BMS1.zFk9IfLGmrgDQV4tCC4mR5aVA-1704482830-1-AXm8pPyNZPolOcXxd2oXAtP/fZ+y+rwS2hHZL1ntRcWSpXMEmy3diGuqtZ61HzvH41ztaO0YBXA289em+GBAAV4=;
-        path=/; expires=Fri, 05-Jan-24 19:57:10 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 22068bada9db7a55ac57b9824fe6f9b4.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - vLFpUC9iRNUiBqE1P5BNBSEmzpZpYdY92TXSUGZ8tH-Zpc7AO13Kww==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '0'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - RFKyTG7HPHcEpug=
-      x-amzn-Remapped-Content-Length:
-      - '2'
-      x-amzn-Remapped-Date:
-      - Fri, 05 Jan 2024 19:27:10 GMT
-      x-amzn-RequestId:
-      - de9b5cba-2134-42cb-b13a-d0886acde238
-    status:
-      code: 200
-      message: OK
-- request:
-    body: "\n                search \"WWE Smack\";\n                fields id, slug,
-      name, summary, screenshots;\n                where platforms=[8] ;\n            "
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer ycmxc7vv0hesse6mjvg9hium4iku9s
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '148'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/games/
-  response:
-    body:
-      string: '[]'
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 840e1dfc9aa236c3-YYZ
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '2'
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 05 Jan 2024 19:27:11 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=NmMjWGx_xEiiM1uaWbgA84EAXUBTNmuTz9ZbInymZ00-1704482831-1-AXNxQ3/n3pxXz7JDMQBCqUGP1kl/TA0WSkLvOGP9Casw5j1J9WLw6zbPg/CqUntFGmZlIZrnJ1xFi1aJSlm1Ps8=;
-        path=/; expires=Fri, 05-Jan-24 19:57:11 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 8422f3871db2552d4ad0cc9f31e22c2e.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - nNG-gTaYCZ5rpsGaE9w0Q6W7n0Zcgas_ijV_07HttzgZRJvFgewDyA==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '0'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - RFKyZFsMvHcEs2A=
-      x-amzn-Remapped-Content-Length:
-      - '2'
-      x-amzn-Remapped-Date:
-      - Fri, 05 Jan 2024 19:27:11 GMT
-      x-amzn-RequestId:
-      - bda8994c-74ff-40b9-946b-5c291feba36c
-    status:
-      code: 200
-      message: OK
-- request:
-    body: "\n                search \"WWE SmackDown! vs. RAW\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[8] ;\n
-      \           "
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer test_token
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '161'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/games/
-  response:
-    body:
-      string: "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
-        1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
-        \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
-        the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
-        Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
-        \ \"Discord\": \"https://discord.gg/FrvfwQg\"\n}\n"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 840e1dffcff87119-YYZ
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '437'
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 05 Jan 2024 19:27:11 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=08u9u5ApvfMie_jqiDNmXs9WL4bHaapgSVqf2xT_mLg-1704482831-1-AfJfmqIEV831rLFDaZg0D4C4D31H8oSfMR9ecWO7NIQo8pbw6LzbVBjWBZq6ryV3t/yGLxXtDjKMLnWifUaN4Bo=;
-        path=/; expires=Fri, 05-Jan-24 19:57:11 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 144825e0e5f4523d1f7ce8c9b62cd908.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - oeRw1015Xc3mSJUL7mrLuCKk9m_myM3RDMip_0iodK7uFY32s66BwA==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Error from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - RFKyeGWhvHcEPug=
-      x-amzn-ErrorType:
-      - AccessDeniedException
-      x-amzn-RequestId:
-      - e8572348-415f-48ea-b3fa-15643a26b6f4
-    status:
-      code: 401
-      message: Unauthorized
-- request:
-    body: null
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '0'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
-  response:
-    body:
-      string: '{"access_token":"9vv70shduosepkqte323j2sk7e5l16","expires_in":5478750,"token_type":"bearer"}
-
-        '
-    headers:
-      Access-Control-Allow-Origin:
-      - '*'
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '93'
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 05 Jan 2024 19:27:12 GMT
-      Server:
-      - nginx
-      X-Ctxlog-Logid:
-      - 1-65985810-32ff685c334e1d562685f667
-    status:
-      code: 200
-      message: OK
-- request:
-    body: "\n                search \"WWE SmackDown! vs. RAW\";\n                fields
-      id, slug, name, summary, screenshots;\n                where platforms=[8] ;\n
-      \           "
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer 9vv70shduosepkqte323j2sk7e5l16
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '161'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/games/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 80852,\n    \"name\": \"WWE Smackdown! vs. Raw\",\n
-        \   \"screenshots\": [\n      337102,\n      337103,\n      337104,\n      337105,\n
-        \     337106,\n      337107,\n      337108\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw\",\n
-        \   \"summary\": \"WWE SmackDown! vs. Raw brings two of wrestling\\u0027s
-        most popular game series together on the PS2. The game re-creates WWE programming
-        with voice-overs and commentary throughout the season mode. During matches,
-        you can learn a host of new gameplay moves, such as stare-downs, chop battles,
-        and submission reversals. You can also try out situational challenges or create
-        your own championship. Play as your favorite wrestler, including legends and
-        Divas, and prove to the world that you have what it takes to be the WWE champion.\"\n
-        \ },\n  {\n    \"id\": 2265,\n    \"name\": \"WWE SmackDown vs. Raw 2011\",\n
-        \   \"screenshots\": [\n      25356,\n      25357,\n      25358,\n      25359,\n
-        \     25360\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2011\",\n    \"summary\":
-        \"WWE SmackDown vs. Raw 2011 will empower players more than ever to define
-        their destiny and gameplay experiences in a dynamic and ever-changing WWE.
-        Along the way, your decisions will decide gameplay scenarios, allowing for
-        more spontaneous WWE action in and out of the ring. Enjoy a greater level
-        of interactivity that allows you to customize your WWE experience and control
-        your destinies in all-new Road to WrestleMania story-driven campaigns.\\n\\nYou\\u0027ve
-        seen the Superstars\\u0027 greatest moments on WWE programming. You\u2019ve
-        shared them and lived through them on television, on the web, and at the arenas.
-        Now, it\\u0027s time for you to define your ultimate WWE moment, in the most
-        interactive experience in the WWE Universe. This is your moment.\"\n  },\n
-        \ {\n    \"id\": 5300,\n    \"name\": \"WWE SmackDown vs. Raw 2010\",\n    \"screenshots\":
-        [\n      27682\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2010\",\n    \"summary\":
-        \"The best-selling fighting videogame franchise returns to the virtual ring
-        with the most authentic, entertaining and compelling simulation of WWE programming
-        to date. Featuring unparalleled creation tools, a robust Superstar roster,
-        key franchise improvements and a few surprises, WWE SmackDown vs. Raw 2010
-        delivers the empowering freedom to create, customize and share gameplay experiences.
-        It\\u0027s your world now.\"\n  },\n  {\n    \"id\": 5299,\n    \"name\":
-        \"WWE SmackDown vs. Raw 2009\",\n    \"screenshots\": [\n      27080\n    ],\n
-        \   \"slug\": \"wwe-smackdown-vs-raw-2009\",\n    \"summary\": \"WWE SmackDown
-        vs. Raw 2009 for the Wii builds upon its inaugural offering by significantly
-        expanding its match type options, giving players more ways to enjoy the platform\\u0027s
-        unique pick-up-and-play experience. The game also takes full combat sports
-        entertainment to the next level by giving players more superstar control with
-        interactive entrances and victory scenes.\"\n  },\n  {\n    \"id\": 18323,\n
-        \   \"name\": \"WWE SmackDown! vs. Raw 2006\",\n    \"screenshots\": [\n      337109,\n
-        \     337110,\n      337111,\n      337112\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2006\",\n
-        \   \"summary\": \"The debut PlayStation Portable offering of THQ and Yuke\\u0027s
-        long-running 3D wrestling series. WWE SmackDown! vs. RAW 2006 expands on THQ\\u0027s
-        popular multi-million unit-selling franchise with a number of key new features.
-        The Buried Alive Casket match, two new wrestler attributes (Stamina and Hardcore),
-        and a realistic momentum system all combine to turn the series away from its
-        arcade roots and towards that of a simulation. The PSP version follows closely
-        on the heels of its PS2 tag-teammate in terms of features and wrestler rosters,
-        with exclusive extras including additional characters and other features for
-        the PSP version, plus USB system link to connect the two versions together.\"\n
-        \ },\n  {\n    \"id\": 7252,\n    \"name\": \"WWE SmackDown vs. Raw 2007\",\n
-        \   \"screenshots\": [\n      27298\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2007\",\n
-        \   \"summary\": \"A brand new Analog Control System makes fighting more realistic
-        than ever with intuitive movement and new elements of control. An enhanced
-        Season Mode provides multiple branching storylines and unprecedented levels
-        of player choice. In and out of the ring, dozens of user-controlled environmental
-        hotspots let players take advantage of anything at their disposal to inflict
-        damage on opponents in new and unique ways. Additionally, new high impact
-        combination moves let players take the power of WWE Superstars into their
-        own hands. Experience the intensity of WWE fans in a brand new, fully loaded
-        interactive fighting area. Players can take advantage of multiple weapons,
-        environmental damage and grabbing signs and weapons from the crowd. WWE SmackDown
-        vs. RAW 2007 offers multiple enhancements, including incredible high definition
-        graphics, updated rosters for both RAW and SmackDown, an expanded General
-        Manager Mode, online multiplayer game play with voice chat support and more.\"\n
-        \ },\n  {\n    \"id\": 5298,\n    \"name\": \"WWE SmackDown vs. Raw 2008\",\n
-        \   \"screenshots\": [\n      26973,\n      178914,\n      178915,\n      178916,\n
-        \     178917,\n      178918,\n      178919,\n      178920,\n      178921,\n
-        \     178922,\n      178923,\n      178924\n    ],\n    \"slug\": \"wwe-smackdown-vs-raw-2008\",\n
-        \   \"summary\": \"The 2008 edition in the Smackdown vs. Raw series holds
-        new features to the WWE game franchise. This is the first in the series to
-        include the extremists of ECW, including The Sandman, Marcus Cor Von and CM
-        Punk.\\n\\nThe game also features a new struggle submission system, new weapon
-        choices including guitars, and eight superstar fighting styles, including
-        Showman, Powerhouse, High-Flyer and more. Each player can now choose a primary
-        and a secondary fighting style. It continues the legend trend and new arenas,
-        such as Wrestlemania 23, Unforgiven and Summerslam as well as the classic
-        superstars like Undertaker, Shawn Michaels and Ric Flair. The roster largely
-        depends on the platform, and some versions include wrestlers not available
-        in the other ones.\"\n  }\n]"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 840e1e062e8839f9-YYZ
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Length:
-      - '2424'
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 05 Jan 2024 19:27:12 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=SBQ0hfeNWLeVDi9u25Ycqjy0_y_lVOlQ6RUoOXpoUvE-1704482832-1-AX8irnnXyf/2o19KeyDM46YduN9meO/Qdwu0d/tDbrrtqL6M1ExPQqPN4J9DMGR9e6Gh2JtAV0DZTn8wlCe5B5E=;
-        path=/; expires=Fri, 05-Jan-24 19:57:12 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Via:
-      - 1.1 f7da5d3db9ee44e1812f138a4bdfd564.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - 4QRv9SqNlv9c1l6rJlzTPHUwAvsoje8ZHFOL381FA2S-mPfChjzv7Q==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '7'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - RFKyoFdtPHcENCA=
-      x-amzn-Remapped-Content-Length:
-      - '2424'
-      x-amzn-Remapped-Date:
-      - Fri, 05 Jan 2024 19:27:12 GMT
-      x-amzn-RequestId:
-      - 1725c117-1e0b-4617-aaa3-e28514f91fc5
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=80852;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer 9vv70shduosepkqte323j2sk7e5l16
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '29'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/covers/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 209154,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/co4hdu.jpg\"\n
+      string: "[\n  {\n    \"id\": 22703,\n    \"game\": {\n      \"id\": 6461\n    },\n
+        \   \"name\": \"WWE SmackDown! Shut Your Mouth\"\n  },\n  {\n    \"id\": 23270,\n
+        \   \"game\": {\n      \"id\": 5298\n    },\n    \"name\": \"WWE SmackDown
+        vs Raw 2008\"\n  },\n  {\n    \"id\": 38521,\n    \"game\": {\n      \"id\":
+        80852\n    },\n    \"name\": \"WWE Smackdown! vs Raw\"\n  },\n  {\n    \"id\":
+        42494,\n    \"game\": {\n      \"id\": 7252\n    },\n    \"name\": \"WWE SmackDown
+        vs Raw 2007\"\n  },\n  {\n    \"id\": 64889,\n    \"game\": {\n      \"id\":
+        5300\n    },\n    \"name\": \"WWE SmackDown vs Raw 2010\"\n  },\n  {\n    \"id\":
+        96855,\n    \"game\": {\n      \"id\": 2265\n    },\n    \"name\": \"WWE SmackDown
+        vs Raw 2011\"\n  },\n  {\n    \"id\": 111128,\n    \"game\": {\n      \"id\":
+        5299\n    },\n    \"name\": \"WWE SmackDown vs Raw 2009\"\n  },\n  {\n    \"id\":
+        114042,\n    \"game\": {\n      \"id\": 6442\n    },\n    \"name\": \"WWE
+        Smackdown! Here Comes the Pain\"\n  },\n  {\n    \"id\": 164052,\n    \"game\":
+        {\n      \"id\": 18323\n    },\n    \"name\": \"WWE SmackDown! vs Raw 2006\"\n
         \ }\n]"
     headers:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 840e1e0928333701-YYZ
+      - 850a6a7c1f99248e-ZAG
       Connection:
       - keep-alive
       Content-Encoding:
@@ -609,23 +225,131 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 05 Jan 2024 19:27:13 GMT
+      - Mon, 05 Feb 2024 10:19:37 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=bI2hirE91RIdKvLGAuGYFmNDWo.7x186AGjRyaxu1w8-1704482833-1-AWDx/4zSK3tfOUw0nN7HIEAoOYngfUQlpngXXAjSghmK9lSyrCfAnhgaYSN4H+rWVNQxOZ31tuZLwOOisbiz/Zo=;
-        path=/; expires=Fri, 05-Jan-24 19:57:13 GMT; domain=.igdb.com; HttpOnly; Secure;
+      - __cf_bm=rTR9ZrqC1sN4ia5ons.JkcDv_yZgj1BMvUvphQmttjw-1707128377-1-Af9WUirirOQ6ptU0pFtmVvu8UFcO/fjQll/RS0CrwC84+lRPproAa+Mmg4QlLbWku+XN+A85uIZrbjJ74coMUco=;
+        path=/; expires=Mon, 05-Feb-24 10:49:37 GMT; domain=.igdb.com; HttpOnly; Secure;
         SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
       - chunked
       Via:
-      - 1.1 0df778cadb5eaa000de4f1d7838b16e0.cloudfront.net (CloudFront)
+      - 1.1 4ca98b546b8d71c72caf6a3d8f75dc24.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - pJHvaV9ghiHsZMTQ_IcKG9EX2fXmnbLHRZQdBFPHA31DrhiJTcMAcQ==
+      - 1mEYrUKTKSm9ho3tcCziBkYL-GIJEuA5d-ope26ulmeddsENjM2nOw==
       X-Amz-Cf-Pop:
-      - YUL62-C2
+      - VIE50-C2
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Type-Options:
+      - nosniff
+      X-Count:
+      - '9'
+      alt-svc:
+      - h3=":443"; ma=86400
+      x-amz-apigw-id:
+      - SqFo0FsaPHcEidA=
+      x-amzn-Remapped-Content-Length:
+      - '954'
+      x-amzn-Remapped-Date:
+      - Mon, 05 Feb 2024 10:19:36 GMT
+      x-amzn-RequestId:
+      - 749da0d8-ec39-47c1-bc8d-05ae7fc0d335
+    status:
+      code: 200
+      message: OK
+- request:
+    body: fields id,name,slug,summary,total_rating,aggregated_rating,genres.name,alternative_names.name,artworks.url,cover.url,screenshots.url,franchise.name,franchises.name,collections.name,expansions.name,expansions.slug,expansions.cover.url,expanded_games.name,expanded_games.cover.url,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.name,remakes.cover.url,remasters.name,remasters.cover.url,involved_companies.company.name,platforms.name,first_release_date,game_modes.name,player_perspectives.name,ports.name,similar_games.name,language_supports.language.name,external_games.uid,external_games.category;
+      where id=6461; limit 200;
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Authorization:
+      - Bearer ceowppsaubbqnesvgmn8bxq2bz1e93
+      Client-ID:
+      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '618'
+      User-Agent:
+      - python-requests/2.31.0
+    method: POST
+    uri: https://api.igdb.com/v4/games
+  response:
+    body:
+      string: "[\n  {\n    \"id\": 6461,\n    \"aggregated_rating\": 80.0,\n    \"alternative_names\":
+        [\n      {\n        \"id\": 84798,\n        \"name\": \"Exciting Pro Wrestling
+        4\"\n      }\n    ],\n    \"cover\": {\n      \"id\": 212962,\n      \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/co4kbm.jpg\"\n    },\n    \"external_games\":
+        [\n      {\n        \"id\": 150149,\n        \"category\": 3,\n        \"uid\":
+        \"7552\"\n      },\n      {\n        \"id\": 1189446,\n        \"category\":
+        14,\n        \"uid\": \"6910\"\n      }\n    ],\n    \"first_release_date\":
+        1036022400,\n    \"franchise\": {\n      \"id\": 255,\n      \"name\": \"WWE\"\n
+        \   },\n    \"franchises\": [\n      {\n        \"id\": 255,\n        \"name\":
+        \"WWE\"\n      }\n    ],\n    \"game_modes\": [\n      {\n        \"id\":
+        1,\n        \"name\": \"Single player\"\n      },\n      {\n        \"id\":
+        4,\n        \"name\": \"Split screen\"\n      }\n    ],\n    \"genres\": [\n
+        \     {\n        \"id\": 14,\n        \"name\": \"Sport\"\n      }\n    ],\n
+        \   \"involved_companies\": [\n      {\n        \"id\": 15372,\n        \"company\":
+        {\n          \"id\": 197,\n          \"name\": \"THQ\"\n        }\n      },\n
+        \     {\n        \"id\": 220218,\n        \"company\": {\n          \"id\":
+        14321,\n          \"name\": \"Yuke\\u0027s\"\n        }\n      }\n    ],\n
+        \   \"name\": \"WWE SmackDown! Shut Your Mouth\",\n    \"platforms\": [\n
+        \     {\n        \"id\": 8,\n        \"name\": \"PlayStation 2\"\n      }\n
+        \   ],\n    \"screenshots\": [\n      {\n        \"id\": 681390,\n        \"url\":
+        \"//images.igdb.com/igdb/image/upload/t_thumb/scelri.jpg\"\n      }\n    ],\n
+        \   \"similar_games\": [\n      {\n        \"id\": 2265,\n        \"name\":
+        \"WWE SmackDown vs. Raw 2011\"\n      },\n      {\n        \"id\": 4573,\n
+        \       \"name\": \"WWE WrestleMania X8\"\n      },\n      {\n        \"id\":
+        6442,\n        \"name\": \"WWE Smackdown! Here Comes the Pain\"\n      },\n
+        \     {\n        \"id\": 6444,\n        \"name\": \"WWF SmackDown! 2: Know
+        Your Role\"\n      },\n      {\n        \"id\": 6445,\n        \"name\": \"WWF
+        SmackDown! Just Bring It\"\n      },\n      {\n        \"id\": 18323,\n        \"name\":
+        \"WWE SmackDown! vs. Raw 2006\"\n      },\n      {\n        \"id\": 48707,\n
+        \       \"name\": \"WWF King of the Ring\"\n      },\n      {\n        \"id\":
+        102805,\n        \"name\": \"WWE 2K19\"\n      },\n      {\n        \"id\":
+        114286,\n        \"name\": \"Madden NFL 20\"\n      },\n      {\n        \"id\":
+        114287,\n        \"name\": \"FIFA 20\"\n      }\n    ],\n    \"slug\": \"wwe-smackdown-shut-your-mouth\",\n
+        \   \"summary\": \"A WHOLE NEW SEASON OF SMACKDOWN!\\n\\n-BUILD YOUR OWN DRAMA
+        WITH REAL WWF STORYLINES\\n-ALL-NEW DRAFT\\n-INTERACTIVE BACKSTAGE AREAS\\n-WHATCHA
+        GONNA DO?!\",\n    \"total_rating\": 79.14862332115482,\n    \"collections\":
+        [\n      {\n        \"id\": 5106,\n        \"name\": \"WWE Smackdown!\"\n
+        \     }\n    ]\n  }\n]"
+    headers:
+      CF-Cache-Status:
+      - DYNAMIC
+      CF-RAY:
+      - 850a6a852af9247e-ZAG
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Length:
+      - '877'
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 05 Feb 2024 10:19:37 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=BFQUPeuv6U_7GnopEtVoMTmmI3k9k3d4PGkruQewvoo-1707128377-1-ASM3OUndgKuFrKoGAd8UgUO4WZEDJf+xEZBsB8kb6oZvQg10rdyGchjFezM7aTl+XQFpDwxmHYK8REi35yiyY8A=;
+        path=/; expires=Mon, 05-Feb-24 10:49:37 GMT; domain=.igdb.com; HttpOnly; Secure;
+        SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Via:
+      - 1.1 4ca98b546b8d71c72caf6a3d8f75dc24.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 9xlBT46Pb1uXdOwZqdWu36iBZbvw-pZxL2qJIdq30gjn9LecOX0TNg==
+      X-Amz-Cf-Pop:
+      - VIE50-C2
       X-Cache:
       - Miss from cloudfront
       X-Content-Type-Options:
@@ -635,88 +359,13 @@ interactions:
       alt-svc:
       - h3=":443"; ma=86400
       x-amz-apigw-id:
-      - RFKysFlZvHcEQfQ=
+      - SqFo_FddPHcEROQ=
       x-amzn-Remapped-Content-Length:
-      - '97'
+      - '877'
       x-amzn-Remapped-Date:
-      - Fri, 05 Jan 2024 19:27:13 GMT
+      - Mon, 05 Feb 2024 10:19:37 GMT
       x-amzn-RequestId:
-      - 391acfec-991b-4b11-8ec1-bc5ccc558a7c
-    status:
-      code: 200
-      message: OK
-- request:
-    body: fields url; where game=80852; limit 5;
-    headers:
-      Accept:
-      - application/json
-      Accept-Encoding:
-      - gzip, deflate
-      Authorization:
-      - Bearer 9vv70shduosepkqte323j2sk7e5l16
-      Client-ID:
-      - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '38'
-      User-Agent:
-      - python-requests/2.31.0
-    method: POST
-    uri: https://api.igdb.com/v4/screenshots/
-  response:
-    body:
-      string: "[\n  {\n    \"id\": 337103,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783z.jpg\"\n
-        \ },\n  {\n    \"id\": 337104,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7840.jpg\"\n
-        \ },\n  {\n    \"id\": 337105,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7841.jpg\"\n
-        \ },\n  {\n    \"id\": 337102,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc783y.jpg\"\n
-        \ },\n  {\n    \"id\": 337107,\n    \"url\": \"//images.igdb.com/igdb/image/upload/t_thumb/sc7843.jpg\"\n
-        \ }\n]"
-    headers:
-      CF-Cache-Status:
-      - DYNAMIC
-      CF-RAY:
-      - 840e1e0c8e45a1da-YYZ
-      Connection:
-      - keep-alive
-      Content-Encoding:
-      - gzip
-      Content-Type:
-      - application/json
-      Date:
-      - Fri, 05 Jan 2024 19:27:13 GMT
-      Server:
-      - cloudflare
-      Set-Cookie:
-      - __cf_bm=_Lbr4oQE0LaNfBP5BiCrLEOHj.IXNE2El_O5u8FK.o4-1704482833-1-AQ5NVKvfJ9qNvAwufTD+7oNVvnlkcCbO0Qv+OIrYoYM4xPER/87JcGOd65ILQVduWMI7dX259NTaJe/oCgeTzZs=;
-        path=/; expires=Fri, 05-Jan-24 19:57:13 GMT; domain=.igdb.com; HttpOnly; Secure;
-        SameSite=None
-      Strict-Transport-Security:
-      - max-age=31536000; includeSubDomains; preload
-      Transfer-Encoding:
-      - chunked
-      Via:
-      - 1.1 f7da5d3db9ee44e1812f138a4bdfd564.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - L9J0t_WDbn0jZmgEBmKE7fN3m-ZQAHr2GpcHcZznMRsnJ1Su2BRQQA==
-      X-Amz-Cf-Pop:
-      - YUL62-C2
-      X-Cache:
-      - Miss from cloudfront
-      X-Content-Type-Options:
-      - nosniff
-      X-Count:
-      - '7'
-      alt-svc:
-      - h3=":443"; ma=86400
-      x-amz-apigw-id:
-      - RFKyyGQhPHcEpHQ=
-      x-amzn-Remapped-Content-Length:
-      - '477'
-      x-amzn-Remapped-Date:
-      - Fri, 05 Jan 2024 19:27:13 GMT
-      x-amzn-RequestId:
-      - c3bcc7b4-bdfc-4c69-8a60-c8b5e6a7478b
+      - 0fcc21b2-2356-4610-a746-626f094edd81
     status:
       code: 200
       message: OK

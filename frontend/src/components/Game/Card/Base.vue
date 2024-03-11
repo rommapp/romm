@@ -46,7 +46,6 @@ function selectRom(event: MouseEvent) {
 <style scoped lang="scss">
 .v-card {
   border: 3px solid rgba(var(--v-theme-primary));
-  opacity: 0.85;
   transition-property: all;
   transition-duration: 0.1s;
 }
@@ -56,7 +55,6 @@ function selectRom(event: MouseEvent) {
 }
 .v-card.on-hover {
   z-index: 1 !important;
-  opacity: 1;
   transform: scale(1.05);
 }
 </style>

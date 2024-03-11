@@ -1,14 +1,13 @@
-from fastapi.testclient import TestClient
+from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.exceptions import HTTPException
-
+from fastapi.testclient import TestClient
 from main import app
-from endpoints.oauth import ACCESS_TOKEN_EXPIRE_MINUTES
-from utils.oauth import WRITE_SCOPES
+from handler.auth_handler import WRITE_SCOPES
 
 client = TestClient(app)
 
 
-def test_refreshing_oauth_token(refresh_token):
+def test_refreshing_oauth_token_basic(refresh_token):
     response = client.post(
         "/token",
         data={
@@ -92,7 +91,7 @@ def test_auth_via_upass_with_excess_scopes(viewer_user):
                 "grant_type": "password",
                 "username": "test_viewer",
                 "password": "test_viewer_password",
-                "scopes": WRITE_SCOPES
+                "scopes": WRITE_SCOPES,
             },
         )
     except HTTPException as e:

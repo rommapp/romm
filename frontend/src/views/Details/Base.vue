@@ -1,39 +1,74 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeMount, watch } from "vue";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
-import storeRoms, { type Rom } from "@/stores/roms";
-import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
-import TitleInfo from "@/components/Details/Title.vue";
-import Cover from "@/components/Details/Cover.vue";
+import type { PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
-import DetailsInfo from "@/components/Details/Info.vue";
-import ScreenshotsCarousel from "@/components/Details/ScreenshotsCarousel.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import AdditionalContent from "@/components/Details/AdditionalContent.vue";
+import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
+import Cover from "@/components/Details/Cover.vue";
+import Info from "@/components/Details/Info/Base.vue";
+import Emulation from "@/components/Details/Emulation.vue";
+import RelatedGames from "@/components/Details/RelatedGames.vue";
+import Saves from "@/components/Details/Saves.vue";
+import States from "@/components/Details/States.vue";
+import TitleInfo from "@/components/Details/Title.vue";
+import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import type { EnhancedRomSchema } from "@/__generated__";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import platformApi from "@/services/api/platform";
+import romApi from "@/services/api/rom";
+import type { Rom } from "@/stores/roms";
 
 const route = useRoute();
-const romsStore = storeRoms();
-const rom = ref<EnhancedRomSchema | null>(null);
-const tab = ref<"details" | "saves" | "screenshots">("details");
-const { smAndDown, mdAndUp } = useDisplay();
+const rom = ref<Rom>();
+const platform = ref<PlatformSchema>();
+const tab = ref<
+  | "details"
+  | "saves"
+  | "states"
+  | "additionalcontent"
+  | "screenshots"
+  | "relatedgames"
+  | "emulation"
+>("details");
+const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
+const showEmulation = ref(false);
+emitter?.on("showEmulation", () => {
+  showEmulation.value = !showEmulation.value;
+  tab.value = showEmulation.value ? "emulation" : "details";
+});
 
-async function fetchRom() {
+async function fetchDetails() {
   if (!route.params.rom) return;
 
-  await api
-    .fetchRom({ romId: parseInt(route.params.rom as string) })
+  await romApi
+    .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
-      romsStore.update(response.data);
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
+
+  await platformApi
+    .getPlatform(rom.value?.platform_id)
+    .then((response) => {
+      platform.value = response.data;
     })
     .catch((error) => {
       console.log(error);
@@ -53,7 +88,7 @@ onBeforeMount(async () => {
   if (rom.value) {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
-    fetchRom();
+    await fetchDetails();
   }
 });
 
@@ -61,21 +96,18 @@ watch(
   () => route.fullPath,
   async () => {
     emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-    await fetchRom();
+    await fetchDetails();
   }
 );
 </script>
 
 <template>
-  <template v-if="rom">
-    <v-row no-gutters>
-      <v-col>
-        <background-header :image="rom.path_cover_s" />
-      </v-col>
-    </v-row>
+  <template v-if="rom && platform">
+    <background-header :rom="rom" />
 
     <v-row
       :class="{
+        'mx-12': mdAndUp,
         'justify-center': smAndDown,
       }"
       no-gutters
@@ -86,58 +118,136 @@ watch(
           'cover-lg': mdAndUp,
           'cover-xs': smAndDown,
         }"
-        cols="12"
-        md="6"
-        lg="6"
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
+        <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
       </v-col>
       <v-col
         cols="12"
-        md="6"
+        sm="12"
+        md="7"
         lg="6"
-        class="px-6"
+        xl="8"
+        class="px-5"
         :class="{
-          'mr-16 info-lg': mdAndUp,
+          'info-lg': mdAndUp,
           'info-xs': smAndDown,
         }"
       >
-        <v-row :class="{ 'position-absolute title-lg': mdAndUp }" no-gutters>
-          <title-info :rom="rom" />
-        </v-row>
-        <v-row no-gutters>
-          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
+        <v-col
+          cols="12"
+          sm="12"
+          md="6"
+          lg="5"
+          xl="6"
+          class="px-0"
+          :class="{
+            'position-absolute title-lg': mdAndUp,
+            'justify-center': smAndDown,
+          }"
+        >
+          <title-info :rom="rom" :platform="platform" />
+        </v-col>
+        <v-row
+          :class="{
+            'justify-center': smAndDown,
+          }"
+          no-gutters
+        >
+          <v-tabs
+            v-if="!showEmulation"
+            v-model="tab"
+            slider-color="romm-accent-1"
+            rounded="0"
+          >
             <v-tab value="details" rounded="0">Details</v-tab>
-            <v-tab value="saves" rounded="0" disabled
-              >Saves<span class="text-caption text-truncate ml-1"
-                >[coming soon]</span
-              ></v-tab
-            >
+            <v-tab value="saves" rounded="0">Saves</v-tab>
+            <v-tab value="states" rounded="0">States</v-tab>
             <v-tab
-              v-if="rom.path_screenshots.length > 0"
-              value="screenshots"
+              v-if="
+                mdAndDown &&
+                ((rom.igdb_metadata?.expansions ?? []).length > 0 ||
+                  (rom.igdb_metadata?.dlcs ?? []).length > 0)
+              "
+              value="additionalcontent"
               rounded="0"
-              >Screenshots</v-tab
+              >Additional content</v-tab
+            >
+            <!-- TODO: user screenshots -->
+            <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
+            <v-tab
+              v-if="
+                smAndDown &&
+                ((rom.igdb_metadata?.remakes ?? []).length > 0 ||
+                  (rom.igdb_metadata?.remasters ?? []).length > 0 ||
+                  (rom.igdb_metadata?.expanded_games ?? []).length > 0)
+              "
+              value="relatedgames"
+              rounded="0"
+              >Related Games</v-tab
             >
           </v-tabs>
+          <v-tabs
+            v-if="showEmulation"
+            v-model="tab"
+            slider-color="romm-accent-1"
+            rounded="0"
+          >
+            <v-tab value="emulation" rounded="0">Emulation</v-tab>
+          </v-tabs>
         </v-row>
-        <v-row no-gutters>
+        <v-row no-gutters class="mb-4">
           <v-col cols="12">
-            <v-window v-model="tab" class="mt-2">
+            <v-window v-if="!showEmulation" v-model="tab" class="py-2">
               <v-window-item value="details">
-                <details-info :rom="rom" />
-              </v-window-item>
-              <v-window-item value="screenshots">
-                <screenshots-carousel :rom="rom" />
+                <info :rom="rom" :platform="platform" />
               </v-window-item>
               <v-window-item value="saves">
-                <v-row class="d-flex mt-2"></v-row>
+                <saves :rom="rom" />
+              </v-window-item>
+              <v-window-item value="states">
+                <states :rom="rom" />
+              </v-window-item>
+              <v-window-item
+                v-if="
+                  mdAndDown &&
+                  (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
+                "
+                value="additionalcontent"
+              >
+                <additional-content :rom="rom" />
+              </v-window-item>
+              <!-- TODO: user screenshots -->
+              <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
+                <screenshots :rom="rom" />
+              </v-window-item> -->
+              <v-window-item
+                v-if="
+                  smAndDown &&
+                  (rom.igdb_metadata?.remakes ||
+                    rom.igdb_metadata?.remasters ||
+                    rom.igdb_metadata?.expanded_games)
+                "
+                value="relatedgames"
+              >
+                <related-games :rom="rom" />
+              </v-window-item>
+            </v-window>
+            <v-window v-if="showEmulation" v-model="tab" class="py-2">
+              <v-window-item value="emulation">
+                <emulation :rom="rom" />
               </v-window-item>
             </v-window>
           </v-col>
         </v-row>
       </v-col>
+
+      <template v-if="lgAndUp">
+        <v-col class="px-6">
+          <additional-content :rom="rom" />
+        </v-col>
+      </template>
     </v-row>
   </template>
 
@@ -145,6 +255,7 @@ watch(
   <edit-rom-dialog />
   <delete-rom-dialog />
   <loading-dialog />
+  <delete-asset-dialog />
 </template>
 
 <style scoped>
@@ -156,15 +267,18 @@ watch(
 }
 .cover-lg {
   margin-top: -230px;
-  margin-left: 110px;
-}
-.cover-xs {
-  margin-top: -280px;
 }
 .title-lg {
   margin-top: -190px;
 }
+.cover-xs {
+  margin-top: -280px;
+}
 .info-xs {
-  margin-top: 60px;
+  margin-top: 50px;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 </style>

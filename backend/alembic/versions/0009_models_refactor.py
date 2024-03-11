@@ -36,7 +36,6 @@ def upgrade() -> None:
             # Move primary key to slug
             batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
             batch_op.create_primary_key(constraint_name=None, columns=["slug"])
-            print("Moved primary key to slug column on platforms table")
     except ValueError as e:
         print(f"Cannot drop primary key on platforms table: {e}")
     except OperationalError as e:
@@ -96,8 +95,6 @@ def upgrade() -> None:
             )
     except ValueError as e:
         print(f"Cannot create foreign key on roms table: {e}")
-    else:
-        print("Created foreign key on roms table")
 
 
 def downgrade() -> None:
