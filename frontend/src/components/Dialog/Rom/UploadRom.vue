@@ -4,56 +4,39 @@ import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-
+import { type Platform } from "@/stores/platforms";
 import socket from "@/services/socket";
-import api from "@/services/api";
+import romApi from "@/services/api/rom";
 import storeScanning from "@/stores/scanning";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const route = useRoute();
 const show = ref(false);
 const romsToUpload = ref([]);
-const scanning = storeScanning();
+const scanningStore = storeScanning();
+const platform = ref<Platform | null>(null);
 
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showUploadRomDialog", () => {
+emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
+  platform.value = platformWhereUpload;
   show.value = true;
 });
 
-socket.on("scan:done", () => {
-  scanning.set(false);
-  socket.disconnect();
-  emitter?.emit("refreshDrawer", null);
-  emitter?.emit("snackbarShow", {
-    msg: "Scan completed successfully!",
-    icon: "mdi-check-bold",
-    color: "green",
-  });
-});
-
-socket.on("scan:done_ko", (msg) => {
-  scanning.set(false);
-  emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
-    icon: "mdi-close-circle",
-    color: "red",
-  });
-  socket.disconnect();
-});
-
+// Functions
 async function uploadRoms() {
+  if (!platform.value) return;
   show.value = false;
-  scanning.set(true);
+  scanningStore.set(true);
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${romsToUpload.value.length} roms to ${route.params.platform}...`,
+    msg: `Uploading ${romsToUpload.value.length} roms to ${platform.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
 
-  await api
+  await romApi
     .uploadRoms({
       romsToUpload: romsToUpload.value,
-      platform: route.params.platform as string,
+      platform: platform.value.id,
     })
     .then(({ data }) => {
       const { uploaded_roms, skipped_roms } = data;
@@ -77,7 +60,7 @@ async function uploadRoms() {
       if (!socket.connected) socket.connect();
       setTimeout(() => {
         socket.emit("scan", {
-          platforms: [route.params.platform],
+          platforms: [platform.value?.id],
           rescan: false,
         });
       }, 2000);
@@ -91,16 +74,12 @@ async function uploadRoms() {
         color: "red",
         timeout: 4000,
       });
-    })
-    .finally(() => {
-      scanning.set(false);
     });
 }
 
-onBeforeUnmount(() => {
-  socket.off("scan:done");
-  socket.off("scan:done_ko");
-});
+function closeDialog() {
+  show.value = false;
+}
 </script>
 
 <template>
@@ -108,9 +87,9 @@ onBeforeUnmount(() => {
     :modelValue="show"
     scroll-strategy="none"
     width="auto"
-    :scrim="false"
-    @click:outside="show = false"
-    @keydown.esc="show = false"
+    :scrim="true"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
     no-click-animation
     persistent
   >
@@ -129,7 +108,7 @@ onBeforeUnmount(() => {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -145,7 +124,7 @@ onBeforeUnmount(() => {
         <v-row class="pa-2" no-gutters>
           <v-file-input
             @keyup.enter="uploadRoms()"
-            :label="`Upload rom(s) to ${route.params.platform}`"
+            :label="`Upload rom(s) to ${platform?.name}`"
             v-model="romsToUpload"
             prepend-inner-icon="mdi-disc"
             prepend-icon=""
@@ -157,7 +136,7 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary">
             Upload
           </v-btn>

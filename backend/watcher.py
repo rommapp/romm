@@ -1,29 +1,35 @@
 import os
 from datetime import timedelta
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
-from endpoints.scan import scan_platforms
-from logger.logger import log
-from tasks.utils import tasks_scheduler
-
 
 from config import (
-    HIGH_PRIO_STRUCTURE_PATH,
-    LIBRARY_BASE_PATH,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
+from endpoints.sockets.scan import scan_platforms
+from handler import db_platform_handler
+from logger.logger import log
+from tasks.tasks import tasks_scheduler
+from config.config_manager import config_manager as cm
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 path = (
-    HIGH_PRIO_STRUCTURE_PATH
-    if os.path.exists(HIGH_PRIO_STRUCTURE_PATH)
+    cm.get_config().HIGH_PRIO_STRUCTURE_PATH
+    if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH)
     else LIBRARY_BASE_PATH
 )
 
 
 class EventHandler(FileSystemEventHandler):
+    """Filesystem event handler"""
+
     def on_any_event(self, event):
+        """Catch-all event handler.
+
+        Args:
+            event: The event object representing the file system event.
+        """
         if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
             return
 
@@ -31,12 +37,13 @@ class EventHandler(FileSystemEventHandler):
         if event.src_path.endswith(".DS_Store"):
             return
 
-        # Ignore modified events
-        if event.event_type == "modified":
+        # Ignore some event types
+        if event.event_type in ["modified", "opened", "closed"]:
             return
 
         event_src = event.src_path.split(path)[-1]
-        platform_slug = event_src.split("/")[1]
+        fs_slug = event_src.split("/")[1]
+        db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
 
         log.info(f"Filesystem event: {event.event_type} {event_src}")
 
@@ -47,8 +54,8 @@ class EventHandler(FileSystemEventHandler):
                     log.info("Full rescan already scheduled")
                     return
 
-                if platform_slug in job.args[0]:
-                    log.info(f"Scan already scheduled for {platform_slug}")
+                if db_platform and db_platform.id in job.args[0]:
+                    log.info(f"Scan already scheduled for {fs_slug}")
                     return
 
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
@@ -58,11 +65,11 @@ class EventHandler(FileSystemEventHandler):
         if event.is_directory and event_src.count("/") == 1:
             log.info(f"Platform directory changed, {rescan_in_msg}")
             tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
-        else:
+        elif db_platform:
             # Otherwise trigger a rescan for the specific platform
-            log.info(f"Change detected in {platform_slug} folder, {rescan_in_msg}")
+            log.info(f"Change detected in {fs_slug} folder, {rescan_in_msg}")
             return tasks_scheduler.enqueue_in(
-                time_delta, scan_platforms, [platform_slug]
+                time_delta, scan_platforms, [db_platform.id]
             )
 
 

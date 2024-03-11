@@ -1,11 +1,29 @@
 {
   "name": "romm",
   "private": true,
+  "version": "0.0.1",
+  "author": "Zurdi <https://github.com/zurdi15>",
+  "description": "A beautiful, powerful, self-hosted rom manager",
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/zurdi15/romm",
+  "repository": {
+    "type": "git",
+    "url": "git+gihub.com/zurdi15/romm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zurdi15/romm/issues"
+  },
+  "keywords": [
+    "rom",
+    "manager",
+    "emulation"
+  ],
   "scripts": {
     "dev": "vite --host",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
+    "postinstall": "cd node_modules/emulatorjs/data/minify/ && npm i && npm run build",
     "typecheck": "vue-tsc --noEmit",
     "generate": "openapi --input http://localhost:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
@@ -14,6 +32,7 @@
     "axios": "^1.6.0",
     "core-js": "^3.8.3",
     "cronstrue": "^2.31.0",
+    "emulatorjs": "github:emulatorjs/emulatorjs#v4.0.11",
     "file-saver": "^2.0.5",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
@@ -45,7 +64,11 @@
     "vite": "^3.2.8",
     "vite-plugin-pwa": "^0.14.7",
     "vite-plugin-rewrite-all": "^1.0.1",
+    "vite-plugin-static-copy": "0.17.1",
     "vite-plugin-vuetify": "^1.0.0-alpha.12",
     "vue-tsc": "^1.8.27"
+  },
+  "engines": {
+    "node": "16"
   }
 }

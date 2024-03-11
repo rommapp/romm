@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { ref, inject, onMounted } from "vue";
-import type { Emitter } from "mitt";
-import { VDataTable } from "vuetify/labs/VDataTable";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onMounted, ref } from "vue";
+import { VDataTable } from "vuetify/labs/VDataTable";
 
-import api from "@/services/api";
+import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
+import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
+import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
+import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
-import { defaultAvatarPath } from "@/utils";
-import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
-import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
-import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import type { UserItem } from "@/types/emitter";
+import { defaultAvatarPath } from "@/utils";
 
 const HEADERS = [
   {
@@ -57,7 +57,7 @@ const usersPerPage = ref(5);
 const userSearch = ref("");
 
 function disableUser(user: UserItem) {
-  api.updateUser(user).catch(({ response, message }) => {
+  userApi.updateUser(user).catch(({ response, message }) => {
     emitter?.emit("snackbarShow", {
       msg: `Unable to disable/enable user: ${
         response?.data?.detail || response?.statusText || message
@@ -70,7 +70,7 @@ function disableUser(user: UserItem) {
 }
 
 onMounted(() => {
-  api
+  userApi
     .fetchUsers()
     .then(({ data }) => {
       usersStore.set(data);
@@ -123,7 +123,7 @@ onMounted(() => {
             <v-img
               :src="
                 item.raw.avatar_path
-                  ? `/assets/romm/resources/${item.raw.avatar_path}`
+                  ? `/assets/romm/assets/${item.raw.avatar_path}`
                   : defaultAvatarPath
               "
             />
@@ -131,6 +131,7 @@ onMounted(() => {
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
+            color="romm-accent-1"
             :disabled="item.raw.id == auth.user?.id"
             v-model="item.raw.enabled"
             @change="disableUser(item.raw)"
@@ -139,6 +140,7 @@ onMounted(() => {
         </template>
         <template v-slot:item.actions="{ item }">
           <v-btn
+            variant="text"
             class="ma-1 bg-terciary"
             size="small"
             rounded="0"
@@ -147,6 +149,7 @@ onMounted(() => {
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
           <v-btn
+            variant="text"
             class="ma-1 bg-terciary text-romm-red"
             size="small"
             rounded="0"

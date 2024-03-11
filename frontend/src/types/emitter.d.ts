@@ -1,3 +1,4 @@
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
@@ -5,7 +6,7 @@ import type { User } from "@/stores/users";
 export type UserItem = User & {
   password: string;
   avatar?: File[];
-}
+};
 
 export type SnackbarStatus = {
   msg: string;
@@ -17,22 +18,52 @@ export type SnackbarStatus = {
 export type Events = {
   showDeletePlatformDialog: Platform;
   showSearchRomDialog: Rom;
+  showSearchRomGlobalDialog: null;
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
-  showUploadRomDialog: null;
-  showCreateExclusionDialog: null;
-  showCreatePlatformBindingDialog: null;
+  showUploadRomDialog: Platform;
+  showCreatePlatformBindingDialog: {
+    fsSlug: string;
+    slug: string;
+  };
+  showDeletePlatformBindingDialog: {
+    fsSlug: string;
+    slug: string;
+  };
+  showCreatePlatformVersionDialog: {
+    fsSlug: string;
+    slug: string;
+  };
+  showDeletePlatformVersionDialog: {
+    fsSlug: string;
+    slug: string;
+  };
+  showCreateExclusionDialog: { exclude: string };
   showCreateUserDialog: null;
   showEditUserDialog: UserItem;
   showDeleteUserDialog: UserItem;
+  showDeleteSavesDialog: {
+    rom: Rom;
+    saves: SaveSchema[];
+  };
+  showDeleteStatesDialog: {
+    rom: Rom;
+    states: StateSchema[];
+  };
+  showEmulation: null;
   toggleDrawer: null;
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
   refreshDrawer: null;
+  refreshView: null;
   showLoadingDialog: {
     loading: boolean;
     scrim: boolean;
   };
   openFabMenu: boolean;
   filter: null;
+  filterBarShow: null;
+  filterBarReset: null;
+  sortBarShow: null;
+  romUpdated: Rom;
 };

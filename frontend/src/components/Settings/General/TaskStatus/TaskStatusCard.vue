@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { ref, onBeforeMount, inject } from "vue";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject } from "vue";
 
-import { api } from "@/services/api";
-import storeRunningTasks from "@/stores/runningTasks";
-import TaskWatcher from "@/components/Settings/General/TaskStatus/TaskWatcher.vue";
 import TaskScheduler from "@/components/Settings/General/TaskStatus/TaskScheduler.vue";
+import TaskWatcher from "@/components/Settings/General/TaskStatus/TaskWatcher.vue";
+import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeRunningTasks from "@/stores/runningTasks";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const heartbeat = storeHeartbeat();
-const runningTasks = storeRunningTasks()
+const heartbeatStore = storeHeartbeat();
+const runningTasks = storeRunningTasks();
 
 // Methods
 const runAllTasks = async () => {
@@ -28,7 +28,7 @@ const runAllTasks = async () => {
   }
 
   emitter?.emit("snackbarShow", {
-    msg: result.data.message,
+    msg: result.data.msg,
     icon: "mdi-check-circle",
     color: "green",
   });
@@ -57,17 +57,17 @@ const runAllTasks = async () => {
 
     <v-card-text>
       <v-row>
-        <task-watcher :watcher="heartbeat.data.WATCHER" />
+        <task-watcher :watcher="heartbeatStore.value.WATCHER" />
 
         <v-divider class="border-opacity-25" />
 
         <v-col
-          v-for="task in heartbeat.data.SCHEDULER"
+          v-for="task in heartbeatStore.value.SCHEDULER"
           cols="12"
           md="4"
           sm="6"
+          class="status-item d-flex"
           :class="{
-            'status-item d-flex': true,
             disabled: !task.ENABLED,
           }"
         >

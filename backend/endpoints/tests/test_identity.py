@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from utils.cache import cache
+from handler.redis_handler import cache
 from models.user import Role
 
 client = TestClient(app)
@@ -27,12 +27,12 @@ def test_login_logout(admin_user):
 
     assert response.status_code == 200
     assert response.cookies.get("session")
-    assert response.json()["message"] == "Successfully logged in"
+    assert response.json()["msg"] == "Successfully logged in"
 
     response = client.post("/logout")
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Successfully logged out"
+    assert response.json()["msg"] == "Successfully logged out"
 
 
 def test_get_all_users(access_token):
@@ -42,16 +42,6 @@ def test_get_all_users(access_token):
     users = response.json()
     assert len(users) == 1
     assert users[0]["username"] == "test_admin"
-
-
-def test_get_current_user(access_token):
-    response = client.get(
-        "/users/me", headers={"Authorization": f"Bearer {access_token}"}
-    )
-    assert response.status_code == 200
-
-    user = response.json()
-    assert user["username"] == "test_admin"
 
 
 def test_get_user(access_token, editor_user):
@@ -84,7 +74,7 @@ def test_create_user(access_token):
 def test_update_user(access_token, editor_user):
     assert editor_user.role == Role.EDITOR
 
-    response = client.patch(
+    response = client.put(
         f"/users/{editor_user.id}",
         params={"username": "editor_user_new_username", "role": "viewer"},
         headers={"Authorization": f"Bearer {access_token}"},
@@ -102,4 +92,4 @@ def test_delete_user(access_token, editor_user):
     assert response.status_code == 200
 
     body = response.json()
-    assert body["message"] == "User successfully deleted"
+    assert body["msg"] == "User successfully deleted"

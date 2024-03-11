@@ -4,6 +4,7 @@
 /* eslint-disable */
 
 export type PlatformSchema = {
+    id: number;
     slug: string;
     fs_slug: string;
     igdb_id?: (number | null);

@@ -1,5 +1,14 @@
 [tool.poetry]
 package-mode = false
+name = "romm"
+version = "0.0.1"
+description = "A beautiful, powerful, self-hosted rom manager"
+license = "GNU GPLv3"
+repository = "https://github.com/zurdi15/romm"
+authors = [
+    "Zurdi <https://github.com/zurdi15/>",
+    "Georges-Antoine Assi <contact@me.gantoine.com>",
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -39,6 +48,7 @@ watchdog = "^3.0.0"
 xmltodict = "^0.13.0"
 Pillow = "10.1.0"
 numpy = "^1.26.2"
+starlette-authlib = "^0.1.38"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.0"

@@ -1,25 +1,23 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import api from "@/services/api";
+import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { Rom } from "@/stores/roms";
+import { platformSlugEJSCoreMap } from "@/utils";
 
 // Props
-defineProps<{ rom: Rom }>();
-const saveFiles = ref(false);
+const props = defineProps<{ rom: Rom }>();
 const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
 
 <template>
-  <v-card-text>
-    <v-row>
+    <v-row no-gutters>
       <v-col class="pa-0">
         <v-btn
           class="action-bar-btn"
-          @click="api.downloadRom({ rom })"
+          @click="romApi.downloadRom({ rom })"
           :disabled="downloadStore.value.includes(rom.id)"
           icon="mdi-download"
           size="x-small"
@@ -27,18 +25,19 @@ const downloadStore = storeDownload();
           variant="text"
         />
         <v-btn
-        class="action-bar-btn"
-          icon="mdi-content-save-all"
+          v-if="rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
+          class="action-bar-btn"
+          :href="`/play/${rom.id}`"
+          icon="mdi-play"
           size="x-small"
           rounded="0"
           variant="text"
-          :disabled="!saveFiles"
         />
       </v-col>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
-          class="action-bar-btn"
+            class="action-bar-btn"
             :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"
             icon="mdi-dots-vertical"
@@ -49,9 +48,7 @@ const downloadStore = storeDownload();
         </template>
         <admin-menu :rom="rom" />
       </v-menu>
-
     </v-row>
-  </v-card-text>
 </template>
 
 <style scoped>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Heartbeat } from "@/stores/heartbeat";
+import type { HeartbeatResponse } from "@/__generated__";
 
-defineProps<{ watcher: Heartbeat["WATCHER"] }>();
+defineProps<{ watcher: HeartbeatResponse["WATCHER"] }>();
 </script>
 <template>
   <v-col
@@ -9,25 +9,25 @@ defineProps<{ watcher: Heartbeat["WATCHER"] }>();
     md="4"
     sm="4"
     lg="4"
+    class="status-item d-flex"
     :class="{
-      'status-item d-flex': true,
-      disabled: !watcher.ENABLED,
+      disabled: !watcher?.ENABLED,
     }"
   >
     <v-icon
-      :class="watcher.ENABLED ? 'text-romm-accent-1' : ''"
+      :class="watcher?.ENABLED ? 'text-romm-accent-1' : ''"
       :icon="
-        watcher.ENABLED ? 'mdi-file-check-outline' : 'mdi-file-remove-outline'
+        watcher?.ENABLED ? 'mdi-file-check-outline' : 'mdi-file-remove-outline'
       "
     />
     <div class="ml-3">
       <span
         class="font-weight-bold text-body-1"
-        :class="watcher.ENABLED ? 'text-romm-accent-1' : ''"
-        >{{ watcher.TITLE }}</span
+        :class="watcher?.ENABLED ? 'text-romm-accent-1' : ''"
+        >{{ watcher?.TITLE }}</span
       >
       <p class="mt-1">
-        {{ watcher.MESSAGE }}
+        {{ watcher?.MESSAGE }}
       </p>
     </div>
   </v-col>

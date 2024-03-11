@@ -1,23 +1,25 @@
-import { uniqBy, groupBy, isNull } from "lodash";
-import { defineStore } from "pinia";
+import type { PlatformSchema, RomSchema } from "@/__generated__/";
+import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
+import { defineStore, type Store } from "pinia";
+import storeGalleryFilter from "./galleryFilter";
+import type { ExtractPiniaStoreType } from "@/types";
 
-import type { RomSchema } from "../__generated__/";
+type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 export type Rom = RomSchema & {
-  sibling_roms?: RomSchema[]; // Returned by the API
   siblings?: RomSchema[]; // Added by the frontend
 };
 
 export default defineStore("roms", {
   state: () => ({
-    _platform: "",
-    recentRoms: [] as Rom[],
+    _platform: {} as PlatformSchema,
     _all: [] as Rom[],
     _grouped: [] as Rom[],
     _filteredIDs: [] as number[],
     _searchIDs: [] as number[],
     _selectedIDs: [] as number[],
+    recentRoms: [] as Rom[],
     lastSelectedIndex: -1,
     cursor: "" as string | null,
     searchCursor: "" as string | null,
@@ -56,12 +58,16 @@ export default defineStore("roms", {
           // If igdb_id is null, generate a random id so that the roms are not grouped
           isNull(game.igdb_id) ? nanoid() : game.igdb_id
         )
-      ).map((games) => ({
-        ...(games.shift() as Rom),
-        siblings: games,
-      }));
+      )
+        .map((games) => ({
+          ...(games.shift() as Rom),
+          siblings: games,
+        }))
+        .sort((a, b) => {
+          return a.sort_comparator.localeCompare(b.sort_comparator);
+        });
     },
-    setPlatform(platform: string) {
+    setPlatform(platform: PlatformSchema) {
       this._platform = platform;
     },
     setRecentRoms(roms: Rom[]) {
@@ -86,6 +92,16 @@ export default defineStore("roms", {
           return rom.id === value.id;
         });
       });
+      this._grouped = this._grouped.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value.id;
+        });
+      });
+      this._filteredIDs = this._filteredIDs.filter((value) => {
+        return !roms.find((rom) => {
+          return rom.id === value;
+        });
+      });
     },
     reset() {
       this._all = [];
@@ -95,9 +111,55 @@ export default defineStore("roms", {
       this._selectedIDs = [];
       this.lastSelectedIndex = -1;
     },
-    // Filtered roms
-    setFiltered(roms: Rom[]) {
+    // Filter roms by gallery filter store state
+    setFiltered(roms: Rom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = roms.map((rom) => rom.id);
+      if (galleryFilter.filterUnmatched) this.filterUnmatched();
+      if (galleryFilter.selectedGenre) {
+        this.filterGenre(galleryFilter.selectedGenre);
+      }
+      if (galleryFilter.selectedFranchise) {
+        this.filterFranchise(galleryFilter.selectedFranchise);
+      }
+      if (galleryFilter.selectedCollection) {
+        this.filterCollection(galleryFilter.selectedCollection);
+      }
+      if (galleryFilter.selectedCompany) {
+        this.filterCompany(galleryFilter.selectedCompany);
+      }
+    },
+    filterUnmatched() {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => !rom.igdb_id)
+        .map((roms) => roms.id);
+    },
+    filterGenre(genreToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => rom.genres.some((genre) => genre === genreToFilter))
+        .map((rom) => rom.id);
+    },
+    filterFranchise(franchiseToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.franchises.some((franchise) => franchise === franchiseToFilter)
+        )
+        .map((rom) => rom.id);
+    },
+    filterCollection(collectionToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.collections.some(
+            (collection) => collection === collectionToFilter
+          )
+        )
+        .map((rom) => rom.id);
+    },
+    filterCompany(companyToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.companies.some((company) => company === companyToFilter)
+        )
+        .map((rom) => rom.id);
     },
     // Search roms
     setSearch(roms: Rom[]) {

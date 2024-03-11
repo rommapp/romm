@@ -3,12 +3,19 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { VDataTable } from "vuetify/labs/VDataTable";
 
-import api from "@/services/api";
-import storeDownload from "@/stores/download";
-import storeRoms, { type Rom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils";
+import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
+import storeRoms from "@/stores/roms";
+import {
+  formatBytes,
+  languageToEmoji,
+  platformSlugEJSCoreMap,
+  regionToEmoji,
+} from "@/utils";
+import { useTheme } from "vuetify";
+const theme = useTheme();
 
 const HEADERS = [
   {
@@ -61,19 +68,15 @@ const PER_PAGE_OPTIONS = [
 ] as const;
 
 // Props
-const location = window.location.origin;
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const saveFiles = ref(false);
 const auth = storeAuth();
 const romsPerPage = ref(-1);
 
 // Functions
 function rowClick(_: Event, row: any) {
-  router.push(
-    `/platform/${row.item.raw.platform_slug}/${row.item.raw.id}`
-  );
+  router.push({ name: "rom", params: { rom: row.item.raw.id } });
 }
 </script>
 
@@ -82,6 +85,7 @@ function rowClick(_: Event, row: any) {
     :items-per-page="romsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
+    :fixed-footer="false"
     :headers="HEADERS"
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
@@ -98,16 +102,27 @@ function rowClick(_: Event, row: any) {
           absolute
         />
         <v-img
-          :src="`/assets/romm/resources/${item.raw.path_cover_s}`"
-          :lazy-src="`/assets/romm/resources/${item.raw.path_cover_s}`"
+          :src="
+            !item.raw.igdb_id && !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${item.raw.path_cover_s}`
+          "
+          :lazy-src="
+            !item.raw.igdb_id && !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !item.raw.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${item.raw.path_cover_s}`
+          "
           min-height="150"
         />
       </v-avatar>
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ item.raw.file_size }}
-        {{ item.raw.file_size_units }}
+        {{ formatBytes(item.raw.file_size_bytes) }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">
@@ -121,38 +136,27 @@ function rowClick(_: Event, row: any) {
       </span>
     </template>
     <template v-slot:item.actions="{ item }">
-      <template v-if="item.raw.multi">
-        <v-btn
-          class="my-1"
-          rounded="0"
-          @click.stop="api.downloadRom({ rom: item.raw })"
-          :disabled="downloadStore.value.includes(item.raw.id)"
-          download
-          size="small"
-          variant="text"
-          ><v-icon>mdi-download</v-icon></v-btn
-        >
-      </template>
-      <template v-else>
-        <v-btn
-          class="my-1"
-          rounded="0"
-          @click.stop=""
-          :href="`${location}${item.raw.download_path}`"
-          download
-          size="small"
-          variant="text"
-          ><v-icon>mdi-download</v-icon></v-btn
-        >
-      </template>
       <v-btn
+        class="ma-1 bg-terciary"
+        rounded="0"
+        @click.stop="romApi.downloadRom({ rom: item.raw })"
+        :disabled="downloadStore.value.includes(item.raw.id)"
+        download
         size="small"
         variant="text"
-        :disabled="!saveFiles"
-        class="my-1"
-        rounded="0"
-        ><v-icon>mdi-content-save-all</v-icon></v-btn
       >
+        <v-icon>mdi-download</v-icon>
+      </v-btn>
+      <v-btn
+        v-if="item.raw.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
+        size="small"
+        variant="text"
+        :href="`/play/${item.raw.id}`"
+        class="my-1 bg-terciary"
+        rounded="0"
+      >
+        <v-icon>mdi-play</v-icon>
+      </v-btn>
       <v-menu location="bottom">
         <template v-slot:activator="{ props }">
           <v-btn
@@ -161,7 +165,7 @@ function rowClick(_: Event, row: any) {
             v-bind="props"
             size="small"
             variant="text"
-            class="my-1"
+            class="ma-1 bg-terciary"
             ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
         </template>

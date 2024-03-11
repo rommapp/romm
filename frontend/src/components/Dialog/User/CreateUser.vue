@@ -3,7 +3,7 @@ import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import api from "@/services/api";
+import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 
 const user = ref({
@@ -19,8 +19,9 @@ emitter?.on("showCreateUserDialog", () => {
   show.value = true;
 });
 
+// Functions
 async function createUser() {
-  await api.createUser(user.value)
+  await userApi.createUser(user.value)
     .then(({ data }) => {
       usersStore.add(data);
     })
@@ -35,6 +36,10 @@ async function createUser() {
     });
   show.value = false;
 }
+
+function closeDialog() {
+  show.value = false;
+}
 </script>
 <template>
   <v-dialog v-model="show" max-width="500px" :scrim="false">
@@ -46,7 +51,7 @@ async function createUser() {
           </v-col>
           <v-col>
             <v-btn
-              @click="show = false"
+              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
@@ -99,7 +104,7 @@ async function createUser() {
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="show = false" class="bg-terciary">Cancel</v-btn>
+          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn
             :disabled="!user.username || !user.password"
             class="text-romm-green bg-terciary ml-5"

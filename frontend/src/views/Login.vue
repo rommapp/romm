@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, inject, onBeforeMount } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-
+import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
-import { api } from "@/services/api";
+import storeHeartbeat from "@/stores/heartbeat";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeMount, ref } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
+const heartbeatStore = storeHeartbeat();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
@@ -18,17 +19,8 @@ const logging = ref(false);
 
 function login() {
   logging.value = true;
-  api
-    .post(
-      "/login",
-      {},
-      {
-        auth: {
-          username: username.value,
-          password: password.value,
-        },
-      }
-    )
+  identityApi
+    .login(username.value, password.value)
     .then(() => {
       const next = (router.currentRoute.value.query?.next || "/").toString();
       router.push(next);
@@ -57,7 +49,7 @@ function login() {
 onBeforeMount(async () => {
   // Check if authentication is enabled
   if (!auth.enabled) {
-    return router.push("/");
+    return router.push({ name: "dashboard" });
   }
 });
 </script>
@@ -76,7 +68,7 @@ onBeforeMount(async () => {
             height="200"
           />
 
-          <v-row class="justify-center">
+          <v-row class="text-white justify-center mt-2">
             <v-col cols="10" md="8">
               <v-text-field
                 @keyup.enter="login()"
@@ -104,6 +96,7 @@ onBeforeMount(async () => {
               <v-btn
                 @click="login()"
                 :disabled="logging"
+                color="romm-accent-1"
                 append-icon="mdi-chevron-right-circle-outline"
                 block
                 :loading="logging"
@@ -122,6 +115,10 @@ onBeforeMount(async () => {
         </v-col>
       </v-row>
     </v-card>
+
+    <div class="position-absolute" id="version">
+      <span class="text-white">{{ heartbeatStore.value.VERSION }}</span>
+    </div>
   </v-container>
 </template>
 
@@ -134,10 +131,14 @@ onBeforeMount(async () => {
   position: absolute;
   background: url("/assets/login_bg.png") center center;
   background-size: cover;
-  -webkit-filter: blur(3px);
-  filter: blur(3px);
 }
 #card {
-  background-color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+#version {
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+  bottom: 0.3rem;
+  right: 0.5rem;
 }
 </style>

@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { ref, onBeforeMount, inject } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import { api } from "@/services/api";
-import storeHeartbeat from "@/stores/heartbeat";
+import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatformBinding.vue";
+import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatformBinding.vue";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import CreatePlatformBindingDialog from "@/components/Dialog/Platform/CreatePlatformBinding.vue";
+import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const heartbeat = storeHeartbeat();
-const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
+const configStore = storeConfig();
+const authStore = storeAuth();
+const platformsBinding = configStore.value.PLATFORMS_BINDING;
+const editable = ref(false);
 </script>
 <template>
   <v-card rounded="0">
@@ -20,50 +23,111 @@ const platformsBinding = heartbeat.data.CONFIG.PLATFORMS_BINDING;
         Platforms Bindings
       </v-toolbar-title>
       <v-btn
-        disabled
-        prepend-icon="mdi-plus"
-        variant="outlined"
-        class="text-romm-accent-1"
-        @click="emitter?.emit('showCreatePlatformBindingDialog', null)"
+        v-if="authStore.scopes.includes('platforms.write')"
+        class="ma-2"
+        rounded="0"
+        size="small"
+        variant="text"
+        @click="editable = !editable"
+        icon="mdi-cog"
       >
-        Add
       </v-btn>
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
 
     <v-card-text class="pa-1">
-      <v-row no-gutters>
+      <v-row no-gutters class="align-center">
         <v-col
           cols="6"
-          sm="3"
-          md="2"
+          sm="4"
+          md="3"
           lg="2"
-          v-for="platform in Object.keys(platformsBinding)"
+          xl="2"
+          v-for="(slug, fsSlug) in platformsBinding"
+          :key="slug"
+          :title="slug"
         >
-          <v-card-text class="bg-terciary ma-1 py-1 pl-1 pr-3">
-            <v-row class="align-center" no-gutters>
-              <v-col cols="5" sm="4" md="5" lg="4">
-                <v-avatar class="mx-2" :rounded="0" size="40">
-                  <platform-icon :platform="platformsBinding[platform]" />
-                </v-avatar>
-              </v-col>
-              <v-col cols="7" sm="8" md="7" lg="8">
-                <div
-                  class="bg-primary pa-2 text-caption text-truncate"
-                  :title="platform"
-                >
-                  <span clas="pa-1">{{ platform }}</span>
-                </div>
-              </v-col>
-            </v-row>
-          </v-card-text>
+          <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
+            <template v-slot:prepend>
+              <v-avatar :rounded="0" size="40" class="mx-2">
+                <platform-icon class="platform-icon" :key="slug" :slug="slug" />
+              </v-avatar>
+            </template>
+            <v-list-item class="bg-primary pr-2 pl-2">
+              <span>{{ fsSlug }}</span>
+              <template v-slot:append>
+                <v-slide-x-reverse-transition>
+                  <v-btn
+                    v-if="
+                      authStore.scopes.includes('platforms.write') && editable
+                    "
+                    rounded="0"
+                    variant="text"
+                    size="x-small"
+                    icon="mdi-pencil"
+                    @click="
+                      emitter?.emit('showCreatePlatformBindingDialog', {
+                        fsSlug,
+                        slug,
+                      })
+                    "
+                    class="ml-2"
+                  />
+                </v-slide-x-reverse-transition>
+                <v-slide-x-reverse-transition>
+                  <v-btn
+                    v-if="
+                      authStore.scopes.includes('platforms.write') && editable
+                    "
+                    rounded="0"
+                    variant="text"
+                    size="x-small"
+                    icon="mdi-delete"
+                    @click="
+                      emitter?.emit('showDeletePlatformBindingDialog', {
+                        fsSlug,
+                        slug,
+                      })
+                    "
+                    class="text-romm-red"
+                  />
+                </v-slide-x-reverse-transition>
+              </template>
+            </v-list-item>
+          </v-list-item>
+        </v-col>
+        <v-col cols="6" sm="4" md="3" lg="2" xl="2" class="px-1">
+          <v-expand-transition>
+            <v-btn
+              v-if="authStore.scopes.includes('platforms.write') && editable"
+              block
+              rounded="0"
+              size="large"
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-romm-accent-1"
+              @click="
+                emitter?.emit('showCreatePlatformBindingDialog', {
+                  fsSlug: '',
+                  slug: '',
+                })
+              "
+            >
+              Add
+            </v-btn>
+          </v-expand-transition>
         </v-col>
       </v-row>
     </v-card-text>
   </v-card>
 
   <create-platform-binding-dialog />
+  <delete-platform-binding-dialog />
 </template>
 
-<style scoped></style>
+<style scoped>
+.platform-icon {
+  cursor: pointer;
+}
+</style>

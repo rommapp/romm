@@ -18,10 +18,11 @@ def test_get_rom(access_token, rom):
     assert body["id"] == rom.id
 
 
-def test_get_all_roms(access_token, rom):
+def test_get_all_roms(access_token, rom, platform):
     response = client.get(
-        f"/platforms/{rom.platform_slug}/roms",
+        "/roms",
         headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id},
     )
     assert response.status_code == 200
 
@@ -30,9 +31,10 @@ def test_get_all_roms(access_token, rom):
     assert body["items"][0]["id"] == rom.id
 
 
-@patch("endpoints.rom.rename_rom")
-def test_update_rom(rename_rom, access_token, rom):
-    response = client.patch(
+@patch("endpoints.rom.fs_rom_handler.rename_file")
+@patch("endpoints.rom.igdb_handler.get_rom_by_id")
+def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
+    response = client.put(
         f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         params={"rename_as_igdb": True},
@@ -49,6 +51,18 @@ def test_update_rom(rename_rom, access_token, rom):
                     "https://images.igdb.com/igdb/image/upload/t_original/kqkixazzsokqgoxmuish.jpg",
                 ]
             ),
+            "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
+            "franchises": '[{"id": 756, "name": "Metroid"}]',
+            "collections": '[{"id": 243, "name": "Metroid"}, {"id": 6240, "name": "Metroid Prime"}]',
+            "expansions": "[]",
+            "dlcs": "[]",
+            "companies": '[{"id": 203227, "company": {"id": 70, "name": "Nintendo"}}, {"id": 203307, "company": {"id": 766, "name": "Retro Studios"}}]',
+            "first_release_date": 1675814400,
+            "remasters": "[]",
+            "remakes": "[]",
+            "expanded_games": "[]",
+            "ports": "[]",
+            "similar_games": "[]",
         },
     )
     assert response.status_code == 200
@@ -56,15 +70,17 @@ def test_update_rom(rename_rom, access_token, rom):
     body = response.json()
     assert body["file_name"] == "Metroid Prime Remastered.zip"
 
-    assert rename_rom.called
+    assert rename_file_mock.called
+    assert get_rom_by_id_mock.called
 
 
 def test_delete_roms(access_token, rom):
-    response = client.delete(
-        f"/roms/{rom.id}",
+    response = client.post(
+        "/roms/delete",
         headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": False},
     )
     assert response.status_code == 200
 
     body = response.json()
-    assert body["msg"] == f"{rom.file_name} deleted successfully!"
+    assert body["msg"] == "1 roms deleted successfully!"
