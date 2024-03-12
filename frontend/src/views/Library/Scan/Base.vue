@@ -98,7 +98,7 @@ async function scan() {
 
   <v-row class="px-4 pt-2" no-gutters>
     <!-- Scan options -->
-    <v-col cols="2" class="pt-1 px-4">
+    <v-col cols="3" class="pt-1 px-4">
       <v-select
         label="Metadata sources"
         item-title="name"

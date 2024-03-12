@@ -209,6 +209,9 @@ async def scan_rom(
             rom_attrs["file_name"], platform.moby_id
         )
 
+    # Reversed to prioritize IGDB
+    rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
+
     # Return early if not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
         log.warning(
@@ -216,8 +219,6 @@ async def scan_rom(
         )
         return Rom(**rom_attrs)
 
-    # Reversed to prioritize IGDB
-    rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
     log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
 
     # Update properties from IGDB
