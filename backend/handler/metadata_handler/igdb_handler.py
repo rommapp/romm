@@ -157,7 +157,6 @@ class IGDBHandler(MetadataHandler):
 
         return wrapper
 
-
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
             res = requests.post(
@@ -281,36 +280,62 @@ class IGDBHandler(MetadataHandler):
             return IGDBRom(igdb_id=None)
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
+        fallback_rom = IGDBRom(igdb_id=None)
 
         # Support for PS2 OPL filename format
         match = re.match(PS2_OPL_REGEX, file_name)
         if platform_igdb_id == PS2_IGDB_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
-            
+            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
+
         # Support for sony serial filename format (PS, PS3, PS3)
         match = re.search(SONY_SERIAL_REGEX, file_name, re.IGNORECASE)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
+            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         if platform_igdb_id == PS2_IGDB_ID and match:
             search_term = await self._ps2_serial_format(match, search_term)
+            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         if platform_igdb_id == PSP_IGDB_ID and match:
             search_term = await self._psp_serial_format(match, search_term)
+            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for switch titleID filename format
         match = re.search(SWITCH_TITLEDB_REGEX, file_name)
         if platform_igdb_id == SWITCH_IGDB_ID and match:
-            search_term = await self._switch_titledb_format(match, search_term)
+            search_term, index_entry = await self._switch_titledb_format(
+                match, search_term
+            )
+            if index_entry:
+                fallback_rom = IGDBRom(
+                    igdb_id=None,
+                    name=index_entry["name"],
+                    summary=index_entry.get("description", ""),
+                    url_cover=index_entry.get("iconUrl", ""),
+                    url_screenshots=index_entry.get("screenshots", None) or [],
+                )
 
         # Support for switch productID filename format
         match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
         if platform_igdb_id == SWITCH_IGDB_ID and match:
-            search_term = await self._switch_productid_format(match, search_term)
+            search_term, index_entry = await self._switch_productid_format(
+                match, search_term
+            )
+            if index_entry:
+                fallback_rom = IGDBRom(
+                    igdb_id=None,
+                    name=index_entry["name"],
+                    summary=index_entry.get("description", ""),
+                    url_cover=index_entry.get("iconUrl", ""),
+                    url_screenshots=index_entry.get("screenshots", None) or [],
+                )
 
         # Support for MAME arcade filename format
         if platform_igdb_id in ARCADE_IGDB_IDS:
             search_term = await self._mame_format(search_term)
+            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         search_term = self.normalize_search_term(search_term)
 
@@ -326,7 +351,7 @@ class IGDBHandler(MetadataHandler):
                 rom = self._search_rom(term, platform_igdb_id)
                 if rom:
                     break
-        
+
         # Some MAME games have two titles split by a slash
         if not rom and "/" in search_term:
             for term in search_term.split("/"):
@@ -335,7 +360,7 @@ class IGDBHandler(MetadataHandler):
                     break
 
         if not rom:
-            return IGDBRom(igdb_id=None)
+            return fallback_rom
 
         return IGDBRom(
             igdb_id=rom["id"],
@@ -480,7 +505,7 @@ class TwitchAuth:
     def _update_twitch_token(self) -> str:
         token = ""
         expires_in = 0
-        
+
         if not IGDB_API_ENABLED:
             return token
 
@@ -520,7 +545,7 @@ class TwitchAuth:
         # Use a fake token when running tests
         if "pytest" in sys.modules:
             return "test_token"
-        
+
         if not IGDB_API_ENABLED:
             return ""
 

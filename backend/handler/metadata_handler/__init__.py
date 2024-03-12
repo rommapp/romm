@@ -36,6 +36,7 @@ PSP_SERIAL_INDEX_FILE: Final = os.path.join(
     os.path.dirname(__file__), "fixtures", "psp_serial_index.json"
 )
 
+
 class MetadataHandler:
     @staticmethod
     def normalize_search_term(search_term: str) -> str:
@@ -64,8 +65,10 @@ class MetadataHandler:
                 search_term = index_entry["Name"]  # type: ignore
 
         return search_term
-    
-    async def _sony_serial_format(self, index_file: str, serial_code: str) -> str | None:
+
+    async def _sony_serial_format(
+        self, index_file: str, serial_code: str
+    ) -> str | None:
         with open(index_file, "r") as index_json:
             opl_index = json.loads(index_json.read())
             index_entry = opl_index.get(serial_code.upper(), None)
@@ -73,22 +76,31 @@ class MetadataHandler:
                 return index_entry["title"]
 
         return None
-    
+
     async def _ps1_serial_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
-        return await self._sony_serial_format(PS1_SERIAL_INDEX_FILE, serial_code) or search_term
-    
+        return (
+            await self._sony_serial_format(PS1_SERIAL_INDEX_FILE, serial_code)
+            or search_term
+        )
+
     async def _ps2_serial_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
-        return await self._sony_serial_format(PS2_SERIAL_INDEX_FILE, serial_code) or search_term
-    
+        return (
+            await self._sony_serial_format(PS2_SERIAL_INDEX_FILE, serial_code)
+            or search_term
+        )
+
     async def _psp_serial_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
-        return await self._sony_serial_format(PSP_SERIAL_INDEX_FILE, serial_code) or search_term
+        return (
+            await self._sony_serial_format(PSP_SERIAL_INDEX_FILE, serial_code)
+            or search_term
+        )
 
     async def _switch_titledb_format(
         self, match: re.Match[str], search_term: str
-    ) -> str:
+    ) -> tuple[str, dict | None]:
         titledb_index = {}
         title_id = match.group(1)
 
@@ -106,13 +118,13 @@ class MetadataHandler:
         finally:
             index_entry = titledb_index.get(title_id, None)
             if index_entry:
-                search_term = index_entry["name"]  # type: ignore
+                return index_entry["name"], index_entry  # type: ignore
 
-        return search_term
+        return search_term, None
 
     async def _switch_productid_format(
         self, match: re.Match[str], search_term: str
-    ) -> str:
+    ) -> tuple[str, dict | None]:
         product_id_index = {}
         product_id = match.group(1)
 
@@ -135,8 +147,9 @@ class MetadataHandler:
         finally:
             index_entry = product_id_index.get(product_id, None)
             if index_entry:
-                search_term = index_entry["name"]  # type: ignore
-        return search_term
+                return index_entry["name"], index_entry  # type: ignore
+
+        return search_term, None
 
     async def _mame_format(self, search_term: str) -> str:
         from handler import fs_rom_handler
