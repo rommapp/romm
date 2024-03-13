@@ -63,12 +63,13 @@ def migrate_to_mysql() -> None:
                     continue
 
                 table_data = sqlite_conn.execute(text(f"SELECT * FROM {table_name}")).fetchall()
-                
+
                 # Insert data into MariaDB table
                 for row in table_data:
-                    insert_query = f"INSERT INTO {table_name} VALUES ({', '.join([':%s' % key for key in row.keys()])})"
-                    params = {key: value if value is not None else 'NULL' for key, value in row.items()}
-                    maria_conn.execute(text(insert_query), params)
+                    mapped_row = {f"{i}": value for i, value in enumerate(row, start=1)}
+                    columns = ",".join([f":{i}" for i in range(1, len(row) + 1)])
+                    insert_query = f"INSERT INTO {table_name} VALUES ({columns})"
+                    maria_conn.execute(text(insert_query), mapped_row)
 
             maria_conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
