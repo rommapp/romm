@@ -45,6 +45,9 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 # Installation
 
+Easy Install
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/zurdi15/romm/release/RomM_Installer.sh)"
+
 Before running the [image][docker-tags], ensure that Docker is installed and running on your system.
 
 1. Generate an API key for [IGDB][igdb] and set the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables. This step is essential for running a library scan. Instructions for generating the ID and Secret can be found [here][igdb-api]. Note that IGDB requires a Twitch account with 2FA enabled to generate the ID and Secret.
