@@ -9,6 +9,7 @@ from typing import Final, Optional
 
 import pydash
 import requests
+import unicodedata
 import xmltodict
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
@@ -212,6 +213,26 @@ class IGDBHandler:
             return []
 
         return res.json()
+
+    @staticmethod
+    def _normalize_rom_name(name: str) -> str:
+        # Convert to lower case, replace underscores with spaces
+        name = name.lower()
+        name = re.sub(r'_', ' ', name)
+
+        # Remove apostrophes and quotes
+        name = re.sub(r'[\'\"]', '', name)
+
+        # Remove leading and trailing articles
+        name = re.sub(r'^(a|an|the)\b', '', name)
+        name = re.sub(r',\b(a|an|the)\b', '', name)
+
+        # Remove special characters and punctuation
+        converted_name = ''.join((re.findall(r'\w+', name)))  # only keep words, no special characters or punctuation
+        normalized_name = unicodedata.normalize('NFD', converted_name)  # convert to normal form
+        canonical_form = ''.join([c for c in normalized_name if not unicodedata.combining(c)])  # remove accents
+
+        return canonical_form
 
     @staticmethod
     def _normalize_search_term(search_term: str) -> str:
