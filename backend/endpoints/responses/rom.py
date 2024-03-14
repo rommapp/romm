@@ -1,6 +1,6 @@
 import re
 from typing import Optional, get_type_hints
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request

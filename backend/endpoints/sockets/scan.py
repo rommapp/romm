@@ -31,7 +31,7 @@ def _get_socket_manager():
 
 async def scan_platforms(
     platform_ids: list[int],
-    scan_type: ScanType = "quick",
+    scan_type: ScanType = ScanType.QUICK,
     selected_roms: list[str] = (),
     metadata_sources: list[str] = (),
 ):
@@ -72,7 +72,7 @@ async def scan_platforms(
 
         for platform_slug in platform_list:
             platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
-            if platform and scan_type == "new_platforms":
+            if platform and scan_type == ScanType.NEW_PLATFORMS:
                 continue
 
             scanned_platform = scan_platform(
@@ -106,20 +106,22 @@ async def scan_platforms(
                 rom = db_rom_handler.get_rom_by_filename(
                     platform.id, fs_rom["file_name"]
                 )
+
+                # This logic is tricky so only touch it if you know what you're doing
                 should_scan_rom = (
-                    (scan_type == "quick" and not rom)
+                    (scan_type == ScanType.QUICK and not rom)
                     or (
-                        scan_type == "unidentified"
+                        scan_type == ScanType.UNIDENTIFIED
                         and rom
                         and not rom.igdb_id
                         and not rom.moby_id
                     )
                     or (
-                        scan_type == "partial"
+                        scan_type == ScanType.PARTIAL
                         and rom
                         and (not rom.igdb_id or not rom.moby_id)
                     )
-                    or (scan_type == "complete")
+                    or (scan_type == ScanType.COMPLETE)
                     or rom.id in selected_roms
                 )
 
@@ -168,7 +170,7 @@ async def scan_handler(_sid: str, options: dict):
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
 
     platform_ids = options.get("platforms", [])
-    scan_type = options.get("type", False)
+    scan_type = ScanType[options.get("type", "quick").upper()]
     selected_roms = options.get("roms", [])
     metadata_sources = options.get("apis", [])
 
