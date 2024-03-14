@@ -108,7 +108,7 @@ export function regionToEmoji(region: string) {
       return "🇨🇳";
     case "e":
     case "eu":
-    case "eur": 
+    case "eur":
     case "europe":
       return "🇪🇺";
     case "f":
@@ -304,6 +304,6 @@ export const platformSlugEJSCoreMap = {
   "turbografx16--1": "mednafen_pce",
   virtualboy: "beetle_vb",
   wonderswan: "mednafen_wswan",
-  "swancrystal": "mednafen_wswan",
+  swancrystal: "mednafen_wswan",
   "wonderswan-color": "mednafen_wswan",
 } as const;
