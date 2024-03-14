@@ -1,12 +1,11 @@
+import pydash
+import requests
 import functools
 import re
 import sys
 import time
 from typing import Final, Optional
 from typing_extensions import NotRequired, TypedDict
-
-import pydash
-import requests
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
 from handler.redis_handler import cache

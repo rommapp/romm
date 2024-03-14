@@ -1,5 +1,5 @@
-from typing import Any, Literal
-
+from enum import Enum
+from typing import Any
 import emoji
 from config.config_manager import config_manager as cm
 from handler import (
@@ -16,7 +16,13 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
-ScanType = Literal["new_platforms", "quick", "unidentified", "partial", "complete"]
+
+class ScanType(Enum):
+    NEW_PLATFORMS = "new_platforms"
+    QUICK = "quick"
+    UNIDENTIFIED = "unidentified"
+    PARTIAL = "partial"
+    COMPLETE = "complete"
 
 
 def _get_main_platform_igdb_id(platform: Platform):
@@ -105,7 +111,7 @@ async def scan_rom(
     platform: Platform,
     rom_attrs: dict,
     rom: Rom | None = None,
-    scan_type: ScanType = "quick",
+    scan_type: ScanType = ScanType.QUICK,
     metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Rom:
     roms_path = fs_rom_handler.get_fs_structure(platform.fs_slug)
@@ -128,7 +134,7 @@ async def scan_rom(
     )
 
     # Update properties from existing rom if not a complete rescan
-    if rom and scan_type != "complete":
+    if rom and scan_type != ScanType.COMPLETE:
         rom_attrs.update(
             {
                 "igdb_id": rom.igdb_id,
@@ -185,9 +191,9 @@ async def scan_rom(
         and platform.igdb_id
         and (
             not rom
-            or scan_type == "complete"
-            or (scan_type == "partial" and not rom.igdb_id)
-            or (scan_type == "unidentified" and not rom.igdb_id)
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
         )
     ):
         main_platform_igdb_id = _get_main_platform_igdb_id(platform)
@@ -200,9 +206,9 @@ async def scan_rom(
         and platform.moby_id
         and (
             not rom
-            or scan_type == "complete"
-            or (scan_type == "partial" and not rom.moby_id)
-            or (scan_type == "unidentified" and not rom.moby_id)
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.moby_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
         )
     ):
         moby_handler_rom = await moby_handler.get_rom(
@@ -224,9 +230,9 @@ async def scan_rom(
     # Update properties from IGDB
     if (
         not rom
-        or scan_type == "complete"
-        or (scan_type == "partial" and rom and (not rom.igdb_id or not rom.moby_id))
-        or (scan_type == "unidentified" and rom and not rom.igdb_id and not rom.moby_id)
+        or scan_type == ScanType.COMPLETE
+        or (scan_type == ScanType.PARTIAL and rom and (not rom.igdb_id or not rom.moby_id))
+        or (scan_type == ScanType.UNIDENTIFIED and rom and not rom.igdb_id and not rom.moby_id)
     ):
         rom_attrs.update(
             fs_resource_handler.get_rom_cover(

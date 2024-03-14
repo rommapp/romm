@@ -20,6 +20,7 @@ from . import (
     SONY_SERIAL_REGEX,
 )
 
+# Used to display the Mobygames API status in the frontend
 MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
 
 PS1_MOBY_ID: Final = 6
@@ -80,10 +81,10 @@ class MobyGamesHandler(MetadataHandler):
             res.raise_for_status()
             return res.json()
         except requests.exceptions.ConnectionError:
-            log.critical("Connection error: can't connect to IGDB", exc_info=True)
+            log.critical("Connection error: can't connect to Mobygames", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to IGDB, check your internet connection",
+                detail="Can't connect to Mobygames, check your internet connection",
             )
         except HTTPError as err:
             if err.response.status_code != 429:
@@ -118,7 +119,16 @@ class MobyGamesHandler(MetadataHandler):
         roms = self._request(str(url)).get("games", [])
 
         exact_matches = [
-            rom for rom in roms if rom["title"].lower() == search_term.lower()
+            rom
+            for rom in roms
+            if (
+                rom["name"].lower() == search_term.lower()
+                or rom["slug"].lower() == search_term.lower()
+                or (
+                    self._normalize_exact_match(rom["name"])
+                    == self._normalize_exact_match(search_term)
+                )
+            )
         ]
 
         return pydash.get(exact_matches or roms, "[0]", None)
@@ -160,15 +170,15 @@ class MobyGamesHandler(MetadataHandler):
         match = re.search(SONY_SERIAL_REGEX, file_name, re.IGNORECASE)
         if platform_moby_id == PS1_MOBY_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(igdb_id=None, name=search_term)
+            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         if platform_moby_id == PS2_MOBY_ID and match:
             search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(igdb_id=None, name=search_term)
+            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         if platform_moby_id == PSP_MOBY_ID and match:
             search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(igdb_id=None, name=search_term)
+            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         # Support for switch titleID filename format
         match = re.search(SWITCH_TITLEDB_REGEX, file_name)
@@ -178,7 +188,7 @@ class MobyGamesHandler(MetadataHandler):
             )
             if index_entry:
                 fallback_rom = MobyGamesRom(
-                    igdb_id=None,
+                    moby_id=None,
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
@@ -193,7 +203,7 @@ class MobyGamesHandler(MetadataHandler):
             )
             if index_entry:
                 fallback_rom = MobyGamesRom(
-                    igdb_id=None,
+                    moby_id=None,
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
@@ -203,7 +213,7 @@ class MobyGamesHandler(MetadataHandler):
         # Support for MAME arcade filename format
         if platform_moby_id in ARCADE_MOBY_IDS:
             search_term = await self._mame_format(search_term)
-            fallback_rom = MobyGamesRom(igdb_id=None, name=search_term)
+            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         search_term = self.normalize_search_term(search_term)
         res = self._search_rom(search_term, platform_moby_id)
