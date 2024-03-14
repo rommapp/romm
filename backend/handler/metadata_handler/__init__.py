@@ -2,6 +2,7 @@ import json
 import xmltodict
 import os
 import re
+import unicodedata
 from typing import Final
 from logger.logger import log
 from tasks.update_mame_xml import update_mame_xml_task
@@ -54,6 +55,34 @@ class MetadataHandler:
             return url
 
         return f"https:{url.replace('https:', '')}"
+
+    # This is expensive, so it should be used sparingly
+    @staticmethod
+    def _normalize_exact_match(name: str) -> str:
+        name = (
+            name.lower()  # Convert to lower case,
+            .replace("_", " ")  # Replace underscores with spaces
+            .replace("'", "")  # Remove single quotes
+            .replace('"', "")  # Remove double quotes
+            .strip()  # Remove leading and trailing spaces
+        )
+
+        # Remove leading and trailing articles
+        name = re.sub(r"^(a|an|the)\b", "", name)
+        name = re.sub(r",\b(a|an|the)\b", "", name)
+
+        # Remove special characters and punctuation
+        converted_name = "".join((re.findall(r"\w+", name)))
+
+        # Convert to normal form
+        normalized_name = unicodedata.normalize("NFD", converted_name)
+
+        # Remove accents
+        canonical_form = "".join(
+            [c for c in normalized_name if not unicodedata.combining(c)]
+        )
+
+        return canonical_form
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)

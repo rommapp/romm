@@ -63,7 +63,7 @@ start_bin_redis-server () {
     if [ -f /usr/local/etc/redis/redis.conf ]; then
         redis-server /usr/local/etc/redis/redis.conf &
     else
-        redis-server &
+        redis-server --dir /redis-data &
     fi
     REDIS_PID=$!
     echo $REDIS_PID > /tmp/redis-server.pid

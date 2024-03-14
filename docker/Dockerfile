@@ -122,9 +122,6 @@ RUN wget -O redis.tar.gz "$REDIS_DOWNLOAD_URL"; \
 	redis-server --version; \
 	echo '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"redis-server-sbom","packages":[{"name":"redis-server","versionInfo":"7.2.4","SPDXID":"SPDXRef-Package--redis-server","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceType":"purl","referenceLocator":"pkg:generic/redis-server@7.2.4?os_name=alpine&os_version=3.19"}],"licenseDeclared":"BSD-3-Clause"}]}' > /usr/local/redis.spdx.json
 
-RUN mkdir /redis-data && chown 1000:1000 /redis-data
-VOLUME /redis-data
-
 # cleanup additional build dependencies
 RUN apk del \
         gcc \
@@ -156,6 +153,10 @@ FROM scratch
 COPY --from=production-stage / /
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
 RUN mkdir /romm && chown 1000:1000 /romm -R
+
+# Create data volume for redis
+RUN mkdir /redis-data && chown 1000:1000 /redis-data
+VOLUME /redis-data
 
 # Expose ports and start
 EXPOSE 8080
