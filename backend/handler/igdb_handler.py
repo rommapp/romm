@@ -272,9 +272,14 @@ class IGDBHandler:
         exact_matches = [
             rom
             for rom in roms
-            if rom["name"].lower() == search_term.lower()
-            or rom["slug"].lower() == search_term.lower()
-            or self._normalize_rom_name(rom["name"]) == self._normalize_rom_name(search_term)
+            if (
+                    rom["name"].lower() == search_term.lower()
+                    or rom["slug"].lower() == search_term.lower()
+                    or (
+                            self._normalize_exact_match(rom["name"])
+                            == self._normalize_exact_match(search_term)
+                    )
+            )
         ]
 
         return pydash.get(exact_matches or roms, "[0]", {})
