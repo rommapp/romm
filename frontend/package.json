@@ -61,7 +61,7 @@
     "sass": "^1.55.0",
     "tslib": "^2.6.2",
     "typescript": "^5.3.3",
-    "vite": "^3.2.7",
+    "vite": "^3.2.8",
     "vite-plugin-pwa": "^0.14.7",
     "vite-plugin-rewrite-all": "^1.0.1",
     "vite-plugin-static-copy": "0.17.1",
