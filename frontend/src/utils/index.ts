@@ -108,7 +108,7 @@ export function regionToEmoji(region: string) {
       return "🇨🇳";
     case "e":
     case "eu":
-    case "eur":
+    case "eur": 
     case "europe":
       return "🇪🇺";
     case "f":
@@ -261,7 +261,6 @@ export const platformSlugEJSCoreMap = {
   "neo-geo-pocket-color": "mednafen_ngp",
   nes: "fceumm",
   famicom: "fceumm",
-  fds: "fceumm",
   "game-televisison": "fceumm",
   "new-style-nes": "fceumm",
   // n64: "mupen64plus_next", Disabled until emujs 4.0.12 is released
@@ -305,6 +304,6 @@ export const platformSlugEJSCoreMap = {
   "turbografx16--1": "mednafen_pce",
   virtualboy: "beetle_vb",
   wonderswan: "mednafen_wswan",
-  swancrystal: "mednafen_wswan",
+  "swancrystal": "mednafen_wswan",
   "wonderswan-color": "mednafen_wswan",
 } as const;
