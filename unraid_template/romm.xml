@@ -20,7 +20,6 @@
    <PostArgs/>
    <CPUset/>
    <Requires>
-   Redis
    MariaDB
    </Requires>
    <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/home.png</Screenshot>
