@@ -261,6 +261,7 @@ export const platformSlugEJSCoreMap = {
   "neo-geo-pocket-color": "mednafen_ngp",
   nes: "fceumm",
   famicom: "fceumm",
+  fds: "fceumm",
   "game-televisison": "fceumm",
   "new-style-nes": "fceumm",
   // n64: "mupen64plus_next", Disabled until emujs 4.0.12 is released
