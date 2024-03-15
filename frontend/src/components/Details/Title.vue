@@ -81,6 +81,7 @@ const { smAndDown } = useDisplay();
   >
     <v-col cols="12">
       <a
+        v-if="rom.igdb_id"
         style="text-decoration: none; color: inherit"
         :href="`https://www.igdb.com/games/${rom.slug}`"
         target="_blank"
@@ -91,6 +92,21 @@ const { smAndDown } = useDisplay();
           <span>ID: {{ rom.igdb_id }}</span>
           <v-divider class="mx-2 border-opacity-25" vertical />
           <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
+        </v-chip>
+      </a>
+      <a
+        v-if="rom.moby_id"
+        style="text-decoration: none; color: inherit"
+        :href="`https://www.mobygames.com/game/${rom.moby_id}`"
+        target="_blank"
+        class="ml-2"
+      >
+        <v-chip size="x-small" @click="">
+          <span>Mobygames</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>ID: {{ rom.moby_id }}</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
         </v-chip>
       </a>
     </v-col>
