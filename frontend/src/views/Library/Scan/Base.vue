@@ -45,12 +45,12 @@ const metadataOptions = [
   {
     name: "IGDB",
     value: "igdb",
-    disabled: !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
   },
   {
     name: "MobyGames",
     value: "moby",
-    disabled: !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
 ];
 
@@ -74,6 +74,10 @@ async function scan() {
     type: scanType.value,
     apis: metadataSources.value.map((s) => s.value),
   });
+}
+
+async function stopScan() {
+  socket.emit("scan:stop");
 }
 </script>
 
@@ -145,7 +149,7 @@ async function scan() {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="2" class="pt-1 px-4">
+    <v-col cols="1" class="pt-1 px-4">
       <v-btn
         @click="scan()"
         :disabled="scanning"
@@ -164,6 +168,18 @@ async function scan() {
             indeterminate
           />
         </template>
+      </v-btn>
+    </v-col>
+    <v-col cols="1" class="pt-1 px-4">
+      <v-btn
+        @click="stopScan()"
+        :disabled="!scanning"
+        prepend-icon="mdi-alert-octagon"
+        rounded="4"
+        height="40"
+        color="red"
+      >
+        Stop
       </v-btn>
     </v-col>
   </v-row>
