@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from typing import Final, Optional
 
 import pydash
@@ -166,7 +167,6 @@ class IGDBHandler:
 
         return wrapper
 
-
     def _request(self, url: str, data: str, timeout: int = 120) -> list:
         try:
             res = requests.post(
@@ -227,6 +227,34 @@ class IGDBHandler:
     def _normalize_cover_url(url: str) -> str:
         return f"https:{url.replace('https:', '')}" if url != "" else ""
 
+    # This is expensive, so it should be used sparingly
+    @staticmethod
+    def _normalize_exact_match(name: str) -> str:
+        name = (
+            name.lower()  # Convert to lower case,
+            .replace("_", " ")  # Replace underscores with spaces
+            .replace("'", "")  # Remove single quotes
+            .replace('"', "")  # Remove double quotes
+            .strip()  # Remove leading and trailing spaces
+        )
+
+        # Remove leading and trailing articles
+        name = re.sub(r"^(a|an|the)\b", "", name)
+        name = re.sub(r",\b(a|an|the)\b", "", name)
+
+        # Remove special characters and punctuation
+        converted_name = "".join((re.findall(r"\w+", name)))
+
+        # Convert to normal form
+        normalized_name = unicodedata.normalize("NFD", converted_name)
+
+        # Remove accents
+        canonical_form = "".join(
+            [c for c in normalized_name if not unicodedata.combining(c)]
+        )
+
+        return canonical_form
+
     def _search_rom(
         self, search_term: str, platform_idgb_id: int, category: int = 0
     ) -> dict:
@@ -251,8 +279,14 @@ class IGDBHandler:
         exact_matches = [
             rom
             for rom in roms
-            if rom["name"].lower() == search_term.lower()
-            or rom["slug"].lower() == search_term.lower()
+            if (
+                rom["name"].lower() == search_term.lower()
+                or rom["slug"].lower() == search_term.lower()
+                or (
+                    self._normalize_exact_match(rom["name"])
+                    == self._normalize_exact_match(search_term)
+                )
+            )
         ]
 
         return pydash.get(exact_matches or roms, "[0]", {})
