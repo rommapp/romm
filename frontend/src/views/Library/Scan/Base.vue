@@ -103,7 +103,8 @@ async function scan() {
   <!-- Scan log -->
   <v-row
     no-gutters
-    class="align-center pa-4"
+    class="align-center pa-4 overflow-y-auto"
+    :style="{ max-height: calc(100dvh-295px) }"
     v-for="platform in scanningPlatforms"
   >
     <v-col>
