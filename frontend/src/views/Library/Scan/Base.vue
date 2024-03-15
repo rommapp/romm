@@ -191,30 +191,40 @@ async function stopScan() {
   />
 
   <!-- Scan log -->
-  <v-row
-    no-gutters
-    class="align-center pa-4"
-    v-for="platform in scanningPlatforms"
-  >
-    <v-col>
-      <v-list-item
-        :to="{ name: 'platform', params: { platform: platform.id } }"
-      >
-        <v-avatar :rounded="0" size="40">
-          <platform-icon :key="platform.slug" :slug="platform.slug" />
-        </v-avatar>
-        <span class="text-body-2 ml-5"> {{ platform.name }}</span>
-      </v-list-item>
-      <v-list-item
-        v-for="rom in platform.roms"
-        class="text-body-2 romm-grey"
-        :to="{ name: 'rom', params: { rom: rom.id } }"
-      >
-        <span v-if="rom.igdb_id || rom.moby_id" class="ml-10">
-          • Identified <b>{{ rom.name }} 👾</b>
-        </span>
-        <span v-else class="ml-10"> • {{ rom.file_name }} not found ❌ </span>
-      </v-list-item>
-    </v-col>
-  </v-row>
+  <div class="overflow-y-auto scan-log">
+    <v-row
+      no-gutters
+      class="align-center pa-4"
+      v-for="platform in scanningPlatforms"
+    >
+      <v-col>
+        <v-list-item
+          :to="{ name: 'platform', params: { platform: platform.id } }"
+        >
+          <v-avatar :rounded="0" size="40">
+            <platform-icon :key="platform.slug" :slug="platform.slug" />
+          </v-avatar>
+          <span class="text-body-2 ml-5"> {{ platform.name }}</span>
+        </v-list-item>
+        <v-list-item
+          v-for="rom in platform.roms"
+          class="text-body-2 romm-grey"
+          :to="{ name: 'rom', params: { rom: rom.id } }"
+        >
+          <span v-if="rom.igdb_id" class="ml-10">
+            • Identified <b>{{ rom.name }} 👾</b>
+          </span>
+          <span v-else class="ml-10">
+            • {{ rom.file_name }} not found in IGDB ❌
+          </span>
+        </v-list-item>
+      </v-col>
+    </v-row>
+  </div>
 </template>
+
+<style scoped>
+.scan-log {
+  max-height: calc(100vh - 295px);
+}
+</style>
