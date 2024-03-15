@@ -1,5 +1,7 @@
 import emoji
 import socketio  # type: ignore
+from rq import Worker
+from rq.job import Job
 from endpoints.platform import PlatformSchema
 from endpoints.rom import RomSchema
 from exceptions.fs_exceptions import (
@@ -13,7 +15,8 @@ from handler import (
     fs_rom_handler,
     socket_handler,
 )
-from handler.redis_handler import high_prio_queue, redis_url
+from config import SCAN_TIMEOUT
+from handler.redis_handler import high_prio_queue, redis_url, redis_client
 from handler.scan_handler import (
     scan_platform,
     scan_rom,
@@ -181,5 +184,35 @@ async def scan_handler(_sid: str, options: dict):
         scan_type,
         selected_roms,
         metadata_sources,
-        job_timeout=14400,  # Timeout after 4 hours
+        job_timeout=SCAN_TIMEOUT,  # Timeout after 4 hours
     )
+
+
+@socket_handler.socket_server.on("scan:stop")
+async def stop_scan_handler(_sid: str):
+    """Stop scan socket endpoint"""
+
+    log.info(emoji.emojize(":stop_button: Stopping scan..."))
+
+    async def cancel_job(job: Job):
+        job.cancel()
+        log.info(emoji.emojize(":stop_button: Scan stopped"))
+
+        sm = _get_socket_manager()
+        await sm.emit("scan:done_ko", "manually stopped")
+
+    existing_jobs = high_prio_queue.get_jobs()
+    for job in existing_jobs:
+        if job.func_name == "scan_platform":
+            return await cancel_job(job)
+
+    workers = Worker.all(connection=redis_client)
+    for worker in workers:
+        current_job = worker.get_current_job()
+        if (
+            current_job
+            and current_job.func_name == "endpoints.sockets.scan.scan_platforms"
+        ):
+            return await cancel_job(current_job)
+
+    log.info(emoji.emojize(":stop_button: No running scan to stop"))
