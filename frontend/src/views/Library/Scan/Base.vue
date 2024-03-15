@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
+import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import storeHeartbeat from "@/stores/heartbeat";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 
@@ -83,33 +83,41 @@ async function stopScan() {
 
 <template>
   <!-- Platform selector -->
-  <v-row class="pa-4" no-gutters>
-    <v-select
-      label="Platforms"
-      item-title="name"
-      v-model="platformsToScan"
-      :items="platforms.value"
-      variant="outlined"
-      density="comfortable"
-      multiple
-      return-object
-      clearable
-      hide-details
-      rounded="0"
-      chips
-    />
-  </v-row>
-
-  <v-row class="px-4 pt-2" no-gutters>
-    <!-- Scan options -->
-    <v-col cols="3" class="pt-1 px-4">
+  <v-row class="px-4 pt-4 align-center" no-gutters>
+    <v-col cols="6" class="pr-1">
+      <v-select
+        label="Platforms"
+        item-title="name"
+        v-model="platformsToScan"
+        :items="platforms.value"
+        variant="outlined"
+        density="comfortable"
+        rounded="0"
+        multiple
+        return-object
+        clearable
+        hide-details
+        chips
+      >
+        <template v-slot:item="{ props, item }">
+          <v-list-item class="py-2" v-bind="props" :title="item.raw.name ?? ''">
+            <template v-slot:prepend>
+              <v-avatar :rounded="0" size="35">
+                <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
+              </v-avatar>
+            </template>
+          </v-list-item>
+        </template>
+      </v-select>
+    </v-col>
+    <v-col cols="3" class="pr-1">
       <v-select
         label="Metadata sources"
         item-title="name"
         v-model="metadataSources"
         :items="metadataOptions"
         variant="outlined"
-        density="compact"
+        density="comfortable"
         multiple
         return-object
         clearable
@@ -132,10 +140,11 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="4" class="text-truncate">
+    <v-col cols="3">
+      <!-- Scan options -->
       <v-select
-        density="compact"
-        class="my-1"
+        hide-details
+        density="comfortable"
         variant="outlined"
         label="Scan option"
         v-model="scanType"
@@ -149,39 +158,40 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="1" class="pt-1 px-4">
-      <v-btn
-        @click="scan()"
-        :disabled="scanning"
-        prepend-icon="mdi-magnify-scan"
-        rounded="4"
-        height="40"
-        color="romm-accent-1"
-        :loading="scanning"
-      >
-        Scan
-        <template v-slot:loader>
-          <v-progress-circular
-            color="romm-accent-1"
-            :width="2"
-            :size="20"
-            indeterminate
-          />
-        </template>
-      </v-btn>
-    </v-col>
-    <v-col cols="1" class="pt-1 px-4">
-      <v-btn
-        @click="stopScan()"
-        :disabled="!scanning"
-        prepend-icon="mdi-alert-octagon"
-        rounded="4"
-        height="40"
-        color="red"
-      >
-        Stop
-      </v-btn>
-    </v-col>
+  </v-row>
+
+  <v-row class="pa-4 align-center" no-gutters>
+    <v-btn
+      @click="scan()"
+      :disabled="scanning || metadataSources.length == 0"
+      prepend-icon="mdi-magnify-scan"
+      rounded="4"
+      height="40"
+      :color="scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'"
+      :loading="scanning"
+    >
+      Scan
+      <template v-slot:loader>
+        <v-progress-circular
+          color="romm-accent-1"
+          :width="2"
+          :size="20"
+          indeterminate
+        />
+      </template>
+    </v-btn>
+    <v-btn
+      class="ml-2"
+      @click="stopScan()"
+      :disabled="!scanning"
+      prepend-icon="mdi-alert-octagon"
+      rounded="4"
+      height="40"
+      :color="scanning ? 'red' : ''"
+    >
+      Stop
+    </v-btn>
+    <span v-if="metadataSources.length == 0" class="ml-4 text-caption text-yellow"><v-icon class="mr-2">mdi-alert</v-icon>Please select at least one metadata source.</span>
   </v-row>
 
   <v-divider
@@ -191,7 +201,7 @@ async function stopScan() {
   />
 
   <!-- Scan log -->
-  <div class="overflow-y-auto scan-log">
+  <div class="overflow-y-auto scan-log mt-4">
     <v-row
       no-gutters
       class="align-center pa-4"
