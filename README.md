@@ -128,7 +128,7 @@ As mentioned in the installation section, RomM requires a specific folder struct
 
 ## Configuration File
 
-RomM's "understanding" of your library can be configured with a `config.yaml` file. Anytime that file is change, **you must restart the container for changes to take effect.** Refer to the [example config.yml][configuration-file-example] file for guidance on how to configure it, and the [example docker-compose.yml][docker-compose-example] file on how to mount it into the container.
+RomM's "understanding" of your library can be configured with a `config.yaml` file or through the `config` tab in the `Control Panel` under `Settings` section. Refer to the [example config.yml][configuration-file-example] file for guidance on how to configure it, and the [example docker-compose.yml][docker-compose-example] file on how to mount it into the container.
 
 ## Scheduler
 
