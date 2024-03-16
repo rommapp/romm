@@ -27,6 +27,16 @@ from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
 from logger.logger import log
 
 
+class ScanStats:
+    def __init__(self):
+        self.scanned_platforms = 0
+        self.added_platforms = 0
+        self.metadata_platforms = 0
+        self.scanned_roms = 0
+        self.added_roms = 0
+        self.metadata_roms = 0
+
+
 def _get_socket_manager():
     # Connect to external socketio server
     return socketio.AsyncRedisManager(redis_url, write_only=True)
@@ -61,6 +71,8 @@ async def scan_platforms(
         await sm.emit("scan:done_ko", e.message)
         return
 
+    scan_stats = ScanStats()
+
     try:
         platform_list = [
             db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
@@ -83,6 +95,12 @@ async def scan_platforms(
             )
             if platform:
                 scanned_platform.id = platform.id
+
+            scan_stats.scanned_platforms += 1
+            scan_stats.added_platforms += 1 if not platform else 0
+            scan_stats.metadata_platforms += (
+                1 if scanned_platform.igdb_id or scanned_platform.moby_id else 0
+            )
 
             platform = db_platform_handler.add_platform(scanned_platform)
 
@@ -136,6 +154,13 @@ async def scan_platforms(
                         scan_type=scan_type,
                         metadata_sources=metadata_sources,
                     )
+
+                    scan_stats.scanned_roms += 1
+                    scan_stats.added_roms += 1 if not rom else 0
+                    scan_stats.metadata_roms += (
+                        1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
+                    )
+
                     _added_rom = db_rom_handler.add_rom(scanned_rom)
                     rom = db_rom_handler.get_roms(_added_rom.id)
 
@@ -154,7 +179,7 @@ async def scan_platforms(
         db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))
-        await sm.emit("scan:done", {})
+        await sm.emit("scan:done", scan_stats.__dict__)
     except Exception as e:
         log.error(e)
         # Catch all exceptions and emit error to the client
