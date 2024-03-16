@@ -10,6 +10,14 @@ export default defineStore("scanning", {
       id: number;
       roms: Rom[];
     }[],
+    scanStats: {
+      scanned_platforms: 0,
+      added_platforms: 0,
+      metadata_platforms: 0,
+      scanned_roms: 0,
+      added_roms: 0,
+      metadata_roms: 0
+    }
   }),
 
   actions: {

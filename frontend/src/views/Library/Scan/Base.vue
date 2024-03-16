@@ -9,7 +9,7 @@ import { ref } from "vue";
 
 // Props
 const scanningStore = storeScanning();
-const { scanning, scanningPlatforms } = storeToRefs(scanningStore);
+const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 
@@ -75,6 +75,10 @@ async function scan() {
     apis: metadataSources.value.map((s) => s.value),
   });
 }
+
+socket.on("scan:done", (stats) => {
+  scanStats.value = stats;
+});
 
 async function stopScan() {
   socket.emit("scan:stop");
@@ -149,6 +153,7 @@ async function stopScan() {
         label="Scan option"
         v-model="scanType"
         :items="scanOptions"
+        class="py-3"
       >
         <template v-slot:item="{ props, item }">
           <v-list-item
@@ -191,7 +196,13 @@ async function stopScan() {
     >
       Stop
     </v-btn>
-    <span v-if="metadataSources.length == 0" class="ml-4 text-caption text-yellow"><v-icon class="mr-2">mdi-alert</v-icon>Please select at least one metadata source.</span>
+    <span
+      v-if="metadataSources.length == 0"
+      class="ml-4 text-caption text-yellow"
+    >
+      <v-icon class="mr-2">mdi-alert</v-icon>
+      Please select at least one metadata source.
+    </span>
   </v-row>
 
   <v-divider
@@ -231,10 +242,38 @@ async function stopScan() {
       </v-col>
     </v-row>
   </div>
+
+  <!-- Scan stats -->
+  <v-row class="pa-4 align-center" no-gutters v-if="!scanning">
+    <v-col>
+      <v-chip
+        v-if="scanningPlatforms.length > 0"
+        color="romm-accent-1"
+        text-color="white"
+        class="mr-2"
+      >
+        <v-icon left>mdi-information</v-icon>&nbsp; Platforms:
+        {{ scanStats.scanned_platforms }} scanned, with
+        {{ scanStats.added_platforms }} new and
+        {{ scanStats.metadata_platforms }} identified
+      </v-chip>
+      <v-chip
+        v-if="scanningPlatforms.length > 0"
+        color="romm-accent-1"
+        text-color="white"
+        class="mr-2"
+      >
+        <v-icon left>mdi-information</v-icon>&nbsp; Roms:
+        {{ scanStats.scanned_roms }} scanned, with
+        {{ scanStats.added_roms }} new and
+        {{ scanStats.metadata_roms }} identified
+      </v-chip>
+    </v-col>
+  </v-row>
 </template>
 
 <style scoped>
 .scan-log {
-  max-height: calc(100vh - 295px);
+  max-height: calc(100vh - 245px);
 }
 </style>
