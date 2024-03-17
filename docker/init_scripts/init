@@ -101,6 +101,20 @@ watchdog_process_pid () {
     fi
 }
 
+# Update the user and group IDs as per environment variables
+if [ ! -z "$PUID" ] && [ "$PUID" != "$(id -u romm)" ]; then
+    usermod -o -u "$PUID" romm
+fi
+
+if [ ! -z "$PGID" ] && [ "$PGID" != "$(id -g romm)" ]; then
+    groupmod -o -g "$PGID" romm
+fi
+umask "$UMASK"
+
+echo "Setting permissions and ownership for necessary directories..."
+chown -R romm:romm /romm /redis-data /backend /frontend /tmp
+chmod -R 755 /romm /redis-data /backend /frontend /tmp
+
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
