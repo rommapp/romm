@@ -37,7 +37,7 @@ function onPlay() {
 </script>
 
 <template>
-  <v-row v-if="rom" no-gutters>
+  <v-row v-if="rom" class="h-screen" no-gutters>
     <v-col v-if="!gameRunning" cols="3" class="px-3">
       <v-img
         class="mx-auto mt-6 mb-5"
@@ -113,7 +113,7 @@ function onPlay() {
       </v-btn>
     </v-col>
 
-    <v-col class="my-4 bg-primary" rounded id="game-wrapper">
+    <v-col class="bg-primary" rounded id="game-wrapper">
       <player :rom="rom" :state="stateRef" :save="saveRef" />
     </v-col>
   </v-row>
@@ -122,5 +122,7 @@ function onPlay() {
 <style>
 #game-wrapper {
   aspect-ratio: 16 / 9;
+  max-width: 100%;
+  max-height: 100%;
 }
 </style>
