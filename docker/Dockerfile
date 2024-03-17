@@ -148,14 +148,21 @@ RUN rm -r \
     /docker-entrypoint.sh \
     /docker-entrypoint.d
 
+# Set environment variables for the init script
+ENV PUID=1000 \
+    PGID=1000 \
+    UMASK=022
+
 # Move everything we prepared over to our final docker image
 FROM scratch
 COPY --from=production-stage / /
-RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
-RUN mkdir /romm && chown 1000:1000 /romm -R
 
-# Create data volume for redis
-RUN mkdir /redis-data && chown 1000:1000 /redis-data
+# User permissions
+RUN addgroup -u "$PGID" -S romm && adduser -u "$PUID" -D -S -G romm romm
+RUN mkdir /romm && chown "$PUID":"$PGID" /romm
+
+# Create data volume for redis and set permissions
+RUN mkdir /redis-data && chown "$PUID":"$PGID" /redis-data
 VOLUME /redis-data
 
 # Expose ports and start
