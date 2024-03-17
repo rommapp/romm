@@ -27,9 +27,8 @@ from fastapi_pagination import add_pagination
 from handler import auth_handler, db_user_handler, github_handler, socket_handler
 from handler.auth_handler import ALGORITHM
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
-from handler.auth_handler.middleware import CustomCSRFMiddleware
+from handler.auth_handler.middleware import CustomCSRFMiddleware, SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette_authlib.middleware import AuthlibMiddleware as SessionMiddleware
 
 app = FastAPI(title="RomM API", version=github_handler.get_version())
 
