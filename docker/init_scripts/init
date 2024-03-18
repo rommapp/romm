@@ -101,17 +101,18 @@ watchdog_process_pid () {
     fi
 }
 
-# Update the user and group IDs as per environment variables
+# Update the user/group IDs per environment variables
 if [ ! -z "$PUID" ] && [ "$PUID" != "$(id -u romm)" ]; then
     usermod -o -u "$PUID" romm
 fi
-
 if [ ! -z "$PGID" ] && [ "$PGID" != "$(id -g romm)" ]; then
     groupmod -o -g "$PGID" romm
 fi
-umask "$UMASK"
+if [ ! -z "$UMASK" ] && [ "$UMASK" != "$(umask)" ]; then
+    umask "$UMASK"
+fi
 
-echo "Setting permissions and ownership for necessary directories..."
+echo "Setting permissions and ownership for required directories..."
 chown -R romm:romm /romm /redis-data /backend
 chmod -R 755 /romm /redis-data /backend
 
