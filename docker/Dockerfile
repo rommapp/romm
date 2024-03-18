@@ -24,7 +24,8 @@ RUN apk add --upgrade \
         mariadb-connector-c \
         netcat-openbsd \
         python3 \
-        tzdata
+        tzdata \
+        shadow
 
 # Install additional build dependencies
 RUN apk add --upgrade \

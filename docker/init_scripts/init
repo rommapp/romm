@@ -112,8 +112,8 @@ fi
 umask "$UMASK"
 
 echo "Setting permissions and ownership for necessary directories..."
-chown -R romm:romm /romm /redis-data /backend /frontend /tmp
-chmod -R 755 /romm /redis-data /backend /frontend /tmp
+chown -R romm:romm /romm /redis-data /backend
+chmod -R 755 /romm /redis-data /backend
 
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
