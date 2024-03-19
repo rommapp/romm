@@ -7,8 +7,7 @@ from config import (
     ROMM_AUTH_USERNAME,
 )
 from exceptions.auth_exceptions import OAuthCredentialsException
-from fastapi import HTTPException, Request, status
-from handler.redis_handler import cache
+from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
@@ -52,12 +51,6 @@ class AuthHandler:
     def get_password_hash(self, password):
         return self.pwd_context.hash(password)
 
-    def clear_session(self, req: HTTPConnection | Request):
-        session_id = req.session.get("session_id")
-        if session_id:
-            cache.delete(f"romm:{session_id}")  # type: ignore[attr-defined]
-            req.session["session_id"] = None
-
     def authenticate_user(self, username: str, password: str):
         from handler import db_user_handler
 
@@ -72,20 +65,19 @@ class AuthHandler:
 
     async def get_current_active_user_from_session(self, conn: HTTPConnection):
         from handler import db_user_handler
-
-        # Check if session key already stored in cache
-        session_id = conn.session.get("session_id")
-        if not session_id:
+        
+        issuer = conn.session.get('iss')
+        if not issuer or issuer != 'romm:auth':
             return None
 
-        username = cache.get(f"romm:{session_id}")  # type: ignore[attr-defined]
+        username = conn.session.get('sub')
         if not username:
             return None
 
         # Key exists therefore user is probably authenticated
         user = db_user_handler.get_user_by_username(username)
         if user is None:
-            self.clear_session(conn)
+            conn.session = {}
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -93,7 +85,7 @@ class AuthHandler:
             )
 
         if not user.enabled:
-            self.clear_session(conn)
+            conn.session = {}
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
@@ -140,6 +132,10 @@ class OAuthHandler:
             payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
         except JWTError:
             raise OAuthCredentialsException
+        
+        issuer = payload.get('iss')
+        if not issuer or issuer != 'romm:oauth':
+            return None
 
         username = payload.get("sub")
         if username is None:

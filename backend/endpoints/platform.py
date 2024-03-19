@@ -68,7 +68,7 @@ async def update_platform(request: Request) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    pass
+    return {"msg": "Enpoint not available yet"}
 
 
 @protected_route(router.delete, "/platforms/{id}", ["platforms.write"])

@@ -24,6 +24,7 @@ class Rom(BaseModel):
 
     igdb_id: int = Column(Integer())
     sgdb_id: int = Column(Integer())
+    moby_id: int = Column(Integer())
 
     file_name: str = Column(String(length=450), nullable=False)
     file_name_no_tags: str = Column(String(length=450), nullable=False)
@@ -36,6 +37,7 @@ class Rom(BaseModel):
     slug: str = Column(String(length=400))
     summary: str = Column(Text)
     igdb_metadata: MySQLJSON = Column(MySQLJSON, default=dict)
+    moby_metadata: MySQLJSON = Column(MySQLJSON, default=dict)
 
     path_cover_s: str = Column(Text, default="")
     path_cover_l: str = Column(Text, default="")
@@ -47,7 +49,9 @@ class Rom(BaseModel):
     tags: JSON = Column(JSON, default=[])
 
     path_screenshots: JSON = Column(JSON, default=[])
-    url_screenshots: JSON = Column(JSON, default=[], doc="URLs to screenshots stored in IGDB")
+    url_screenshots: JSON = Column(
+        JSON, default=[], doc="URLs to screenshots stored in IGDB"
+    )
 
     multi: bool = Column(Boolean, default=False)
     files: JSON = Column(JSON, default=[])
@@ -112,40 +116,40 @@ class Rom(BaseModel):
                     Rom.igdb_id == self.igdb_id,
                 )
             ).all()
-    
+
     # Metadata fields
     @property
-    def total_rating(self) -> str:
-        return self.igdb_metadata.get("total_rating", "")
-    
-    @property
-    def aggregated_rating(self) -> str:
-        return self.igdb_metadata.get("aggregated_rating", "")
-    
-    @property
     def alternative_names(self) -> list[str]:
-        return self.igdb_metadata.get("alternative_names", [])
-    
+        return (
+            self.igdb_metadata.get("alternative_names", None)
+            or self.moby_metadata.get("alternate_titles", None)
+            or []
+        )
+
     @property
     def first_release_date(self) -> int:
         return self.igdb_metadata.get("first_release_date", 0)
-    
+
     @property
     def genres(self) -> list[str]:
-        return self.igdb_metadata.get("genres", [])
-    
+        return (
+            self.igdb_metadata.get("genres", None)
+            or self.moby_metadata.get("genres", None)
+            or []
+        )
+
     @property
     def franchises(self) -> list[str]:
         return self.igdb_metadata.get("franchises", [])
-    
+
     @property
     def collections(self) -> list[str]:
-        return self.igdb_metadata.get("collections", [])    
-    
+        return self.igdb_metadata.get("collections", [])
+
     @property
     def companies(self) -> list[str]:
         return self.igdb_metadata.get("companies", [])
-    
+
     @property
     def game_modes(self) -> list[str]:
         return self.igdb_metadata.get("game_modes", [])

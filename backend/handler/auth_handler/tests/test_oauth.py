@@ -16,6 +16,7 @@ async def test_get_current_active_user_from_bearer_token(admin_user):
     token = oauth_handler.create_oauth_token(
         data={
             "sub": admin_user.username,
+            "iss": "romm:oauth",
             "scopes": " ".join(admin_user.oauth_scopes),
             "type": "access",
         },
@@ -24,6 +25,7 @@ async def test_get_current_active_user_from_bearer_token(admin_user):
 
     assert user.id == admin_user.id
     assert payload["sub"] == admin_user.username
+    assert payload["iss"] == "romm:oauth"
     assert set(payload["scopes"].split()).issubset(admin_user.oauth_scopes)
     assert payload["type"] == "access"
 
@@ -34,7 +36,7 @@ async def test_get_current_active_user_from_bearer_token_invalid_token():
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_user():
-    token = oauth_handler.create_oauth_token(data={"sub": "invalid_user"})
+    token = oauth_handler.create_oauth_token(data={"sub": "invalid_user", "iss": "romm:oauth"})
 
     with pytest.raises(HTTPException):
         await oauth_handler.get_current_active_user_from_bearer_token(token)
@@ -44,6 +46,7 @@ async def test_get_current_active_user_from_bearer_token_disabled_user(admin_use
     token = oauth_handler.create_oauth_token(
         data={
             "sub": admin_user.username,
+            "iss": "romm:oauth",
             "scopes": " ".join(admin_user.oauth_scopes),
             "type": "access",
         },

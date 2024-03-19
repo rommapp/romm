@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 from typing import Final
 from urllib.parse import quote_plus
-
 import pydash
 import yaml
 from config import (
@@ -69,7 +68,7 @@ class ConfigManager:
             with open(config_file, "w") as file:
                 file.write("")
         try:
-            self.read_config()
+            self.get_config()
         except ConfigNotReadableException as e:
             log.critical(e.message)
             sys.exit(5)
@@ -85,7 +84,7 @@ class ConfigManager:
         if ROMM_DB_DRIVER == "mariadb":
             if not DB_USER or not DB_PASSWD:
                 log.critical(
-                    "Missing database credentials. Please check your configuration file"
+                    "Missing database credentials, check your environment variables!"
                 )
                 sys.exit(3)
 
@@ -96,9 +95,7 @@ class ConfigManager:
 
         # DEPRECATED
         if ROMM_DB_DRIVER == "sqlite":
-            log.critical(
-                "Sqlite is not supported anymore, migrate to mariaDB"
-            )
+            log.critical("Sqlite is not supported anymore, migrate to mariaDB")
             sys.exit(6)
         # DEPRECATED
 
@@ -200,7 +197,7 @@ class ConfigManager:
             )
             sys.exit(3)
 
-    def read_config(self) -> None:
+    def get_config(self) -> None:
         try:
             with open(self.config_file) as config_file:
                 self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
@@ -209,10 +206,37 @@ class ConfigManager:
         except PermissionError:
             self._raw_config = {}
             raise ConfigNotReadableException
+
         self._parse_config()
         self._validate_config()
 
-    def update_config(self) -> None:
+        return self.config
+
+    def update_config_file(self) -> None:
+        self._raw_config = {
+            "exclude": {
+                "platforms": self.config.EXCLUDED_PLATFORMS,
+                "roms": {
+                    "single_file": {
+                        "extensions": self.config.EXCLUDED_SINGLE_EXT,
+                        "names": self.config.EXCLUDED_SINGLE_FILES,
+                    },
+                    "multi_file": {
+                        "names": self.config.EXCLUDED_MULTI_FILES,
+                        "parts": {
+                            "extensions": self.config.EXCLUDED_MULTI_PARTS_EXT,
+                            "names": self.config.EXCLUDED_MULTI_PARTS_FILES,
+                        },
+                    },
+                },
+            },
+            "filesystem": {"roms_folder": self.config.ROMS_FOLDER_NAME},
+            "system": {
+                "platforms": self.config.PLATFORMS_BINDING,
+                "versions": self.config.PLATFORMS_VERSIONS,
+            },
+        }
+
         try:
             with open(self.config_file, "w") as config_file:
                 yaml.dump(self._raw_config, config_file)
@@ -221,66 +245,65 @@ class ConfigManager:
         except PermissionError:
             self._raw_config = {}
             raise ConfigNotWritableException
-        finally:
-            self._parse_config()
 
-    def add_binding(self, fs_slug: str, slug: str) -> None:
-        try:
-            _ = self._raw_config["system"]
-        except KeyError:
-            self._raw_config = {"system": {"platforms": {}}}
-        try:
-            _ = self._raw_config["system"]["platforms"]
-        except KeyError:
-            self._raw_config["system"]["platforms"] = {}
-        self._raw_config["system"]["platforms"][fs_slug] = slug
-        self.update_config()
+    def add_platform_binding(self, fs_slug: str, slug: str) -> None:
+        platform_bindings = self.config.PLATFORMS_BINDING
+        if fs_slug in platform_bindings:
+            log.warn(f"Binding for {fs_slug} already exists")
+            return
 
-    def remove_binding(self, fs_slug: str) -> None:
+        platform_bindings[fs_slug] = slug
+        self.config.PLATFORMS_BINDING = platform_bindings
+        self.update_config_file()
+
+    def remove_platform_binding(self, fs_slug: str) -> None:
+        platform_bindings = self.config.PLATFORMS_BINDING
+
         try:
-            del self._raw_config["system"]["platforms"][fs_slug]
+            del platform_bindings[fs_slug]
         except KeyError:
             pass
-        self.update_config()
 
-    def add_version(self, fs_slug: str, slug: str) -> None:
-        try:
-            _ = self._raw_config["system"]
-        except KeyError:
-            self._raw_config = {"system": {"versions": {}}}
-        try:
-            _ = self._raw_config["system"]["versions"]
-        except KeyError:
-            self._raw_config["system"]["versions"] = {}
-        self._raw_config["system"]["versions"][fs_slug] = slug
-        self.update_config()
+        self.config.PLATFORMS_BINDING = platform_bindings
+        self.update_config_file()
 
-    def remove_version(self, fs_slug: str) -> None:
+    def add_platform_version(self, fs_slug: str, slug: str) -> None:
+        platform_versions = self.config.PLATFORMS_VERSIONS
+        if fs_slug in platform_versions:
+            log.warn(f"Version for {fs_slug} already exists")
+            return
+
+        platform_versions[fs_slug] = slug
+        self.config.PLATFORMS_VERSIONS = platform_versions
+        self.update_config_file()
+
+    def remove_platform_version(self, fs_slug: str) -> None:
+        platform_versions = self.config.PLATFORMS_VERSIONS
+
         try:
-            del self._raw_config["system"]["versions"][fs_slug]
+            del platform_versions[fs_slug]
         except KeyError:
             pass
-        self.update_config()
 
-    # def _get_exclude_path(self, exclude):
-    #     exclude_base = self._raw_config["exclude"]
-    #     exclusions = {
-    #         "platforms": exclude_base["platforms"],
-    #         "single_ext": exclude_base["roms"]["single_file"]["extensions"],
-    #         "single_file": exclude_base["roms"]["single_file"]["names"],
-    #         "multi_file": exclude_base["roms"]["multi_file"]["names"],
-    #         "multi_part_ext": exclude_base["roms"]["multi_file"]["parts"]["extensions"],
-    #         "multi_part_file": exclude_base["roms"]["multi_file"]["parts"]["names"],
-    #     }
-    #     return exclusions[exclude]
+        self.config.PLATFORMS_VERSIONS = platform_versions
+        self.update_config_file()
 
-    # def add_exclusion(self, exclude: str, exclusion: str):
-    #     config = self._get_exclude_path(exclude)
-    #     config.append(exclusion)
+    def add_exclusion(self, config_key: str, exclusion: str):
+        config_item = self.config.__getattribute__(config_key)
+        config_item.append(exclusion)
+        self.config.__setattr__(config_key, config_item)
+        self.update_config_file()
 
-    # def remove_exclusion(self, exclude: str, exclusion: str):
-    #     config = self._get_exclude_path(exclude)
-    #     config.remove(exclusion)
+    def remove_exclusion(self, config_key: str, exclusion: str):
+        config_item = self.config.__getattribute__(config_key)
+
+        try:
+            config_item.remove(exclusion)
+        except ValueError:
+            pass
+
+        self.config.__setattr__(config_key, config_item)
+        self.update_config_file()
 
 
 config_manager = ConfigManager()

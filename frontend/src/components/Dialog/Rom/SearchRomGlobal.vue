@@ -2,8 +2,10 @@
 import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import type { Events } from "@/types/emitter";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import { identity, isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -11,6 +13,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 const theme = useTheme();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
+const galleryViewStore = storeGalleryView();
 const show = ref(false);
 const searching = ref(false);
 const router = useRouter();
@@ -19,6 +22,15 @@ const filteredRoms = ref();
 const platforms = ref();
 const selectedPlatform = ref();
 const searchValue = ref("");
+const showRegions = isNull(localStorage.getItem("settings.showRegions"))
+  ? true
+  : localStorage.getItem("settings.showRegions") === "true";
+const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
+  ? true
+  : localStorage.getItem("settings.showLanguages") === "true";
+const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
+  ? true
+  : localStorage.getItem("settings.showSiblings") === "true";
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomGlobalDialog", () => {
@@ -237,35 +249,56 @@ onBeforeUnmount(() => {
                       <div
                         v-if="isHovering || !rom.has_cover"
                         class="translucent text-caption"
+                        :class="{
+                          'text-truncate':
+                            galleryViewStore.current == 0 && !isHovering,
+                        }"
                       >
-                        <v-list-item>{{
-                          rom.name || rom.file_name
-                        }}</v-list-item>
+                        <v-list-item>{{ rom.name }}</v-list-item>
                       </div>
                     </v-expand-transition>
                     <v-row no-gutters class="text-white px-1">
                       <v-chip
-                        v-if="rom.regions.filter((i: string) => i).length > 0"
+                        v-if="
+                          rom.regions.filter(identity).length > 0 && showRegions
+                        "
                         :title="`Regions: ${rom.regions.join(', ')}`"
-                        class="translucent mr-1 mt-1"
+                        class="translucent mr-1 mt-1 px-1"
+                        :class="{ 'emoji-collection': rom.regions.length > 3 }"
                         density="compact"
                       >
-                        <span class="px-0" v-for="region in rom.regions">
+                        <span
+                          class="emoji"
+                          v-for="region in rom.regions.slice(0, 3)"
+                        >
                           {{ regionToEmoji(region) }}
                         </span>
                       </v-chip>
                       <v-chip
-                        v-if="rom.languages.filter((i: string) => i).length > 0"
+                        v-if="
+                          rom.languages.filter(identity).length > 0 &&
+                          showLanguages
+                        "
                         :title="`Languages: ${rom.languages.join(', ')}`"
-                        class="translucent mr-1 mt-1"
+                        class="translucent mr-1 mt-1 px-1"
+                        :class="{
+                          'emoji-collection': rom.languages.length > 3,
+                        }"
                         density="compact"
                       >
-                        <span class="px-1" v-for="language in rom.languages">
+                        <span
+                          class="emoji"
+                          v-for="language in rom.languages.slice(0, 3)"
+                        >
                           {{ languageToEmoji(language) }}
                         </span>
                       </v-chip>
                       <v-chip
-                        v-if="rom.siblings && rom.siblings.length > 0"
+                        v-if="
+                          rom.siblings &&
+                          rom.siblings.length > 0 &&
+                          showSiblings
+                        "
                         :title="`${rom.siblings.length + 1} versions`"
                         class="translucent mr-1 mt-1"
                         density="compact"
@@ -332,5 +365,13 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+
+.emoji-collection {
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
+}
+
+.emoji {
+  margin: 0 2px;
 }
 </style>

@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Annotated
 
@@ -150,7 +149,7 @@ def update_user(
             "hashed_password"
         )
         if request.user.id == id and creds_updated:
-            auth_handler.clear_session(request)
+            request.session.clear()
 
     return db_user_handler.get_user(id)
 

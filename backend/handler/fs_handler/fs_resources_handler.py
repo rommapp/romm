@@ -2,10 +2,10 @@ import os
 import shutil
 from pathlib import Path
 from urllib.parse import quote
-from urllib3.exceptions import ProtocolError
-from logger.logger import log
+
 import requests
 from config import RESOURCES_BASE_PATH
+from fastapi import HTTPException, status
 from handler.fs_handler import (
     DEFAULT_HEIGHT_COVER_L,
     DEFAULT_HEIGHT_COVER_S,
@@ -14,7 +14,9 @@ from handler.fs_handler import (
     CoverSize,
     FSHandler,
 )
+from logger.logger import log
 from PIL import Image
+from urllib3.exceptions import ProtocolError
 
 
 class FSResourceHandler(FSHandler):
@@ -45,27 +47,31 @@ class FSResourceHandler(FSHandler):
             size: size of the cover
         """
         cover = Image.open(cover_path)
-        if cover.size[1] > DEFAULT_HEIGHT_COVER_L:
-            if size == CoverSize.BIG:
-                big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
-                background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
-                cover.thumbnail(big_dimensions)
-                offset = (
-                    int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)),
-                    0,
-                )
-            elif size == CoverSize.SMALL:
-                small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
-                background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
-                cover.thumbnail(small_dimensions)
-                offset = (
-                    int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)),
-                    0,
-                )
-            else:
-                return
-            background.paste(cover, offset)
+        if size == CoverSize.BIG and cover.size[1] > DEFAULT_HEIGHT_COVER_L:
+
+            big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
+            background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
+            cover.thumbnail(big_dimensions)
+            offset = (
+                int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)),
+                0,
+            )
+        elif size == CoverSize.SMALL and cover.size[1] > DEFAULT_HEIGHT_COVER_S:
+            small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
+            background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
+            cover.thumbnail(small_dimensions)
+            offset = (
+                int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)),
+                0,
+            )
+        else:
+            return
+        background.paste(cover, offset)
+        try:
             background.save(cover_path)
+        except OSError:
+            rgb_background = background.convert("RGB")
+            rgb_background.save(cover_path)
 
     def _store_cover(
         self, fs_slug: str, rom_name: str, url_cover: str, size: CoverSize
@@ -80,11 +86,20 @@ class FSResourceHandler(FSHandler):
         """
         cover_file = f"{size.value}.png"
         cover_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
-        res = requests.get(
-            url_cover.replace("t_thumb", f"t_cover_{size.value}"),
-            stream=True,
-            timeout=120,
-        )
+        
+        try:
+            res = requests.get(
+                url_cover.replace("t_thumb", f"t_cover_{size.value}"),
+                stream=True,
+                timeout=120,
+            )
+        except requests.exceptions.ConnectionError:
+            log.critical("Connection error: can't connect to IGDB")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection.",
+            )
+        
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
@@ -153,7 +168,16 @@ class FSResourceHandler(FSHandler):
         """
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
-        res = requests.get(url, stream=True, timeout=120)
+        
+        try:
+            res = requests.get(url, stream=True, timeout=120)
+        except requests.exceptions.ConnectionError:
+            log.critical("Connection error: can't connect to IGDB")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Can't connect to IGDB, check your internet connection.",
+            )
+        
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
             with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:

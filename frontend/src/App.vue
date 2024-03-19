@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
-import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import socket from "@/services/socket";
 import { onBeforeMount } from "vue";
-import cookie from "js-cookie";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type Rom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
@@ -28,12 +26,17 @@ const emitter = inject<Emitter<Events>>("emitter");
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 
-socket.on("scan:scanning_platform", ({ name, slug, id }) => {
-  scanningPlatforms.value.push({ name, slug, id, roms: [] });
-});
+socket.on(
+  "scan:scanning_platform",
+  ({ name, slug, id }: { name: string; slug: string; id: number }) => {
+    scanningStore.set(true);
+    scanningPlatforms.value.push({ name, slug, id, roms: [] });
+  }
+);
 
-socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
-  if (romsStore.platform.name === platform_name) {
+socket.on("scan:scanning_rom", (rom: Rom) => {
+  scanningStore.set(true);
+  if (romsStore.platform.name === rom.platform_name) {
     romsStore.add([rom]);
     romsStore.setFiltered(
       isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
@@ -42,13 +45,18 @@ socket.on("scan:scanning_rom", ({ platform_name, platform_slug, ...rom }) => {
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
-    (p) => p.slug === platform_slug
+    (p) => p.slug === rom.platform_slug
   );
 
   // Add the platform if the socket dropped and it's missing
-  if (scannedPlatform) {
-    scanningPlatforms.value.push(scannedPlatform);
-    scannedPlatform = scanningPlatforms.value.pop();
+  if (!scannedPlatform) {
+    scanningPlatforms.value.push({
+      name: rom.platform_name,
+      slug: rom.platform_slug,
+      id: rom.platform_id,
+      roms: [],
+    });
+    scannedPlatform = scanningPlatforms.value[0];
   }
 
   scannedPlatform?.roms.push(rom);
@@ -71,7 +79,7 @@ socket.on("scan:done_ko", (msg) => {
   scanningStore.set(false);
 
   emitter?.emit("snackbarShow", {
-    msg: `Scan couldn't be completed. Something went wrong: ${msg}`,
+    msg: `Scan failed: ${msg}`,
     icon: "mdi-close-circle",
     color: "red",
   });
@@ -85,13 +93,13 @@ onBeforeUnmount(() => {
   socket.off("scan:done_ko");
 });
 
-onBeforeMount(async () => {
-  const { data: heartBeatData } = await api.get("/heartbeat");
-  heartbeatStore.set(heartBeatData);
-  const { data: configData } = await api.get("/config");
-  configStore.set(configData);
-  // Set CSRF token for all requests
-  api.defaults.headers.common["x-csrftoken"] = cookie.get("csrftoken");
+onBeforeMount(() => {
+  api.get("/heartbeat").then(({ data: heartBeatData }) => {
+    heartbeatStore.set(heartBeatData);
+  });
+  api.get("/config").then(({ data: configData }) => {
+    configStore.set(configData);
+  });
 });
 </script>
 

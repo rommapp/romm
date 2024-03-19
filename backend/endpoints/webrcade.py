@@ -45,7 +45,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                             "type": WEBRCADE_SLUG_TO_TYPE_MAP.get(p.slug, p.slug),
                             "thumbnail": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_s}",
                             "background": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_l}",
-                            "props": {"rom": f"{ROMM_HOST}/api/roms/{rom.id}/content"},
+                            "props": {"rom": f"{ROMM_HOST}/api/roms/{rom.id}/content/{rom.file_name}"},
                         }
                         for rom in session.scalars(db_rom_handler.get_roms(platform_id=p.id)).all()
                     ],
