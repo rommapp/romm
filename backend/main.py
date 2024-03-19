@@ -4,6 +4,7 @@ import sys
 import alembic.config
 import uvicorn
 from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY, DISABLE_CSRF_PROTECTION
+from contextlib import asynccontextmanager
 from endpoints import (
     auth,
     config,
@@ -27,11 +28,21 @@ from fastapi_pagination import add_pagination
 from handler import auth_handler, db_user_handler, github_handler, socket_handler
 from handler.auth_handler import ALGORITHM
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
-from handler.auth_handler.middleware import CustomCSRFMiddleware
+from handler.auth_handler.middleware import CustomCSRFMiddleware, SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette_authlib.middleware import AuthlibMiddleware as SessionMiddleware
 
-app = FastAPI(title="RomM API", version=github_handler.get_version())
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if "pytest" not in sys.modules:
+        # Create default admin user if no admin user exists
+        if len(db_user_handler.get_admin_users()) == 0:
+            auth_handler.create_default_admin_user()
+
+    yield
+
+
+app = FastAPI(title="RomM API", version=github_handler.get_version(), lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,18 +92,6 @@ app.include_router(screenshots.router)
 
 add_pagination(app)
 app.mount("/ws", socket_handler.socket_app)
-
-
-@app.on_event("startup")
-def startup() -> None:
-    """Event to handle RomM startup logic."""
-
-    if "pytest" in sys.modules:
-        return
-
-    # Create default admin user if no admin user exists
-    if len(db_user_handler.get_admin_users()) == 0:
-        auth_handler.create_default_admin_user()
 
 
 if __name__ == "__main__":
