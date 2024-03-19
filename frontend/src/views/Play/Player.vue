@@ -389,6 +389,12 @@ window.EJS_onGameStart = async () => {
   <div id="game"></div>
 </template>
 
+<style scoped>
+#game {
+  max-height: 100dvh;
+}
+</style>
+
 <!-- Other config options: https://emulatorjs.org/docs/Options.html -->
 
 <!-- window.EJS_biosUrl; -->

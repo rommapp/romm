@@ -199,6 +199,7 @@ def get_rom_content(
                         yield chunk
             except FileNotFoundError:
                 log.error(f"File {rom_path}/{f} not found!")
+                raise
 
         m3u_file = [str.encode(f"{files_to_download[i]}\n") for i in range(len(files_to_download))]
         return [
