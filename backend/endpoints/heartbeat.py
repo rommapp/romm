@@ -9,6 +9,8 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
+from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
+from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
 from fastapi import APIRouter
 from handler import github_handler
 
@@ -26,6 +28,11 @@ def heartbeat() -> HeartbeatResponse:
     return {
         "VERSION": github_handler.get_version(),
         "NEW_VERSION": github_handler.check_new_version(),
+        "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
+        "METADATA_SOURCES": {
+            "IGDB_API_ENABLED": IGDB_API_ENABLED,
+            "MOBY_API_ENABLED": MOBY_API_ENABLED,
+        },
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",

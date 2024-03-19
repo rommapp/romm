@@ -108,6 +108,7 @@ export function regionToEmoji(region: string) {
       return "🇨🇳";
     case "e":
     case "eu":
+    case "eur":
     case "europe":
       return "🇪🇺";
     case "f":
@@ -242,25 +243,39 @@ export function languageToEmoji(language: string) {
   }
 }
 
-export const platformSlugEJSCoreMap: Record<string, string> = {
+export const platformSlugEJSCoreMap = {
   // "3do": "opera", Disabled until BIOS file support is added
   amiga: "puae",
   // arcade: "mame2003_plus", Disabled until BIOS file support is added
   atari2600: "stella2014",
+  "atari-2600-plus": "stella2014",
   atari5200: "a5200",
   atari7800: "prosystem",
   c64: "vice_x64",
+  "commodore-64c": "vice_x64",
   colecovision: "gearcoleco",
   jaguar: "virtualjaguar",
   lynx: "handy",
+  "atari-lynx-mkii": "handy",
   "neo-geo-pocket": "mednafen_ngp",
   "neo-geo-pocket-color": "mednafen_ngp",
   nes: "fceumm",
   famicom: "fceumm",
-  n64: "mupen64plus_next",
+  fds: "fceumm",
+  "game-televisison": "fceumm",
+  "new-style-nes": "fceumm",
+  // n64: "mupen64plus_next", Disabled until emujs 4.0.12 is released
+  // "ique-player": "mupen64plus_next", Disabled until emujs 4.0.12 is released
   nds: "melonds",
-  gba: "mgba",
+  "nintendo-ds-lite": "melonds",
+  "nintendo-dsi": "melonds",
+  "nintendo-dsi-xl": "melonds",
   gb: "gambatte",
+  "game-boy-pocket": "gambatte",
+  "game-boy-light": "gambatte",
+  gba: "mgba",
+  "game-boy-adavance-sp": "mgba",
+  "game-boy-micro": "mgba",
   gbc: "gambatte",
   "pc-fx": "mednafen_pcfx",
   // ps: "pcsx_rearmed", Disabled until BIOS file support is added
@@ -269,12 +284,27 @@ export const platformSlugEJSCoreMap: Record<string, string> = {
   // sega32: "picodrive", // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
   gamegear: "genesis_plus_gx",
   sms: "genesis_plus_gx",
+  "sega-mark-iii": "genesis_plus_gx",
+  "sega-game-box-9": "genesis_plus_gx",
+  "sega-master-system-ii": "genesis_plus_gx",
+  "master-system-super-compact": "genesis_plus_gx",
+  "master-system-girl": "genesis_plus_gx",
   "genesis-slash-megadrive": "genesis_plus_gx",
+  "sega-mega-drive-2-slash-genesis": "genesis_plus_gx",
+  "sega-mega-jet": "genesis_plus_gx",
+  "mega-pc": "genesis_plus_gx",
+  "tera-drive": "genesis_plus_gx",
+  "sega-nomad": "genesis_plus_gx",
   saturn: "yabause",
   snes: "snes9x",
   sfam: "snes9x",
+  "super-nintendo-original-european-version": "snes9x",
+  "super-famicom-shvc-001": "snes9x",
+  "super-famicom-jr-model-shvc-101": "snes9x",
+  "new-style-super-nes-model-sns-101": "snes9x",
   "turbografx16--1": "mednafen_pce",
   virtualboy: "beetle_vb",
   wonderswan: "mednafen_wswan",
+  swancrystal: "mednafen_wswan",
   "wonderswan-color": "mednafen_wswan",
 } as const;

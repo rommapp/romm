@@ -151,8 +151,8 @@ function closeDialog() {
           <v-file-input
             @keyup.enter="updateRom()"
             v-model="rom.artwork"
-            label="Custom artwork (.png)"
-            accept=".png"
+            label="Custom artwork"
+            accept="image/*"
             prepend-inner-icon="mdi-image"
             prepend-icon=""
             variant="outlined"

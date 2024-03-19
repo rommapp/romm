@@ -59,7 +59,7 @@ async function uploadRoms() {
       setTimeout(() => {
         socket.emit("scan", {
           platforms: [platform.value?.id],
-          rescan: false,
+          type: "quick",
         });
       }, 2000);
     })

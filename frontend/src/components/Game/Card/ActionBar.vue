@@ -25,7 +25,7 @@ const downloadStore = storeDownload();
           variant="text"
         />
         <v-btn
-          v-if="rom.platform_slug in platformSlugEJSCoreMap"
+          v-if="rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
           class="action-bar-btn"
           :href="`/play/${rom.id}`"
           icon="mdi-play"

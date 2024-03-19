@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import storeDownload from "@/stores/download";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref, watch } from "vue";
@@ -10,8 +11,8 @@ import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import Cover from "@/components/Details/Cover.vue";
-import Info from "@/components/Details/Info/Base.vue";
 import Emulation from "@/components/Details/Emulation.vue";
+import Info from "@/components/Details/Info/Base.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -90,6 +91,8 @@ onBeforeMount(async () => {
   } else {
     await fetchDetails();
   }
+  const downloadStore = storeDownload();
+  downloadStore.clear();
 });
 
 watch(

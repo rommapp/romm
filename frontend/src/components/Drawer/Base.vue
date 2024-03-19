@@ -35,8 +35,6 @@ async function addPlatform(){
   console.log(message)
 }
 });
-
-onMounted(() => {});
 </script>
 
 <template>

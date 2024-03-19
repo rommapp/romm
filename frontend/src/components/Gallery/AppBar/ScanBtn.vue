@@ -14,16 +14,16 @@ async function scan() {
 
   socket.emit("scan", {
     platforms: [romsStore.platform.id],
-    completeRescan: false,
+    type: "unidentified",
   });
 }
 </script>
 
 <template>
   <v-list-item v-if="romsStore.platform" @click="scan" class="py-4 pr-5">
-    <v-list-item-title class="d-flex"
-      ><v-icon icon="mdi-magnify-scan" class="mr-2" />Scan
-      platform</v-list-item-title
-    >
+    <v-list-item-title class="d-flex">
+      <v-icon icon="mdi-magnify-scan" class="mr-2" />
+      Scan platform
+    </v-list-item-title>
   </v-list-item>
 </template>
