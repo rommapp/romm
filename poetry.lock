@@ -489,13 +489,13 @@ all = ["email-validator (>=2.0.0)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)"
 
 [[package]]
 name = "fastapi-pagination"
-version = "0.12.19"
+version = "0.12.21"
 description = "FastAPI pagination"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "fastapi_pagination-0.12.19-py3-none-any.whl", hash = "sha256:67838b21e2f62fae739117d130f8153a362d1fc266c2d738543e71d446618635"},
-    {file = "fastapi_pagination-0.12.19.tar.gz", hash = "sha256:d947d0c91589dc2fc99a15409707eb24272970a044489d21363641af03516fd7"},
+    {file = "fastapi_pagination-0.12.21-py3-none-any.whl", hash = "sha256:5715b3dec31f9f9a0df6e08a53d7efe8c185d1fc8b392438d60e15349d7478d1"},
+    {file = "fastapi_pagination-0.12.21.tar.gz", hash = "sha256:ba0bd1023ae37cb32946e91b1356f2454809e15393911d68e318f5c7aa6887c4"},
 ]
 
 [package.dependencies]
@@ -1515,13 +1515,13 @@ testing = ["argcomplete", "attrs (>=19.2)", "hypothesis (>=3.56)", "mock", "pygm
 
 [[package]]
 name = "pytest-asyncio"
-version = "0.23.5.post1"
+version = "0.23.6"
 description = "Pytest support for asyncio"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pytest-asyncio-0.23.5.post1.tar.gz", hash = "sha256:b9a8806bea78c21276bc34321bbf234ba1b2ea5b30d9f0ce0f2dea45e4685813"},
-    {file = "pytest_asyncio-0.23.5.post1-py3-none-any.whl", hash = "sha256:30f54d27774e79ac409778889880242b0403d09cabd65b727ce90fe92dd5d80e"},
+    {file = "pytest-asyncio-0.23.6.tar.gz", hash = "sha256:ffe523a89c1c222598c76856e76852b787504ddb72dd5d9b6617ffa8aa2cde5f"},
+    {file = "pytest_asyncio-0.23.6-py3-none-any.whl", hash = "sha256:68516fdd1018ac57b846c9846b954f0393b26f094764a28c955eabb0536a4e8a"},
 ]
 
 [package.dependencies]
