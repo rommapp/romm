@@ -123,7 +123,6 @@ async function downloadRom({
 
   const a = document.createElement("a");
   a.href = `/api/roms/${rom.id}/content/${rom.file_name}?${files_params}`;
-  a.download = `${rom.name}.zip`;
   a.click();
 
   // Only connect socket if multi-file download
