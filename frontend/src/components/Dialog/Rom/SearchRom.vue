@@ -21,7 +21,7 @@ const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.file_name_no_tags;
+  searchTerm.value = romToSearch.file_name_no_tags || romToSearch.name || "";
   show.value = true;
   searchRom();
 });
@@ -269,10 +269,18 @@ onBeforeUnmount(() => {
                       </div>
                     </template>
                     <v-row no-gutters class="text-white px-1">
-                      <v-chip class="translucent mr-1 mt-1" label v-if="matchedRom.igdb_id">
+                      <v-chip
+                        class="translucent mr-1 mt-1"
+                        label
+                        v-if="matchedRom.igdb_id"
+                      >
                         <span> IGDB </span>
                       </v-chip>
-                      <v-chip class="translucent mr-1 mt-1" label v-if="matchedRom.moby_id">
+                      <v-chip
+                        class="translucent mr-1 mt-1"
+                        label
+                        v-if="matchedRom.moby_id"
+                      >
                         <span> Moby </span>
                       </v-chip>
                     </v-row>

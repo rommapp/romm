@@ -45,6 +45,8 @@ async def search_rom(
         return []
 
     search_term = search_term or rom.file_name_no_tags
+    if not search_term:
+        return []
 
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers..."))
     matched_roms: list = []

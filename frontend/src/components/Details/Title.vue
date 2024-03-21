@@ -111,28 +111,6 @@ const { smAndDown } = useDisplay();
       </a>
     </v-col>
   </v-row>
-  <v-row
-    v-if="rom.moby_id"
-    class="text-white text-shadow"
-    :class="{ 'text-center': smAndDown }"
-    no-gutters
-  >
-    <v-col cols="12">
-      <a
-        style="text-decoration: none; color: inherit"
-        :href="`http://www.mobygames.com/game/${rom.moby_id}`"
-        target="_blank"
-      >
-        <v-chip size="x-small" @click="">
-          <span>MobyGames</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
-          <span>ID: {{ rom.moby_id }}</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
-          <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
-        </v-chip>
-      </a>
-    </v-col>
-  </v-row>
 </template>
 
 <style scoped>
