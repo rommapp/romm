@@ -245,7 +245,7 @@ export function languageToEmoji(language: string) {
 
 export const platformSlugEJSCoreMap = {
   // "3do": "opera", Disabled until BIOS file support is added
-  amiga: "puae",
+  // amiga: "puae",
   // arcade: "mame2003_plus", Disabled until BIOS file support is added
   atari2600: "stella2014",
   "atari-2600-plus": "stella2014",
