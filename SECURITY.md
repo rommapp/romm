@@ -6,7 +6,7 @@ If you believe you have found a security vulnerability in RomM, please report it
 
 **Do not report security vulnerabilities through public GitHub issues, discussions, pull requests, or on our public Discord server.**
 
-Instead, use the [vulnerability report form](https://github.com/zurdi15/romm/security/advisories/new) on GitHub.
+Instead, use the [vulnerability report form](https://github.com/rommapp/romm/security/advisories/new) on GitHub.
 
 Please include as much of the information listed below as you can to help us better understand and resolve the issue:
 
