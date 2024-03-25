@@ -1,4 +1,4 @@
-folder_struct_msg = "Check RomM folder structure here: https://github.com/zurdi15/romm#-folder-structure"
+folder_struct_msg = "Check RomM folder structure here: https://github.com/rommapp/romm#-folder-structure"
 
 
 class FolderStructureNotMatchException(Exception):
