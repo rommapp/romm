@@ -11,6 +11,7 @@
 ## Changed
  - Added scrolling to scan logs
  - Disabled amiga emulator until bios support added
+ - Updated [docker-compose.example.yml file](https://github.com/rommapp/romm/blob/3.0.1/examples/docker-compose.example.yml) to match new dockerhub ``rommapp`` organization
 
 ## Fixed
  - Normalized IGDB search for better results
