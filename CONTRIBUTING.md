@@ -10,7 +10,7 @@ Please note that this project adheres to the Contributor Covenant [code of condu
 
 ### Contributing to the Wiki
 
-If you would like to contribute to the project's [documentation](https://github.com/zurdi15/romm/wiki), reach out to the maintainers to get edit access. We welcome any contributions that help improve the documentation (new pages, updates, or corrections).
+If you would like to contribute to the project's [documentation](https://github.com/rommapp/romm/wiki), reach out to the maintainers to get edit access. We welcome any contributions that help improve the documentation (new pages, updates, or corrections).
 
 ### How to Contribute Code
 
@@ -42,7 +42,7 @@ Follow the existing code style used throughout the project. If working with VSCo
 
 ### Issue Reporting
 
-If you encounter any bugs or have suggestions for improvements, please [create an issue](https://github.com/zurdi15/romm/issues) on GitHub. Provide as much detail as possible, including steps to reproduce the issue if applicable.
+If you encounter any bugs or have suggestions for improvements, please [create an issue](https://github.com/rommapp/romm/issues) on GitHub. Provide as much detail as possible, including steps to reproduce the issue if applicable.
 
 ### Licensing
 

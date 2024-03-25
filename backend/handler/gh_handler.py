@@ -35,7 +35,7 @@ class GHHandler:
 
         try:
             response = requests.get(
-                "https://api.github.com/repos/zurdi15/romm/releases/latest", timeout=5
+                "https://api.github.com/repos/rommapp/romm/releases/latest", timeout=5
             )
         except ReadTimeout:
             log.warning("Timeout while connecting to Github")
