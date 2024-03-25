@@ -45,6 +45,15 @@ start_bin_uvicorn () {
     echo $UVICORN_PID > /tmp/uvicorn.pid
 }
 
+# function that runs or main process and creates a corresponding PID file,
+start_bin_gunicorn () {
+    # cleanup potentially leftover socket
+    rm /tmp/gunicorn.sock -f
+    # Commands to start our main application and store its PID to check for crashes
+    info_log "starting gunicorn"
+    gunicorn main:app --bind=0.0.0.0:5000 --bind=unix:/tmp/gunicorn.sock --pid=/tmp/gunicorn.pid --workers 2 &
+}
+
 # Commands to start nginx (handling PID creation internally)
 start_bin_nginx () {
     info_log "starting nginx"
@@ -129,7 +138,7 @@ while true; do
     watchdog_process_pid bin nginx
 
     # Start uvicorn if we dont have a corresponding PID file
-    watchdog_process_pid bin uvicorn
+    watchdog_process_pid bin gunicorn
 
     # only start the watcher.py if we actually want to use the rescan on fs change feature
     if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
