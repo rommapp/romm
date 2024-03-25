@@ -109,9 +109,10 @@ watchdog_process_pid () {
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
+info_log "Starting UP... Please be patient"
+
 # function definition done, lets start our main loop
 while true; do
-    info_log "Starting UP... Please be patient"
     # check for died processes every 5 seconds
     sleep 5
 
