@@ -24,8 +24,7 @@ RUN apk add --upgrade \
         mariadb-connector-c \
         netcat-openbsd \
         python3 \
-        tzdata \
-        shadow
+        tzdata
 
 # Install additional build dependencies
 RUN apk add --upgrade \
@@ -158,11 +157,11 @@ COPY --from=production-stage / /
 # User permissions
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
 
-# Create root folder and set permissions
-RUN mkdir /romm && chown romm:romm /romm
+# Create the directories and set ownership and permissions
+RUN mkdir /romm /redis-data && \
+    chown romm:romm /romm /redis-data && \
+    chmod 777 /romm /redis-data
 
-# Create data volume for redis and set permissions
-RUN mkdir /redis-data && chown romm:romm /redis-data
 VOLUME /redis-data
 
 # Set user to run as
