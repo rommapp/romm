@@ -51,7 +51,7 @@ start_bin_gunicorn () {
     rm /tmp/gunicorn.sock -f
     # Commands to start our main application and store its PID to check for crashes
     info_log "starting gunicorn"
-    gunicorn main:app --bind=0.0.0.0:5000 --bind=unix:/tmp/gunicorn.sock --pid=/tmp/gunicorn.pid --workers 2 &
+    gunicorn --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:5000 --bind=unix:/tmp/gunicorn.sock --pid=/tmp/gunicorn.pid --workers 2 main:app &
 }
 
 # Commands to start nginx (handling PID creation internally)
