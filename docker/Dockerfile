@@ -150,22 +150,20 @@ RUN rm -r \
     /docker-entrypoint.sh \
     /docker-entrypoint.d
 
-# Move everything we prepared over to our final docker image
-FROM scratch
-COPY --from=production-stage / /
-
 # User permissions
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
 
 # Create the directories and set ownership and permissions
 RUN mkdir /romm /redis-data && \
-    chown romm:romm /romm /redis-data && \
-    chmod 777 /romm /redis-data
+    chown romm:romm /romm /redis-data /backend/handler/fixtures && \
+    chmod -R 755 /romm /redis-data /backend/handler/fixtures
 
-VOLUME /redis-data
+# Move everything we prepared over to our final docker image
+FROM scratch
+COPY --from=production-stage / /
 
-# Set user to run as
-USER romm
+# Declare the supported volumes
+VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/logs", "/romm/config", "/redis-data"]
 
 # Expose ports and start
 EXPOSE 8080
