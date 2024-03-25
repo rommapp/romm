@@ -111,6 +111,9 @@ cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
 # function definition done, lets start our main loop
 while true; do
+    # check for died processes every 5 seconds
+    sleep 5
+
     # Start redis server if we dont have a corresponding PID file
     # and REDIS_HOST is not set (which would mean we're using an external redis)
     if [[ -z "${REDIS_HOST:=""}" ]]; then
@@ -148,7 +151,4 @@ while true; do
     watchdog_process_pid python worker
     # Start scheduler if we dont have a corresponding PID file
     watchdog_process_pid python scheduler
-    
-    # check for died processes every 5 seconds
-    sleep 5
 done
