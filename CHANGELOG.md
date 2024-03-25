@@ -1,4 +1,11 @@
-# v3.0.2 (_13-03-2024_)
+# v3.0.3 (_25-03-2024_)
+
+## Fixed 
+ - Removed ``PUID/GUID`` environment variables. Instead, use the ``user: "XXXX:XXXX"`` entry in docker-compose to set the owner of newly created file/folders and mounted volumes
+
+<br>
+
+# v3.0.2 (_25-03-2024_)
 
 > [!WARNING]  
 > RomM has been organized in ``github`` and ``dockerhub``! New images will be upload to ``rommapp/romm`` repository on dockerhub and ghcr.
