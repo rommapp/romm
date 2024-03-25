@@ -7,7 +7,7 @@ volumes:
 
 services:
   romm:
-    image: zurdi15/romm:latest
+    image: rommapp/romm:latest
     container_name: romm
     restart: unless-stopped
     environment:
