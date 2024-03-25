@@ -157,11 +157,16 @@ COPY --from=production-stage / /
 
 # User permissions
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
+
+# Create root folder and set permissions
 RUN mkdir /romm && chown romm:romm /romm
 
 # Create data volume for redis and set permissions
 RUN mkdir /redis-data && chown romm:romm /redis-data
 VOLUME /redis-data
+
+# Set user to run as
+USER romm
 
 # Expose ports and start
 EXPOSE 8080
