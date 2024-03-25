@@ -1,5 +1,8 @@
 # v3.0.1 (_13-03-2024_)
 
+> [!WARNING]  
+> RomM has been organized in ``github`` and ``dockerhub``! New images will be upload to ``rommapp/romm`` repository on dockerhub and ghcr.
+
 ## Added
  - Famicon disk system to emulatorjs
  - Allow setting PUID/GUID/UMASK with environment variables
@@ -18,7 +21,8 @@
 
 # v3.0.1 (_13-03-2024_)
 
-⚠️ This hotfix requires a few changes:
+> [!WARNING]  
+> This hotfix requires a few changes:
 
 * A new volume has to be bound to `/redis-data`, check the [docker-compose.example.yml file](https://github.com/rommapp/romm/blob/3.0.1/examples/docker-compose.example.yml)
 * If you're seeing "Decompress Game Core" when trying to run games in EmulatorJS, you'll need to clear storage in your browser to clear IndexedDB
@@ -211,8 +215,6 @@
  - Improved scanning and IGDB requests logs. Fixes [#317](https://github.com/rommapp/romm/issues/317)
  - Improved downloading process.  Fixes [#332](https://github.com/rommapp/romm/issues/332)
 
-<!-- **_Note_**: Experimental support for redis in the backend was added for anyone that wants to test it (it's experimental so expect some bugs). It's not required yet (check docker-compose.example.yml to check how to set the needed environment variables) but it will likely be introduced in 2.0. -->
-
 <br>
 
 # v1.9.1 (_01-08-2023_)
@@ -393,11 +395,8 @@
 
 # v1.5 (_30-03-2023_)
 
-**`Breaking change`**
-
-In order to make the new features to work, it is mandatory this time to drop all the database. This will only make you need to re-scan, but you won't lose the cover changes or file changes you made.
-
-I apologize for the inconveniences this may cause, as this is a new software, it may change a little bit the first weeks, at least until I can develop a proper way to migrate between versions. I hope you can understand these initial wipes in order to make a better tool.
+> [!WARNING]  
+> In order to make the new features to work, it is mandatory this time to drop all the database. This will only make you need to re-scan, but you won't lose the cover changes or file changes you made. I apologize for the inconveniences this may cause, as this is a new software, it may change a little bit the first weeks, at least until I can develop a proper way to migrate between versions. I hope you can understand these initial wipes in order to make a better tool.
 
 ## Added
  - Now RomM folder structure is more flexible to match two different patrons by priority. This change makes RomM **Emudeck** compatible at least with single file games platforms. Check [folder structure](readme.md#⚠️-folder-structure)
