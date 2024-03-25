@@ -214,8 +214,8 @@ Here are a few projects that we think you might like:
 [unraid-badge]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
 [unraid-badge-url]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
 [wiki-badge]: https://img.shields.io/badge/Wiki-736e9b?style=for-the-badge
-[docker-pulls-badge]: https://img.shields.io/docker/pulls/zurdi15/romm?style=for-the-badge&label=pulls
-[docker-pulls-badge-url]: https://hub.docker.com/r/zurdi15/romm
+[docker-pulls-badge]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
+[docker-pulls-badge-url]: https://hub.docker.com/r/rommapp/romm
 
 <!-- Links -->
 
@@ -226,7 +226,7 @@ Here are a few projects that we think you might like:
 
 <!-- External links -->
 
-[docker-tags]: https://hub.docker.com/r/zurdi15/romm/tags
+[docker-tags]: https://hub.docker.com/r/rommapp/romm/tags
 [igdb]: https://www.igdb.com/
 [igdb-api]: https://api-docs.igdb.com/#getting-started
 [titleid-program-id-url]: https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop

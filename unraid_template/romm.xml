@@ -1,7 +1,7 @@
 <Container version="2">
    <Name>RomM</Name>
-   <Repository>zurdi15/romm:latest</Repository>
-   <Registry>https://hub.docker.com/r/zurdi15/romm</Registry>
+   <Repository>rommapp/romm:latest</Repository>
+   <Registry>https://hub.docker.com/r/rommapp/romm</Registry>
    <Network>bridge</Network>
    <MyIP/>
    <Shell>sh</Shell>
