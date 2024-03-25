@@ -101,13 +101,31 @@ watchdog_process_pid () {
     fi
 }
 
+# Update the user/group IDs per environment variables
+if [ ! -z "$PUID" ] && [ "$PUID" != "$(id -u romm)" ]; then
+    usermod -o -u "$PUID" romm
+fi
+if [ ! -z "$PGID" ] && [ "$PGID" != "$(id -g romm)" ]; then
+    groupmod -o -g "$PGID" romm
+fi
+if [ ! -z "$UMASK" ] && [ "$UMASK" != "$(umask)" ]; then
+    umask "$UMASK"
+fi
+
+echo "Setting permissions and ownership for required directories..."
+chown -R romm:romm /romm /redis-data /backend
+chmod -R 755 /romm /redis-data /backend
+
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
 # function definition done, lets start our main loop
 while true; do
     # Start redis server if we dont have a corresponding PID file
-    watchdog_process_pid bin redis-server
+    # and REDIS_HOST is not set (which would mean we're using an external redis)
+    if [[ -z "${REDIS_HOST}" ]]; then
+        watchdog_process_pid bin redis-server
+    fi
 
     # Run needed database migrations on startup,
     # but only if it was not successful since the last full docker container start

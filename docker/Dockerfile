@@ -6,7 +6,7 @@ RUN npm install
 RUN npm run build
 
 # Setup frontend
-FROM nginx:1.24-alpine3.17-slim as production-stage
+FROM nginx:1.25.4-alpine3.18-slim as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
@@ -24,7 +24,8 @@ RUN apk add --upgrade \
         mariadb-connector-c \
         netcat-openbsd \
         python3 \
-        tzdata
+        tzdata \
+        shadow
 
 # Install additional build dependencies
 RUN apk add --upgrade \
@@ -56,7 +57,9 @@ RUN . /backend/bin/activate && \
 
 # Install project dependencies using poetry
 RUN . /backend/bin/activate && \
+    mkdir -p /root/.cache/pypoetry/virtualenvs && \
     python3 -m poetry config --no-cache virtualenvs.create false && \
+    python3 -m poetry env use 3.11 && \
     python3 -m poetry install --no-interaction --no-ansi --no-cache --only main && \
     python3 -m poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
 
@@ -151,11 +154,13 @@ RUN rm -r \
 # Move everything we prepared over to our final docker image
 FROM scratch
 COPY --from=production-stage / /
-RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
-RUN mkdir /romm && chown 1000:1000 /romm -R
 
-# Create data volume for redis
-RUN mkdir /redis-data && chown 1000:1000 /redis-data
+# User permissions
+RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
+RUN mkdir /romm && chown romm:romm /romm
+
+# Create data volume for redis and set permissions
+RUN mkdir /redis-data && chown romm:romm /redis-data
 VOLUME /redis-data
 
 # Expose ports and start

@@ -31,7 +31,7 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 - Scans your existing games library and enchances it with metadata from [IGDB][igdb]
 - Supports a large number of **[platforms][platform-support]**
 - Play games directly from the browser using [EmulatorJS][wiki-emulatorjs-url]
-- Built-in [authentication][authentication] with multiple users and permissions
+- Share your library with friend while [limiting access and permissions][authentication]
 - Supports [MAME][mame-xml-update], [Nintendo Switch][switch-titledb-update] and PS2 naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
 - Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
