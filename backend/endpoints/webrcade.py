@@ -29,8 +29,8 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             "title": "RomM Feed",
             "longTitle": "Custom RomM Feed",
             "description": "Custom feed from your RomM library",
-            "thumbnail": "https://raw.githubusercontent.com/zurdi15/romm/f2dd425d87ad8e21bf47f8258ae5dcf90f56fbc2/frontend/assets/isotipo.svg",
-            "background": "https://raw.githubusercontent.com/zurdi15/romm/release/.github/screenshots/gallery.png",
+            "thumbnail": "https://raw.githubusercontent.com/rommapp/romm/f2dd425d87ad8e21bf47f8258ae5dcf90f56fbc2/frontend/assets/isotipo.svg",
+            "background": "https://raw.githubusercontent.com/rommapp/romm/release/.github/screenshots/gallery.png",
             "categories": [
                 {
                     "title": p.name,
