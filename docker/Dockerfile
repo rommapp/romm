@@ -163,7 +163,7 @@ FROM scratch
 COPY --from=production-stage / /
 
 # Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/logs", "/romm/config", "/redis-data"]
+VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
 
 # Expose ports and start
 EXPOSE 8080
