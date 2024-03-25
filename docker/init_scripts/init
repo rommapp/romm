@@ -102,13 +102,13 @@ watchdog_process_pid () {
 }
 
 # Update the user/group IDs per environment variables
-if [ ! -z "$PUID" ] && [ "$PUID" != "$(id -u romm)" ]; then
+if [ ! -z "${PUID:-}" ] && [ "${PUID:-}" != "$(id -u romm)" ]; then
     usermod -o -u "$PUID" romm
 fi
-if [ ! -z "$PGID" ] && [ "$PGID" != "$(id -g romm)" ]; then
+if [ ! -z "${PGID:-}" ] && [ "${PGID:-}" != "$(id -g romm)" ]; then
     groupmod -o -g "$PGID" romm
 fi
-if [ ! -z "$UMASK" ] && [ "$UMASK" != "$(umask)" ]; then
+if [ ! -z "${UMASK:-}" ] && [ "${UMASK:-}" != "$(umask)" ]; then
     umask "$UMASK"
 fi
 
