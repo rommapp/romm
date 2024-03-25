@@ -108,7 +108,7 @@ cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 while true; do
     # Start redis server if we dont have a corresponding PID file
     # and REDIS_HOST is not set (which would mean we're using an external redis)
-    if [[ -z "${REDIS_HOST}" ]]; then
+    if [[ -z "${REDIS_HOST:=""}" ]]; then
         watchdog_process_pid bin redis-server
     fi
 
