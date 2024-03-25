@@ -1,4 +1,4 @@
-# v3.0.1 (_13-03-2024_)
+# v3.0.2 (_13-03-2024_)
 
 > [!WARNING]  
 > RomM has been organized in ``github`` and ``dockerhub``! New images will be upload to ``rommapp/romm`` repository on dockerhub and ghcr.
