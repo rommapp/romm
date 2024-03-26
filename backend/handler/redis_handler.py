@@ -23,6 +23,14 @@ class FallbackCache:
     def set(self, key: str, value: str, *args, **kwargs) -> None:
         self.fallback[key] = value
 
+    def hset(self, index: str, key: str, value: str, *args, **kwargs) -> None:
+        if index not in self.fallback:
+            self.fallback[index] = {}
+        self.fallback[index][key] = value
+    
+    def hget(self, index: str, key: str, *args, **kwargs) -> str:
+        return self.fallback.get(index, {}).get(key, "")
+
     def delete(self, key: str, *args, **kwargs) -> None:
         self.fallback.pop(key, None)
 
