@@ -21,7 +21,7 @@ const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.file_name_no_tags;
+  searchTerm.value = romToSearch.file_name_no_tags || romToSearch.name || "";
   show.value = true;
   searchRom();
 });
@@ -126,13 +126,13 @@ onBeforeUnmount(() => {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
+          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
             <v-icon icon="mdi-search-web" class="ml-5" />
           </v-col>
-
-          <v-col cols="2" xs="2" sm="2" md="1" lg="1">
+          <v-col>
             <v-btn
               @click="closeDialog"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -269,10 +269,18 @@ onBeforeUnmount(() => {
                       </div>
                     </template>
                     <v-row no-gutters class="text-white px-1">
-                      <v-chip class="translucent mr-1 mt-1" label v-if="matchedRom.igdb_id">
+                      <v-chip
+                        class="translucent mr-1 mt-1"
+                        label
+                        v-if="matchedRom.igdb_id"
+                      >
                         <span> IGDB </span>
                       </v-chip>
-                      <v-chip class="translucent mr-1 mt-1" label v-if="matchedRom.moby_id">
+                      <v-chip
+                        class="translucent mr-1 mt-1"
+                        label
+                        v-if="matchedRom.moby_id"
+                      >
                         <span> Moby </span>
                       </v-chip>
                     </v-row>

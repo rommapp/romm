@@ -34,15 +34,20 @@ error_log () {
 }
 
 # function that runs or main process and creates a corresponding PID file,
-# sadly uvicorn can not do that itself
-start_bin_uvicorn () {
+start_bin_gunicorn () {
     # cleanup potentially leftover socket
-    rm /tmp/uvicorn.sock -f
+    rm /tmp/gunicorn.sock -f
     # Commands to start our main application and store its PID to check for crashes
-    info_log "starting uvicorn"
-    uvicorn main:app --proxy-headers --host 0.0.0.0 --port 5000 --uds /tmp/uvicorn.sock --workers 2 &
-    UVICORN_PID=$!
-    echo $UVICORN_PID > /tmp/uvicorn.pid
+    info_log "starting gunicorn"
+    gunicorn \
+        --access-logfile - \
+        --error-logfile - \
+        --worker-class uvicorn.workers.UvicornWorker \
+        --bind=0.0.0.0:5000 \
+        --bind=unix:/tmp/gunicorn.sock \
+        --pid=/tmp/gunicorn.pid \
+        --workers 2 \
+        main:app &
 }
 
 # Commands to start nginx (handling PID creation internally)
@@ -104,11 +109,16 @@ watchdog_process_pid () {
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
+info_log "Starting up, please wait..."
+
 # function definition done, lets start our main loop
 while true; do
+    # check for died processes every 5 seconds
+    sleep 5
+
     # Start redis server if we dont have a corresponding PID file
     # and REDIS_HOST is not set (which would mean we're using an external redis)
-    if [[ -z "${REDIS_HOST}" ]]; then
+    if [[ -z "${REDIS_HOST:=""}" ]]; then
         watchdog_process_pid bin redis-server
     fi
 
@@ -129,7 +139,7 @@ while true; do
     watchdog_process_pid bin nginx
 
     # Start uvicorn if we dont have a corresponding PID file
-    watchdog_process_pid bin uvicorn
+    watchdog_process_pid bin gunicorn
 
     # only start the watcher.py if we actually want to use the rescan on fs change feature
     if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
@@ -143,7 +153,4 @@ while true; do
     watchdog_process_pid python worker
     # Start scheduler if we dont have a corresponding PID file
     watchdog_process_pid python scheduler
-    
-    # check for died processes every 5 seconds
-    sleep 5
 done
