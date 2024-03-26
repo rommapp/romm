@@ -1,7 +1,6 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from fastapi import APIRouter, Request
-from tasks.update_mame_xml import update_mame_xml_task
 from tasks.update_switch_titledb import update_switch_titledb_task
 
 router = APIRouter()
@@ -33,7 +32,6 @@ async def run_task(request: Request, task: str) -> MessageResponse:
     """
 
     tasks = {
-        "mame": update_mame_xml_task,
         "switch_titledb": update_switch_titledb_task 
     }
  

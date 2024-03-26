@@ -49,6 +49,4 @@
    <Config Name="SCHEDULED_RESCAN_CRON" Target="SCHEDULED_RESCAN_CRON" Default="0 3 * * *" Mode="" Description="Cron expression for scheduled scan" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB" Target="ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB" Default="false" Mode="" Description="Update Switch TitleDB on a schedule" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON" Target="SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON" Default="0 4 * * *" Mode="" Description="Cron expression for scheduled Switch TitleDB update" Type="Variable" Display="advanced" Required="false" Mask="false"/>
-   <Config Name="ENABLE_SCHEDULED_UPDATE_MAME_XML" Target="ENABLE_SCHEDULED_UPDATE_MAME_XML" Default="false" Mode="" Description="Update MAME XML on a schedule" Type="Variable" Display="advanced" Required="false" Mask="false"/>
-   <Config Name="SCHEDULED_UPDATE_MAME_XML_CRON" Target="SCHEDULED_UPDATE_MAME_XML_CRON" Default="0 4 * * *" Mode="" Description="Cron expression for scheduled MAME XML update" Type="Variable" Display="advanced" Required="false" Mask="false"/>
 </Container>
