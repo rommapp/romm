@@ -71,11 +71,9 @@ class PeriodicTask(ABC):
 
 
 class RemoteFilePullTask(PeriodicTask):
-    def __init__(self, *args, url: str, file_path: str, **kwargs):
+    def __init__(self, *args, url: str, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.url = url
-        self.file_path = file_path
 
     async def run(self, force: bool = False) -> bytes | None:
         if not self.enabled and not force:
@@ -88,11 +86,6 @@ class RemoteFilePullTask(PeriodicTask):
         try:
             response = requests.get(self.url)
             response.raise_for_status()
-
-            with open(self.file_path, "wb") as fixture:
-                fixture.write(response.content)
-
-            log.info(f"Scheduled {self.description} done")
             return response.content
         except requests.exceptions.RequestException as e:
             log.error(f"Scheduled {self.description} failed", exc_info=True)

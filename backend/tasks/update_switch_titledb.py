@@ -1,6 +1,4 @@
 import json
-import os
-from pathlib import Path
 from typing import Final
 
 from config import (
@@ -8,22 +6,11 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from tasks.tasks import RemoteFilePullTask
+from logger.logger import log
+from handler.redis_handler import cache
 
-FIXTURE_FILE_PATH: Final = (
-    Path(os.path.dirname(__file__)).parent
-    / "handler"
-    / "metadata_handler"
-    / "fixtures"
-    / "switch_titledb.json"
-)
-
-SWITCH_PRODUCT_ID_FILE_PATH: Final = (
-    Path(os.path.dirname(__file__)).parent
-    / "handler"
-    / "metadata_handler"
-    / "fixtures"
-    / "switch_product_ids.json"
-)
+SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
+SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
 
 
 class UpdateSwitchTitleDBTask(RemoteFilePullTask):
@@ -34,7 +21,6 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             enabled=ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
             cron_string=SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
             url="https://raw.githubusercontent.com/blawar/titledb/master/US.en.json",
-            file_path=FIXTURE_FILE_PATH,
         )
 
     async def run(self, force: bool = False):
@@ -43,10 +29,12 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             return
 
         index_json = json.loads(content)
-        product_ids = dict((v["id"], v) for _k, v in index_json.items())
+        cache.hmset(SWITCH_TITLEDB_INDEX_KEY, index_json)
 
-        with open(SWITCH_PRODUCT_ID_FILE_PATH, "wb") as fixture:
-            fixture.write(json.dumps(product_ids).encode())
+        product_ids = dict((v["id"], v) for _k, v in index_json.items())
+        cache.hmset(SWITCH_PRODUCT_ID_KEY, product_ids)
+
+        log.info("Scheduled switch titledb update completed!")
 
 
 update_switch_titledb_task = UpdateSwitchTitleDBTask()
