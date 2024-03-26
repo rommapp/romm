@@ -5,7 +5,12 @@ import re
 import unicodedata
 from typing import Final
 from logger.logger import log
-from tasks.update_switch_titledb import update_switch_titledb_task
+from handler.redis_handler import cache
+from tasks.update_switch_titledb import (
+    update_switch_titledb_task,
+    SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_PRODUCT_ID_KEY,
+)
 
 
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
@@ -14,14 +19,7 @@ PS2_OPL_INDEX_FILE: Final = os.path.join(
 )
 
 SWITCH_TITLEDB_REGEX: Final = r"(70[0-9]{12})"
-SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "switch_titledb.json"
-)
-
 SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
-SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "switch_product_ids.json"
-)
 
 MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
@@ -129,31 +127,26 @@ class MetadataHandler:
     async def _switch_titledb_format(
         self, match: re.Match[str], search_term: str
     ) -> tuple[str, dict | None]:
-        titledb_index = {}
         title_id = match.group(1)
 
-        try:
-            with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                titledb_index = json.loads(index_json.read())
-        except FileNotFoundError:
-            log.warning("Fetching the Switch titleDB index file...")
+        if not cache.exists(SWITCH_TITLEDB_INDEX_KEY):
+            log.warning("Fetching the Switch titleID index file...")
             await update_switch_titledb_task.run(force=True)
-            try:
-                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                    titledb_index = json.loads(index_json.read())
-            except FileNotFoundError:
-                log.error("Could not fetch the Switch titleDB index file")
-        finally:
-            index_entry = titledb_index.get(title_id, None)
-            if index_entry:
-                return index_entry["name"], index_entry  # type: ignore
 
+            if not cache.exists(SWITCH_TITLEDB_INDEX_KEY):
+                log.error("Could not fetch the Switch titleID index file")
+                return search_term, None
+        
+        index_entry = cache.hmget(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        if index_entry:
+            return index_entry["name"], index_entry  # type: ignore
+        
         return search_term, None
+    
 
     async def _switch_productid_format(
         self, match: re.Match[str], search_term: str
     ) -> tuple[str, dict | None]:
-        product_id_index = {}
         product_id = match.group(1)
 
         # Game updates have the same product ID as the main application, except with bitmask 0x800 set
@@ -161,22 +154,18 @@ class MetadataHandler:
         product_id[-3] = "0"
         product_id = "".join(product_id)
 
-        try:
-            with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
-                product_id_index = json.loads(index_json.read())
-        except FileNotFoundError:
-            log.warning("Fetching the Switch titleDB index file...")
+        if not cache.exists(SWITCH_PRODUCT_ID_KEY):
+            log.warning("Fetching the Switch productID index file...")
             await update_switch_titledb_task.run(force=True)
-            try:
-                with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
-                    product_id_index = json.loads(index_json.read())
-            except FileNotFoundError:
-                log.error("Could not fetch the Switch titleDB index file")
-        finally:
-            index_entry = product_id_index.get(product_id, None)
-            if index_entry:
-                return index_entry["name"], index_entry  # type: ignore
 
+            if not cache.exists(SWITCH_PRODUCT_ID_KEY):
+                log.error("Could not fetch the Switch productID index file")
+                return search_term, None
+        
+        index_entry = cache.hmget(SWITCH_PRODUCT_ID_KEY, product_id)
+        if index_entry:
+            return index_entry["name"], index_entry  # type: ignore
+        
         return search_term, None
 
     async def _mame_format(self, search_term: str) -> str:
