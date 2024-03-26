@@ -17,8 +17,15 @@ class SchedulerDict(TypedDict):
     MAME_XML: TaskDict
 
 
+class MetadataSourcesDict(TypedDict):
+    IGDB_API_ENABLED: bool
+    MOBY_API_ENABLED: bool
+
+
 class HeartbeatResponse(TypedDict):
     VERSION: str
     NEW_VERSION: str
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
+    ANY_SOURCE_ENABLED: bool
+    METADATA_SOURCES: MetadataSourcesDict

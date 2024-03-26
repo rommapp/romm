@@ -22,6 +22,7 @@ from handler import (
     fs_resource_handler,
     fs_rom_handler,
     igdb_handler,
+    moby_handler,
 )
 from handler.fs_handler import CoverSize
 from logger.logger import log
@@ -185,9 +186,11 @@ def get_rom_content(
 
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)
-    
+
     if len(files_to_download) == 1:
-        return FileResponse(path=f"{rom_path}/{files_to_download[0]}", filename=files_to_download[0])
+        return FileResponse(
+            path=f"{rom_path}/{files_to_download[0]}", filename=files_to_download[0]
+        )
 
     # Builds a generator of tuples for each member file
     def local_files():
@@ -200,7 +203,10 @@ def get_rom_content(
                 log.error(f"File {rom_path}/{f} not found!")
                 raise
 
-        m3u_file = [str.encode(f"{files_to_download[i]}\n") for i in range(len(files_to_download))]
+        m3u_file = [
+            str.encode(f"{files_to_download[i]}\n")
+            for i in range(len(files_to_download))
+        ]
         return [
             (
                 f,
@@ -260,6 +266,11 @@ async def update_rom(
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
+    cleaned_data["moby_id"] = data.get("moby_id", db_rom.moby_id) or None
+
+    if cleaned_data["moby_id"]:
+        moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+        cleaned_data.update(moby_rom)
 
     if cleaned_data["igdb_id"]:
         igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
@@ -275,7 +286,7 @@ async def update_rom(
 
     if rename_as_igdb:
         fs_safe_file_name = db_rom.file_name.replace(
-            db_rom.file_name_no_tags, fs_safe_name
+            db_rom.file_name_no_tags or db_rom.file_name_no_ext, fs_safe_name
         )
 
     try:

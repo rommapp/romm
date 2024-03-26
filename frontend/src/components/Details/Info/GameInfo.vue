@@ -25,7 +25,7 @@ const galleryFilter = storeGalleryFilter();
     <v-divider class="mx-2 my-4" />
     <v-row no-gutters>
       <v-col class="text-caption">
-        <p>{{ rom.summary }}</p>
+        <p v-html="rom.summary"></p>
       </v-col>
     </v-row>
   </template>

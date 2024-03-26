@@ -41,6 +41,9 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
+# MOBYGAMES
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
+
 # DB DRIVERS
 ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
@@ -51,6 +54,9 @@ ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
 DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
+
+# SCANS
+SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
 
 # TASKS
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (

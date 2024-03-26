@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type IGDBPlatform = {
-    igdb_id: number;
-    name?: string;
+export type MetadataSourcesDict = {
+    IGDB_API_ENABLED: boolean;
+    MOBY_API_ENABLED: boolean;
 };
 
