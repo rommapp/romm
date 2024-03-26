@@ -18,10 +18,8 @@
   </div>
 </div>
 
-<!-- # ⚠️ Breaking changes in version 3.0 ⚠️ -->
-
 > [!WARNING]  
-> Version 3.0 introduces exciting new fetures that require some changes to how RomM is setup and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/zurdi15/romm/wiki/Upgrading-to-3.0) before upgrading.**
+> Version 3.0 introduces exciting new fetures that require some changes to how RomM is setup and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/rommapp/romm/wiki/Upgrading-to-3.0) before upgrading.**
 
 # Overview
 
@@ -52,8 +50,6 @@ Before running the [image][docker-tags], ensure that Docker is installed and run
 2. Verify that your library folder structure matches one of the options listed in the [folder structure][folder-structure] section.
 3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables](wiki-env-variables).
 4. Launch the container(s) with `docker-compose up -d`.
-
-<!-- ### Troubleshooting -->
 
 > [!NOTE]  
 > **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting-url] for troubleshooting steps and common issues.**
@@ -194,28 +190,28 @@ Here are a few projects that we think you might like:
 
 <!-- Wiki links -->
 
-[wiki-url]: https://github.com/zurdi15/romm/wiki
-[wiki-supported-platforms-url]: https://github.com/zurdi15/romm/wiki/Supported-Platforms
-[wiki-authentication-url]: https://github.com/zurdi15/romm/wiki/Authentication
-[wiki-platforms-icons-url]: https://github.com/zurdi15/romm/wiki/Custom-Platform-Icons
-[wiki-troubleshooting-url]: https://github.com/zurdi15/romm/wiki/Troubleshooting
-[wiki-emulatorjs-url]: https://github.com/zurdi15/romm/wiki/EmulatorJS-Player
-[wiki-env-variables]: https://github.com/zurdi15/romm/wiki/Environment-Variables
-[wiki-scheduled-tasks]: https://github.com/zurdi15/romm/wiki/Scheduled-Tasks
+[wiki-url]: https://github.com/rommapp/romm/wiki
+[wiki-supported-platforms-url]: https://github.com/rommapp/romm/wiki/Supported-Platforms
+[wiki-authentication-url]: https://github.com/rommapp/romm/wiki/Authentication
+[wiki-platforms-icons-url]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
+[wiki-troubleshooting-url]: https://github.com/rommapp/romm/wiki/Troubleshooting
+[wiki-emulatorjs-url]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
+[wiki-env-variables]: https://github.com/rommapp/romm/wiki/Environment-Variables
+[wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
 
 <!-- Badges -->
 
-[license-badge]: https://img.shields.io/github/license/zurdi15/romm?style=for-the-badge&color=a32d2a
+[license-badge]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
 [license-badge-url]: LICENSE
-[release-badge]: https://img.shields.io/github/v/release/zurdi15/romm?style=for-the-badge
-[release-badge-url]: https://github.com/zurdi15/romm/releases
+[release-badge]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
+[release-badge-url]: https://github.com/rommapp/romm/releases
 [discord-badge]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
 [discord-badge-url]: https://discord.gg/P5HtHnhUDH
 [unraid-badge]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
 [unraid-badge-url]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
 [wiki-badge]: https://img.shields.io/badge/Wiki-736e9b?style=for-the-badge
-[docker-pulls-badge]: https://img.shields.io/docker/pulls/zurdi15/romm?style=for-the-badge&label=pulls
-[docker-pulls-badge-url]: https://hub.docker.com/r/zurdi15/romm
+[docker-pulls-badge]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
+[docker-pulls-badge-url]: https://hub.docker.com/r/rommapp/romm
 
 <!-- Links -->
 
@@ -226,7 +222,7 @@ Here are a few projects that we think you might like:
 
 <!-- External links -->
 
-[docker-tags]: https://hub.docker.com/r/zurdi15/romm/tags
+[docker-tags]: https://hub.docker.com/r/rommapp/romm/tags
 [igdb]: https://www.igdb.com/
 [igdb-api]: https://api-docs.igdb.com/#getting-started
 [titleid-program-id-url]: https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop

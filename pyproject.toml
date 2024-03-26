@@ -4,7 +4,7 @@ name = "romm"
 version = "0.0.1"
 description = "A beautiful, powerful, self-hosted rom manager"
 license = "GNU GPLv3"
-repository = "https://github.com/zurdi15/romm"
+repository = "https://github.com/rommapp/romm"
 authors = [
     "Zurdi <https://github.com/zurdi15/>",
     "Georges-Antoine Assi <contact@me.gantoine.com>",
@@ -14,7 +14,8 @@ authors = [
 python = "^3.11"
 requests = "2.31.0"
 fastapi = "0.110.0"
-uvicorn = "0.28.0"
+uvicorn = "0.29.0"
+gunicorn = "21.2.0"
 websockets = "12.0"
 python-socketio = "5.11.1"
 SQLAlchemy = {extras = ["mypy"], version = "^2.0.28"}

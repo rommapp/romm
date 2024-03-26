@@ -105,7 +105,7 @@ async function logout() {
             ><span class="ml-4"
               ><a
                 target="_blank"
-                :href="`https://github.com/zurdi15/romm/releases/tag/v${newVersion}`"
+                :href="`https://github.com/rommapp/romm/releases/tag/v${newVersion}`"
                 >See what's new!</a
               ></span
             >

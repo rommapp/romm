@@ -1,13 +1,13 @@
 <Container version="2">
    <Name>RomM</Name>
-   <Repository>zurdi15/romm:latest</Repository>
-   <Registry>https://hub.docker.com/r/zurdi15/romm</Registry>
+   <Repository>rommapp/romm:latest</Repository>
+   <Registry>https://hub.docker.com/r/rommapp/romm</Registry>
    <Network>bridge</Network>
    <MyIP/>
    <Shell>sh</Shell>
    <Privileged>false</Privileged>
-   <Support>https://github.com/zurdi15/romm/issues</Support>
-   <Project>https://github.com/zurdi15/romm</Project>
+   <Support>https://github.com/rommapp/romm/issues</Support>
+   <Project>https://github.com/rommapp/romm</Project>
    <Overview>RomM is a game library manager focused on retro games. Manage and organize all of your games from a web browser.</Overview>
    <ExtraSearchTerms>rom emulation gaming</ExtraSearchTerms>
    <Beta>False</Beta>
@@ -15,22 +15,21 @@
    <Date>2023-08-06</Date>
    <WebUI>http://[IP]:[PORT:8080]</WebUI>
    <TemplateURL/>
-   <Icon>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/isotipo.png</Icon>
+   <Icon>https://raw.githubusercontent.com/rommapp/romm/master/.github/resources/isotipo.png</Icon>
    <ExtraParams/>
    <PostArgs/>
    <CPUset/>
    <Requires>
    MariaDB
    </Requires>
-   <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/home.png</Screenshot>
-   <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/gallery.png</Screenshot>
-   <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/details.png</Screenshot>
-   <Screenshot>https://raw.githubusercontent.com/zurdi15/romm/master/.github/resources/screenshots/search.png</Screenshot>
+   <Screenshot>https://raw.githubusercontent.com/rommapp/romm/master/.github/resources/screenshots/home.png</Screenshot>
+   <Screenshot>https://raw.githubusercontent.com/rommapp/romm/master/.github/resources/screenshots/gallery.png</Screenshot>
+   <Screenshot>https://raw.githubusercontent.com/rommapp/romm/master/.github/resources/screenshots/details.png</Screenshot>
+   <Screenshot>https://raw.githubusercontent.com/rommapp/romm/master/.github/resources/screenshots/search.png</Screenshot>
    <Config Name="Port" Target="8080" Default="8080" Mode="tcp" Description="" Type="Port" Display="always" Required="false" Mask="false">8080</Config>
    <Config Name="Library" Target="/romm/library/" Default="/romm/library" Mode="rw" Description="Game files" Type="Path" Display="always" Required="true" Mask="false"/>
    <Config Name="Resources" Target="/romm/resources/" Default="" Mode="rw" Description="Metadata storage (covers, screenshots, etc.)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/romm/resources</Config>
    <Config Name="Assets" Target="/romm/assets/" Default="" Mode="rw" Description="Uploaded saves, states, etc." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/romm/assets</Config>
-   <Config Name="Logs" Target="/romm/logs" Default="" Mode="rw" Description="Log file storage" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/romm/logs</Config>
    <Config Name="IGDB_CLIENT_ID" Target="IGDB_CLIENT_ID" Default="" Mode="" Description="IGDB Client ID" Type="Variable" Display="always" Required="true" Mask="false"/>
    <Config Name="IGDB_CLIENT_SECRET" Target="IGDB_CLIENT_SECRET" Default="" Mode="" Description="IGDB Client Secret" Type="Variable" Display="always" Required="true" Mask="true"/>
    <Config Name="DB_HOST" Target="DB_HOST" Default="mariadb" Mode="" Description="Database host" Type="Variable" Display="advanced" Required="true" Mask="false"/>
@@ -38,6 +37,9 @@
    <Config Name="DB_USER" Target="DB_USER" Default="romm" Mode="" Description="Database user" Type="Variable" Display="advanced" Required="true" Mask="false"/>
    <Config Name="DB_NAME" Target="DB_NAME" Default="romm" Mode="" Description="Database name" Type="Variable" Display="advanced" Required="true" Mask="false"/>
    <Config Name="DB_PASSWD" Target="DB_PASSWD" Default="" Mode="" Description="Database password for DB_USER" Type="Variable" Display="advanced" Required="true" Mask="true"/>
+   <Config Name="REDIS_HOST" Target="REDIS_HOST" Default="127.0.0.1" Mode="" Description="Redis host" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="REDIS_PORT" Target="REDIS_PORT" Default="6379" Mode="" Description="Redis port" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+   <Config Name="REDIS_PASSWORD" Target="REDIS_PASSWORD" Default="" Mode="" Description="Redis password" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="ROMM_AUTH_USERNAME" Target="ROMM_AUTH_USERNAME" Default="admin" Mode="" Description="Default admin username" Type="Variable" Display="advanced" Required="false" Mask="false"/>
    <Config Name="ROMM_AUTH_PASSWORD" Target="ROMM_AUTH_PASSWORD" Default="" Mode="" Description="Default admin password" Type="Variable" Display="advanced" Required="false" Mask="true"/>
    <Config Name="ROMM_AUTH_SECRET_KEY" Target="ROMM_AUTH_SECRET_KEY" Default="" Mode="" Description="Generate a key with `openssl rand -hex 32`" Type="Variable" Display="advanced" Required="false" Mask="true"/>

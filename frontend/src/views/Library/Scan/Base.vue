@@ -194,7 +194,7 @@ async function stopScan() {
       height="40"
       :color="scanning ? 'red' : ''"
     >
-      Stop
+      Abort
     </v-btn>
     <span
       v-if="metadataSources.length == 0"

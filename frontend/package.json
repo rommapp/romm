@@ -5,13 +5,13 @@
   "author": "Zurdi <https://github.com/zurdi15>",
   "description": "A beautiful, powerful, self-hosted rom manager",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/zurdi15/romm",
+  "homepage": "https://github.com/rommapp/romm",
   "repository": {
     "type": "git",
-    "url": "git+gihub.com/zurdi15/romm.git"
+    "url": "git+gihub.com/rommapp/romm.git"
   },
   "bugs": {
-    "url": "https://github.com/zurdi15/romm/issues"
+    "url": "https://github.com/rommapp/romm/issues"
   },
   "keywords": [
     "rom",
@@ -41,7 +41,7 @@
     "nanoid": "^5.0.4",
     "pinia": "^2.1.6",
     "roboto-fontface": "*",
-    "socket.io-client": "^4.6.1",
+    "socket.io-client": "^4.7.5",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",
     "vuetify": "^3.3.3",
