@@ -17,6 +17,7 @@ services:
       - DB_PASSWD= # Should match MYSQL_PASSWORD in mariadb
       - IGDB_CLIENT_ID= # Generate an ID and SECRET in IGDB
       - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
+      - MOBYGAMES_API_KEY= # https://www.mobygames.com/info/api/
       - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
       - ROMM_AUTH_USERNAME=admin
       - ROMM_AUTH_PASSWORD= # default: admin

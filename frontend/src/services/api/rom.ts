@@ -81,13 +81,11 @@ function clearRomFromDownloads({ id }: { id: number }) {
 
 async function searchRom({
   romId,
-  source,
   searchTerm,
   searchBy,
   searchExtended: searchExtended,
 }: {
   romId: number;
-  source: string;
   searchTerm: string;
   searchBy: string;
   searchExtended: boolean;
@@ -95,7 +93,6 @@ async function searchRom({
   return api.get("/search/roms", {
     params: {
       rom_id: romId,
-      source: source,
       search_term: searchTerm,
       search_by: searchBy,
       search_extended: searchExtended,
@@ -152,7 +149,8 @@ async function updateRom({
   renameAsIGDB?: boolean;
 }): Promise<{ data: RomSchema }> {
   var formData = new FormData();
-  formData.append("igdb_id", rom.igdb_id?.toString() || "");
+  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
+  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");

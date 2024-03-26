@@ -6,7 +6,7 @@ from config import ENABLE_SCHEDULED_UPDATE_MAME_XML, SCHEDULED_UPDATE_MAME_XML_C
 from tasks.tasks import RemoteFilePullTask
 
 FIXTURE_FILE_PATH: Final = (
-    Path(os.path.dirname(__file__)).parent / "handler" / "fixtures" / "mame.xml"
+    Path(os.path.dirname(__file__)).parent / "handler" / "metadata_handler" / "fixtures" / "mame.xml"
 )
 
 

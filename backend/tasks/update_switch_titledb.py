@@ -12,6 +12,7 @@ from tasks.tasks import RemoteFilePullTask
 FIXTURE_FILE_PATH: Final = (
     Path(os.path.dirname(__file__)).parent
     / "handler"
+    / "metadata_handler"
     / "fixtures"
     / "switch_titledb.json"
 )
@@ -19,6 +20,7 @@ FIXTURE_FILE_PATH: Final = (
 SWITCH_PRODUCT_ID_FILE_PATH: Final = (
     Path(os.path.dirname(__file__)).parent
     / "handler"
+    / "metadata_handler"
     / "fixtures"
     / "switch_product_ids.json"
 )

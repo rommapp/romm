@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isNull } from "lodash";
 import type { SaveSchema, StateSchema } from "@/__generated__";
 import rom from "@/services/api/rom";
 import type { Rom } from "@/stores/roms";
@@ -9,8 +10,10 @@ import { ref } from "vue";
 const props = defineProps<{ rom: Rom }>();
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
-const fullScreenOnPlay = ref(true);
 const gameRunning = ref(false);
+
+const storedFSOP = localStorage.getItem("fullScreenOnPlay");
+const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
@@ -20,6 +23,10 @@ function onPlay() {
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;
+}
+
+function onFullScreenChange() {
+  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 </script>
 
@@ -84,6 +91,7 @@ function onPlay() {
       <v-checkbox
         hide-details
         v-model="fullScreenOnPlay"
+        @change="onFullScreenChange"
         color="romm-accent-1"
         label="Full screen"
       />

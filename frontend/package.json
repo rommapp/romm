@@ -41,7 +41,7 @@
     "nanoid": "^5.0.4",
     "pinia": "^2.1.6",
     "roboto-fontface": "*",
-    "socket.io-client": "^4.6.1",
+    "socket.io-client": "^4.7.5",
     "vue": "^3.2.13",
     "vue-router": "^4.0.0",
     "vuetify": "^3.3.3",
