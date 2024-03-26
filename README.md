@@ -18,8 +18,6 @@
   </div>
 </div>
 
-<!-- # ⚠️ Breaking changes in version 3.0 ⚠️ -->
-
 > [!WARNING]  
 > Version 3.0 introduces exciting new fetures that require some changes to how RomM is setup and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/rommapp/romm/wiki/Upgrading-to-3.0) before upgrading.**
 
@@ -52,8 +50,6 @@ Before running the [image][docker-tags], ensure that Docker is installed and run
 2. Verify that your library folder structure matches one of the options listed in the [folder structure][folder-structure] section.
 3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables](wiki-env-variables).
 4. Launch the container(s) with `docker-compose up -d`.
-
-<!-- ### Troubleshooting -->
 
 > [!NOTE]  
 > **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting-url] for troubleshooting steps and common issues.**
