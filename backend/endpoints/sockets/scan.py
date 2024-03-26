@@ -130,7 +130,8 @@ async def scan_platforms(
 
                 # This logic is tricky so only touch it if you know what you're doing
                 should_scan_rom = (
-                    (scan_type == ScanType.QUICK and not rom)
+                    (scan_type == ScanType.NEW_PLATFORMS and not rom)
+                    or (scan_type == ScanType.QUICK and not rom)
                     or (
                         scan_type == ScanType.UNIDENTIFIED
                         and rom
@@ -148,10 +149,10 @@ async def scan_platforms(
 
                 if should_scan_rom:
                     scanned_rom = await scan_rom(
-                        platform,
-                        fs_rom,
-                        rom,
+                        platform=platform,
+                        rom_attrs=fs_rom,
                         scan_type=scan_type,
+                        rom=rom,
                         metadata_sources=metadata_sources,
                     )
 

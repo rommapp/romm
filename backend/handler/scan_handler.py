@@ -110,8 +110,8 @@ def scan_platform(
 async def scan_rom(
     platform: Platform,
     rom_attrs: dict,
+    scan_type: ScanType,
     rom: Rom | None = None,
-    scan_type: ScanType = ScanType.QUICK,
     metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Rom:
     roms_path = fs_rom_handler.get_fs_structure(platform.fs_slug)
