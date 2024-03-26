@@ -31,7 +31,7 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 - Supports a large number of **[platforms][platform-support]**
 - Play games directly from the browser using [EmulatorJS][wiki-emulatorjs-url]
 - Share your library with friend while [limiting access and permissions][authentication]
-- Supports [MAME][mame-xml-update], [Nintendo Switch][switch-titledb-update] and PS2 naming schemes
+- Supports MAME, Nintendo Switch, and Sony Playstation naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
 - Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
 - View, upload, update, and delete games from any modern web browser
@@ -179,8 +179,6 @@ Here are a few projects that we think you might like:
 [platform-support]: #-platform-support
 [authentication]: #-authentication
 [tag-support]: #-tag-support
-[switch-titledb-update]: #-switch-titledb-update
-[mame-xml-update]: #-mame-xml-update
 [configuration-file]: #-configuration-file
 
 <!-- Files -->

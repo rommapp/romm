@@ -5,7 +5,6 @@ import re
 import unicodedata
 from typing import Final
 from logger.logger import log
-from tasks.update_mame_xml import update_mame_xml_task
 from tasks.update_switch_titledb import update_switch_titledb_task
 
 
@@ -183,20 +182,8 @@ class MetadataHandler:
     async def _mame_format(self, search_term: str) -> str:
         from handler import fs_rom_handler
 
-        mame_index = {"menu": {"game": []}}
-
-        try:
-            with open(MAME_XML_FILE, "r") as index_xml:
-                mame_index = xmltodict.parse(index_xml.read())
-        except FileNotFoundError:
-            log.warning("Fetching the MAME XML file from Github...")
-            await update_mame_xml_task.run(force=True)
-            try:
-                with open(MAME_XML_FILE, "r") as index_xml:
-                    mame_index = xmltodict.parse(index_xml.read())
-            except FileNotFoundError:
-                log.error("Could not fetch the MAME XML file from Github")
-        finally:
+        with open(MAME_XML_FILE, "r") as index_xml:
+            mame_index = xmltodict.parse(index_xml.read())
             index_entry = [
                 game
                 for game in mame_index["menu"]["game"]
