@@ -27,7 +27,6 @@ services:
       - /path/to/library:/romm/library # Your game library
       - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
       - /path/to/config:/romm/config # [Optional] Path where config.yml is stored
-      - /path/to/logs:/romm/logs # [Optional] Path where logs are stored
     ports:
       - 80:8080
     depends_on:
