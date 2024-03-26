@@ -29,10 +29,14 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             return
 
         index_json = json.loads(content)
-        cache.set(SWITCH_TITLEDB_INDEX_KEY, content)
+        for key, value in index_json.items():
+            if key and value:
+                cache.hset(SWITCH_TITLEDB_INDEX_KEY, key, json.dumps(value))
 
         product_ids = dict((v["id"], v) for _k, v in index_json.items())
-        cache.set(SWITCH_PRODUCT_ID_KEY, json.dumps(product_ids))
+        for key, value in product_ids.items():
+            if key and value:
+                cache.hset(SWITCH_PRODUCT_ID_KEY, key, json.dumps(value))
 
         log.info("Scheduled switch titledb update completed!")
 
