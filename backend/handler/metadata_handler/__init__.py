@@ -1,41 +1,50 @@
 import json
-import xmltodict
 import os
 import re
 import unicodedata
 from typing import Final
 from logger.logger import log
-from tasks.update_mame_xml import update_mame_xml_task
-from tasks.update_switch_titledb import update_switch_titledb_task
-
-
-PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
-PS2_OPL_INDEX_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "ps2_opl_index.json"
+from handler.redis_handler import cache
+from tasks.update_switch_titledb import (
+    update_switch_titledb_task,
+    SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_PRODUCT_ID_KEY,
 )
 
+
+def confitionally_set_cache(index_key: str, filename: dict) -> None:
+    fixtures_path = os.path.join(os.path.dirname(__file__), "fixtures")
+    if not cache.exists(index_key):
+        index_data = json.loads(open(os.path.join(fixtures_path, filename), "r").read())
+        for key, value in index_data.items():
+            cache.hset(index_key, key, json.dumps(value))
+
+
+# These are loaded in cache in update_switch_titledb_task
 SWITCH_TITLEDB_REGEX: Final = r"(70[0-9]{12})"
-SWITCH_TITLEDB_INDEX_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "switch_titledb.json"
-)
-
 SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
-SWITCH_PRODUCT_ID_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "switch_product_ids.json"
-)
 
-MAME_XML_FILE: Final = os.path.join(os.path.dirname(__file__), "fixtures", "mame.xml")
 
+# No regex needed for MAME
+MAME_XML_KEY: Final = "romm:mame_xml"
+confitionally_set_cache(MAME_XML_KEY, "mame_index.json")
+
+# PS2 OPL
+PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_OPL_KEY: Final = "romm:ps2_opl_index"
+confitionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
+
+# Sony serial codes for PS1, PS2, and PSP
 SONY_SERIAL_REGEX: Final = r".*([a-zA-Z]{4}-\d{5}).*$"
-PS1_SERIAL_INDEX_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "ps1_serial_index.json"
-)
-PS2_SERIAL_INDEX_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "ps2_serial_index.json"
-)
-PSP_SERIAL_INDEX_FILE: Final = os.path.join(
-    os.path.dirname(__file__), "fixtures", "psp_serial_index.json"
-)
+
+PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
+confitionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
+
+PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
+confitionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
+
+PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
+confitionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
 
 
 class MetadataHandler:
@@ -86,75 +95,67 @@ class MetadataHandler:
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
-
-        with open(PS2_OPL_INDEX_FILE, "r") as index_json:
-            opl_index = json.loads(index_json.read())
-            index_entry = opl_index.get(serial_code, None)
-            if index_entry:
-                search_term = index_entry["Name"]  # type: ignore
+        index_entry = cache.hget(PS2_OPL_KEY, serial_code)
+        if index_entry:
+            index_entry = json.loads(index_entry)
+            search_term = index_entry["Name"]  # type: ignore
 
         return search_term
 
     async def _sony_serial_format(
-        self, index_file: str, serial_code: str
+        self, index_key: dict, serial_code: str
     ) -> str | None:
-        with open(index_file, "r") as index_json:
-            opl_index = json.loads(index_json.read())
-            index_entry = opl_index.get(serial_code.upper(), None)
-            if index_entry:
-                return index_entry["title"]
+        index_entry = cache.hget(index_key, serial_code)
+        if index_entry:
+            index_entry = json.loads(index_entry)
+            return index_entry["title"]
 
         return None
 
     async def _ps1_serial_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
         return (
-            await self._sony_serial_format(PS1_SERIAL_INDEX_FILE, serial_code)
+            await self._sony_serial_format(PS1_SERIAL_INDEX_KEY, serial_code)
             or search_term
         )
 
     async def _ps2_serial_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
         return (
-            await self._sony_serial_format(PS2_SERIAL_INDEX_FILE, serial_code)
+            await self._sony_serial_format(PS2_SERIAL_INDEX_KEY, serial_code)
             or search_term
         )
 
     async def _psp_serial_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
         return (
-            await self._sony_serial_format(PSP_SERIAL_INDEX_FILE, serial_code)
+            await self._sony_serial_format(PSP_SERIAL_INDEX_KEY, serial_code)
             or search_term
         )
 
     async def _switch_titledb_format(
         self, match: re.Match[str], search_term: str
     ) -> tuple[str, dict | None]:
-        titledb_index = {}
         title_id = match.group(1)
 
-        try:
-            with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                titledb_index = json.loads(index_json.read())
-        except FileNotFoundError:
-            log.warning("Fetching the Switch titleDB index file...")
+        if not cache.exists(SWITCH_TITLEDB_INDEX_KEY):
+            log.warning("Fetching the Switch titleID index file...")
             await update_switch_titledb_task.run(force=True)
-            try:
-                with open(SWITCH_TITLEDB_INDEX_FILE, "r") as index_json:
-                    titledb_index = json.loads(index_json.read())
-            except FileNotFoundError:
-                log.error("Could not fetch the Switch titleDB index file")
-        finally:
-            index_entry = titledb_index.get(title_id, None)
-            if index_entry:
-                return index_entry["name"], index_entry  # type: ignore
+
+            if not cache.exists(SWITCH_TITLEDB_INDEX_KEY):
+                log.error("Could not fetch the Switch titleID index file")
+                return search_term, None
+
+        index_entry = cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        if index_entry:
+            index_entry = json.loads(index_entry)
+            return index_entry["name"], index_entry
 
         return search_term, None
 
     async def _switch_productid_format(
         self, match: re.Match[str], search_term: str
     ) -> tuple[str, dict | None]:
-        product_id_index = {}
         product_id = match.group(1)
 
         # Game updates have the same product ID as the main application, except with bitmask 0x800 set
@@ -162,49 +163,29 @@ class MetadataHandler:
         product_id[-3] = "0"
         product_id = "".join(product_id)
 
-        try:
-            with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
-                product_id_index = json.loads(index_json.read())
-        except FileNotFoundError:
-            log.warning("Fetching the Switch titleDB index file...")
+        if not cache.exists(SWITCH_PRODUCT_ID_KEY):
+            log.warning("Fetching the Switch productID index file...")
             await update_switch_titledb_task.run(force=True)
-            try:
-                with open(SWITCH_PRODUCT_ID_FILE, "r") as index_json:
-                    product_id_index = json.loads(index_json.read())
-            except FileNotFoundError:
-                log.error("Could not fetch the Switch titleDB index file")
-        finally:
-            index_entry = product_id_index.get(product_id, None)
-            if index_entry:
-                return index_entry["name"], index_entry  # type: ignore
+
+            if not cache.exists(SWITCH_PRODUCT_ID_KEY):
+                log.error("Could not fetch the Switch productID index file")
+                return search_term, None
+
+        index_entry = cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
+        if index_entry:
+            index_entry = json.loads(index_entry)
+            return index_entry["name"], index_entry
 
         return search_term, None
 
     async def _mame_format(self, search_term: str) -> str:
         from handler import fs_rom_handler
 
-        mame_index = {"menu": {"game": []}}
-
-        try:
-            with open(MAME_XML_FILE, "r") as index_xml:
-                mame_index = xmltodict.parse(index_xml.read())
-        except FileNotFoundError:
-            log.warning("Fetching the MAME XML file from Github...")
-            await update_mame_xml_task.run(force=True)
-            try:
-                with open(MAME_XML_FILE, "r") as index_xml:
-                    mame_index = xmltodict.parse(index_xml.read())
-            except FileNotFoundError:
-                log.error("Could not fetch the MAME XML file from Github")
-        finally:
-            index_entry = [
-                game
-                for game in mame_index["menu"]["game"]
-                if game["@name"] == search_term
-            ]
-            if index_entry:
-                search_term = fs_rom_handler.get_file_name_with_no_tags(
-                    index_entry[0].get("description", search_term)
-                )
+        index_entry = cache.hget(MAME_XML_KEY, search_term)
+        if index_entry:
+            index_entry = json.loads(index_entry)
+            search_term = fs_rom_handler.get_file_name_with_no_tags(
+                index_entry.get("description", search_term)
+            )
 
         return search_term
