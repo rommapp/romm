@@ -1,6 +1,6 @@
 import pytest
 
-from handler.scan_handler import scan_platform, scan_rom
+from handler.scan_handler import scan_platform, scan_rom, ScanType
 from exceptions.fs_exceptions import RomsNotFoundException
 from models.platform import Platform
 from models.rom import Rom
@@ -32,6 +32,7 @@ async def test_scan_rom():
             "multi": False,
             "files": ["Paper Mario (USA).z64"],
         },
+        ScanType.QUICK
     )
 
     assert rom.__class__ == Rom
