@@ -5,7 +5,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { storeToRefs } from "pinia";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -41,7 +41,7 @@ const scanOptions = [
   },
 ];
 
-const metadataOptions = [
+const metadataOptions = ref([
   {
     name: "IGDB",
     value: "igdb",
@@ -52,12 +52,12 @@ const metadataOptions = [
     value: "moby",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
-];
+]);
 
 const platformsToScan = ref<Platform[]>([]);
 const scanType = ref("quick");
-const metadataSources = ref<typeof metadataOptions>(
-  metadataOptions.filter((s) => !s.disabled)
+const metadataSources = ref<typeof metadataOptions.value>(
+  metadataOptions.value.filter((s) => !s.disabled)
 );
 
 // Connect to socket on load to catch running scans
@@ -83,6 +83,17 @@ socket.on("scan:done", (stats) => {
 async function stopScan() {
   socket.emit("scan:stop");
 }
+
+// Watch for changes in storeHeartbeat and update metadataSources accordingly
+watch(heartbeat, (newHeartbeat) => {
+  metadataSources.value.forEach((source) => {
+    if (source.name === "IGDB") {
+      source.disabled = !newHeartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED;
+    } else if (source.name === "MobyGames") {
+      source.disabled = !newHeartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED;
+    }
+  });
+});
 </script>
 
 <template>
