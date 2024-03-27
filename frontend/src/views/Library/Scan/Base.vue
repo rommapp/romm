@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { computed, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -19,11 +19,7 @@ const scanOptions = [
     subtitle: "Scan new platforms only (fastest)",
     value: "new_platforms",
   },
-  {
-    title: "Quick scan",
-    subtitle: "Scan new files only",
-    value: "quick",
-  },
+  { title: "Quick scan", subtitle: "Scan new files only", value: "quick" },
   {
     title: "Unidentified games",
     subtitle: "Scan games with no metadata match",
@@ -41,7 +37,8 @@ const scanOptions = [
   },
 ];
 
-const metadataOptions = ref([
+// Use a computed property to reactively update metadataOptions based on heartbeat
+const metadataOptions = computed(() => [
   {
     name: "IGDB",
     value: "igdb",
@@ -56,9 +53,8 @@ const metadataOptions = ref([
 
 const platformsToScan = ref<Platform[]>([]);
 const scanType = ref("quick");
-const metadataSources = ref<typeof metadataOptions.value>(
-  metadataOptions.value.filter((s) => !s.disabled)
-);
+// Use the computed metadataOptions to filter out disabled sources
+const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
@@ -84,15 +80,10 @@ async function stopScan() {
   socket.emit("scan:stop");
 }
 
-// Watch for changes in storeHeartbeat and update metadataSources accordingly
-watch(heartbeat, (newHeartbeat) => {
-  metadataSources.value.forEach((source) => {
-    if (source.name === "IGDB") {
-      source.disabled = !newHeartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED;
-    } else if (source.name === "MobyGames") {
-      source.disabled = !newHeartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED;
-    }
-  });
+// Since metadataOptions is now a computed property, it will automatically update.
+// Therefore, we only need to watch metadataOptions for changes.
+watch(metadataOptions, (newOptions) => {
+  metadataSources.value = newOptions.filter((option) => !option.disabled);
 });
 </script>
 

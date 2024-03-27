@@ -55,6 +55,7 @@
     "@types/webfontloader": "^1.6.38",
     "@vitejs/plugin-vue": "^3.0.3",
     "@vue/tsconfig": "^0.5.1",
+    "esbuild": "^0.20.2",
     "eslint": "^8.22.0",
     "eslint-plugin-vue": "^9.3.0",
     "openapi-typescript-codegen": "^0.25.0",
