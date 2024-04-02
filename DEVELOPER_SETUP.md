@@ -86,8 +86,8 @@ npm install
 ### - Create symlink to library and resources
 ```sh
 mkdir assets/romm
-ln -s ../../../romm_mock/resources assets/romm/resources
-ln -s ../../../romm_mock/assets assets/romm/assets
+ln -s ../backend/romm_mock/resources assets/romm/resources
+ln -s ../backend/romm_mock/assets assets/romm/assets
 ```
 
 ### - Run the frontend

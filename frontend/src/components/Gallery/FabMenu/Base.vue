@@ -31,7 +31,8 @@ async function onScan() {
   if (!socket.connected) socket.connect();
   socket.emit("scan", {
     platforms: [route.params.platform],
-    rescan: false,
+    roms: romsStore.selectedRoms,
+    type: "partial",
   });
 }
 

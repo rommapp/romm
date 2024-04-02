@@ -1,5 +1,5 @@
+from enum import Enum
 from typing import Any
-
 import emoji
 from config.config_manager import config_manager as cm
 from handler import (
@@ -8,12 +8,21 @@ from handler import (
     fs_resource_handler,
     fs_rom_handler,
     igdb_handler,
+    moby_handler,
 )
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+
+class ScanType(Enum):
+    NEW_PLATFORMS = "new_platforms"
+    QUICK = "quick"
+    UNIDENTIFIED = "unidentified"
+    PARTIAL = "partial"
+    COMPLETE = "complete"
 
 
 def _get_main_platform_igdb_id(platform: Platform):
@@ -35,7 +44,11 @@ def _get_main_platform_igdb_id(platform: Platform):
     return main_platform_igdb_id
 
 
-def scan_platform(fs_slug: str, fs_platforms) -> Platform:
+def scan_platform(
+    fs_slug: str,
+    fs_platforms: list[str],
+    metadata_sources: list[str] = ["igdb", "moby"],
+) -> Platform:
     """Get platform details
 
     Args:
@@ -70,16 +83,26 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    platform = igdb_handler.get_platform(platform_attrs["slug"])
+    igdb_platform = (
+        igdb_handler.get_platform(platform_attrs["slug"])
+        if "igdb" in metadata_sources
+        else {"igdb_id": None}
+    )
+    moby_platform = (
+        moby_handler.get_platform(platform_attrs["slug"])
+        if "moby" in metadata_sources
+        else {"moby_id": None}
+    )
 
-    if platform["igdb_id"]:
-        log.info(emoji.emojize(f"  Identified as {platform['name']} :video_game:"))
-    else:
-        log.warning(
-            emoji.emojize(f"  {platform_attrs['slug']} not found in IGDB :cross_mark:")
+    platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
+    platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
+
+    if platform_attrs["igdb_id"] or platform_attrs["moby_id"]:
+        log.info(
+            emoji.emojize(f"  Identified as {platform_attrs['name']} :video_game:")
         )
-
-    platform_attrs.update(platform)
+    else:
+        log.warning(emoji.emojize(f" {platform_attrs['slug']} not found :cross_mark:"))
 
     return Platform(**platform_attrs)
 
@@ -87,18 +110,50 @@ def scan_platform(fs_slug: str, fs_platforms) -> Platform:
 async def scan_rom(
     platform: Platform,
     rom_attrs: dict,
-    r_igbd_id_search: str = "",
-    overwrite: bool = False,
+    scan_type: ScanType,
+    rom: Rom | None = None,
+    metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Rom:
     roms_path = fs_rom_handler.get_fs_structure(platform.fs_slug)
 
-    log.info(f"\t · {r_igbd_id_search or rom_attrs['file_name']}")
+    log.info(f"\t · {rom_attrs['file_name']}")
 
     if rom_attrs.get("multi", False):
         for file in rom_attrs["files"]:
             log.info(f"\t\t · {file}")
 
-    # Update properties that don't require IGDB
+    # Set default properties
+    rom_attrs.update(
+        {
+            "id": rom.id if rom else None,
+            "platform_id": platform.id,
+            "name": rom_attrs["file_name"],
+            "url_cover": "",
+            "url_screenshots": [],
+        }
+    )
+
+    # Update properties from existing rom if not a complete rescan
+    if rom and scan_type != ScanType.COMPLETE:
+        rom_attrs.update(
+            {
+                "igdb_id": rom.igdb_id,
+                "moby_id": rom.moby_id,
+                "sgdb_id": rom.sgdb_id,
+                "name": rom.name,
+                "slug": rom.slug,
+                "summary": rom.summary,
+                "igdb_metadata": rom.igdb_metadata,
+                "moby_metadata": rom.moby_metadata,
+                "url_cover": rom.url_cover,
+                "path_cover_s": rom.path_cover_s,
+                "path_cover_l": rom.path_cover_l,
+                "path_screenshots": rom.path_screenshots,
+                "url_screenshots": rom.url_screenshots,
+            }
+        )
+
+    # Update properties that don't require metadata
     file_size = fs_rom_handler.get_rom_file_size(
         multi=rom_attrs["multi"],
         file_name=rom_attrs["file_name"],
@@ -108,7 +163,6 @@ async def scan_rom(
     regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
-            "platform_id": platform.id,
             "file_path": roms_path,
             "file_name": rom_attrs["file_name"],
             "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
@@ -129,46 +183,72 @@ async def scan_rom(
         }
     )
 
-    main_platform_igdb_id = _get_main_platform_igdb_id(platform)
+    igdb_handler_rom = {}
+    moby_handler_rom = {}
 
-    # Search in IGDB
-    igdb_handler_rom = (
-        igdb_handler.get_rom_by_id(int(r_igbd_id_search))
-        if r_igbd_id_search
-        else await igdb_handler.get_rom(rom_attrs["file_name"], main_platform_igdb_id)
-    )
+    if (
+        "igdb" in metadata_sources
+        and platform.igdb_id
+        and (
+            not rom
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
+        )
+    ):
+        main_platform_igdb_id = _get_main_platform_igdb_id(platform)
+        igdb_handler_rom = await igdb_handler.get_rom(
+            rom_attrs["file_name"], main_platform_igdb_id
+        )
 
-    rom_attrs.update(igdb_handler_rom)
+    if (
+        "moby" in metadata_sources
+        and platform.moby_id
+        and (
+            not rom
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.moby_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
+        )
+    ):
+        moby_handler_rom = await moby_handler.get_rom(
+            rom_attrs["file_name"], platform.moby_id
+        )
 
-    # Return early if not found in IGDB
-    if not igdb_handler_rom["igdb_id"]:
+    # Reversed to prioritize IGDB
+    rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
+
+    # Return early if not found in IGDB or MobyGames
+    if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
         log.warning(
-            emoji.emojize(
-                f"\t   {r_igbd_id_search or rom_attrs['file_name']} not found in IGDB :cross_mark:"
-            )
+            emoji.emojize(f"\t   {rom_attrs['file_name']} not found :cross_mark:")
         )
         return Rom(**rom_attrs)
 
-    log.info(
-        emoji.emojize(f"\t   Identified as {igdb_handler_rom['name']} :alien_monster:")
-    )
+    log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
 
     # Update properties from IGDB
-    rom_attrs.update(
-        fs_resource_handler.get_rom_cover(
-            overwrite=overwrite,
-            platform_fs_slug=platform.slug,
-            rom_name=rom_attrs["name"],
-            url_cover=rom_attrs["url_cover"],
+    if (
+        not rom
+        or scan_type == ScanType.COMPLETE
+        or (scan_type == ScanType.PARTIAL and rom and (not rom.igdb_id or not rom.moby_id))
+        or (scan_type == ScanType.UNIDENTIFIED and rom and not rom.igdb_id and not rom.moby_id)
+    ):
+        rom_attrs.update(
+            fs_resource_handler.get_rom_cover(
+                overwrite=False,
+                platform_fs_slug=platform.slug,
+                rom_name=rom_attrs["name"],
+                url_cover=rom_attrs["url_cover"],
+            )
         )
-    )
-    rom_attrs.update(
-        fs_resource_handler.get_rom_screenshots(
-            platform_fs_slug=platform.slug,
-            rom_name=rom_attrs["name"],
-            url_screenshots=rom_attrs["url_screenshots"],
+        rom_attrs.update(
+            fs_resource_handler.get_rom_screenshots(
+                platform_fs_slug=platform.slug,
+                rom_name=rom_attrs["name"],
+                url_screenshots=rom_attrs["url_screenshots"],
+            )
         )
-    )
 
     return Rom(**rom_attrs)
 

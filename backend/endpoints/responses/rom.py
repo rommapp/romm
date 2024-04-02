@@ -1,33 +1,36 @@
 import re
-from typing import Optional
+from typing import Optional, get_type_hints
+from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler import socket_handler
-from handler.igdb_handler import IGDBRelatedGame
+from handler.metadata_handler.igdb_handler import IGDBMetadata
+from handler.metadata_handler.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
-from typing_extensions import TypedDict, NotRequired
 
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
-
-class RomMetadata(TypedDict):
-    expansions: NotRequired[list[IGDBRelatedGame]]
-    dlcs: NotRequired[list[IGDBRelatedGame]]
-    remasters: NotRequired[list[IGDBRelatedGame]]
-    remakes: NotRequired[list[IGDBRelatedGame]]
-    expanded_games: NotRequired[list[IGDBRelatedGame]]
-    ports: NotRequired[list[IGDBRelatedGame]]
-    similar_games: NotRequired[list[IGDBRelatedGame]]
+RomIGDBMetadata = TypedDict(
+    "RomIGDBMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
+    total=False,
+)
+RomMobyMetadata = TypedDict(
+    "RomMobyMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
+    total=False,
+)
 
 
 class RomSchema(BaseModel):
     id: int
     igdb_id: Optional[int]
     sgdb_id: Optional[int]
+    moby_id: Optional[int]
 
     platform_id: int
     platform_slug: str
@@ -45,8 +48,6 @@ class RomSchema(BaseModel):
     summary: Optional[str]
 
     # Metadata fields
-    total_rating: Optional[str]
-    aggregated_rating: Optional[str]
     first_release_date: Optional[int]
     alternative_names: list[str]
     genres: list[str]
@@ -54,7 +55,8 @@ class RomSchema(BaseModel):
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
-    igdb_metadata: Optional[RomMetadata]
+    igdb_metadata: Optional[RomIGDBMetadata]
+    moby_metadata: Optional[RomMobyMetadata]
 
     path_cover_s: Optional[str]
     path_cover_l: Optional[str]

@@ -52,11 +52,11 @@ export default defineStore("roms", {
         return;
       }
 
-      // Group roms by igdb_id
+      // Group roms by external id
       this._grouped = Object.values(
         groupBy(this._all, (game) =>
-          // If igdb_id is null, generate a random id so that the roms are not grouped
-          isNull(game.igdb_id) ? nanoid() : game.igdb_id
+          // If external id is null, generate a random id so that the roms are not grouped
+          game.igdb_id || game.moby_id || nanoid()
         )
       )
         .map((games) => ({

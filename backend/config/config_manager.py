@@ -84,7 +84,7 @@ class ConfigManager:
         if ROMM_DB_DRIVER == "mariadb":
             if not DB_USER or not DB_PASSWD:
                 log.critical(
-                    "Missing database credentials. Please check your configuration file"
+                    "Missing database credentials, check your environment variables!"
                 )
                 sys.exit(3)
 

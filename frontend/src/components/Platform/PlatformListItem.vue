@@ -21,10 +21,14 @@ defineProps<{ platform: Platform; rail: boolean }>();
           location="bottom"
           class="tooltip"
           transition="fade-transition"
-          text="Not found in IGDB"
+          text="Not found"
           open-delay="500"
           ><template v-slot:activator="{ props }">
-            <div v-bind="props" class="igdb-icon" v-if="!platform.igdb_id">
+            <div
+              v-bind="props"
+              class="not-found-icon"
+              v-if="!platform.igdb_id && !platform.moby_id"
+            >
               ⚠️
             </div></template
           ></v-tooltip
@@ -40,7 +44,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
 </template>
 
 <style scoped>
-.igdb-icon {
+.not-found-icon {
   position: absolute;
   bottom: 0;
   right: 0;

@@ -245,7 +245,7 @@ export function languageToEmoji(language: string) {
 
 export const platformSlugEJSCoreMap = {
   // "3do": "opera", Disabled until BIOS file support is added
-  // amiga: "puae",
+  // amiga: "puae", Disabled until BIOS file support is added
   // arcade: "mame2003_plus", Disabled until BIOS file support is added
   atari2600: "stella2014",
   "atari-2600-plus": "stella2014",
@@ -264,8 +264,8 @@ export const platformSlugEJSCoreMap = {
   fds: "fceumm",
   "game-televisison": "fceumm",
   "new-style-nes": "fceumm",
-  // n64: "mupen64plus_next", Disabled until emujs 4.0.12 is released
-  // "ique-player": "mupen64plus_next", Disabled until emujs 4.0.12 is released
+  n64: "mupen64plus_next",
+  "ique-player": "mupen64plus_next",
   nds: "melonds",
   "nintendo-ds-lite": "melonds",
   "nintendo-dsi": "melonds",

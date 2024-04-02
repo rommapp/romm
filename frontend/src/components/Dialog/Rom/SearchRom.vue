@@ -18,11 +18,10 @@ const searchBy = ref("Name");
 const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const theme = useTheme();
-const selectedScrapSource = ref(0);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.file_name_no_tags;
+  searchTerm.value = romToSearch.file_name_no_tags || romToSearch.name || "";
   show.value = true;
   searchRom();
 });
@@ -44,7 +43,6 @@ async function searchRom() {
     await romApi
       .searchRom({
         romId: rom.value.id,
-        source: "igdb",
         searchTerm: searchTerm.value,
         searchBy: searchBy.value,
         searchExtended: searchExtended.value,
@@ -128,44 +126,13 @@ onBeforeUnmount(() => {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
+          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
             <v-icon icon="mdi-search-web" class="ml-5" />
           </v-col>
-
-          <v-col cols="8" xs="8" sm="9" md="10" lg="10">
-            <v-item-group mandatory v-model="selectedScrapSource">
-              <v-item v-slot="{ isSelected, toggle }">
-                <v-chip
-                  class="mx-1"
-                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
-                  variant="outlined"
-                  label
-                  @click="toggle"
-                  >IGDB</v-chip
-                >
-              </v-item>
-              <!-- TODO: Ready item group to scrape from different sources -->
-              <!-- <v-item v-slot="{ isSelected, toggle }" disabled>
-                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'romm-gray'" variant="outlined" label @click="toggle"
-                  >ScreenScraper</v-chip
-                >
-              </v-item>
-              <v-item v-slot="{ isSelected, toggle }" disabled>
-                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'romm-gray'" variant="outlined" label @click="toggle"
-                  >MobyGames</v-chip
-                >
-              </v-item>
-              <v-item v-slot="{ isSelected, toggle }" disabled>
-                <v-chip class="mx-1" :color="isSelected ? 'romm-accent-1' : 'romm-gray'" variant="outlined" label @click="toggle"
-                  >RAWG</v-chip
-                >
-              </v-item> -->
-            </v-item-group>
-          </v-col>
-
-          <v-col cols="2" xs="2" sm="2" md="1" lg="1">
+          <v-col>
             <v-btn
               @click="closeDialog"
+              class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
@@ -301,14 +268,22 @@ onBeforeUnmount(() => {
                         />
                       </div>
                     </template>
-                    <v-expand-transition>
-                      <div
-                        v-if="isHovering || !matchedRom.url_cover"
-                        class="translucent text-caption"
+                    <v-row no-gutters class="text-white px-1">
+                      <v-chip
+                        class="translucent mr-1 mt-1"
+                        label
+                        v-if="matchedRom.igdb_id"
                       >
-                        <v-list-item>{{ matchedRom.name }}</v-list-item>
-                      </div>
-                    </v-expand-transition>
+                        <span> IGDB </span>
+                      </v-chip>
+                      <v-chip
+                        class="translucent mr-1 mt-1"
+                        label
+                        v-if="matchedRom.moby_id"
+                      >
+                        <span> Moby </span>
+                      </v-chip>
+                    </v-row>
                   </v-img></v-hover
                 >
                 <v-card-text>
