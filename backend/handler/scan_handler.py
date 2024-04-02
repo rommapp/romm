@@ -47,7 +47,6 @@ def _get_main_platform_igdb_id(platform: Platform):
 def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Platform:
     """Get platform details
 
@@ -83,16 +82,8 @@ def scan_platform(
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    igdb_platform = (
-        igdb_handler.get_platform(platform_attrs["slug"])
-        if "igdb" in metadata_sources
-        else {"igdb_id": None}
-    )
-    moby_platform = (
-        moby_handler.get_platform(platform_attrs["slug"])
-        if "moby" in metadata_sources
-        else {"moby_id": None}
-    )
+    igdb_platform = igdb_handler.get_platform(platform_attrs["slug"])
+    moby_platform =  moby_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
