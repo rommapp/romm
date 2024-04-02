@@ -133,9 +133,6 @@ class MobyGamesHandler(MetadataHandler):
         return pydash.get(exact_matches or roms, "[0]", None)
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
-        if not MOBY_API_ENABLED:
-            return MobyGamesPlatform(moby_id=None, slug=slug)
-
         platform = SLUG_TO_MOBY_ID.get(slug, None)
 
         if not platform:
