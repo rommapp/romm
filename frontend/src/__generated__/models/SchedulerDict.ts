@@ -8,6 +8,5 @@ import type { TaskDict } from './TaskDict';
 export type SchedulerDict = {
     RESCAN: TaskDict;
     SWITCH_TITLEDB: TaskDict;
-    MAME_XML: TaskDict;
 };
 

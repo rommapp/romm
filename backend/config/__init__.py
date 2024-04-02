@@ -28,6 +28,7 @@ DB_NAME: Final = os.environ.get("DB_NAME", "romm")
 # REDIS
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", 6379)
+REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
@@ -40,6 +41,9 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
+# MOBYGAMES
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
+
 # DB DRIVERS
 ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
@@ -50,6 +54,9 @@ ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
 DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
+
+# SCANS
+SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
 
 # TASKS
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
@@ -71,11 +78,4 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
-)
-ENABLE_SCHEDULED_UPDATE_MAME_XML: Final = (
-    os.environ.get("ENABLE_SCHEDULED_UPDATE_MAME_XML", "false") == "true"
-)
-SCHEDULED_UPDATE_MAME_XML_CRON: Final = os.environ.get(
-    "SCHEDULED_UPDATE_MAME_XML_CRON",
-    "0 5 * * *",  # At 5:00 AM every day
 )

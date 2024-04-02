@@ -20,6 +20,3 @@ def test_heartbeat():
     assert heartbeat.get('SCHEDULER').get('SWITCH_TITLEDB').get('ENABLED')
     assert heartbeat.get('SCHEDULER').get('SWITCH_TITLEDB').get('CRON') == "0 4 * * *"
     assert heartbeat.get('SCHEDULER').get('SWITCH_TITLEDB').get('TITLE') == "Scheduled Switch TitleDB update"
-    assert heartbeat.get('SCHEDULER').get('MAME_XML').get('ENABLED')
-    assert heartbeat.get('SCHEDULER').get('MAME_XML').get('CRON') == "0 5 * * *"
-    assert heartbeat.get('SCHEDULER').get('MAME_XML').get('TITLE') == "Scheduled MAME XML update"

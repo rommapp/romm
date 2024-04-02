@@ -19,7 +19,7 @@ import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 
 // Props
@@ -114,20 +114,6 @@ async function onFilterChange() {
   await fetchRoms();
 }
 
-async function onScroll() {
-  // Fetch more roms if near to bottom page
-  const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-  scrolledToTop.value = scrollTop === 0;
-
-  if (!cursor.value && !searchCursor.value) return;
-
-  const scrollOffset = 60;
-  if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-    await fetchRoms();
-    setFilters();
-  }
-}
-
 function selectRom({ event, index, selected }: RomSelectEvent) {
   // Add rom to selected roms
   if (event.shiftKey) {
@@ -188,6 +174,21 @@ function resetGallery() {
   galleryFilterStore.reset();
 }
 
+function onScroll() {
+  window.setTimeout(async () => {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+    scrolledToTop.value = scrollTop === 0;
+
+    if (!cursor.value && !searchCursor.value) return;
+
+    const scrollOffset = 60;
+    if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
+      await fetchRoms();
+      setFilters();
+    }
+  }, 100);
+}
+
 onMounted(async () => {
   const { data: platform } = await platformApi.getPlatform(
     Number(route.params.platform)
@@ -205,6 +206,12 @@ onMounted(async () => {
     await fetchRoms();
   }
   setFilters();
+
+  window.addEventListener("wheel", onScroll);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("wheel", onScroll);
 });
 
 onBeforeRouteLeave((to, from, next) => {
@@ -231,7 +238,7 @@ onBeforeRouteUpdate(async (to, _) => {
   <gallery-app-bar />
 
   <template v-if="filteredRoms.length > 0">
-    <v-row class="pa-1" no-gutters v-scroll="onScroll">
+    <v-row class="pa-1" no-gutters>
       <!-- Gallery cards view -->
       <v-col
         class="pa-1"
@@ -262,7 +269,6 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <v-layout-item
-    v-scroll="onScroll"
     class="text-end"
     :model-value="true"
     position="bottom"
