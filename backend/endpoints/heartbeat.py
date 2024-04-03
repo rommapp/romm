@@ -47,7 +47,7 @@ def heartbeat() -> HeartbeatResponse:
                 "ENABLED": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
                 "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
                 "TITLE": "Scheduled Switch TitleDB update",
-                "MESSAGE": "Updates the Nintedo Switch TitleDB file",
+                "MESSAGE": "Updates the Nintendo Switch TitleDB file",
             },
         }
     }
