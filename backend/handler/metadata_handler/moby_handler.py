@@ -244,7 +244,7 @@ class MobyGamesHandler(MetadataHandler):
             "name": res["title"],
             "slug": res["moby_url"].split("/")[-1],
             "summary": res.get("description", ""),
-            "url_cover": res.get("sample_cover.image", ""),
+            "url_cover": pydash.get(res, "sample_cover.image", ""),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -267,7 +267,7 @@ class MobyGamesHandler(MetadataHandler):
             "name": res["title"],
             "slug": res["moby_url"].split("/")[-1],
             "summary": res.get("description", None),
-            "url_cover": res.get("sample_cover.image", None),
+            "url_cover": pydash.get(res, "sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -304,7 +304,7 @@ class MobyGamesHandler(MetadataHandler):
                         "name": rom["title"],
                         "slug": rom["moby_url"].split("/")[-1],
                         "summary": rom.get("description", ""),
-                        "url_cover": rom.get("sample_cover.image", ""),
+                        "url_cover": pydash.get(rom, "sample_cover.image", ""),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
                         ],
