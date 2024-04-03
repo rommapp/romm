@@ -108,7 +108,7 @@ class MobyGamesHandler(MetadataHandler):
             if err.response.status_code == 401:
                 # Sometimes Mobygames returns 401 even with a valid API key
                 return {}
- 
+
             # Log the error and return an empty dict if the request fails with a different code
             log.error(err)
             return {}
@@ -610,7 +610,6 @@ SLUG_TO_MOBY_ID: Final = {
     "sri-5001000": {"id": 242, "name": "SRI-500/1000"},
     "swtpc-6800": {"id": 228, "name": "SWTPC 6800"},
     "sharp-mz-80b20002500": {"id": 182, "name": "Sharp MZ-80B/2000/2500"},
-    "sharp-mz-2200": {"id": 180, "name": "Sharp MZ-2200"},
     "sharp-mz-80k7008001500": {"id": 181, "name": "Sharp MZ-80K/700/800/1500"},
     "sharp-x1": {"id": 121, "name": "Sharp X1"},
     "x1": {"id": 121, "name": "Sharp X1"},  # IGDB
@@ -632,7 +631,7 @@ SLUG_TO_MOBY_ID: Final = {
     "tads": {"id": 171, "name": "TADS"},
     "ti-programmable-calculator": {"id": 239, "name": "TI Programmable Calculator"},
     "ti-994a": {"id": 47, "name": "TI-99/4A"},
-    "ti-99": {"id": 47, "name": "TI-99/4A"},
+    "ti-99": {"id": 47, "name": "TI-99/4A"},  # IGDB
     "tim": {"id": 246, "name": "TIM"},
     "trs-80": {"id": 58, "name": "TRS-80"},
     "trs-80-coco": {"id": 62, "name": "TRS-80 Color Computer"},

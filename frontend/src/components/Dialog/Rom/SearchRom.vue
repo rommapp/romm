@@ -21,7 +21,7 @@ const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.file_name_no_tags || romToSearch.name || "";
+  searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
   show.value = true;
   searchRom();
 });
