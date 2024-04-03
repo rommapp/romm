@@ -87,12 +87,16 @@ class MobyGamesHandler(MetadataHandler):
                 detail="Can't connect to Mobygames, check your internet connection",
             )
         except HTTPError as err:
-            if err.response.status_code != 429:
+            if err.response.status_code == 401:
+                # Sometimes Mobygames returns 401 even with a valid API key
+                return {}
+            elif err.response.status_code == 429:
+                # Retry after 2 seconds if rate limit hit
+                time.sleep(2)
+            else:
+                # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
-
-            # Retry after 2 seconds if rate limit hit
-            time.sleep(2)
         except Timeout:
             # Retry the request once if it times out
             pass
@@ -101,7 +105,11 @@ class MobyGamesHandler(MetadataHandler):
             res = requests.get(url, timeout=timeout)
             res.raise_for_status()
         except (HTTPError, Timeout) as err:
-            # Log the error and return an empty dict if the request fails again
+            if err.response.status_code == 401:
+                # Sometimes Mobygames returns 401 even with a valid API key
+                return {}
+ 
+            # Log the error and return an empty dict if the request fails with a different code
             log.error(err)
             return {}
 
@@ -285,7 +293,7 @@ class MobyGamesHandler(MetadataHandler):
         url = yarl.URL(self.games_url).with_query(
             platform=[platform_moby_id], title=quote(search_term, safe="/ ")
         )
-        matched_roms = self._request(str(url))["games"]
+        matched_roms = self._request(str(url)).get("games", [])
 
         return [
             MobyGamesRom(
