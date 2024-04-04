@@ -3,7 +3,7 @@ from datetime import datetime
 from stat import S_IFREG
 from typing import Annotated, Optional
 
-from config import LIBRARY_BASE_PATH
+from config import LIBRARY_BASE_PATH, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
@@ -118,7 +118,11 @@ def get_roms(
         return paginate(session, qq, cursor_params)
 
 
-@protected_route(router.get, "/roms/{id}", ["roms.read"])
+@protected_route(
+    router.get,
+    "/roms/{id}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 def get_rom(request: Request, id: int) -> RomSchema:
     """Get rom endpoint
 
@@ -132,7 +136,11 @@ def get_rom(request: Request, id: int) -> RomSchema:
     return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
-@protected_route(router.head, "/roms/{id}/content/{file_name}", ["roms.read"])
+@protected_route(
+    router.head,
+    "/roms/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 def head_rom_content(request: Request, id: int, file_name: str):
     """Head rom content endpoint
 
