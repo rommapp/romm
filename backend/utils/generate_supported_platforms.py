@@ -1,4 +1,4 @@
-# poetry_npm run python3 -m scripts.generate_supported_platforms
+# poetry_npm run python3 -m utils.generate_supported_platforms
 
 from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
 from handler.metadata_handler.moby_handler import SLUG_TO_MOBY_ID
