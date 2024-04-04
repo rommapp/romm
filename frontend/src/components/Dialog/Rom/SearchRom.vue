@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">
-                      <span>{{ matchedRom.name }}</span>
+                      <span :title="matchedRom.name">{{ matchedRom.name }}</span>
                     </v-col>
                   </v-row>
                 </v-card-text>
