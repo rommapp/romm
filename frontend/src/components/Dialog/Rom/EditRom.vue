@@ -161,37 +161,33 @@ function closeDialog() {
             />
           </v-col>
           <v-col cols="12" md="4" lg="3">
-            <cover
-              :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
-              :rom="rom"
-              :editable="true"
-            >
-              <template v-slot:editable>
-                <v-chip-group class="position-absolute edit-cover pa-0">
-                  <v-chip
-                    class="translucent"
-                    size="small"
-                    @click="triggerFileInput"
-                    label
-                    ><v-icon>mdi-pencil</v-icon>
-                    <v-file-input
-                      id="file-input"
-                      v-model="rom.artwork"
-                      accept="image/*"
-                      hide-details
-                      class="file-input"
-                    />
-                  </v-chip>
-                  <v-chip
-                    class="translucent"
-                    size="small"
-                    @click="removeArtwork"
-                    label
-                    ><v-icon class="text-red">mdi-delete</v-icon></v-chip
-                  >
-                </v-chip-group>
-              </template>
-            </cover>
+            <v-hover v-slot="{ isHovering, props }">
+              <cover
+                :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
+                :rom="rom"
+                :editable="true"
+                v-bind="props"
+              >
+                <template v-slot:editable>
+                  <v-fade-transition>
+                    <div
+                      v-if="isHovering"
+                      class="d-flex translucent v-card--reveal text-h4"
+                      @click="triggerFileInput"
+                    >
+                      <v-icon>mdi-pencil</v-icon>
+                    </div>
+                  </v-fade-transition>
+                  <v-file-input
+                    id="file-input"
+                    class="file-input"
+                    v-model="rom.artwork"
+                    accept="image/*"
+                    hide-details
+                  />
+                </template>
+              </cover>
+            </v-hover>
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
@@ -209,24 +205,30 @@ function closeDialog() {
 .edit-content {
   width: 900px;
 }
-
 .edit-content-tablet {
   width: 620px;
 }
-
 .edit-content-mobile {
   width: 85vw;
 }
-
 .edit-cover {
-  bottom: -0.1rem;
-  right: -0.1rem;
+  bottom: 0rem;
+  right: -0.2rem;
 }
 .file-input {
   display: none;
 }
 .translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(2px);
+}
+.v-card--reveal {
+  align-items: center;
+  bottom: 0;
+  justify-content: center;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
 }
 </style>

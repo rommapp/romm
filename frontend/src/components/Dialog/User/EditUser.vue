@@ -18,6 +18,11 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
 });
 
 // Functions
+function triggerFileInput() {
+  const fileInput = document.getElementById("file-input");
+  fileInput?.click();
+}
+
 function editUser() {
   if (!user.value) return;
 
@@ -74,8 +79,8 @@ function closeDialog() {
       <v-divider class="border-opacity-25" :thickness="1" />
 
       <v-card-text>
-        <v-row no-gutters>
-          <v-col cols="12" lg="9">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="12" sm="8">
             <v-row class="pa-2" no-gutters>
               <v-col>
                 <v-text-field
@@ -116,30 +121,39 @@ function closeDialog() {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12" lg="3">
+          <v-col cols="12" sm="4">
             <v-row class="pa-2 justify-center" no-gutters>
-              <v-avatar size="128" class="">
-                <v-img
-                  :src="
-                    user.avatar_path
-                      ? `/assets/romm/assets/${user.avatar_path}`
-                      : defaultAvatarPath
-                  "
-                />
-              </v-avatar>
-            </v-row>
-            <v-row class="pa-2" no-gutters>
-              <v-col>
-                <v-file-input
-                  class="text-truncate"
-                  v-model="user.avatar"
-                  label="Avatar"
-                  prepend-inner-icon="mdi-image"
-                  prepend-icon=""
-                  variant="outlined"
-                  hide-details
-                />
-              </v-col>
+              <v-hover v-slot="{ isHovering, props }">
+                <v-avatar size="190" class="ml-4" v-bind="props">
+                  <v-img
+                    :src="
+                      user.avatar_path
+                        ? `/assets/romm/assets/${user.avatar_path}`
+                        : defaultAvatarPath
+                    "
+                  >
+                    <v-fade-transition>
+                      <div
+                        v-if="isHovering"
+                        class="d-flex translucent v-card--reveal text-h4"
+                        @click="triggerFileInput"
+                      >
+                        <v-icon>mdi-pencil</v-icon>
+                      </div>
+                    </v-fade-transition>
+                    <v-file-input
+                      id="file-input"
+                      class="file-input text-truncate"
+                      v-model="user.avatar"
+                      label="Avatar"
+                      prepend-inner-icon="mdi-image"
+                      prepend-icon=""
+                      variant="outlined"
+                      hide-details
+                    />
+                  </v-img>
+                </v-avatar>
+              </v-hover>
             </v-row>
           </v-col>
         </v-row>
@@ -153,3 +167,22 @@ function closeDialog() {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.file-input {
+  display: none;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(2px);
+}
+.v-card--reveal {
+  align-items: center;
+  bottom: 0;
+  justify-content: center;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+</style>
