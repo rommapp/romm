@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
+import Cover from "@/components/Details/Cover.vue";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs, mdAndDown, smAndDown, md, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
@@ -113,51 +114,61 @@ function closeDialog() {
       <v-divider class="border-opacity-25" :thickness="1" />
 
       <v-card-text>
-        <v-row class="pa-2" no-gutters>
-          <v-text-field
-            @keyup.enter="updateRom()"
-            v-model="rom.name"
-            label="Name"
-            variant="outlined"
-            required
-            hide-details
-          />
-        </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-text-field
-            @keyup.enter="updateRom()"
-            v-model="rom.file_name"
-            :rules="[
-              fileNameInputRules.newFileName,
-              fileNameInputRules.required,
-            ]"
-            label="File name"
-            variant="outlined"
-            required
-            hide-details
-          />
-        </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-textarea
-            @keyup.enter="updateRom()"
-            v-model="rom.summary"
-            label="Summary"
-            variant="outlined"
-            required
-            hide-details
-          />
-        </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-file-input
-            @keyup.enter="updateRom()"
-            v-model="rom.artwork"
-            label="Custom artwork"
-            accept="image/*"
-            prepend-inner-icon="mdi-image"
-            prepend-icon=""
-            variant="outlined"
-            hide-details
-          />
+        <v-row class="align-center" no-gutters>
+          <v-col cols="12" md="8" lg="9">
+            <v-text-field
+              class="py-2"
+              :class="{ 'pr-4': lgAndUp }"
+              @keyup.enter="updateRom()"
+              v-model="rom.name"
+              label="Name"
+              variant="outlined"
+              required
+              hide-details
+            />
+            <v-text-field
+              class="py-2"
+              :class="{ 'pr-4': lgAndUp }"
+              @keyup.enter="updateRom()"
+              v-model="rom.file_name"
+              :rules="[
+                fileNameInputRules.newFileName,
+                fileNameInputRules.required,
+              ]"
+              label="File name"
+              variant="outlined"
+              required
+              hide-details
+            />
+            <v-textarea
+              class="py-2"
+              :class="{ 'pr-4': lgAndUp }"
+              @keyup.enter="updateRom()"
+              v-model="rom.summary"
+              label="Summary"
+              variant="outlined"
+              required
+              hide-details
+            />
+          </v-col>
+          <v-col cols="12" md="4" lg="3">
+            <cover
+              :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
+              :rom="rom"
+              :editable="true"
+            />
+            <!-- <v-file-input
+              class="px-1 py-2"
+              @keyup.enter="updateRom()"
+              v-model="rom.artwork"
+              label="Custom artwork"
+              accept="image/*"
+              prepend-inner-icon="mdi-image"
+              prepend-icon=""
+              variant="outlined"
+              hide-details
+            /> -->
+          </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
@@ -176,7 +187,7 @@ function closeDialog() {
 }
 
 .edit-content-tablet {
-  width: 570px;
+  width: 620px;
 }
 
 .edit-content-mobile {
