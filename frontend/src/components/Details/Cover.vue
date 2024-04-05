@@ -5,7 +5,7 @@ import { useTheme } from "vuetify";
 const theme = useTheme();
 
 const downloadStore = storeDownload();
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: Rom; editable: boolean }>();
 </script>
 <template>
   <v-card
@@ -31,6 +31,14 @@ defineProps<{ rom: Rom }>();
       "
       :aspect-ratio="3 / 4"
     >
+      <v-chip-group v-if="editable" class="position-absolute edit-cover pa-0">
+        <v-chip class="translucent" size="small" @click="" label
+          ><v-icon>mdi-pencil</v-icon></v-chip
+        >
+        <v-chip class="translucent" size="small" @click="" label
+          ><v-icon class="text-red">mdi-delete</v-icon></v-chip
+        >
+      </v-chip-group>
       <template v-slot:placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
@@ -44,3 +52,14 @@ defineProps<{ rom: Rom }>();
     </v-img>
   </v-card>
 </template>
+
+<style scoped>
+.edit-cover {
+  bottom: -0.1rem;
+  right: -0.1rem;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+</style>
