@@ -7,7 +7,7 @@ import ControlPanelUsers from "@/views/Settings/ControlPanel/Users/Base.vue";
 import { ref } from "vue";
 
 // Props
-const authStore = storeAuth();
+const auth = storeAuth();
 const heartbeatStore = storeHeartbeat();
 const tab = ref("general");
 </script>
@@ -15,9 +15,14 @@ const tab = ref("general");
   <v-app-bar elevation="0" density="compact">
     <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
       <v-tab value="general" rounded="0">General</v-tab>
-      <v-tab value="config" rounded="0">Config</v-tab>
       <v-tab
-        v-if="authStore.scopes.includes('users.read')"
+        v-if="auth.scopes.includes('platforms.write')"
+        value="config"
+        rounded="0"
+        >Config</v-tab
+      >
+      <v-tab
+        v-if="auth.scopes.includes('users.write')"
         value="users"
         rounded="0"
       >
@@ -45,9 +50,23 @@ const tab = ref("general");
       <span class="text-romm-accent-1">RomM</span>
       <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>
       <v-icon>mdi-circle-small</v-icon><v-icon>mdi-github</v-icon>
-      <span class="ml-1"><a style="text-decoration: none; color: inherit" href="https://github.com/rommapp/romm" target="_blank">Github</a></span>
+      <span class="ml-1"
+        ><a
+          style="text-decoration: none; color: inherit"
+          href="https://github.com/rommapp/romm"
+          target="_blank"
+          >Github</a
+        ></span
+      >
       <v-icon>mdi-circle-small</v-icon>
-      <span class="ml-1"><a style="text-decoration: none; color: inherit" href="https://discord.com/invite/P5HtHnhUDH" target="_blank">Join to our Discord</a></span>
+      <span class="ml-1"
+        ><a
+          style="text-decoration: none; color: inherit"
+          href="https://discord.com/invite/P5HtHnhUDH"
+          target="_blank"
+          >Join to our Discord</a
+        ></span
+      >
     </v-row>
   </v-bottom-navigation>
 </template>
