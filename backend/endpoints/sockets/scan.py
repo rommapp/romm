@@ -230,7 +230,7 @@ async def stop_scan_handler(_sid: str):
 
     existing_jobs = high_prio_queue.get_jobs()
     for job in existing_jobs:
-        if job.func_name == "scan_platform":
+        if job.func_name == "scan_platform" and job.is_started:
             return await cancel_job(job)
 
     workers = Worker.all(connection=redis_client)
@@ -239,6 +239,7 @@ async def stop_scan_handler(_sid: str):
         if (
             current_job
             and current_job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and current_job.is_started
         ):
             return await cancel_job(current_job)
 

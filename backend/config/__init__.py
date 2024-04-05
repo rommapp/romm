@@ -54,6 +54,9 @@ ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
 DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
+DISABLE_DOWNLOAD_ENDPOINT_AUTH = (
+    os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false") == "true"
+)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours

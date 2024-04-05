@@ -21,7 +21,7 @@ const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.file_name_no_tags || romToSearch.name || "";
+  searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
   show.value = true;
   searchRom();
 });
@@ -268,28 +268,59 @@ onBeforeUnmount(() => {
                         />
                       </div>
                     </template>
-                    <v-row no-gutters class="text-white px-1">
-                      <v-chip
-                        class="translucent mr-1 mt-1"
-                        label
-                        v-if="matchedRom.igdb_id"
+                    <v-expand-transition>
+                      <div
+                        v-if="isHovering || !matchedRom.url_cover"
+                        class="translucent text-caption"
                       >
-                        <span> IGDB </span>
-                      </v-chip>
-                      <v-chip
-                        class="translucent mr-1 mt-1"
-                        label
-                        v-if="matchedRom.moby_id"
-                      >
-                        <span> Moby </span>
-                      </v-chip>
-                    </v-row>
-                  </v-img></v-hover
-                >
+                        <v-list-item>{{ matchedRom.name }}</v-list-item>
+                      </div>
+                    </v-expand-transition>
+                    <v-row no-gutters class="text-white pa-1">
+                      <v-tooltip
+                        location="top"
+                        class="tooltip"
+                        transition="fade-transition"
+                        text="IGDB matched"
+                        open-delay="500"
+                        ><template v-slot:activator="{ props }">
+                          <v-avatar
+                            v-bind="props"
+                            v-if="matchedRom.igdb_id"
+                            class="mr-1"
+                            size="30"
+                            rounded="1"
+                          >
+                            <v-img
+                              src="/assets/scrappers/igdb.png"
+                            /> </v-avatar></template
+                      ></v-tooltip>
+                      <v-tooltip
+                        location="top"
+                        class="tooltip"
+                        transition="fade-transition"
+                        text="Mobygames matched"
+                        open-delay="500"
+                        ><template v-slot:activator="{ props }">
+                          <v-avatar
+                            v-bind="props"
+                            v-if="matchedRom.moby_id"
+                            class="mr-1"
+                            size="30"
+                            rounded="1"
+                          >
+                            <v-img
+                              src="/assets/scrappers/moby.png"
+                            /> </v-avatar></template
+                      ></v-tooltip>
+                    </v-row> </v-img
+                ></v-hover>
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">
-                      <span>{{ matchedRom.name }}</span>
+                      <span :title="matchedRom.name">{{
+                        matchedRom.name
+                      }}</span>
                     </v-col>
                   </v-row>
                 </v-card-text>
@@ -344,5 +375,9 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(201, 201, 201, 0.98) !important;
+  color: rgb(41, 41, 41) !important;
 }
 </style>
