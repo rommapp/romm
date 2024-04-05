@@ -6,12 +6,14 @@ import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { useDisplay } from "vuetify";
 
 // Props
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
+const { smAndDown } = useDisplay();
 
 const scanOptions = [
   {
@@ -90,7 +92,7 @@ watch(metadataOptions, (newOptions) => {
 <template>
   <!-- Platform selector -->
   <v-row class="px-4 pt-4 align-center" no-gutters>
-    <v-col cols="6" class="pr-1">
+    <v-col cols="12" xs="12" sm="12" md="6" xl="6" class="pr-1">
       <v-select
         label="Platforms"
         item-title="name"
@@ -116,7 +118,15 @@ watch(metadataOptions, (newOptions) => {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="3" class="pr-1">
+    <v-col
+      cols="12"
+      xs="5"
+      sm="5"
+      md="3"
+      xl="3"
+      class="pr-1"
+      :class="{ 'mt-3': smAndDown }"
+    >
       <v-select
         label="Metadata sources"
         item-title="name"
@@ -146,7 +156,15 @@ watch(metadataOptions, (newOptions) => {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="3">
+    <v-col
+      cols="12"
+      xs="7"
+      sm="7"
+      md="3"
+      xl="3"
+      class="pr-1"
+      :class="{ 'mt-3': smAndDown }"
+    >
       <!-- Scan options -->
       <v-select
         hide-details
@@ -155,7 +173,6 @@ watch(metadataOptions, (newOptions) => {
         label="Scan option"
         v-model="scanType"
         :items="scanOptions"
-        class="py-3"
       >
         <template v-slot:item="{ props, item }">
           <v-list-item
@@ -200,7 +217,7 @@ watch(metadataOptions, (newOptions) => {
     </v-btn>
     <span
       v-if="metadataSources.length == 0"
-      class="ml-4 text-caption text-yellow"
+      class="ml-4 text-caption text-yellow py-4"
     >
       <v-icon class="mr-2">mdi-alert</v-icon>
       Please select at least one metadata source.
