@@ -122,7 +122,7 @@ watch(
           'cover-xs': smAndDown,
         }"
       >
-        <cover :rom="rom" />
+        <cover :rom="rom" :editable="false" />
         <action-bar class="mt-2" :rom="rom" />
         <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
       </v-col>
