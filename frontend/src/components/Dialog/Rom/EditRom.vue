@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import Cover from "@/components/Details/Cover.vue";
+import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
-import romApi, { type UpdateRom } from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
-
+// Props
 const { xs, mdAndDown, smAndDown, md, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
+const theme = useTheme();
 const fileNameInputRules = {
   required: (value: string) => !!value || "Required",
   newFileName: (value: string) => !value.includes("/") || "Invalid characters",
 };
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit) => {
   show.value = true;
@@ -24,6 +24,15 @@ emitter?.on("showEditRomDialog", (romToEdit) => {
 });
 
 // Functions
+function triggerFileInput() {
+  const fileInput = document.getElementById("file-input");
+  fileInput?.click();
+}
+
+function removeArtwork() {
+  console.log(rom.value);
+}
+
 async function updateRom() {
   if (!rom.value) return;
 
@@ -156,18 +165,33 @@ function closeDialog() {
               :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
               :rom="rom"
               :editable="true"
-            />
-            <!-- <v-file-input
-              class="px-1 py-2"
-              @keyup.enter="updateRom()"
-              v-model="rom.artwork"
-              label="Custom artwork"
-              accept="image/*"
-              prepend-inner-icon="mdi-image"
-              prepend-icon=""
-              variant="outlined"
-              hide-details
-            /> -->
+            >
+              <template v-slot:editable>
+                <v-chip-group class="position-absolute edit-cover pa-0">
+                  <v-chip
+                    class="translucent"
+                    size="small"
+                    @click="triggerFileInput"
+                    label
+                    ><v-icon>mdi-pencil</v-icon>
+                    <v-file-input
+                      id="file-input"
+                      v-model="rom.artwork"
+                      accept="image/*"
+                      hide-details
+                      class="file-input"
+                    />
+                  </v-chip>
+                  <v-chip
+                    class="translucent"
+                    size="small"
+                    @click="removeArtwork"
+                    label
+                    ><v-icon class="text-red">mdi-delete</v-icon></v-chip
+                  >
+                </v-chip-group>
+              </template>
+            </cover>
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
@@ -192,5 +216,17 @@ function closeDialog() {
 
 .edit-content-mobile {
   width: 85vw;
+}
+
+.edit-cover {
+  bottom: -0.1rem;
+  right: -0.1rem;
+}
+.file-input {
+  display: none;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 </style>
