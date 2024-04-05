@@ -62,3 +62,9 @@ class WebrcadeFeedSchema(TypedDict):
     thumbnail: str
     background: str
     categories: list[dict]
+
+
+class TinfoilFeedSchema(TypedDict):
+    files: list[dict]
+    directories: list[str]
+    success: str
