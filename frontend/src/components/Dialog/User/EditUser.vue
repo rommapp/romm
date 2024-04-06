@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-import type { Events, UserItem } from "@/types/emitter";
-
 import userApi from "@/services/api/user";
-import { defaultAvatarPath } from "@/utils";
 import storeUsers from "@/stores/users";
+import type { Events, UserItem } from "@/types/emitter";
+import { defaultAvatarPath } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
+// Props
 const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
-
+const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditUserDialog", (userToEdit) => {
   user.value = { ...userToEdit, avatar: undefined };
@@ -21,6 +21,17 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();
+}
+
+function previewImage(event: { target: { files: any[] } }) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    imagePreviewUrl.value = reader.result?.toString();
+  };
+  if (file) {
+    reader.readAsDataURL(file);
+  }
 }
 
 function editUser() {
@@ -54,10 +65,21 @@ function editUser() {
 
 function closeDialog() {
   show.value = false;
+  imagePreviewUrl.value = "";
 }
 </script>
 <template>
-  <v-dialog v-if="user" v-model="show" max-width="700px" :scrim="false">
+  <v-dialog
+    v-if="user"
+    v-model="show"
+    max-width="700px"
+    :scrim="true"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
+    scroll-strategy="none"
+    no-click-animation
+    persistent
+  >
     <v-card>
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
@@ -127,7 +149,9 @@ function closeDialog() {
                 <v-avatar size="190" class="ml-4" v-bind="props">
                   <v-img
                     :src="
-                      user.avatar_path
+                      imagePreviewUrl
+                        ? imagePreviewUrl
+                        : user.avatar_path
                         ? `/assets/romm/assets/${user.avatar_path}`
                         : defaultAvatarPath
                     "
@@ -150,6 +174,7 @@ function closeDialog() {
                       prepend-icon=""
                       variant="outlined"
                       hide-details
+                      @change="previewImage"
                     />
                   </v-img>
                 </v-avatar>
