@@ -41,8 +41,17 @@ function previewImage(event: { target: { files: any[] } }) {
   }
 }
 
-function removeArtwork() {
-  console.log(rom.value);
+async function removeArtwork() {
+  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  try {
+    if(!rom.value) return;
+    const response = await fetch(imagePreviewUrl.value);
+    const blob = await response.blob();
+    rom.value.artwork = new Array<File>(new File([blob], "default.png", { type: blob.type }));
+  } catch (error) {
+    console.error('Error getting "missing cover" artwork.', error);
+    return null;
+  }
 }
 
 async function updateRom() {
