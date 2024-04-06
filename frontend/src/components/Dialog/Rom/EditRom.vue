@@ -5,14 +5,14 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 // Props
 const { xs, mdAndDown, smAndDown, md, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
-const theme = useTheme();
+const imagePreviewUrl = ref<string | undefined>("");
 const fileNameInputRules = {
   required: (value: string) => !!value || "Required",
   newFileName: (value: string) => !value.includes("/") || "Invalid characters",
@@ -27,6 +27,17 @@ emitter?.on("showEditRomDialog", (romToEdit) => {
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();
+}
+
+function previewImage(event: { target: { files: any[] } }) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    imagePreviewUrl.value = reader.result?.toString();
+  };
+  if (file) {
+    reader.readAsDataURL(file);
+  }
 }
 
 function removeArtwork() {
@@ -161,33 +172,37 @@ function closeDialog() {
             />
           </v-col>
           <v-col cols="12" md="4" lg="3">
-            <v-hover v-slot="{ isHovering, props }">
-              <cover
-                :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
-                :rom="rom"
-                :editable="true"
-                v-bind="props"
-              >
-                <template v-slot:editable>
-                  <v-fade-transition>
-                    <div
-                      v-if="isHovering"
-                      class="d-flex translucent v-card--reveal text-h4"
-                      @click="triggerFileInput"
-                    >
-                      <v-icon>mdi-pencil</v-icon>
-                    </div>
-                  </v-fade-transition>
-                  <v-file-input
-                    id="file-input"
-                    class="file-input"
-                    v-model="rom.artwork"
-                    accept="image/*"
-                    hide-details
-                  />
-                </template>
-              </cover>
-            </v-hover>
+            <cover
+              :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
+              :rom="rom"
+            >
+              <template v-slot:editable>
+                <v-chip-group class="position-absolute edit-cover pa-0">
+                  <v-chip
+                    class="translucent"
+                    size="small"
+                    @click="triggerFileInput"
+                    label
+                    ><v-icon>mdi-pencil</v-icon>
+                    <v-file-input
+                      id="file-input"
+                      v-model="rom.artwork"
+                      accept="image/*"
+                      hide-details
+                      class="file-input"
+                      @change="previewImage"
+                    />
+                  </v-chip>
+                  <v-chip
+                    class="translucent"
+                    size="small"
+                    @click="removeArtwork"
+                    label
+                    ><v-icon class="text-red">mdi-delete</v-icon></v-chip
+                  >
+                </v-chip-group>
+              </template>
+            </cover>
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
@@ -212,23 +227,14 @@ function closeDialog() {
   width: 85vw;
 }
 .edit-cover {
-  bottom: 0rem;
-  right: -0.2rem;
+  bottom: -0.1rem;
+  right: -0.3rem;
 }
 .file-input {
   display: none;
 }
 .translucent {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(2px);
-}
-.v-card--reveal {
-  align-items: center;
-  bottom: 0;
-  justify-content: center;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 </style>
