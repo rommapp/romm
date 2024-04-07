@@ -10,6 +10,7 @@ class HybridAuthBackend(AuthenticationBackend):
         # Check if session key already stored in cache
         user = await auth_handler.get_current_active_user_from_session(conn)
         if user:
+            user.set_last_active()
             return (AuthCredentials(user.oauth_scopes), user)
 
         # Check if Authorization header exists
@@ -28,11 +29,14 @@ class HybridAuthBackend(AuthenticationBackend):
             if user is None:
                 return (AuthCredentials([]), None)
 
+            user.set_last_active()
             return (AuthCredentials(user.oauth_scopes), user)
 
         # Check if bearer auth header is valid
         if scheme.lower() == "bearer":
             user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
+            if user is None:
+                return (AuthCredentials([]), None)
 
             # Only access tokens can request resources
             if payload.get("type") != "access":
@@ -42,6 +46,7 @@ class HybridAuthBackend(AuthenticationBackend):
             token_scopes = set(list(payload.get("scopes").split(" ")))
             overlapping_scopes = list(token_scopes & set(user.oauth_scopes))
 
+            user.set_last_active()
             return (AuthCredentials(overlapping_scopes), user)
 
         return (AuthCredentials([]), None)
