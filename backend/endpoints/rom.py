@@ -320,18 +320,18 @@ async def update_rom(
     )
 
     if remove_cover:
-        fs_resource_handler.remove_cover(
+        cleaned_data.update(fs_resource_handler.remove_cover(
             rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
+        ))
+    else:
+        cleaned_data.update(
+            fs_resource_handler.get_rom_cover(
+                overwrite=True,
+                platform_fs_slug=platform_fs_slug,
+                rom_name=cleaned_data["name"],
+                url_cover=cleaned_data.get("url_cover", ""),
+            )
         )
-
-    cleaned_data.update(
-        fs_resource_handler.get_rom_cover(
-            overwrite=True,
-            platform_fs_slug=platform_fs_slug,
-            rom_name=cleaned_data["name"],
-            url_cover=cleaned_data.get("url_cover", ""),
-        )
-    )
 
     cleaned_data.update(
         fs_resource_handler.get_rom_screenshots(
