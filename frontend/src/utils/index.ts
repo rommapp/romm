@@ -87,6 +87,20 @@ export function formatBytes(bytes: number, decimals = 2) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 
+/**
+ *
+ * Format timestamp to human-readable text
+ *
+ * @param string timestamp
+ * @returns string Formatted timestamp
+ */
+export function formatTimestamp(timestamp: string | null) {
+  if (!timestamp) return "-";
+
+  const date = new Date(timestamp);
+  return date.toLocaleString();
+}
+
 export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
     case "as":

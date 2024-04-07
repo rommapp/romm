@@ -11,7 +11,7 @@ import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { UserItem } from "@/types/emitter";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, formatTimestamp } from "@/utils";
 
 const HEADERS = [
   {
@@ -32,6 +32,12 @@ const HEADERS = [
     align: "start",
     sortable: true,
     key: "role",
+  },
+  {
+    title: "Last active",
+    align: "start",
+    sortable: true,
+    key: "last_active",
   },
   {
     title: "Enabled",
@@ -128,6 +134,9 @@ onMounted(() => {
               "
             />
           </v-avatar>
+        </template>
+        <template v-slot:item.last_active="{ item }">
+          {{ formatTimestamp(item.raw.last_active) }}
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
