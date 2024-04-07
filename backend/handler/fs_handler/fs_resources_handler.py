@@ -23,7 +23,8 @@ class FSResourceHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    def _cover_exists(self, fs_slug: str, rom_name: str, size: CoverSize):
+    @staticmethod
+    def _cover_exists(fs_slug: str, rom_name: str, size: CoverSize):
         """Check if rom cover exists in filesystem
 
         Args:
@@ -39,7 +40,8 @@ class FSResourceHandler(FSHandler):
             )
         )
 
-    def resize_cover(self, cover_path: str, size: CoverSize = CoverSize.BIG) -> None:
+    @staticmethod
+    def resize_cover(cover_path: str, size: CoverSize = CoverSize.BIG) -> None:
         """Resizes the cover image to the standard size
 
         Args:
@@ -86,7 +88,7 @@ class FSResourceHandler(FSHandler):
         """
         cover_file = f"{size.value}.png"
         cover_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
-        
+
         try:
             res = requests.get(
                 url_cover.replace("t_thumb", f"t_cover_{size.value}"),
@@ -99,14 +101,15 @@ class FSResourceHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection.",
             )
-        
+
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
                 shutil.copyfileobj(res.raw, f)
             self.resize_cover(f"{cover_path}/{cover_file}", size)
 
-    def _get_cover_path(self, fs_slug: str, rom_name: str, size: CoverSize):
+    @staticmethod
+    def _get_cover_path(fs_slug: str, rom_name: str, size: CoverSize):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -147,18 +150,29 @@ class FSResourceHandler(FSHandler):
             "path_cover_l": path_cover_l,
         }
 
-    def build_artwork_path(self, rom_name: str, fs_slug: str, file_ext: str):
+    @staticmethod
+    def remove_cover(
+        rom_name: str,
+        platform_fs_slug: str,
+    ):
+        shutil.rmtree(os.path.join(RESOURCES_BASE_PATH, platform_fs_slug, rom_name))
+
+    @staticmethod
+    def build_artwork_path(rom_name: str, platform_fs_slug: str, file_ext: str):
         q_rom_name = quote(rom_name)
 
-        path_cover_l = f"{fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
-        path_cover_s = (
-            f"{fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
+        path_cover_l = (
+            f"{platform_fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
         )
-        artwork_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
+        path_cover_s = (
+            f"{platform_fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
+        )
+        artwork_path = f"{RESOURCES_BASE_PATH}/{platform_fs_slug}/{rom_name}/cover"
         Path(artwork_path).mkdir(parents=True, exist_ok=True)
         return path_cover_l, path_cover_s, artwork_path
 
-    def _store_screenshot(self, fs_slug: str, rom_name: str, url: str, idx: int):
+    @staticmethod
+    def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
@@ -168,7 +182,7 @@ class FSResourceHandler(FSHandler):
         """
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
-        
+
         try:
             res = requests.get(url, stream=True, timeout=120)
         except requests.exceptions.ConnectionError:
@@ -177,7 +191,7 @@ class FSResourceHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection.",
             )
-        
+
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
             with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:
@@ -188,7 +202,8 @@ class FSResourceHandler(FSHandler):
                         f"Failure writing screenshot {url} to file (ProtocolError)"
                     )
 
-    def _get_screenshot_path(self, fs_slug: str, rom_name: str, idx: str):
+    @staticmethod
+    def _get_screenshot_path(fs_slug: str, rom_name: str, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:

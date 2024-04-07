@@ -14,6 +14,7 @@ const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
+const removeCover = ref(false);
 const fileNameInputRules = {
   required: (value: string) => !!value || "Required",
   newFileName: (value: string) => !value.includes("/") || "Invalid characters",
@@ -43,15 +44,7 @@ function previewImage(event: { target: { files: any[] } }) {
 
 async function removeArtwork() {
   imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
-  try {
-    if(!rom.value) return;
-    const response = await fetch(imagePreviewUrl.value);
-    const blob = await response.blob();
-    rom.value.artwork = new Array<File>(new File([blob], "default.png", { type: blob.type }));
-  } catch (error) {
-    console.error('Error getting "missing cover" artwork.', error);
-    return null;
-  }
+  removeCover.value = true;
 }
 
 async function updateRom() {
@@ -75,8 +68,9 @@ async function updateRom() {
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
+
   await romApi
-    .updateRom({ rom: rom.value })
+    .updateRom({ rom: rom.value, removeCover: removeCover.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
