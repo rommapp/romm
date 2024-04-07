@@ -154,10 +154,13 @@ class FSResourceHandler(FSHandler):
         rom_name: str,
         platform_fs_slug: str,
     ):
-        shutil.rmtree(
-            os.path.join(RESOURCES_BASE_PATH, platform_fs_slug, rom_name, "cover")
-        )
-        return { "path_cover_s": "", "path_cover_l": "" }
+        try:
+            shutil.rmtree(
+                os.path.join(RESOURCES_BASE_PATH, platform_fs_slug, rom_name, "cover")
+            )
+        except FileNotFoundError:
+            log.warning(f"Couldn't remove {rom_name} cover")
+        return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
     def build_artwork_path(rom_name: str, platform_fs_slug: str, file_ext: str):

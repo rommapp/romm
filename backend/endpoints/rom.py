@@ -320,9 +320,11 @@ async def update_rom(
     )
 
     if remove_cover:
-        cleaned_data.update(fs_resource_handler.remove_cover(
-            rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
-        ))
+        cleaned_data.update(
+            fs_resource_handler.remove_cover(
+                rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
+            )
+        )
     else:
         cleaned_data.update(
             fs_resource_handler.get_rom_cover(
@@ -333,13 +335,17 @@ async def update_rom(
             )
         )
 
-    cleaned_data.update(
-        fs_resource_handler.get_rom_screenshots(
-            platform_fs_slug=platform_fs_slug,
-            rom_name=cleaned_data["name"],
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        ),
-    )
+    if (
+        cleaned_data["igdb_id"] != db_rom.igdb_id
+        or cleaned_data["moby_id"] != db_rom.moby_id
+    ):
+        cleaned_data.update(
+            fs_resource_handler.get_rom_screenshots(
+                platform_fs_slug=platform_fs_slug,
+                rom_name=cleaned_data["name"],
+                url_screenshots=cleaned_data.get("url_screenshots", []),
+            ),
+        )
 
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
