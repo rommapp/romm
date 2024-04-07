@@ -23,7 +23,7 @@ export default defineStore("roms", {
     lastSelectedIndex: -1,
     cursor: "" as string | null,
     searchCursor: "" as string | null,
-    touchScreen: false,
+    selecting: false,
   }),
 
   getters: {
@@ -54,9 +54,11 @@ export default defineStore("roms", {
 
       // Group roms by external id
       this._grouped = Object.values(
-        groupBy(this._all, (game) =>
-          // If external id is null, generate a random id so that the roms are not grouped
-          game.igdb_id || game.moby_id || nanoid()
+        groupBy(
+          this._all,
+          (game) =>
+            // If external id is null, generate a random id so that the roms are not grouped
+            game.igdb_id || game.moby_id || nanoid()
         )
       )
         .map((games) => ({
@@ -180,8 +182,8 @@ export default defineStore("roms", {
     updateLastSelected(index: number) {
       this.lastSelectedIndex = index;
     },
-    isTouchScreen(touchScreen: boolean) {
-      this.touchScreen = touchScreen;
+    isSelecting() {
+      this.selecting = !this.selecting;
     },
     resetSelection() {
       this._selectedIDs = [];
