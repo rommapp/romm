@@ -250,6 +250,7 @@ async def update_rom(
     request: Request,
     id: int,
     rename_as_igdb: bool = False,
+    remove_cover: bool = False,
     artwork: Optional[UploadFile] = File(None),
 ) -> RomSchema:
     """Update rom endpoint
@@ -317,6 +318,12 @@ async def update_rom(
     cleaned_data["file_name_no_ext"] = fs_rom_handler.get_file_name_with_no_extension(
         fs_safe_file_name
     )
+
+    if remove_cover:
+        fs_resource_handler.remove_cover(
+            rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
+        )
+
     cleaned_data.update(
         fs_resource_handler.get_rom_cover(
             overwrite=True,
