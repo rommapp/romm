@@ -50,7 +50,6 @@ class FSResourceHandler(FSHandler):
         """
         cover = Image.open(cover_path)
         if size == CoverSize.BIG and cover.size[1] > DEFAULT_HEIGHT_COVER_L:
-
             big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
             background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
             cover.thumbnail(big_dimensions)
@@ -155,7 +154,10 @@ class FSResourceHandler(FSHandler):
         rom_name: str,
         platform_fs_slug: str,
     ):
-        shutil.rmtree(os.path.join(RESOURCES_BASE_PATH, platform_fs_slug, rom_name))
+        shutil.rmtree(
+            os.path.join(RESOURCES_BASE_PATH, platform_fs_slug, rom_name, "cover")
+        )
+        return { "path_cover_s": "", "path_cover_l": "" }
 
     @staticmethod
     def build_artwork_path(rom_name: str, platform_fs_slug: str, file_ext: str):
