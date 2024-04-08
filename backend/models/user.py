@@ -1,8 +1,9 @@
 import enum
+import datetime
 
 from models.base import BaseModel
 from models.assets import Save, Screenshot, State
-from sqlalchemy import Boolean, Column, Enum, Integer, String
+from sqlalchemy import Boolean, Column, Enum, Integer, String, DateTime
 from starlette.authentication import SimpleUser
 from sqlalchemy.orm import Mapped, relationship
 
@@ -24,6 +25,8 @@ class User(BaseModel, SimpleUser):
     enabled: bool = Column(Boolean(), default=True)
     role: Role = Column(Enum(Role), default=Role.VIEWER)
     avatar_path: str = Column(String(length=255), default="")
+    last_login: datetime = Column(DateTime(timezone=True), nullable=True)
+    last_active: datetime = Column(DateTime(timezone=True), nullable=True)
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
@@ -48,8 +51,13 @@ class User(BaseModel, SimpleUser):
             return WRITE_SCOPES
 
         return DEFAULT_SCOPES
-    
+
     @property
     def fs_safe_folder_name(self):
         # Uses the ID to avoid issues with username changes
-        return f'User:{self.id}'.encode("utf-8").hex()
+        return f"User:{self.id}".encode("utf-8").hex()
+
+    def set_last_active(self):
+        from handler import db_user_handler
+
+        db_user_handler.update_user(self.id, {"last_active": datetime.datetime.now()})

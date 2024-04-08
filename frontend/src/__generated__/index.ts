@@ -32,6 +32,7 @@ export type { SearchRomSchema } from './models/SearchRomSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { TaskDict } from './models/TaskDict';
+export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
 export type { TokenResponse } from './models/TokenResponse';
 export type { UploadedSavesResponse } from './models/UploadedSavesResponse';
 export type { UploadedScreenshotsResponse } from './models/UploadedScreenshotsResponse';

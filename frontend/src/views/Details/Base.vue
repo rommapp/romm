@@ -1,11 +1,4 @@
 <script setup lang="ts">
-import storeDownload from "@/stores/download";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref, watch } from "vue";
-import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
-
 import type { PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
@@ -24,7 +17,13 @@ import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
+import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, onBeforeMount, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import { useDisplay, useTheme } from "vuetify";
 
 const route = useRoute();
 const rom = ref<Rom>();
@@ -38,6 +37,7 @@ const tab = ref<
   | "relatedgames"
   | "emulation"
 >("details");
+const theme = useTheme();
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const showEmulation = ref(false);
@@ -122,7 +122,23 @@ watch(
           'cover-xs': smAndDown,
         }"
       >
-        <cover :rom="rom" />
+        <cover
+          :romId="rom.id"
+          :src="
+            !rom.igdb_id && !rom.moby_id && !rom.has_cover
+              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+              : !rom.has_cover
+              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${rom.path_cover_l}`
+          "
+          :lazy-src="
+            !rom.igdb_id && !rom.moby_id && !rom.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : !rom.has_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${rom.path_cover_s}`
+          "
+        />
         <action-bar class="mt-2" :rom="rom" />
         <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
       </v-col>

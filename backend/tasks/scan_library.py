@@ -2,6 +2,7 @@ from config import ENABLE_SCHEDULED_RESCAN, SCHEDULED_RESCAN_CRON
 from endpoints.sockets.scan import scan_platforms
 from logger.logger import log
 from tasks.tasks import PeriodicTask
+from handler.scan_handler import ScanType
 
 
 class ScanLibraryTask(PeriodicTask):
@@ -20,7 +21,7 @@ class ScanLibraryTask(PeriodicTask):
             return
 
         log.info("Scheduled library scan started...")
-        await scan_platforms([])
+        await scan_platforms([], scan_type=ScanType.UNIDENTIFIED)
         log.info("Scheduled library scan done")
 
 

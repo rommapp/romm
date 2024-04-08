@@ -27,11 +27,11 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Features
 
-- Scans your existing games library and enchances it with metadata from [IGDB][igdb]
+- Scans your existing games library and enchances it with metadata from [IGDB][igdb] and [MobyGames][mobygames]
 - Supports a large number of **[platforms][platform-support]**
 - Play games directly from the browser using [EmulatorJS][wiki-emulatorjs-url]
 - Share your library with friend while [limiting access and permissions][authentication]
-- Supports [MAME][mame-xml-update], [Nintendo Switch][switch-titledb-update] and PS2 naming schemes
+- Supports MAME, Nintendo Switch, and Sony Playstation naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
 - Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
 - View, upload, update, and delete games from any modern web browser
@@ -46,9 +46,9 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 Before running the [image][docker-tags], ensure that Docker is installed and running on your system.
 
-1. Generate an API key for [IGDB][igdb] and set the `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` variables. This step is essential for running a library scan. Instructions for generating the ID and Secret can be found [here][igdb-api]. Note that IGDB requires a Twitch account with 2FA enabled to generate the ID and Secret.
+1. [Generate API keys][wiki-generate-api-keys] for IGDB and/or MobyGames to fetch metadata.
 2. Verify that your library folder structure matches one of the options listed in the [folder structure][folder-structure] section.
-3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables](wiki-env-variables).
+3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables][wiki-env-variables].
 4. Launch the container(s) with `docker-compose up -d`.
 
 > [!NOTE]  
@@ -179,8 +179,6 @@ Here are a few projects that we think you might like:
 [platform-support]: #-platform-support
 [authentication]: #-authentication
 [tag-support]: #-tag-support
-[switch-titledb-update]: #-switch-titledb-update
-[mame-xml-update]: #-mame-xml-update
 [configuration-file]: #-configuration-file
 
 <!-- Files -->
@@ -198,6 +196,7 @@ Here are a few projects that we think you might like:
 [wiki-emulatorjs-url]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
 [wiki-env-variables]: https://github.com/rommapp/romm/wiki/Environment-Variables
 [wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
+[wiki-generate-api-keys]: https://github.com/rommapp/romm/wiki/Generate-API-Keys
 
 <!-- Badges -->
 
@@ -223,8 +222,8 @@ Here are a few projects that we think you might like:
 <!-- External links -->
 
 [docker-tags]: https://hub.docker.com/r/rommapp/romm/tags
-[igdb]: https://www.igdb.com/
-[igdb-api]: https://api-docs.igdb.com/#getting-started
+[igdb-api]: https://api-docs.igdb.com/#account-creation
+[mobygames-api]: https://www.mobygames.com/info/api/
 [titleid-program-id-url]: https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop
 [igdb-platforms-list]: https://www.igdb.com/platforms
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
