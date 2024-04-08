@@ -2,6 +2,7 @@
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import platformApi from "@/services/api/platform";
 
 // Props
 const show = ref(false);
@@ -14,12 +15,33 @@ emitter?.on("showAddPlatformDialog", () => {
 
 // Functions
 function addPlatform() {
-  console.log(fsSlugToCreate.value);
-  console.log(slugToCreate.value);
+  platformApi
+    .uploadPlatform({ fsSlug: fsSlugToCreate.value })
+    .then(() => {
+      emitter?.emit("snackbarShow", {
+        msg: `Platform ${fsSlugToCreate.value} created successfully!`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+      closeDialog();
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
 }
 
 function closeDialog() {
   show.value = false;
+  fsSlugToCreate.value = null;
 }
 
 onBeforeUnmount(() => {
@@ -30,7 +52,7 @@ onBeforeUnmount(() => {
 <template>
   <v-dialog
     :modelValue="show"
-    max-width="500px" 
+    max-width="500px"
     scroll-strategy="none"
     :scrim="true"
     @click:outside="closeDialog"

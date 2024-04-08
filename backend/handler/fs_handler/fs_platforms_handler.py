@@ -2,7 +2,7 @@ import os
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm, Config
-from exceptions.fs_exceptions import FolderStructureNotMatchException
+from exceptions.fs_exceptions import FolderStructureNotMatchException, PlatformAlreadyExistsException
 from handler.fs_handler import FSHandler
 
 
@@ -16,6 +16,17 @@ class FSPlatformsHandler(FSHandler):
             for platform in platforms
             if platform not in config.EXCLUDED_PLATFORMS
         ]
+
+    def add_platforms(self, fs_slug: str) -> None:
+        cnfg = cm.get_config()
+        try:
+            (
+                os.mkdir(f"{cnfg.HIGH_PRIO_STRUCTURE_PATH}/{fs_slug}")
+                if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+                else os.mkdir(f"{LIBRARY_BASE_PATH}/{fs_slug}/roms")
+            )
+        except FileExistsError:
+            raise PlatformAlreadyExistsException(fs_slug)
 
     def get_platforms(self) -> list[str]:
         """Gets all filesystem platforms

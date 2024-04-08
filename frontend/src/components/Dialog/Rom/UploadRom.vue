@@ -20,7 +20,9 @@ const platforms = storePlatforms();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
-  platform.value = platformWhereUpload;
+  if (platformWhereUpload) {
+    platform.value = platformWhereUpload;
+  }
   show.value = true;
 });
 
@@ -160,12 +162,11 @@ function closeDialog() {
           </template>
         </v-select>
       </v-card-text>
-      <v-card-text v-if="romsToUpload.length > 0" class="scroll bg-terciary py-2 px-8">
-        <v-row
-          v-for="rom in romsToUpload"
-          class="py-2"
-          no-gutters
-        >
+      <v-card-text
+        v-if="romsToUpload.length > 0"
+        class="scroll bg-terciary py-2 px-8"
+      >
+        <v-row v-for="rom in romsToUpload" class="py-2" no-gutters>
           <v-col cols="9" lg="10">
             {{ rom.name }}
           </v-col>
