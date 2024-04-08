@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import { type Platform } from "@/stores/platforms";
-import socket from "@/services/socket";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
+import socket from "@/services/socket";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
+// Props
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const romsToUpload = ref([]);
+const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
 const platform = ref<Platform | null>(null);
+const platforms = storePlatforms();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
@@ -73,10 +77,19 @@ async function uploadRoms() {
         timeout: 4000,
       });
     });
+  romsToUpload.value = [];
+  platform.value = null;
+}
+
+function triggerFileInput() {
+  const fileInput = document.getElementById("file-input");
+  fileInput?.click();
 }
 
 function closeDialog() {
   show.value = false;
+  romsToUpload.value = [];
+  platform.value = null;
 }
 </script>
 
@@ -119,20 +132,70 @@ function closeDialog() {
       <v-divider class="border-opacity-25" :thickness="1" />
 
       <v-card-text>
-        <v-row class="pa-2" no-gutters>
-          <v-file-input
-            @keyup.enter="uploadRoms()"
-            :label="`Upload rom(s) to ${platform?.name}`"
-            v-model="romsToUpload"
-            prepend-inner-icon="mdi-disc"
-            prepend-icon=""
-            multiple
-            chips
-            required
-            variant="outlined"
-            hide-details
-          />
+        <v-select
+          label="Platform"
+          item-title="name"
+          v-model="platform"
+          :items="platforms.value"
+          variant="outlined"
+          rounded="0"
+          prepend-inner-icon="mdi-controller"
+          prepend-icon=""
+          return-object
+          clearable
+          hide-details
+        >
+          <template v-slot:item="{ props, item }">
+            <v-list-item
+              class="py-2"
+              v-bind="props"
+              :title="item.raw.name ?? ''"
+            >
+              <template v-slot:prepend>
+                <v-avatar :rounded="0" size="35">
+                  <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
+                </v-avatar>
+              </template>
+            </v-list-item>
+          </template>
+        </v-select>
+      </v-card-text>
+      <v-card-text v-if="romsToUpload.length > 0" class="scroll bg-terciary py-2 px-8">
+        <v-row
+          v-for="rom in romsToUpload"
+          class="py-2"
+          no-gutters
+        >
+          <v-col cols="9" lg="10">
+            {{ rom.name }}
+          </v-col>
+          <v-col cols="3" lg="2">
+            [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span
+            >]
+          </v-col>
         </v-row>
+      </v-card-text>
+      <v-card-text>
+        <v-btn
+          size="large"
+          block
+          prepend-icon="mdi-plus"
+          variant="outlined"
+          class="text-romm-accent-1"
+          @click="triggerFileInput"
+        >
+          Add games
+        </v-btn>
+        <v-file-input
+          class="file-input"
+          id="file-input"
+          @keyup.enter="uploadRoms()"
+          v-model="romsToUpload"
+          multiple
+          required
+        />
+      </v-card-text>
+      <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary">
@@ -155,5 +218,11 @@ function closeDialog() {
 
 .edit-content-mobile {
   width: 85vw;
+}
+.file-input {
+  display: none;
+}
+.scroll {
+  overflow-y: scroll;
 }
 </style>
