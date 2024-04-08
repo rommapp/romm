@@ -5,14 +5,11 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-import AddPlatformDialog from "@/components/Dialog/Platform/AddPlatform.vue";
-import SearchRomGlobalDialog from "@/components/Dialog/Rom/SearchRomGlobal.vue";
 import RailFooter from "@/components/Drawer/Footer.vue";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
 import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
-import platformApi from "@/services/api/platform";
 
 // Props
 const { lgAndUp } = useDisplay();
@@ -44,7 +41,7 @@ emitter?.on("toggleDrawerRail", () => {
       <drawer-header :rail="rail" />
       <v-divider />
       <v-list-item
-        @click="emitter?.emit('showSearchRomGlobalDialog', null)"
+        @click="emitter?.emit('showSearchRomDialog', null)"
         :class="{ 'px-4': !rail }"
         class="bg-terciary"
       >
@@ -105,7 +102,10 @@ emitter?.on("toggleDrawerRail", () => {
             >
           </template>
         </v-list-item>
-        <v-list-item class="bg-terciary" @click="emitter?.emit('showAddPlatformDialog', null)">
+        <v-list-item
+          class="bg-terciary"
+          @click="emitter?.emit('showAddPlatformDialog', null)"
+        >
           <span v-if="!rail" class="text-body-2 text-truncate"
             >Add platform</span
           >
@@ -115,7 +115,10 @@ emitter?.on("toggleDrawerRail", () => {
             >
           </template>
         </v-list-item>
-        <v-list-item class="bg-terciary" @click="emitter?.emit('showUploadRomDialog', null)">
+        <v-list-item
+          class="bg-terciary"
+          @click="emitter?.emit('showUploadRomDialog', null)"
+        >
           <span v-if="!rail" class="text-body-2 text-truncate"
             >Upload roms</span
           >
@@ -158,7 +161,4 @@ emitter?.on("toggleDrawerRail", () => {
       <rail-footer :rail="rail" />
     </template>
   </v-navigation-drawer>
-
-  <search-rom-global-dialog />
-  <add-platform-dialog />
 </template>

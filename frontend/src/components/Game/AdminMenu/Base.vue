@@ -15,7 +15,7 @@ const heartbeat = storeHeartbeat();
     <v-list-item
       :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
       :title="!heartbeat.value.ANY_SOURCE_ENABLED ? 'No metadata source enabled' : ''"
-      @click="emitter?.emit('showSearchRomDialog', rom)"
+      @click="emitter?.emit('showMatchRomDialog', rom)"
       class="py-4 pr-5"
     >
       <v-list-item-title class="d-flex"
