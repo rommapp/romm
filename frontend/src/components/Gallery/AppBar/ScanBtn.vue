@@ -14,7 +14,7 @@ async function scan() {
 
   socket.emit("scan", {
     platforms: [romsStore.platform.id],
-    type: "unidentified",
+    type: "quick",
   });
 }
 </script>

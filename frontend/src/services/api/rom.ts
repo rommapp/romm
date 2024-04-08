@@ -13,10 +13,10 @@ import type { Rom } from "@/stores/roms";
 export const romApi = api;
 
 async function uploadRoms({
-  platform,
+  platformId,
   romsToUpload,
 }: {
-  platform: number;
+  platformId: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
   let formData = new FormData();
@@ -26,7 +26,7 @@ async function uploadRoms({
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    params: { platform_id: platform },
+    params: { platform_id: platformId },
   });
 }
 
