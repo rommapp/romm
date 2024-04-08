@@ -2,9 +2,10 @@
 import type { Events } from "@/types/emitter";
 
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
+import AddPlatformDialog from "@/components/Dialog/Platform/AddPlatform.vue";
 import SearchRomGlobalDialog from "@/components/Dialog/Rom/SearchRomGlobal.vue";
 import RailFooter from "@/components/Drawer/Footer.vue";
 import DrawerHeader from "@/components/Drawer/Header.vue";
@@ -28,12 +29,6 @@ emitter?.on("toggleDrawer", () => {
 emitter?.on("toggleDrawerRail", () => {
   rail.value = !rail.value;
   localStorage.setItem("rail", rail.value.toString());
-
-
-async function addPlatform(){
-  const { data: message } = await platformApi.uploadPlatform("romm");
-  console.log(message)
-}
 });
 </script>
 
@@ -110,8 +105,10 @@ async function addPlatform(){
             >
           </template>
         </v-list-item>
-        <v-list-item class="bg-terciary" @click="addPlatform">
-          <span v-if="!rail" class="text-body-2 text-truncate">Add platform</span>
+        <v-list-item class="bg-terciary" @click="emitter?.emit('showAddPlatformDialog', null)">
+          <span v-if="!rail" class="text-body-2 text-truncate"
+            >Add platform</span
+          >
           <template v-slot:prepend>
             <v-avatar :rounded="0" size="40"
               ><v-icon>mdi-plus</v-icon></v-avatar
@@ -153,4 +150,5 @@ async function addPlatform(){
   </v-navigation-drawer>
 
   <search-rom-global-dialog />
+  <add-platform-dialog />
 </template>
