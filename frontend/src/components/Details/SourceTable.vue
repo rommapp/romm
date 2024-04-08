@@ -7,7 +7,7 @@ defineProps<{ rom: Rom }>();
 <template>
   <div rounded="0" class="table">
     <v-row
-      v-if="rom.igdb_id"
+      v-if="rom.igdb_id || rom.moby_id"
       class="align-center justify-center pa-2"
       no-gutters
     >
