@@ -121,7 +121,7 @@ emitter?.on("toggleDrawerRail", () => {
           >
           <template v-slot:prepend>
             <v-avatar :rounded="0" size="40"
-              ><v-icon>mdi-plus</v-icon></v-avatar
+              ><v-icon>mdi-upload</v-icon></v-avatar
             >
           </template>
         </v-list-item>
