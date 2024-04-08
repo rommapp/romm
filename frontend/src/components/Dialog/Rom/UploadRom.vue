@@ -31,13 +31,12 @@ async function uploadRoms() {
   if (!platform.value) return;
   show.value = false;
   scanningStore.set(true);
-  const platformId = platform.value.id
+  const platformId = platform.value.id;
   emitter?.emit("snackbarShow", {
     msg: `Uploading ${romsToUpload.value.length} roms to ${platform.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
-
 
   await romApi
     .uploadRoms({
@@ -133,38 +132,66 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-toolbar>
+
       <v-divider class="border-opacity-25" :thickness="1" />
 
-      <v-card-text class="my-4 py-0">
-        <v-select
-          label="Platform"
-          item-title="name"
-          v-model="platform"
-          :items="platforms.value"
-          variant="outlined"
-          rounded="0"
-          density="comfortable"
-          prepend-inner-icon="mdi-controller"
-          prepend-icon=""
-          return-object
-          clearable
-          hide-details
-        >
-          <template v-slot:item="{ props, item }">
-            <v-list-item
-              class="py-2"
-              v-bind="props"
-              :title="item.raw.name ?? ''"
+      <v-toolbar density="compact" class="bg-primary">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="9">
+            <v-select
+              label="Platform"
+              item-title="name"
+              v-model="platform"
+              :items="platforms.value"
+              prepend-inner-icon="mdi-controller"
+              prepend-icon=""
+              return-object
+              clearable
+              hide-details
             >
-              <template v-slot:prepend>
-                <v-avatar :rounded="0" size="35">
-                  <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
-                </v-avatar>
+              <template v-slot:item="{ props, item }">
+                <v-list-item
+                  class="py-2"
+                  v-bind="props"
+                  :title="item.raw.name ?? ''"
+                >
+                  <template v-slot:prepend>
+                    <v-avatar :rounded="0" size="35">
+                      <platform-icon
+                        :key="item.raw.slug"
+                        :slug="item.raw.slug"
+                      />
+                    </v-avatar>
+                  </template>
+                </v-list-item>
               </template>
-            </v-list-item>
-          </template>
-        </v-select>
-      </v-card-text>
+            </v-select>
+          </v-col>
+          <v-col cols="3">
+            <v-btn
+              block
+              icon=""
+              class="text-romm-accent-1 bg-terciary"
+              rounded="0"
+              variant="text"
+              @click="triggerFileInput"
+            >
+              <v-icon class="mr-2">mdi-plus</v-icon>Add roms
+            </v-btn>
+            <v-file-input
+              class="file-input"
+              id="file-input"
+              @keyup.enter="uploadRoms()"
+              v-model="romsToUpload"
+              multiple
+              required
+            />
+          </v-col>
+        </v-row>
+      </v-toolbar>
+
+      <v-divider class="border-opacity-25" :thickness="1" />
+
       <v-card-text
         v-if="romsToUpload.length > 0"
         class="scroll bg-terciary py-2 px-8"
@@ -179,26 +206,7 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-card-text>
-      <v-card-text class="mt-4 py-0">
-        <v-btn
-          size="large"
-          block
-          prepend-icon="mdi-plus"
-          variant="outlined"
-          class="text-romm-accent-1"
-          @click="triggerFileInput"
-        >
-          Add games
-        </v-btn>
-        <v-file-input
-          class="file-input"
-          id="file-input"
-          @keyup.enter="uploadRoms()"
-          v-model="romsToUpload"
-          multiple
-          required
-        />
-      </v-card-text>
+
       <v-card-text class="my-4 py-0">
         <v-row class="justify-center px-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
