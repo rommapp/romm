@@ -46,9 +46,10 @@ python-multipart = "^0.0.9"
 types-python-jose = "^3.3.4.20240106"
 types-passlib = "^1.7.7.20240311"
 watchdog = "^4.0.0"
-xmltodict = "^0.13.0"
 Pillow = "10.2.0"
 numpy = "^1.26.4"
+fakeredis = "^2.21.3"
+yarl = "^1.9.4"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.1.1"

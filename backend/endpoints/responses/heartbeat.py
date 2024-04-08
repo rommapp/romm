@@ -14,7 +14,6 @@ class TaskDict(WatcherDict):
 class SchedulerDict(TypedDict):
     RESCAN: TaskDict
     SWITCH_TITLEDB: TaskDict
-    MAME_XML: TaskDict
 
 
 class MetadataSourcesDict(TypedDict):

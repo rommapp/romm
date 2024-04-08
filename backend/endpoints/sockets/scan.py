@@ -46,7 +46,7 @@ async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
     selected_roms: list[str] = (),
-    metadata_sources: list[str] = (),
+    metadata_sources: list[str] = ["igdb", "moby"],
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -54,7 +54,7 @@ async def scan_platforms(
         platform_slugs (list[str]): List of platform slugs to be scanned
         scan_type (str): Type of scan to be performed. Defaults to "quick".
         selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to [].
-        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to [].
+        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
     """
 
     sm = _get_socket_manager()
@@ -90,11 +90,12 @@ async def scan_platforms(
             if platform and scan_type == ScanType.NEW_PLATFORMS:
                 continue
 
-            scanned_platform = scan_platform(
-                platform_slug, fs_platforms, metadata_sources
-            )
+            scanned_platform = scan_platform(platform_slug, fs_platforms)
             if platform:
                 scanned_platform.id = platform.id
+                # Keep the existing ids if they exist on the platform
+                scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
+                scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
 
             scan_stats.scanned_platforms += 1
             scan_stats.added_platforms += 1 if not platform else 0
@@ -130,7 +131,8 @@ async def scan_platforms(
 
                 # This logic is tricky so only touch it if you know what you're doing
                 should_scan_rom = (
-                    (scan_type == ScanType.QUICK and not rom)
+                    (scan_type == ScanType.NEW_PLATFORMS and not rom)
+                    or (scan_type == ScanType.QUICK and not rom)
                     or (
                         scan_type == ScanType.UNIDENTIFIED
                         and rom
@@ -148,10 +150,10 @@ async def scan_platforms(
 
                 if should_scan_rom:
                     scanned_rom = await scan_rom(
-                        platform,
-                        fs_rom,
-                        rom,
+                        platform=platform,
+                        rom_attrs=fs_rom,
                         scan_type=scan_type,
+                        rom=rom,
                         metadata_sources=metadata_sources,
                     )
 
@@ -228,7 +230,7 @@ async def stop_scan_handler(_sid: str):
 
     existing_jobs = high_prio_queue.get_jobs()
     for job in existing_jobs:
-        if job.func_name == "scan_platform":
+        if job.func_name == "scan_platform" and job.is_started:
             return await cancel_job(job)
 
     workers = Worker.all(connection=redis_client)
@@ -237,6 +239,7 @@ async def stop_scan_handler(_sid: str):
         if (
             current_job
             and current_job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and current_job.is_started
         ):
             return await cancel_job(current_job)
 

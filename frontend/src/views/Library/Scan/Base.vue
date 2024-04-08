@@ -1,17 +1,19 @@
 <script setup lang="ts">
+import { computed, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import { storeToRefs } from "pinia";
-import { ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
+const { smAndDown } = useDisplay();
 
 const scanOptions = [
   {
@@ -19,11 +21,7 @@ const scanOptions = [
     subtitle: "Scan new platforms only (fastest)",
     value: "new_platforms",
   },
-  {
-    title: "Quick scan",
-    subtitle: "Scan new files only",
-    value: "quick",
-  },
+  { title: "Quick scan", subtitle: "Scan new files only", value: "quick" },
   {
     title: "Unidentified games",
     subtitle: "Scan games with no metadata match",
@@ -41,7 +39,8 @@ const scanOptions = [
   },
 ];
 
-const metadataOptions = [
+// Use a computed property to reactively update metadataOptions based on heartbeat
+const metadataOptions = computed(() => [
   {
     name: "IGDB",
     value: "igdb",
@@ -52,13 +51,12 @@ const metadataOptions = [
     value: "moby",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
-];
+]);
 
 const platformsToScan = ref<Platform[]>([]);
 const scanType = ref("quick");
-const metadataSources = ref<typeof metadataOptions>(
-  metadataOptions.filter((s) => !s.disabled)
-);
+// Use the computed metadataOptions to filter out disabled sources
+const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
@@ -83,12 +81,18 @@ socket.on("scan:done", (stats) => {
 async function stopScan() {
   socket.emit("scan:stop");
 }
+
+// Since metadataOptions is now a computed property, it will automatically update.
+// Therefore, we only need to watch metadataOptions for changes.
+watch(metadataOptions, (newOptions) => {
+  metadataSources.value = newOptions.filter((option) => !option.disabled);
+});
 </script>
 
 <template>
   <!-- Platform selector -->
   <v-row class="px-4 pt-4 align-center" no-gutters>
-    <v-col cols="6" class="pr-1">
+    <v-col cols="12" xs="12" sm="12" md="6" xl="6" class="pr-1">
       <v-select
         label="Platforms"
         item-title="name"
@@ -114,7 +118,15 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="3" class="pr-1">
+    <v-col
+      cols="12"
+      xs="5"
+      sm="5"
+      md="3"
+      xl="3"
+      class="pr-1"
+      :class="{ 'mt-3': smAndDown }"
+    >
       <v-select
         label="Metadata sources"
         item-title="name"
@@ -144,7 +156,15 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
-    <v-col cols="3">
+    <v-col
+      cols="12"
+      xs="7"
+      sm="7"
+      md="3"
+      xl="3"
+      class="pr-1"
+      :class="{ 'mt-3': smAndDown }"
+    >
       <!-- Scan options -->
       <v-select
         hide-details
@@ -153,7 +173,6 @@ async function stopScan() {
         label="Scan option"
         v-model="scanType"
         :items="scanOptions"
-        class="py-3"
       >
         <template v-slot:item="{ props, item }">
           <v-list-item
@@ -198,7 +217,7 @@ async function stopScan() {
     </v-btn>
     <span
       v-if="metadataSources.length == 0"
-      class="ml-4 text-caption text-yellow"
+      class="ml-4 text-caption text-yellow py-4"
     >
       <v-icon class="mr-2">mdi-alert</v-icon>
       Please select at least one metadata source.
@@ -232,11 +251,11 @@ async function stopScan() {
           class="text-body-2 romm-grey"
           :to="{ name: 'rom', params: { rom: rom.id } }"
         >
-          <span v-if="rom.igdb_id" class="ml-10">
+          <span v-if="rom.igdb_id || rom.moby_id" class="ml-10">
             • Identified <b>{{ rom.name }} 👾</b>
           </span>
           <span v-else class="ml-10">
-            • {{ rom.file_name }} not found in IGDB ❌
+            • {{ rom.file_name }} not found in metadata sources ❌
           </span>
         </v-list-item>
       </v-col>

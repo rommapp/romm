@@ -26,7 +26,7 @@ services:
       - romm_redis_data:/redis-data # Cached data for background tasks
       - /path/to/library:/romm/library # Your game library
       - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
-      - /path/to/config:/romm/config # [Optional] Path where config.yml is stored
+      - /path/to/config:/romm/config # Path where config.yml is stored
     ports:
       - 80:8080
     depends_on:

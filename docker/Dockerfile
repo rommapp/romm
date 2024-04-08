@@ -154,9 +154,7 @@ RUN rm -r \
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
 
 # Create the directories and set ownership and permissions
-RUN mkdir /romm /redis-data && \
-    chown romm:romm /romm /redis-data /backend/handler/fixtures && \
-    chmod -R 755 /romm /redis-data /backend/handler/fixtures
+RUN mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
 # Move everything we prepared over to our final docker image
 FROM scratch

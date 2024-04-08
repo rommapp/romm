@@ -74,7 +74,7 @@ const { smAndDown } = useDisplay();
     </v-col>
   </v-row>
   <v-row
-    v-if="rom.igdb_id"
+    v-if="rom.igdb_id || rom.moby_id"
     class="text-white text-shadow"
     :class="{ 'text-center': smAndDown }"
     no-gutters

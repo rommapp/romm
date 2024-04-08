@@ -48,7 +48,9 @@ async def search_rom(
     if not search_term:
         return []
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers..."))
+    log.info(
+        emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers...")
+    )
     matched_roms: list = []
 
     log.info(f"Searching by {search_by.lower()}: {search_term}")
@@ -73,7 +75,10 @@ async def search_rom(
 
     merged_dict = {item["name"]: item for item in igdb_matched_roms}
     for item in moby_matched_roms:
-        merged_dict[item["name"]] = {**item, **merged_dict.get(item["name"], {})}
+        merged_dict[item["name"]] = {
+            **item,
+            **merged_dict.get(item.get("name", ""), {}),
+        }
 
     matched_roms = [
         {

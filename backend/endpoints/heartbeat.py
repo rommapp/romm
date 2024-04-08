@@ -1,11 +1,9 @@
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
-    ENABLE_SCHEDULED_UPDATE_MAME_XML,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
-    SCHEDULED_UPDATE_MAME_XML_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
@@ -49,13 +47,7 @@ def heartbeat() -> HeartbeatResponse:
                 "ENABLED": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
                 "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
                 "TITLE": "Scheduled Switch TitleDB update",
-                "MESSAGE": "Updates the Nintedo Switch TitleDB file",
-            },
-            "MAME_XML": {
-                "ENABLED": ENABLE_SCHEDULED_UPDATE_MAME_XML,
-                "CRON": SCHEDULED_UPDATE_MAME_XML_CRON,
-                "TITLE": "Scheduled MAME XML update",
-                "MESSAGE": "Updates the MAME XML file",
+                "MESSAGE": "Updates the Nintendo Switch TitleDB file",
             },
         }
     }
