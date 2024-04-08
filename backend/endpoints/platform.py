@@ -1,8 +1,9 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
+from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import APIRouter, HTTPException, Request, status
-from handler import db_platform_handler, igdb_handler
+from handler import db_platform_handler, igdb_handler, fs_platform_handler
 from logger.logger import log
 
 router = APIRouter()
@@ -21,9 +22,15 @@ async def add_platforms(request: Request) -> MessageResponse:
 
     data = await request.json()
     fs_slug = data["fs_slug"]
-    platform = igdb_handler.get_platform(fs_slug)
-    log.debug(platform)
-
+    try:
+        fs_platform_handler.add_platforms(fs_slug=fs_slug)
+    except PlatformAlreadyExistsException as e:
+        log.error(str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+    # platform = igdb_handler.get_platform(fs_slug)
+    # db_platform_handler.add_platform(platform=platform)
     return {"msg": f"Platform created successfully!"}
 
 

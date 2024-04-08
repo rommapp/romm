@@ -19,6 +19,15 @@ class PlatformNotFoundException(Exception):
         return self.message
 
 
+class PlatformAlreadyExistsException(Exception):
+    def __init__(self, fs_slug: str):
+        self.message = f"Can't create platform {fs_slug}: already exists"
+        super().__init__(self.message)
+
+    def __repr__(self):
+        return self.message
+
+
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
         self.message = f"Roms not found for platform {platform}. {folder_struct_msg}"
