@@ -6,7 +6,6 @@ import FilterTextField from "@/components/Gallery/AppBar/FilterTextField.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/SelectingBtn.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
 import SortBar from "@/components/Gallery/AppBar/SortBar.vue";
-import SortBtn from "@/components/Gallery/AppBar/SortBtn.vue";
 import storeAuth from "@/stores/auth";
 
 // Props

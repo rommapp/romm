@@ -132,7 +132,7 @@ export default defineStore("roms", {
     },
     filterUnmatched() {
       this._filteredIDs = this.filteredRoms
-        .filter((rom) => !rom.igdb_id)
+        .filter((rom) => !rom.igdb_id && !rom.moby_id)
         .map((roms) => roms.id);
     },
     filterGenre(genreToFilter: string) {

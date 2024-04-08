@@ -98,7 +98,7 @@ export function formatTimestamp(timestamp: string | null) {
   if (!timestamp) return "-";
 
   const date = new Date(timestamp);
-  return date.toLocaleString();
+  return date.toLocaleString("en-GB");
 }
 
 export function regionToEmoji(region: string) {

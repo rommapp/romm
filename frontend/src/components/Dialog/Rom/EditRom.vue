@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-
+import Cover from "@/components/Details/Cover.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay, useTheme } from "vuetify";
 
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+// Props
+const theme = useTheme();
+const { xs, mdAndDown, smAndDown, md, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
+const imagePreviewUrl = ref<string | undefined>("");
+const removeCover = ref(false);
 const fileNameInputRules = {
   required: (value: string) => !!value || "Required",
   newFileName: (value: string) => !value.includes("/") || "Invalid characters",
 };
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit) => {
   show.value = true;
@@ -23,6 +26,27 @@ emitter?.on("showEditRomDialog", (romToEdit) => {
 });
 
 // Functions
+function triggerFileInput() {
+  const fileInput = document.getElementById("file-input");
+  fileInput?.click();
+}
+
+function previewImage(event: { target: { files: any[] } }) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    imagePreviewUrl.value = reader.result?.toString();
+  };
+  if (file) {
+    reader.readAsDataURL(file);
+  }
+}
+
+async function removeArtwork() {
+  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  removeCover.value = true;
+}
+
 async function updateRom() {
   if (!rom.value) return;
 
@@ -44,8 +68,9 @@ async function updateRom() {
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
+
   await romApi
-    .updateRom({ rom: rom.value })
+    .updateRom({ rom: rom.value, removeCover: removeCover.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -70,6 +95,7 @@ async function updateRom() {
 
 function closeDialog() {
   show.value = false;
+  imagePreviewUrl.value = "";
 }
 </script>
 
@@ -113,51 +139,94 @@ function closeDialog() {
       <v-divider class="border-opacity-25" :thickness="1" />
 
       <v-card-text>
-        <v-row class="pa-2" no-gutters>
-          <v-text-field
-            @keyup.enter="updateRom()"
-            v-model="rom.name"
-            label="Name"
-            variant="outlined"
-            required
-            hide-details
-          />
-        </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-text-field
-            @keyup.enter="updateRom()"
-            v-model="rom.file_name"
-            :rules="[
-              fileNameInputRules.newFileName,
-              fileNameInputRules.required,
-            ]"
-            label="File name"
-            variant="outlined"
-            required
-            hide-details
-          />
-        </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-textarea
-            @keyup.enter="updateRom()"
-            v-model="rom.summary"
-            label="Summary"
-            variant="outlined"
-            required
-            hide-details
-          />
-        </v-row>
-        <v-row class="pa-2" no-gutters>
-          <v-file-input
-            @keyup.enter="updateRom()"
-            v-model="rom.artwork"
-            label="Custom artwork"
-            accept="image/*"
-            prepend-inner-icon="mdi-image"
-            prepend-icon=""
-            variant="outlined"
-            hide-details
-          />
+        <v-row class="align-center" no-gutters>
+          <v-col cols="12" md="8" lg="9">
+            <v-text-field
+              class="py-2"
+              :class="{ 'pr-4': lgAndUp }"
+              @keyup.enter="updateRom()"
+              v-model="rom.name"
+              label="Name"
+              variant="outlined"
+              required
+              hide-details
+            />
+            <v-text-field
+              class="py-2"
+              :class="{ 'pr-4': lgAndUp }"
+              @keyup.enter="updateRom()"
+              v-model="rom.file_name"
+              :rules="[
+                fileNameInputRules.newFileName,
+                fileNameInputRules.required,
+              ]"
+              label="File name"
+              variant="outlined"
+              required
+              hide-details
+            />
+            <v-textarea
+              class="py-2"
+              :class="{ 'pr-4': lgAndUp }"
+              @keyup.enter="updateRom()"
+              v-model="rom.summary"
+              label="Summary"
+              variant="outlined"
+              required
+              hide-details
+            />
+          </v-col>
+          <v-col cols="12" md="4" lg="3">
+            <cover
+              :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
+              :romId="rom.id"
+              :src="
+                imagePreviewUrl
+                  ? imagePreviewUrl
+                  : !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  : !rom.has_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  : `/assets/romm/resources/${rom.path_cover_l}`
+              "
+              :lazy-src="
+                imagePreviewUrl
+                  ? imagePreviewUrl
+                  : !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                  : !rom.has_cover
+                  ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                  : `/assets/romm/resources/${rom.path_cover_s}`
+              "
+            >
+              <template v-slot:editable>
+                <v-chip-group class="position-absolute edit-cover pa-0">
+                  <v-chip
+                    class="translucent"
+                    size="small"
+                    @click="triggerFileInput"
+                    label
+                    ><v-icon>mdi-pencil</v-icon>
+                    <v-file-input
+                      id="file-input"
+                      v-model="rom.artwork"
+                      accept="image/*"
+                      hide-details
+                      class="file-input"
+                      @change="previewImage"
+                    />
+                  </v-chip>
+                  <v-chip
+                    class="translucent"
+                    size="small"
+                    @click="removeArtwork"
+                    label
+                    ><v-icon class="text-red">mdi-delete</v-icon></v-chip
+                  >
+                </v-chip-group>
+              </template>
+            </cover>
+          </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
@@ -174,12 +243,21 @@ function closeDialog() {
 .edit-content {
   width: 900px;
 }
-
 .edit-content-tablet {
-  width: 570px;
+  width: 620px;
 }
-
 .edit-content-mobile {
   width: 85vw;
+}
+.edit-cover {
+  bottom: -0.1rem;
+  right: -0.3rem;
+}
+.file-input {
+  display: none;
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
 }
 </style>
