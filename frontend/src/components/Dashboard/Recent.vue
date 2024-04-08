@@ -1,9 +1,4 @@
 <script setup lang="ts">
-import LoadingDialog from "@/components/Dialog/Loading.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
@@ -69,12 +64,6 @@ onMounted(() => {
       <!-- TODO: Add a button to upload roms if no roms were uploaded in the last 30 days -->
     </v-card-text>
   </v-card>
-
-  <search-rom-dialog />
-  <upload-rom-dialog />
-  <edit-rom-dialog />
-  <delete-rom-dialog />
-  <loading-dialog />
 </template>
 <style scoped>
 .scroll {

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import CreatePlatformVersionDialog from "@/components/Dialog/Config/CreatePlatformVersion.vue";
-import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -121,9 +119,6 @@ const editable = ref(false);
       </v-row>
     </v-card-text>
   </v-card>
-
-  <create-platform-version-dialog />
-  <delete-platform-version-dialog />
 </template>
 
 <style scoped>

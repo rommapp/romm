@@ -10,11 +10,6 @@ import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
-import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
-import LoadingDialog from "@/components/Dialog/Loading.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
@@ -269,12 +264,6 @@ watch(
       </template>
     </v-row>
   </template>
-
-  <search-rom-dialog />
-  <edit-rom-dialog />
-  <delete-rom-dialog />
-  <loading-dialog />
-  <delete-asset-dialog />
 </template>
 
 <style scoped>
