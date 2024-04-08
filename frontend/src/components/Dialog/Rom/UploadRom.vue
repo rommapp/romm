@@ -31,16 +31,18 @@ async function uploadRoms() {
   if (!platform.value) return;
   show.value = false;
   scanningStore.set(true);
+  const platformId = platform.value.id
   emitter?.emit("snackbarShow", {
     msg: `Uploading ${romsToUpload.value.length} roms to ${platform.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
 
+
   await romApi
     .uploadRoms({
       romsToUpload: romsToUpload.value,
-      platform: platform.value.id,
+      platformId: platformId,
     })
     .then(({ data }) => {
       const { uploaded_roms, skipped_roms } = data;
@@ -64,7 +66,7 @@ async function uploadRoms() {
       if (!socket.connected) socket.connect();
       setTimeout(() => {
         socket.emit("scan", {
-          platforms: [platform.value?.id],
+          platforms: [platformId],
           type: "quick",
         });
       }, 2000);
@@ -133,7 +135,7 @@ function closeDialog() {
       </v-toolbar>
       <v-divider class="border-opacity-25" :thickness="1" />
 
-      <v-card-text>
+      <v-card-text class="my-4 py-0">
         <v-select
           label="Platform"
           item-title="name"
@@ -141,6 +143,7 @@ function closeDialog() {
           :items="platforms.value"
           variant="outlined"
           rounded="0"
+          density="comfortable"
           prepend-inner-icon="mdi-controller"
           prepend-icon=""
           return-object
@@ -176,7 +179,7 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-card-text>
-      <v-card-text>
+      <v-card-text class="mt-4 py-0">
         <v-btn
           size="large"
           block
@@ -196,8 +199,8 @@ function closeDialog() {
           required
         />
       </v-card-text>
-      <v-card-text>
-        <v-row class="justify-center pa-2" no-gutters>
+      <v-card-text class="my-4 py-0">
+        <v-row class="justify-center px-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
           <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary">
             Upload
