@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { storeToRefs } from "pinia";
+import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -263,36 +263,33 @@ watch(metadataOptions, (newOptions) => {
   </div>
 
   <!-- Scan stats -->
-  <v-row class="pa-4 align-center" no-gutters v-if="!scanning">
-    <v-col>
-      <v-chip
-        v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
-        text-color="white"
-        class="mr-2"
-      >
-        <v-icon left>mdi-information</v-icon>&nbsp; Platforms:
-        {{ scanStats.scanned_platforms }} scanned, with
-        {{ scanStats.added_platforms }} new and
-        {{ scanStats.metadata_platforms }} identified
-      </v-chip>
-      <v-chip
-        v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
-        text-color="white"
-        class="mr-2"
-      >
-        <v-icon left>mdi-information</v-icon>&nbsp; Roms:
-        {{ scanStats.scanned_roms }} scanned, with
-        {{ scanStats.added_roms }} new and
-        {{ scanStats.metadata_roms }} identified
-      </v-chip>
-    </v-col>
-  </v-row>
+  <v-bottom-navigation :elevation="0" height="40" class="text-caption">
+    <v-chip
+      v-if="scanningPlatforms.length > 0"
+      color="romm-accent-1"
+      text-color="white"
+      class="mr-2 my-1"
+    >
+      <v-icon left>mdi-information</v-icon>&nbsp; Platforms:
+      {{ scanningPlatforms.length }} scanned, with
+      {{ scanStats.added_platforms }} new and
+      {{ scanStats.metadata_platforms }} identified
+    </v-chip>
+    <v-chip
+      v-if="scanningPlatforms.length > 0"
+      color="romm-accent-1"
+      text-color="white"
+      class="my-1"
+    >
+      <v-icon left>mdi-information</v-icon>&nbsp; Roms:
+      {{ scanStats.scanned_roms }} scanned, with {{ scanStats.added_roms }} new
+      and {{ scanStats.metadata_roms }} identified
+    </v-chip>
+  </v-bottom-navigation>
 </template>
 
 <style scoped>
 .scan-log {
-  max-height: calc(100vh - 245px);
+  max-height: calc(100vh - 200px);
 }
 </style>
