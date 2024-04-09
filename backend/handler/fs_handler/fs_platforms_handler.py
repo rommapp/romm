@@ -1,8 +1,13 @@
 import os
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH
-from config.config_manager import config_manager as cm, Config
-from exceptions.fs_exceptions import FolderStructureNotMatchException, PlatformAlreadyExistsException
+from config.config_manager import Config
+from config.config_manager import config_manager as cm
+from exceptions.fs_exceptions import (
+    FolderStructureNotMatchException,
+    PlatformAlreadyExistsException,
+)
 from handler.fs_handler import FSHandler
 
 
@@ -23,7 +28,9 @@ class FSPlatformsHandler(FSHandler):
             (
                 os.mkdir(f"{cnfg.HIGH_PRIO_STRUCTURE_PATH}/{fs_slug}")
                 if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-                else os.mkdir(f"{LIBRARY_BASE_PATH}/{fs_slug}/roms")
+                else Path(os.path.join(LIBRARY_BASE_PATH, fs_slug, "roms")).mkdir(
+                    parents=True
+                )
             )
         except FileExistsError:
             raise PlatformAlreadyExistsException(fs_slug)
