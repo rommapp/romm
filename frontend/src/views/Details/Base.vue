@@ -93,7 +93,6 @@ onBeforeMount(async () => {
 watch(
   () => route.fullPath,
   async () => {
-    emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
     await fetchDetails();
   }
 );
