@@ -29,8 +29,6 @@ async def add_platforms(request: Request) -> MessageResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-    # platform = igdb_handler.get_platform(fs_slug)
-    # db_platform_handler.add_platform(platform=platform)
     return {"msg": f"Platform created successfully!"}
 
 
