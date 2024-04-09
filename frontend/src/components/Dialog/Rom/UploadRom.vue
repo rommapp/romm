@@ -89,6 +89,10 @@ function triggerFileInput() {
   fileInput?.click();
 }
 
+function removeRomFromList(romName: string) {
+  romsToUpload.value = romsToUpload.value.filter((rom) => rom.name !== romName);
+}
+
 function closeDialog() {
   show.value = false;
   romsToUpload.value = [];
@@ -196,21 +200,36 @@ function closeDialog() {
         v-if="romsToUpload.length > 0"
         class="scroll bg-terciary py-2 px-8"
       >
-        <v-row v-for="rom in romsToUpload" class="py-2" no-gutters>
-          <v-col cols="9" lg="10">
+        <v-row v-for="rom in romsToUpload" class="py-2 align-center" no-gutters>
+          <v-col cols="8" lg="9">
             {{ rom.name }}
           </v-col>
           <v-col cols="3" lg="2">
             [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span
             >]
           </v-col>
+          <v-col cols="1"
+            ><v-btn
+              @click="removeRomFromList(rom.name)"
+              icon
+              size="x-small"
+              rounded="0"
+              variant="text"
+              class="pa-0 ma-0"
+              ><v-icon class="text-romm-red">mdi-delete</v-icon></v-btn
+            ></v-col
+          >
         </v-row>
       </v-card-text>
 
       <v-card-text class="my-4 py-0">
         <v-row class="justify-center px-2" no-gutters>
           <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
-          <v-btn @click="uploadRoms()" class="text-romm-green ml-5 bg-terciary">
+          <v-btn
+            @click="uploadRoms()"
+            class="text-romm-green ml-5 bg-terciary"
+            :disabled="romsToUpload.length == 0 || platform == null"
+          >
             Upload
           </v-btn>
         </v-row>

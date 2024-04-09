@@ -7,7 +7,7 @@ import { inject, onBeforeUnmount, ref } from "vue";
 
 // Props
 const show = ref(false);
-const fsSlugToCreate = ref();
+const fsSlugToCreate = ref<string>("");
 const slugToCreate = ref();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showAddPlatformDialog", () => {
@@ -50,7 +50,7 @@ function addPlatform() {
 
 function closeDialog() {
   show.value = false;
-  fsSlugToCreate.value = null;
+  fsSlugToCreate.value = "";
 }
 
 onBeforeUnmount(() => {
@@ -105,6 +105,7 @@ onBeforeUnmount(() => {
           <v-btn
             @click="addPlatform()"
             class="text-romm-green bg-terciary ml-5"
+            :disabled="fsSlugToCreate == ''"
           >
             Confirm
           </v-btn>
