@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import platformApi from "@/services/api/platform";
+import socket from "@/services/socket";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
-import platformApi from "@/services/api/platform";
 
 // Props
 const show = ref(false);
@@ -19,11 +20,19 @@ function addPlatform() {
     .uploadPlatform({ fsSlug: fsSlugToCreate.value })
     .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: `Platform ${fsSlugToCreate.value} created successfully!`,
+        msg: `Platform ${fsSlugToCreate.value} created successfully! Starting scan...`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
+
+      if (!socket.connected) socket.connect();
+      setTimeout(() => {
+        socket.emit("scan", {
+          platforms: [],
+          type: "new_platforms",
+        });
+      }, 2000);
       closeDialog();
     })
     .catch((error) => {
