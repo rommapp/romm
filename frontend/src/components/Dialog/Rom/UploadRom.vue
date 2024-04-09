@@ -141,7 +141,7 @@ function closeDialog() {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="9">
+          <v-col cols="7" sm="8" md="8" lg="9">
             <v-select
               label="Platform"
               item-title="name"
@@ -171,7 +171,7 @@ function closeDialog() {
               </template>
             </v-select>
           </v-col>
-          <v-col cols="3">
+          <v-col>
             <v-btn
               block
               icon=""
