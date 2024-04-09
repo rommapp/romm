@@ -141,7 +141,7 @@ function closeDialog() {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="7" sm="8" md="8" lg="9">
+          <v-col cols="10" sm="8" lg="9">
             <v-select
               label="Platform"
               item-title="name"
@@ -180,7 +180,8 @@ function closeDialog() {
               variant="text"
               @click="triggerFileInput"
             >
-              <v-icon class="mr-2">mdi-plus</v-icon>Add roms
+              <v-icon :class="{ 'mr-2': !xs }">mdi-plus</v-icon
+              ><span v-if="!xs">Add roms</span>
             </v-btn>
             <v-file-input
               class="file-input"

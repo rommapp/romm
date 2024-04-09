@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
 
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="6" xs="6" sm="6" md="6" lg="7">
+          <v-col cols="12" sm="5" md="6" lg="7">
             <v-text-field
               autofocus
               id="search-text-field"
@@ -146,7 +146,39 @@ onBeforeUnmount(() => {
               clearable
             />
           </v-col>
-          <v-col cols="4" xs="4" sm="5" md="5" lg="4">
+          <template v-if="!xs">
+            <v-col sm="5" lg="4">
+              <v-select
+                @click:clear="clearFilter"
+                clearable
+                label="Platform"
+                class="bg-terciary"
+                hide-details
+                v-model="selectedPlatform"
+                @update:model-value="filterRoms"
+                :items="platforms"
+              >
+              </v-select>
+            </v-col>
+            <v-col sm="2" md="1">
+              <v-btn
+                type="submit"
+                @click="searchRoms"
+                class="bg-terciary"
+                rounded="0"
+                variant="text"
+                icon="mdi-magnify"
+                block
+                :disabled="searching"
+              />
+            </v-col>
+          </template>
+        </v-row>
+      </v-toolbar>
+
+      <v-toolbar v-if="xs" density="compact" class="bg-primary">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="10">
             <v-select
               @click:clear="clearFilter"
               clearable
@@ -159,7 +191,7 @@ onBeforeUnmount(() => {
             >
             </v-select>
           </v-col>
-          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
+          <v-col cols="2">
             <v-btn
               type="submit"
               @click="searchRoms"
@@ -200,10 +232,8 @@ onBeforeUnmount(() => {
           <v-col
             class="pa-1"
             cols="4"
-            sm="2"
+            sm="3"
             md="2"
-            lg="2"
-            xl="2"
             v-show="!searching"
             v-for="rom in filteredRoms"
           >
@@ -346,12 +376,12 @@ onBeforeUnmount(() => {
 
 .search-content-tablet {
   width: 75vw;
-  height: 640px;
+  height: 775px;
 }
 
 .search-content-mobile {
   width: 85vw;
-  height: 640px;
+  height: 775px;
 }
 .matched-rom {
   transition-property: all;
