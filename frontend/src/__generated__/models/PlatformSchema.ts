@@ -10,7 +10,7 @@ export type PlatformSchema = {
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
     moby_id?: (number | null);
-    name: (string | null);
+    name: string;
     logo_path: string;
     rom_count: number;
 };
