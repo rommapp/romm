@@ -26,13 +26,6 @@ class BaseAsset(BaseModel):
     file_path = Column(String(length=1000), nullable=False)
     file_size_bytes = Column(BigInteger(), default=0, nullable=False)
 
-    rom_id = Column(
-        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
-    )
-    user_id = Column(
-        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
@@ -40,9 +33,37 @@ class BaseAsset(BaseModel):
     @cached_property
     def download_path(self) -> str:
         return f"/api/raw/assets/{self.full_path}?timestamp={self.updated_at}"
+    
+
+class PlatformAsset(BaseAsset):
+    __abstract__ = True
+
+    platform_id = Column(
+        Integer(), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False
+    )
 
 
-class Save(BaseAsset):
+class Firmware(PlatformAsset):
+    # Represents a BIOS or firmware file
+
+    __tablename__ = "firmwares"
+    __table_args__ = {"extend_existing": True}
+
+    platform = relationship("Platform", lazy="selectin", back_populates="firmwares")
+
+
+class RomAsset(BaseAsset):
+    __abstract__ = True
+
+    rom_id = Column(
+        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = Column(
+        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+
+class Save(RomAsset):
     __tablename__ = "saves"
     __table_args__ = {"extend_existing": True}
 
@@ -63,7 +84,7 @@ class Save(BaseAsset):
         return None
 
 
-class State(BaseAsset):
+class State(RomAsset):
     __tablename__ = "states"
     __table_args__ = {"extend_existing": True}
 
@@ -84,7 +105,7 @@ class State(BaseAsset):
         return None
 
 
-class Screenshot(BaseAsset):
+class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
