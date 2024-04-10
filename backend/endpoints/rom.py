@@ -3,7 +3,7 @@ from datetime import datetime
 from stat import S_IFREG
 from typing import Annotated, Optional
 
-from config import LIBRARY_BASE_PATH
+from config import LIBRARY_BASE_PATH, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
@@ -118,7 +118,11 @@ def get_roms(
         return paginate(session, qq, cursor_params)
 
 
-@protected_route(router.get, "/roms/{id}", ["roms.read"])
+@protected_route(
+    router.get,
+    "/roms/{id}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 def get_rom(request: Request, id: int) -> RomSchema:
     """Get rom endpoint
 
@@ -132,7 +136,11 @@ def get_rom(request: Request, id: int) -> RomSchema:
     return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
-@protected_route(router.head, "/roms/{id}/content/{file_name}", ["roms.read"])
+@protected_route(
+    router.head,
+    "/roms/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 def head_rom_content(request: Request, id: int, file_name: str):
     """Head rom content endpoint
 
@@ -242,6 +250,7 @@ async def update_rom(
     request: Request,
     id: int,
     rename_as_igdb: bool = False,
+    remove_cover: bool = False,
     artwork: Optional[UploadFile] = File(None),
 ) -> RomSchema:
     """Update rom endpoint
@@ -309,22 +318,34 @@ async def update_rom(
     cleaned_data["file_name_no_ext"] = fs_rom_handler.get_file_name_with_no_extension(
         fs_safe_file_name
     )
-    cleaned_data.update(
-        fs_resource_handler.get_rom_cover(
-            overwrite=True,
-            platform_fs_slug=platform_fs_slug,
-            rom_name=cleaned_data["name"],
-            url_cover=cleaned_data.get("url_cover", ""),
-        )
-    )
 
-    cleaned_data.update(
-        fs_resource_handler.get_rom_screenshots(
-            platform_fs_slug=platform_fs_slug,
-            rom_name=cleaned_data["name"],
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        ),
-    )
+    if remove_cover:
+        cleaned_data.update(
+            fs_resource_handler.remove_cover(
+                rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
+            )
+        )
+    else:
+        cleaned_data.update(
+            fs_resource_handler.get_rom_cover(
+                overwrite=True,
+                platform_fs_slug=platform_fs_slug,
+                rom_name=cleaned_data["name"],
+                url_cover=cleaned_data.get("url_cover", ""),
+            )
+        )
+
+    if (
+        cleaned_data["igdb_id"] != db_rom.igdb_id
+        or cleaned_data["moby_id"] != db_rom.moby_id
+    ):
+        cleaned_data.update(
+            fs_resource_handler.get_rom_screenshots(
+                platform_fs_slug=platform_fs_slug,
+                rom_name=cleaned_data["name"],
+                url_screenshots=cleaned_data.get("url_screenshots", []),
+            ),
+        )
 
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
