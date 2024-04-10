@@ -32,6 +32,42 @@ async function uploadRoms() {
   if (!selectedPlatform.value) return;
   show.value = false;
   scanningStore.set(true);
+
+  if (selectedPlatform.value.id == -1) {
+    await platformApi
+      .uploadPlatform({ fsSlug: selectedPlatform.value.fs_slug })
+      .then(() => {
+        emitter?.emit("snackbarShow", {
+          msg: `Platform ${selectedPlatform.value?.name} created successfully!`,
+          icon: "mdi-check-bold",
+          color: "green",
+          timeout: 2000,
+        });
+
+        if (!socket.connected) socket.connect();
+        setTimeout(() => {
+          socket.emit("scan", {
+            platforms: [],
+            type: "new_platforms",
+          });
+        }, 2000);
+      })
+      .catch((error) => {
+        console.log(error);
+        emitter?.emit("snackbarShow", {
+          msg: error.response.data.detail,
+          icon: "mdi-close-circle",
+          color: "red",
+        });
+        return;
+      })
+      .finally(() => {
+        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      });
+  }
+
+  // TODO: wait for platform to be created to get the id
+
   const platformId = selectedPlatform.value.id;
   emitter?.emit("snackbarShow", {
     msg: `Uploading ${romsToUpload.value.length} roms to ${selectedPlatform.value.name}...`,
