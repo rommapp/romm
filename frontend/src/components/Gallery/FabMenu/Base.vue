@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
-import { useRoute } from "vue-router";
-
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { computed, inject, ref } from "vue";
+import { useRoute } from "vue-router";
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -18,6 +18,22 @@ const auth = storeAuth();
 const romsStore = storeRoms();
 const scanningStore = storeScanning();
 const route = useRoute();
+const heartbeat = storeHeartbeat();
+// Use a computed property to reactively update metadataOptions based on heartbeat
+const metadataOptions = computed(() => [
+  {
+    name: "IGDB",
+    value: "igdb",
+    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
+  },
+  {
+    name: "MobyGames",
+    value: "moby",
+    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+  },
+]);
+// Use the computed metadataOptions to filter out disabled sources
+const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 // Functions
 async function onScan() {
@@ -33,6 +49,7 @@ async function onScan() {
     platforms: [route.params.platform],
     roms: romsStore.selectedRoms,
     type: "partial",
+    apis: metadataSources.value.map((s) => s.value),
   });
 }
 

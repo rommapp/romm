@@ -7,7 +7,6 @@ import CreatePlatformVersionDialog from "@/components/Dialog/Config/CreatePlatfo
 import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatformBinding.vue";
 import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
-import AddPlatformDialog from "@/components/Dialog/Platform/AddPlatform.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
@@ -80,7 +79,6 @@ onMounted(() => {
   <app-bar v-if="mdAndDown" />
   <router-view :key="refreshView" />
 
-  <add-platform-dialog />
   <delete-platform-dialog />
   <search-rom-dialog />
   <match-rom-dialog />

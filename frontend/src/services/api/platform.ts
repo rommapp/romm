@@ -7,7 +7,7 @@ async function uploadPlatform({
   fsSlug,
 }: {
   fsSlug: string;
-}): Promise<{ data: MessageResponse[] }> {
+}): Promise<{ data: PlatformSchema }> {
   return api.post("/platforms", { fs_slug: fsSlug });
 }
 

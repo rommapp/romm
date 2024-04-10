@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
+import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref, onMounted } from "vue";
+import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
-import platformApi from "@/services/api/platform";
 
 // Props
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -18,6 +19,22 @@ const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
+const heartbeat = storeHeartbeat();
+// Use a computed property to reactively update metadataOptions based on heartbeat
+const metadataOptions = computed(() => [
+  {
+    name: "IGDB",
+    value: "igdb",
+    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
+  },
+  {
+    name: "MobyGames",
+    value: "moby",
+    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+  },
+]);
+// Use the computed metadataOptions to filter out disabled sources
+const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
@@ -25,6 +42,23 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     selectedPlatform.value = platformWhereUpload;
   }
   show.value = true;
+  platformApi
+    .getSupportedPlatforms()
+    .then(({ data }) => {
+      supportedPlatforms.value = data.sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to upload roms: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
 });
 
 // Functions
@@ -36,21 +70,14 @@ async function uploadRoms() {
   if (selectedPlatform.value.id == -1) {
     await platformApi
       .uploadPlatform({ fsSlug: selectedPlatform.value.fs_slug })
-      .then(() => {
+      .then(({ data }) => {
         emitter?.emit("snackbarShow", {
           msg: `Platform ${selectedPlatform.value?.name} created successfully!`,
           icon: "mdi-check-bold",
           color: "green",
           timeout: 2000,
         });
-
-        if (!socket.connected) socket.connect();
-        setTimeout(() => {
-          socket.emit("scan", {
-            platforms: [],
-            type: "new_platforms",
-          });
-        }, 2000);
+        selectedPlatform.value = data;
       })
       .catch((error) => {
         console.log(error);
@@ -65,8 +92,6 @@ async function uploadRoms() {
         emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       });
   }
-
-  // TODO: wait for platform to be created to get the id
 
   const platformId = selectedPlatform.value.id;
   emitter?.emit("snackbarShow", {
@@ -104,6 +129,7 @@ async function uploadRoms() {
         socket.emit("scan", {
           platforms: [platformId],
           type: "quick",
+          apis: metadataSources.value.map((s) => s.value),
         });
       }, 2000);
     })
@@ -135,26 +161,6 @@ function closeDialog() {
   romsToUpload.value = [];
   selectedPlatform.value = null;
 }
-
-onMounted(() => {
-  platformApi
-    .getSupportedPlatforms()
-    .then(({ data }) => {
-      supportedPlatforms.value = data.sort((a, b) => {
-        return a.name.localeCompare(b.name);
-      });
-    })
-    .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to upload roms: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    });
-});
 </script>
 
 <template>
