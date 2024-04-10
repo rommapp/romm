@@ -21,6 +21,10 @@ async function getPlatform(
   return api.get(`/platforms/${id}`);
 }
 
+async function getSupportedPlatforms(): Promise<{ data: PlatformSchema[] }> {
+  return api.get("/platforms/supported");
+}
+
 async function updatePlatform({
   platform,
 }: {
@@ -41,5 +45,6 @@ export default {
   uploadPlatform,
   getPlatforms,
   getPlatform,
+  getSupportedPlatforms,
   deletePlatform,
 };

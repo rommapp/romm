@@ -93,7 +93,7 @@ watch(metadataOptions, (newOptions) => {
   <!-- Platform selector -->
   <v-row class="px-4 pt-4 align-center" no-gutters>
     <v-col cols="12" xs="12" sm="12" md="6" xl="6" class="pr-1">
-      <v-select
+      <v-autocomplete
         label="Platforms"
         item-title="name"
         v-model="platformsToScan"
@@ -116,7 +116,7 @@ watch(metadataOptions, (newOptions) => {
             </template>
           </v-list-item>
         </template>
-      </v-select>
+      </v-autocomplete>
     </v-col>
     <v-col
       cols="12"

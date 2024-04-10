@@ -3,7 +3,8 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import APIRouter, HTTPException, Request, status
-from handler import db_platform_handler, igdb_handler, fs_platform_handler
+from handler import db_platform_handler, fs_platform_handler
+from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
 from logger.logger import log
 
 router = APIRouter()
@@ -45,6 +46,33 @@ def get_platforms(request: Request) -> list[PlatformSchema]:
     """
 
     return db_platform_handler.get_platforms()
+
+
+@protected_route(router.get, "/platforms/supported", ["platforms.read"])
+def get_supported_platforms(request: Request) -> list[PlatformSchema]:
+    """Get list of supported platforms endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[PlatformSchema]: List of supported platforms
+    """
+
+    supported_platforms = []
+    db_platforms: list = db_platform_handler.get_platforms()
+    # This double loop probably can be done better
+    for platform in IGDB_PLATFORM_LIST:
+        platform["id"] = -1
+        for p in db_platforms:
+            if p.name == platform["name"]:
+                platform["id"] = p.id
+        platform["fs_slug"] = platform["slug"]
+        platform["logo_path"] = ""
+        platform["roms"] = []
+        platform["rom_count"] = 0
+        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
+    return supported_platforms
 
 
 @protected_route(router.get, "/platforms/{id}", ["platforms.read"])

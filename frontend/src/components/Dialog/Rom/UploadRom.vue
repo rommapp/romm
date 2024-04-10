@@ -2,38 +2,39 @@
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
-import storePlatforms, { type Platform } from "@/stores/platforms";
+import { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, onMounted } from "vue";
 import { useDisplay } from "vuetify";
+import platformApi from "@/services/api/platform";
 
 // Props
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
-const platform = ref<Platform | null>(null);
-const platforms = storePlatforms();
+const selectedPlatform = ref<Platform | null>(null);
+const supportedPlatforms = ref<Platform[]>();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
   if (platformWhereUpload) {
-    platform.value = platformWhereUpload;
+    selectedPlatform.value = platformWhereUpload;
   }
   show.value = true;
 });
 
 // Functions
 async function uploadRoms() {
-  if (!platform.value) return;
+  if (!selectedPlatform.value) return;
   show.value = false;
   scanningStore.set(true);
-  const platformId = platform.value.id;
+  const platformId = selectedPlatform.value.id;
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${romsToUpload.value.length} roms to ${platform.value.name}...`,
+    msg: `Uploading ${romsToUpload.value.length} roms to ${selectedPlatform.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -81,7 +82,7 @@ async function uploadRoms() {
       });
     });
   romsToUpload.value = [];
-  platform.value = null;
+  selectedPlatform.value = null;
 }
 
 function triggerFileInput() {
@@ -96,8 +97,28 @@ function removeRomFromList(romName: string) {
 function closeDialog() {
   show.value = false;
   romsToUpload.value = [];
-  platform.value = null;
+  selectedPlatform.value = null;
 }
+
+onMounted(() => {
+  platformApi
+    .getSupportedPlatforms()
+    .then(({ data }) => {
+      supportedPlatforms.value = data.sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to upload roms: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
+});
 </script>
 
 <template>
@@ -142,11 +163,11 @@ function closeDialog() {
       <v-toolbar density="compact" class="bg-primary">
         <v-row class="align-center" no-gutters>
           <v-col cols="10" sm="8" lg="9">
-            <v-select
+            <v-autocomplete
               label="Platform"
               item-title="name"
-              v-model="platform"
-              :items="platforms.value"
+              v-model="selectedPlatform"
+              :items="supportedPlatforms"
               prepend-inner-icon="mdi-controller"
               prepend-icon=""
               return-object
@@ -169,7 +190,7 @@ function closeDialog() {
                   </template>
                 </v-list-item>
               </template>
-            </v-select>
+            </v-autocomplete>
           </v-col>
           <v-col>
             <v-btn
@@ -229,7 +250,7 @@ function closeDialog() {
           <v-btn
             @click="uploadRoms()"
             class="text-romm-green ml-5 bg-terciary"
-            :disabled="romsToUpload.length == 0 || platform == null"
+            :disabled="romsToUpload.length == 0 || selectedPlatform == null"
           >
             Upload
           </v-btn>
