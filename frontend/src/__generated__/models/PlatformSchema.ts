@@ -11,7 +11,7 @@ export type PlatformSchema = {
     sgdb_id?: (number | null);
     moby_id?: (number | null);
     name: string;
-    logo_path: string;
+    logo_path?: (string | null);
     rom_count: number;
 };
 

@@ -5,32 +5,32 @@ from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import APIRouter, HTTPException, Request, status
 from handler import db_platform_handler, fs_platform_handler
 from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
+from handler.scan_handler import scan_platform
 from logger.logger import log
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/platforms", ["platforms.write"])
-async def add_platforms(request: Request) -> MessageResponse:
+async def add_platforms(request: Request) -> PlatformSchema:
     """Create platform endpoint
 
     Args:
         request (Request): Fastapi Request object
 
     Returns:
-        MessageResponse: Standard message response
+        PlatformSchema: Just created platform
     """
 
     data = await request.json()
     fs_slug = data["fs_slug"]
     try:
         fs_platform_handler.add_platforms(fs_slug=fs_slug)
-    except PlatformAlreadyExistsException as e:
-        log.error(str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-    return {"msg": f"Platform created successfully!"}
+    except PlatformAlreadyExistsException:
+        log.info(f"Detected platform: {fs_slug}")
+    scanned_platform = scan_platform(fs_slug, [fs_slug])
+    platform = db_platform_handler.add_platform(scanned_platform)
+    return platform
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])
