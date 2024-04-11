@@ -14,13 +14,16 @@ const heartbeat = storeHeartbeat();
   <v-list rounded="0" class="pa-0">
     <v-list-item
       :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
-      :title="!heartbeat.value.ANY_SOURCE_ENABLED ? 'No metadata source enabled' : ''"
       @click="emitter?.emit('showMatchRomDialog', rom)"
       class="py-4 pr-5"
     >
       <v-list-item-title class="d-flex"
-        ><v-icon icon="mdi-search-web" class="mr-2" />Manual search</v-list-item-title
+        ><v-icon icon="mdi-search-web" class="mr-2" />Manual
+        search</v-list-item-title
       >
+      <v-list-item-subtitle>{{
+        !heartbeat.value.ANY_SOURCE_ENABLED ? "No metadata source enabled" : ""
+      }}</v-list-item-subtitle>
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
