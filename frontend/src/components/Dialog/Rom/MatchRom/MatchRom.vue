@@ -2,6 +2,7 @@
 import type { SearchRomSchema } from "@/__generated__";
 import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
 import romApi from "@/services/api/rom";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type Rom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -21,6 +22,7 @@ const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
+const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 emitter?.on("showMatchRomDialog", (romToSearch) => {
@@ -184,6 +186,7 @@ onBeforeUnmount(() => {
               open-delay="500"
               ><template v-slot:activator="{ props }">
                 <v-avatar
+                  v-if="heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED"
                   @click="toggleSourceFilter('igdb')"
                   v-bind="props"
                   class="ml-3 source-filter"
@@ -203,6 +206,7 @@ onBeforeUnmount(() => {
               open-delay="500"
               ><template v-slot:activator="{ props }">
                 <v-avatar
+                  v-if="heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED"
                   @click="toggleSourceFilter('moby')"
                   v-bind="props"
                   class="ml-3 source-filter"

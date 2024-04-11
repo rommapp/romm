@@ -9,7 +9,7 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
