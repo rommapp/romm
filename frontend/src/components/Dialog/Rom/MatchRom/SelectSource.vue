@@ -1,14 +1,16 @@
 <script setup lang="ts">
+
 import type { SearchRomSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useTheme } from "vuetify";
+import { useTheme, useDisplay } from "vuetify";
 
 const show = ref(false);
 const sources = ref<any>([]);
 const theme = useTheme();
 const emit = defineEmits(["updateRom"]);
+const { xs } = useDisplay();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSelectSourceDialog", (matchedRom: SearchRomSchema) => {
@@ -54,8 +56,12 @@ function closeDialog() {
     scroll-strategy="none"
     width="auto"
   >
-    <v-row no-gutters>
-      <v-col class="pa-2 cover" v-for="source in sources">
+    <v-row class="justify-center" no-gutters>
+      <v-col
+        class="pa-2"
+        :class="{'cover':!xs, 'cover-xs': xs}"
+        v-for="source in sources"
+      >
         <v-hover v-slot="{ isHovering, props }">
           <v-card
             @click="selectSource(source.rom, source.name)"
@@ -134,9 +140,11 @@ function closeDialog() {
 <style scoped>
 .cover {
   min-width: 270px;
-  min-height: 360px;
   max-width: 270px;
-  max-height: 360px;
+}
+.cover-xs {
+  min-width: 180px;
+  max-width: 180px;
 }
 .matched-rom {
   transition-property: all;

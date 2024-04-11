@@ -22,7 +22,7 @@ const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Props
-const heartbeatStore = storeHeartbeat();
+const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 
 socket.on(
@@ -96,11 +96,11 @@ onBeforeUnmount(() => {
 });
 
 onBeforeMount(() => {
-  api.get("/heartbeat").then(({ data: heartBeatData }) => {
-    heartbeatStore.set(heartBeatData);
+  api.get("/heartbeat").then(({ data: data }) => {
+    heartbeat.set(data);
   });
-  api.get("/config").then(({ data: configData }) => {
-    configStore.set(configData);
+  api.get("/config").then(({ data: data }) => {
+    configStore.set(data);
   });
 });
 </script>
