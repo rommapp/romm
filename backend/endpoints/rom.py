@@ -274,8 +274,8 @@ async def update_rom(
     platform_fs_slug = db_platform_handler.get_platforms(db_rom.platform_id).fs_slug
 
     cleaned_data = {}
-    cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
-    cleaned_data["moby_id"] = data.get("moby_id", db_rom.moby_id) or None
+    cleaned_data["igdb_id"] = data.get("igdb_id", None)
+    cleaned_data["moby_id"] = data.get("moby_id", None)
 
     if cleaned_data["moby_id"]:
         moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
@@ -325,6 +325,7 @@ async def update_rom(
                 rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
             )
         )
+        cleaned_data.update({"url_cover": ""})
     else:
         cleaned_data.update(
             fs_resource_handler.get_rom_cover(
