@@ -9,21 +9,6 @@ import { computed, ref } from "vue";
 const scanningStore = storeScanning();
 const romsStore = storeRoms();
 const heartbeat = storeHeartbeat();
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: "IGDB",
-    value: "igdb",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-  },
-  {
-    name: "MobyGames",
-    value: "moby",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-  },
-]);
-// Use the computed metadataOptions to filter out disabled sources
-const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 async function scan() {
   scanningStore.set(true);
@@ -33,7 +18,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: [romsStore.platform.id],
     type: "quick",
-    apis: metadataSources.value.map((s) => s.value),
+    apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
 </script>
