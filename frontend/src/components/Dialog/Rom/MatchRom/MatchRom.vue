@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
+import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type Rom } from "@/stores/roms";
-import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -20,6 +20,8 @@ const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
+const isIGDBFiltered = ref(true);
+const isMobyFiltered = ref(true);
 emitter?.on("showMatchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
@@ -28,6 +30,14 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
 });
 
 // Functions
+function toggleSourceFilter(source: string) {
+  if (source == "igdb") {
+    isIGDBFiltered.value = !isIGDBFiltered.value;
+  } else if (source == "moby") {
+    isMobyFiltered.value = !isMobyFiltered.value;
+  }
+}
+
 function toggleExtended() {
   searchExtended.value = !searchExtended.value;
 }
@@ -147,6 +157,45 @@ onBeforeUnmount(() => {
         <v-row class="align-center" no-gutters>
           <v-col cols="9" xs="9" sm="10" md="10" lg="11">
             <v-icon icon="mdi-search-web" class="ml-5" />
+            <span class="ml-4">Filter:</span>
+
+            <v-tooltip
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              text="Filter IGDB matches"
+              open-delay="500"
+              ><template v-slot:activator="{ props }">
+                <v-avatar
+                  @click="toggleSourceFilter('igdb')"
+                  v-bind="props"
+                  class="ml-3 source-filter"
+                  :class="{ filtered: isIGDBFiltered }"
+                  size="30"
+                  rounded="1"
+                >
+                  <v-img src="/assets/scrappers/igdb.png" />
+                </v-avatar> </template
+            ></v-tooltip>
+
+            <v-tooltip
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              text="Filter Mobygames matches"
+              open-delay="500"
+              ><template v-slot:activator="{ props }">
+                <v-avatar
+                  @click="toggleSourceFilter('moby')"
+                  v-bind="props"
+                  class="ml-3 source-filter"
+                  :class="{ filtered: isMobyFiltered }"
+                  size="30"
+                  rounded="1"
+                >
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar> </template
+            ></v-tooltip>
           </v-col>
           <v-col>
             <v-btn
@@ -314,7 +363,6 @@ onBeforeUnmount(() => {
                           <v-avatar
                             v-bind="props"
                             v-if="matchedRom.igdb_id"
-                            class="mr-1"
                             size="30"
                             rounded="1"
                           >
@@ -332,7 +380,7 @@ onBeforeUnmount(() => {
                           <v-avatar
                             v-bind="props"
                             v-if="matchedRom.moby_id"
-                            class="mr-1"
+                            class="ml-1"
                             size="30"
                             rounded="1"
                           >
@@ -383,7 +431,7 @@ onBeforeUnmount(() => {
 }
 
 .search-content {
-  width: 60vw;
+  width: 65vw;
   height: 80vh;
 }
 
@@ -412,5 +460,12 @@ onBeforeUnmount(() => {
 .tooltip :deep(.v-overlay__content) {
   background: rgba(201, 201, 201, 0.98) !important;
   color: rgb(41, 41, 41) !important;
+}
+.source-filter {
+  cursor: pointer;
+  opacity: 0.4;
+}
+.source-filter.filtered {
+  opacity: 1;
 }
 </style>
