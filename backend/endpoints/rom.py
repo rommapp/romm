@@ -280,10 +280,14 @@ async def update_rom(
     if cleaned_data["moby_id"]:
         moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
+    else:
+        cleaned_data.update({"moby_metadata": {}})
 
     if cleaned_data["igdb_id"]:
         igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
+    else:
+        cleaned_data.update({"igdb_metadata": {}})
 
     cleaned_data["name"] = data.get("name", db_rom.name)
     cleaned_data["summary"] = data.get("summary", db_rom.summary)
