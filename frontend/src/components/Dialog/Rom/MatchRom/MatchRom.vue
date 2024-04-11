@@ -18,6 +18,7 @@ const searchTerm = ref("");
 const searchBy = ref("Name");
 const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
+const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const isIGDBFiltered = ref(true);
@@ -36,6 +37,14 @@ function toggleSourceFilter(source: string) {
   } else if (source == "moby") {
     isMobyFiltered.value = !isMobyFiltered.value;
   }
+  filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
+    if (
+      (rom.igdb_id && isIGDBFiltered.value) ||
+      (rom.moby_id && isMobyFiltered.value)
+    ) {
+      return true;
+    }
+  });
 }
 
 function toggleExtended() {
@@ -60,6 +69,14 @@ async function searchRom() {
       })
       .then((response) => {
         matchedRoms.value = response.data;
+        filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
+          if (
+            (rom.igdb_id && isIGDBFiltered.value) ||
+            (rom.moby_id && isMobyFiltered.value)
+          ) {
+            return true;
+          }
+        });
       })
       .catch((error) => {
         emitter?.emit("snackbarShow", {
@@ -300,7 +317,7 @@ onBeforeUnmount(() => {
             md="3"
             lg="2"
             v-show="!searching"
-            v-for="matchedRom in matchedRoms"
+            v-for="matchedRom in filteredMatchedRoms"
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
