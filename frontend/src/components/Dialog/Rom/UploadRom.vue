@@ -20,21 +20,6 @@ const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: "IGDB",
-    value: "igdb",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-  },
-  {
-    name: "MobyGames",
-    value: "moby",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-  },
-]);
-// Use the computed metadataOptions to filter out disabled sources
-const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
@@ -129,7 +114,7 @@ async function uploadRoms() {
         socket.emit("scan", {
           platforms: [platformId],
           type: "quick",
-          apis: metadataSources.value.map((s) => s.value),
+          apis: heartbeat.getMetadataOptions().map((s) => s.value),
         });
       }, 2000);
     })

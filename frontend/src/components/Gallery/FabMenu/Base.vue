@@ -19,21 +19,6 @@ const romsStore = storeRoms();
 const scanningStore = storeScanning();
 const route = useRoute();
 const heartbeat = storeHeartbeat();
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: "IGDB",
-    value: "igdb",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-  },
-  {
-    name: "MobyGames",
-    value: "moby",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-  },
-]);
-// Use the computed metadataOptions to filter out disabled sources
-const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 // Functions
 async function onScan() {
@@ -49,7 +34,7 @@ async function onScan() {
     platforms: [route.params.platform],
     roms: romsStore.selectedRoms,
     type: "partial",
-    apis: metadataSources.value.map((s) => s.value),
+    apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
 
