@@ -259,7 +259,7 @@ async def update_rom(
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
         rename_as_igdb (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
-        artwork (Optional[UploadFile], optional): Custom artork to set as cover. Defaults to File(None).
+        artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
 
     Raises:
         HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
@@ -331,6 +331,7 @@ async def update_rom(
         )
         cleaned_data.update({"url_cover": ""})
     else:
+        cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
         cleaned_data.update(
             fs_resource_handler.get_rom_cover(
                 overwrite=True,

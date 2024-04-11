@@ -73,10 +73,14 @@ async def search_rom(
             search_term, rom.platform.moby_id
         )
 
-    merged_dict = {item["name"]: item for item in igdb_matched_roms}
+    merged_dict = {
+        item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}
+        for item in igdb_matched_roms
+    }
     for item in moby_matched_roms:
         merged_dict[item["name"]] = {
             **item,
+            "moby_url_cover": item.pop("url_cover", ""),
             **merged_dict.get(item.get("name", ""), {}),
         }
 
@@ -86,7 +90,8 @@ async def search_rom(
                 "slug": "",
                 "name": "",
                 "summary": "",
-                "url_cover": "",
+                "igdb_url_cover": "",
+                "moby_url_cover": "",
                 "url_screenshots": [],
             },
             **item,

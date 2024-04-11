@@ -2,6 +2,7 @@
 import type { SearchRomSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeRoms, { type Rom } from "@/stores/roms";
+import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -60,6 +61,24 @@ async function searchRom() {
       .finally(() => {
         searching.value = false;
       });
+  }
+}
+
+async function selectMatched(matchedRom: SearchRomSchema) {
+  if (!rom.value) return;
+
+  if (matchedRom.igdb_id && matchedRom.moby_id) {
+    emitter?.emit("showSelectSourceDialog", matchedRom);
+  } else {
+    if (matchedRom.igdb_id) {
+      updateRom(
+        Object.assign(matchedRom, { url_cover: matchedRom.igdb_url_cover })
+      );
+    } else if (matchedRom.moby_id) {
+      updateRom(
+        Object.assign(matchedRom, { url_cover: matchedRom.moby_url_cover })
+      );
+    }
   }
 }
 
@@ -236,7 +255,7 @@ onBeforeUnmount(() => {
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
-                @click="updateRom(matchedRom)"
+                @click="selectMatched(matchedRom)"
                 v-bind="props"
                 class="matched-rom"
                 :class="{ 'on-hover': isHovering }"
@@ -246,14 +265,18 @@ onBeforeUnmount(() => {
                   <v-img
                     v-bind="props"
                     :src="
-                      !matchedRom.url_cover
+                      !matchedRom.igdb_url_cover && !matchedRom.moby_url_cover
                         ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                        : matchedRom.url_cover
+                        : matchedRom.igdb_url_cover
+                        ? matchedRom.igdb_url_cover
+                        : matchedRom.moby_url_cover
                     "
                     :lazy-src="
-                      !matchedRom.url_cover
+                      !matchedRom.igdb_url_cover && !matchedRom.moby_url_cover
                         ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                        : matchedRom.url_cover
+                        : matchedRom.igdb_url_cover
+                        ? matchedRom.igdb_url_cover
+                        : matchedRom.moby_url_cover
                     "
                     :aspect-ratio="3 / 4"
                   >
@@ -270,7 +293,11 @@ onBeforeUnmount(() => {
                     </template>
                     <v-expand-transition>
                       <div
-                        v-if="isHovering || !matchedRom.url_cover"
+                        v-if="
+                          isHovering ||
+                          (!matchedRom.igdb_url_cover &&
+                            !matchedRom.moby_url_cover)
+                        "
                         class="translucent text-caption"
                       >
                         <v-list-item>{{ matchedRom.name }}</v-list-item>
@@ -342,9 +369,15 @@ onBeforeUnmount(() => {
       </v-toolbar>
     </v-card>
   </v-dialog>
+
+  <select-source-dialog id="select-source-dialog" @update-rom="updateRom" />
 </template>
 
 <style scoped>
+#select-source-dialog {
+  z-index: 9999 !important;
+}
+
 .scroll {
   overflow-y: scroll;
 }
