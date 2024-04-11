@@ -34,9 +34,12 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
 
 // Functions
 function toggleSourceFilter(source: string) {
-  if (source == "igdb") {
+  if (source == "igdb" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
     isIGDBFiltered.value = !isIGDBFiltered.value;
-  } else if (source == "moby") {
+  } else if (
+    source == "moby" &&
+    heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED
+  ) {
     isMobyFiltered.value = !isMobyFiltered.value;
   }
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
@@ -182,15 +185,22 @@ onBeforeUnmount(() => {
               location="top"
               class="tooltip"
               transition="fade-transition"
-              text="Filter IGDB matches"
+              :text="
+                heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED
+                  ? 'Filter IGDB matches'
+                  : 'IGDB source is not enabled'
+              "
               open-delay="500"
               ><template v-slot:activator="{ props }">
                 <v-avatar
-                  v-if="heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED"
                   @click="toggleSourceFilter('igdb')"
                   v-bind="props"
                   class="ml-3 source-filter"
-                  :class="{ filtered: isIGDBFiltered }"
+                  :class="{
+                    filtered: isIGDBFiltered,
+                    'source-disabled':
+                      !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+                  }"
                   size="30"
                   rounded="1"
                 >
@@ -202,15 +212,22 @@ onBeforeUnmount(() => {
               location="top"
               class="tooltip"
               transition="fade-transition"
-              text="Filter Mobygames matches"
+              :text="
+                heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED
+                  ? 'Filter Mobygames matches'
+                  : 'Mobygames source is not enabled'
+              "
               open-delay="500"
               ><template v-slot:activator="{ props }">
                 <v-avatar
-                  v-if="heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED"
                   @click="toggleSourceFilter('moby')"
                   v-bind="props"
                   class="ml-3 source-filter"
-                  :class="{ filtered: isMobyFiltered }"
+                  :class="{
+                    filtered: isMobyFiltered,
+                    'source-disabled':
+                      !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+                  }"
                   size="30"
                   rounded="1"
                 >
@@ -488,5 +505,9 @@ onBeforeUnmount(() => {
 }
 .source-filter.filtered {
   opacity: 1;
+}
+.source-disabled {
+  cursor: not-allowed !important;
+  opacity: 0.4 !important;
 }
 </style>
