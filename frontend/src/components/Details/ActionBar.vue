@@ -15,12 +15,36 @@ const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const emulation = ref(false);
 const playInfoIcon = ref("mdi-play");
-const emulationSupported = props.rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap;
+const emulationSupported =
+  props.rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap;
 
 function toggleEmulation() {
   emulation.value = !emulation.value;
   playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play";
   emitter?.emit("showEmulation", null);
+}
+
+async function copyDownloadLink(rom: Rom) {
+  const downloadLink = await romApi.downloadRom({
+    rom,
+    files: downloadStore.filesToDownloadMultiFileRom,
+    shareLink: true,
+  });
+  if (downloadLink) {
+    emitter?.emit("snackbarShow", {
+      msg: "Download link copied to clipboard!",
+      icon: "mdi-check-bold",
+      color: "green",
+      timeout: 2000,
+    });
+  } else {
+    emitter?.emit("snackbarShow", {
+      msg: `Unable to copy download link: ${downloadLink}`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
+    });
+  }
 }
 </script>
 
@@ -41,6 +65,11 @@ function toggleEmulation() {
       >
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
+    </v-col>
+    <v-col>
+      <v-btn @click="copyDownloadLink(rom)" rounded="0" color="primary" block
+        ><v-icon icon="mdi-share-variant" size="large"
+      /></v-btn>
     </v-col>
     <v-col>
       <v-tooltip
