@@ -63,11 +63,7 @@ async function getRecentRoms(): Promise<{ data: CursorPage_RomSchema_ }> {
   });
 }
 
-async function getRom({
-  romId,
-}: {
-  romId: number;
-}): Promise<{ data: Rom }> {
+async function getRom({ romId }: { romId: number }): Promise<{ data: Rom }> {
   return api.get(`/roms/${romId}`);
 }
 
@@ -107,9 +103,11 @@ socket.on("download:complete", clearRomFromDownloads);
 async function downloadRom({
   rom,
   files = [],
+  shareLink = false,
 }: {
   rom: Rom;
   files?: string[];
+  shareLink?: boolean;
 }) {
   // Force download of all multirom-parts when no part is selected
   if (files.length == 0) {
@@ -123,17 +121,22 @@ async function downloadRom({
 
   const a = document.createElement("a");
   a.href = `/api/roms/${rom.id}/content/${rom.file_name}?${files_params}`;
-  a.click();
+  if (shareLink) {
+    navigator.clipboard.writeText(encodeURI(a.href));
+    return encodeURI(a.href);
+  } else {
+    a.click();
 
-  // Only connect socket if multi-file download
-  if (rom.multi && files.length > 1) {
-    if (!socket.connected) socket.connect();
-    storeDownload().add(rom.id);
+    // Only connect socket if multi-file download
+    if (rom.multi && files.length > 1) {
+      if (!socket.connected) socket.connect();
+      storeDownload().add(rom.id);
 
-    // Clear download state after 60 seconds in case error/timeout
-    setTimeout(() => {
-      clearRomFromDownloads(rom);
-    }, 60 * 1000);
+      // Clear download state after 60 seconds in case error/timeout
+      setTimeout(() => {
+        clearRomFromDownloads(rom);
+      }, 60 * 1000);
+    }
   }
 }
 
@@ -144,7 +147,7 @@ export type UpdateRom = Rom & {
 async function updateRom({
   rom,
   renameAsIGDB = false,
-  removeCover = false
+  removeCover = false,
 }: {
   rom: UpdateRom;
   renameAsIGDB?: boolean;
