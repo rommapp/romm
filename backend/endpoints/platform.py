@@ -1,25 +1,36 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
+from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import APIRouter, HTTPException, Request, status
-from handler import db_platform_handler
+from handler import db_platform_handler, fs_platform_handler
+from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
+from handler.scan_handler import scan_platform
 from logger.logger import log
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/platforms", ["platforms.write"])
-def add_platforms(request: Request) -> MessageResponse:
+async def add_platforms(request: Request) -> PlatformSchema:
     """Create platform endpoint
 
     Args:
         request (Request): Fastapi Request object
 
     Returns:
-        MessageResponse: Standard message response
+        PlatformSchema: Just created platform
     """
 
-    return {"msg": "Enpoint not available yet"}
+    data = await request.json()
+    fs_slug = data["fs_slug"]
+    try:
+        fs_platform_handler.add_platforms(fs_slug=fs_slug)
+    except PlatformAlreadyExistsException:
+        log.info(f"Detected platform: {fs_slug}")
+    scanned_platform = scan_platform(fs_slug, [fs_slug])
+    platform = db_platform_handler.add_platform(scanned_platform)
+    return platform
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])
@@ -35,6 +46,33 @@ def get_platforms(request: Request) -> list[PlatformSchema]:
     """
 
     return db_platform_handler.get_platforms()
+
+
+@protected_route(router.get, "/platforms/supported", ["platforms.read"])
+def get_supported_platforms(request: Request) -> list[PlatformSchema]:
+    """Get list of supported platforms endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[PlatformSchema]: List of supported platforms
+    """
+
+    supported_platforms = []
+    db_platforms: list = db_platform_handler.get_platforms()
+    # This double loop probably can be done better
+    for platform in IGDB_PLATFORM_LIST:
+        platform["id"] = -1
+        for p in db_platforms:
+            if p.name == platform["name"]:
+                platform["id"] = p.id
+        platform["fs_slug"] = platform["slug"]
+        platform["logo_path"] = ""
+        platform["roms"] = []
+        platform["rom_count"] = 0
+        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
+    return supported_platforms
 
 
 @protected_route(router.get, "/platforms/{id}", ["platforms.read"])
