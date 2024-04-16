@@ -102,4 +102,3 @@ function closeDialog() {
     </v-card>
   </v-dialog>
 </template>
-@/services/configApi

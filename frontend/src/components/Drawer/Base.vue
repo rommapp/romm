@@ -2,10 +2,9 @@
 import type { Events } from "@/types/emitter";
 
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-import SearchRomGlobalDialog from "@/components/Dialog/Rom/SearchRomGlobal.vue";
 import RailFooter from "@/components/Drawer/Footer.vue";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
@@ -42,7 +41,7 @@ emitter?.on("toggleDrawerRail", () => {
       <drawer-header :rail="rail" />
       <v-divider />
       <v-list-item
-        @click="emitter?.emit('showSearchRomGlobalDialog', null)"
+        @click="emitter?.emit('showSearchRomDialog', null)"
         :class="{ 'px-4': !rail }"
         class="bg-terciary"
       >
@@ -103,6 +102,19 @@ emitter?.on("toggleDrawerRail", () => {
             >
           </template>
         </v-list-item>
+        <v-list-item
+          class="bg-terciary"
+          @click="emitter?.emit('showUploadRomDialog', null)"
+        >
+          <span v-if="!rail" class="text-body-2 text-truncate"
+            >Upload roms</span
+          >
+          <template v-slot:prepend>
+            <v-avatar :rounded="0" size="40"
+              ><v-icon>mdi-upload</v-icon></v-avatar
+            >
+          </template>
+        </v-list-item>
       </v-list-group>
     </v-list>
 
@@ -136,6 +148,4 @@ emitter?.on("toggleDrawerRail", () => {
       <rail-footer :rail="rail" />
     </template>
   </v-navigation-drawer>
-
-  <search-rom-global-dialog />
 </template>

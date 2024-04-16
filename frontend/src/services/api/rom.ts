@@ -13,10 +13,10 @@ import type { Rom } from "@/stores/roms";
 export const romApi = api;
 
 async function uploadRoms({
-  platform,
+  platformId,
   romsToUpload,
 }: {
-  platform: number;
+  platformId: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
   let formData = new FormData();
@@ -26,7 +26,7 @@ async function uploadRoms({
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    params: { platform_id: platform },
+    params: { platform_id: platformId },
   });
 }
 
@@ -156,6 +156,7 @@ async function updateRom({
   formData.append("name", rom.name || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
+  formData.append("url_cover", rom.url_cover || "");
   if (rom.artwork) formData.append("artwork", rom.artwork[0]);
 
   return api.put(`/roms/${rom.id}`, formData, {

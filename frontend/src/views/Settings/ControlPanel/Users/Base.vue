@@ -1,17 +1,12 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, onMounted, ref } from "vue";
-import { VDataTable } from "vuetify/labs/VDataTable";
-
-import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
-import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
-import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
-import type { UserItem } from "@/types/emitter";
+import type { Events, UserItem } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, onMounted, ref } from "vue";
+import { VDataTable } from "vuetify/labs/VDataTable";
 
 const HEADERS = [
   {
@@ -168,9 +163,5 @@ onMounted(() => {
         </template>
       </v-data-table>
     </v-card-text>
-
-    <create-user-dialog />
-    <edit-user-dialog />
-    <delete-user-dialog />
   </v-card>
 </template>

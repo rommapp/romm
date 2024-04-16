@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatformBinding.vue";
-import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatformBinding.vue";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -121,9 +119,6 @@ const editable = ref(false);
       </v-row>
     </v-card-text>
   </v-card>
-
-  <create-platform-binding-dialog />
-  <delete-platform-binding-dialog />
 </template>
 
 <style scoped>
