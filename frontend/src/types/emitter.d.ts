@@ -1,4 +1,4 @@
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, SearchRomSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { Rom } from "@/stores/roms";
 import type { User } from "@/stores/users";
@@ -17,11 +17,13 @@ export type SnackbarStatus = {
 
 export type Events = {
   showDeletePlatformDialog: Platform;
-  showSearchRomDialog: Rom;
-  showSearchRomGlobalDialog: null;
+  showMatchRomDialog: Rom;
+  showSelectSourceDialog: SearchRomSchema;
+  showSearchRomDialog: null;
   showEditRomDialog: Rom;
   showDeleteRomDialog: Rom[];
-  showUploadRomDialog: Platform;
+  showUploadRomDialog: Platform | null;
+  showAddPlatformDialog: null;
   showCreatePlatformBindingDialog: {
     fsSlug: string;
     slug: string;

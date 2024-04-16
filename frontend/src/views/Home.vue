@@ -1,5 +1,21 @@
 <script setup lang="ts">
 import AppBar from "@/components/AppBar/Base.vue";
+import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
+import CreateExclusionDialog from "@/components/Dialog/Config/CreateExclusion.vue";
+import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatformBinding.vue";
+import CreatePlatformVersionDialog from "@/components/Dialog/Config/CreatePlatformVersion.vue";
+import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatformBinding.vue";
+import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
+import LoadingDialog from "@/components/Dialog/Loading.vue";
+import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
+import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
+import MatchRomDialog from "@/components/Dialog/Rom/MatchRom/MatchRom.vue";
+import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
+import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
+import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
+import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
+import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
@@ -62,6 +78,23 @@ onMounted(() => {
   <drawer />
   <app-bar v-if="mdAndDown" />
   <router-view :key="refreshView" />
+
+  <delete-platform-dialog />
+  <search-rom-dialog />
+  <match-rom-dialog />
+  <upload-rom-dialog />
+  <edit-rom-dialog />
+  <delete-rom-dialog />
+  <delete-asset-dialog />
+  <create-platform-binding-dialog />
+  <delete-platform-binding-dialog />
+  <create-platform-version-dialog />
+  <delete-platform-version-dialog />
+  <create-exclusion-dialog />
+  <create-user-dialog />
+  <edit-user-dialog />
+  <delete-user-dialog />
+  <loading-dialog />
 </template>
 
 <style scoped>
