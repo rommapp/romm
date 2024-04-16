@@ -5,7 +5,7 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { platformSlugEJSCoreMap } from "@/utils";
+import { getDownloadLink, platformSlugEJSCoreMap } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
@@ -24,27 +24,22 @@ function toggleEmulation() {
   emitter?.emit("showEmulation", null);
 }
 
-async function copyDownloadLink(rom: Rom) {
-  const downloadLink = await romApi.downloadRom({
-    rom,
-    files: downloadStore.filesToDownloadMultiFileRom,
-    shareLink: true,
+function copyDownloadLink(rom: Rom) {
+  navigator.clipboard.writeText(
+    location.host +
+      encodeURI(
+        getDownloadLink({
+          rom,
+          files: downloadStore.filesToDownloadMultiFileRom,
+        })
+      )
+  );
+  emitter?.emit("snackbarShow", {
+    msg: "Download link copied to clipboard!",
+    icon: "mdi-check-bold",
+    color: "green",
+    timeout: 2000,
   });
-  if (downloadLink) {
-    emitter?.emit("snackbarShow", {
-      msg: "Download link copied to clipboard!",
-      icon: "mdi-check-bold",
-      color: "green",
-      timeout: 2000,
-    });
-  } else {
-    emitter?.emit("snackbarShow", {
-      msg: `Unable to copy download link: ${downloadLink}`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-  }
 }
 </script>
 
@@ -68,7 +63,7 @@ async function copyDownloadLink(rom: Rom) {
     </v-col>
     <v-col>
       <v-btn @click="copyDownloadLink(rom)" rounded="0" color="primary" block
-        ><v-icon icon="mdi-share-variant" size="large"
+        ><v-icon icon="mdi-content-copy" size="large"
       /></v-btn>
     </v-col>
     <v-col>
