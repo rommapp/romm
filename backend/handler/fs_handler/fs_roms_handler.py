@@ -22,14 +22,6 @@ class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    def get_fs_structure(self, fs_slug: str):
-        cnfg = cm.get_config()
-        return (
-            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-        )
-
     def remove_file(self, file_name: str, file_path: str):
         try:
             os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
