@@ -9,6 +9,7 @@ import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
 
@@ -103,40 +104,23 @@ socket.on("download:complete", clearRomFromDownloads);
 async function downloadRom({
   rom,
   files = [],
-  shareLink = false,
 }: {
   rom: Rom;
   files?: string[];
-  shareLink?: boolean;
 }) {
-  // Force download of all multirom-parts when no part is selected
-  if (files.length == 0) {
-    files = rom.files;
-  }
-
-  var files_params = "";
-  files.forEach((file) => {
-    files_params += `files=${file}&`;
-  });
-
   const a = document.createElement("a");
-  a.href = `/api/roms/${rom.id}/content/${rom.file_name}?${files_params}`;
-  if (shareLink) {
-    navigator.clipboard.writeText(encodeURI(a.href));
-    return encodeURI(a.href);
-  } else {
-    a.click();
+  a.href = getDownloadLink({ rom, files });
+  a.click();
 
-    // Only connect socket if multi-file download
-    if (rom.multi && files.length > 1) {
-      if (!socket.connected) socket.connect();
-      storeDownload().add(rom.id);
+  // Only connect socket if multi-file download
+  if (rom.multi && files.length > 1) {
+    if (!socket.connected) socket.connect();
+    storeDownload().add(rom.id);
 
-      // Clear download state after 60 seconds in case error/timeout
-      setTimeout(() => {
-        clearRomFromDownloads(rom);
-      }, 60 * 1000);
-    }
+    // Clear download state after 60 seconds in case error/timeout
+    setTimeout(() => {
+      clearRomFromDownloads(rom);
+    }, 60 * 1000);
   }
 }
 
