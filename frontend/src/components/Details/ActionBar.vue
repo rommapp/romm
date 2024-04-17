@@ -80,6 +80,7 @@ function toggleEmulation() {
     </v-col>
   </v-row>
 </template>
+
 <style scoped>
 .tooltip :deep(.v-overlay__content) {
   background: rgba(201, 201, 201, 0.98) !important;

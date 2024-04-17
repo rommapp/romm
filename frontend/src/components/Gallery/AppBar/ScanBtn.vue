@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import socket from "@/services/socket";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
+import { computed, ref } from "vue";
 
 // Props
 const scanningStore = storeScanning();
 const romsStore = storeRoms();
+const heartbeat = storeHeartbeat();
 
 async function scan() {
   scanningStore.set(true);
@@ -14,7 +17,8 @@ async function scan() {
 
   socket.emit("scan", {
     platforms: [romsStore.platform.id],
-    type: "unidentified",
+    type: "quick",
+    apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
 </script>

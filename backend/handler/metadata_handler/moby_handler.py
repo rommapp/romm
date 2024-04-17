@@ -87,12 +87,16 @@ class MobyGamesHandler(MetadataHandler):
                 detail="Can't connect to Mobygames, check your internet connection",
             )
         except HTTPError as err:
-            if err.response.status_code != 429:
+            if err.response.status_code == 401:
+                # Sometimes Mobygames returns 401 even with a valid API key
+                return {}
+            elif err.response.status_code == 429:
+                # Retry after 2 seconds if rate limit hit
+                time.sleep(2)
+            else:
+                # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
-
-            # Retry after 2 seconds if rate limit hit
-            time.sleep(2)
         except Timeout:
             # Retry the request once if it times out
             pass
@@ -101,7 +105,11 @@ class MobyGamesHandler(MetadataHandler):
             res = requests.get(url, timeout=timeout)
             res.raise_for_status()
         except (HTTPError, Timeout) as err:
-            # Log the error and return an empty dict if the request fails again
+            if err.response.status_code == 401:
+                # Sometimes Mobygames returns 401 even with a valid API key
+                return {}
+
+            # Log the error and return an empty dict if the request fails with a different code
             log.error(err)
             return {}
 
@@ -133,9 +141,6 @@ class MobyGamesHandler(MetadataHandler):
         return pydash.get(exact_matches or roms, "[0]", None)
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
-        if not MOBY_API_ENABLED:
-            return MobyGamesPlatform(moby_id=None, slug=slug)
-
         platform = SLUG_TO_MOBY_ID.get(slug, None)
 
         if not platform:
@@ -239,7 +244,7 @@ class MobyGamesHandler(MetadataHandler):
             "name": res["title"],
             "slug": res["moby_url"].split("/")[-1],
             "summary": res.get("description", ""),
-            "url_cover": res.get("sample_cover.image", ""),
+            "url_cover": pydash.get(res, "sample_cover.image", ""),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -262,7 +267,7 @@ class MobyGamesHandler(MetadataHandler):
             "name": res["title"],
             "slug": res["moby_url"].split("/")[-1],
             "summary": res.get("description", None),
-            "url_cover": res.get("sample_cover.image", None),
+            "url_cover": pydash.get(res, "sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -288,7 +293,7 @@ class MobyGamesHandler(MetadataHandler):
         url = yarl.URL(self.games_url).with_query(
             platform=[platform_moby_id], title=quote(search_term, safe="/ ")
         )
-        matched_roms = self._request(str(url))["games"]
+        matched_roms = self._request(str(url)).get("games", [])
 
         return [
             MobyGamesRom(
@@ -299,7 +304,7 @@ class MobyGamesHandler(MetadataHandler):
                         "name": rom["title"],
                         "slug": rom["moby_url"].split("/")[-1],
                         "summary": rom.get("description", ""),
-                        "url_cover": rom.get("sample_cover.image", ""),
+                        "url_cover": pydash.get(rom, "sample_cover.image", ""),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
                         ],
@@ -516,6 +521,7 @@ SLUG_TO_MOBY_ID: Final = {
     "ngage": {"id": 32, "name": "N-Gage"},
     "ngage2": {"id": 89, "name": "N-Gage (service)"},
     "nes": {"id": 22, "name": "NES"},
+    "famicom": {"id": 22, "name": "NES"},
     "nascom": {"id": 175, "name": "Nascom"},
     "neo-geo": {"id": 36, "name": "Neo Geo"},
     "neogeoaes": {"id": 36, "name": "Neo Geo"},  # IGDB
@@ -602,10 +608,10 @@ SLUG_TO_MOBY_ID: Final = {
     "sk-vm": {"id": 259, "name": "SK-VM"},
     "smc-777": {"id": 273, "name": "SMC-777"},
     "snes": {"id": 15, "name": "SNES"},
+    "sfam": {"id": 15, "name": "SNES"},
     "sri-5001000": {"id": 242, "name": "SRI-500/1000"},
     "swtpc-6800": {"id": 228, "name": "SWTPC 6800"},
     "sharp-mz-80b20002500": {"id": 182, "name": "Sharp MZ-80B/2000/2500"},
-    "sharp-mz-2200": {"id": 180, "name": "Sharp MZ-2200"},
     "sharp-mz-80k7008001500": {"id": 181, "name": "Sharp MZ-80K/700/800/1500"},
     "sharp-x1": {"id": 121, "name": "Sharp X1"},
     "x1": {"id": 121, "name": "Sharp X1"},  # IGDB
@@ -627,7 +633,7 @@ SLUG_TO_MOBY_ID: Final = {
     "tads": {"id": 171, "name": "TADS"},
     "ti-programmable-calculator": {"id": 239, "name": "TI Programmable Calculator"},
     "ti-994a": {"id": 47, "name": "TI-99/4A"},
-    "ti-99": {"id": 47, "name": "TI-99/4A"},
+    "ti-99": {"id": 47, "name": "TI-99/4A"},  # IGDB
     "tim": {"id": 246, "name": "TIM"},
     "trs-80": {"id": 58, "name": "TRS-80"},
     "trs-80-coco": {"id": 62, "name": "TRS-80 Color Computer"},
