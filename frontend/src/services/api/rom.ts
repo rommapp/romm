@@ -9,6 +9,7 @@ import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
+import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
 
@@ -63,11 +64,7 @@ async function getRecentRoms(): Promise<{ data: CursorPage_RomSchema_ }> {
   });
 }
 
-async function getRom({
-  romId,
-}: {
-  romId: number;
-}): Promise<{ data: Rom }> {
+async function getRom({ romId }: { romId: number }): Promise<{ data: Rom }> {
   return api.get(`/roms/${romId}`);
 }
 
@@ -111,18 +108,8 @@ async function downloadRom({
   rom: Rom;
   files?: string[];
 }) {
-  // Force download of all multirom-parts when no part is selected
-  if (files.length == 0) {
-    files = rom.files;
-  }
-
-  var files_params = "";
-  files.forEach((file) => {
-    files_params += `files=${file}&`;
-  });
-
   const a = document.createElement("a");
-  a.href = `/api/roms/${rom.id}/content/${rom.file_name}?${files_params}`;
+  a.href = getDownloadLink({ rom, files });
   a.click();
 
   // Only connect socket if multi-file download
@@ -144,7 +131,7 @@ export type UpdateRom = Rom & {
 async function updateRom({
   rom,
   renameAsIGDB = false,
-  removeCover = false
+  removeCover = false,
 }: {
   rom: UpdateRom;
   renameAsIGDB?: boolean;
