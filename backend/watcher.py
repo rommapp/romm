@@ -8,6 +8,7 @@ from config import (
 )
 from endpoints.sockets.scan import scan_platforms
 from handler import db_platform_handler
+from handler.scan_handler import ScanType
 from logger.logger import log
 from tasks.tasks import tasks_scheduler
 from config.config_manager import config_manager as cm
@@ -69,7 +70,10 @@ class EventHandler(FileSystemEventHandler):
             # Otherwise trigger a rescan for the specific platform
             log.info(f"Change detected in {fs_slug} folder, {rescan_in_msg}")
             return tasks_scheduler.enqueue_in(
-                time_delta, scan_platforms, [db_platform.id]
+                time_delta,
+                scan_platforms,
+                [db_platform.id],
+                scan_type=ScanType.QUICK,
             )
 
 

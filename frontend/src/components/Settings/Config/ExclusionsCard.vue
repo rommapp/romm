@@ -4,7 +4,6 @@ import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import CreateExclusionDialog from "@/components/Dialog/Config/CreateExclusion.vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
@@ -220,8 +219,6 @@ const editable = ref(false);
       </v-row>
     </v-card-text>
   </v-card>
-
-  <create-exclusion-dialog />
 </template>
 
 <style scoped></style>

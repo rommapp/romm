@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import LoadingDialog from "@/components/Dialog/Loading.vue";
-import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
@@ -313,14 +307,6 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-menu>
     </div>
   </v-layout-item>
-
-  <delete-platform-dialog />
-
-  <search-rom-dialog />
-  <upload-rom-dialog />
-  <edit-rom-dialog />
-  <delete-rom-dialog />
-  <loading-dialog />
 </template>
 
 <style scoped>

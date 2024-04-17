@@ -45,7 +45,6 @@ class DBRomsHandler(DBHandler):
         order_dir: str = "asc",
         session: Session = None,
     ):
-        select(Rom).filter()
         return (
             session.get(Rom, id)
             if id

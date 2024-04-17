@@ -17,9 +17,9 @@ export const views: Record<
     view: "small",
     icon: "mdi-view-comfy",
     "size-xl": 1,
-    "size-lg": 1,
+    "size-lg": 2,
     "size-md": 2,
-    "size-sm": 2,
+    "size-sm": 3,
     "size-xs": 3,
     "size-cols": 4,
   },
@@ -27,7 +27,7 @@ export const views: Record<
     view: "big",
     icon: "mdi-view-module",
     "size-xl": 2,
-    "size-lg": 2,
+    "size-lg": 3,
     "size-md": 3,
     "size-sm": 3,
     "size-xs": 6,
@@ -85,6 +85,20 @@ export function formatBytes(bytes: number, decimals = 2) {
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+}
+
+/**
+ *
+ * Format timestamp to human-readable text
+ *
+ * @param string timestamp
+ * @returns string Formatted timestamp
+ */
+export function formatTimestamp(timestamp: string | null) {
+  if (!timestamp) return "-";
+
+  const date = new Date(timestamp);
+  return date.toLocaleString("en-GB");
 }
 
 export function regionToEmoji(region: string) {

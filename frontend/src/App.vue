@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
-import storeConfig from "@/stores/config";
-import storeHeartbeat from "@/stores/heartbeat";
 import socket from "@/services/socket";
-import { onBeforeMount } from "vue";
+import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type Rom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount } from "vue";
+import { inject, onBeforeMount, onBeforeUnmount } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -23,13 +22,16 @@ const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Props
-const heartbeatStore = storeHeartbeat();
+const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 
 socket.on(
   "scan:scanning_platform",
   ({ name, slug, id }: { name: string; slug: string; id: number }) => {
     scanningStore.set(true);
+    scanningPlatforms.value = scanningPlatforms.value.filter(
+      (platform) => platform.name !== name
+    );
     scanningPlatforms.value.push({ name, slug, id, roms: [] });
   }
 );
@@ -94,11 +96,11 @@ onBeforeUnmount(() => {
 });
 
 onBeforeMount(() => {
-  api.get("/heartbeat").then(({ data: heartBeatData }) => {
-    heartbeatStore.set(heartBeatData);
+  api.get("/heartbeat").then(({ data: data }) => {
+    heartbeat.set(data);
   });
-  api.get("/config").then(({ data: configData }) => {
-    configStore.set(configData);
+  api.get("/config").then(({ data: data }) => {
+    configStore.set(data);
   });
 });
 </script>
