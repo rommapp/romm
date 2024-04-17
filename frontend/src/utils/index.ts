@@ -1,4 +1,5 @@
 import cronstrue from "cronstrue";
+import type { Rom } from "@/stores/roms";
 
 export const views: Record<
   number,
@@ -68,6 +69,25 @@ export function convertCronExperssion(expression: string) {
     convertedExpression.charAt(0).toLocaleLowerCase() +
     convertedExpression.substr(1);
   return convertedExpression;
+}
+
+export function getDownloadLink({
+  rom,
+  files = [],
+}: {
+  rom: Rom;
+  files?: string[];
+}) {
+  // Force download of all multirom-parts when no part is selected
+  if (files.length == 0) {
+    files = rom.files;
+  }
+
+  var filesParams = "";
+  files.forEach((file) => {
+    filesParams += `files=${file}&`;
+  });
+  return `/api/roms/${rom.id}/content/${rom.file_name}?${filesParams}`;
 }
 
 /**
