@@ -14,7 +14,7 @@ const downloadStore = storeDownload();
     class="align-center my-3"
     no-gutters
   >
-    <v-col cols="3" sm="3" md="2" xl="1">
+    <v-col cols="3" xl="2">
       <span>Ver.</span>
     </v-col>
     <v-col>
@@ -22,7 +22,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="3" md="2" xl="1">
+    <v-col cols="3" xl="2">
       <span>File</span>
     </v-col>
     <v-col class="text-body-1">
@@ -30,7 +30,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="3" md="2" xl="1">
+    <v-col cols="3" xl="2">
       <span>Files</span>
     </v-col>
     <v-col>
@@ -51,7 +51,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="3" md="2" xl="1">
+    <v-col cols="3" xl="2">
       <span>Size</span>
     </v-col>
     <v-col>
@@ -59,7 +59,7 @@ const downloadStore = storeDownload();
     </v-col>
   </v-row>
   <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
-    <v-col cols="3" sm="3" md="2" xl="1">
+    <v-col cols="3" xl="2">
       <span>Tags</span>
     </v-col>
     <v-col>

@@ -27,7 +27,7 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Features
 
-- Scans your existing games library and enchances it with metadata from [IGDB][igdb] and [MobyGames][mobygames]
+- Scans your existing games library and enchances it with metadata from [IGDB][igdb-api] and [MobyGames][mobygames-api]
 - Supports a large number of **[platforms][platform-support]**
 - Play games directly from the browser using [EmulatorJS][wiki-emulatorjs-url]
 - Share your library with friend while [limiting access and permissions][authentication]

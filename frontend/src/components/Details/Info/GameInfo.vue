@@ -11,7 +11,7 @@ const galleryFilter = storeGalleryFilter();
   <v-divider class="mx-2 my-4" />
   <template v-for="filter in galleryFilter.filters">
     <v-row v-if="rom[filter].length > 0" class="align-center my-3" no-gutters>
-      <v-col cols="3" sm="3" md="2" xl="1" class="text-capitalize">
+      <v-col cols="3" xl="2" class="text-capitalize">
         <span>{{ filter }}</span>
       </v-col>
       <v-col>

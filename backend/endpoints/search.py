@@ -48,7 +48,9 @@ async def search_rom(
     if not search_term:
         return []
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers..."))
+    log.info(
+        emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers...")
+    )
     matched_roms: list = []
 
     log.info(f"Searching by {search_by.lower()}: {search_term}")
@@ -71,9 +73,16 @@ async def search_rom(
             search_term, rom.platform.moby_id
         )
 
-    merged_dict = {item["name"]: item for item in igdb_matched_roms}
+    merged_dict = {
+        item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}
+        for item in igdb_matched_roms
+    }
     for item in moby_matched_roms:
-        merged_dict[item["name"]] = {**item, **merged_dict.get(item["name"], {})}
+        merged_dict[item["name"]] = {
+            **item,
+            "moby_url_cover": item.pop("url_cover", ""),
+            **merged_dict.get(item.get("name", ""), {}),
+        }
 
     matched_roms = [
         {
@@ -81,7 +90,8 @@ async def search_rom(
                 "slug": "",
                 "name": "",
                 "summary": "",
-                "url_cover": "",
+                "igdb_url_cover": "",
+                "moby_url_cover": "",
                 "url_screenshots": [],
             },
             **item,

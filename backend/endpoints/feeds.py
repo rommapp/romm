@@ -1,17 +1,23 @@
-from config import ROMM_HOST
+from config import ROMM_HOST, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
-from endpoints.responses.webrcade import (
+from models.rom import Rom
+from fastapi import APIRouter, Request
+from handler import db_platform_handler, db_rom_handler
+from .responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
     WebrcadeFeedSchema,
+    TinfoilFeedSchema,
 )
-from fastapi import APIRouter, Request
-from handler import db_platform_handler, db_rom_handler
 
 router = APIRouter()
 
 
-@protected_route(router.get, "/webrcade/feed", ["roms.read"])
+@protected_route(
+    router.get,
+    "/webrcade/feed",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """Get webrcade feed endpoint
 
@@ -45,12 +51,47 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                             "type": WEBRCADE_SLUG_TO_TYPE_MAP.get(p.slug, p.slug),
                             "thumbnail": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_s}",
                             "background": f"{ROMM_HOST}/assets/romm/resources/{rom.path_cover_l}",
-                            "props": {"rom": f"{ROMM_HOST}/api/roms/{rom.id}/content/{rom.file_name}"},
+                            "props": {
+                                "rom": f"{ROMM_HOST}/api/roms/{rom.id}/content/{rom.file_name}"
+                            },
                         }
-                        for rom in session.scalars(db_rom_handler.get_roms(platform_id=p.id)).all()
+                        for rom in session.scalars(
+                            db_rom_handler.get_roms(platform_id=p.id)
+                        ).all()
                     ],
                 }
                 for p in platforms
                 if p.slug in WEBRCADE_SUPPORTED_PLATFORM_SLUGS
             ],
+        }
+
+
+@protected_route(router.get, "/tinfoil/feed", ["roms.read"])
+def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSchema:
+    """Get tinfoil custom index feed endpoint
+    https://blawar.github.io/tinfoil/custom_index/
+
+    Args:
+        request (Request): Fastapi Request object
+        slug (str, optional): Platform slug. Defaults to "switch".
+
+    Returns:
+        TinfoilFeedSchema: Tinfoil feed object schema
+    """
+    switch = db_platform_handler.get_platform_by_fs_slug(slug)
+    with db_rom_handler.session.begin() as session:
+        files: list[Rom] = session.scalars(
+            db_rom_handler.get_roms(platform_id=switch.id)
+        ).all()
+
+        return {
+            "files": [
+                {
+                    "url": f"{ROMM_HOST}/api/roms/{file.id}/content/{file.file_name}",
+                    "size": file.file_size_bytes,
+                }
+                for file in files
+            ],
+            "directories": [],
+            "success": "RomM Switch Library",
         }

@@ -18,8 +18,8 @@ from endpoints import (
     stats,
     tasks,
     user,
-    webrcade,
     screenshots,
+    feeds,
 )
 import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
@@ -84,7 +84,7 @@ app.include_router(search.router)
 app.include_router(saves.router)
 app.include_router(states.router)
 app.include_router(tasks.router)
-app.include_router(webrcade.router)
+app.include_router(feeds.router)
 app.include_router(config.router)
 app.include_router(stats.router)
 app.include_router(raw.router)
