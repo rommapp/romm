@@ -12,5 +12,7 @@ export type UserSchema = {
     role: Role;
     oauth_scopes: Array<string>;
     avatar_path: string;
+    last_login: (string | null);
+    last_active: (string | null);
 };
 

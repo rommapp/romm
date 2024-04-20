@@ -29,6 +29,8 @@ DB_NAME: Final = os.environ.get("DB_NAME", "romm")
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT: Final = os.environ.get("REDIS_PORT", 6379)
 REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
+REDIS_USERNAME: Final = os.environ.get("REDIS_USERNAME", "")
+REDIS_DB: Final = int(os.environ.get("REDIS_DB", 0))
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
@@ -54,6 +56,9 @@ ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
 DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
+DISABLE_DOWNLOAD_ENDPOINT_AUTH = (
+    os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false") == "true"
+)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours

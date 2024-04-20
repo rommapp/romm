@@ -1,7 +1,10 @@
+import os
 import re
 from abc import ABC
 from enum import Enum
 from typing import Final
+
+from config.config_manager import config_manager as cm
 
 DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
 DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
@@ -83,6 +86,14 @@ class Asset(Enum):
 class FSHandler(ABC):
     def __init__(self) -> None:
         pass
+
+    def get_fs_structure(self, fs_slug: str) -> str:
+        cnfg = cm.get_config()
+        return (
+            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+        )
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:
         return re.sub(EXTENSION_REGEX, "", file_name).strip()

@@ -7,6 +7,7 @@ import { identity, isNull } from "lodash";
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 
+// Props
 defineProps<{
   rom: Rom;
   isHoveringTop: boolean;
@@ -28,21 +29,15 @@ const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
-
 let timeout: ReturnType<typeof setTimeout>;
-// Functions
-function onSelectRom(event: MouseEvent) {
-  if (!event.ctrlKey && !event.shiftKey) {
-    event.preventDefault();
-    emit("selectRom", event);
-  }
-}
 
+// Functions
 function onNavigate(event: MouseEvent) {
   if (
     event.ctrlKey ||
     event.shiftKey ||
-    (romsStore.touchScreen && romsStore.selectedRoms.length > 0)
+    romsStore.selecting ||
+    romsStore.selectedRoms.length > 0
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -54,7 +49,6 @@ function onTouchStart(event: TouchEvent) {
   card.value.$el.addEventListener("contextmenu", (event: Event) => {
     event.preventDefault();
   });
-  romsStore.isTouchScreen(true);
   timeout = setTimeout(() => {
     emit("selectRom", event);
   }, 500);
@@ -69,7 +63,7 @@ function onTouchEnd() {
   <router-link
     style="text-decoration: none; color: inherit"
     :to="
-      romsStore.touchScreen && romsStore.selectedRoms.length > 0
+      romsStore.selecting || romsStore.selectedRoms.length > 0
         ? {}
         : {
             name: 'rom',
@@ -93,14 +87,14 @@ function onTouchEnd() {
         :key="rom.id"
         v-bind="props"
         :src="
-          !rom.igdb_id && !rom.has_cover
+          !rom.igdb_id && !rom.moby_id && !rom.has_cover
             ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
             : !rom.has_cover
             ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
         :lazy-src="
-          !rom.igdb_id && !rom.has_cover
+          !rom.igdb_id && !rom.moby_id && !rom.has_cover
             ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
             : !rom.has_cover
             ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
@@ -125,7 +119,6 @@ function onTouchEnd() {
               'text-truncate': galleryViewStore.current == 0 && !isHovering,
             }"
           >
-            
             <v-list-item>{{ rom.name }}</v-list-item>
           </div>
         </v-expand-transition>
@@ -161,14 +154,6 @@ function onTouchEnd() {
             +{{ rom.siblings.length }}
           </v-chip>
         </v-row>
-        <v-icon
-          v-show="isHoveringTop && showSelector"
-          @click="onSelectRom"
-          size="small"
-          class="position-absolute checkbox"
-          :class="{ 'checkbox-selected': selected }"
-          >{{ selected ? "mdi-circle-slice-8" : "mdi-circle-outline" }}</v-icon
-        >
       </v-img>
     </v-hover>
   </router-link>

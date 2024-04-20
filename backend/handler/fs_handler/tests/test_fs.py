@@ -119,8 +119,6 @@ def test_exclude_files():
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "Super Mario 64 (J) (Rev A) [Part 1].z64")
 
-    patch("utils.fs.config", cm.get_config())
-
     filtered_files = fs_rom_handler._exclude_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",

@@ -46,7 +46,7 @@ async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
     selected_roms: list[str] = (),
-    metadata_sources: list[str] = (),
+    metadata_sources: list[str] = ["igdb", "moby"],
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -54,7 +54,7 @@ async def scan_platforms(
         platform_slugs (list[str]): List of platform slugs to be scanned
         scan_type (str): Type of scan to be performed. Defaults to "quick".
         selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to [].
-        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to [].
+        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
     """
 
     sm = _get_socket_manager()
@@ -90,11 +90,12 @@ async def scan_platforms(
             if platform and scan_type == ScanType.NEW_PLATFORMS:
                 continue
 
-            scanned_platform = scan_platform(
-                platform_slug, fs_platforms, metadata_sources
-            )
+            scanned_platform = scan_platform(platform_slug, fs_platforms)
             if platform:
                 scanned_platform.id = platform.id
+                # Keep the existing ids if they exist on the platform
+                scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
+                scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
 
             scan_stats.scanned_platforms += 1
             scan_stats.added_platforms += 1 if not platform else 0
@@ -229,7 +230,7 @@ async def stop_scan_handler(_sid: str):
 
     existing_jobs = high_prio_queue.get_jobs()
     for job in existing_jobs:
-        if job.func_name == "scan_platform":
+        if job.func_name == "scan_platform" and job.is_started:
             return await cancel_job(job)
 
     workers = Worker.all(connection=redis_client)
@@ -238,6 +239,7 @@ async def stop_scan_handler(_sid: str):
         if (
             current_job
             and current_job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and current_job.is_started
         ):
             return await cancel_job(current_job)
 

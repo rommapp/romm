@@ -13,7 +13,7 @@ const theme = useTheme();
       sm="3"
       md="3"
       lg="4"
-      xl="3"
+      xl="6"
       v-for="expansion in rom.igdb_metadata?.expansions"
     >
       <a
@@ -69,7 +69,7 @@ const theme = useTheme();
       sm="3"
       md="3"
       lg="4"
-      xl="3"
+      xl="6"
       v-for="dlc in rom.igdb_metadata?.dlcs"
     >
       <a
