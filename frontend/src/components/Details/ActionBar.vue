@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
+import CopyDownloadLink from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
@@ -24,16 +25,22 @@ function toggleEmulation() {
   emitter?.emit("showEmulation", null);
 }
 
-function copyDownloadLink(rom: Rom) {
-  navigator.clipboard.writeText(
+async function copyDownloadLink(rom: Rom) {
+  const downloadLink =
     location.host +
-      encodeURI(
-        getDownloadLink({
-          rom,
-          files: downloadStore.filesToDownloadMultiFileRom,
-        })
-      )
-  );
+    encodeURI(
+      getDownloadLink({
+        rom,
+        files: downloadStore.filesToDownloadMultiFileRom,
+      })
+    );
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(downloadLink);
+    emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
+  } else {
+    emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
+  }
+
   emitter?.emit("snackbarShow", {
     msg: "Download link copied to clipboard!",
     icon: "mdi-check-bold",
@@ -103,6 +110,8 @@ function copyDownloadLink(rom: Rom) {
       </v-menu>
     </v-col>
   </v-row>
+
+  <copy-download-link />
 </template>
 
 <style scoped>
