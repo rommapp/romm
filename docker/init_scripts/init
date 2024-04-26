@@ -33,6 +33,14 @@ error_log () {
     exit 1
 }
 
+wait_for_gunicorn_socket () {
+    info_log "waiting for gunicorn socket file..."
+    while [ ! -S /tmp/gunicorn.sock ]; do
+        sleep 1
+    done
+    info_log "gunicorn socket file found"
+}
+
 # function that runs or main process and creates a corresponding PID file,
 start_bin_gunicorn () {
     # cleanup potentially leftover socket
@@ -53,6 +61,8 @@ start_bin_gunicorn () {
 
 # Commands to start nginx (handling PID creation internally)
 start_bin_nginx () {
+    wait_for_gunicorn_socket
+
     info_log "starting nginx"
     if [ "$EUID" -ne 0 ]; then
         nginx
@@ -64,7 +74,6 @@ start_bin_nginx () {
 
 start_bin_redis-server () {
     info_log "starting redis-server"
-
     # Check if /usr/local/etc/redis/redis.conf exists and use it if so
     if [ -f /usr/local/etc/redis/redis.conf ]; then
         redis-server /usr/local/etc/redis/redis.conf &
@@ -107,14 +116,6 @@ watchdog_process_pid () {
     fi
 }
 
-wait_for_gunicorn_socket () {
-    info_log "waiting for gunicorn socket file..."
-    while [ ! -S /tmp/gunicorn.sock ]; do
-        sleep 1
-    done
-    info_log "gunicorn socket file found"
-}
-
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
@@ -146,8 +147,7 @@ while true; do
 
     # Start uvicorn if we dont have a corresponding PID file
     watchdog_process_pid bin gunicorn
-    wait_for_gunicorn_socket
-
+    
     # Start nginx if we dont have a corresponding PID file
     watchdog_process_pid bin nginx
 
