@@ -37,10 +37,6 @@ error_log () {
 start_bin_gunicorn () {
     # cleanup potentially leftover socket
     rm /tmp/gunicorn.sock -f
-    
-    # recreate the socket file and ensure it has correct permissions
-    touch /tmp/gunicorn.sock
-    chmod 777 /tmp/gunicorn.sock
 
     # commands to start our main application and store its PID to check for crashes
     info_log "starting gunicorn"
