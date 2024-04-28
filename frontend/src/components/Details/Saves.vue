@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-
-import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
+import type { SaveSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
 import storeRoms, { type Rom } from "@/stores/roms";
-
-import type { SaveSchema } from "@/__generated__";
+import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 const props = defineProps<{ rom: Rom }>();
 const savesToUpload = ref<File[]>([]);
@@ -104,7 +102,9 @@ async function uploadSaves() {
       v-for="save in rom.user_saves"
       :key="save.id"
       :title="save.file_name"
-      :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(save.file_size_bytes)}`"
+      :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(
+        save.file_size_bytes
+      )}`"
     >
       <template v-slot:prepend>
         <v-checkbox

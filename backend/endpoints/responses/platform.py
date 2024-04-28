@@ -10,8 +10,8 @@ class PlatformSchema(BaseModel):
     igdb_id: Optional[int] = None
     sgdb_id: Optional[int] = None
     moby_id: Optional[int] = None
-    name: Optional[str]
-    logo_path: str
+    name: str
+    logo_path: Optional[str] = ""
     rom_count: int
 
     class Config:
