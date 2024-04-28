@@ -121,6 +121,9 @@ cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
 info_log "Starting up, please wait..."
 
+# clear any leftover PID files
+rm /tmp/*.pid -f
+
 # function definition done, lets start our main loop
 while true; do
     # check for died processes every 5 seconds
