@@ -148,7 +148,7 @@ while true; do
         debug_log "database schema already upgraded during current container lifecycle"
     fi
 
-    # Start uvicorn if we dont have a corresponding PID file
+    # Start gunicorn if we dont have a corresponding PID file
     watchdog_process_pid bin gunicorn
     
     # Start nginx if we dont have a corresponding PID file
