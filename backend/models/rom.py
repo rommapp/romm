@@ -13,6 +13,9 @@ from sqlalchemy import (
     String,
     Text,
     BigInteger,
+    DateTime,
+    func,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, relationship
 
@@ -74,6 +77,9 @@ class Rom(BaseModel):
     )
     screenshots: Mapped[list[Screenshot]] = relationship(
         "Screenshot", lazy="selectin", back_populates="rom"
+    )
+    notes: Mapped[list["RomNote"]] = relationship(
+        "RomNote", lazy="selectin", back_populates="rom"
     )
 
     @property
@@ -156,3 +162,28 @@ class Rom(BaseModel):
 
     def __repr__(self) -> str:
         return self.file_name
+
+class RomNote(BaseModel):
+    __tablename__ = "rom_notes"
+    __table_args__ = (
+        UniqueConstraint("rom_id", "user_id", name="unique_rom_user_note"),
+    )
+
+    id = Column(Integer(), primary_key=True, autoincrement=True)
+    last_edited_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    raw_markdown = Column(Text, nullable=False, default="")
+    is_public = Column(Boolean, default=False)
+
+    rom_id = Column(
+        Integer(),
+        ForeignKey("roms.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id = Column(
+        Integer(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    rom = relationship("Rom", back_populates="notes")
+    user = relationship("User", back_populates="notes")

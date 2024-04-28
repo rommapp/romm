@@ -1,11 +1,12 @@
 import re
+from datetime import datetime
 from typing import Optional, get_type_hints
 from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from handler import socket_handler
+from handler import socket_handler, db_user_handler
 from handler.metadata_handler.igdb_handler import IGDBMetadata
 from handler.metadata_handler.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
@@ -25,6 +26,26 @@ RomMobyMetadata = TypedDict(
     total=False,
 )
 
+class RomNoteSchema(TypedDict):
+    id: int
+    user_id: int
+    rom_id: int
+    last_edited_at: datetime
+    raw_markdown: str
+    is_public: bool
+
+    @computed_field
+    @property
+    def user__username(self) -> str:
+        return db_user_handler.get_user(self.user_id).username
+
+    @classmethod
+    def for_user(cls, db_rom: Rom, user_id: int) -> list["RomNoteSchema"]:
+        return [
+            cls.model_validate(n)
+            for n in db_rom.notes
+            if n.user_id == user_id or n.is_public
+        ]
 
 class RomSchema(BaseModel):
     id: int
@@ -78,6 +99,7 @@ class RomSchema(BaseModel):
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
+    notes: list[RomNoteSchema] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -114,9 +136,9 @@ class RomSchema(BaseModel):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
+        rom.notes = RomNoteSchema.for_user(db_rom, user_id)
 
         return rom
-
 
 class AddRomsResponse(TypedDict):
     uploaded_roms: list[str]
