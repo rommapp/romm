@@ -9,7 +9,8 @@ export type SearchRomSchema = {
     slug: string;
     name: string;
     summary: string;
-    url_cover: string;
+    igdb_url_cover?: string;
+    moby_url_cover?: string;
     url_screenshots: Array<string>;
 };
 

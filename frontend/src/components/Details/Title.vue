@@ -42,7 +42,10 @@ const { smAndDown } = useDisplay();
     no-gutters
   >
     <v-col cols="12">
-      <v-chip class="mr-1" :to="{ name: 'platform', params: { platform: platform.id } }">
+      <v-chip
+        class="mr-1"
+        :to="{ name: 'platform', params: { platform: platform.id } }"
+      >
         {{ platform.name }}
         <v-avatar :rounded="0" size="40" class="ml-1 py-1">
           <platform-icon :key="platform.slug" :slug="platform.slug" />
@@ -99,7 +102,7 @@ const { smAndDown } = useDisplay();
         style="text-decoration: none; color: inherit"
         :href="`https://www.mobygames.com/game/${rom.moby_id}`"
         target="_blank"
-        class="ml-2"
+        :class="{ 'ml-2': rom.igdb_id }"
       >
         <v-chip size="x-small" @click="">
           <span>Mobygames</span>

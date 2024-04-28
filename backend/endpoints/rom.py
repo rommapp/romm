@@ -259,7 +259,7 @@ async def update_rom(
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
         rename_as_igdb (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
-        artwork (Optional[UploadFile], optional): Custom artork to set as cover. Defaults to File(None).
+        artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
 
     Raises:
         HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
@@ -274,16 +274,20 @@ async def update_rom(
     platform_fs_slug = db_platform_handler.get_platforms(db_rom.platform_id).fs_slug
 
     cleaned_data = {}
-    cleaned_data["igdb_id"] = data.get("igdb_id", db_rom.igdb_id) or None
-    cleaned_data["moby_id"] = data.get("moby_id", db_rom.moby_id) or None
+    cleaned_data["igdb_id"] = data.get("igdb_id", None)
+    cleaned_data["moby_id"] = data.get("moby_id", None)
 
     if cleaned_data["moby_id"]:
         moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
+    else:
+        cleaned_data.update({"moby_metadata": {}})
 
     if cleaned_data["igdb_id"]:
         igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
+    else:
+        cleaned_data.update({"igdb_metadata": {}})
 
     cleaned_data["name"] = data.get("name", db_rom.name)
     cleaned_data["summary"] = data.get("summary", db_rom.summary)
@@ -325,7 +329,9 @@ async def update_rom(
                 rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
             )
         )
+        cleaned_data.update({"url_cover": ""})
     else:
+        cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
         cleaned_data.update(
             fs_resource_handler.get_rom_cover(
                 overwrite=True,
