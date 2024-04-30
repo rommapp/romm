@@ -1,4 +1,5 @@
 from functools import cached_property
+from datetime import datetime
 
 from config import FRONTEND_RESOURCES_PATH
 from models.assets import Save, Screenshot, State
@@ -169,17 +170,17 @@ class RomNote(BaseModel):
         UniqueConstraint("rom_id", "user_id", name="unique_rom_user_note"),
     )
 
-    id = Column(Integer(), primary_key=True, autoincrement=True)
-    last_edited_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    raw_markdown = Column(Text, nullable=False, default="")
-    is_public = Column(Boolean, default=False)
+    id: int = Column(Integer(), primary_key=True, autoincrement=True)
+    last_edited_at: datetime = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    raw_markdown: str = Column(Text, nullable=False, default="")
+    is_public: bool = Column(Boolean, default=False)
 
-    rom_id = Column(
+    rom_id: int = Column(
         Integer(),
         ForeignKey("roms.id", ondelete="CASCADE"),
         nullable=False,
     )
-    user_id = Column(
+    user_id: int = Column(
         Integer(),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,

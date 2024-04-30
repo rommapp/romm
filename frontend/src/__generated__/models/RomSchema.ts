@@ -53,7 +53,7 @@ export type RomSchema = {
     user_saves?: Array<SaveSchema>;
     user_states?: Array<StateSchema>;
     user_screenshots?: Array<ScreenshotSchema>;
-    notes?: Array<RomNoteSchema>;
+    user_notes?: Array<RomNoteSchema>;
     readonly sort_comparator: string;
 };
 
