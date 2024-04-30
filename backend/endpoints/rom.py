@@ -433,13 +433,7 @@ async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
     if not db_note:
         db_note = db_rom_handler.add_rom_note(id, request.user.id)
 
-    if db_note.user_id != request.user.id:
-        error = "You are not authorized to update this note"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
-
     data = await request.json()
-
     db_rom_handler.update_rom_note(
         db_note.id,
         {

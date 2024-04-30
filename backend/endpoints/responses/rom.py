@@ -47,6 +47,7 @@ class RomNoteSchema(BaseModel):
         return [
             cls.model_validate(n)
             for n in db_rom.notes
+            # This is what filters out private notes
             if n.user_id == user_id or n.is_public
         ]
 
