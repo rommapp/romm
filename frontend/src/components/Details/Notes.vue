@@ -80,6 +80,7 @@ function onEditNote() {
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
+        :noUploadImg="true"
         class="editor-preview"
       />
       <MdPreview
@@ -117,15 +118,9 @@ function onEditNote() {
 .md-editor-dark {
   --md-bk-color: #161b22 !important;
 }
-.md-editor h1,
-.md-editor h2,
-.md-editor h3,
-.md-editor h4,
-.md-editor h5,
-.md-editor h6 {
+.md-editor,
+.md-editor-preview {
   word-break: break-word !important;
-}
-.md-editor {
   line-height: 1.25 !important;
 }
 .vuepress-theme pre code {
