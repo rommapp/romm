@@ -49,8 +49,8 @@ function onEditNote() {
 <template>
   <v-card>
     <v-card-title>
-      <v-row>
-        <v-col cols="10">
+      <v-row class="px-2 pt-1">
+        <v-col cols="10" class="d-flex align-center">
           <h3>My notes</h3>
         </v-col>
         <v-col cols="2" class="text-right">
@@ -77,7 +77,7 @@ function onEditNote() {
       <MdEditor
         v-if="editingNote"
         v-model="ownNote.raw_markdown"
-        theme="dark"
+        :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
         class="editor-preview"
@@ -85,28 +85,26 @@ function onEditNote() {
       <MdPreview
         v-else
         :modelValue="ownNote.raw_markdown"
-        theme="dark"
-        previewTheme="default"
-        codeTheme="atom"
+        :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+        previewTheme="vuepress"
+        codeTheme="github"
       />
     </v-card-text>
   </v-card>
   <v-card v-if="publicNotes.length > 0" class="mt-3">
-    <v-card-title>
+    <v-card-title class="px-6 pt-4">
       <h3>Public notes</h3>
     </v-card-title>
     <v-card-text>
       <v-list>
         <v-list-item v-for="note in publicNotes" :key="note.id">
           <v-list-item-content>
-            <v-list-item-title>{{
-              note.user__username
-            }}</v-list-item-title>
+            <v-list-item-title>{{ note.user__username }}</v-list-item-title>
             <MdPreview
               :modelValue="note.raw_markdown"
-              theme="dark"
-              previewTheme="default"
-              codeTheme="atom"
+              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+              previewTheme="vuepress"
+              codeTheme="github"
             />
           </v-list-item-content>
         </v-list-item>
@@ -129,5 +127,8 @@ function onEditNote() {
 }
 .md-editor {
   line-height: 1.25 !important;
+}
+.vuepress-theme pre code {
+  background-color: #0D1117;
 }
 </style>
