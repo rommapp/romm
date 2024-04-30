@@ -26,13 +26,16 @@ RomMobyMetadata = TypedDict(
     total=False,
 )
 
-class RomNoteSchema(TypedDict):
+class RomNoteSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
     last_edited_at: datetime
     raw_markdown: str
     is_public: bool
+
+    class Config:
+        from_attributes = True
 
     @computed_field
     @property
@@ -99,7 +102,7 @@ class RomSchema(BaseModel):
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    notes: list[RomNoteSchema] = Field(default_factory=list)
+    user_notes: list[RomNoteSchema] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -136,7 +139,7 @@ class RomSchema(BaseModel):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.notes = RomNoteSchema.for_user(db_rom, user_id)
+        rom.user_notes = RomNoteSchema.for_user(db_rom, user_id)
 
         return rom
 
