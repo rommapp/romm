@@ -20,6 +20,7 @@ from endpoints import (
     user,
     screenshots,
     feeds,
+    firmware,
 )
 import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
@@ -89,6 +90,7 @@ app.include_router(config.router)
 app.include_router(stats.router)
 app.include_router(raw.router)
 app.include_router(screenshots.router)
+app.include_router(firmware.router)
 
 add_pagination(app)
 app.mount("/ws", socket_handler.socket_app)

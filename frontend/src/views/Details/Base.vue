@@ -249,7 +249,7 @@ watch(
             </v-window>
             <v-window v-if="showEmulation" v-model="tab" class="py-2">
               <v-window-item value="emulation">
-                <emulation :rom="rom" />
+                <emulation :rom="rom" :platform="platform" />
               </v-window-item>
             </v-window>
           </v-col>

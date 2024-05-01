@@ -131,8 +131,6 @@ def head_firmware_content(request: Request, id: int, file_name: str):
         path=firmware_path,
         filename=file_name,
         headers={
-            "Content-Disposition": f'attachment; filename="{firmware.name}.zip"',
-            "Content-Type": "application/zip",
             "Content-Length": str(firmware.file_size_bytes),
         },
     )

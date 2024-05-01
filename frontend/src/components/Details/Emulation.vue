@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { isNull } from "lodash";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import rom from "@/services/api/rom";
 import type { Rom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import Player from "@/views/Play/Player.vue";
 import { ref } from "vue";
+import type { Platform } from "@/stores/platforms";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: Rom; platform: Platform }>();
+const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
@@ -33,16 +35,21 @@ function onFullScreenChange() {
 <template>
   <v-row v-if="rom && !gameRunning" no-gutters class="align-center">
     <v-col cols="5" class="text-truncate mx-1">
-      <!-- <v-select
+      <v-select
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
-        disabled
         label="BIOS"
-        :items="['gba-bios.zip']"
-      /> -->
+        v-model="biosRef"
+        :items="
+          props.platform.firmware?.map((f) => ({
+            title: f.file_name,
+            value: f,
+          })) ?? []
+        "
+      />
       <v-select
         density="compact"
         class="my-2"
@@ -130,7 +137,7 @@ function onFullScreenChange() {
 
   <v-row no-gutters>
     <v-col v-if="gameRunning" cols="12" rounded id="game-wrapper">
-      <player :rom="props.rom" :state="stateRef" :save="saveRef" />
+      <player :rom="props.rom" :state="stateRef" :save="saveRef" :bios="biosRef" />
     </v-col>
   </v-row>
 </template>
