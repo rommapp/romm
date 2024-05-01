@@ -1,12 +1,8 @@
 from pydantic import BaseModel
-
+from typing_extensions import TypedDict
 
 class FirmwareSchema(BaseModel):
     id: int
-
-    platform_id: int
-    platform_slug: str
-    platform_name: str
 
     file_name: str
     file_name_no_tags: str
@@ -19,3 +15,8 @@ class FirmwareSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AddFirmwareResponse(TypedDict):
+    uploaded_firmware: list[str]
+    skipped_firmware: list[str]

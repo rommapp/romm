@@ -13,6 +13,7 @@ export type { Body_update_rom_roms__id__put } from './models/Body_update_rom_rom
 export type { Body_update_user_users__id__put } from './models/Body_update_user_users__id__put';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { CursorPage_RomSchema_ } from './models/CursorPage_RomSchema_';
+export type { FirmwareSchema } from './models/FirmwareSchema';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBPlatform } from './models/IGDBPlatform';
