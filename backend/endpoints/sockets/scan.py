@@ -121,7 +121,7 @@ async def scan_platforms(
             try:
                 fs_firmware = fs_firmware_handler.get_firmware(platform)
             except FirmwareNotFoundException:
-                continue
+                fs_firmware = []
 
             if len(fs_firmware) == 0:
                 log.warning(
