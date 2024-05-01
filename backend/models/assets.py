@@ -33,23 +33,6 @@ class BaseAsset(BaseModel):
     @cached_property
     def download_path(self) -> str:
         return f"/api/raw/assets/{self.full_path}?timestamp={self.updated_at}"
-    
-
-class PlatformAsset(BaseAsset):
-    __abstract__ = True
-
-    platform_id = Column(
-        Integer(), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False
-    )
-
-
-class Firmware(PlatformAsset):
-    # Represents a BIOS or firmware file
-
-    __tablename__ = "firmwares"
-    __table_args__ = {"extend_existing": True}
-
-    platform = relationship("Platform", lazy="selectin", back_populates="firmwares")
 
 
 class RomAsset(BaseAsset):

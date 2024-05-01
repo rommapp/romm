@@ -1,0 +1,60 @@
+import os
+import shutil
+
+from handler.fs_handler import FSHandler
+from exceptions.fs_exceptions import (
+    FirmwareNotFoundException,
+    FirmwareAlreadyExistsException,
+)
+from config import LIBRARY_BASE_PATH
+from models.platform import Platform
+
+
+class FSFirmwareHandler(FSHandler):
+    def __init__(self) -> None:
+        pass
+
+    def remove_file(self, file_name: str, file_path: str):
+        try:
+            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+        except IsADirectoryError:
+            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+
+    def get_firmware(self, platform: Platform):
+        """Gets all filesystem firmware for a platform
+
+        Args:
+            platform: platform where firmware belong
+        Returns:
+            list with all the filesystem firmware for a platform found in the LIBRARY_BASE_PATH
+        """
+        firmware_path = self.get_firmware_fs_structure(platform.fs_slug)
+        firmware_file_path = f"{LIBRARY_BASE_PATH}/{firmware_path}"
+
+        try:
+            fs_firmware_files: list[str] = list(os.walk(firmware_file_path))[0][2]
+        except IndexError as exc:
+            raise FirmwareNotFoundException(platform.fs_slug) from exc
+
+        return fs_firmware_files
+
+    def get_firmware_file_size(self, firmware_path: str, file_name: str):
+        files = [f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}"]
+        return sum([os.stat(file).st_size for file in files])
+
+    def file_exists(self, path: str, file_name: str):
+        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
+
+    def rename_file(self, old_name: str, new_name: str, file_path: str):
+        if new_name != old_name:
+            if self.file_exists(path=file_path, file_name=new_name):
+                raise FirmwareAlreadyExistsException(new_name)
+
+            os.rename(
+                f"{LIBRARY_BASE_PATH}/{file_path}/{old_name}",
+                f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
+            )
+
+    def build_upload_file_path(self, fs_slug: str):
+        file_path = self.get_firmware_fs_structure(fs_slug)
+        return f"{LIBRARY_BASE_PATH}/{file_path}"

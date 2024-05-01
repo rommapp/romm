@@ -1,5 +1,6 @@
 from models.base import BaseModel
 from models.rom import Rom
+from models.firmware import Firmware
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import Mapped, relationship
 
@@ -18,6 +19,9 @@ class Platform(BaseModel):
 
     roms: Mapped[set[Rom]] = relationship(
         "Rom", lazy="selectin", back_populates="platform"
+    )
+    firmware: Mapped[set[Firmware]] = relationship(
+        "Firmware", lazy="selectin", back_populates="platform"
     )
 
     @property

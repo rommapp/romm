@@ -87,12 +87,20 @@ class FSHandler(ABC):
     def __init__(self) -> None:
         pass
 
-    def get_fs_structure(self, fs_slug: str) -> str:
+    def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (
             f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
             if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
             else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+        )
+    
+    def get_firmware_fs_structure(self, fs_slug: str) -> str:
+        cnfg = cm.get_config()
+        return (
+            f"{cnfg.FIRMWARE_FOLDER_NAME}/{fs_slug}"
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else f"{fs_slug}/{cnfg.FIRMWARE_FOLDER_NAME}"
         )
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:
