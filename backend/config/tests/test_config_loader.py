@@ -18,6 +18,7 @@ def test_config_loader():
     assert loader.config.PLATFORMS_BINDING == {"gc": "ngc"}
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
+    assert loader.config.FIRMWARE_FOLDER_NAME == "BIOS"
 
 
 def test_empty_config_loader():
@@ -32,3 +33,4 @@ def test_empty_config_loader():
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
+    assert loader.config.FIRMWARE_FOLDER_NAME == "bios"

@@ -125,7 +125,7 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
         """
-        roms_path = self.get_fs_structure(platform.fs_slug)
+        roms_path = self.get_roms_fs_structure(platform.fs_slug)
         roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
 
         try:
@@ -189,5 +189,5 @@ class FSRomsHandler(FSHandler):
             )
 
     def build_upload_file_path(self, fs_slug: str):
-        file_path = self.get_fs_structure(fs_slug)
+        file_path = self.get_roms_fs_structure(fs_slug)
         return f"{LIBRARY_BASE_PATH}/{file_path}"

@@ -37,6 +37,7 @@ class Config:
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
+    FIRMWARE_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
 
     def __init__(self, **entries):
@@ -127,6 +128,9 @@ class ConfigManager:
             ROMS_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.roms_folder", "roms"
             ),
+            FIRMWARE_FOLDER_NAME=pydash.get(
+                self._raw_config, "filesystem.firmware_folder", "bios"
+            ),
         )
 
     def _validate_config(self):
@@ -194,6 +198,18 @@ class ConfigManager:
         if self.config.ROMS_FOLDER_NAME == "":
             log.critical(
                 "Invalid config.yml: filesystem.roms_folder cannot be an empty string"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.FIRMWARE_FOLDER_NAME, str):
+            log.critical(
+                "Invalid config.yml: filesystem.firmware_folder must be a string"
+            )
+            sys.exit(3)
+
+        if self.config.FIRMWARE_FOLDER_NAME == "":
+            log.critical(
+                "Invalid config.yml: filesystem.firmware_folder cannot be an empty string"
             )
             sys.exit(3)
 

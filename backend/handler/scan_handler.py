@@ -7,6 +7,7 @@ from handler import (
     fs_asset_handler,
     fs_resource_handler,
     fs_rom_handler,
+    fs_firmware_handler,
     igdb_handler,
     moby_handler,
 )
@@ -15,6 +16,7 @@ from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from models.firmware import Firmware
 
 
 class ScanType(Enum):
@@ -83,7 +85,7 @@ def scan_platform(
         platform_attrs["slug"] = fs_slug
 
     igdb_platform = igdb_handler.get_platform(platform_attrs["slug"])
-    moby_platform =  moby_handler.get_platform(platform_attrs["slug"])
+    moby_platform = moby_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
@@ -98,6 +100,46 @@ def scan_platform(
     return Platform(**platform_attrs)
 
 
+def scan_firmware(
+    platform: Platform,
+    file_name: str,
+    firmware: Firmware | None = None,
+) -> Firmware:
+    firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
+
+    log.info(f"\t · {file_name}")
+
+    # Set default properties
+    firmware_attrs = {
+        "id": firmware.id if firmware else None,
+        "platform_id": platform.id,
+    }
+
+    file_size = fs_firmware_handler.get_firmware_file_size(
+        firmware_path=firmware_path,
+        file_name=file_name,
+    )
+
+    firmware_attrs.update(
+        {
+            "file_path": firmware_path,
+            "file_name": file_name,
+            "file_name_no_tags": fs_firmware_handler.get_file_name_with_no_tags(
+                file_name
+            ),
+            "file_name_no_ext": fs_firmware_handler.get_file_name_with_no_extension(
+                file_name
+            ),
+            "file_extension": fs_firmware_handler.parse_file_extension(
+                file_name
+            ),
+            "file_size_bytes": file_size,
+        }
+    )
+
+    return Firmware(**firmware_attrs)
+
+
 async def scan_rom(
     platform: Platform,
     rom_attrs: dict,
@@ -105,7 +147,7 @@ async def scan_rom(
     rom: Rom | None = None,
     metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Rom:
-    roms_path = fs_rom_handler.get_fs_structure(platform.fs_slug)
+    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {rom_attrs['file_name']}")
 
@@ -222,8 +264,17 @@ async def scan_rom(
     if (
         not rom
         or scan_type == ScanType.COMPLETE
-        or (scan_type == ScanType.PARTIAL and rom and (not rom.igdb_id or not rom.moby_id))
-        or (scan_type == ScanType.UNIDENTIFIED and rom and not rom.igdb_id and not rom.moby_id)
+        or (
+            scan_type == ScanType.PARTIAL
+            and rom
+            and (not rom.igdb_id or not rom.moby_id)
+        )
+        or (
+            scan_type == ScanType.UNIDENTIFIED
+            and rom
+            and not rom.igdb_id
+            and not rom.moby_id
+        )
     ):
         rom_attrs.update(
             fs_resource_handler.get_rom_cover(
