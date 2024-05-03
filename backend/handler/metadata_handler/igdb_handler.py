@@ -416,7 +416,8 @@ class IGDBHandler(MetadataHandler):
         if not IGDB_API_ENABLED:
             return []
 
-        return [self.get_rom_by_id(igdb_id)]
+        rom = self.get_rom_by_id(igdb_id)
+        return [rom] if rom["igdb_id"] else []
 
     @check_twitch_token
     def get_matched_roms_by_name(

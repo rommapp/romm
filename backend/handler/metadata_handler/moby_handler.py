@@ -253,14 +253,14 @@ class MobyGamesHandler(MetadataHandler):
 
     def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not MOBY_API_ENABLED:
-            return MobyGamesRom(moby_id=moby_id)
+            return MobyGamesRom(moby_id=None)
 
         url = yarl.URL(self.games_url).with_query(id=moby_id)
         roms = self._request(str(url)).get("games", [])
         res = pydash.get(roms, "[0]", None)
 
         if not res:
-            return MobyGamesRom(moby_id=moby_id)
+            return MobyGamesRom(moby_id=None)
 
         rom = {
             "moby_id": res["game_id"],
@@ -278,7 +278,8 @@ class MobyGamesHandler(MetadataHandler):
         if not MOBY_API_ENABLED:
             return []
 
-        return [self.get_rom_by_id(moby_id)]
+        rom = self.get_rom_by_id(moby_id)
+        return [rom] if rom["moby_id"] else []
 
     def get_matched_roms_by_name(
         self, search_term: str, platform_moby_id: int
