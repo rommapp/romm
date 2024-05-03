@@ -14,8 +14,8 @@ class PlatformSchema(BaseModel):
     name: str
     logo_path: Optional[str] = ""
     rom_count: int
-    
-    firmware: list[FirmwareSchema] = Field(default_factory=list)
+
+    firmware_files: list[FirmwareSchema] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -23,7 +23,7 @@ class PlatformSchema(BaseModel):
     @classmethod
     def from_orm_with_request(cls, db_platform: Platform, request: Request) -> "PlatformSchema":
         platform = cls.model_validate(db_platform)
-        platform.firmware = [
+        platform.firmware_files = [
             FirmwareSchema.model_validate(f) for f in db_platform.firmware
         ]
         return platform

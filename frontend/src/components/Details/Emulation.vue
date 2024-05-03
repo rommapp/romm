@@ -44,7 +44,7 @@ function onFullScreenChange() {
         label="BIOS"
         v-model="biosRef"
         :items="
-          props.platform.firmware?.map((f) => ({
+          props.platform.firmware_files?.map((f) => ({
             title: f.file_name,
             value: f,
           })) ?? []

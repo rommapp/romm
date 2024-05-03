@@ -3,7 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
 export type { AddRomsResponse } from './models/AddRomsResponse';
+export type { Body_add_firmware_firmware_post } from './models/Body_add_firmware_firmware_post';
 export type { Body_add_roms_roms_post } from './models/Body_add_roms_roms_post';
 export type { Body_add_saves_saves_post } from './models/Body_add_saves_saves_post';
 export type { Body_add_screenshots_screenshots_post } from './models/Body_add_screenshots_screenshots_post';
