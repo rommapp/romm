@@ -8,12 +8,12 @@ import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatfo
 import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
+import ViewFirmwareDialog from "@/components/Dialog/Platform/ViewFirmware.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import MatchRomDialog from "@/components/Dialog/Rom/MatchRom/MatchRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
-import ViewFirmwareDialog from "@/components/Dialog/Platform/ViewFirmware.vue";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";

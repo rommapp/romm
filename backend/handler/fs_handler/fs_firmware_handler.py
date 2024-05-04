@@ -1,11 +1,14 @@
 import os
 import shutil
+from pathlib import Path
 
+from fastapi import UploadFile
 from handler.fs_handler import FSHandler
 from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FirmwareAlreadyExistsException,
 )
+from logger.logger import log
 from config import LIBRARY_BASE_PATH
 from models.platform import Platform
 
@@ -58,3 +61,11 @@ class FSFirmwareHandler(FSHandler):
     def build_upload_file_path(self, fs_slug: str):
         file_path = self.get_firmware_fs_structure(fs_slug)
         return f"{LIBRARY_BASE_PATH}/{file_path}"
+
+    def write_file(self, file: UploadFile, path: str) -> None:
+        Path(path).mkdir(parents=True, exist_ok=True)
+        log.info(f" - Uploading {file.filename}")
+        file_location = os.path.join(path, file.filename)
+
+        with open(file_location, "wb") as f:
+            shutil.copyfileobj(file.file, f)

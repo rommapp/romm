@@ -2,14 +2,17 @@
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
+import firmwareApi from "@/services/api/firmware";
 import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
+import type { FirmwareSchema } from "@/__generated__";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
 const selectedPlatform = ref<Platform | null>(null);
+const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showFirmwareDialog", (platform) => {
   selectedPlatform.value = platform;
@@ -31,7 +34,61 @@ function closeDialog() {
   selectedPlatform.value = null;
 }
 
-function uploadFirmware() {}
+function uploadFirmware() {
+  if (!selectedPlatform.value) return;
+
+  firmwareApi
+    .uploadFirmware({
+      platformId: selectedPlatform.value.id,
+      files: filesToUpload.value,
+    })
+    .then(({ data }) => {
+      const { uploaded, firmware } = data;
+      if (selectedPlatform.value) {
+        selectedPlatform.value.firmware_files = firmware;
+      }
+
+      emitter?.emit("snackbarShow", {
+        msg: `${uploaded} files uploaded successfully.`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+    });
+
+  filesToUpload.value = [];
+}
+
+function downloadFirmware() {
+  selectedFirmware.value.map((firmware) => {
+    const a = document.createElement("a");
+    a.href = `/api/firmware/${firmware.id}/content/${firmware.file_name}`;
+    a.download = `${firmware.file_name}`;
+    a.click();
+  });
+
+  selectedFirmware.value = [];
+}
+
+function deleteFirmware() {
+  firmwareApi
+    .deleteFirmware({ firmware: selectedFirmware.value, deleteFromFs: false })
+    .then(() => {
+      if (selectedPlatform.value) {
+        selectedPlatform.value.firmware_files =
+          selectedPlatform.value.firmware_files?.filter(
+            (firmware) => !selectedFirmware.value.includes(firmware)
+          );
+      }
+      emitter?.emit("snackbarShow", {
+        msg: "Firmware deleted successfully!",
+        icon: "mdi-check-circle",
+        color: "green",
+        timeout: 4000,
+      });
+      selectedFirmware.value = [];
+    });
+}
 </script>
 
 <template>
@@ -100,7 +157,7 @@ function uploadFirmware() {}
             <v-btn
               block
               icon=""
-              class="text-romm-green-1 bg-terciary"
+              class="text-romm-green bg-terciary"
               rounded="0"
               variant="text"
               @click="uploadFirmware()"
@@ -144,7 +201,60 @@ function uploadFirmware() {}
         </v-row>
       </v-card-text>
 
-      <v-card-text class="my-4 py-0"> </v-card-text>
+      <v-card-text class="my-4 py-0">
+        <v-list rounded="0" class="pa-0">
+          <v-list-item
+            class="px-3"
+            v-for="firmware in selectedPlatform?.firmware_files ?? []"
+            :key="firmware.id"
+            :title="firmware.file_name"
+            :subtitle="formatBytes(firmware.file_size_bytes)"
+          >
+            <template v-slot:prepend>
+              <v-checkbox
+                v-model="selectedFirmware"
+                :value="firmware"
+                color="romm-accent-1"
+                hide-details
+              />
+            </template>
+            <template v-slot:append>
+              <v-btn
+                icon
+                :href="`/api/firmware/${firmware.id}/content/${firmware.file_name}`"
+                rounded="0"
+                variant="text"
+                class="bg-terciary"
+                size="small"
+                download
+              >
+                <v-icon>mdi-download</v-icon>
+              </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <v-btn
+          :disabled="!selectedFirmware.length"
+          @click="downloadFirmware()"
+          rounded="0"
+          variant="text"
+          class="mt-3 mr-3 bg-terciary"
+        >
+          <v-icon>mdi-download</v-icon>
+          Download
+        </v-btn>
+        <v-btn
+          :disabled="!selectedFirmware.length"
+          @click="deleteFirmware()"
+          rounded="0"
+          variant="text"
+          class="mt-3 bg-terciary text-romm-red"
+        >
+          <v-icon>mdi-delete</v-icon>
+          Delete
+        </v-btn>
+      </v-card-text>
     </v-card>
   </v-dialog>
 </template>
