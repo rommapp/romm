@@ -3,8 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { FirmwareSchema } from './FirmwareSchema';
+
 export type AddFirmwareResponse = {
-    uploaded_firmware: Array<string>;
-    skipped_firmware: Array<string>;
+    uploaded: number;
+    firmware: Array<FirmwareSchema>;
 };
 

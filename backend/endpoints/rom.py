@@ -46,7 +46,7 @@ def add_roms(
         HTTPException: No files were uploaded
 
     Returns:
-        UploadRomResponse: Standard message response
+        AddRomsResponse: Standard message response
     """
 
     platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug

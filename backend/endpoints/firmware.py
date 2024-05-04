@@ -12,6 +12,7 @@ from handler import (
     db_firmware_handler,
     fs_firmware_handler,
 )
+from handler.scan_handler import scan_firmware
 from logger.logger import log
 
 router = APIRouter()
@@ -35,8 +36,8 @@ def add_firmware(
         AddFirmwareResponse: Standard message response
     """
 
-    platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug
-    log.info(f"Uploading firmware to {platform_fs_slug}")
+    db_platform = db_platform_handler.get_platforms(platform_id)
+    log.info(f"Uploading firmware to {db_platform.fs_slug}")
     if files is None:
         log.error("No files were uploaded")
         raise HTTPException(
@@ -44,32 +45,37 @@ def add_firmware(
             detail="No files were uploaded",
         )
 
-    firmware_path = fs_firmware_handler.build_upload_file_path(platform_fs_slug)
-
     uploaded_firmware = []
-    skipped_firmware = []
+    firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
 
     for file in files:
-        if fs_firmware_handler.file_exists(firmware_path, file.filename):
-            log.warning(f" - Skipping {file.filename} since the file already exists")
-            skipped_firmware.append(file.filename)
+        fs_firmware_handler.write_file(file=file, path=firmware_path)
+    
+        db_firmware = db_firmware_handler.get_firmware_by_filename(
+            platform_id=db_platform.id, file_name=file.filename
+        )
+        # Scan or update firmware
+        scanned_firmware = scan_firmware(
+            platform=db_platform,
+            file_name=file.filename,
+            firmware=db_firmware,
+        )
+
+        if db_firmware:
+            db_firmware_handler.update_firmware(
+                db_firmware.id, {"file_size_bytes": scanned_firmware.file_size_bytes}
+            )
             continue
 
-        log.info(f" - Uploading {file.filename}")
-        file_location = f"{firmware_path}/{file.filename}"
+        scanned_firmware.platform_id = db_platform.id
+        db_firmware_handler.add_firmware(scanned_firmware)
+        uploaded_firmware.append(scanned_firmware)
 
-        with open(file_location, "wb+") as f:
-            while True:
-                chunk = file.file.read(1024)
-                if not chunk:
-                    break
-                f.write(chunk)
-
-        uploaded_firmware.append(file.filename)
+    db_platform = db_platform_handler.get_platforms(platform_id)
 
     return {
-        "uploaded_firmware": uploaded_firmware,
-        "skipped_firmware": skipped_firmware,
+        "uploaded": len(files),
+        "firmware": db_platform.firmware,
     }
 
 

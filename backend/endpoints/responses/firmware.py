@@ -18,5 +18,5 @@ class FirmwareSchema(BaseModel):
 
 
 class AddFirmwareResponse(TypedDict):
-    uploaded_firmware: list[str]
-    skipped_firmware: list[str]
+    uploaded: int
+    firmware: list[FirmwareSchema]
