@@ -207,8 +207,6 @@ function deleteFirmware() {
             class="px-3"
             v-for="firmware in selectedPlatform?.firmware_files ?? []"
             :key="firmware.id"
-            :title="firmware.file_name"
-            :subtitle="formatBytes(firmware.file_size_bytes)"
           >
             <template v-slot:prepend>
               <v-checkbox
@@ -218,6 +216,24 @@ function deleteFirmware() {
                 hide-details
               />
             </template>
+            <v-list-item-title class="pb-1">
+              {{ firmware.file_name }}
+              <v-chip
+                v-if="firmware.is_verified"
+                label
+                size="x-small"
+                variant="tonal"
+                class="text-romm-green ml-2"
+                title="Passed file size, SHA1 and MD5 checksum checks"
+              >
+                VERIFIED
+              </v-chip>
+            </v-list-item-title>
+            <v-list-item-subtitle>
+              {{ formatBytes(firmware.file_size_bytes) }} -
+              {{ firmware.md5_hash }}
+            </v-list-item-subtitle>
+
             <template v-slot:append>
               <v-btn
                 icon

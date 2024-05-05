@@ -24,6 +24,6 @@ class PlatformSchema(BaseModel):
     def from_orm_with_request(cls, db_platform: Platform, request: Request) -> "PlatformSchema":
         platform = cls.model_validate(db_platform)
         platform.firmware_files = [
-            FirmwareSchema.model_validate(f) for f in db_platform.firmware
+            FirmwareSchema.model_validate(f) for f in sorted(db_platform.firmware, key=lambda x: x.file_name)
         ]
         return platform

@@ -14,6 +14,9 @@ class FirmwareSchema(BaseModel):
 
     full_path: str
     is_verified: bool
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
 
     class Config:
         from_attributes = True
