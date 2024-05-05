@@ -1,13 +1,13 @@
 import os
 import shutil
+import requests
 from pathlib import Path
 from urllib.parse import quote
-
-import requests
-from config import RESOURCES_BASE_PATH
-from fastapi import HTTPException, status
-from logger.logger import log
 from PIL import Image
+from fastapi import HTTPException, status
+
+from config import RESOURCES_BASE_PATH
+from logger.logger import log
 from urllib3.exceptions import ProtocolError
 from .base_handler import (
     DEFAULT_HEIGHT_COVER_L,
@@ -15,8 +15,8 @@ from .base_handler import (
     DEFAULT_WIDTH_COVER_L,
     DEFAULT_WIDTH_COVER_S,
     CoverSize,
+    FSHandler,
 )
-from .base_handler import FSHandler
 
 
 class FSResourcesHandler(FSHandler):
