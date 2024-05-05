@@ -1,11 +1,11 @@
-from .db_firmware_handler import DBFirmwareHandler
-from .db_platforms_handler import DBPlatformsHandler
-from .db_roms_handler import DBRomsHandler
-from .db_saves_handler import DBSavesHandler
-from .db_screenshots_handler import DBScreenshotsHandler
-from .db_states_handler import DBStatesHandler
-from .db_stats_handler import DBStatsHandler
-from .db_users_handler import DBUsersHandler
+from .firmware_handler import DBFirmwareHandler
+from .platforms_handler import DBPlatformsHandler
+from .roms_handler import DBRomsHandler
+from .saves_handler import DBSavesHandler
+from .screenshots_handler import DBScreenshotsHandler
+from .states_handler import DBStatesHandler
+from .stats_handler import DBStatsHandler
+from .users_handler import DBUsersHandler
 
 db_firmware_handler = DBFirmwareHandler()
 db_platforms_handler = DBPlatformsHandler()

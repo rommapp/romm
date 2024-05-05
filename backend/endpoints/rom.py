@@ -19,7 +19,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from handler.database import db_platforms_handler, db_roms_handler
 from handler.filesystem import fs_resources_handler, fs_roms_handler
 from handler.filesystem.base_handler import CoverSize
-from handler.metadata import igdb_handler, moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
 
@@ -273,13 +273,13 @@ async def update_rom(
     cleaned_data["moby_id"] = data.get("moby_id", None)
 
     if cleaned_data["moby_id"]:
-        moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+        moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
     else:
         cleaned_data.update({"moby_metadata": {}})
 
     if cleaned_data["igdb_id"]:
-        igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
     else:
         cleaned_data.update({"igdb_metadata": {}})

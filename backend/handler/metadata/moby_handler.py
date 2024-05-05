@@ -12,7 +12,7 @@ from unidecode import unidecode as uc
 from urllib.parse import quote
 from fastapi import HTTPException, status
 
-from .base_metadata_hander import (
+from .base_hander import (
     MetadataHandler,
     PS2_OPL_REGEX,
     SWITCH_TITLEDB_REGEX,

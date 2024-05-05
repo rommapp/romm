@@ -9,7 +9,7 @@ from handler.filesystem import (
     fs_resources_handler,
     fs_roms_handler,
 )
-from handler.metadata import igdb_handler, moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
@@ -35,7 +35,7 @@ def _get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform_igdb_id = igdb_handler.get_platform(main_platform_slug)[
+            main_platform_igdb_id = meta_igdb_handler.get_platform(main_platform_slug)[
                 "igdb_id"
             ]
             if not main_platform_igdb_id:
@@ -83,8 +83,8 @@ def scan_platform(
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    igdb_platform = igdb_handler.get_platform(platform_attrs["slug"])
-    moby_platform = moby_handler.get_platform(platform_attrs["slug"])
+    igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
+    moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
@@ -234,7 +234,7 @@ async def scan_rom(
         )
     ):
         main_platform_igdb_id = _get_main_platform_igdb_id(platform)
-        igdb_handler_rom = await igdb_handler.get_rom(
+        igdb_handler_rom = await meta_igdb_handler.get_rom(
             rom_attrs["file_name"], main_platform_igdb_id
         )
 
@@ -248,7 +248,7 @@ async def scan_rom(
             or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
         )
     ):
-        moby_handler_rom = await moby_handler.get_rom(
+        moby_handler_rom = await meta_moby_handler.get_rom(
             rom_attrs["file_name"], platform.moby_id
         )
 
