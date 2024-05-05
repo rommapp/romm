@@ -7,8 +7,8 @@ from endpoints.responses.firmware import (
 )
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from handler.db_handler import db_platforms_handler, db_firmware_handler
-from handler.fs_handler.fs_firmware_handler import fs_firmware_handler
+from handler.database import db_platforms_handler, db_firmware_handler
+from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
 from logger.logger import log
 
@@ -47,7 +47,7 @@ def add_firmware(
 
     for file in files:
         fs_firmware_handler.write_file(file=file, path=firmware_path)
-    
+
         db_firmware = db_firmware_handler.get_firmware_by_filename(
             platform_id=db_platform.id, file_name=file.filename
         )

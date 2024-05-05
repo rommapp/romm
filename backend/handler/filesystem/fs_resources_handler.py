@@ -6,17 +6,17 @@ from urllib.parse import quote
 import requests
 from config import RESOURCES_BASE_PATH
 from fastapi import HTTPException, status
-from handler.fs_handler import (
+from logger.logger import log
+from PIL import Image
+from urllib3.exceptions import ProtocolError
+from .base_handler import (
     DEFAULT_HEIGHT_COVER_L,
     DEFAULT_HEIGHT_COVER_S,
     DEFAULT_WIDTH_COVER_L,
     DEFAULT_WIDTH_COVER_S,
     CoverSize,
-    FSHandler,
 )
-from logger.logger import log
-from PIL import Image
-from urllib3.exceptions import ProtocolError
+from .base_handler import FSHandler
 
 
 class FSResourcesHandler(FSHandler):
@@ -231,6 +231,3 @@ class FSResourcesHandler(FSHandler):
             )
 
         return {"path_screenshots": path_screenshots}
-
-
-fs_resources_handler = FSResourcesHandler()

@@ -9,7 +9,7 @@ from models.rom import Rom
 from models.user import User
 from models.assets import Save, State, Screenshot
 from models.user import Role
-from handler.db_handler import (
+from handler.database import (
     db_users_handler,
     db_platforms_handler,
     db_roms_handler,
@@ -17,7 +17,7 @@ from handler.db_handler import (
     db_states_handler,
     db_screenshots_handler,
 )
-from handler.auth_handler import auth_handler
+from handler.auth import auth_handler
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)

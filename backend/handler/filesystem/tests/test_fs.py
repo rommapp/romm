@@ -1,8 +1,10 @@
 import pytest
 
-from handler.fs_handler.fs_resources_handler import fs_resources_handler
-from handler.fs_handler.fs_platforms_handler import fs_platforms_handler
-from handler.fs_handler.fs_roms_handler import fs_roms_handler
+from handler.filesystem import (
+    fs_resources_handler,
+    fs_platforms_handler,
+    fs_roms_handler,
+)
 from models.platform import Platform
 
 
@@ -224,7 +226,8 @@ def test_get_file_name_with_no_tags():
 
     file_name = "007 - Agent Under Fire.nkit.iso"
     assert (
-        fs_roms_handler.get_file_name_with_no_tags(file_name) == "007 - Agent Under Fire"
+        fs_roms_handler.get_file_name_with_no_tags(file_name)
+        == "007 - Agent Under Fire"
     )
 
     file_name = "Jimmy Houston's Bass Tournament U.S.A..zip"
@@ -303,7 +306,9 @@ def test_get_file_name_with_no_extension():
 
 
 def test_get_file_extension():
-    assert fs_roms_handler.parse_file_extension("Super Mario Bros. (World).nes") == "nes"
+    assert (
+        fs_roms_handler.parse_file_extension("Super Mario Bros. (World).nes") == "nes"
+    )
     assert (
         fs_roms_handler.parse_file_extension("007 - Agent Under Fire.nkit.iso")
         == "nkit.iso"

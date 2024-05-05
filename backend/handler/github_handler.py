@@ -56,4 +56,5 @@ class GithubHandler:
             pass
         return ""
 
+
 github_handler = GithubHandler()

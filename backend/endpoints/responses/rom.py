@@ -6,8 +6,8 @@ from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler.socket_handler import socket_handler
-from handler.metadata_handler.igdb_handler import IGDBMetadata
-from handler.metadata_handler.moby_handler import MobyMetadata
+from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
 

@@ -12,7 +12,7 @@ from unidecode import unidecode as uc
 from urllib.parse import quote
 from fastapi import HTTPException, status
 
-from . import (
+from .base_metadata_hander import (
     MetadataHandler,
     PS2_OPL_REGEX,
     SWITCH_TITLEDB_REGEX,
@@ -153,7 +153,7 @@ class MobyGamesHandler(MetadataHandler):
         )
 
     async def get_rom(self, file_name: str, platform_moby_id: int) -> MobyGamesRom:
-        from handler.fs_handler.fs_roms_handler import fs_roms_handler
+        from handler.filesystem import fs_roms_handler
 
         if not MOBY_API_ENABLED:
             return MobyGamesRom(moby_id=None)
@@ -718,6 +718,3 @@ SLUG_TO_MOBY_ID: Final = {
 
 # Reverse lookup
 MOBY_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_MOBY_ID.items()}
-
-
-moby_handler = MobyGamesHandler()

@@ -5,7 +5,6 @@ import binascii
 from pathlib import Path
 
 from fastapi import UploadFile
-from handler.fs_handler import FSHandler
 from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FirmwareAlreadyExistsException,
@@ -13,6 +12,7 @@ from exceptions.fs_exceptions import (
 from logger.logger import log
 from config import LIBRARY_BASE_PATH
 from models.platform import Platform
+from .base_handler import FSHandler
 
 
 class FSFirmwareHandler(FSHandler):
@@ -51,7 +51,9 @@ class FSFirmwareHandler(FSHandler):
         with open(f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}", "rb") as f:
             data = f.read()
             return {
-                "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF).to_bytes(4, byteorder='big').hex(),
+                "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
+                .to_bytes(4, byteorder="big")
+                .hex(),
                 "md5_hash": hashlib.md5(data).hexdigest(),
                 "sha1_hash": hashlib.sha1(data).hexdigest(),
             }
@@ -80,6 +82,3 @@ class FSFirmwareHandler(FSHandler):
 
         with open(file_location, "wb") as f:
             shutil.copyfileobj(file.file, f)
-
-
-fs_firmware_handler = FSFirmwareHandler()

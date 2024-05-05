@@ -7,8 +7,8 @@ from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler.auth_handler import auth_handler, oauth_handler
-from handler.db_handler import db_users_handler
+from handler.auth import auth_handler, oauth_handler
+from handler.database import db_users_handler
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7

@@ -4,8 +4,8 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User, Role
 from models.assets import Save, State, Screenshot
-from handler.auth_handler import auth_handler
-from handler.db_handler import (
+from handler.auth import auth_handler
+from handler.database import (
     db_platforms_handler,
     db_roms_handler,
     db_users_handler,

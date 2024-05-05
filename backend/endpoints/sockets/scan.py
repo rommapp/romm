@@ -11,10 +11,12 @@ from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
 )
 from config import SCAN_TIMEOUT
-from handler.db_handler import db_roms_handler, db_firmware_handler,  db_platforms_handler
-from handler.fs_handler.fs_roms_handler import fs_roms_handler
-from handler.fs_handler.fs_firmware_handler import fs_firmware_handler
-from handler.fs_handler.fs_platforms_handler import fs_platforms_handler
+from handler.database import db_roms_handler, db_firmware_handler, db_platforms_handler
+from handler.filesystem import (
+    fs_roms_handler,
+    fs_firmware_handler,
+    fs_platforms_handler,
+)
 from handler.socket_handler import socket_handler
 from handler.redis_handler import high_prio_queue, redis_url, redis_client
 from handler.scan_handler import (
@@ -23,8 +25,8 @@ from handler.scan_handler import (
     scan_firmware,
     ScanType,
 )
-from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
-from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
+from handler.metadata.igdb_handler import IGDB_API_ENABLED
+from handler.metadata.moby_handler import MOBY_API_ENABLED
 from logger.logger import log
 
 

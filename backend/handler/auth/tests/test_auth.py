@@ -3,10 +3,10 @@ from base64 import b64encode
 from fastapi.exceptions import HTTPException
 
 from models.user import User
-from handler.auth_handler import auth_handler, oauth_handler
-from handler.db_handler import db_users_handler
-from handler.auth_handler import WRITE_SCOPES
-from handler.auth_handler.hybrid_auth import HybridAuthBackend
+from handler.database import db_users_handler
+from handler.auth import auth_handler, oauth_handler
+from handler.auth.base_handler import WRITE_SCOPES
+from handler.auth.hybrid_auth import HybridAuthBackend
 
 
 def test_verify_password():

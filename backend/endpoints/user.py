@@ -7,9 +7,9 @@ from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from handler.auth_handler import auth_handler
-from handler.db_handler import db_users_handler
-from handler.fs_handler.fs_assets_handler import fs_assets_handler
+from handler.auth import auth_handler
+from handler.database import db_users_handler
+from handler.filesystem import fs_assets_handler
 from models.user import Role, User
 
 router = APIRouter()
@@ -112,7 +112,9 @@ def update_user(
     cleaned_data = {}
 
     if form_data.username and form_data.username != user.username:
-        existing_user = db_users_handler.get_user_by_username(form_data.username.lower())
+        existing_user = db_users_handler.get_user_by_username(
+            form_data.username.lower()
+        )
         if existing_user:
             raise HTTPException(
                 status_code=400, detail="Username already in use by another user"

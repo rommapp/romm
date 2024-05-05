@@ -12,7 +12,9 @@ from tasks.update_switch_titledb import (
 )
 
 
-def conditionally_set_cache(index_key: str, filename: dict, parent_dir: str = os.path.dirname(__file__)) -> None:
+def conditionally_set_cache(
+    index_key: str, filename: dict, parent_dir: str = os.path.dirname(__file__)
+) -> None:
     fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):
         index_data = json.loads(open(os.path.join(fixtures_path, filename), "r").read())
@@ -179,7 +181,7 @@ class MetadataHandler:
         return search_term, None
 
     async def _mame_format(self, search_term: str) -> str:
-        from handler.fs_roms_handler import fs_roms_handler
+        from handler.filesystem import fs_roms_handler
 
         index_entry = cache.hget(MAME_XML_KEY, search_term)
         if index_entry:

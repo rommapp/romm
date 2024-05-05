@@ -7,7 +7,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
 from endpoints.sockets.scan import scan_platforms
-from handler.db_handler import db_platforms_handler
+from handler.database import db_platforms_handler
 from handler.scan_handler import ScanType
 from logger.logger import log
 from tasks.tasks import tasks_scheduler

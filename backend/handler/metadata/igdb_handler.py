@@ -13,7 +13,7 @@ from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from unidecode import unidecode as uc
 
-from . import (
+from .base_metadata_hander import (
     MetadataHandler,
     PS2_OPL_REGEX,
     SWITCH_TITLEDB_REGEX,
@@ -276,7 +276,7 @@ class IGDBBaseHandler(MetadataHandler):
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
-        from handler.fs_handler.fs_roms_handler import fs_roms_handler
+        from handler.filesystem import fs_roms_handler
 
         if not IGDB_API_ENABLED:
             return IGDBRom(igdb_id=None)
@@ -839,5 +839,3 @@ IGDB_PLATFORM_LIST = [
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
 ]
-
-igdb_handler = IGDBBaseHandler()
