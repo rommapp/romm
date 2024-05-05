@@ -10,12 +10,12 @@ from models.user import User
 from models.assets import Save, State, Screenshot
 from models.user import Role
 from handler.database import (
-    db_users_handler,
-    db_platforms_handler,
-    db_roms_handler,
-    db_saves_handler,
-    db_states_handler,
-    db_screenshots_handler,
+    db_user_handler,
+    db_platform_handler,
+    db_rom_handler,
+    db_save_handler,
+    db_state_handler,
+    db_screenshot_handler,
 )
 from handler.auth import auth_handler
 
@@ -44,7 +44,7 @@ def platform():
     platform = Platform(
         name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
     )
-    return db_platforms_handler.add_platform(platform)
+    return db_platform_handler.add_platform(platform)
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def rom(platform: Platform):
         file_path=f"{platform.slug}/roms",
         file_size_bytes=1000.0,
     )
-    return db_roms_handler.add_rom(rom)
+    return db_rom_handler.add_rom(rom)
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ def save(rom: Rom, platform: Platform, admin_user: User):
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )
-    return db_saves_handler.add_save(save)
+    return db_save_handler.add_save(save)
 
 
 @pytest.fixture
@@ -92,7 +92,7 @@ def state(rom: Rom, platform: Platform, admin_user: User):
         file_path=f"{platform.slug}/states/test_emulator",
         file_size_bytes=2.0,
     )
-    return db_states_handler.add_state(state)
+    return db_state_handler.add_state(state)
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ def screenshot(rom: Rom, platform: Platform, admin_user: User):
         file_path=f"{platform.slug}/screenshots",
         file_size_bytes=3.0,
     )
-    return db_screenshots_handler.add_screenshot(screenshot)
+    return db_screenshot_handler.add_screenshot(screenshot)
 
 
 @pytest.fixture
@@ -117,7 +117,7 @@ def admin_user():
         hashed_password=auth_handler.get_password_hash("test_admin_password"),
         role=Role.ADMIN,
     )
-    return db_users_handler.add_user(user)
+    return db_user_handler.add_user(user)
 
 
 @pytest.fixture
@@ -127,7 +127,7 @@ def editor_user():
         hashed_password=auth_handler.get_password_hash("test_editor_password"),
         role=Role.EDITOR,
     )
-    return db_users_handler.add_user(user)
+    return db_user_handler.add_user(user)
 
 
 @pytest.fixture
@@ -137,4 +137,4 @@ def viewer_user():
         hashed_password=auth_handler.get_password_hash("test_viewer_password"),
         role=Role.VIEWER,
     )
-    return db_users_handler.add_user(user)
+    return db_user_handler.add_user(user)

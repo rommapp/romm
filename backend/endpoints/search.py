@@ -3,7 +3,7 @@ from handler.scan_handler import _get_main_platform_igdb_id
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchRomSchema
 from fastapi import APIRouter, Request, HTTPException, status
-from handler.database import db_roms_handler
+from handler.database import db_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
@@ -41,7 +41,7 @@ async def search_rom(
             detail="No metadata providers enabled",
         )
 
-    rom = db_roms_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_roms(rom_id)
     if not rom:
         return []
 
