@@ -7,8 +7,7 @@ from endpoints.responses.firmware import (
 )
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from handler.db_handler.db_platforms_handler import db_platforms_handler
-from handler.db_handler.db_firmware_handler import db_firmware_handler
+from handler.db_handler import db_platforms_handler, db_firmware_handler
 from handler.fs_handler.fs_firmware_handler import fs_firmware_handler
 from handler.scan_handler import scan_firmware
 from logger.logger import log

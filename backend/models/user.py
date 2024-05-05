@@ -58,6 +58,6 @@ class User(BaseModel, SimpleUser):
         return f"User:{self.id}".encode("utf-8").hex()
 
     def set_last_active(self):
-        from handler.db_handler.db_users_handler import db_users_handler
+        from handler.db_handler import db_users_handler
 
         db_users_handler.update_user(self.id, {"last_active": datetime.datetime.now()})

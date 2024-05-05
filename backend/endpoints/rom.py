@@ -16,8 +16,7 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler.db_handler.db_platforms_handler import db_platforms_handler
-from handler.db_handler.db_roms_handler import db_roms_handler
+from handler.db_handler import db_platforms_handler, db_roms_handler
 from handler.fs_handler.fs_resources_handler import fs_resources_handler
 from handler.fs_handler.fs_roms_handler import fs_roms_handler
 from handler.metadata_handler.igdb_handler import igdb_handler

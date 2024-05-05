@@ -2,8 +2,7 @@ from config import ROMM_HOST, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from models.rom import Rom
 from fastapi import APIRouter, Request
-from handler.db_handler.db_platforms_handler import db_platforms_handler
-from handler.db_handler.db_roms_handler import db_roms_handler
+from handler.db_handler import db_platforms_handler, db_roms_handler
 from .responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,

@@ -3,7 +3,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import APIRouter, HTTPException, Request, status
-from handler.db_handler.db_platforms_handler import db_platforms_handler
+from handler.db_handler import db_platforms_handler
 from handler.fs_handler.fs_platforms_handler import fs_platforms_handler
 from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
 from handler.scan_handler import scan_platform

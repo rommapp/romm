@@ -3,7 +3,7 @@ from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
 
-class SGDBHandler:
+class SGDBBaseHandler:
     def __init__(self) -> None:
         self.headers = {
             "Authorization": f"Bearer {STEAMGRIDDB_API_KEY}",
@@ -37,4 +37,4 @@ class SGDBHandler:
         return (game_id, game_name, game_image_url)
 
 
-sgdb_handler = SGDBHandler()
+sgdb_handler = SGDBBaseHandler()

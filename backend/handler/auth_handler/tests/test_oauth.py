@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 
 from decorators.auth import protected_route
 from handler.auth_handler import oauth_handler
-from handler.db_handler.db_users_handler import db_users_handler
+from handler.db_handler import db_users_handler
 
 
 def test_create_oauth_token():
@@ -37,7 +37,9 @@ async def test_get_current_active_user_from_bearer_token_invalid_token():
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_user():
-    token = oauth_handler.create_oauth_token(data={"sub": "invalid_user", "iss": "romm:oauth"})
+    token = oauth_handler.create_oauth_token(
+        data={"sub": "invalid_user", "iss": "romm:oauth"}
+    )
 
     with pytest.raises(HTTPException):
         await oauth_handler.get_current_active_user_from_bearer_token(token)
@@ -68,7 +70,7 @@ def test_protected_route():
     @protected_route(router.get, "/test")
     def test_route(request: Request):
         return {"test": "test"}
-    
+
     req = Request({"type": "http", "method": "GET", "url": "/test"})
 
     assert test_route(req) == {"test": "test"}

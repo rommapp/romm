@@ -1,8 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses.assets import UploadedScreenshotsResponse
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler.db_handler.db_roms_handler import db_roms_handler
-from handler.db_handler.db_screenshots_handler import db_screenshots_handler
+from handler.db_handler import db_roms_handler, db_screenshots_handler
 from handler.fs_handler.fs_assets_handler import fs_assets_handler
 from handler.scan_handler import scan_screenshot
 from logger.logger import log

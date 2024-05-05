@@ -1,11 +1,12 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.assets import Save
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBSavesHandler(DBHandler):
+
+class DBSavesHandler(DBBaseHandler):
     @begin_session
     def add_save(self, save: Save, session: Session = None):
         return session.merge(save)
@@ -56,6 +57,3 @@ class DBSavesHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-
-
-db_saves_handler = DBSavesHandler()

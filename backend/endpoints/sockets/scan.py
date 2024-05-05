@@ -11,9 +11,7 @@ from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
 )
 from config import SCAN_TIMEOUT
-from handler.db_handler.db_roms_handler import db_roms_handler
-from handler.db_handler.db_firmware_handler import db_firmware_handler
-from handler.db_handler.db_platforms_handler import db_platforms_handler
+from handler.db_handler import db_roms_handler, db_firmware_handler,  db_platforms_handler
 from handler.fs_handler.fs_roms_handler import fs_roms_handler
 from handler.fs_handler.fs_firmware_handler import fs_firmware_handler
 from handler.fs_handler.fs_platforms_handler import fs_platforms_handler

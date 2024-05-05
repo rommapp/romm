@@ -1,11 +1,12 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.assets import Screenshot
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBScreenshotsHandler(DBHandler):
+
+class DBScreenshotsHandler(DBBaseHandler):
     @begin_session
     def add_screenshot(self, screenshot: Screenshot, session: Session = None):
         return session.merge(screenshot)
@@ -54,6 +55,3 @@ class DBScreenshotsHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-
-
-db_screenshots_handler = DBScreenshotsHandler()

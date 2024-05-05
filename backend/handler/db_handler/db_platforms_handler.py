@@ -1,12 +1,13 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.platform import Platform
 from models.rom import Rom
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBPlatformsHandler(DBHandler):
+
+class DBPlatformsHandler(DBBaseHandler):
     @begin_session
     def add_platform(self, platform: Platform, session: Session = None):
         return session.merge(platform)
@@ -63,6 +64,3 @@ class DBPlatformsHandler(DBHandler):
             )
             .execution_options(synchronize_session="fetch")
         )
-
-
-db_platforms_handler = DBPlatformsHandler()

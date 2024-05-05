@@ -8,7 +8,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler.auth_handler import auth_handler
-from handler.db_handler.db_users_handler import db_users_handler
+from handler.db_handler import db_users_handler
 from handler.fs_handler.fs_assets_handler import fs_assets_handler
 from models.user import Role, User
 

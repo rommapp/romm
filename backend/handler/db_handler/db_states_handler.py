@@ -1,11 +1,12 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.assets import State
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBStatesHandler(DBHandler):
+
+class DBStatesHandler(DBBaseHandler):
     @begin_session
     def add_state(self, state: State, session: Session = None):
         return session.merge(state)
@@ -56,6 +57,3 @@ class DBStatesHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-
-
-db_states_handler = DBStatesHandler()

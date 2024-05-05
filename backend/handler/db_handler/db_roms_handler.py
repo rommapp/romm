@@ -1,11 +1,12 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.rom import Rom
 from sqlalchemy import and_, delete, func, select, update, or_, Select
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBRomsHandler(DBHandler):
+
+class DBRomsHandler(DBBaseHandler):
     def _filter(self, data: Select[Rom], platform_id: int | None, search_term: str):
         if platform_id:
             data = data.filter_by(platform_id=platform_id)
@@ -103,6 +104,3 @@ class DBRomsHandler(DBHandler):
             .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
             .execution_options(synchronize_session="evaluate")
         )
-
-
-db_roms_handler = DBRomsHandler()
