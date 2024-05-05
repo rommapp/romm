@@ -1,7 +1,9 @@
 from decorators.auth import protected_route
 from endpoints.responses.assets import UploadedScreenshotsResponse
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import db_screenshot_handler, fs_asset_handler, db_rom_handler
+from handler.db_handler.db_roms_handler import db_roms_handler
+from handler.db_handler.db_screenshots_handler import db_screenshots_handler
+from handler.fs_handler.fs_assets_handler import fs_assets_handler
 from handler.scan_handler import scan_screenshot
 from logger.logger import log
 
@@ -12,7 +14,7 @@ router = APIRouter()
 def add_screenshots(
     request: Request, rom_id: int, screenshots: list[UploadFile] = File(...)
 ) -> UploadedScreenshotsResponse:
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_roms_handler.get_roms(rom_id)
     current_user = request.user
     log.info(f"Uploading screenshots to {rom.name}")
 
@@ -23,12 +25,12 @@ def add_screenshots(
             detail="No screenshots were uploaded",
         )
 
-    screenshots_path = fs_asset_handler.build_screenshots_file_path(
+    screenshots_path = fs_assets_handler.build_screenshots_file_path(
         user=request.user, platform_fs_slug=rom.platform_slug
     )
 
     for screenshot in screenshots:
-        fs_asset_handler.write_file(file=screenshot, path=screenshots_path)
+        fs_assets_handler.write_file(file=screenshot, path=screenshots_path)
 
         # Scan or update screenshot
         scanned_screenshot = scan_screenshot(
@@ -36,11 +38,11 @@ def add_screenshots(
             user=request.user,
             platform_fs_slug=rom.platform_slug,
         )
-        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
+        db_screenshot = db_screenshots_handler.get_screenshot_by_filename(
             rom_id=rom.id, user_id=current_user.id, file_name=screenshot.filename
         )
         if db_screenshot:
-            db_screenshot_handler.update_screenshot(
+            db_screenshots_handler.update_screenshot(
                 db_screenshot.id,
                 {"file_size_bytes": scanned_screenshot.file_size_bytes},
             )
@@ -48,9 +50,9 @@ def add_screenshots(
 
         scanned_screenshot.rom_id = rom.id
         scanned_screenshot.user_id = current_user.id
-        db_screenshot_handler.add_screenshot(scanned_screenshot)
+        db_screenshots_handler.add_screenshot(scanned_screenshot)
 
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_roms_handler.get_roms(rom_id)
     return {
         "uploaded": len(screenshots),
         "screenshots": [s for s in rom.screenshots if s.user_id == current_user.id],

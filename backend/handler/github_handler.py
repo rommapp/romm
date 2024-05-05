@@ -7,7 +7,7 @@ from packaging.version import InvalidVersion, parse
 from requests.exceptions import ReadTimeout
 
 
-class GHHandler:
+class GithubHandler:
     def __init__(self) -> None:
         pass
 
@@ -55,3 +55,5 @@ class GHHandler:
         except InvalidVersion:
             pass
         return ""
+
+github_handler = GithubHandler()

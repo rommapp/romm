@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+
 class FirmwareSchema(BaseModel):
     id: int
 
@@ -12,6 +13,7 @@ class FirmwareSchema(BaseModel):
     file_size_bytes: int
 
     full_path: str
+    is_verified: bool
 
     class Config:
         from_attributes = True

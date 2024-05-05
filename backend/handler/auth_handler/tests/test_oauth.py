@@ -3,7 +3,8 @@ from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 
 from decorators.auth import protected_route
-from handler import db_user_handler, oauth_handler
+from handler.auth_handler import oauth_handler
+from handler.db_handler.db_users_handler import db_users_handler
 
 
 def test_create_oauth_token():
@@ -52,7 +53,7 @@ async def test_get_current_active_user_from_bearer_token_disabled_user(admin_use
         },
     )
 
-    db_user_handler.update_user(admin_user.id, {"enabled": False})
+    db_users_handler.update_user(admin_user.id, {"enabled": False})
 
     try:
         await oauth_handler.get_current_active_user_from_bearer_token(token)

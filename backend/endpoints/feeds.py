@@ -2,7 +2,8 @@ from config import ROMM_HOST, DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from models.rom import Rom
 from fastapi import APIRouter, Request
-from handler import db_platform_handler, db_rom_handler
+from handler.db_handler.db_platforms_handler import db_platforms_handler
+from handler.db_handler.db_roms_handler import db_roms_handler
 from .responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
@@ -28,9 +29,9 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         WebrcadeFeedSchema: Webrcade feed object schema
     """
 
-    platforms = db_platform_handler.get_platforms()
+    platforms = db_platforms_handler.get_platforms()
 
-    with db_platform_handler.session.begin() as session:
+    with db_platforms_handler.session.begin() as session:
         return {
             "title": "RomM Feed",
             "longTitle": "Custom RomM Feed",
@@ -56,7 +57,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                             },
                         }
                         for rom in session.scalars(
-                            db_rom_handler.get_roms(platform_id=p.id)
+                            db_roms_handler.get_roms(platform_id=p.id)
                         ).all()
                     ],
                 }
@@ -78,10 +79,10 @@ def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSch
     Returns:
         TinfoilFeedSchema: Tinfoil feed object schema
     """
-    switch = db_platform_handler.get_platform_by_fs_slug(slug)
-    with db_rom_handler.session.begin() as session:
+    switch = db_platforms_handler.get_platform_by_fs_slug(slug)
+    with db_roms_handler.session.begin() as session:
         files: list[Rom] = session.scalars(
-            db_rom_handler.get_roms(platform_id=switch.id)
+            db_roms_handler.get_roms(platform_id=switch.id)
         ).all()
 
         return {

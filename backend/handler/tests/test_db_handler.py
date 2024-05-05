@@ -1,32 +1,37 @@
 from sqlalchemy.exc import IntegrityError
 
-# from handler.db_handler import DBHandler
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User, Role
 from models.assets import Save, State, Screenshot
-from handler import auth_handler, db_platform_handler, db_rom_handler, db_user_handler, db_save_handler, db_state_handler, db_screenshot_handler
+from handler.auth_handler import auth_handler
+from handler.db_handler.db_platforms_handler import db_platforms_handler
+from handler.db_handler.db_roms_handler import db_roms_handler
+from handler.db_handler.db_users_handler import db_users_handler
+from handler.db_handler.db_saves_handler import db_saves_handler
+from handler.db_handler.db_states_handler import db_states_handler
+from handler.db_handler.db_screenshots_handler import db_screenshots_handler
 
 
 def test_platforms():
     platform = Platform(
         name="test_platform", slug="test_platform_slug", fs_slug="test_platform_slug"
     )
-    db_platform_handler.add_platform(platform)
+    db_platforms_handler.add_platform(platform)
 
-    platforms = db_platform_handler.get_platforms()
+    platforms = db_platforms_handler.get_platforms()
     assert len(platforms) == 1
 
-    platform = db_platform_handler.get_platform_by_fs_slug(platform.fs_slug)
+    platform = db_platforms_handler.get_platform_by_fs_slug(platform.fs_slug)
     assert platform.name == "test_platform"
 
-    db_platform_handler.purge_platforms([])
-    platforms = db_platform_handler.get_platforms()
+    db_platforms_handler.purge_platforms([])
+    platforms = db_platforms_handler.get_platforms()
     assert len(platforms) == 0
 
 
 def test_roms(rom: Rom, platform: Platform):
-    db_rom_handler.add_rom(
+    db_roms_handler.add_rom(
         Rom(
             platform_id=rom.platform_id,
             name="test_rom_2",
@@ -40,66 +45,66 @@ def test_roms(rom: Rom, platform: Platform):
         )
     )
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
+    with db_roms_handler.session.begin() as session:
+        roms = session.scalars(db_roms_handler.get_roms(platform_id=platform.id)).all()
         assert len(roms) == 2
 
-    rom = db_rom_handler.get_roms(id=roms[0].id)
+    rom = db_roms_handler.get_roms(id=roms[0].id)
     assert rom.file_name == "test_rom.zip"
 
-    db_rom_handler.update_rom(roms[1].id, {"file_name": "test_rom_2_updated"})
-    rom_2 = db_rom_handler.get_roms(id=roms[1].id)
+    db_roms_handler.update_rom(roms[1].id, {"file_name": "test_rom_2_updated"})
+    rom_2 = db_roms_handler.get_roms(id=roms[1].id)
     assert rom_2.file_name == "test_rom_2_updated"
 
-    db_rom_handler.delete_rom(rom.id)
+    db_roms_handler.delete_rom(rom.id)
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
+    with db_roms_handler.session.begin() as session:
+        roms = session.scalars(db_roms_handler.get_roms(platform_id=platform.id)).all()
         assert len(roms) == 1
 
-    db_rom_handler.purge_roms(rom_2.platform_id, [rom_2.id])
+    db_roms_handler.purge_roms(rom_2.platform_id, [rom_2.id])
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
+    with db_roms_handler.session.begin() as session:
+        roms = session.scalars(db_roms_handler.get_roms(platform_id=platform.id)).all()
         assert len(roms) == 0
 
 
 def test_utils(rom: Rom, platform: Platform):
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
+    with db_roms_handler.session.begin() as session:
+        roms = session.scalars(db_roms_handler.get_roms(platform_id=platform.id)).all()
         assert (
-            db_rom_handler.get_rom_by_filename(platform_id=platform.id, file_name=rom.file_name).id == roms[0].id
+            db_roms_handler.get_rom_by_filename(platform_id=platform.id, file_name=rom.file_name).id == roms[0].id
         )
 
 
 def test_users(admin_user):
-    db_user_handler.add_user(
+    db_users_handler.add_user(
         User(
             username="new_user",
             hashed_password=auth_handler.get_password_hash("new_password"),
         )
     )
 
-    all_users = db_user_handler.get_users()
+    all_users = db_users_handler.get_users()
     assert len(all_users) == 2
 
-    new_user = db_user_handler.get_user_by_username("new_user")
+    new_user = db_users_handler.get_user_by_username("new_user")
     assert new_user.username == "new_user"
     assert new_user.role == Role.VIEWER
     assert new_user.enabled
 
-    db_user_handler.update_user(new_user.id, {"role": Role.EDITOR})
+    db_users_handler.update_user(new_user.id, {"role": Role.EDITOR})
 
-    new_user = db_user_handler.get_user(new_user.id)
+    new_user = db_users_handler.get_user(new_user.id)
     assert new_user.role == Role.EDITOR
 
-    db_user_handler.delete_user(new_user.id)
+    db_users_handler.delete_user(new_user.id)
 
-    all_users = db_user_handler.get_users()
+    all_users = db_users_handler.get_users()
     assert len(all_users) == 1
 
     try:
-        new_user = db_user_handler.add_user(
+        new_user = db_users_handler.add_user(
             User(
                 username="test_admin",
                 hashed_password=auth_handler.get_password_hash("new_password"),
@@ -111,7 +116,7 @@ def test_users(admin_user):
 
 
 def test_saves(save: Save, platform: Platform, admin_user: User):
-    db_save_handler.add_save(
+    db_saves_handler.add_save(
         Save(
             rom_id=save.rom_id,
             user_id=admin_user.id,
@@ -125,24 +130,24 @@ def test_saves(save: Save, platform: Platform, admin_user: User):
         )
     )
 
-    rom = db_rom_handler.get_roms(id=save.rom_id)
+    rom = db_roms_handler.get_roms(id=save.rom_id)
     assert len(rom.saves) == 2
 
-    save = db_save_handler.get_save(rom.saves[0].id)
+    save = db_saves_handler.get_save(rom.saves[0].id)
     assert save.file_name == "test_save.sav"
 
-    db_save_handler.update_save(save.id, {"file_name": "test_save_2.sav"})
-    save = db_save_handler.get_save(save.id)
+    db_saves_handler.update_save(save.id, {"file_name": "test_save_2.sav"})
+    save = db_saves_handler.get_save(save.id)
     assert save.file_name == "test_save_2.sav"
 
-    db_save_handler.delete_save(save.id)
+    db_saves_handler.delete_save(save.id)
 
-    rom = db_rom_handler.get_roms(id=save.rom_id)
+    rom = db_roms_handler.get_roms(id=save.rom_id)
     assert len(rom.saves) == 1
 
 
 def test_states(state: State, platform: Platform, admin_user: User):
-    db_state_handler.add_state(
+    db_states_handler.add_state(
         State(
             rom_id=state.rom_id,
             user_id=admin_user.id,
@@ -155,24 +160,24 @@ def test_states(state: State, platform: Platform, admin_user: User):
         )
     )
 
-    rom = db_rom_handler.get_roms(id=state.rom_id)
+    rom = db_roms_handler.get_roms(id=state.rom_id)
     assert len(rom.states) == 2
 
-    state = db_state_handler.get_state(rom.states[0].id)
+    state = db_states_handler.get_state(rom.states[0].id)
     assert state.file_name == "test_state.state"
 
-    db_state_handler.update_state(state.id, {"file_name": "test_state_2.state"})
-    state = db_state_handler.get_state(state.id)
+    db_states_handler.update_state(state.id, {"file_name": "test_state_2.state"})
+    state = db_states_handler.get_state(state.id)
     assert state.file_name == "test_state_2.state"
 
-    db_state_handler.delete_state(state.id)
+    db_states_handler.delete_state(state.id)
 
-    rom = db_rom_handler.get_roms(id=state.rom_id)
+    rom = db_roms_handler.get_roms(id=state.rom_id)
     assert len(rom.states) == 1
 
 
 def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: User):
-    db_screenshot_handler.add_screenshot(
+    db_screenshots_handler.add_screenshot(
         Screenshot(
             rom_id=screenshot.rom_id,
             user_id=admin_user.id,
@@ -185,17 +190,17 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
         )
     )
 
-    rom = db_rom_handler.get_roms(id=screenshot.rom_id)
+    rom = db_roms_handler.get_roms(id=screenshot.rom_id)
     assert len(rom.screenshots) == 2
 
-    screenshot = db_screenshot_handler.get_screenshot(rom.screenshots[0].id)
+    screenshot = db_screenshots_handler.get_screenshot(rom.screenshots[0].id)
     assert screenshot.file_name == "test_screenshot.png"
 
-    db_screenshot_handler.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
-    screenshot = db_screenshot_handler.get_screenshot(screenshot.id)
+    db_screenshots_handler.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
+    screenshot = db_screenshots_handler.get_screenshot(screenshot.id)
     assert screenshot.file_name == "test_screenshot_2.png"
 
-    db_screenshot_handler.delete_screenshot(screenshot.id)
+    db_screenshots_handler.delete_screenshot(screenshot.id)
 
-    rom = db_rom_handler.get_roms(id=screenshot.rom_id)
+    rom = db_roms_handler.get_roms(id=screenshot.rom_id)
     assert len(rom.screenshots) == 1

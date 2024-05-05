@@ -44,3 +44,6 @@ class DBUsersHandler(DBHandler):
     @begin_session
     def get_admin_users(self, session: Session = None):
         return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
+
+
+db_users_handler = DBUsersHandler()

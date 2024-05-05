@@ -56,3 +56,6 @@ class DBSavesHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
+
+
+db_saves_handler = DBSavesHandler()

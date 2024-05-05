@@ -54,3 +54,6 @@ class DBScreenshotsHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
+
+
+db_screenshots_handler = DBScreenshotsHandler()

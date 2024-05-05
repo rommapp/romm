@@ -3,7 +3,8 @@ from base64 import b64encode
 from fastapi.exceptions import HTTPException
 
 from models.user import User
-from handler import auth_handler, oauth_handler, db_user_handler
+from handler.auth_handler import auth_handler, oauth_handler
+from handler.db_handler.db_users_handler import db_users_handler
 from handler.auth_handler import WRITE_SCOPES
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
 
@@ -55,7 +56,7 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user: U
 
     conn = MockConnection()
 
-    db_user_handler.update_user(editor_user.id, {"enabled": False})
+    db_users_handler.update_user(editor_user.id, {"enabled": False})
 
     try:
         await auth_handler.get_current_active_user_from_session(conn)
@@ -67,16 +68,16 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user: U
 def test_create_default_admin_user():
     auth_handler.create_default_admin_user()
 
-    user = db_user_handler.get_user_by_username("test_admin")
+    user = db_users_handler.get_user_by_username("test_admin")
     assert user.username == "test_admin"
     assert auth_handler.verify_password("test_admin_password", user.hashed_password)
 
-    users = db_user_handler.get_users()
+    users = db_users_handler.get_users()
     assert len(users) == 1
 
     auth_handler.create_default_admin_user()
 
-    users = db_user_handler.get_users()
+    users = db_users_handler.get_users()
     assert len(users) == 1
 
 

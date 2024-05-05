@@ -276,7 +276,7 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
-        from handler import fs_rom_handler
+        from handler.fs_handler.fs_roms_handler import fs_roms_handler
 
         if not IGDB_API_ENABLED:
             return IGDBRom(igdb_id=None)
@@ -284,7 +284,7 @@ class IGDBHandler(MetadataHandler):
         if not platform_igdb_id:
             return IGDBRom(igdb_id=None)
 
-        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
+        search_term = fs_roms_handler.get_file_name_with_no_tags(file_name)
         fallback_rom = IGDBRom(igdb_id=None)
 
         # Support for PS2 OPL filename format
@@ -619,7 +619,7 @@ GAMES_FIELDS = [
 # Array.from(document.querySelectorAll(".media-body a")).map(a => ({
 #   slug: a.href.split("/")[4],
 #   name: a.innerText
-# })) 
+# }))
 
 IGDB_PLATFORM_LIST = [
     {"slug": "visionos", "name": "visionOS"},
@@ -839,3 +839,5 @@ IGDB_PLATFORM_LIST = [
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
 ]
+
+igdb_handler = IGDBHandler()
