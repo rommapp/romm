@@ -16,14 +16,12 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler import (
-    db_platform_handler,
-    db_rom_handler,
-    fs_resource_handler,
-    fs_rom_handler,
-    igdb_handler,
-    moby_handler,
-)
+from handler.db_handler.db_platforms_handler import db_platforms_handler
+from handler.db_handler.db_roms_handler import db_roms_handler
+from handler.fs_handler.fs_resources_handler import fs_resources_handler
+from handler.fs_handler.fs_roms_handler import fs_roms_handler
+from handler.metadata_handler.igdb_handler import igdb_handler
+from handler.metadata_handler.moby_handler import moby_handler
 from handler.fs_handler import CoverSize
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
@@ -49,7 +47,7 @@ def add_roms(
         AddRomsResponse: Standard message response
     """
 
-    platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug
+    platform_fs_slug = db_platforms_handler.get_platforms(platform_id).fs_slug
     log.info(f"Uploading roms to {platform_fs_slug}")
     if roms is None:
         log.error("No roms were uploaded")
@@ -58,13 +56,13 @@ def add_roms(
             detail="No roms were uploaded",
         )
 
-    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+    roms_path = fs_roms_handler.build_upload_file_path(platform_fs_slug)
 
     uploaded_roms = []
     skipped_roms = []
 
     for rom in roms:
-        if fs_rom_handler.file_exists(roms_path, rom.filename):
+        if fs_roms_handler.file_exists(roms_path, rom.filename):
             log.warning(f" - Skipping {rom.filename} since the file already exists")
             skipped_roms.append(rom.filename)
             continue
@@ -107,9 +105,9 @@ def get_roms(
         RomSchema: Rom stored in the database
     """
 
-    with db_rom_handler.session.begin() as session:
+    with db_roms_handler.session.begin() as session:
         cursor_params = CursorParams(size=size, cursor=cursor)
-        qq = db_rom_handler.get_roms(
+        qq = db_roms_handler.get_roms(
             platform_id=platform_id,
             search_term=search_term.lower(),
             order_by=order_by.lower(),
@@ -133,7 +131,7 @@ def get_rom(request: Request, id: int) -> RomSchema:
     Returns:
         RomSchema: Rom stored in the database
     """
-    return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
+    return RomSchema.from_orm_with_request(db_roms_handler.get_roms(id), request)
 
 
 @protected_route(
@@ -153,7 +151,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
         FileResponse: Returns the response with headers
     """
 
-    rom = db_rom_handler.get_roms(id)
+    rom = db_roms_handler.get_roms(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     return FileResponse(
@@ -188,7 +186,7 @@ def get_rom_content(
         CustomStreamingResponse: Streams a file for multi-part roms
     """
 
-    rom = db_rom_handler.get_roms(id)
+    rom = db_roms_handler.get_roms(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_download = files or rom.files
 
@@ -270,8 +268,8 @@ async def update_rom(
 
     data = await request.form()
 
-    db_rom = db_rom_handler.get_roms(id)
-    platform_fs_slug = db_platform_handler.get_platforms(db_rom.platform_id).fs_slug
+    db_rom = db_roms_handler.get_roms(id)
+    platform_fs_slug = db_platforms_handler.get_platforms(db_rom.platform_id).fs_slug
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", None)
@@ -304,7 +302,7 @@ async def update_rom(
 
     try:
         if db_rom.file_name != fs_safe_file_name:
-            fs_rom_handler.rename_file(
+            fs_roms_handler.rename_file(
                 old_name=db_rom.file_name,
                 new_name=fs_safe_file_name,
                 file_path=db_rom.file_path,
@@ -316,16 +314,16 @@ async def update_rom(
         )
 
     cleaned_data["file_name"] = fs_safe_file_name
-    cleaned_data["file_name_no_tags"] = fs_rom_handler.get_file_name_with_no_tags(
+    cleaned_data["file_name_no_tags"] = fs_roms_handler.get_file_name_with_no_tags(
         fs_safe_file_name
     )
-    cleaned_data["file_name_no_ext"] = fs_rom_handler.get_file_name_with_no_extension(
+    cleaned_data["file_name_no_ext"] = fs_roms_handler.get_file_name_with_no_extension(
         fs_safe_file_name
     )
 
     if remove_cover:
         cleaned_data.update(
-            fs_resource_handler.remove_cover(
+            fs_resources_handler.remove_cover(
                 rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
             )
         )
@@ -333,7 +331,7 @@ async def update_rom(
     else:
         cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
         cleaned_data.update(
-            fs_resource_handler.get_rom_cover(
+            fs_resources_handler.get_rom_cover(
                 overwrite=True,
                 platform_fs_slug=platform_fs_slug,
                 rom_name=cleaned_data["name"],
@@ -346,7 +344,7 @@ async def update_rom(
         or cleaned_data["moby_id"] != db_rom.moby_id
     ):
         cleaned_data.update(
-            fs_resource_handler.get_rom_screenshots(
+            fs_resources_handler.get_rom_screenshots(
                 platform_fs_slug=platform_fs_slug,
                 rom_name=cleaned_data["name"],
                 url_screenshots=cleaned_data.get("url_screenshots", []),
@@ -359,7 +357,7 @@ async def update_rom(
             path_cover_l,
             path_cover_s,
             artwork_path,
-        ) = fs_resource_handler.build_artwork_path(
+        ) = fs_resources_handler.build_artwork_path(
             cleaned_data["name"], platform_fs_slug, file_ext
         )
 
@@ -370,16 +368,16 @@ async def update_rom(
         file_location_s = f"{artwork_path}/small.{file_ext}"
         with open(file_location_s, "wb+") as artwork_s:
             artwork_s.write(artwork_file)
-        fs_resource_handler.resize_cover(file_location_s, CoverSize.SMALL)
+        fs_resources_handler.resize_cover(file_location_s, CoverSize.SMALL)
 
         file_location_l = f"{artwork_path}/big.{file_ext}"
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
-        fs_resource_handler.resize_cover(file_location_l, CoverSize.BIG)
+        fs_resources_handler.resize_cover(file_location_l, CoverSize.BIG)
 
-    db_rom_handler.update_rom(id, cleaned_data)
+    db_roms_handler.update_rom(id, cleaned_data)
 
-    return db_rom_handler.get_roms(id)
+    return db_roms_handler.get_roms(id)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])
@@ -404,19 +402,19 @@ async def delete_roms(
     delete_from_fs: bool = data["delete_from_fs"]
 
     for id in roms_ids:
-        rom = db_rom_handler.get_roms(id)
+        rom = db_roms_handler.get_roms(id)
         if not rom:
             error = f"Rom with id {id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         log.info(f"Deleting {rom.file_name} from database")
-        db_rom_handler.delete_rom(id)
+        db_roms_handler.delete_rom(id)
 
         if delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")
             try:
-                fs_rom_handler.remove_file(
+                fs_roms_handler.remove_file(
                     file_name=rom.file_name, file_path=rom.file_path
                 )
             except FileNotFoundError:

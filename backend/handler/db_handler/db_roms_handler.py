@@ -103,3 +103,6 @@ class DBRomsHandler(DBHandler):
             .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
             .execution_options(synchronize_session="evaluate")
         )
+
+
+db_roms_handler = DBRomsHandler()

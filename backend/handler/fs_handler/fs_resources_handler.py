@@ -19,7 +19,7 @@ from PIL import Image
 from urllib3.exceptions import ProtocolError
 
 
-class FSResourceHandler(FSHandler):
+class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
@@ -231,3 +231,6 @@ class FSResourceHandler(FSHandler):
             )
 
         return {"path_screenshots": path_screenshots}
+
+
+fs_resources_handler = FSResourcesHandler()

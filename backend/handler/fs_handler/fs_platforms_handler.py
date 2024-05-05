@@ -52,3 +52,6 @@ class FSPlatformsHandler(FSHandler):
             return self._exclude_platforms(cnfg, platforms)
         except IndexError as exc:
             raise FolderStructureNotMatchException from exc
+
+
+fs_platforms_handler = FSPlatformsHandler()

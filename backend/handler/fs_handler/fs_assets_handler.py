@@ -60,3 +60,6 @@ class FSAssetsHandler(FSHandler):
     # /users/557365723a31/screenshots/n64
     def build_screenshots_file_path(self, user: User, platform_fs_slug: str):
         return self._build_asset_file_path(user, "screenshots", platform_fs_slug)
+
+
+fs_assets_handler = FSAssetsHandler()

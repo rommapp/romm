@@ -42,3 +42,6 @@ class DBStatsHandler(DBHandler):
     @begin_session
     def get_total_filesize(self, session: Session = None) -> int:
         return 0
+
+
+db_stats_handler = DBStatsHandler()

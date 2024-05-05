@@ -7,7 +7,9 @@ from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler import auth_handler, oauth_handler, db_user_handler
+from handler.auth_handler import auth_handler
+from handler.auth_handler import oauth_handler
+from handler.db_handler.db_users_handler import db_users_handler
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
@@ -157,7 +159,7 @@ def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse
     request.session.update({"iss": "romm:auth", "sub": user.username})
 
     # Update last login and active times
-    db_user_handler.update_user(
+    db_users_handler.update_user(
         user.id, {"last_login": datetime.now(), "last_active": datetime.now()}
     )
 

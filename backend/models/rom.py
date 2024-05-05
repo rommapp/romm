@@ -104,14 +104,14 @@ class Rom(BaseModel):
 
     # This is an expensive operation so don't call it on a list of roms
     def get_sibling_roms(self) -> list["Rom"]:
-        from handler import db_rom_handler
+        from handler.db_handlerdb_roms_handler import db_roms_handler
 
         if not self.igdb_id:
             return []
 
-        with db_rom_handler.session.begin() as session:
+        with db_roms_handler.session.begin() as session:
             return session.scalars(
-                db_rom_handler.get_roms(platform_id=self.platform_id).filter(
+                db_roms_handler.get_roms(platform_id=self.platform_id).filter(
                     Rom.id != self.id,
                     Rom.igdb_id == self.igdb_id,
                 )

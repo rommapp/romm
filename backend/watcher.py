@@ -7,7 +7,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
 from endpoints.sockets.scan import scan_platforms
-from handler import db_platform_handler
+from handler.db_handler.db_platforms_handler import db_platforms_handler
 from handler.scan_handler import ScanType
 from logger.logger import log
 from tasks.tasks import tasks_scheduler
@@ -44,7 +44,7 @@ class EventHandler(FileSystemEventHandler):
 
         event_src = event.src_path.split(path)[-1]
         fs_slug = event_src.split("/")[1]
-        db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+        db_platform = db_platforms_handler.get_platform_by_fs_slug(fs_slug)
 
         log.info(f"Filesystem event: {event.event_type} {event_src}")
 

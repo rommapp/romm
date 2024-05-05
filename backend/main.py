@@ -26,7 +26,10 @@ import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
-from handler import auth_handler, db_user_handler, github_handler, socket_handler
+from handler.auth_handler import auth_handler
+from handler.db_handler.db_users_handler import db_users_handler
+from handler.github_handler import github_handler
+from handler.socket_handler import socket_handler
 from handler.auth_handler import ALGORITHM
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
 from handler.auth_handler.middleware import CustomCSRFMiddleware, SessionMiddleware
@@ -37,7 +40,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 async def lifespan(app: FastAPI):
     if "pytest" not in sys.modules:
         # Create default admin user if no admin user exists
-        if len(db_user_handler.get_admin_users()) == 0:
+        if len(db_users_handler.get_admin_users()) == 0:
             auth_handler.create_default_admin_user()
 
     yield

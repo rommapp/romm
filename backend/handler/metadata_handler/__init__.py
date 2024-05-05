@@ -12,8 +12,8 @@ from tasks.update_switch_titledb import (
 )
 
 
-def confitionally_set_cache(index_key: str, filename: dict) -> None:
-    fixtures_path = os.path.join(os.path.dirname(__file__), "fixtures")
+def conditionally_set_cache(index_key: str, filename: dict, parent_dir: str = os.path.dirname(__file__)) -> None:
+    fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):
         index_data = json.loads(open(os.path.join(fixtures_path, filename), "r").read())
         for key, value in index_data.items():
@@ -27,24 +27,24 @@ SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
 
 # No regex needed for MAME
 MAME_XML_KEY: Final = "romm:mame_xml"
-confitionally_set_cache(MAME_XML_KEY, "mame_index.json")
+conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
 
 # PS2 OPL
 PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
-confitionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
+conditionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
 
 # Sony serial codes for PS1, PS2, and PSP
 SONY_SERIAL_REGEX: Final = r".*([a-zA-Z]{4}-\d{5}).*$"
 
 PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
-confitionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
+conditionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
 
 PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
-confitionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
+conditionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
 
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
-confitionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
+conditionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
 
 
 class MetadataHandler:
@@ -179,12 +179,12 @@ class MetadataHandler:
         return search_term, None
 
     async def _mame_format(self, search_term: str) -> str:
-        from handler import fs_rom_handler
+        from handler.fs_roms_handler import fs_roms_handler
 
         index_entry = cache.hget(MAME_XML_KEY, search_term)
         if index_entry:
             index_entry = json.loads(index_entry)
-            search_term = fs_rom_handler.get_file_name_with_no_tags(
+            search_term = fs_roms_handler.get_file_name_with_no_tags(
                 index_entry.get("description", search_term)
             )
 

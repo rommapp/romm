@@ -2,12 +2,10 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedStatesResponse, StateSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import (
-    db_state_handler,
-    db_rom_handler,
-    fs_asset_handler,
-    db_screenshot_handler,
-)
+from handler.db_handler.db_states_handler import db_states_handler
+from handler.db_handler.db_roms_handler import db_roms_handler
+from handler.fs_handler.fs_assets_handler import fs_assets_handler
+from handler.db_handler.db_screenshots_handler import db_screenshots_handler
 from handler.scan_handler import scan_state
 from logger.logger import log
 
@@ -21,7 +19,7 @@ def add_states(
     states: list[UploadFile] = File(...),
     emulator: str = None,
 ) -> UploadedStatesResponse:
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_roms_handler.get_roms(rom_id)
     current_user = request.user
     log.info(f"Uploading states to {rom.name}")
 
@@ -32,12 +30,12 @@ def add_states(
             detail="No states were uploaded",
         )
 
-    states_path = fs_asset_handler.build_states_file_path(
+    states_path = fs_assets_handler.build_states_file_path(
         user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
     )
 
     for state in states:
-        fs_asset_handler.write_file(file=state, path=states_path)
+        fs_assets_handler.write_file(file=state, path=states_path)
 
         # Scan or update state
         scanned_state = scan_state(
@@ -46,11 +44,11 @@ def add_states(
             platform_fs_slug=rom.platform.fs_slug,
             emulator=emulator,
         )
-        db_state = db_state_handler.get_state_by_filename(
+        db_state = db_states_handler.get_state_by_filename(
             rom_id=rom.id, user_id=current_user.id, file_name=state.filename
         )
         if db_state:
-            db_state_handler.update_state(
+            db_states_handler.update_state(
                 db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
             )
             continue
@@ -58,9 +56,9 @@ def add_states(
         scanned_state.rom_id = rom.id
         scanned_state.user_id = current_user.id
         scanned_state.emulator = emulator
-        db_state_handler.add_state(scanned_state)
+        db_states_handler.add_state(scanned_state)
 
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_roms_handler.get_roms(rom_id)
     return {
         "uploaded": len(states),
         "states": [s for s in rom.states if s.user_id == current_user.id],
@@ -81,7 +79,7 @@ def add_states(
 async def update_state(request: Request, id: int) -> StateSchema:
     data = await request.form()
 
-    db_state = db_state_handler.get_state(id)
+    db_state = db_states_handler.get_state(id)
     if not db_state:
         error = f"Save with ID {id} not found"
         log.error(error)
@@ -94,10 +92,10 @@ async def update_state(request: Request, id: int) -> StateSchema:
 
     if "file" in data:
         file: UploadFile = data["file"]
-        fs_asset_handler.write_file(file=file, path=db_state.file_path)
-        db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
+        fs_assets_handler.write_file(file=file, path=db_state.file_path)
+        db_states_handler.update_state(db_state.id, {"file_size_bytes": file.size})
 
-    db_state = db_state_handler.get_state(id)
+    db_state = db_states_handler.get_state(id)
     return db_state
 
 
@@ -113,7 +111,7 @@ async def delete_states(request: Request) -> MessageResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     for state_id in state_ids:
-        state = db_state_handler.get_state(state_id)
+        state = db_states_handler.get_state(state_id)
         if not state:
             error = f"Save with ID {state_id} not found"
             log.error(error)
@@ -124,12 +122,12 @@ async def delete_states(request: Request) -> MessageResponse:
             log.error(error)
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
-        db_state_handler.delete_state(state_id)
+        db_states_handler.delete_state(state_id)
 
         if delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
-                fs_asset_handler.remove_file(
+                fs_assets_handler.remove_file(
                     file_name=state.file_name, file_path=state.file_path
                 )
             except FileNotFoundError:
@@ -138,11 +136,11 @@ async def delete_states(request: Request) -> MessageResponse:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         if state.screenshot:
-            db_screenshot_handler.delete_screenshot(state.screenshot.id)
+            db_screenshots_handler.delete_screenshot(state.screenshot.id)
 
             if delete_from_fs:
                 try:
-                    fs_asset_handler.remove_file(
+                    fs_assets_handler.remove_file(
                         file_name=state.screenshot.file_name,
                         file_path=state.screenshot.file_path,
                     )

@@ -2,7 +2,7 @@
 
 Revision ID: 0017_firmware
 Revises: 0016_user_last_login_active
-Create Date: 2024-05-01 14:55:51.122514
+Create Date: 2024-05-05 11:20:54.243980
 
 """
 
@@ -29,6 +29,9 @@ def upgrade() -> None:
         sa.Column("file_extension", sa.String(length=100), nullable=False),
         sa.Column("file_path", sa.String(length=1000), nullable=False),
         sa.Column("file_size_bytes", sa.BigInteger(), nullable=False),
+        sa.Column("crc_hash", sa.String(length=100), nullable=False),
+        sa.Column("md5_hash", sa.String(length=100), nullable=False),
+        sa.Column("sha1_hash", sa.String(length=100), nullable=False),
         sa.ForeignKeyConstraint(["platform_id"], ["platforms.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )

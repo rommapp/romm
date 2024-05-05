@@ -12,5 +12,6 @@ export type FirmwareSchema = {
     file_path: string;
     file_size_bytes: number;
     full_path: string;
+    is_verified: boolean;
 };
 

@@ -1,5 +1,7 @@
 import os
 import shutil
+import hashlib
+import binascii
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -45,6 +47,15 @@ class FSFirmwareHandler(FSHandler):
         files = [f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}"]
         return sum([os.stat(file).st_size for file in files])
 
+    def calculate_file_hashes(self, firmware_path: str, file_name: str):
+        with open(f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}", "rb") as f:
+            data = f.read()
+            return {
+                "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF).to_bytes(4, byteorder='big').hex(),
+                "md5_hash": hashlib.md5(data).hexdigest(),
+                "sha1_hash": hashlib.sha1(data).hexdigest(),
+            }
+
     def file_exists(self, path: str, file_name: str):
         return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
 
@@ -69,3 +80,6 @@ class FSFirmwareHandler(FSHandler):
 
         with open(file_location, "wb") as f:
             shutil.copyfileobj(file.file, f)
+
+
+fs_firmware_handler = FSFirmwareHandler()

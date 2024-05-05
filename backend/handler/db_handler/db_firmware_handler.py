@@ -61,3 +61,6 @@ class DBFirmwareHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
+
+
+db_firmware_handler = DBFirmwareHandler()

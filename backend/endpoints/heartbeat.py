@@ -10,7 +10,7 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
 from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
 from fastapi import APIRouter
-from handler import github_handler
+from handler.github_handler import github_handler
 
 router = APIRouter()
 

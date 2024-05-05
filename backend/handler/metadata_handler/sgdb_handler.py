@@ -35,3 +35,6 @@ class SGDBHandler:
         game_image_url = game_response["data"][0]["url"]
 
         return (game_id, game_name, game_image_url)
+
+
+sgdb_handler = SGDBHandler()

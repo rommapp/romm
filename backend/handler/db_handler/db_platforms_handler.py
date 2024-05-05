@@ -63,3 +63,6 @@ class DBPlatformsHandler(DBHandler):
             )
             .execution_options(synchronize_session="fetch")
         )
+
+
+db_platforms_handler = DBPlatformsHandler()
