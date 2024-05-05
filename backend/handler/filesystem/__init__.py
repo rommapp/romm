@@ -1,8 +1,8 @@
-from .fs_assets_handler import FSAssetsHandler
-from .fs_firmware_handler import FSFirmwareHandler
-from .fs_platforms_handler import FSPlatformsHandler
-from .fs_resources_handler import FSResourcesHandler
-from .fs_roms_handler import FSRomsHandler
+from .assets_handler import FSAssetsHandler
+from .firmware_handler import FSFirmwareHandler
+from .platforms_handler import FSPlatformsHandler
+from .resources_handler import FSResourcesHandler
+from .roms_handler import FSRomsHandler
 
 fs_assets_handler = FSAssetsHandler()
 fs_firmware_handler = FSFirmwareHandler()

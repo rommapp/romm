@@ -13,7 +13,7 @@ from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from unidecode import unidecode as uc
 
-from .base_metadata_hander import (
+from .base_hander import (
     MetadataHandler,
     PS2_OPL_REGEX,
     SWITCH_TITLEDB_REGEX,

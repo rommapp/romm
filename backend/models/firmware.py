@@ -12,7 +12,7 @@ from sqlalchemy import (
 
 from models.base import BaseModel
 from handler.redis_handler import cache
-from handler.metadata.base_metadata_hander import conditionally_set_cache
+from handler.metadata.base_hander import conditionally_set_cache
 
 KNOWN_BIOS_KEY = "romm:known_bios_files"
 conditionally_set_cache(
