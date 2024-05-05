@@ -7,15 +7,14 @@ import shutil
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
-from handler.fs_handler import (
+from models.platform import Platform
+from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
     LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
-    TAG_REGEX,
-    FSHandler,
 )
-from models.platform import Platform
+from .base_handler import FSHandler, TAG_REGEX
 
 
 class FSRomsHandler(FSHandler):
@@ -191,6 +190,3 @@ class FSRomsHandler(FSHandler):
     def build_upload_file_path(self, fs_slug: str):
         file_path = self.get_roms_fs_structure(fs_slug)
         return f"{LIBRARY_BASE_PATH}/{file_path}"
-
-
-fs_roms_handler = FSRomsHandler()

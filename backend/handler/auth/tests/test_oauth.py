@@ -3,8 +3,8 @@ from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 
 from decorators.auth import protected_route
-from handler.auth_handler import oauth_handler
-from handler.db_handler import db_users_handler
+from handler.auth import oauth_handler
+from handler.database import db_users_handler
 
 
 def test_create_oauth_token():

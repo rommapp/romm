@@ -213,7 +213,7 @@ class ConfigManager:
             )
             sys.exit(3)
 
-    def get_config(self) -> None:
+    def get_config(self) -> Config:
         try:
             with open(self.config_file) as config_file:
                 self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}

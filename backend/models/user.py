@@ -42,7 +42,7 @@ class User(BaseModel, SimpleUser):
 
     @property
     def oauth_scopes(self):
-        from handler.auth_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
+        from handler.auth.base_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 
         if self.role == Role.ADMIN:
             return FULL_SCOPES
@@ -58,6 +58,6 @@ class User(BaseModel, SimpleUser):
         return f"User:{self.id}".encode("utf-8").hex()
 
     def set_last_active(self):
-        from handler.db_handler import db_users_handler
+        from handler.database import db_users_handler
 
         db_users_handler.update_user(self.id, {"last_active": datetime.datetime.now()})

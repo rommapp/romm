@@ -3,9 +3,9 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import APIRouter, HTTPException, Request, status
-from handler.db_handler import db_platforms_handler
-from handler.fs_handler.fs_platforms_handler import fs_platforms_handler
-from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
+from handler.database import db_platforms_handler
+from handler.filesystem import fs_platforms_handler
+from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.scan_handler import scan_platform
 from logger.logger import log
 
@@ -88,7 +88,9 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
         PlatformSchema: Platform
     """
 
-    return PlatformSchema.from_orm_with_request(db_platforms_handler.get_platforms(id), request)
+    return PlatformSchema.from_orm_with_request(
+        db_platforms_handler.get_platforms(id), request
+    )
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])

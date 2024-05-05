@@ -2,13 +2,14 @@ from enum import Enum
 from typing import Any
 import emoji
 from config.config_manager import config_manager as cm
-from handler.db_handler import db_platforms_handler
-from handler.fs_handler.fs_assets_handler import fs_assets_handler
-from handler.fs_handler.fs_firmware_handler import fs_firmware_handler
-from handler.fs_handler.fs_resources_handler import fs_resources_handler
-from handler.fs_handler.fs_roms_handler import fs_roms_handler
-from handler.metadata_handler.igdb_handler import igdb_handler
-from handler.metadata_handler.moby_handler import moby_handler
+from handler.database import db_platforms_handler
+from handler.filesystem import (
+    fs_assets_handler,
+    fs_firmware_handler,
+    fs_resources_handler,
+    fs_roms_handler,
+)
+from handler.metadata import igdb_handler, moby_handler
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
@@ -128,9 +129,7 @@ def scan_firmware(
             "file_name_no_ext": fs_firmware_handler.get_file_name_with_no_extension(
                 file_name
             ),
-            "file_extension": fs_firmware_handler.parse_file_extension(
-                file_name
-            ),
+            "file_extension": fs_firmware_handler.parse_file_extension(file_name),
             "file_size_bytes": file_size,
         }
     )
@@ -309,7 +308,9 @@ def _scan_asset(file_name: str, path: str):
         "file_path": path,
         "file_name": file_name,
         "file_name_no_tags": fs_assets_handler.get_file_name_with_no_tags(file_name),
-        "file_name_no_ext": fs_assets_handler.get_file_name_with_no_extension(file_name),
+        "file_name_no_ext": fs_assets_handler.get_file_name_with_no_extension(
+            file_name
+        ),
         "file_extension": fs_assets_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }

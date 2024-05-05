@@ -3,10 +3,10 @@ import shutil
 from pathlib import Path
 
 from fastapi import UploadFile
-from handler.fs_handler import FSHandler
 from logger.logger import log
 from models.user import User
 from config import ASSETS_BASE_PATH
+from .base_handler import FSHandler
 
 
 class FSAssetsHandler(FSHandler):
@@ -60,6 +60,3 @@ class FSAssetsHandler(FSHandler):
     # /users/557365723a31/screenshots/n64
     def build_screenshots_file_path(self, user: User, platform_fs_slug: str):
         return self._build_asset_file_path(user, "screenshots", platform_fs_slug)
-
-
-fs_assets_handler = FSAssetsHandler()

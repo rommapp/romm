@@ -57,7 +57,7 @@ class Save(RomAsset):
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
-        from handler.db_handler import db_roms_handler
+        from handler.database import db_roms_handler
 
         db_rom = db_roms_handler.get_roms(self.rom_id)
         for screenshot in db_rom.screenshots:
@@ -78,7 +78,7 @@ class State(RomAsset):
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
-        from handler.db_handler import db_roms_handler
+        from handler.database import db_roms_handler
 
         db_rom = db_roms_handler.get_roms(self.rom_id)
         for screenshot in db_rom.screenshots:
