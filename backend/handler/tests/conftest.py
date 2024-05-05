@@ -9,12 +9,14 @@ from models.rom import Rom
 from models.user import User
 from models.assets import Save, State, Screenshot
 from models.user import Role
-from handler.db_handler.db_users_handler import db_users_handler
-from handler.db_handler.db_platforms_handler import db_platforms_handler
-from handler.db_handler.db_roms_handler import db_roms_handler
-from handler.db_handler.db_saves_handler import db_saves_handler
-from handler.db_handler.db_states_handler import db_states_handler
-from handler.db_handler.db_screenshots_handler import db_screenshots_handler
+from handler.db_handler import (
+    db_users_handler,
+    db_platforms_handler,
+    db_roms_handler,
+    db_saves_handler,
+    db_states_handler,
+    db_screenshots_handler,
+)
 from handler.auth_handler import auth_handler
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
@@ -106,6 +108,7 @@ def screenshot(rom: Rom, platform: Platform, admin_user: User):
         file_size_bytes=3.0,
     )
     return db_screenshots_handler.add_screenshot(screenshot)
+
 
 @pytest.fixture
 def admin_user():

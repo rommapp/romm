@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any
 import emoji
 from config.config_manager import config_manager as cm
-from handler.db_handler.db_platforms_handler import db_platforms_handler
+from handler.db_handler import db_platforms_handler
 from handler.fs_handler.fs_assets_handler import fs_assets_handler
 from handler.fs_handler.fs_firmware_handler import fs_firmware_handler
 from handler.fs_handler.fs_resources_handler import fs_resources_handler

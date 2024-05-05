@@ -1,11 +1,12 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.user import Role, User
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBUsersHandler(DBHandler):
+
+class DBUsersHandler(DBBaseHandler):
     @begin_session
     def add_user(self, user: User, session: Session = None):
         return session.merge(user)
@@ -44,6 +45,3 @@ class DBUsersHandler(DBHandler):
     @begin_session
     def get_admin_users(self, session: Session = None):
         return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
-
-
-db_users_handler = DBUsersHandler()

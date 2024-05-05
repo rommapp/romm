@@ -5,12 +5,14 @@ from models.rom import Rom
 from models.user import User, Role
 from models.assets import Save, State, Screenshot
 from handler.auth_handler import auth_handler
-from handler.db_handler.db_platforms_handler import db_platforms_handler
-from handler.db_handler.db_roms_handler import db_roms_handler
-from handler.db_handler.db_users_handler import db_users_handler
-from handler.db_handler.db_saves_handler import db_saves_handler
-from handler.db_handler.db_states_handler import db_states_handler
-from handler.db_handler.db_screenshots_handler import db_screenshots_handler
+from handler.db_handler import (
+    db_platforms_handler,
+    db_roms_handler,
+    db_users_handler,
+    db_saves_handler,
+    db_states_handler,
+    db_screenshots_handler,
+)
 
 
 def test_platforms():
@@ -73,7 +75,10 @@ def test_utils(rom: Rom, platform: Platform):
     with db_roms_handler.session.begin() as session:
         roms = session.scalars(db_roms_handler.get_roms(platform_id=platform.id)).all()
         assert (
-            db_roms_handler.get_rom_by_filename(platform_id=platform.id, file_name=rom.file_name).id == roms[0].id
+            db_roms_handler.get_rom_by_filename(
+                platform_id=platform.id, file_name=rom.file_name
+            ).id
+            == roms[0].id
         )
 
 
@@ -196,7 +201,9 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     screenshot = db_screenshots_handler.get_screenshot(rom.screenshots[0].id)
     assert screenshot.file_name == "test_screenshot.png"
 
-    db_screenshots_handler.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
+    db_screenshots_handler.update_screenshot(
+        screenshot.id, {"file_name": "test_screenshot_2.png"}
+    )
     screenshot = db_screenshots_handler.get_screenshot(screenshot.id)
     assert screenshot.file_name == "test_screenshot_2.png"
 

@@ -26,7 +26,7 @@ class Platform(BaseModel):
 
     @property
     def rom_count(self) -> int:
-        from handler.db_handler.db_platforms_handler import db_platforms_handler
+        from handler.db_handler import db_platforms_handler
 
         return db_platforms_handler.get_rom_count(self.id)
 

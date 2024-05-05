@@ -128,7 +128,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
     )
 
 
-class IGDBHandler(MetadataHandler):
+class IGDBBaseHandler(MetadataHandler):
     def __init__(self) -> None:
         self.platform_endpoint = "https://api.igdb.com/v4/platforms"
         self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions"
@@ -840,4 +840,4 @@ IGDB_PLATFORM_LIST = [
     {"slug": "airconsole", "name": "AirConsole"},
 ]
 
-igdb_handler = IGDBHandler()
+igdb_handler = IGDBBaseHandler()

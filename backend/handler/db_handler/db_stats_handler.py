@@ -1,13 +1,14 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.platform import Platform
 from models.rom import Rom
 from models.assets import Save, Screenshot, State
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBStatsHandler(DBHandler):
+
+class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_platforms_count(self, session: Session = None):
         # Only count platforms with more then 0 roms
@@ -42,6 +43,3 @@ class DBStatsHandler(DBHandler):
     @begin_session
     def get_total_filesize(self, session: Session = None) -> int:
         return 0
-
-
-db_stats_handler = DBStatsHandler()

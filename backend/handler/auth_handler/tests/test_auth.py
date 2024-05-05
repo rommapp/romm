@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 
 from models.user import User
 from handler.auth_handler import auth_handler, oauth_handler
-from handler.db_handler.db_users_handler import db_users_handler
+from handler.db_handler import db_users_handler
 from handler.auth_handler import WRITE_SCOPES
 from handler.auth_handler.hybrid_auth import HybridAuthBackend
 

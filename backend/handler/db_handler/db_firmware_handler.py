@@ -1,11 +1,12 @@
 from decorators.database import begin_session
-from handler.db_handler import DBHandler
 from models.firmware import Firmware
 from sqlalchemy import update, delete, and_
 from sqlalchemy.orm import Session
 
+from .base_handler import DBBaseHandler
 
-class DBFirmwareHandler(DBHandler):
+
+class DBFirmwareHandler(DBBaseHandler):
     @begin_session
     def add_firmware(self, firmware: Firmware, session: Session = None):
         return session.merge(firmware)
@@ -61,6 +62,3 @@ class DBFirmwareHandler(DBHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
-
-
-db_firmware_handler = DBFirmwareHandler()
