@@ -89,6 +89,17 @@ function deleteFirmware() {
       selectedFirmware.value = [];
     });
 }
+
+function selectAllFirmware() {
+  if (
+    selectedFirmware.value.length ===
+    selectedPlatform.value?.firmware_files?.length
+  ) {
+    selectedFirmware.value = [];
+  } else {
+    selectedFirmware.value = selectedPlatform.value?.firmware_files ?? [];
+  }
+}
 </script>
 
 <template>
@@ -110,66 +121,70 @@ function deleteFirmware() {
         'edit-content-mobile': xs,
       }"
     >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-memory" class="ml-5" />
-          </v-col>
-          <v-col>
-            <v-btn
-              @click="closeDialog"
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
+      <div class="top-bar">
+        <v-toolbar density="compact" class="bg-terciary">
+          <v-row class="align-center" no-gutters>
+            <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+              <v-icon icon="mdi-memory" class="ml-5" />
+            </v-col>
+            <v-col>
+              <v-btn
+                @click="closeDialog"
+                class="bg-terciary"
+                rounded="0"
+                variant="text"
+                icon="mdi-close"
+                block
+              />
+            </v-col>
+          </v-row>
+        </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+        <v-divider class="border-opacity-25" :thickness="1" />
 
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
-          <v-col>
-            <v-btn
-              block
-              icon=""
-              class="text-romm-accent-1 bg-terciary"
-              rounded="0"
-              variant="text"
-              @click="triggerFileInput"
-            >
-              <v-icon :class="{ 'mr-2': !xs }">mdi-plus</v-icon>
-              <span v-if="!xs">Add firmware</span>
-            </v-btn>
-            <v-file-input
-              class="file-input"
-              id="file-input"
-              @keyup.enter="uploadFirmware()"
-              v-model="filesToUpload"
-              multiple
-              required
-            />
-          </v-col>
-          <v-col cols="2">
-            <v-btn
-              block
-              icon=""
-              class="text-romm-green bg-terciary"
-              rounded="0"
-              variant="text"
-              @click="uploadFirmware()"
-              :disabled="filesToUpload.length == 0 || selectedPlatform == null"
-            >
-              Upload
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-toolbar>
+        <v-toolbar density="compact" class="bg-primary">
+          <v-row class="align-center" no-gutters>
+            <v-col>
+              <v-btn
+                block
+                icon=""
+                class="text-romm-accent-1 bg-terciary"
+                rounded="0"
+                variant="text"
+                @click="triggerFileInput"
+              >
+                <v-icon :class="{ 'mr-2': !xs }">mdi-plus</v-icon>
+                <span v-if="!xs">Add firmware</span>
+              </v-btn>
+              <v-file-input
+                class="file-input"
+                id="file-input"
+                @keyup.enter="uploadFirmware()"
+                v-model="filesToUpload"
+                multiple
+                required
+              />
+            </v-col>
+            <v-col cols="2">
+              <v-btn
+                block
+                icon=""
+                class="text-romm-green bg-terciary"
+                rounded="0"
+                variant="text"
+                @click="uploadFirmware()"
+                :disabled="
+                  filesToUpload.length == 0 || selectedPlatform == null
+                "
+              >
+                Upload
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+        <v-divider class="border-opacity-25" :thickness="1" />
+      </div>
 
       <v-card-text
         v-if="filesToUpload.length > 0"
@@ -249,28 +264,45 @@ function deleteFirmware() {
             </template>
           </v-list-item>
         </v-list>
-
-        <v-btn
-          :disabled="!selectedFirmware.length"
-          @click="downloadFirmware()"
-          rounded="0"
-          variant="text"
-          class="mt-3 mr-3 bg-terciary"
-        >
-          <v-icon>mdi-download</v-icon>
-          Download
-        </v-btn>
-        <v-btn
-          :disabled="!selectedFirmware.length"
-          @click="deleteFirmware()"
-          rounded="0"
-          variant="text"
-          class="mt-3 bg-terciary text-romm-red"
-        >
-          <v-icon>mdi-delete</v-icon>
-          Delete
-        </v-btn>
       </v-card-text>
+
+      <v-toolbar density="compact" class="bg-terciary bottom-bar">
+        <v-row class="align-center" no-gutters>
+          <v-col>
+            <v-btn
+              @click="selectAllFirmware()"
+              class="bg-terciary ml-3"
+              rounded="0"
+              variant="text"
+            >
+              <v-icon class="pr-2">mdi-checkbox-marked</v-icon>
+              Select all
+            </v-btn>
+          </v-col>
+          <v-col cols="4" class="text-right">
+            <v-btn
+              :disabled="!selectedFirmware.length"
+              @click="downloadFirmware()"
+              rounded="0"
+              variant="text"
+              class="my-3 mr-3 bg-terciary"
+            >
+              <v-icon class="pr-2">mdi-download</v-icon>
+              Download
+            </v-btn>
+            <v-btn
+              :disabled="!selectedFirmware.length"
+              @click="deleteFirmware()"
+              rounded="0"
+              variant="text"
+              class="my-3 mr-3 bg-terciary text-romm-red"
+            >
+              <v-icon class="pr-2">mdi-delete</v-icon>
+              Delete
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-toolbar>
     </v-card>
   </v-dialog>
 </template>
@@ -294,5 +326,17 @@ function deleteFirmware() {
 
 .scroll {
   overflow-y: scroll;
+}
+
+.top-bar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+}
+
+.bottom-bar {
+  position: sticky;
+  z-index: 1;
+  bottom: 0;
 }
 </style>
