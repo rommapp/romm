@@ -11,11 +11,15 @@ from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
 )
 from config import SCAN_TIMEOUT
-from handler.database import db_roms_handler, db_firmware_handler, db_platforms_handler
+from handler.database import (
+    db_rom_handler,
+    db_firmware_handler,
+    db_platform_handler,
+)
 from handler.filesystem import (
-    fs_roms_handler,
+    fs_rom_handler,
     fs_firmware_handler,
-    fs_platforms_handler,
+    fs_platform_handler,
 )
 from handler.socket_handler import socket_handler
 from handler.redis_handler import high_prio_queue, redis_url, redis_client
@@ -70,7 +74,7 @@ async def scan_platforms(
         return
 
     try:
-        fs_platforms: list[str] = fs_platforms_handler.get_platforms()
+        fs_platforms: list[str] = fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
@@ -80,7 +84,7 @@ async def scan_platforms(
 
     try:
         platform_list = [
-            db_platforms_handler.get_platforms(s).fs_slug for s in platform_ids
+            db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
         ] or fs_platforms
 
         if len(platform_list) == 0:
@@ -91,7 +95,7 @@ async def scan_platforms(
             log.info(f"Found {len(platform_list)} platforms in file system ")
 
         for platform_slug in platform_list:
-            platform = db_platforms_handler.get_platform_by_fs_slug(platform_slug)
+            platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
             if platform and scan_type == ScanType.NEW_PLATFORMS:
                 continue
 
@@ -108,7 +112,7 @@ async def scan_platforms(
                 1 if scanned_platform.igdb_id or scanned_platform.moby_id else 0
             )
 
-            platform = db_platforms_handler.add_platform(scanned_platform)
+            platform = db_platform_handler.add_platform(scanned_platform)
 
             await sm.emit(
                 "scan:scanning_platform",
@@ -156,7 +160,7 @@ async def scan_platforms(
 
             # Scanning roms
             try:
-                fs_roms = fs_roms_handler.get_roms(platform)
+                fs_roms = fs_rom_handler.get_roms(platform)
             except RomsNotFoundException as e:
                 log.error(e)
                 continue
@@ -169,7 +173,7 @@ async def scan_platforms(
                 log.info(f"  {len(fs_roms)} roms found")
 
             for fs_rom in fs_roms:
-                rom = db_roms_handler.get_rom_by_filename(
+                rom = db_rom_handler.get_rom_by_filename(
                     platform.id, fs_rom["file_name"]
                 )
 
@@ -207,8 +211,8 @@ async def scan_platforms(
                         1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
                     )
 
-                    _added_rom = db_roms_handler.add_rom(scanned_rom)
-                    rom = db_roms_handler.get_roms(_added_rom.id)
+                    _added_rom = db_rom_handler.add_rom(scanned_rom)
+                    rom = db_rom_handler.get_roms(_added_rom.id)
 
                     await sm.emit(
                         "scan:scanning_rom",
@@ -219,11 +223,11 @@ async def scan_platforms(
                         },
                     )
 
-            db_roms_handler.purge_roms(
+            db_rom_handler.purge_roms(
                 platform.id, [rom["file_name"] for rom in fs_roms]
             )
             db_firmware_handler.purge_firmware(platform.id, [fw for fw in fs_firmware])
-        db_platforms_handler.purge_platforms(fs_platforms)
+        db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)

@@ -8,8 +8,8 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler.auth import auth_handler
-from handler.database import db_users_handler
-from handler.filesystem import fs_assets_handler
+from handler.database import db_user_handler
+from handler.filesystem import fs_asset_handler
 from models.user import Role, User
 
 router = APIRouter()
@@ -37,7 +37,7 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         role=Role[role.upper()],
     )
 
-    return db_users_handler.add_user(user)
+    return db_user_handler.add_user(user)
 
 
 @protected_route(router.get, "/users", ["users.read"])
@@ -51,7 +51,7 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return db_users_handler.get_users()
+    return db_user_handler.get_users()
 
 
 @protected_route(router.get, "/users/me", ["me.read"])
@@ -79,7 +79,7 @@ def get_user(request: Request, id: int) -> UserSchema:
         UserSchem: User stored in the RomM's database
     """
 
-    user = db_users_handler.get_user(id)
+    user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -105,14 +105,14 @@ def update_user(
         UserSchema: Updated user info
     """
 
-    user = db_users_handler.get_user(id)
+    user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     cleaned_data = {}
 
     if form_data.username and form_data.username != user.username:
-        existing_user = db_users_handler.get_user_by_username(
+        existing_user = db_user_handler.get_user_by_username(
             form_data.username.lower()
         )
         if existing_user:
@@ -136,7 +136,7 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        user_avatar_path = fs_assets_handler.build_avatar_path(user=user)
+        user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
         cleaned_data["avatar_path"] = file_location
         Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(
@@ -146,7 +146,7 @@ def update_user(
             file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
-        db_users_handler.update_user(id, cleaned_data)
+        db_user_handler.update_user(id, cleaned_data)
 
         # Log out the current user if username or password changed
         creds_updated = cleaned_data.get("username") or cleaned_data.get(
@@ -155,7 +155,7 @@ def update_user(
         if request.user.id == id and creds_updated:
             request.session.clear()
 
-    return db_users_handler.get_user(id)
+    return db_user_handler.get_user(id)
 
 
 @protected_route(router.delete, "/users/{id}", ["users.write"])
@@ -175,7 +175,7 @@ def delete_user(request: Request, id: int) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    user = db_users_handler.get_user(id)
+    user = db_user_handler.get_user(id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -184,11 +184,11 @@ def delete_user(request: Request, id: int) -> MessageResponse:
         raise HTTPException(status_code=400, detail="You cannot delete yourself")
 
     # You can't delete the last admin user
-    if user.role == Role.ADMIN and len(db_users_handler.get_admin_users()) == 1:
+    if user.role == Role.ADMIN and len(db_user_handler.get_admin_users()) == 1:
         raise HTTPException(
             status_code=400, detail="You cannot delete the last admin user"
         )
 
-    db_users_handler.delete_user(id)
+    db_user_handler.delete_user(id)
 
     return {"msg": "User successfully deleted"}

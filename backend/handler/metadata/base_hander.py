@@ -181,12 +181,12 @@ class MetadataHandler:
         return search_term, None
 
     async def _mame_format(self, search_term: str) -> str:
-        from handler.filesystem import fs_roms_handler
+        from handler.filesystem import fs_rom_handler
 
         index_entry = cache.hget(MAME_XML_KEY, search_term)
         if index_entry:
             index_entry = json.loads(index_entry)
-            search_term = fs_roms_handler.get_file_name_with_no_tags(
+            search_term = fs_rom_handler.get_file_name_with_no_tags(
                 index_entry.get("description", search_term)
             )
 

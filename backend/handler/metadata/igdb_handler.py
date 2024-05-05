@@ -276,7 +276,7 @@ class IGDBBaseHandler(MetadataHandler):
 
     @check_twitch_token
     async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
-        from handler.filesystem import fs_roms_handler
+        from handler.filesystem import fs_rom_handler
 
         if not IGDB_API_ENABLED:
             return IGDBRom(igdb_id=None)
@@ -284,7 +284,7 @@ class IGDBBaseHandler(MetadataHandler):
         if not platform_igdb_id:
             return IGDBRom(igdb_id=None)
 
-        search_term = fs_roms_handler.get_file_name_with_no_tags(file_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
         fallback_rom = IGDBRom(igdb_id=None)
 
         # Support for PS2 OPL filename format

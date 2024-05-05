@@ -7,7 +7,7 @@ from endpoints.responses.firmware import (
 )
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from handler.database import db_platforms_handler, db_firmware_handler
+from handler.database import db_platform_handler, db_firmware_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
 from logger.logger import log
@@ -33,7 +33,7 @@ def add_firmware(
         AddFirmwareResponse: Standard message response
     """
 
-    db_platform = db_platforms_handler.get_platforms(platform_id)
+    db_platform = db_platform_handler.get_platforms(platform_id)
     log.info(f"Uploading firmware to {db_platform.fs_slug}")
     if files is None:
         log.error("No files were uploaded")
@@ -68,7 +68,7 @@ def add_firmware(
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
-    db_platform = db_platforms_handler.get_platforms(platform_id)
+    db_platform = db_platform_handler.get_platforms(platform_id)
 
     return {
         "uploaded": len(files),
