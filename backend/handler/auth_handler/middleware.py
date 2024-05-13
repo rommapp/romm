@@ -5,7 +5,8 @@ from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette_csrf.middleware import CSRFMiddleware
-from jose import jwt, JWTError
+from joserfc import jwt
+from joserfc.errors import BadSignatureError
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):
@@ -40,7 +41,7 @@ class SessionMiddleware:
             self.jwt_secret = secret_key
 
         # check crypto setup so we bail out if needed
-        _jwt = jwt.encode({"1": 2}, key=str(self.jwt_secret.encode), algorithm=jwt_alg)
+        _jwt = jwt.encode({"alg": jwt_alg}, {"1": 2}, key=str(self.jwt_secret.encode))
         assert {"1": 2} == jwt.decode(
             _jwt,
             key=str(
@@ -48,7 +49,6 @@ class SessionMiddleware:
                 if self.jwt_secret.decode
                 else self.jwt_secret.encode
             ),
-            algorithms=[jwt_alg],
         ), "wrong crypto setup"
 
         self.session_cookie = session_cookie
@@ -91,13 +91,12 @@ class SessionMiddleware:
                         if self.jwt_secret.decode
                         else self.jwt_secret.encode
                     ),
-                    algorithms=[self.jwt_alg],
                 )
 
                 jwt_payload = self._validate_jwt_payload(jwt_payload)
                 scope["session"] = jwt_payload
                 initial_session_was_empty = False
-            except JWTError:
+            except BadSignatureError:
                 scope["session"] = {}
         else:
             scope["session"] = {}
@@ -109,9 +108,9 @@ class SessionMiddleware:
                         scope["session"]["exp"] = int(time.time()) + self.max_age
 
                     data = jwt.encode(
+                        {"alg": self.jwt_alg},
                         scope["session"],
                         key=str(self.jwt_secret.encode),
-                        algorithm=self.jwt_alg,
                     )
 
                     headers = MutableHeaders(scope=message)

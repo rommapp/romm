@@ -8,7 +8,8 @@ from config import (
 )
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
+from joserfc import jwt
+from joserfc.errors import BadSignatureError
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
@@ -65,12 +66,12 @@ class AuthHandler:
 
     async def get_current_active_user_from_session(self, conn: HTTPConnection):
         from handler import db_user_handler
-        
-        issuer = conn.session.get('iss')
-        if not issuer or issuer != 'romm:auth':
+
+        issuer = conn.session.get("iss")
+        if not issuer or issuer != "romm:auth":
             return None
 
-        username = conn.session.get('sub')
+        username = conn.session.get("sub")
         if not username:
             return None
 
@@ -123,18 +124,18 @@ class OAuthHandler:
 
         to_encode.update({"exp": expire})
 
-        return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
+        return jwt.encode({"alg": ALGORITHM}, to_encode, ROMM_AUTH_SECRET_KEY)
 
     async def get_current_active_user_from_bearer_token(self, token: str):
         from handler import db_user_handler
 
         try:
-            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
-        except JWTError:
+            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
+        except BadSignatureError:
             raise OAuthCredentialsException
-        
-        issuer = payload.get('iss')
-        if not issuer or issuer != 'romm:oauth':
+
+        issuer = payload.get("iss")
+        if not issuer or issuer != "romm:oauth":
             return None
 
         username = payload.get("sub")
