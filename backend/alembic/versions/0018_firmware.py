@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0017_firmware
-Revises: 0016_user_last_login_active
+Revision ID: 0018_firmware
+Revises: 0017_rom_notes
 Create Date: 2024-05-05 11:20:54.243980
 
 """
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "0017_firmware"
-down_revision = "0016_user_last_login_active"
+revision = "0018_firmware"
+down_revision = "0017_rom_notes"
 branch_labels = None
 depends_on = None
 
