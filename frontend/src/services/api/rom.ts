@@ -164,6 +164,21 @@ async function deleteRoms({
   });
 }
 
+async function updateRomNote({
+  romId,
+  rawMarkdown,
+  isPublic,
+}: {
+  romId: number;
+  rawMarkdown: string;
+  isPublic: boolean;
+}): Promise<{ data: RomSchema }> {
+  return api.put(`/roms/${romId}/note`, {
+    raw_markdown: rawMarkdown,
+    is_public: isPublic,
+  });
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -173,4 +188,5 @@ export default {
   searchRom,
   updateRom,
   deleteRoms,
+  updateRomNote,
 };

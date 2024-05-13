@@ -24,6 +24,8 @@ DEFAULT_SCOPES_MAP: Final = {
     "platforms.read": "View platforms",
     "assets.read": "View assets",
     "assets.write": "Modify assets",
+    "notes.read": "View notes",
+    "notes.write": "Modify notes",
 }
 
 WRITE_SCOPES_MAP: Final = {
