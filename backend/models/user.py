@@ -15,6 +15,8 @@ class Role(enum.Enum):
 
 
 class User(BaseModel, SimpleUser):
+    from models.rom import RomNote
+
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 
@@ -38,6 +40,9 @@ class User(BaseModel, SimpleUser):
     )
     screenshots: Mapped[list[Screenshot]] = relationship(
         "Screenshot", lazy="selectin", back_populates="user"
+    )
+    notes: Mapped[list[RomNote]] = relationship(
+        "RomNote", lazy="selectin", back_populates="user"
     )
 
     @property

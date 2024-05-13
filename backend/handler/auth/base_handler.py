@@ -24,6 +24,8 @@ DEFAULT_SCOPES_MAP: Final = {
     "assets.read": "View assets",
     "assets.write": "Modify assets",
     "firmware.read": "View firmware",
+    "notes.read": "View notes",
+    "notes.write": "Modify notes",
 }
 
 WRITE_SCOPES_MAP: Final = {
