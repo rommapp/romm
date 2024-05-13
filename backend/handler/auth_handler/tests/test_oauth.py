@@ -21,13 +21,13 @@ async def test_get_current_active_user_from_bearer_token(admin_user):
             "type": "access",
         },
     )
-    user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
+    user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
 
     assert user.id == admin_user.id
-    assert payload["sub"] == admin_user.username
-    assert payload["iss"] == "romm:oauth"
-    assert set(payload["scopes"].split()).issubset(admin_user.oauth_scopes)
-    assert payload["type"] == "access"
+    assert claims["sub"] == admin_user.username
+    assert claims["iss"] == "romm:oauth"
+    assert set(claims["scopes"].split()).issubset(admin_user.oauth_scopes)
+    assert claims["type"] == "access"
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_token():
@@ -36,7 +36,9 @@ async def test_get_current_active_user_from_bearer_token_invalid_token():
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_user():
-    token = oauth_handler.create_oauth_token(data={"sub": "invalid_user", "iss": "romm:oauth"})
+    token = oauth_handler.create_oauth_token(
+        data={"sub": "invalid_user", "iss": "romm:oauth"}
+    )
 
     with pytest.raises(HTTPException):
         await oauth_handler.get_current_active_user_from_bearer_token(token)
@@ -67,7 +69,7 @@ def test_protected_route():
     @protected_route(router.get, "/test")
     def test_route(request: Request):
         return {"test": "test"}
-    
+
     req = Request({"type": "http", "method": "GET", "url": "/test"})
 
     assert test_route(req) == {"test": "test"}
