@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from handler.db_handler import DBHandler
-from models.rom import Rom
+from models.rom import Rom, RomNote
 from sqlalchemy import and_, delete, func, select, update, or_, Select
 from sqlalchemy.orm import Session
 
@@ -101,5 +101,30 @@ class DBRomsHandler(DBHandler):
         return session.execute(
             delete(Rom)
             .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
+            .execution_options(synchronize_session="evaluate")
+        )
+    
+    @begin_session
+    def get_rom_note(
+        self, rom_id: int, user_id: int, session: Session = None
+    ):
+        return session.scalars(
+            select(RomNote).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
+        ).first()
+    
+    @begin_session
+    def add_rom_note(
+        self, rom_id: int, user_id: int, session: Session = None
+    ):
+        return session.merge(RomNote(rom_id=rom_id, user_id=user_id))
+    
+    @begin_session
+    def update_rom_note(
+        self, id: int, data: dict, session: Session = None
+    ):
+        return session.execute(
+            update(RomNote)
+            .where(RomNote.id == id)
+            .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
