@@ -133,14 +133,14 @@ class OAuthHandler:
 
         try:
             payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
-        except BadSignatureError:
+        except (BadSignatureError, ValueError):
             raise OAuthCredentialsException
 
-        issuer = payload.get("iss")
+        issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":
             return None
 
-        username = payload.get("sub")
+        username = payload.claims.get("sub")
         if username is None:
             raise OAuthCredentialsException
 
@@ -153,4 +153,4 @@ class OAuthHandler:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
             )
 
-        return user, payload
+        return user, payload.claims
