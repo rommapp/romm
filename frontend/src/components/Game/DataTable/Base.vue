@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { VDataTable } from "vuetify/labs/VDataTable";
 
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
@@ -76,7 +75,7 @@ const romsPerPage = ref(-1);
 
 // Functions
 function rowClick(_: Event, row: any) {
-  router.push({ name: "rom", params: { rom: row.item.raw.id } });
+  router.push({ name: "rom", params: { rom: row.item.id } });
 }
 </script>
 
@@ -97,24 +96,24 @@ function rowClick(_: Event, row: any) {
       <v-avatar :rounded="0">
         <v-progress-linear
           color="romm-accent-1"
-          :active="downloadStore.value.includes(item.raw.id)"
+          :active="downloadStore.value.includes(item.id)"
           :indeterminate="true"
           absolute
         />
         <v-img
           :src="
-            !item.raw.igdb_id && !item.raw.has_cover
+            !item.igdb_id && !item.has_cover
               ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : !item.raw.has_cover
+              : !item.has_cover
               ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              : `/assets/romm/resources/${item.raw.path_cover_s}`
+              : `/assets/romm/resources/${item.path_cover_s}`
           "
           :lazy-src="
-            !item.raw.igdb_id && !item.raw.has_cover
+            !item.igdb_id && !item.has_cover
               ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : !item.raw.has_cover
+              : !item.has_cover
               ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              : `/assets/romm/resources/${item.raw.path_cover_s}`
+              : `/assets/romm/resources/${item.path_cover_s}`
           "
           min-height="150"
         />
@@ -122,16 +121,16 @@ function rowClick(_: Event, row: any) {
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
-        {{ formatBytes(item.raw.file_size_bytes) }}
+        {{ formatBytes(item.file_size_bytes) }}
       </span>
     </template>
     <template v-slot:item.regions="{ item }">
-      <span class="px-1" v-for="region in item.raw.regions">
+      <span class="px-1" v-for="region in item.regions">
         {{ regionToEmoji(region) }}
       </span>
     </template>
     <template v-slot:item.languages="{ item }">
-      <span class="px-1" v-for="language in item.raw.languages">
+      <span class="px-1" v-for="language in item.languages">
         {{ languageToEmoji(language) }}
       </span>
     </template>
@@ -139,8 +138,8 @@ function rowClick(_: Event, row: any) {
       <v-btn
         class="ma-1 bg-terciary"
         rounded="0"
-        @click.stop="romApi.downloadRom({ rom: item.raw })"
-        :disabled="downloadStore.value.includes(item.raw.id)"
+        @click.stop="romApi.downloadRom({ rom: item })"
+        :disabled="downloadStore.value.includes(item.id)"
         download
         size="small"
         variant="text"
@@ -148,10 +147,10 @@ function rowClick(_: Event, row: any) {
         <v-icon>mdi-download</v-icon>
       </v-btn>
       <v-btn
-        v-if="item.raw.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
+        v-if="item.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
         size="small"
         variant="text"
-        :href="`/play/${item.raw.id}`"
+        :href="`/play/${item.id}`"
         class="my-1 bg-terciary"
         rounded="0"
       >
@@ -169,7 +168,7 @@ function rowClick(_: Event, row: any) {
             ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
         </template>
-        <admin-menu :rom="item.raw" />
+        <admin-menu :rom="item" />
       </v-menu>
     </template>
   </v-data-table>
