@@ -20,15 +20,19 @@ from endpoints import (
     user,
     screenshots,
     feeds,
+    firmware,
 )
 import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
-from handler import auth_handler, db_user_handler, github_handler, socket_handler
-from handler.auth_handler import ALGORITHM
-from handler.auth_handler.hybrid_auth import HybridAuthBackend
-from handler.auth_handler.middleware import CustomCSRFMiddleware, SessionMiddleware
+from handler.database import db_user_handler
+from handler.github_handler import github_handler
+from handler.socket_handler import socket_handler
+from handler.auth import auth_handler
+from handler.auth.base_handler import ALGORITHM
+from handler.auth.hybrid_auth import HybridAuthBackend
+from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 
 
@@ -89,6 +93,7 @@ app.include_router(config.router)
 app.include_router(stats.router)
 app.include_router(raw.router)
 app.include_router(screenshots.router)
+app.include_router(firmware.router)
 
 add_pagination(app)
 app.mount("/ws", socket_handler.socket_app)

@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { FirmwareSchema } from './FirmwareSchema';
+
 export type PlatformSchema = {
     id: number;
     slug: string;
@@ -13,5 +15,6 @@ export type PlatformSchema = {
     name: string;
     logo_path?: (string | null);
     rom_count: number;
+    firmware_files?: Array<FirmwareSchema>;
 };
 

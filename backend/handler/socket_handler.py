@@ -13,3 +13,5 @@ class SocketHandler:
         )
 
         self.socket_app = socketio.ASGIApp(self.socket_server, socketio_path="/ws/socket.io")
+
+socket_handler = SocketHandler()

@@ -2,12 +2,12 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import UploadedSavesResponse, SaveSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler import (
+from handler.database import (
     db_save_handler,
-    fs_asset_handler,
     db_rom_handler,
     db_screenshot_handler,
 )
+from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
 from logger.logger import log
 

@@ -24,22 +24,28 @@ function toggleEmulation() {
   emitter?.emit("showEmulation", null);
 }
 
-function copyDownloadLink(rom: Rom) {
-  navigator.clipboard.writeText(
+async function copyDownloadLink(rom: Rom) {
+  const downloadLink =
+    location.protocol +
+    "//" +
     location.host +
-      encodeURI(
-        getDownloadLink({
-          rom,
-          files: downloadStore.filesToDownloadMultiFileRom,
-        })
-      )
-  );
-  emitter?.emit("snackbarShow", {
-    msg: "Download link copied to clipboard!",
-    icon: "mdi-check-bold",
-    color: "green",
-    timeout: 2000,
-  });
+    encodeURI(
+      getDownloadLink({
+        rom,
+        files: downloadStore.filesToDownloadMultiFileRom,
+      })
+    );
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(downloadLink);
+    emitter?.emit("snackbarShow", {
+      msg: "Download link copied to clipboard!",
+      icon: "mdi-check-bold",
+      color: "green",
+      timeout: 2000,
+    });
+  } else {
+    emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
+  }
 }
 </script>
 
