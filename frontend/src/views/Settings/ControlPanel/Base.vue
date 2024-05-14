@@ -50,23 +50,37 @@ const tab = ref("general");
       <span class="text-romm-accent-1">RomM</span>
       <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>
       <v-icon>mdi-circle-small</v-icon><v-icon>mdi-github</v-icon>
-      <span class="ml-1"
-        ><a
-          style="text-decoration: none; color: inherit"
-          href="https://github.com/rommapp/romm"
-          target="_blank"
-          >Github</a
-        ></span
-      >
+      <v-hover v-slot="{ isHovering, props }">
+        <span class="ml-1"
+          ><a
+            :class="{
+              'text-romm-accent-1': isHovering,
+              'text-white': !isHovering,
+            }"
+            v-bind="props"
+            style="text-decoration: none"
+            href="https://github.com/rommapp/romm"
+            target="_blank"
+            >Github</a
+          ></span
+        >
+      </v-hover>
       <v-icon>mdi-circle-small</v-icon>
-      <span class="ml-1"
-        ><a
-          style="text-decoration: none; color: inherit"
-          href="https://discord.com/invite/P5HtHnhUDH"
-          target="_blank"
-          >Join to our Discord</a
-        ></span
-      >
+      <v-hover v-slot="{ isHovering, props }">
+        <span class="ml-1"
+          ><a
+            :class="{
+              'text-romm-accent-1': isHovering,
+              'text-white': !isHovering,
+            }"
+            v-bind="props"
+            style="text-decoration: none"
+            href="https://discord.com/invite/P5HtHnhUDH"
+            target="_blank"
+            >Join to our Discord</a
+          ></span
+        >
+      </v-hover>
     </v-row>
   </v-bottom-navigation>
 </template>

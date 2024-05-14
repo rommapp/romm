@@ -99,15 +99,13 @@ function onEditNote() {
     <v-card-text>
       <v-list>
         <v-list-item v-for="note in publicNotes" :key="note.id">
-          <v-list-item-content>
-            <v-list-item-title>{{ note.user__username }}</v-list-item-title>
-            <MdPreview
-              :modelValue="note.raw_markdown"
-              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-              previewTheme="vuepress"
-              codeTheme="github"
-            />
-          </v-list-item-content>
+          <v-list-item-title>{{ note.user__username }}</v-list-item-title>
+          <MdPreview
+            :modelValue="note.raw_markdown"
+            :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+            previewTheme="vuepress"
+            codeTheme="github"
+          />
         </v-list-item>
       </v-list>
     </v-card-text>
@@ -124,6 +122,6 @@ function onEditNote() {
   line-height: 1.25 !important;
 }
 .vuepress-theme pre code {
-  background-color: #0D1117;
+  background-color: #0d1117;
 }
 </style>
