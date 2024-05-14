@@ -39,7 +39,7 @@ function closeDialog() {
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
           <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-delete" class="ml-5" />
+            <v-icon icon="mdi-content-copy" class="ml-5" />
           </v-col>
           <v-col>
             <v-btn
@@ -56,7 +56,10 @@ function closeDialog() {
       <v-divider class="border-opacity-25" :thickness="1" />
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
-          <span class="text-romm-accent-1 mx-1">{{ link }}</span>
+          <span>Can't copy link to clipboard, copy it manually:</span>
+        </v-row>
+        <v-row class="justify-center pa-2" no-gutters>
+          <span class="bg-terciary py-3 px-5">{{ link }}</span>
         </v-row>
       </v-card-text>
     </v-card>
