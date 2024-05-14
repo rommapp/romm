@@ -7,7 +7,7 @@ import type { Rom } from "@/stores/roms";
 import { platformSlugEJSCoreMap } from "@/utils";
 
 // Props
-const props = defineProps<{ rom: Rom }>();
+defineProps<{ rom: Rom }>();
 const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
@@ -25,6 +25,7 @@ const downloadStore = storeDownload();
         variant="text"
       />
       <v-btn
+        v-if="rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
         class="action-bar-btn"
         :href="`/play/${rom.id}`"
         icon="mdi-play"
