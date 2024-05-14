@@ -24,7 +24,9 @@ class HybridAuthBackend(AuthenticationBackend):
             if not credentials:
                 return (AuthCredentials([]), None)
 
-            user = auth_handler.authenticate_user(credentials.username, credentials.password)
+            user = auth_handler.authenticate_user(
+                credentials.username, credentials.password
+            )
             if user is None:
                 return (AuthCredentials([]), None)
 
@@ -33,16 +35,19 @@ class HybridAuthBackend(AuthenticationBackend):
 
         # Check if bearer auth header is valid
         if scheme.lower() == "bearer":
-            user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
+            (
+                user,
+                claims,
+            ) = await oauth_handler.get_current_active_user_from_bearer_token(token)
             if user is None:
                 return (AuthCredentials([]), None)
 
             # Only access tokens can request resources
-            if payload.get("type") != "access":
+            if claims.get("type") != "access":
                 return (AuthCredentials([]), None)
 
             # Only grant access to resources with overlapping scopes
-            token_scopes = set(list(payload.get("scopes").split(" ")))
+            token_scopes = set(list(claims.get("scopes").split(" ")))
             overlapping_scopes = list(token_scopes & set(user.oauth_scopes))
 
             user.set_last_active()
