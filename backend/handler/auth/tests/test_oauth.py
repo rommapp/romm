@@ -22,13 +22,13 @@ async def test_get_current_active_user_from_bearer_token(admin_user):
             "type": "access",
         },
     )
-    user, payload = await oauth_handler.get_current_active_user_from_bearer_token(token)
+    user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
 
     assert user.id == admin_user.id
-    assert payload["sub"] == admin_user.username
-    assert payload["iss"] == "romm:oauth"
-    assert set(payload["scopes"].split()).issubset(admin_user.oauth_scopes)
-    assert payload["type"] == "access"
+    assert claims["sub"] == admin_user.username
+    assert claims["iss"] == "romm:oauth"
+    assert set(claims["scopes"].split()).issubset(admin_user.oauth_scopes)
+    assert claims["type"] == "access"
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_token():

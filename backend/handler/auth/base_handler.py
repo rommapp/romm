@@ -8,7 +8,8 @@ from config import (
 )
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
+from joserfc import jwt
+from joserfc.errors import BadSignatureError
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
@@ -127,21 +128,21 @@ class OAuthHandler:
 
         to_encode.update({"exp": expire})
 
-        return jwt.encode(to_encode, ROMM_AUTH_SECRET_KEY, algorithm=ALGORITHM)
+        return jwt.encode({"alg": ALGORITHM}, to_encode, ROMM_AUTH_SECRET_KEY)
 
     async def get_current_active_user_from_bearer_token(self, token: str):
         from handler.database import db_user_handler
 
         try:
-            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
-        except JWTError:
+            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
+        except (BadSignatureError, ValueError):
             raise OAuthCredentialsException
 
-        issuer = payload.get("iss")
+        issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":
             return None
 
-        username = payload.get("sub")
+        username = payload.claims.get("sub")
         if username is None:
             raise OAuthCredentialsException
 
@@ -154,4 +155,4 @@ class OAuthHandler:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
             )
 
-        return user, payload
+        return user, payload.claims
