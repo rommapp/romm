@@ -10,6 +10,7 @@ from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
     RomSchema,
+    RomNoteSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
@@ -425,3 +426,22 @@ async def delete_roms(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
+
+@protected_route(router.put, "/roms/{id}/note", ["notes.write"])
+async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
+    db_note = db_rom_handler.get_rom_note(id, request.user.id)
+    if not db_note:
+        db_note = db_rom_handler.add_rom_note(id, request.user.id)
+
+    data = await request.json()
+    db_rom_handler.update_rom_note(
+        db_note.id,
+        {
+            "last_edited_at": datetime.now(),
+            "raw_markdown": data.get("raw_markdown", db_note.raw_markdown),
+            "is_public": data.get("is_public", db_note.is_public),
+        }
+    )
+
+    db_note = db_rom_handler.get_rom_note(id, request.user.id)
+    return db_note

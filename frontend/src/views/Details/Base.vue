@@ -9,6 +9,7 @@ import Info from "@/components/Details/Info/Base.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
+import Notes from "@/components/Details/Notes.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
@@ -27,6 +28,7 @@ const tab = ref<
   | "details"
   | "saves"
   | "states"
+  | "notes"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -177,6 +179,7 @@ watch(
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0">Saves</v-tab>
             <v-tab value="states" rounded="0">States</v-tab>
+            <v-tab value="notes" rounded="0">Notes</v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -221,6 +224,9 @@ watch(
               </v-window-item>
               <v-window-item value="states">
                 <states :rom="rom" />
+              </v-window-item>
+              <v-window-item value="notes">
+                <notes :rom="rom" />
               </v-window-item>
               <v-window-item
                 v-if="
