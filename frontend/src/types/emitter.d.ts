@@ -24,6 +24,7 @@ export type Events = {
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: Rom[];
   showUploadRomDialog: Platform | null;
+  showFirmwareDialog: Platform;
   showAddPlatformDialog: null;
   showCreatePlatformBindingDialog: {
     fsSlug: string;

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from main import app
-from handler import github_handler
+from handler.github_handler import github_handler
 
 client = TestClient(app)
 

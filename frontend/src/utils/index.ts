@@ -278,9 +278,9 @@ export function languageToEmoji(language: string) {
 }
 
 export const platformSlugEJSCoreMap = {
-  // "3do": "opera", Disabled until BIOS file support is added
-  // amiga: "puae", Disabled until BIOS file support is added
-  // arcade: "mame2003_plus", Disabled until BIOS file support is added
+  "3do": "opera",
+  amiga: "puae",
+  arcade: "mame2003_plus",
   atari2600: "stella2014",
   "atari-2600-plus": "stella2014",
   atari5200: "a5200",
@@ -312,9 +312,9 @@ export const platformSlugEJSCoreMap = {
   "game-boy-micro": "mgba",
   gbc: "gambatte",
   "pc-fx": "mednafen_pcfx",
-  // ps: "pcsx_rearmed", Disabled until BIOS file support is added
-  // psp: "ppsspp", Disabled until BIOS file support is added
-  // segacd: "genesis_plus_gx", Disabled until BIOS file support is added
+  ps: "pcsx_rearmed",
+  psp: "ppsspp",
+  segacd: "genesis_plus_gx",
   // sega32: "picodrive", // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
   gamegear: "genesis_plus_gx",
   sms: "genesis_plus_gx",

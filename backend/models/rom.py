@@ -111,7 +111,7 @@ class Rom(BaseModel):
 
     # This is an expensive operation so don't call it on a list of roms
     def get_sibling_roms(self) -> list["Rom"]:
-        from handler import db_rom_handler
+        from handler.database import db_rom_handler
 
         if not self.igdb_id:
             return []
@@ -164,6 +164,7 @@ class Rom(BaseModel):
     def __repr__(self) -> str:
         return self.file_name
 
+
 class RomNote(BaseModel):
     __tablename__ = "rom_notes"
     __table_args__ = (
@@ -171,7 +172,9 @@ class RomNote(BaseModel):
     )
 
     id: int = Column(Integer(), primary_key=True, autoincrement=True)
-    last_edited_at: datetime = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_edited_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     raw_markdown: str = Column(Text, nullable=False, default="")
     is_public: bool = Column(Boolean, default=False)
 
