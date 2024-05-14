@@ -11,7 +11,7 @@ const usersStore = storeUsers();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteUserDialog", (userToDelete) => {
-  user.value = userToDelete;
+  user.value = { password: "", ...userToDelete };
   show.value = true;
 });
 

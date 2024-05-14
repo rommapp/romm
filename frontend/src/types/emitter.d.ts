@@ -44,8 +44,8 @@ export type Events = {
   };
   showCreateExclusionDialog: { exclude: string };
   showCreateUserDialog: null;
-  showEditUserDialog: UserItem;
-  showDeleteUserDialog: UserItem;
+  showEditUserDialog: User;
+  showDeleteUserDialog: User;
   showDeleteSavesDialog: {
     rom: Rom;
     saves: SaveSchema[];
