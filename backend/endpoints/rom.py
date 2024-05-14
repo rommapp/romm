@@ -17,15 +17,10 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler import (
-    db_platform_handler,
-    db_rom_handler,
-    fs_resource_handler,
-    fs_rom_handler,
-    igdb_handler,
-    moby_handler,
-)
-from handler.fs_handler import CoverSize
+from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.base_handler import CoverSize
+from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
 
@@ -47,7 +42,7 @@ def add_roms(
         HTTPException: No files were uploaded
 
     Returns:
-        UploadRomResponse: Standard message response
+        AddRomsResponse: Standard message response
     """
 
     platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug
@@ -279,13 +274,13 @@ async def update_rom(
     cleaned_data["moby_id"] = data.get("moby_id", None)
 
     if cleaned_data["moby_id"]:
-        moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+        moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
     else:
         cleaned_data.update({"moby_metadata": {}})
 
     if cleaned_data["igdb_id"]:
-        igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
     else:
         cleaned_data.update({"igdb_metadata": {}})
@@ -427,6 +422,7 @@ async def delete_roms(
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
 
+
 @protected_route(router.put, "/roms/{id}/note", ["notes.write"])
 async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
     db_note = db_rom_handler.get_rom_note(id, request.user.id)
@@ -440,7 +436,7 @@ async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
             "last_edited_at": datetime.now(),
             "raw_markdown": data.get("raw_markdown", db_note.raw_markdown),
             "is_public": data.get("is_public", db_note.is_public),
-        }
+        },
     )
 
     db_note = db_rom_handler.get_rom_note(id, request.user.id)

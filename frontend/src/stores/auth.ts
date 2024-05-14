@@ -12,6 +12,8 @@ const FULL_SCOPES_LIST = [
   "users.read",
   "users.write",
   "tasks.run",
+  "firmware.read",
+  "firmware.write",
 ] as const;
 
 export default defineStore("auth", {

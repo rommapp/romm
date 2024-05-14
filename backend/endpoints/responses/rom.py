@@ -6,9 +6,10 @@ from typing_extensions import TypedDict, NotRequired
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from handler import socket_handler, db_user_handler
-from handler.metadata_handler.igdb_handler import IGDBMetadata
-from handler.metadata_handler.moby_handler import MobyMetadata
+from handler.socket_handler import socket_handler
+from handler.database import db_user_handler
+from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
 
@@ -25,6 +26,7 @@ RomMobyMetadata = TypedDict(
     {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
     total=False,
 )
+
 
 class RomNoteSchema(BaseModel):
     id: int
@@ -50,6 +52,7 @@ class RomNoteSchema(BaseModel):
             # This is what filters out private notes
             if n.user_id == user_id or n.is_public
         ]
+
 
 class RomSchema(BaseModel):
     id: int
@@ -143,6 +146,7 @@ class RomSchema(BaseModel):
         rom.user_notes = RomNoteSchema.for_user(db_rom, user_id)
 
         return rom
+
 
 class AddRomsResponse(TypedDict):
     uploaded_roms: list[str]

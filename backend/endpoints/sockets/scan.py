@@ -2,28 +2,35 @@ import emoji
 import socketio  # type: ignore
 from rq import Worker
 from rq.job import Job
-from endpoints.platform import PlatformSchema
-from endpoints.rom import RomSchema
+from endpoints.responses.platform import PlatformSchema
+from endpoints.responses.rom import RomSchema
+from endpoints.responses.firmware import FirmwareSchema
 from exceptions.fs_exceptions import (
     FolderStructureNotMatchException,
     RomsNotFoundException,
-)
-from handler import (
-    db_platform_handler,
-    db_rom_handler,
-    fs_platform_handler,
-    fs_rom_handler,
-    socket_handler,
+    FirmwareNotFoundException,
 )
 from config import SCAN_TIMEOUT
+from handler.database import (
+    db_rom_handler,
+    db_firmware_handler,
+    db_platform_handler,
+)
+from handler.filesystem import (
+    fs_rom_handler,
+    fs_firmware_handler,
+    fs_platform_handler,
+)
+from handler.socket_handler import socket_handler
 from handler.redis_handler import high_prio_queue, redis_url, redis_client
 from handler.scan_handler import (
     scan_platform,
     scan_rom,
+    scan_firmware,
     ScanType,
 )
-from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
-from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
+from handler.metadata.igdb_handler import IGDB_API_ENABLED
+from handler.metadata.moby_handler import MOBY_API_ENABLED
 from logger.logger import log
 
 
@@ -35,6 +42,8 @@ class ScanStats:
         self.scanned_roms = 0
         self.added_roms = 0
         self.metadata_roms = 0
+        self.scanned_firmware = 0
+        self.added_firmware = 0
 
 
 def _get_socket_manager():
@@ -110,6 +119,45 @@ async def scan_platforms(
                 PlatformSchema.model_validate(platform).model_dump(),
             )
 
+            # Scanning firmware
+            try:
+                fs_firmware = fs_firmware_handler.get_firmware(platform)
+            except FirmwareNotFoundException:
+                fs_firmware = []
+
+            if len(fs_firmware) == 0:
+                log.warning(
+                    "  ⚠️ No firmware found, skipping firmware scan for this platform"
+                )
+            else:
+                log.info(f"  {len(fs_firmware)} firmware files found")
+
+            for fs_fw in fs_firmware:
+                firmware = db_firmware_handler.get_firmware_by_filename(
+                    platform.id, fs_fw
+                )
+
+                scanned_firmware = scan_firmware(
+                    platform=platform,
+                    file_name=fs_fw,
+                    firmware=firmware,
+                )
+
+                scan_stats.scanned_firmware += 1
+                scan_stats.added_firmware += 1 if not firmware else 0
+
+                _added_firmware = db_firmware_handler.add_firmware(scanned_firmware)
+                firmware = db_firmware_handler.get_firmware(_added_firmware.id)
+
+                await sm.emit(
+                    "scan:scanning_firmware",
+                    {
+                        "platform_name": platform.name,
+                        "platform_slug": platform.slug,
+                        **FirmwareSchema.model_validate(firmware).model_dump(),
+                    },
+                )
+
             # Scanning roms
             try:
                 fs_roms = fs_rom_handler.get_roms(platform)
@@ -178,6 +226,7 @@ async def scan_platforms(
             db_rom_handler.purge_roms(
                 platform.id, [rom["file_name"] for rom in fs_roms]
             )
+            db_firmware_handler.purge_firmware(platform.id, [fw for fw in fs_firmware])
         db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))
