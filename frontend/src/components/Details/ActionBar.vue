@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
-import CopyDownloadLink from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { Rom } from "@/stores/roms";
@@ -27,6 +26,8 @@ function toggleEmulation() {
 
 async function copyDownloadLink(rom: Rom) {
   const downloadLink =
+    location.protocol +
+    "//" +
     location.host +
     encodeURI(
       getDownloadLink({
@@ -36,17 +37,16 @@ async function copyDownloadLink(rom: Rom) {
     );
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(downloadLink);
+    emitter?.emit("snackbarShow", {
+      msg: "Download link copied to clipboard!",
+      icon: "mdi-check-bold",
+      color: "green",
+      timeout: 2000,
+    });
     emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
   } else {
     emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
   }
-
-  emitter?.emit("snackbarShow", {
-    msg: "Download link copied to clipboard!",
-    icon: "mdi-check-bold",
-    color: "green",
-    timeout: 2000,
-  });
 }
 </script>
 
@@ -110,8 +110,6 @@ async function copyDownloadLink(rom: Rom) {
       </v-menu>
     </v-col>
   </v-row>
-
-  <copy-download-link />
 </template>
 
 <style scoped>
