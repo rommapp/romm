@@ -12,6 +12,7 @@ import ViewFirmwareDialog from "@/components/Dialog/Platform/ViewFirmware.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import MatchRomDialog from "@/components/Dialog/Rom/MatchRom/MatchRom.vue";
+import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
@@ -83,6 +84,7 @@ onMounted(() => {
   <delete-platform-dialog />
   <search-rom-dialog />
   <match-rom-dialog />
+  <copy-rom-download-link-dialog />
   <upload-rom-dialog />
   <view-firmware-dialog />
   <edit-rom-dialog />
