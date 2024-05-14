@@ -4,7 +4,7 @@ import yarl
 import re
 import time
 from config import MOBYGAMES_API_KEY
-from typing import Final, Optional
+from typing import Final
 from typing_extensions import NotRequired, TypedDict
 from requests.exceptions import HTTPError, Timeout
 from logger.logger import log
@@ -31,15 +31,21 @@ ARCADE_MOBY_IDS: Final = [143, 36]
 
 
 class MobyGamesPlatform(TypedDict):
-    moby_id: int
+    slug: str
+    moby_id: int | None
     name: NotRequired[str]
+
+
+class MobyMetadataPlatform(TypedDict):
+    moby_id: int
+    name: str
 
 
 class MobyMetadata(TypedDict):
     moby_score: str
     genres: list[str]
     alternate_titles: list[str]
-    platforms: list[MobyGamesPlatform]
+    platforms: list[MobyMetadataPlatform]
 
 
 class MobyGamesRom(TypedDict):
@@ -49,7 +55,7 @@ class MobyGamesRom(TypedDict):
     summary: NotRequired[str]
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
-    moby_metadata: Optional[MobyMetadata]
+    moby_metadata: NotRequired[MobyMetadata]
 
 
 def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
@@ -317,7 +323,12 @@ class MobyGamesHandler(MetadataHandler):
         ]
 
 
-SLUG_TO_MOBY_ID: Final = {
+class SlugToMobyItem(TypedDict):
+    id: int
+    name: str
+
+
+SLUG_TO_MOBY_ID: dict[str, SlugToMobyItem] = {
     "1292-advanced-programmable-video-system": {
         "id": 253,
         "name": "1292 Advanced Programmable Video System",
@@ -717,4 +728,4 @@ SLUG_TO_MOBY_ID: Final = {
 }
 
 # Reverse lookup
-MOBY_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_MOBY_ID.items()}
+MOBY_ID_TO_SLUG: Final = {v["id"]: k for k, v in SLUG_TO_MOBY_ID.items()}

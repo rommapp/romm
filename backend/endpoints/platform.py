@@ -64,15 +64,20 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     db_platforms: list = db_platform_handler.get_platforms()
     # This double loop probably can be done better
     for platform in IGDB_PLATFORM_LIST:
-        platform["id"] = -1
+        sup_plat = {
+            "id": -1,
+            "name": platform["name"],
+            "fs_slug": platform["slug"],
+            "logo_path": "",
+            "roms": [],
+            "rom_count": 0,
+        }
+
         for p in db_platforms:
             if p.name == platform["name"]:
-                platform["id"] = p.id
-        platform["fs_slug"] = platform["slug"]
-        platform["logo_path"] = ""
-        platform["roms"] = []
-        platform["rom_count"] = 0
-        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
+                sup_plat["id"] = p.id
+
+        supported_platforms.append(PlatformSchema.model_validate(sup_plat).model_dump())
     return supported_platforms
 
 

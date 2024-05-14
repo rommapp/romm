@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Optional, get_type_hints
+from typing import Optional
 from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
@@ -8,24 +8,39 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler.socket_handler import socket_handler
 from handler.database import db_user_handler
-from handler.metadata.igdb_handler import IGDBMetadata
-from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.igdb_handler import IGDBPlatform, IGDBRelatedGame
 from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
 
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
-RomIGDBMetadata = TypedDict(
-    "RomIGDBMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
-    total=False,
-)
-RomMobyMetadata = TypedDict(
-    "RomMobyMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
-    total=False,
-)
+
+class RomIGDBMetadata(TypedDict, total=False):
+    total_rating: NotRequired[str]
+    aggregated_rating: NotRequired[str]
+    first_release_date: NotRequired[int | None]
+    genres: NotRequired[list[str]]
+    franchises: NotRequired[list[str]]
+    alternative_names: NotRequired[list[str]]
+    collections: NotRequired[list[str]]
+    companies: NotRequired[list[str]]
+    game_modes: NotRequired[list[str]]
+    platforms: NotRequired[list[IGDBPlatform]]
+    expansions: NotRequired[list[IGDBRelatedGame]]
+    dlcs: NotRequired[list[IGDBRelatedGame]]
+    remasters: NotRequired[list[IGDBRelatedGame]]
+    remakes: NotRequired[list[IGDBRelatedGame]]
+    expanded_games: NotRequired[list[IGDBRelatedGame]]
+    ports: NotRequired[list[IGDBRelatedGame]]
+    similar_games: NotRequired[list[IGDBRelatedGame]]
+
+
+class RomMobyMetadata(TypedDict, total=False):
+    moby_score: NotRequired[str]
+    genres: NotRequired[list[str]]
+    alternate_titles: NotRequired[list[str]]
+    platforms: NotRequired[list[str]]
 
 
 class RomNoteSchema(BaseModel):
@@ -39,8 +54,8 @@ class RomNoteSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @computed_field
     @property
+    @computed_field
     def user__username(self) -> str:
         return db_user_handler.get_user(self.user_id).username
 
@@ -111,8 +126,8 @@ class RomSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @computed_field
     @property
+    @computed_field
     def sort_comparator(self) -> str:
         return (
             re.sub(

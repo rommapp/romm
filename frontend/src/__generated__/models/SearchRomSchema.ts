@@ -13,4 +13,3 @@ export type SearchRomSchema = {
     moby_url_cover?: string;
     url_screenshots: Array<string>;
 };
-

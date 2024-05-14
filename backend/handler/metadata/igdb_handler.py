@@ -4,7 +4,7 @@ import functools
 import re
 import sys
 import time
-from typing import Final, Optional
+from typing import Final
 from typing_extensions import NotRequired, TypedDict
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
@@ -35,8 +35,14 @@ ARCADE_IGDB_IDS: Final = [52, 79, 80]
 
 
 class IGDBPlatform(TypedDict):
-    igdb_id: int
+    slug: str
+    igdb_id: int | None
     name: NotRequired[str]
+
+
+class IGDBMetadataPlatform(TypedDict):
+    igdb_id: int
+    name: str
 
 
 class IGDBRelatedGame(TypedDict):
@@ -57,7 +63,7 @@ class IGDBMetadata(TypedDict):
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
-    platforms: list[IGDBPlatform]
+    platforms: list[IGDBMetadataPlatform]
     expansions: list[IGDBRelatedGame]
     dlcs: list[IGDBRelatedGame]
     remasters: list[IGDBRelatedGame]
@@ -74,7 +80,7 @@ class IGDBRom(TypedDict):
     summary: NotRequired[str]
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
-    igdb_metadata: Optional[IGDBMetadata]
+    igdb_metadata: NotRequired[IGDBMetadata]
 
 
 def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
@@ -93,35 +99,77 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
             "game_modes": pydash.map_(rom.get("game_modes", []), "name"),
             "companies": pydash.map_(rom.get("involved_companies", []), "company.name"),
             "platforms": [
-                {"igdb_id": p.get("id", ""), "name": p.get("name", "")}
+                IGDBMetadataPlatform(igdb_id=p.get("id", ""), name=p.get("name", ""))
                 for p in rom.get("platforms", [])
             ],
             "expansions": [
-                {"cover_url": pydash.get(e, "cover.url", ""), "type": "expansion", **e}
+                IGDBRelatedGame(
+                    id=e["id"],
+                    slug=e["slug"],
+                    name=e["name"],
+                    cover_url=pydash.get(e, "cover.url", ""),
+                    type="expansion",
+                )
                 for e in rom.get("expansions", [])
             ],
             "dlcs": [
-                {"cover_url": pydash.get(d, "cover.url", ""), "type": "dlc", **d}
+                IGDBRelatedGame(
+                    id=d["id"],
+                    slug=d["slug"],
+                    name=d["name"],
+                    cover_url=pydash.get(d, "cover.url", ""),
+                    type="dlc",
+                )
                 for d in rom.get("dlcs", [])
             ],
             "remasters": [
-                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remaster", **r}
+                IGDBRelatedGame(
+                    id=r["id"],
+                    slug=r["slug"],
+                    name=r["name"],
+                    cover_url=pydash.get(r, "cover.url", ""),
+                    type="remaster",
+                )
                 for r in rom.get("remasters", [])
             ],
             "remakes": [
-                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remake", **r}
+                IGDBRelatedGame(
+                    id=r["id"],
+                    slug=r["slug"],
+                    name=r["name"],
+                    cover_url=pydash.get(r, "cover.url", ""),
+                    type="remake",
+                )
                 for r in rom.get("remakes", [])
             ],
             "expanded_games": [
-                {"cover_url": pydash.get(g, "cover.url", ""), "type": "expanded", **g}
+                IGDBRelatedGame(
+                    id=g["id"],
+                    slug=g["slug"],
+                    name=g["name"],
+                    cover_url=pydash.get(g, "cover.url", ""),
+                    type="expanded",
+                )
                 for g in rom.get("expanded_games", [])
             ],
             "ports": [
-                {"cover_url": pydash.get(p, "cover.url", ""), "type": "port", **p}
+                IGDBRelatedGame(
+                    id=p["id"],
+                    slug=p["slug"],
+                    name=p["name"],
+                    cover_url=pydash.get(p, "cover.url", ""),
+                    type="port",
+                )
                 for p in rom.get("ports", [])
             ],
             "similar_games": [
-                {"cover_url": pydash.get(s, "cover.url", ""), "type": "similar", **s}
+                IGDBRelatedGame(
+                    id=s["id"],
+                    slug=s["slug"],
+                    name=s["name"],
+                    cover_url=pydash.get(s, "cover.url", ""),
+                    type="similar",
+                )
                 for s in rom.get("similar_games", [])
             ],
         }
@@ -467,15 +515,8 @@ class IGDBBaseHandler(MetadataHandler):
                 )
                 matched_roms.extend(alternative_matched_roms)
 
-        # Use a dictionary to keep track of unique ids
-        unique_ids = {}
-
-        # Use a list comprehension to filter duplicates based on the 'id' key
-        matched_roms = [
-            unique_ids.setdefault(rom["id"], rom)
-            for rom in matched_roms
-            if rom["id"] not in unique_ids
-        ]
+        # Filter duplicates by the ID
+        matched_roms = pydash.uniq_by(matched_roms, "id")
 
         return [
             IGDBRom(
@@ -565,7 +606,7 @@ class TwitchAuth:
         return token
 
 
-GAMES_FIELDS = [
+GAMES_FIELDS: Final = [
     "id",
     "name",
     "slug",
@@ -621,7 +662,13 @@ GAMES_FIELDS = [
 #   name: a.innerText
 # }))
 
-IGDB_PLATFORM_LIST = [
+
+class IGDBPlatformListItem(TypedDict):
+    slug: str
+    name: str
+
+
+IGDB_PLATFORM_LIST: list[IGDBPlatformListItem] = [
     {"slug": "visionos", "name": "visionOS"},
     {"slug": "meta-quest-3", "name": "Meta Quest 3"},
     {"slug": "atari2600", "name": "Atari 2600"},

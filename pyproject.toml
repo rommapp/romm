@@ -30,9 +30,6 @@ pydash = "^7.0.7"
 mariadb = "1.1.10"
 rq = "^1.16.1"
 aioredis = "^2.0.1"
-types-pyyaml = "^6.0.12.20240311"
-types-requests = "^2.31.0.20240311"
-types-redis = "^4.6.0.20240311 "
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 itsdangerous = "^2.1.2"
 stream-zip = "^0.0.71"
@@ -40,12 +37,17 @@ rq-scheduler = "^0.13.1"
 starlette-csrf = "^3.0.0"
 httpx = "^0.27.0"
 python-multipart = "^0.0.9"
-types-passlib = "^1.7.7.20240311"
 watchdog = "^4.0.0"
 fakeredis = "^2.21.3"
 yarl = "^1.9.4"
 joserfc = "^0.9.0"
 pillow = "^10.3.0"
+mypy = "^1.10.0"
+types-passlib = "^1.7.7.20240327"
+types-redis = "^4.6.0.20240425"
+types-pyyaml = "^6.0.12.20240311"
+types-requests = "^2.31.0.20240406"
+sqlalchemy-stubs = "^0.4"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.1.1"
@@ -56,9 +58,17 @@ pytest-asyncio = "^0.23.5"
 
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
-mypy = "^1.10.0"
 
 [tool.mypy]
-plugins = "sqlalchemy.ext.mypy.plugin"
-check_untyped_defs = true
-exclude = ["tests", "alembic"]
+ignore_missing_imports = true
+strict = false
+
+[[tool.mypy.overrides]]
+module = [
+    "endpoints.tests.*",
+    "handler.auth.tests.*",
+    "handler.filesystem.tests.*",
+    "handler.tests.*",
+    "models.tests.*",
+]
+ignore_errors = true

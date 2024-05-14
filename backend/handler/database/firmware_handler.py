@@ -13,7 +13,10 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def get_firmware(
-        self, id: int = None, platform_id: int = None, session: Session = None
+        self,
+        id: int | None = None,
+        platform_id: int | None = None,
+        session: Session | None = None,
     ):
         return (
             session.get(Firmware, id)

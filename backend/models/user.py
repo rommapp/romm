@@ -1,5 +1,5 @@
 import enum
-import datetime
+from datetime import datetime
 
 from models.base import BaseModel
 from models.assets import Save, Screenshot, State
@@ -65,4 +65,4 @@ class User(BaseModel, SimpleUser):
     def set_last_active(self):
         from handler.database import db_user_handler
 
-        db_user_handler.update_user(self.id, {"last_active": datetime.datetime.now()})
+        db_user_handler.update_user(self.id, {"last_active": datetime.now()})

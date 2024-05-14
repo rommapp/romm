@@ -54,8 +54,8 @@ def _get_socket_manager():
 async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
-    selected_roms: list[str] = (),
-    metadata_sources: list[str] = ["igdb", "moby"],
+    selected_roms: list[str] | None = None,
+    metadata_sources: list[str] | None = None,
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -67,6 +67,12 @@ async def scan_platforms(
     """
 
     sm = _get_socket_manager()
+
+    if selected_roms is None:
+        selected_roms = []
+
+    if metadata_sources is None:
+        metadata_sources = ["igdb", "moby"]
 
     if not IGDB_API_ENABLED and not MOBY_API_ENABLED:
         log.error("Search error: No metadata providers enabled")

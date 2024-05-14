@@ -11,4 +11,3 @@ export type WebrcadeFeedSchema = {
     background: string;
     categories: Array<Record<string, any>>;
 };
-

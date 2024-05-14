@@ -13,7 +13,7 @@ class DBPlatformsHandler(DBBaseHandler):
         return session.merge(platform)
 
     @begin_session
-    def get_platforms(self, id: int = None, session: Session = None):
+    def get_platforms(self, id: int | None = None, session: Session | None = None):
         return (
             session.get(Platform, id)
             if id

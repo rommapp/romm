@@ -19,7 +19,7 @@ def add_saves(
     request: Request,
     rom_id: int,
     saves: list[UploadFile] = File(...),
-    emulator: str = None,
+    emulator: str | None = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)
     current_user = request.user

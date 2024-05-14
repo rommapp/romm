@@ -72,7 +72,7 @@ class FSRomsHandler(FSHandler):
             other_tags.append(tag)
         return regs, rev, langs, other_tags
 
-    def _exclude_files(self, files, filetype) -> list[str]:
+    def _exclude_files(self, files: list[str], filetype: str) -> list[str]:
         cnfg = cm.get_config()
         excluded_extensions = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_EXT")
         excluded_names = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_FILES")
@@ -88,11 +88,9 @@ class FSRomsHandler(FSHandler):
 
             # Additionally, check if the file name mathes a pattern in the excluded list.
             if len(excluded_names) > 0:
-                [
-                    excluded_files.append(file_name)
-                    for name in excluded_names
-                    if file_name == name or fnmatch.fnmatch(file_name, name)
-                ]
+                for name in excluded_names:
+                    if file_name == name or fnmatch.fnmatch(file_name, name):
+                        excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]

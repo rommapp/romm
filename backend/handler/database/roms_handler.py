@@ -39,12 +39,12 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_roms(
         self,
-        id: int = None,
-        platform_id: int = None,
+        id: int | None = None,
+        platform_id: int | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
-        session: Session = None,
+        session: Session | None = None,
     ):
         return (
             session.get(Rom, id)

@@ -79,7 +79,7 @@ def add_firmware(
 @protected_route(router.get, "/firmware", ["firmware.read"])
 def get_platform_firmware(
     request: Request,
-    platform_id: int = None,
+    platform_id: int | None = None,
 ) -> list[FirmwareSchema]:
     """Get firmware endpoint
 

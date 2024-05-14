@@ -72,26 +72,26 @@ if __name__ == "__main__":
     supported_platforms = {}
     matched_moby_slugs = []
 
-    for platform in IGDB_PLATFORM_LIST:
-        moby_slug = platform["slug"] if platform["slug"] in SLUG_TO_MOBY_ID else None
-        moby_slug = IGDB_SLUG_TO_MOBY_SLUG.get(platform["slug"], moby_slug)
-        supported_platforms[platform["name"]] = {
-            "name": platform["name"],
-            "igdb_slug": platform["slug"],
+    for plt in IGDB_PLATFORM_LIST:
+        moby_slug = plt["slug"] if plt["slug"] in SLUG_TO_MOBY_ID else None
+        moby_slug = IGDB_SLUG_TO_MOBY_SLUG.get(plt["slug"], moby_slug)
+        supported_platforms[plt["name"]] = {
+            "name": plt["name"],
+            "igdb_slug": plt["slug"],
             "moby_slug": moby_slug,
         }
         if moby_slug:
             matched_moby_slugs.append(moby_slug)
 
     # Now go over the moby ids
-    for slug, platform in SLUG_TO_MOBY_ID.items():
+    for slug, pltf in SLUG_TO_MOBY_ID.items():
         if (
-            platform["name"] not in supported_platforms
-            and platform["name"].lower() not in supported_platforms
+            pltf["name"] not in supported_platforms
+            and pltf["name"].lower() not in supported_platforms
             and slug not in matched_moby_slugs
         ):
-            supported_platforms[platform["name"]] = {
-                "name": platform["name"],
+            supported_platforms[pltf["name"]] = {
+                "name": pltf["name"],
                 "igdb_slug": None,
                 "moby_slug": slug,
             }
@@ -99,19 +99,21 @@ if __name__ == "__main__":
     # Sort platforms by key
     supported_platforms = dict(sorted(supported_platforms.items()))
 
-    print("Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**")
+    print(
+        "Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**"
+    )
     print("\n")
     print("|Platform Name|Folder Name|IGDB|Mobygames|")
     print("|---|---|---|---|")
 
-    for platform in supported_platforms.values():
+    for splat in supported_platforms.values():
         print(
-            f'{platform["name"]} |',
-            f'`{platform["igdb_slug"] or platform["moby_slug"]}` |',
-            f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
-            if platform["igdb_slug"]
+            f'{splat["name"]} |',
+            f'`{splat["igdb_slug"] or splat["moby_slug"]}` |',
+            f'<a href="https://www.igdb.com/platforms/{splat["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
+            if splat["igdb_slug"]
             else " |",
-            f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
-            if platform["moby_slug"]
+            f'<a href="https://www.mobygames.com/platform/{splat["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
+            if splat["moby_slug"]
             else " |",
         )

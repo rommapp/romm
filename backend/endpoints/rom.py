@@ -86,7 +86,7 @@ def add_roms(
 @protected_route(router.get, "/roms", ["roms.read"])
 def get_roms(
     request: Request,
-    platform_id: int = None,
+    platform_id: int | None = None,
     size: int = 60,
     cursor: str = "",
     search_term: str = "",

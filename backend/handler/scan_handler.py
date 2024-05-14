@@ -10,6 +10,8 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.moby_handler import MobyGamesRom
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
@@ -220,8 +222,8 @@ async def scan_rom(
         }
     )
 
-    igdb_handler_rom = {}
-    moby_handler_rom = {}
+    igdb_handler_rom = IGDBRom(igdb_id=None)
+    moby_handler_rom = MobyGamesRom(moby_id=None)
 
     if (
         "igdb" in metadata_sources
@@ -308,16 +310,14 @@ def _scan_asset(file_name: str, path: str):
         "file_path": path,
         "file_name": file_name,
         "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
-        "file_name_no_ext": fs_asset_handler.get_file_name_with_no_extension(
-            file_name
-        ),
+        "file_name_no_ext": fs_asset_handler.get_file_name_with_no_extension(file_name),
         "file_extension": fs_asset_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
 
 
 def scan_save(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
 ) -> Save:
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
@@ -326,7 +326,7 @@ def scan_save(
 
 
 def scan_state(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
 ) -> State:
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
@@ -334,9 +334,7 @@ def scan_state(
     return State(**_scan_asset(file_name, states_path))
 
 
-def scan_screenshot(
-    file_name: str, user: User, platform_fs_slug: str = None
-) -> Screenshot:
+def scan_screenshot(file_name: str, user: User, platform_fs_slug: str) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=platform_fs_slug
     )
