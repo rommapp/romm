@@ -21,6 +21,7 @@ export type Events = {
   showSelectSourceDialog: SearchRomSchema;
   showSearchRomDialog: null;
   showEditRomDialog: Rom;
+  showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: Rom[];
   showUploadRomDialog: Platform | null;
   showAddPlatformDialog: null;
