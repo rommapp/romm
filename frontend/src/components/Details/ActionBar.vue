@@ -43,7 +43,6 @@ async function copyDownloadLink(rom: Rom) {
       color: "green",
       timeout: 2000,
     });
-    emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
   } else {
     emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
   }
