@@ -4,7 +4,7 @@ import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import { platformSlugEJSCoreMap } from "@/utils";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import type { Rom } from "@/stores/roms";
 import type { ValueOf } from "@/types";
 
@@ -12,6 +12,7 @@ const props = defineProps<{
   rom: Rom;
   save: SaveSchema | null;
   state: StateSchema | null;
+  bios: FirmwareSchema | null;
 }>();
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
@@ -27,6 +28,7 @@ type EJSCore = ValueOf<typeof platformSlugEJSCoreMap>;
 declare global {
   interface Window {
     EJS_core: EJSCore;
+    EJS_biosUrl: string;
     EJS_player: string;
     EJS_pathtodata: string;
     EJS_color: string;
@@ -57,6 +59,9 @@ window.EJS_core =
   ];
 window.EJS_gameID = props.rom.id;
 window.EJS_gameUrl = `/api/roms/${props.rom.id}/content/${props.rom.file_name}`;
+window.EJS_biosUrl = props.bios
+  ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
+  : "";
 window.EJS_player = "#game";
 window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";

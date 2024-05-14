@@ -1,11 +1,18 @@
 from sqlalchemy.exc import IntegrityError
 
-# from handler.db_handler import DBHandler
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User, Role
 from models.assets import Save, State, Screenshot
-from handler import auth_handler, db_platform_handler, db_rom_handler, db_user_handler, db_save_handler, db_state_handler, db_screenshot_handler
+from handler.auth import auth_handler
+from handler.database import (
+    db_platform_handler,
+    db_rom_handler,
+    db_user_handler,
+    db_save_handler,
+    db_state_handler,
+    db_screenshot_handler,
+)
 
 
 def test_platforms():
@@ -68,7 +75,10 @@ def test_utils(rom: Rom, platform: Platform):
     with db_rom_handler.session.begin() as session:
         roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
         assert (
-            db_rom_handler.get_rom_by_filename(platform_id=platform.id, file_name=rom.file_name).id == roms[0].id
+            db_rom_handler.get_rom_by_filename(
+                platform_id=platform.id, file_name=rom.file_name
+            ).id
+            == roms[0].id
         )
 
 
@@ -191,7 +201,9 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     screenshot = db_screenshot_handler.get_screenshot(rom.screenshots[0].id)
     assert screenshot.file_name == "test_screenshot.png"
 
-    db_screenshot_handler.update_screenshot(screenshot.id, {"file_name": "test_screenshot_2.png"})
+    db_screenshot_handler.update_screenshot(
+        screenshot.id, {"file_name": "test_screenshot_2.png"}
+    )
     screenshot = db_screenshot_handler.get_screenshot(screenshot.id)
     assert screenshot.file_name == "test_screenshot_2.png"
 
