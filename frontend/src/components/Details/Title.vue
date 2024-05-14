@@ -47,7 +47,7 @@ const { smAndDown } = useDisplay();
         :to="{ name: 'platform', params: { platform: platform.id } }"
       >
         {{ platform.name }}
-        <v-avatar :rounded="0" size="40" class="ml-1 py-1">
+        <v-avatar :rounded="0" size="30" class="ml-2">
           <platform-icon :key="platform.slug" :slug="platform.slug" />
         </v-avatar>
       </v-chip>

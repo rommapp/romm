@@ -6,7 +6,6 @@ import type { Events, UserItem } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref } from "vue";
-import { VDataTable } from "vuetify/labs/VDataTable";
 
 const HEADERS = [
   {
@@ -123,22 +122,22 @@ onMounted(() => {
           <v-avatar>
             <v-img
               :src="
-                item.raw.avatar_path
-                  ? `/assets/romm/assets/${item.raw.avatar_path}`
+                item.avatar_path
+                  ? `/assets/romm/assets/${item.avatar_path}`
                   : defaultAvatarPath
               "
             />
           </v-avatar>
         </template>
         <template v-slot:item.last_active="{ item }">
-          {{ formatTimestamp(item.raw.last_active) }}
+          {{ formatTimestamp(item.last_active) }}
         </template>
         <template v-slot:item.enabled="{ item }">
           <v-switch
             color="romm-accent-1"
-            :disabled="item.raw.id == auth.user?.id"
-            v-model="item.raw.enabled"
-            @change="disableUser(item.raw)"
+            :disabled="item.id == auth.user?.id"
+            v-model="item.enabled"
+            @change="disableUser(item)"
             hide-details
           />
         </template>
@@ -148,7 +147,7 @@ onMounted(() => {
             class="ma-1 bg-terciary"
             size="small"
             rounded="0"
-            @click="emitter?.emit('showEditUserDialog', item.raw)"
+            @click="emitter?.emit('showEditUserDialog', item)"
           >
             <v-icon>mdi-pencil</v-icon>
           </v-btn>
@@ -157,7 +156,7 @@ onMounted(() => {
             class="ma-1 bg-terciary text-romm-red"
             size="small"
             rounded="0"
-            @click="emitter?.emit('showDeleteUserDialog', item.raw)"
+            @click="emitter?.emit('showDeleteUserDialog', item)"
             ><v-icon>mdi-delete</v-icon></v-btn
           >
         </template>
