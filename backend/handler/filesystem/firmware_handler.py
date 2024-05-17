@@ -3,8 +3,8 @@ import shutil
 import hashlib
 import binascii
 from pathlib import Path
-
 from fastapi import UploadFile
+
 from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FirmwareAlreadyExistsException,
@@ -41,7 +41,7 @@ class FSFirmwareHandler(FSHandler):
         except IndexError as exc:
             raise FirmwareNotFoundException(platform.fs_slug) from exc
 
-        return fs_firmware_files
+        return [f for f in self._exclude_files(fs_firmware_files, "single")]
 
     def get_firmware_file_size(self, firmware_path: str, file_name: str):
         files = [f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}"]
