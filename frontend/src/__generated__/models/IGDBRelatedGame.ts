@@ -10,4 +10,3 @@ export type IGDBRelatedGame = {
     type: string;
     cover_url: string;
 };
-

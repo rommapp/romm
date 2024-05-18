@@ -7,4 +7,3 @@ export type MobyGamesPlatform = {
     moby_id: number;
     name?: string;
 };
-

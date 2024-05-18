@@ -4,6 +4,8 @@ from fastapi import Request
 
 from models.platform import Platform
 from .firmware import FirmwareSchema
+
+
 class PlatformSchema(BaseModel):
     id: int
     slug: str
@@ -21,9 +23,12 @@ class PlatformSchema(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_orm_with_request(cls, db_platform: Platform, request: Request) -> "PlatformSchema":
+    def from_orm_with_request(
+        cls, db_platform: Platform, request: Request
+    ) -> "PlatformSchema":
         platform = cls.model_validate(db_platform)
         platform.firmware_files = [
-            FirmwareSchema.model_validate(f) for f in sorted(db_platform.firmware, key=lambda x: x.file_name)
+            FirmwareSchema.model_validate(f)
+            for f in sorted(db_platform.firmware, key=lambda x: x.file_name)
         ]
         return platform

@@ -22,4 +22,3 @@ export type SaveSchema = {
     emulator: (string | null);
     screenshot: (ScreenshotSchema | null);
 };
-
