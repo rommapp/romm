@@ -15,6 +15,6 @@ export type PlatformSchema = {
     name: string;
     logo_path?: (string | null);
     rom_count: number;
-    firmware_files?: Array<FirmwareSchema>;
+    firmware?: Array<FirmwareSchema>;
 };
 
