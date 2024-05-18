@@ -27,7 +27,7 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, ref, nextTick } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -48,8 +48,9 @@ emitter?.on("refreshView", async () => {
   refreshView.value = refreshView.value + 1;
 });
 
-// Functions
-onMounted(() => {
+function fetchHomeData() {
+  document.removeEventListener("network-quiesced", fetchHomeData);
+
   platformApi
     .getPlatforms()
     .then(({ data: platforms }) => {
@@ -67,6 +68,12 @@ onMounted(() => {
     .catch((error) => {
       console.error(error);
     });
+}
+
+document.addEventListener("network-quiesced", fetchHomeData);
+
+onBeforeUnmount(() => {
+  document.removeEventListener("network-quiesced", fetchHomeData);
 });
 </script>
 
