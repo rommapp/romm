@@ -92,6 +92,14 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │     │   ├─ my_game_cd2.iso
         │     │
         │     ├─ rom_1.iso
+        ├─ bios/
+        │  ├─ gba/
+        │  │  ├─ gba_bios.bin
+        │  │
+        │  ├─ ps/
+        │     ├─ scph1001.bin
+        |     ├─ scph5501.bin
+        |     ├─ scph5502.bin
       </pre>
     </td>
     <td>
@@ -106,6 +114,8 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │  ├─ roms/
         │     ├─ rom_1.gba
         │     ├─ rom_2.gba
+        |  ├─ bios/
+        |     ├─ gba_bios.bin
         │
         ├─ ps/
         │  ├─ roms/
@@ -114,6 +124,10 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │     │  ├─ my_game_cd2.iso
         │     │
         │     ├─ rom_1.iso
+        |  ├─ bios/
+        |     ├─ scph1001.bin
+        |     ├─ scph5501.bin
+        |     ├─ scph5502.bin
       </pre>
     </td>
  </tr>
