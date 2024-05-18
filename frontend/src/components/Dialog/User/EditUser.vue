@@ -13,7 +13,7 @@ const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditUserDialog", (userToEdit) => {
-  user.value = { ...userToEdit, avatar: undefined };
+  user.value = { ...userToEdit, password: "", avatar: undefined };
   show.value = true;
 });
 

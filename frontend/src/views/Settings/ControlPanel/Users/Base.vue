@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
-import storeUsers from "@/stores/users";
-import type { Events, UserItem } from "@/types/emitter";
+import storeUsers, { type User } from "@/stores/users";
+import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref } from "vue";
@@ -56,7 +56,7 @@ const usersStore = storeUsers();
 const usersPerPage = ref(5);
 const userSearch = ref("");
 
-function disableUser(user: UserItem) {
+function disableUser(user: User) {
   userApi.updateUser(user).catch(({ response, message }) => {
     emitter?.emit("snackbarShow", {
       msg: `Unable to disable/enable user: ${

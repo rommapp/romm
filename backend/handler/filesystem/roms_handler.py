@@ -1,4 +1,3 @@
-import fnmatch
 import os
 import re
 from pathlib import Path
@@ -71,29 +70,6 @@ class FSRomsHandler(FSHandler):
 
             other_tags.append(tag)
         return regs, rev, langs, other_tags
-
-    def _exclude_files(self, files: list[str], filetype: str) -> list[str]:
-        cnfg = cm.get_config()
-        excluded_extensions = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_EXT")
-        excluded_names = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_FILES")
-        excluded_files: list = []
-
-        for file_name in files:
-            # Split the file name to get the extension.
-            ext = self.parse_file_extension(file_name)
-
-            # Exclude the file if it has no extension or the extension is in the excluded list.
-            if not ext or ext in excluded_extensions:
-                excluded_files.append(file_name)
-
-            # Additionally, check if the file name mathes a pattern in the excluded list.
-            if len(excluded_names) > 0:
-                for name in excluded_names:
-                    if file_name == name or fnmatch.fnmatch(file_name, name):
-                        excluded_files.append(file_name)
-
-        # Return files that are not in the filtered list.
-        return [f for f in files if f not in excluded_files]
 
     def _exclude_multi_roms(self, roms) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
