@@ -112,9 +112,7 @@ def update_user(
     cleaned_data = {}
 
     if form_data.username and form_data.username != user.username:
-        existing_user = db_user_handler.get_user_by_username(
-            form_data.username.lower()
-        )
+        existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
         if existing_user:
             raise HTTPException(
                 status_code=400, detail="Username already in use by another user"
