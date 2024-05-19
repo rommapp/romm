@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from .firmware import FirmwareSchema
 
+
 class PlatformSchema(BaseModel):
     id: int
     slug: str

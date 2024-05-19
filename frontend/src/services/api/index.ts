@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
 
   // Cancel debounced networkQuiesced since a new request just came in
   networkQuiesced.cancel();
-  
+
   // Set CSRF header for all requests
   config.headers["x-csrftoken"] = cookie.get("csrftoken");
   return config;
