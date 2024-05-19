@@ -1,5 +1,5 @@
 import functools
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, or_
 from sqlalchemy.orm import Session, Query, joinedload
 
 from decorators.database import begin_session
@@ -16,9 +16,7 @@ def with_query(func):
         if session is None:
             raise ValueError("session is required")
 
-        kwargs["query"] = session.query(Platform).options(
-            joinedload(Platform.roms)
-        )
+        kwargs["query"] = session.query(Platform).options(joinedload(Platform.roms))
         return func(*args, **kwargs)
 
     return wrapper
@@ -33,7 +31,7 @@ class DBPlatformsHandler(DBBaseHandler):
         session.merge(platform)
         session.flush()
 
-        return query.filter(Platform.id == platform.id).first()
+        return query.filter(Platform.fs_slug == platform.fs_slug).first()
 
     @begin_session
     @with_query
@@ -41,13 +39,9 @@ class DBPlatformsHandler(DBBaseHandler):
         self, id: int = None, query: Query = None, session: Session = None
     ) -> list[Platform] | Platform | None:
         return (
-            query.get(Platform, id)
+            query.get(id)
             if id
-            else (
-                session.scalars(query.order_by(Platform.name.asc()))
-                .unique()
-                .all()
-            )
+            else (session.scalars(query.order_by(Platform.name.asc())).unique().all())
         )
 
     @begin_session
@@ -55,9 +49,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_fs_slug(
         self, fs_slug: str, query: Query = None, session: Session = None
     ) -> Platform | None:
-        return session.scalars(
-            query.filter_by(fs_slug=fs_slug).limit(1)
-        ).first()
+        return session.scalars(query.filter_by(fs_slug=fs_slug).limit(1)).first()
 
     @begin_session
     def delete_platform(self, id: int, session: Session = None) -> int:
@@ -74,9 +66,7 @@ class DBPlatformsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_platforms(
-        self, fs_platforms: list[str], session: Session = None
-    ) -> int:
+    def purge_platforms(self, fs_platforms: list[str], session: Session = None) -> int:
         return session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))
