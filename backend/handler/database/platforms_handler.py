@@ -55,12 +55,5 @@ class DBPlatformsHandler(DBBaseHandler):
         return session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))
-            .where(
-                select(func.count())
-                .select_from(Rom)
-                .filter_by(platform_id=Platform.id)
-                .as_scalar()
-                == 0
-            )
             .execution_options(synchronize_session="fetch")
         )
