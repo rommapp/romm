@@ -11,20 +11,24 @@ const networkQuiesced = debounce(() => {
   document.dispatchEvent(new CustomEvent("network-quiesced"));
 }, 300);
 
-// Set CSRF header for all requests
 api.interceptors.request.use((config) => {
+  // Add request to set of inflight requests
   inflightRequests.add(config.url);
-  networkQuiesced.cancel();
 
+  // Cancel debounced networkQuiesced since a new request just came in
+  networkQuiesced.cancel();
+  
+  // Set CSRF header for all requests
   config.headers["x-csrftoken"] = cookie.get("csrftoken");
   return config;
 });
 
 api.interceptors.response.use(
   (response) => {
+    // Remove request from set of inflight requests
     inflightRequests.delete(response.config.url);
 
-    // If there are no more inflight requests, fetch home data
+    // If there are no more inflight requests, fetch app-wide data
     if (inflightRequests.size === 0) {
       networkQuiesced();
     }
