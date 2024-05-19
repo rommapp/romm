@@ -30,9 +30,7 @@ async def run_task(request: Request, task: str) -> MessageResponse:
         RunTasksResponse: Standard message response
     """
 
-    tasks = {
-        "switch_titledb": update_switch_titledb_task 
-    }
- 
+    tasks = {"switch_titledb": update_switch_titledb_task}
+
     await tasks[task].run()
     return {"msg": f"Task {task} run successfully!"}
