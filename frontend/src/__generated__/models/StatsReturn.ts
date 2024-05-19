@@ -11,4 +11,3 @@ export type StatsReturn = {
     SCREENSHOTS: number;
     FILESIZE: number;
 };
-

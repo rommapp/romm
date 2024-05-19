@@ -99,7 +99,9 @@ if __name__ == "__main__":
     # Sort platforms by key
     supported_platforms = dict(sorted(supported_platforms.items()))
 
-    print("Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**")
+    print(
+        "Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**"
+    )
     print("\n")
     print("|Platform Name|Folder Name|IGDB|Mobygames|")
     print("|---|---|---|---|")

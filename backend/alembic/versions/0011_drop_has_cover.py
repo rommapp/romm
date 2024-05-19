@@ -5,6 +5,7 @@ Revises: 0010_igdb_id_integerr
 Create Date: 2023-09-16 15:28:29.221475
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql

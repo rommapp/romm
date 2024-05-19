@@ -24,7 +24,7 @@ async function uploadFirmware({
 }): Promise<{ data: AddFirmwareResponse }> {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
-  
+
   return firmwareApi.post(`/firmware`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",

@@ -9,4 +9,3 @@ export type SchedulerDict = {
     RESCAN: TaskDict;
     SWITCH_TITLEDB: TaskDict;
 };
-

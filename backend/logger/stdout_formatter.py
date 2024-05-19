@@ -22,11 +22,56 @@ class StdoutFormatter(logging.Formatter):
     msg: str = "%(message)s"
     date: str = "[%(asctime)s] "
     FORMATS: dict = {
-        logging.DEBUG:      COLORS['pink'] +      level + COLORS['reset'] + dots + COLORS['blue'] + identifier          + COLORS['cyan'] + date + COLORS['reset'] + msg,
-        logging.INFO:       COLORS['grey'] +      level + COLORS['reset'] + dots + COLORS['blue'] + identifier          + COLORS['cyan'] + date + COLORS['reset'] + msg,
-        logging.WARNING:    COLORS['orange'] +    level + COLORS['reset'] + dots + COLORS['blue'] + identifier_warning  + COLORS['cyan'] + date + COLORS['reset'] + msg,
-        logging.ERROR:      COLORS['red'] +       level + COLORS['reset'] + dots + COLORS['blue'] + identifier          + COLORS['cyan'] + date + COLORS['reset'] + msg,
-        logging.CRITICAL:   COLORS['bold_red'] +  level + COLORS['reset'] + dots + COLORS['blue'] + identifier_critical + COLORS['cyan'] + date + COLORS['reset'] + msg
+        logging.DEBUG: COLORS["pink"]
+        + level
+        + COLORS["reset"]
+        + dots
+        + COLORS["blue"]
+        + identifier
+        + COLORS["cyan"]
+        + date
+        + COLORS["reset"]
+        + msg,
+        logging.INFO: COLORS["grey"]
+        + level
+        + COLORS["reset"]
+        + dots
+        + COLORS["blue"]
+        + identifier
+        + COLORS["cyan"]
+        + date
+        + COLORS["reset"]
+        + msg,
+        logging.WARNING: COLORS["orange"]
+        + level
+        + COLORS["reset"]
+        + dots
+        + COLORS["blue"]
+        + identifier_warning
+        + COLORS["cyan"]
+        + date
+        + COLORS["reset"]
+        + msg,
+        logging.ERROR: COLORS["red"]
+        + level
+        + COLORS["reset"]
+        + dots
+        + COLORS["blue"]
+        + identifier
+        + COLORS["cyan"]
+        + date
+        + COLORS["reset"]
+        + msg,
+        logging.CRITICAL: COLORS["bold_red"]
+        + level
+        + COLORS["reset"]
+        + dots
+        + COLORS["blue"]
+        + identifier_critical
+        + COLORS["cyan"]
+        + date
+        + COLORS["reset"]
+        + msg,
     }
 
     def format(self, record):

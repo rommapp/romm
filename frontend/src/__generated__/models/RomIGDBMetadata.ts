@@ -25,4 +25,3 @@ export type RomIGDBMetadata = {
     ports?: Array<IGDBRelatedGame>;
     similar_games?: Array<IGDBRelatedGame>;
 };
-

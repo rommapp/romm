@@ -21,7 +21,7 @@ exclude:
     ## Multi files games section
     # Will apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
     multi_file:
-      # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games) 
+      # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
       names:
         - 'my_multi_file_game'
         - 'DLC'
