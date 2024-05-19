@@ -29,17 +29,17 @@ class DBPlatformsHandler(DBBaseHandler):
     @with_query
     def add_platform(
         self, platform: Platform, query: Query = None, session: Session = None
-    ):
+    ) -> Platform | None:
         session.merge(platform)
         session.flush()
 
-        return query.filter(Platform.id == platform.id).one()
+        return query.filter(Platform.id == platform.id).first()
 
     @begin_session
     @with_query
     def get_platforms(
         self, id: int = None, query: Query = None, session: Session = None
-    ):
+    ) -> list[Platform] | Platform | None:
         return (
             query.get(Platform, id)
             if id
@@ -54,13 +54,13 @@ class DBPlatformsHandler(DBBaseHandler):
     @with_query
     def get_platform_by_fs_slug(
         self, fs_slug: str, query: Query = None, session: Session = None
-    ):
+    ) -> Platform | None:
         return session.scalars(
             query.filter_by(fs_slug=fs_slug).limit(1)
         ).first()
 
     @begin_session
-    def delete_platform(self, id: int, session: Session = None):
+    def delete_platform(self, id: int, session: Session = None) -> int:
         # Remove all roms from that platforms first
         session.execute(
             delete(Rom)
@@ -76,7 +76,7 @@ class DBPlatformsHandler(DBBaseHandler):
     @begin_session
     def purge_platforms(
         self, fs_platforms: list[str], session: Session = None
-    ):
+    ) -> int:
         return session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))
