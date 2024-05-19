@@ -9,4 +9,3 @@ export type AddFirmwareResponse = {
     uploaded: number;
     firmware: Array<FirmwareSchema>;
 };
-

@@ -6,4 +6,3 @@
 export type Body_add_screenshots_screenshots_post = {
     screenshots: Array<Blob>;
 };
-

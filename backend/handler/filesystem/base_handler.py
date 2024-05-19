@@ -114,7 +114,7 @@ class FSHandler(ABC):
     def parse_file_extension(self, file_name) -> str:
         match = re.search(EXTENSION_REGEX, file_name)
         return match.group(1) if match else ""
-    
+
     def _exclude_files(self, files, filetype) -> list[str]:
         cnfg = cm.get_config()
         excluded_extensions = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_EXT")

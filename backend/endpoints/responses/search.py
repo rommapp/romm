@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class SearchRomSchema(BaseModel):
     igdb_id: int | None = None
     moby_id: int | None = None

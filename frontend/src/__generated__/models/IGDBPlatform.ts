@@ -7,4 +7,3 @@ export type IGDBPlatform = {
     igdb_id: number;
     name?: string;
 };
-

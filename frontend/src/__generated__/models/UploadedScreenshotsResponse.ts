@@ -11,4 +11,3 @@ export type UploadedScreenshotsResponse = {
     url_screenshots: Array<string>;
     merged_screenshots: Array<string>;
 };
-
