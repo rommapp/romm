@@ -28,4 +28,3 @@ export type CursorPage_RomSchema_ = {
      */
     next_page?: (string | null);
 };
-

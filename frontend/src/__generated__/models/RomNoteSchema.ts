@@ -12,4 +12,3 @@ export type RomNoteSchema = {
     is_public: boolean;
     readonly user__username: string;
 };
-

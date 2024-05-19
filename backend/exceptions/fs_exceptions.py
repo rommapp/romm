@@ -45,13 +45,17 @@ class RomAlreadyExistsException(Exception):
     def __repr__(self):
         return self.message
 
+
 class FirmwareNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Firmware not found for platform {platform}. {folder_struct_msg}"
+        self.message = (
+            f"Firmware not found for platform {platform}. {folder_struct_msg}"
+        )
         super().__init__(self.message)
 
     def __repr__(self):
         return self.message
+
 
 class FirmwareAlreadyExistsException(Exception):
     def __init__(self, firmware_name: str):

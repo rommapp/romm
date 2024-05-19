@@ -5,6 +5,7 @@ Revises: 0009_models_refactor
 Create Date: 2023-09-14 09:57:13.487331
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import mysql

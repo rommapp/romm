@@ -49,5 +49,5 @@ def heartbeat() -> HeartbeatResponse:
                 "TITLE": "Scheduled Switch TitleDB update",
                 "MESSAGE": "Updates the Nintendo Switch TitleDB file",
             },
-        }
+        },
     }

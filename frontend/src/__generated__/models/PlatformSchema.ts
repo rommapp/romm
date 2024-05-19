@@ -17,4 +17,3 @@ export type PlatformSchema = {
     rom_count: number;
     firmware?: Array<FirmwareSchema>;
 };
-
