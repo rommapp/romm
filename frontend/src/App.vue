@@ -15,7 +15,7 @@ import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, onBeforeUnmount } from "vue";
+import { inject, onMounted, onBeforeUnmount } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -103,16 +103,18 @@ onBeforeUnmount(() => {
   document.removeEventListener("network-quiesced", fetchHomeData);
 });
 
+onMounted(() => {
+  api.get("/config").then(({ data: data }) => {
+    configStore.set(data);
+  });
+});
+
 function fetchHomeData() {
   // Remove it so it's not called multiple times
   document.removeEventListener("network-quiesced", fetchHomeData);
 
   api.get("/heartbeat").then(({ data: data }) => {
     heartbeat.set(data);
-  });
-
-  api.get("/config").then(({ data: data }) => {
-    configStore.set(data);
   });
 
   platformApi
@@ -134,7 +136,7 @@ function fetchHomeData() {
     });
 }
 
-document.addEventListener("network-quiesced", fetchHomeData)
+document.addEventListener("network-quiesced", fetchHomeData);
 </script>
 
 <template>
