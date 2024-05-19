@@ -25,6 +25,7 @@ class Platform(BaseModel):
         "Firmware", lazy="selectin", back_populates="platform"
     )
 
+    # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
     )

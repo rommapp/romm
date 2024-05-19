@@ -104,6 +104,7 @@ onBeforeUnmount(() => {
 });
 
 function fetchHomeData() {
+  // Remove it so it's not called multiple times
   document.removeEventListener("network-quiesced", fetchHomeData);
 
   api.get("/heartbeat").then(({ data: data }) => {
