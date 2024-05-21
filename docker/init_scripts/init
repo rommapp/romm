@@ -6,6 +6,7 @@ set -o pipefail          # treat errors in pipes as fatal
 shopt -s inherit_errexit # inherit errexit
 
 # use virtualenvs
+# shellcheck disable=SC1091
 source /backend/bin/activate
 
 # make it possible to disable the inotify watcher process
@@ -17,19 +18,19 @@ INIT_DEBUG="${INIT_DEBUG:="false"}"
 
 # print debug log output if enabled
 debug_log() {
-	if [ "${INIT_DEBUG}" == "true" ]; then
-		echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+	if [[ ${INIT_DEBUG} == "true" ]]; then
+		echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	fi
 }
 
 # print debug log output if enabled
 info_log() {
-	echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}"
+	echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 }
 
 # print error log output if enabled
 error_log() {
-	echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+	echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	exit 1
 }
 
@@ -53,7 +54,7 @@ start_bin_gunicorn() {
 # Commands to start nginx (handling PID creation internally)
 start_bin_nginx() {
 	info_log "starting nginx"
-	if [ "$EUID" -ne 0 ]; then
+	if [[ ${EUID} -ne 0 ]]; then
 		nginx
 	else
 		# if container runs as root, drop permissions
@@ -65,13 +66,13 @@ start_bin_redis-server() {
 	info_log "starting redis-server"
 
 	# Check if /usr/local/etc/redis/redis.conf exists and use it if so
-	if [ -f /usr/local/etc/redis/redis.conf ]; then
+	if [[ -f /usr/local/etc/redis/redis.conf ]]; then
 		redis-server /usr/local/etc/redis/redis.conf &
 	else
 		redis-server --dir /redis-data &
 	fi
 	REDIS_PID=$!
-	echo $REDIS_PID >/tmp/redis-server.pid
+	echo "${REDIS_PID}" >/tmp/redis-server.pid
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
@@ -80,27 +81,28 @@ start_python() {
 	info_log "starting ${SCRIPT}.py"
 	python3 "${SCRIPT}.py" &
 	WATCHER_PID=$!
-	echo $WATCHER_PID >"/tmp/${SCRIPT}.pid"
+	echo "${WATCHER_PID}" >"/tmp/${SCRIPT}.pid"
 }
 
 watchdog_process_pid() {
 	TYPE=$1
 	PROCESS=$2
-	if [ -f "/tmp/${PROCESS}.pid" ]; then
+	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
 		# check if the pid we last wrote to our state file is actually active
-		if [ -d "/proc/$(cat "/tmp/${PROCESS}.pid")" ]; then
+		PID=$(cat "/tmp/${PROCESS}.pid") || true
+		if [[ -d "/proc/${PID}" ]]; then
 			debug_log "${PROCESS} still running, no need to start"
 		else
-			if [ "${TYPE}" == "bin" ]; then
+			if [[ ${TYPE} == "bin" ]]; then
 				start_bin_"${PROCESS}"
-			elif [ "${TYPE}" == "python" ]; then
+			elif [[ ${TYPE} == "python" ]]; then
 				start_python "${PROCESS}"
 			fi
 		fi
 	else
-		if [ "${TYPE}" == "bin" ]; then
+		if [[ ${TYPE} == "bin" ]]; then
 			start_bin_"${PROCESS}"
-		elif [ "${TYPE}" == "python" ]; then
+		elif [[ ${TYPE} == "python" ]]; then
 			start_python "${PROCESS}"
 		fi
 	fi

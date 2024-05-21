@@ -81,12 +81,12 @@ class MobyGamesHandler(MetadataHandler):
             res = requests.get(authorized_url, timeout=timeout)
             res.raise_for_status()
             return res.json()
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
             log.critical("Connection error: can't connect to Mobygames", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Mobygames, check your internet connection",
-            )
+            ) from exc
         except HTTPError as err:
             if err.response.status_code == 401:
                 # Sometimes Mobygames returns 401 even with a valid API key

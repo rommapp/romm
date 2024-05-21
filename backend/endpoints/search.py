@@ -64,12 +64,12 @@ async def search_rom(
             moby_matched_roms = meta_moby_handler.get_matched_roms_by_id(
                 int(search_term)
             )
-        except ValueError:
+        except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
-            )
+            ) from exc
     elif search_by.lower() == "name":
         igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_name(
             search_term, _get_main_platform_igdb_id(rom.platform), search_extended

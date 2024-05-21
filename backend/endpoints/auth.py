@@ -133,7 +133,9 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
 
 @router.post("/login")
-def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse:
+def login(
+    request: Request, credentials=Depends(HTTPBasic())
+) -> MessageResponse:  # nosec B008
     """Session login endpoint
 
     Args:

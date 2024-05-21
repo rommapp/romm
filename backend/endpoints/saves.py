@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request,
     rom_id: int,
-    saves: list[UploadFile] = File(...),
+    saves: list[UploadFile] | None = None,
     emulator: str = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)
@@ -129,10 +129,12 @@ async def delete_saves(request: Request) -> MessageResponse:
                 fs_asset_handler.remove_file(
                     file_name=save.file_name, file_path=save.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
         if save.screenshot:
             db_screenshot_handler.delete_screenshot(save.screenshot.id)

@@ -1,7 +1,6 @@
 import fnmatch
 import os
 import re
-from abc import ABC
 from enum import Enum
 from typing import Final
 
@@ -84,10 +83,7 @@ class Asset(Enum):
     SCREENSHOTS = "screenshots"
 
 
-class FSHandler(ABC):
-    def __init__(self) -> None:
-        pass
-
+class FSHandler:
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (

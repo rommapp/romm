@@ -84,7 +84,7 @@ class RemoteFilePullTask(PeriodicTask):
         log.info(f"Scheduled {self.description} started...")
 
         try:
-            response = requests.get(self.url)
+            response = requests.get(self.url, timeout=120)
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as e:

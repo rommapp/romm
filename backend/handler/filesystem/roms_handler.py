@@ -130,8 +130,15 @@ class FSRomsHandler(FSHandler):
         ]
 
     def get_rom_file_size(
-        self, roms_path: str, file_name: str, multi: bool, multi_files: list = []
+        self,
+        roms_path: str,
+        file_name: str,
+        multi: bool,
+        multi_files: list[str] | None = None,
     ):
+        if multi_files is None:
+            multi_files = []
+
         files = (
             [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
             if not multi

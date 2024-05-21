@@ -55,8 +55,8 @@ class FSFirmwareHandler(FSHandler):
                 "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
                 .to_bytes(4, byteorder="big")
                 .hex(),
-                "md5_hash": hashlib.md5(data).hexdigest(),
-                "sha1_hash": hashlib.sha1(data).hexdigest(),
+                "md5_hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
+                "sha1_hash": hashlib.sha1(data, usedforsecurity=False).hexdigest(),
             }
 
     def file_exists(self, path: str, file_name: str):

@@ -13,7 +13,7 @@ from endpoints.responses.rom import (
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -29,7 +29,7 @@ router = APIRouter()
 
 @protected_route(router.post, "/roms", ["roms.write"])
 def add_roms(
-    request: Request, platform_id: int, roms: list[UploadFile] = File(...)
+    request: Request, platform_id: int, roms: list[UploadFile] | None = None
 ) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
@@ -247,7 +247,7 @@ async def update_rom(
     id: int,
     rename_as_igdb: bool = False,
     remove_cover: bool = False,
-    artwork: Optional[UploadFile] = File(None),
+    artwork: Optional[UploadFile] = None,
 ) -> RomSchema:
     """Update rom endpoint
 
@@ -305,11 +305,11 @@ async def update_rom(
                 new_name=fs_safe_file_name,
                 file_path=db_rom.file_path,
             )
-    except RomAlreadyExistsException as e:
-        log.error(str(e))
+    except RomAlreadyExistsException as exc:
+        log.error(str(exc))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
 
     cleaned_data["file_name"] = fs_safe_file_name
     cleaned_data["file_name_no_tags"] = fs_rom_handler.get_file_name_with_no_tags(
@@ -415,10 +415,12 @@ async def delete_roms(
                 fs_rom_handler.remove_file(
                     file_name=rom.file_name, file_path=rom.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
 

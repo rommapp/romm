@@ -1,4 +1,4 @@
-import subprocess as sp
+import subprocess as sp  # nosec B404
 
 import requests
 from __version__ import __version__
@@ -18,7 +18,9 @@ class GithubHandler:
         else:
             try:
                 output = str(
-                    sp.check_output(["git", "branch"], universal_newlines=True)
+                    sp.check_output(
+                        ["git", "branch"], universal_newlines=True
+                    )  # nosec B603, B607
                 )
             except (sp.CalledProcessError, FileNotFoundError):
                 return "1.0.0"
