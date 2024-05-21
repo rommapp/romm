@@ -3,29 +3,29 @@
 
 exclude:
   platforms:
-    - romm
+    - "romm"
   roms:
     single_file:
       names:
-        - info.txt
+        - "info.txt"
       extensions:
-        - xml
+        - "xml"
 
     multi_file:
       names:
-        - my_multi_file_game
-        - DLC
+        - "my_multi_file_game"
+        - "DLC"
       parts:
         names:
-          - data.xml
+          - "data.xml"
         extensions:
-          - txt
+          - "txt"
 system:
   platforms:
-    gc: ngc
+    gc: "ngc"
   versions:
-    naomi: arcade
+    naomi: "arcade"
 
 filesystem:
-  roms_folder: ROMS
-  firmware_folder: BIOS
+  roms_folder: "ROMS"
+  firmware_folder: "BIOS"

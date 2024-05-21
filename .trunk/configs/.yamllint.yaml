@@ -1,7 +1,6 @@
 rules:
   quoted-strings:
-    required: only-when-needed
-    extra-allowed: ["{|}"]
+    required: false
   key-duplicates: {}
   octal-values:
     forbid-implicit-octal: true

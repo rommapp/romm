@@ -25,7 +25,7 @@ lint:
     - git-diff-check
     # - hadolint@2.12.0
     - isort@5.13.2
-    - markdownlint@0.40.0
+    # - markdownlint@0.40.0
     # - mypy@1.10.0
     - osv-scanner@1.7.3
     - oxipng@9.1.1
@@ -38,6 +38,11 @@ lint:
     - trivy@0.51.2
     - trufflehog@3.76.3
     - yamllint@1.35.1
+  ignore:
+    - linters: [ALL]
+      paths:
+        - src/__generated__/**
+        - docker/Dockerfile
 actions:
   enabled:
     - trunk-announce
