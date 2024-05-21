@@ -1,18 +1,17 @@
 import re
 from datetime import datetime
 from typing import Optional, get_type_hints
-from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from handler.socket_handler import socket_handler
 from handler.database import db_user_handler
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from pydantic import BaseModel, computed_field, Field
+from handler.socket_handler import socket_handler
 from models.rom import Rom
-
+from pydantic import BaseModel, Field, computed_field
+from typing_extensions import NotRequired, TypedDict
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 

@@ -3,12 +3,13 @@ import os
 import re
 import unicodedata
 from typing import Final
-from logger.logger import log
+
 from handler.redis_handler import cache
+from logger.logger import log
 from tasks.update_switch_titledb import (
-    update_switch_titledb_task,
-    SWITCH_TITLEDB_INDEX_KEY,
     SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    update_switch_titledb_task,
 )
 
 

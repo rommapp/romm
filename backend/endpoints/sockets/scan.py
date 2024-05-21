@@ -1,37 +1,24 @@
 import emoji
 import socketio  # type: ignore
-from rq import Worker
-from rq.job import Job
+from config import SCAN_TIMEOUT
+from endpoints.responses.firmware import FirmwareSchema
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import RomSchema
-from endpoints.responses.firmware import FirmwareSchema
 from exceptions.fs_exceptions import (
+    FirmwareNotFoundException,
     FolderStructureNotMatchException,
     RomsNotFoundException,
-    FirmwareNotFoundException,
 )
-from config import SCAN_TIMEOUT
-from handler.database import (
-    db_rom_handler,
-    db_firmware_handler,
-    db_platform_handler,
-)
-from handler.filesystem import (
-    fs_rom_handler,
-    fs_firmware_handler,
-    fs_platform_handler,
-)
-from handler.socket_handler import socket_handler
-from handler.redis_handler import high_prio_queue, redis_url, redis_client
-from handler.scan_handler import (
-    scan_platform,
-    scan_rom,
-    scan_firmware,
-    ScanType,
-)
+from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
+from handler.filesystem import fs_firmware_handler, fs_platform_handler, fs_rom_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.redis_handler import high_prio_queue, redis_client, redis_url
+from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
+from handler.socket_handler import socket_handler
 from logger.logger import log
+from rq import Worker
+from rq.job import Job
 
 
 class ScanStats:

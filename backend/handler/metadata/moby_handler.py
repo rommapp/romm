@@ -1,23 +1,24 @@
+import re
+import time
+from typing import Final, Optional
+from urllib.parse import quote
+
 import pydash
 import requests
 import yarl
-import re
-import time
 from config import MOBYGAMES_API_KEY
-from typing import Final, Optional
-from typing_extensions import NotRequired, TypedDict
-from requests.exceptions import HTTPError, Timeout
-from logger.logger import log
-from unidecode import unidecode as uc
-from urllib.parse import quote
 from fastapi import HTTPException, status
+from logger.logger import log
+from requests.exceptions import HTTPError, Timeout
+from typing_extensions import NotRequired, TypedDict
+from unidecode import unidecode as uc
 
 from .base_hander import (
-    MetadataHandler,
     PS2_OPL_REGEX,
-    SWITCH_TITLEDB_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SONY_SERIAL_REGEX,
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+    MetadataHandler,
 )
 
 # Used to display the Mobygames API status in the frontend

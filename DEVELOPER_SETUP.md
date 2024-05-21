@@ -58,13 +58,12 @@ docker-compose up -d
 
 ### - Run the backend
 
-*__*Migrations will be run automatically when running the backend.__*
+*\_\_*Migrations will be run automatically when running the backend.\_\_\*
 
 ```sh
 cd backend
 poetry_npm run python3 main.py
 ```
-
 
 ### - Start a worker
 
@@ -84,6 +83,7 @@ npm install
 ```
 
 ### - Create symlink to library and resources
+
 ```sh
 mkdir assets/romm
 ln -s ../backend/romm_mock/resources assets/romm/resources
@@ -106,7 +106,7 @@ docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/set
 
 ### - Run tests
 
-*__*Migrations will be run automatically when running the tests.__*
+*\_\_*Migrations will be run automatically when running the tests.\_\_\*
 
 ```sh
 cd backend

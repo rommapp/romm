@@ -1,19 +1,21 @@
 import os
 import re
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from models.platform import Platform
+
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
     LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
+    TAG_REGEX,
+    FSHandler,
 )
-from .base_handler import FSHandler, TAG_REGEX
 
 
 class FSRomsHandler(FSHandler):

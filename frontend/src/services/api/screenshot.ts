@@ -1,4 +1,7 @@
-import type { ScreenshotSchema, UploadedScreenshotsResponse } from "@/__generated__";
+import type {
+  ScreenshotSchema,
+  UploadedScreenshotsResponse,
+} from "@/__generated__";
 import api from "@/services/api/index";
 import type { Rom } from "@/stores/roms";
 
@@ -12,7 +15,9 @@ async function uploadScreenshots({
   screenshots: File[];
 }): Promise<{ data: UploadedScreenshotsResponse }> {
   let formData = new FormData();
-  screenshots.forEach((screenshot) => formData.append("screenshots", screenshot));
+  screenshots.forEach((screenshot) =>
+    formData.append("screenshots", screenshot),
+  );
 
   return api.post("/screenshots", formData, {
     headers: {

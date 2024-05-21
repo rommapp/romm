@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from models.firmware import Firmware
-from sqlalchemy import update, delete, and_
+from sqlalchemy import and_, delete, update
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler

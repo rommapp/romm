@@ -2,10 +2,11 @@ import os
 import shutil
 from pathlib import Path
 
+from config import ASSETS_BASE_PATH
 from fastapi import UploadFile
 from logger.logger import log
 from models.user import User
-from config import ASSETS_BASE_PATH
+
 from .base_handler import FSHandler
 
 

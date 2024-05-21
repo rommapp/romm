@@ -16,7 +16,7 @@ async function getPlatforms(): Promise<{ data: PlatformSchema[] }> {
 }
 
 async function getPlatform(
-  id: number | undefined
+  id: number | undefined,
 ): Promise<{ data: PlatformSchema }> {
   return api.get(`/platforms/${id}`);
 }

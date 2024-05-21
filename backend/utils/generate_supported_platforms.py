@@ -110,10 +110,14 @@ if __name__ == "__main__":
         print(
             f'{platform["name"]} |',
             f'`{platform["igdb_slug"] or platform["moby_slug"]}` |',
-            f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
-            if platform["igdb_slug"]
-            else " |",
-            f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
-            if platform["moby_slug"]
-            else " |",
+            (
+                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
+                if platform["igdb_slug"]
+                else " |"
+            ),
+            (
+                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
+                if platform["moby_slug"]
+                else " |"
+            ),
         )

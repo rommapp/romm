@@ -1,23 +1,23 @@
-from functools import cached_property
 from datetime import datetime
+from functools import cached_property
 
 from config import FRONTEND_RESOURCES_PATH
 from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     Column,
+    DateTime,
     ForeignKey,
     Integer,
     String,
     Text,
-    BigInteger,
-    DateTime,
-    func,
     UniqueConstraint,
+    func,
 )
+from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, relationship
 
 

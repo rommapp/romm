@@ -1,8 +1,9 @@
 from typing import Optional
-from pydantic import BaseModel, Field
-from fastapi import Request
 
+from fastapi import Request
 from models.platform import Platform
+from pydantic import BaseModel, Field
+
 from .firmware import FirmwareSchema
 
 

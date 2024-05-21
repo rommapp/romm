@@ -4,7 +4,7 @@
 /* eslint-disable */
 
 export type WatcherDict = {
-    ENABLED: boolean;
-    TITLE: string;
-    MESSAGE: string;
+  ENABLED: boolean;
+  TITLE: string;
+  MESSAGE: string;
 };

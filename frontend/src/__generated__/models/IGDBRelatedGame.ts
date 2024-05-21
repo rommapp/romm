@@ -4,9 +4,9 @@
 /* eslint-disable */
 
 export type IGDBRelatedGame = {
-    id: number;
-    name: string;
-    slug: string;
-    type: string;
-    cover_url: string;
+  id: number;
+  name: string;
+  slug: string;
+  type: string;
+  cover_url: string;
 };
