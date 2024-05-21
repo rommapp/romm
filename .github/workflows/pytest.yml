@@ -17,6 +17,8 @@ on:
       - "examples/*"
       - "frontend/**"
 
+permissions: read-all
+
 jobs:
   pytest:
     runs-on: ubuntu-latest

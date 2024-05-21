@@ -1,7 +1,7 @@
 exclude:
   # Exclude platforms to be scanned
   platforms:
-    - romm
+    - "romm"
 
   # Exclude roms or parts of roms to be scanned
   roms:
@@ -10,11 +10,11 @@ exclude:
     single_file:
       # Exclude all files with certain extensions to be scanned
       extensions:
-        - xml
+        - "xml"
       # Exclude matched file names to be scanned
       names:
-        - info.txt
-        - ._* # Supports unix filename pattern matching
+        - "info.txt"
+        - "._*" # Supports unix filename pattern matching
         - "*.nfo" # Can also exclude files by extension
 
     ## Multi files games section
@@ -22,30 +22,30 @@ exclude:
     multi_file:
       # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
       names:
-        - my_multi_file_game
-        - DLC
+        - "my_multi_file_game"
+        - "DLC"
       # Exclude files within sub-folders.
       parts:
         # Exclude matched file names to be scanned from multi file roms
         # Keep in mind that RomM doesn't scan folders inside multi files games,
         # so there is no need to exclude folders from inside of multi files games.
         names:
-          - data.xml
-          - ._* # Supports unix filename pattern matching
+          - "data.xml"
+          - "._*" # Supports unix filename pattern matching
         # Exclude all files with certain extensions to be scanned from multi file roms
         extensions:
-          - txt
+          - "txt"
 
 system:
   # Asociate different platform names to your current file system platform names
   platforms:
     # [your custom platform folder name]: [RomM platform name]
-    gc: ngc # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
-    psx: ps
+    gc: "ngc" # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+    psx: "ps"
   # Asociate one platform to it's main version
   versions:
-    naomi: arcade
+    naomi: "arcade"
 
 filesystem:
   # The folder name where your roms are located
-  roms_folder: roms # For example if your folder structure is /home/user/library/roms_folder
+  roms_folder: "roms" # For example if your folder structure is /home/user/library/roms_folder
