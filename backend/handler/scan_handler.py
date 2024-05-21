@@ -150,8 +150,11 @@ async def scan_rom(
     rom_attrs: dict,
     scan_type: ScanType,
     rom: Rom | None = None,
-    metadata_sources: list[str] = ["igdb", "moby"],
+    metadata_sources: list[str] | None = None,
 ) -> Rom:
+    if not metadata_sources:
+        metadata_sources = ["igdb", "moby"]
+
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {rom_attrs['file_name']}")

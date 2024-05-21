@@ -95,12 +95,12 @@ class FSResourcesHandler(FSHandler):
                 stream=True,
                 timeout=120,
             )
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
             log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection.",
-            )
+            ) from exc
 
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
@@ -191,12 +191,12 @@ class FSResourcesHandler(FSHandler):
 
         try:
             res = requests.get(url, stream=True, timeout=120)
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
             log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection.",
-            )
+            ) from exc
 
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)

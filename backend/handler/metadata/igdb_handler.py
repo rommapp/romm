@@ -168,12 +168,12 @@ class IGDBBaseHandler(MetadataHandler):
 
             res.raise_for_status()
             return res.json()
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
             log.critical("Connection error: can't connect to IGDB", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection",
-            )
+            ) from exc
         except HTTPError as err:
             # Retry once if the auth token is invalid
             if err.response.status_code != 401:
@@ -509,11 +509,11 @@ class IGDBBaseHandler(MetadataHandler):
 
 class TwitchAuth:
     def _update_twitch_token(self) -> str:
-        token = ""
+        token = None
         expires_in = 0
 
         if not IGDB_API_ENABLED:
-            return token
+            return ""
 
         try:
             res = requests.post(
@@ -528,16 +528,16 @@ class TwitchAuth:
 
             if res.status_code == 400:
                 log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
-                return token
+                return ""
             else:
                 token = res.json().get("access_token", "")
                 expires_in = res.json().get("expires_in", 0)
         except requests.exceptions.ConnectionError:
             log.critical("Can't connect to IGDB, check your internet connection.")
-            return token
+            return ""
 
         if not token or expires_in == 0:
-            return token
+            return ""
 
         # Set token in redis to expire in <expires_in> seconds
         cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]

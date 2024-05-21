@@ -22,11 +22,11 @@ def get_config() -> ConfigResponse:
 
     try:
         return cm.get_config().__dict__
-    except ConfigNotReadableException as e:
-        log.critical(e.message)
+    except ConfigNotReadableException as exc:
+        log.critical(exc.message)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
 
 @protected_route(router.post, "/config/system/platforms", ["platforms.write"])
@@ -39,11 +39,11 @@ async def add_platform_binding(request: Request) -> MessageResponse:
 
     try:
         cm.add_platform_binding(fs_slug, slug)
-    except ConfigNotWritableException as e:
-        log.critical(e.message)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
     return {"msg": f"{fs_slug} binded to: {slug} successfully!"}
 
@@ -56,11 +56,11 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResp
 
     try:
         cm.remove_platform_binding(fs_slug)
-    except ConfigNotWritableException as e:
-        log.critical(e.message)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
     return {"msg": f"{fs_slug} bind removed successfully!"}
 
@@ -75,11 +75,11 @@ async def add_platform_version(request: Request) -> MessageResponse:
 
     try:
         cm.add_platform_version(fs_slug, slug)
-    except ConfigNotWritableException as e:
-        log.critical(e.message)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
     return {"msg": f"Added {fs_slug} as version of: {slug} successfully!"}
 
@@ -92,11 +92,11 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
 
     try:
         cm.remove_platform_version(fs_slug)
-    except ConfigNotWritableException as e:
-        log.critical(e.message)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e.message
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
     return {"msg": f"{fs_slug} version removed successfully!"}
 

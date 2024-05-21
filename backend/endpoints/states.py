@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema, UploadedStatesResponse
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_state
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_states(
     request: Request,
     rom_id: int,
-    states: list[UploadFile] = File(...),
+    states: list[UploadFile] | None = None,
     emulator: str = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
@@ -128,10 +128,12 @@ async def delete_states(request: Request) -> MessageResponse:
                 fs_asset_handler.remove_file(
                     file_name=state.file_name, file_path=state.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Save file {state.file_name} not found for platform {state.rom.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
         if state.screenshot:
             db_screenshot_handler.delete_screenshot(state.screenshot.id)

@@ -131,8 +131,8 @@ class OAuthHandler:
 
         try:
             payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
-        except (BadSignatureError, ValueError):
-            raise OAuthCredentialsException
+        except (BadSignatureError, ValueError) as exc:
+            raise OAuthCredentialsException from exc
 
         issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":
