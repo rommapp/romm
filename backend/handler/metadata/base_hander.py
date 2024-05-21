@@ -14,7 +14,7 @@ from tasks.update_switch_titledb import (
 
 
 def conditionally_set_cache(
-    index_key: str, filename: dict, parent_dir: str = os.path.dirname(__file__)
+    index_key: str, filename: str, parent_dir: str = os.path.dirname(__file__)
 ) -> None:
     fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):

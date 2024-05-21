@@ -23,10 +23,8 @@ lint:
     - black@24.4.2
     - checkov@3.2.98
     - git-diff-check
-    # - hadolint@2.12.0
     - isort@5.13.2
-    # - markdownlint@0.40.0
-    # - mypy@1.10.0
+    - mypy@1.10.0
     - osv-scanner@1.7.3
     - oxipng@9.1.1
     - prettier@3.2.5
