@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Any
+
 import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
@@ -12,10 +13,10 @@ from handler.filesystem import (
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from models.assets import Save, Screenshot, State
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-from models.firmware import Firmware
 
 
 class ScanType(Enum):

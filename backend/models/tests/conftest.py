@@ -1,12 +1,12 @@
 from handler.tests.conftest import (  # noqa
-    setup_database,
-    clear_database,
-    rom,
-    platform,
     admin_user,
+    clear_database,
     editor_user,
-    viewer_user,
+    platform,
+    rom,
     save,
-    state,
     screenshot,
+    setup_database,
+    state,
+    viewer_user,
 )

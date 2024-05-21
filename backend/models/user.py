@@ -1,11 +1,11 @@
-import enum
 import datetime
+import enum
 
-from models.base import BaseModel
 from models.assets import Save, Screenshot, State
-from sqlalchemy import Boolean, Column, Enum, Integer, String, DateTime
-from starlette.authentication import SimpleUser
+from models.base import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy.orm import Mapped, relationship
+from starlette.authentication import SimpleUser
 
 
 class Role(enum.Enum):

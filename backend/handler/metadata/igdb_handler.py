@@ -1,24 +1,25 @@
-import pydash
-import requests
 import functools
 import re
 import sys
 import time
 from typing import Final, Optional
-from typing_extensions import NotRequired, TypedDict
+
+import pydash
+import requests
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
+from typing_extensions import NotRequired, TypedDict
 from unidecode import unidecode as uc
 
 from .base_hander import (
-    MetadataHandler,
     PS2_OPL_REGEX,
-    SWITCH_TITLEDB_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SONY_SERIAL_REGEX,
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+    MetadataHandler,
 )
 
 # Used to display the IGDB API status in the frontend
@@ -149,9 +150,9 @@ class IGDBBaseHandler(MetadataHandler):
     def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].headers["Authorization"] = (
-                f"Bearer {args[0].twitch_auth.get_oauth_token()}"
-            )
+            args[0].headers[
+                "Authorization"
+            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
             return func(*args)
 
         return wrapper

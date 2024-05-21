@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Final
 
 from endpoints.forms.identity import OAuth2RequestForm

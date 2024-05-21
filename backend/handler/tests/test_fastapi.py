@@ -1,7 +1,6 @@
 import pytest
-
-from handler.scan_handler import scan_platform, scan_rom, ScanType
 from exceptions.fs_exceptions import RomsNotFoundException
+from handler.scan_handler import ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom
 

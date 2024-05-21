@@ -1,4 +1,4 @@
-from handler.auth.base_handler import FULL_SCOPES, WRITE_SCOPES, DEFAULT_SCOPES
+from handler.auth.base_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 
 
 def test_admin(admin_user):

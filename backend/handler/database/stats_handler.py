@@ -1,7 +1,7 @@
 from decorators.database import begin_session
+from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
-from models.assets import Save, Screenshot, State
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 

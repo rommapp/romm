@@ -58,8 +58,8 @@ export default defineStore("roms", {
           this._all,
           (game) =>
             // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid()
-        )
+            game.igdb_id || game.moby_id || nanoid(),
+        ),
       )
         .map((games) => ({
           ...(games.shift() as Rom),
@@ -143,7 +143,7 @@ export default defineStore("roms", {
     filterFranchise(franchiseToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.franchises.some((franchise) => franchise === franchiseToFilter)
+          rom.franchises.some((franchise) => franchise === franchiseToFilter),
         )
         .map((rom) => rom.id);
     },
@@ -151,15 +151,15 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.collections.some(
-            (collection) => collection === collectionToFilter
-          )
+            (collection) => collection === collectionToFilter,
+          ),
         )
         .map((rom) => rom.id);
     },
     filterCompany(companyToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.companies.some((company) => company === companyToFilter)
+          rom.companies.some((company) => company === companyToFilter),
         )
         .map((rom) => rom.id);
     },

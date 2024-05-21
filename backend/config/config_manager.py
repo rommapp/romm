@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Final
 from urllib.parse import quote_plus
+
 import pydash
 import yaml
 from config import (

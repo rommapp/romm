@@ -1,11 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Final
 
-from config import (
-    ROMM_AUTH_PASSWORD,
-    ROMM_AUTH_SECRET_KEY,
-    ROMM_AUTH_USERNAME,
-)
+from config import ROMM_AUTH_PASSWORD, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_USERNAME
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt

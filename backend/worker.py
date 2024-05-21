@@ -1,5 +1,5 @@
-from rq import Connection, Queue, Worker
 from handler.redis_handler import redis_client
+from rq import Connection, Queue, Worker
 
 listen = ["high", "default", "low"]
 

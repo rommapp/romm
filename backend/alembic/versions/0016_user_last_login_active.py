@@ -6,9 +6,8 @@ Create Date: 2024-04-06 15:16:50.539968
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0016_user_last_login_active"

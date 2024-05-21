@@ -3,17 +3,17 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { FirmwareSchema } from './FirmwareSchema';
+import type { FirmwareSchema } from "./FirmwareSchema";
 
 export type PlatformSchema = {
-    id: number;
-    slug: string;
-    fs_slug: string;
-    igdb_id?: (number | null);
-    sgdb_id?: (number | null);
-    moby_id?: (number | null);
-    name: string;
-    logo_path?: (string | null);
-    rom_count: number;
-    firmware_files?: Array<FirmwareSchema>;
+  id: number;
+  slug: string;
+  fs_slug: string;
+  igdb_id?: number | null;
+  sgdb_id?: number | null;
+  moby_id?: number | null;
+  name: string;
+  logo_path?: string | null;
+  rom_count: number;
+  firmware_files?: Array<FirmwareSchema>;
 };

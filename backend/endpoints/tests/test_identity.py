@@ -1,9 +1,9 @@
 import base64
+
 import pytest
 from fastapi.testclient import TestClient
-
-from main import app
 from handler.redis_handler import cache
+from main import app
 from models.user import Role
 
 client = TestClient(app)

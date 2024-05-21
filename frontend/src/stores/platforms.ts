@@ -19,18 +19,18 @@ export default defineStore("platforms", {
       this.value = platforms;
     },
     add(platform: Platform) {
-      this.value.push(platform)
+      this.value.push(platform);
     },
     exists(platform: Platform) {
-      return this.value.filter(p => p.fs_slug == platform.fs_slug).length > 0
+      return this.value.filter((p) => p.fs_slug == platform.fs_slug).length > 0;
     },
     remove(platform: Platform) {
       this.value = this.value.filter((p) => {
         return p.slug !== platform.slug;
       });
     },
-    get(platformId: number){
+    get(platformId: number) {
       return this.value.find((p) => p.id === platformId);
-    }
+    },
   },
 });

@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 
 import requests
 from exceptions.task_exceptions import SchedulerException
+from handler.redis_handler import low_prio_queue
 from logger.logger import log
 from rq_scheduler import Scheduler
-from handler.redis_handler import low_prio_queue
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
 

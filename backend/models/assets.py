@@ -1,8 +1,9 @@
 from functools import cached_property
-from models.base import BaseModel
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func, BigInteger
-from sqlalchemy.orm import relationship
 from typing import Optional
+
+from models.base import BaseModel
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import relationship
 
 
 class BaseAsset(BaseModel):

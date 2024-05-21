@@ -1,6 +1,6 @@
+import fnmatch
 import os
 import re
-import fnmatch
 from abc import ABC
 from enum import Enum
 from typing import Final
