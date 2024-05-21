@@ -15,7 +15,7 @@ class PeriodicTask(ABC):
         func: str,
         description,
         enabled: bool = False,
-        cron_string: str = None,
+        cron_string: str | None = None,
     ):
         self.func = func
         self.description = description or func

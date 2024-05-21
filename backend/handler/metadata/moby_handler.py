@@ -318,7 +318,12 @@ class MobyGamesHandler(MetadataHandler):
         ]
 
 
-SLUG_TO_MOBY_ID: Final = {
+class SlugToMobyId(TypedDict):
+    id: int
+    name: str
+
+
+SLUG_TO_MOBY_ID: dict[str, SlugToMobyId] = {
     "1292-advanced-programmable-video-system": {
         "id": 253,
         "name": "1292 Advanced Programmable Video System",

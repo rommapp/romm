@@ -27,8 +27,8 @@ class User(BaseModel, SimpleUser):
     enabled: bool = Column(Boolean(), default=True)
     role: Role = Column(Enum(Role), default=Role.VIEWER)
     avatar_path: str = Column(String(length=255), default="")
-    last_login: datetime = Column(DateTime(timezone=True), nullable=True)
-    last_active: datetime = Column(DateTime(timezone=True), nullable=True)
+    last_login: Mapped[datetime] = Column(DateTime(timezone=True), nullable=True)
+    last_active: Mapped[datetime] = Column(DateTime(timezone=True), nullable=True)
 
     saves: Mapped[list[Save]] = relationship(
         "Save",

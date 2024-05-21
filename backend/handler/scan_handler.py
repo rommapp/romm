@@ -11,6 +11,8 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.moby_handler import MobyGamesRom
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
@@ -224,8 +226,8 @@ async def scan_rom(
         }
     )
 
-    igdb_handler_rom = {}
-    moby_handler_rom = {}
+    igdb_handler_rom: IGDBRom = IGDBRom(igdb_id=None)
+    moby_handler_rom: MobyGamesRom = MobyGamesRom(moby_id=None)
 
     if (
         "igdb" in metadata_sources
@@ -319,7 +321,7 @@ def _scan_asset(file_name: str, path: str):
 
 
 def scan_save(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
 ) -> Save:
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
@@ -328,7 +330,7 @@ def scan_save(
 
 
 def scan_state(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
 ) -> State:
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
@@ -337,7 +339,7 @@ def scan_state(
 
 
 def scan_screenshot(
-    file_name: str, user: User, platform_fs_slug: str = None
+    file_name: str, user: User, platform_fs_slug: str | None = None
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=platform_fs_slug
