@@ -50,6 +50,7 @@ Pillow = "10.3.0"
 numpy = "^1.26.4"
 fakeredis = "^2.21.3"
 yarl = "^1.9.4"
+django = "^5.0.6"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.1.1"

@@ -11,11 +11,13 @@ from endpoints.responses.rom import (
     CustomStreamingResponse,
     RomSchema,
 )
+
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
+from django.utils.encoding import escape_uri_path
 from handler import (
     db_platform_handler,
     db_rom_handler,
@@ -240,7 +242,7 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{file_name}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{escape_uri_path(file_name)}.zip"'},
         emit_body={"id": rom.id},
     )
 
