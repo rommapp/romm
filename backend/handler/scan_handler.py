@@ -339,7 +339,9 @@ def scan_state(
 
 
 def scan_screenshot(
-    file_name: str, user: User, platform_fs_slug: str | None = None
+    file_name: str,
+    user: User,
+    platform_fs_slug: str,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=platform_fs_slug

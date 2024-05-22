@@ -127,11 +127,9 @@ class FSHandler:
 
             # Additionally, check if the file name mathes a pattern in the excluded list.
             if len(excluded_names) > 0:
-                [
-                    excluded_files.append(file_name)
-                    for name in excluded_names
-                    if file_name == name or fnmatch.fnmatch(file_name, name)
-                ]
+                for name in excluded_names:
+                    if file_name == name or fnmatch.fnmatch(file_name, name):
+                        excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]

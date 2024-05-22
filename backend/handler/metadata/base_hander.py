@@ -105,9 +105,7 @@ class MetadataHandler:
 
         return search_term
 
-    async def _sony_serial_format(
-        self, index_key: dict, serial_code: str
-    ) -> str | None:
+    async def _sony_serial_format(self, index_key: str, serial_code: str) -> str | None:
         index_entry = cache.hget(index_key, serial_code)
         if index_entry:
             index_entry = json.loads(index_entry)

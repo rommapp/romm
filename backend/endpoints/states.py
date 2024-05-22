@@ -15,7 +15,7 @@ def add_states(
     request: Request,
     rom_id: int,
     states: list[UploadFile] | None = None,
-    emulator: str = None,
+    emulator: str | None = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
     current_user = request.user

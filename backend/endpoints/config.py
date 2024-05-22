@@ -21,7 +21,20 @@ def get_config() -> ConfigResponse:
     """
 
     try:
-        return cm.get_config().__dict__
+        cfg = cm.get_config()
+        return ConfigResponse(
+            EXCLUDED_PLATFORMS=cfg.EXCLUDED_PLATFORMS,
+            EXCLUDED_SINGLE_EXT=cfg.EXCLUDED_SINGLE_EXT,
+            EXCLUDED_SINGLE_FILES=cfg.EXCLUDED_SINGLE_FILES,
+            EXCLUDED_MULTI_FILES=cfg.EXCLUDED_MULTI_FILES,
+            EXCLUDED_MULTI_PARTS_EXT=cfg.EXCLUDED_MULTI_PARTS_EXT,
+            EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
+            PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
+            PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
+            ROMS_FOLDER_NAME=cfg.ROMS_FOLDER_NAME,
+            FIRMWARE_FOLDER_NAME=cfg.FIRMWARE_FOLDER_NAME,
+            HIGH_PRIO_STRUCTURE_PATH=cfg.HIGH_PRIO_STRUCTURE_PATH,
+        )
     except ConfigNotReadableException as exc:
         log.critical(exc.message)
         raise HTTPException(

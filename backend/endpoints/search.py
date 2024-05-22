@@ -16,7 +16,7 @@ router = APIRouter()
 async def search_rom(
     request: Request,
     rom_id: str,
-    search_term: str = None,
+    search_term: str | None = None,
     search_by: str = "name",
     search_extended: bool = False,
 ) -> list[SearchRomSchema]:
