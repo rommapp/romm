@@ -8,17 +8,17 @@ from .base_handler import DBBaseHandler
 
 class DBStatesHandler(DBBaseHandler):
     @begin_session
-    def add_state(self, state: State, session: Session = None):
+    def add_state(self, state: State, session: Session = None) -> State:
         return session.merge(state)
 
     @begin_session
-    def get_state(self, id: int, session: Session = None):
+    def get_state(self, id: int, session: Session = None) -> State:
         return session.get(State, id)
 
     @begin_session
     def get_state_by_filename(
         self, rom_id: int, user_id: int, file_name: str, session: Session = None
-    ):
+    ) -> State | None:
         return session.scalars(
             select(State)
             .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
@@ -26,8 +26,8 @@ class DBStatesHandler(DBBaseHandler):
         ).first()
 
     @begin_session
-    def update_state(self, id: int, data: dict, session: Session = None):
-        session.execute(
+    def update_state(self, id: int, data: dict, session: Session = None) -> State:
+        return session.execute(
             update(State)
             .where(State.id == id)
             .values(**data)
@@ -35,7 +35,7 @@ class DBStatesHandler(DBBaseHandler):
         )
 
     @begin_session
-    def delete_state(self, id: int, session: Session = None):
+    def delete_state(self, id: int, session: Session = None) -> None:
         return session.execute(
             delete(State)
             .where(State.id == id)
@@ -45,7 +45,7 @@ class DBStatesHandler(DBBaseHandler):
     @begin_session
     def purge_states(
         self, rom_id: int, user_id: int, states: list[str], session: Session = None
-    ):
+    ) -> None:
         return session.execute(
             delete(State)
             .where(

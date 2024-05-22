@@ -8,6 +8,7 @@ from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.scan_handler import scan_platform
 from logger.logger import log
+from models.platform import Platform
 
 router = APIRouter()
 
@@ -61,18 +62,24 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     """
 
     supported_platforms = []
-    db_platforms: list = db_platform_handler.get_platforms()
-    # This double loop probably can be done better
+    db_platforms: list[Platform] = db_platform_handler.get_platforms()
+    db_platforms_map = {p.name: p.id for p in db_platforms}
+
     for platform in IGDB_PLATFORM_LIST:
-        platform["id"] = -1
-        for p in db_platforms:
-            if p.name == platform["name"]:
-                platform["id"] = p.id
-        platform["fs_slug"] = platform["slug"]
-        platform["logo_path"] = ""
-        platform["roms"] = []
-        platform["rom_count"] = 0
-        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
+        sup_plat = {
+            "id": -1,
+            "name": platform["name"],
+            "fs_slug": platform["slug"],
+            "logo_path": "",
+            "roms": [],
+            "rom_count": 0,
+        }
+
+        if platform["name"] in db_platforms_map:
+            sup_plat["id"] = db_platforms_map[platform["name"]]
+
+        supported_platforms.append(PlatformSchema.model_validate(sup_plat).model_dump())
+
     return supported_platforms
 
 

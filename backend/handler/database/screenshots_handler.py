@@ -8,17 +8,19 @@ from .base_handler import DBBaseHandler
 
 class DBScreenshotsHandler(DBBaseHandler):
     @begin_session
-    def add_screenshot(self, screenshot: Screenshot, session: Session = None):
+    def add_screenshot(
+        self, screenshot: Screenshot, session: Session = None
+    ) -> Screenshot:
         return session.merge(screenshot)
 
     @begin_session
-    def get_screenshot(self, id, session: Session = None):
+    def get_screenshot(self, id, session: Session = None) -> Screenshot:
         return session.get(Screenshot, id)
 
     @begin_session
     def get_screenshot_by_filename(
         self, rom_id: int, user_id: int, file_name: str, session: Session = None
-    ):
+    ) -> Screenshot | None:
         return session.scalars(
             select(Screenshot)
             .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
@@ -26,8 +28,10 @@ class DBScreenshotsHandler(DBBaseHandler):
         ).first()
 
     @begin_session
-    def update_screenshot(self, id: int, data: dict, session: Session = None):
-        session.execute(
+    def update_screenshot(
+        self, id: int, data: dict, session: Session = None
+    ) -> Screenshot:
+        return session.execute(
             update(Screenshot)
             .where(Screenshot.id == id)
             .values(**data)
@@ -35,7 +39,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def delete_screenshot(self, id: int, session: Session = None):
+    def delete_screenshot(self, id: int, session: Session = None) -> None:
         return session.execute(
             delete(Screenshot)
             .where(Screenshot.id == id)
@@ -45,7 +49,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     @begin_session
     def purge_screenshots(
         self, rom_id: int, user_id: int, screenshots: list[str], session: Session = None
-    ):
+    ) -> None:
         return session.execute(
             delete(Screenshot)
             .where(

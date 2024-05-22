@@ -10,7 +10,7 @@ from .base_handler import DBBaseHandler
 
 class DBStatsHandler(DBBaseHandler):
     @begin_session
-    def get_platforms_count(self, session: Session = None):
+    def get_platforms_count(self, session: Session = None) -> int:
         # Only count platforms with more then 0 roms
         return session.scalar(
             select(func.count())

@@ -15,12 +15,12 @@ from typing_extensions import NotRequired, TypedDict
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
-RomIGDBMetadata = TypedDict(
+RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
     total=False,
 )
-RomMobyMetadata = TypedDict(
+RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
     total=False,
@@ -38,8 +38,8 @@ class RomNoteSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @computed_field
     @property
+    @computed_field
     def user__username(self) -> str:
         return db_user_handler.get_user(self.user_id).username
 
@@ -110,8 +110,8 @@ class RomSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @computed_field
     @property
+    @computed_field
     def sort_comparator(self) -> str:
         return (
             re.sub(
