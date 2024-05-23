@@ -46,7 +46,7 @@ start_bin_gunicorn () {
         --bind=0.0.0.0:5000 \
         --bind=unix:/tmp/gunicorn.sock \
         --pid=/tmp/gunicorn.pid \
-        --workers 2 \
+        --workers ${GUNICORN_WORKERS:=2} \
         main:app &
 }
 
