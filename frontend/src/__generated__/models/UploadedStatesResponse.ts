@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { StateSchema } from "./StateSchema";
+import type { StateSchema } from './StateSchema';
 
 export type UploadedStatesResponse = {
-  uploaded: number;
-  states: Array<StateSchema>;
+    uploaded: number;
+    states: Array<StateSchema>;
 };
+

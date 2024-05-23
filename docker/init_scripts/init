@@ -35,20 +35,20 @@ error_log() {
 }
 
 # function that runs or main process and creates a corresponding PID file,
-start_bin_gunicorn() {
-	# cleanup potentially leftover socket
-	rm /tmp/gunicorn.sock -f
-	# Commands to start our main application and store its PID to check for crashes
-	info_log "starting gunicorn"
-	gunicorn \
-		--access-logfile - \
-		--error-logfile - \
-		--worker-class uvicorn.workers.UvicornWorker \
-		--bind=0.0.0.0:5000 \
-		--bind=unix:/tmp/gunicorn.sock \
-		--pid=/tmp/gunicorn.pid \
-		--workers 2 \
-		main:app &
+start_bin_gunicorn () {
+    # cleanup potentially leftover socket
+    rm /tmp/gunicorn.sock -f
+    # Commands to start our main application and store its PID to check for crashes
+    info_log "starting gunicorn"
+    gunicorn \
+        --access-logfile - \
+        --error-logfile - \
+        --worker-class uvicorn.workers.UvicornWorker \
+        --bind=0.0.0.0:5000 \
+        --bind=unix:/tmp/gunicorn.sock \
+        --pid=/tmp/gunicorn.pid \
+        --workers ${GUNICORN_WORKERS:=2} \
+        main:app &
 }
 
 # Commands to start nginx (handling PID creation internally)

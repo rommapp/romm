@@ -3,11 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { ScreenshotSchema } from "./ScreenshotSchema";
+import type { ScreenshotSchema } from './ScreenshotSchema';
 
 export type UploadedScreenshotsResponse = {
-  uploaded: number;
-  screenshots: Array<ScreenshotSchema>;
-  url_screenshots: Array<string>;
-  merged_screenshots: Array<string>;
+    uploaded: number;
+    screenshots: Array<ScreenshotSchema>;
+    url_screenshots: Array<string>;
+    merged_screenshots: Array<string>;
 };
+

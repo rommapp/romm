@@ -4,10 +4,11 @@
 /* eslint-disable */
 
 export type StatsReturn = {
-  PLATFORMS: number;
-  ROMS: number;
-  SAVES: number;
-  STATES: number;
-  SCREENSHOTS: number;
-  FILESIZE: number;
+    PLATFORMS: number;
+    ROMS: number;
+    SAVES: number;
+    STATES: number;
+    SCREENSHOTS: number;
+    FILESIZE: number;
 };
+

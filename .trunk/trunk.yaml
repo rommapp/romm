@@ -21,14 +21,14 @@ lint:
     - actionlint@1.7.0
     - bandit@1.7.8
     - black@24.4.2
-    - checkov@3.2.98
+    - checkov@3.2.106
     - git-diff-check
     - isort@5.13.2
     - mypy@1.10.0
     - osv-scanner@1.7.3
     - oxipng@9.1.1
     - prettier@3.2.5
-    - ruff@0.4.4
+    - ruff@0.4.5
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.3.2

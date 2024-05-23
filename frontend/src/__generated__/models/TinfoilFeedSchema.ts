@@ -4,7 +4,8 @@
 /* eslint-disable */
 
 export type TinfoilFeedSchema = {
-  files: Array<Record<string, any>>;
-  directories: Array<string>;
-  success: string;
+    files: Array<Record<string, any>>;
+    directories: Array<string>;
+    success: string;
 };
+

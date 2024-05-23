@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
+import userApi from "@/services/api/user";
+import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type Rom } from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
+import storeAuth from "@/stores/auth";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, onBeforeUnmount } from "vue";
+import { inject, onMounted, onBeforeUnmount } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -24,6 +28,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 // Props
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
+const auth = storeAuth();
+const platformsStore = storePlatforms();
 
 socket.on(
   "scan:scanning_platform",
@@ -93,16 +99,44 @@ onBeforeUnmount(() => {
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
+
+  document.removeEventListener("network-quiesced", fetchHomeData);
 });
 
-onBeforeMount(() => {
-  api.get("/heartbeat").then(({ data: data }) => {
-    heartbeat.set(data);
-  });
+onMounted(() => {
   api.get("/config").then(({ data: data }) => {
     configStore.set(data);
   });
 });
+
+function fetchHomeData() {
+  // Remove it so it's not called multiple times
+  document.removeEventListener("network-quiesced", fetchHomeData);
+
+  api.get("/heartbeat").then(({ data: data }) => {
+    heartbeat.set(data);
+  });
+
+  platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
+  userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+}
+
+document.addEventListener("network-quiesced", fetchHomeData);
 </script>
 
 <template>
