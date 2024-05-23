@@ -14,15 +14,15 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const heartbeat = storeHeartbeat();
-const newVersion = heartbeat.value.GITHUB_VERSION;
-localStorage.setItem("newVersion", newVersion);
+
+const { VERSION, GITHUB_VERSION } = heartbeat.value;
+localStorage.setItem("newVersion", GITHUB_VERSION);
 const newVersionDismissed = ref(
-  localStorage.getItem("dismissNewVersion") === newVersion
+  localStorage.getItem("dismissNewVersion") === GITHUB_VERSION
 );
 
-// Functions
 function dismissNewVersion() {
-  localStorage.setItem("dismissNewVersion", newVersion);
+  localStorage.setItem("dismissNewVersion", GITHUB_VERSION);
   newVersionDismissed.value = true;
 }
 
@@ -86,7 +86,7 @@ async function logout() {
   ></v-btn>
   <v-list-item
     class="bg-terciary py-1 px-1 text-subtitle-2"
-    v-if="newVersion && !newVersionDismissed && !rail"
+    v-if="GITHUB_VERSION && VERSION !== GITHUB_VERSION && !newVersionDismissed && !rail"
   >
     <v-card>
       <v-card-text class="py-2 px-4">
@@ -94,7 +94,7 @@ async function logout() {
           <v-col class="py-1">
             <span
               >New version available
-              <span class="text-romm-accent-1">{{ newVersion }}</span></span
+              <span class="text-romm-accent-1">{{ GITHUB_VERSION }}</span></span
             >
           </v-col>
         </v-row>
@@ -105,7 +105,7 @@ async function logout() {
             ><span class="ml-4"
               ><a
                 target="_blank"
-                :href="`https://github.com/rommapp/romm/releases/tag/v${newVersion}`"
+                :href="`https://github.com/rommapp/romm/releases/tag/v${GITHUB_VERSION}`"
                 >See what's new!</a
               ></span
             >
