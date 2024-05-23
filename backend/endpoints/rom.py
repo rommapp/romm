@@ -23,7 +23,7 @@ from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
-from urllib import quote
+from urllib.parse import quote
 router = APIRouter()
 
 
