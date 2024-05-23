@@ -1,9 +1,8 @@
-from sqlalchemy import Column, Integer, String, select, func
-from sqlalchemy.orm import Mapped, relationship, column_property
-
 from models.base import BaseModel
 from models.firmware import Firmware
 from models.rom import Rom
+from sqlalchemy import Column, Integer, String, func, select
+from sqlalchemy.orm import Mapped, column_property, relationship
 
 
 class Platform(BaseModel):

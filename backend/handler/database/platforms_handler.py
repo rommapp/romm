@@ -1,10 +1,10 @@
 import functools
-from sqlalchemy import delete, or_
-from sqlalchemy.orm import Session, Query, joinedload
 
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
+from sqlalchemy import delete, or_
+from sqlalchemy.orm import Query, Session, joinedload
 
 from .base_handler import DBBaseHandler
 
