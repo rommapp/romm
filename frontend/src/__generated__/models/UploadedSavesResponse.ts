@@ -3,10 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { SaveSchema } from './SaveSchema';
+import type { SaveSchema } from "./SaveSchema";
 
 export type UploadedSavesResponse = {
-    uploaded: number;
-    saves: Array<SaveSchema>;
+  uploaded: number;
+  saves: Array<SaveSchema>;
 };
-
