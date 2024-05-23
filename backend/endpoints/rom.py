@@ -236,7 +236,7 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{ quote(file_name)}.zip"'},
         emit_body={"id": rom.id},
     )
 
