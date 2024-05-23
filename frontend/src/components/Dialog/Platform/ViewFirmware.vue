@@ -45,7 +45,7 @@ function uploadFirmware() {
     .then(({ data }) => {
       const { uploaded, firmware } = data;
       if (selectedPlatform.value) {
-        selectedPlatform.value.firmware_files = firmware;
+        selectedPlatform.value.firmware = firmware;
       }
 
       emitter?.emit("snackbarShow", {
@@ -75,8 +75,8 @@ function deleteFirmware() {
     .deleteFirmware({ firmware: selectedFirmware.value, deleteFromFs: false })
     .then(() => {
       if (selectedPlatform.value) {
-        selectedPlatform.value.firmware_files =
-          selectedPlatform.value.firmware_files?.filter(
+        selectedPlatform.value.firmware =
+          selectedPlatform.value.firmware?.filter(
             (firmware) => !selectedFirmware.value.includes(firmware)
           );
       }
@@ -91,12 +91,12 @@ function deleteFirmware() {
 }
 
 function allFirmwareSelected() {
-  if (selectedPlatform.value?.firmware_files?.length == 0) {
+  if (selectedPlatform.value?.firmware?.length == 0) {
     return false;
   }
   return (
     selectedFirmware.value.length ===
-    selectedPlatform.value?.firmware_files?.length
+    selectedPlatform.value?.firmware?.length
   );
 }
 
@@ -104,7 +104,7 @@ function selectAllFirmware() {
   if (allFirmwareSelected()) {
     selectedFirmware.value = [];
   } else {
-    selectedFirmware.value = selectedPlatform.value?.firmware_files ?? [];
+    selectedFirmware.value = selectedPlatform.value?.firmware ?? [];
   }
 }
 </script>
@@ -223,14 +223,14 @@ function selectAllFirmware() {
       <v-card-text
         class="my-4 py-0"
         v-if="
-          selectedPlatform?.firmware_files != undefined &&
-          selectedPlatform?.firmware_files?.length > 0
+          selectedPlatform?.firmware != undefined &&
+          selectedPlatform?.firmware?.length > 0
         "
       >
         <v-list rounded="0" class="pa-0">
           <v-list-item
             class="px-3"
-            v-for="firmware in selectedPlatform?.firmware_files ?? []"
+            v-for="firmware in selectedPlatform?.firmware ?? []"
             :key="firmware.id"
           >
             <template v-slot:prepend>
@@ -286,8 +286,8 @@ function selectAllFirmware() {
               variant="text"
               :disabled="
                 !(
-                  selectedPlatform?.firmware_files != undefined &&
-                  selectedPlatform?.firmware_files?.length > 0
+                  selectedPlatform?.firmware != undefined &&
+                  selectedPlatform?.firmware?.length > 0
                 )
               "
             >
