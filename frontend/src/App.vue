@@ -104,10 +104,6 @@ onBeforeUnmount(() => {
 });
 
 onMounted(() => {
-  // api.get("/config").then(({ data: data }) => {
-  //   configStore.set(data);
-  // });
-
   api.get("/heartbeat").then(({ data: data }) => {
     heartbeat.set(data);
   });
@@ -117,6 +113,10 @@ function fetchHomeData() {
   // Remove it so it's not called multiple times
   document.removeEventListener("network-quiesced", fetchHomeData);
 
+  api.get("/config").then(({ data: data }) => {
+    configStore.set(data);
+  });
+  
   userApi
     .fetchCurrentUser()
     .then(({ data: user }) => {
