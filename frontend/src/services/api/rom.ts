@@ -125,7 +125,7 @@ async function downloadRom({
 }
 
 export type UpdateRom = Rom & {
-  artwork?: File[];
+  artwork?: File;
 };
 
 async function updateRom({
@@ -144,7 +144,7 @@ async function updateRom({
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
-  if (rom.artwork) formData.append("artwork", rom.artwork[0]);
+  if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: { rename_as_igdb: renameAsIGDB, remove_cover: removeCover },
