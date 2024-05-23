@@ -9,7 +9,7 @@ const inflightRequests = new Set();
 
 const networkQuiesced = debounce(() => {
   document.dispatchEvent(new CustomEvent("network-quiesced"));
-}, 300);
+}, 250);
 
 api.interceptors.request.use((config) => {
   // Add request to set of inflight requests

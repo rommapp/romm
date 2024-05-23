@@ -104,8 +104,12 @@ onBeforeUnmount(() => {
 });
 
 onMounted(() => {
-  api.get("/config").then(({ data: data }) => {
-    configStore.set(data);
+  // api.get("/config").then(({ data: data }) => {
+  //   configStore.set(data);
+  // });
+
+  api.get("/heartbeat").then(({ data: data }) => {
+    heartbeat.set(data);
   });
 });
 
@@ -113,23 +117,19 @@ function fetchHomeData() {
   // Remove it so it's not called multiple times
   document.removeEventListener("network-quiesced", fetchHomeData);
 
-  api.get("/heartbeat").then(({ data: data }) => {
-    heartbeat.set(data);
-  });
-
-  platformApi
-    .getPlatforms()
-    .then(({ data: platforms }) => {
-      platformsStore.set(platforms);
+  userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
     })
     .catch((error) => {
       console.error(error);
     });
 
-  userApi
-    .fetchCurrentUser()
-    .then(({ data: user }) => {
-      auth.setUser(user);
+  platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
     })
     .catch((error) => {
       console.error(error);

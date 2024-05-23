@@ -27,7 +27,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from handler.database import db_user_handler
-from handler.github_handler import github_handler
+from handler.git_handler import git_handler
 from handler.socket_handler import socket_handler
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="RomM API", version=github_handler.get_version(), lifespan=lifespan)
+app = FastAPI(title="RomM API", version=git_handler.get_version(), lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

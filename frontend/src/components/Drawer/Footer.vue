@@ -14,7 +14,7 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const heartbeat = storeHeartbeat();
-const newVersion = heartbeat.value.NEW_VERSION;
+const newVersion = heartbeat.value.GITHUB_VERSION;
 localStorage.setItem("newVersion", newVersion);
 const newVersionDismissed = ref(
   localStorage.getItem("dismissNewVersion") === newVersion
