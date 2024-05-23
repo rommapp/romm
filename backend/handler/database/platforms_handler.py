@@ -36,12 +36,12 @@ class DBPlatformsHandler(DBBaseHandler):
     @begin_session
     @with_query
     def get_platforms(
-        self, id: int = None, query: Query = None, session: Session = None
+        self, id: int | None = None, query: Query = None, session: Session = None
     ) -> list[Platform] | Platform | None:
         return (
             query.get(id)
             if id
-            else (session.scalars(query.order_by(Platform.name.asc())).unique().all())
+            else (session.scalars(query.order_by(Platform.name.asc())).unique().all())  # type: ignore[attr-defined]
         )
 
     @begin_session
