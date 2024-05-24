@@ -119,7 +119,7 @@ async function logout() {
             ><span class="ml-4"
               ><a
                 target="_blank"
-                :href="`https://github.com/rommapp/romm/releases/tag/v${GITHUB_VERSION}`"
+                :href="`https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION}`"
                 >See what's new!</a
               ></span
             >
