@@ -33,7 +33,7 @@ async function updateUser({
   avatar,
   ...attrs
 }: UserSchema &  {
-  avatar?: File[];
+  avatar?: File;
   password?: string;
 }): Promise<{ data: UserSchema }> {
   return api.put(

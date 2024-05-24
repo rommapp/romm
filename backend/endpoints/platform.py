@@ -88,9 +88,7 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
         PlatformSchema: Platform
     """
 
-    return PlatformSchema.from_orm_with_request(
-        db_platform_handler.get_platforms(id), request
-    )
+    return db_platform_handler.get_platforms(id)
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])
