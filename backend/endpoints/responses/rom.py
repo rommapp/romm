@@ -5,7 +5,6 @@ from typing import Optional, get_type_hints
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from handler.database import db_user_handler
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.socket_handler import socket_handler

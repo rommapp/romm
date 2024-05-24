@@ -8,9 +8,9 @@ import type { SchedulerDict } from "./SchedulerDict";
 import type { WatcherDict } from "./WatcherDict";
 
 export type HeartbeatResponse = {
-    VERSION: string;
-    WATCHER: WatcherDict;
-    SCHEDULER: SchedulerDict;
-    ANY_SOURCE_ENABLED: boolean;
-    METADATA_SOURCES: MetadataSourcesDict;
+  VERSION: string;
+  WATCHER: WatcherDict;
+  SCHEDULER: SchedulerDict;
+  ANY_SOURCE_ENABLED: boolean;
+  METADATA_SOURCES: MetadataSourcesDict;
 };

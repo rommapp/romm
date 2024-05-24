@@ -1,10 +1,10 @@
 import functools
-from sqlalchemy import delete, or_, select
-from sqlalchemy.orm import Session, Query, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
+from sqlalchemy import delete, or_, select
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -44,7 +44,7 @@ class DBPlatformsHandler(DBBaseHandler):
             session.scalar(query.filter_by(id=id).limit(1))
             if id
             else (
-                session.scalars(select(Platform).order_by(Platform.name.asc()))
+                session.scalars(select(Platform).order_by(Platform.name.asc()))  # type: ignore[attr-defined]
                 .unique()
                 .all()
             )
