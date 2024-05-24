@@ -53,8 +53,8 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     @with_assets
-    def add_rom(self, rom: Rom, query: Query = None, session: Session = None):
-        session.merge(rom)
+    def add_rom(self, rom: Rom, query: Query = None, session: Session = None) -> Rom:
+        rom = session.merge(rom)
         session.flush()
 
         return session.scalar(query.filter_by(id=rom.id).limit(1))
@@ -70,7 +70,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         query: Query = None,
         session: Session = None,
-    ):
+    ) -> list[Rom] | Rom | None:
         return (
             session.scalar(query.filter_by(id=id).limit(1))
             if id
@@ -89,7 +89,7 @@ class DBRomsHandler(DBBaseHandler):
         file_name: str,
         query: Query = None,
         session: Session = None,
-    ):
+    ) -> Rom | None:
         return session.scalar(
             query.filter_by(platform_id=platform_id, file_name=file_name).limit(1)
         )
@@ -98,7 +98,7 @@ class DBRomsHandler(DBBaseHandler):
     @with_assets
     def get_rom_by_filename_no_tags(
         self, file_name_no_tags: str, query: Query = None, session: Session = None
-    ):
+    ) -> Rom | None:
         return session.scalar(
             query.filter_by(file_name_no_tags=file_name_no_tags).limit(1)
         )
@@ -107,13 +107,13 @@ class DBRomsHandler(DBBaseHandler):
     @with_assets
     def get_rom_by_filename_no_ext(
         self, file_name_no_ext: str, query: Query = None, session: Session = None
-    ):
+    ) -> Rom | None:
         return session.scalar(
             query.filter_by(file_name_no_ext=file_name_no_ext).limit(1)
         )
 
     @begin_session
-    def update_rom(self, id: int, data: dict, session: Session = None):
+    def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
         return session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -122,7 +122,7 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def delete_rom(self, id: int, session: Session = None):
+    def delete_rom(self, id: int, session: Session = None) -> Rom:
         return session.execute(
             delete(Rom)
             .where(Rom.id == id)
@@ -130,7 +130,9 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_roms(self, platform_id: int, roms: list[str], session: Session = None):
+    def purge_roms(
+        self, platform_id: int, roms: list[str], session: Session = None
+    ) -> int:
         return session.execute(
             delete(Rom)
             .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
@@ -138,17 +140,21 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_rom_note(self, rom_id: int, user_id: int, session: Session = None):
-        return session.scalars(
+    def get_rom_note(
+        self, rom_id: int, user_id: int, session: Session = None
+    ) -> RomNote | None:
+        return session.scalar(
             select(RomNote).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
-        ).first()
+        )
 
     @begin_session
-    def add_rom_note(self, rom_id: int, user_id: int, session: Session = None):
+    def add_rom_note(
+        self, rom_id: int, user_id: int, session: Session = None
+    ) -> RomNote:
         return session.merge(RomNote(rom_id=rom_id, user_id=user_id))
 
     @begin_session
-    def update_rom_note(self, id: int, data: dict, session: Session = None):
+    def update_rom_note(self, id: int, data: dict, session: Session = None) -> RomNote:
         return session.execute(
             update(RomNote)
             .where(RomNote.id == id)

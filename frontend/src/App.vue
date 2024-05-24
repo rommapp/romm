@@ -44,7 +44,7 @@ socket.on(
 
 socket.on("scan:scanning_rom", (rom: Rom) => {
   scanningStore.set(true);
-  if (romsStore.platform.name === rom.platform_name) {
+  if (romsStore.platformID === rom.platform_id) {
     romsStore.add([rom]);
     romsStore.setFiltered(
       isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
