@@ -1,5 +1,5 @@
 from sqlalchemy import delete, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
@@ -13,14 +13,27 @@ class DBPlatformsHandler(DBBaseHandler):
     def add_platform(
         self, platform: Platform, session: Session = None
     ) -> Platform | None:
-        return session.merge(platform)
+        session.merge(platform)
+        session.flush()
+
+        return session.scalar(
+            select(Platform)
+            .options(selectinload(Platform.roms).load_only(Rom.id))
+            .filter_by(id=platform.id)
+            .limit(1)
+        )
 
     @begin_session
     def get_platforms(
         self, id: int = None, session: Session = None
     ) -> list[Platform] | Platform | None:
         return (
-            session.scalar(select(Platform).filter_by(id=id).limit(1))
+            session.scalar(
+                select(Platform)
+                .options(selectinload(Platform.roms).load_only(Rom.id))
+                .filter_by(id=id)
+                .limit(1)
+            )
             if id
             else (
                 session.scalars(select(Platform).order_by(Platform.name.asc()))
@@ -33,7 +46,12 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_fs_slug(
         self, fs_slug: str, session: Session = None
     ) -> Platform | None:
-        return session.scalar(select(Platform).filter_by(fs_slug=fs_slug).limit(1))
+        return session.scalar(
+            select(Platform)
+            .options(selectinload(Platform.roms).load_only(Rom.id))
+            .filter_by(fs_slug=fs_slug)
+            .limit(1)
+        )
 
     @begin_session
     def delete_platform(self, id: int, session: Session = None) -> int:
