@@ -9,7 +9,7 @@ export default defineStore("heartbeat", {
 
   actions: {
     set(data: HeartbeatResponse) {
-      this.value = data;
+      this.value = { ...this.value, ...data };
     },
     getMetadataOptions() {
       return computed(() => [

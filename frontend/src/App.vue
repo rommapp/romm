@@ -99,32 +99,16 @@ onBeforeUnmount(() => {
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
-
-  document.removeEventListener("network-quiesced", fetchHomeData);
 });
 
 onMounted(() => {
-  api.get("/config").then(({ data: data }) => {
-    configStore.set(data);
-  });
-});
-
-function fetchHomeData() {
-  // Remove it so it's not called multiple times
-  document.removeEventListener("network-quiesced", fetchHomeData);
-
   api.get("/heartbeat").then(({ data: data }) => {
     heartbeat.set(data);
   });
 
-  platformApi
-    .getPlatforms()
-    .then(({ data: platforms }) => {
-      platformsStore.set(platforms);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
+  api.get("/config").then(({ data: data }) => {
+    configStore.set(data);
+  });
 
   userApi
     .fetchCurrentUser()
@@ -134,9 +118,16 @@ function fetchHomeData() {
     .catch((error) => {
       console.error(error);
     });
-}
 
-document.addEventListener("network-quiesced", fetchHomeData);
+  platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+});
 </script>
 
 <template>

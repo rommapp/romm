@@ -10,7 +10,7 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from fastapi import APIRouter
-from handler.github_handler import github_handler
+from utils import get_version
 
 router = APIRouter()
 
@@ -24,8 +24,7 @@ def heartbeat() -> HeartbeatResponse:
     """
 
     return {
-        "VERSION": github_handler.get_version(),
-        "NEW_VERSION": github_handler.check_new_version(),
+        "VERSION": get_version(),
         "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
         "METADATA_SOURCES": {
             "IGDB_API_ENABLED": IGDB_API_ENABLED,

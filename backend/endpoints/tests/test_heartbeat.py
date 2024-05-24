@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from main import app
-from handler.github_handler import github_handler
+from utils import get_version
 
 client = TestClient(app)
 
@@ -11,7 +11,7 @@ def test_heartbeat():
     assert response.status_code == 200
 
     heartbeat = response.json()
-    assert heartbeat.get("VERSION") == github_handler.get_version()
+    assert heartbeat.get("VERSION") == get_version()
     assert heartbeat.get("WATCHER").get("ENABLED")
     assert heartbeat.get("WATCHER").get("TITLE") == "Rescan on filesystem change"
     assert heartbeat.get("SCHEDULER").get("RESCAN").get("ENABLED")

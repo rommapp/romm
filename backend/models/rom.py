@@ -66,7 +66,7 @@ class Rom(BaseModel):
         nullable=False,
     )
 
-    platform = relationship("Platform", lazy="selectin", back_populates="roms")
+    platform = relationship("Platform", lazy="immediate")
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
