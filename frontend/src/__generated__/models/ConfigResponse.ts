@@ -16,4 +16,3 @@ export type ConfigResponse = {
     FIRMWARE_FOLDER_NAME: string;
     HIGH_PRIO_STRUCTURE_PATH: string;
 };
-

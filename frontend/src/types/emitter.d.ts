@@ -5,7 +5,7 @@ import type { User } from "@/stores/users";
 
 export type UserItem = User & {
   password: string;
-  avatar?: File[];
+  avatar?: File;
 };
 
 export type SnackbarStatus = {

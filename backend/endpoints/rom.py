@@ -23,7 +23,7 @@ from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
-
+from urllib.parse import quote
 router = APIRouter()
 
 
@@ -156,7 +156,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
         path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
         filename=file_name,
         headers={
-            "Content-Disposition": f'attachment; filename="{rom.name}.zip"',
+            "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
             "Content-Type": "application/zip",
             "Content-Length": str(rom.file_size_bytes),
         },
@@ -236,7 +236,7 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{file_name}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'},
         emit_body={"id": rom.id},
     )
 

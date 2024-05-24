@@ -10,8 +10,12 @@ from handler.auth.hybrid_auth import HybridAuthBackend
 
 
 def test_verify_password():
-    assert auth_handler.verify_password("password", auth_handler.get_password_hash("password"))
-    assert not auth_handler.verify_password("password", auth_handler.get_password_hash("notpassword"))
+    assert auth_handler.verify_password(
+        "password", auth_handler.get_password_hash("password")
+    )
+    assert not auth_handler.verify_password(
+        "password", auth_handler.get_password_hash("notpassword")
+    )
 
 
 def test_authenticate_user(admin_user: User):

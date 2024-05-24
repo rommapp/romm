@@ -22,4 +22,3 @@ export type StateSchema = {
     emulator: (string | null);
     screenshot: (ScreenshotSchema | null);
 };
-
