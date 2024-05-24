@@ -23,7 +23,6 @@ class MetadataSourcesDict(TypedDict):
 
 class HeartbeatResponse(TypedDict):
     VERSION: str
-    NEW_VERSION: str
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
     ANY_SOURCE_ENABLED: bool

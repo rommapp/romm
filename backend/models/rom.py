@@ -66,22 +66,17 @@ class Rom(BaseModel):
         nullable=False,
     )
 
-    platform = relationship("Platform", lazy="selectin", back_populates="roms")
+    platform = relationship("Platform", lazy="immediate")
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
-        lazy="selectin",
         back_populates="rom",
     )
-    states: Mapped[list[State]] = relationship(
-        "State", lazy="selectin", back_populates="rom"
-    )
+    states: Mapped[list[State]] = relationship("State", back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", lazy="selectin", back_populates="rom"
+        "Screenshot", back_populates="rom"
     )
-    notes: Mapped[list["RomNote"]] = relationship(
-        "RomNote", lazy="selectin", back_populates="rom"
-    )
+    notes: Mapped[list["RomNote"]] = relationship("RomNote", back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -189,5 +184,9 @@ class RomNote(BaseModel):
         nullable=False,
     )
 
-    rom = relationship("Rom", back_populates="notes")
-    user = relationship("User", back_populates="notes")
+    rom = relationship("Rom", lazy="joined", back_populates="notes")
+    user = relationship("User", lazy="joined", back_populates="notes")
+
+    @property
+    def user__username(self) -> str:
+        return self.user.username

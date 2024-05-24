@@ -17,9 +17,7 @@ class Platform(BaseModel):
     name: str = Column(String(length=400))
     logo_path: str = Column(String(length=1000), default="")
 
-    roms: Mapped[set[Rom]] = relationship(
-        "Rom", lazy="selectin", back_populates="platform"
-    )
+    roms: Mapped[set[Rom]] = relationship("Rom", back_populates="platform")
     firmware: Mapped[set[Firmware]] = relationship(
         "Firmware", lazy="selectin", back_populates="platform"
     )

@@ -53,8 +53,8 @@ class Save(RomAsset):
 
     emulator = Column(String(length=50), nullable=True)
 
-    rom = relationship("Rom", lazy="selectin", back_populates="saves")
-    user = relationship("User", lazy="selectin", back_populates="saves")
+    rom = relationship("Rom", lazy="joined", back_populates="saves")
+    user = relationship("User", lazy="joined", back_populates="saves")
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
@@ -74,8 +74,8 @@ class State(RomAsset):
 
     emulator = Column(String(length=50), nullable=True)
 
-    rom = relationship("Rom", lazy="selectin", back_populates="states")
-    user = relationship("User", lazy="selectin", back_populates="states")
+    rom = relationship("Rom", lazy="joined", back_populates="states")
+    user = relationship("User", lazy="joined", back_populates="states")
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
@@ -93,5 +93,5 @@ class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
-    rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
-    user = relationship("User", lazy="selectin", back_populates="screenshots")
+    rom = relationship("Rom", lazy="joined", back_populates="screenshots")
+    user = relationship("User", lazy="joined", back_populates="screenshots")

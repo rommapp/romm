@@ -7,8 +7,8 @@ import DeleteBtn from "@/components/Gallery/AppBar/DeleteBtn.vue";
 
 <template>
   <v-list rounded="0" class="pa-0">
-    <view-firmware-btn />
     <upload-rom-btn />
+    <view-firmware-btn />
     <scan-btn />
     <v-divider class="border-opacity-25" />
     <delete-btn />
