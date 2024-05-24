@@ -30,7 +30,7 @@ class DBPlatformsHandler(DBBaseHandler):
     def add_platform(
         self, platform: Platform, query: Query = None, session: Session = None
     ) -> Platform | None:
-        session.merge(platform)
+        platform = session.merge(platform)
         session.flush()
 
         return session.scalar(query.filter_by(id=platform.id).limit(1))

@@ -13,7 +13,7 @@ export type Rom = RomSchema & {
 
 export default defineStore("roms", {
   state: () => ({
-    _platform: {} as PlatformSchema,
+    _platformID: 0,
     _all: [] as Rom[],
     _grouped: [] as Rom[],
     _filteredIDs: [] as number[],
@@ -27,7 +27,7 @@ export default defineStore("roms", {
   }),
 
   getters: {
-    platform: (state) => state._platform,
+    platformID: (state) => state._platformID,
     allRoms: (state) => state._all,
     filteredRoms: (state) =>
       state._grouped.filter((rom) => state._filteredIDs.includes(rom.id)),
@@ -69,8 +69,8 @@ export default defineStore("roms", {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });
     },
-    setPlatform(platform: PlatformSchema) {
-      this._platform = platform;
+    setPlatformID(platformID: number) {
+      this._platformID = platformID;
     },
     setRecentRoms(roms: Rom[]) {
       this.recentRoms = roms;
