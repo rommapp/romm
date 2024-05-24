@@ -7,7 +7,6 @@ from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler.socket_handler import socket_handler
-from handler.database import db_user_handler
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
@@ -35,14 +34,10 @@ class RomNoteSchema(BaseModel):
     last_edited_at: datetime
     raw_markdown: str
     is_public: bool
+    user__username: str
 
     class Config:
         from_attributes = True
-
-    @computed_field
-    @property
-    def user__username(self) -> str:
-        return db_user_handler.get_user(self.user_id).username
 
     @classmethod
     def for_user(cls, db_rom: Rom, user_id: int) -> list["RomNoteSchema"]:
