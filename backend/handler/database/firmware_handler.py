@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
 
+
 class DBFirmwareHandler(DBBaseHandler):
     @begin_session
     def add_firmware(self, firmware: Firmware, session: Session = None):
@@ -24,10 +25,10 @@ class DBFirmwareHandler(DBBaseHandler):
     def get_firmware_by_filename(
         self, platform_id: int, file_name: str, session: Session = None
     ):
-        return (
+        return session.scalar(
             select(Firmware)
             .filter_by(platform_id=platform_id, file_name=file_name)
-            .first()
+            .limit(1)
         )
 
     @begin_session
