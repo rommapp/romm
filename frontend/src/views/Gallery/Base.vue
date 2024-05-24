@@ -8,6 +8,7 @@ import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
@@ -23,6 +24,7 @@ const galleryFilterStore = storeGalleryFilter();
 const gettingRoms = ref(false);
 const fabMenu = ref(false);
 const scrolledToTop = ref(true);
+const platforms = storePlatforms();
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -184,9 +186,12 @@ function onScroll() {
 }
 
 onMounted(async () => {
-  const { data: platform } = await platformApi.getPlatform(
-    Number(route.params.platform)
-  );
+  let platform = platforms.get(Number(route.params.platform));
+  if (!platform) {
+    platform = (await platformApi.getPlatform(Number(route.params.platform)))
+      .data;
+  }
+
   romsStore.setPlatform(platform);
 
   // If platform is different, reset store and fetch roms
@@ -219,9 +224,13 @@ onBeforeRouteUpdate(async (to, _) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
-  const { data: newPlatform } = await platformApi.getPlatform(
-    Number(to.params.platform)
-  );
+  
+  let newPlatform = platforms.get(Number(to.params.platform));
+  if (!newPlatform) {
+    newPlatform = (await platformApi.getPlatform(Number(to.params.platform)))
+      .data;
+  }
+
   romsStore.setPlatform(newPlatform);
   await fetchRoms();
   setFilters();

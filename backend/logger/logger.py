@@ -3,7 +3,7 @@ import sys
 
 from logger.stdout_formatter import StdoutFormatter
 
-# Get logger
+# Set up logger
 log = logging.getLogger("romm")
 log.setLevel(logging.DEBUG)
 
