@@ -24,6 +24,7 @@ const galleryFilterStore = storeGalleryFilter();
 const gettingRoms = ref(false);
 const fabMenu = ref(false);
 const scrolledToTop = ref(true);
+const platforms = storePlatforms();
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -34,7 +35,6 @@ const {
   searchCursor,
   platform,
 } = storeToRefs(romsStore);
-const platforms = storePlatforms();
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -186,15 +186,10 @@ function onScroll() {
 }
 
 onMounted(async () => {
-  const platform = platforms.get(Number(route.params.platform));
+  let platform = platforms.get(Number(route.params.platform));
   if (!platform) {
-    emitter?.emit("snackbarShow", {
-      msg: `Platform ${route.params.platform} not found`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-    return;
+    platform = (await platformApi.getPlatform(Number(route.params.platform)))
+      .data;
   }
 
   romsStore.setPlatform(platform);
@@ -229,15 +224,11 @@ onBeforeRouteUpdate(async (to, _) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
-  const newPlatform = platforms.get(Number(route.params.platform));
+  
+  let newPlatform = platforms.get(Number(route.params.platform));
   if (!newPlatform) {
-    emitter?.emit("snackbarShow", {
-      msg: `Platform ${route.params.platform} not found`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-    return;
+    newPlatform = (await platformApi.getPlatform(Number(route.params.platform)))
+      .data;
   }
 
   romsStore.setPlatform(newPlatform);
