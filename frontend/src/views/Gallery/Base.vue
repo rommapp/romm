@@ -225,9 +225,9 @@ onBeforeRouteUpdate(async (to, _) => {
   // Reset store if switching to another platform
   resetGallery();
   
-  let newPlatform = platforms.get(Number(route.params.platform));
+  let newPlatform = platforms.get(Number(to.params.platform));
   if (!newPlatform) {
-    newPlatform = (await platformApi.getPlatform(Number(route.params.platform)))
+    newPlatform = (await platformApi.getPlatform(Number(to.params.platform)))
       .data;
   }
 
