@@ -32,20 +32,25 @@ async function updateUser({
   id,
   avatar,
   ...attrs
-}: {
-  id: number;
-  avatar?: File[];
+}: UserSchema &  {
+  avatar?: File;
+  password?: string;
 }): Promise<{ data: UserSchema }> {
   return api.put(
     `/users/${id}`,
     {
-      avatar: avatar ? avatar[0] : null,
+      avatar: avatar || null,
     },
     {
       headers: {
         "Content-Type": avatar ? "multipart/form-data" : "application/json",
       },
-      params: attrs,
+      params: {
+        username: attrs.username,
+        password: attrs.password,
+        enabled: attrs.enabled,
+        role: attrs.role,
+      },
     }
   );
 }

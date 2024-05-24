@@ -15,4 +15,3 @@ export type UserSchema = {
     last_login: (string | null);
     last_active: (string | null);
 };
-

@@ -56,4 +56,3 @@ export type RomSchema = {
     user_notes?: Array<RomNoteSchema>;
     readonly sort_comparator: string;
 };
-

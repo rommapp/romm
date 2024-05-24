@@ -32,7 +32,7 @@ async def test_scan_rom():
             "multi": False,
             "files": ["Paper Mario (USA).z64"],
         },
-        ScanType.QUICK
+        ScanType.QUICK,
     )
 
     assert rom.__class__ == Rom
