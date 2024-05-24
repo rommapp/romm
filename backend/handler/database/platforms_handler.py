@@ -36,9 +36,9 @@ class DBPlatformsHandler(DBBaseHandler):
     def get_platform_by_fs_slug(
         self, fs_slug: str, session: Session = None
     ) -> Platform | None:
-        return session.scalars(
+        return session.scalar(
             select(Platform).filter_by(fs_slug=fs_slug).limit(1)
-        ).first()
+        )
 
     @begin_session
     def delete_platform(self, id: int, session: Session = None) -> int:
