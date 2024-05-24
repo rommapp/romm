@@ -1,8 +1,9 @@
 import functools
+
 from decorators.database import begin_session
 from models.rom import Rom, RomNote
-from sqlalchemy import and_, delete, func, select, update, or_, Select
-from sqlalchemy.orm import Session, Query, selectinload
+from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
