@@ -1,10 +1,9 @@
 from decorators.database import begin_session
 from models.firmware import Firmware
-from sqlalchemy import update, delete, and_
+from sqlalchemy import update, delete, and_, select
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
-
 
 class DBFirmwareHandler(DBBaseHandler):
     @begin_session
@@ -16,9 +15,9 @@ class DBFirmwareHandler(DBBaseHandler):
         self, id: int = None, platform_id: int = None, session: Session = None
     ):
         return (
-            session.get(Firmware, id)
+            session.scalar(select(Firmware).filter_by(id=id).limit(1))
             if id
-            else session.query(Firmware).filter_by(platform_id=platform_id).all()
+            else select(Firmware).filter_by(platform_id=platform_id).all()
         )
 
     @begin_session
@@ -26,7 +25,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self, platform_id: int, file_name: str, session: Session = None
     ):
         return (
-            session.query(Firmware)
+            select(Firmware)
             .filter_by(platform_id=platform_id, file_name=file_name)
             .first()
         )

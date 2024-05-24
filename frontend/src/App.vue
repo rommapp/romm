@@ -99,8 +99,6 @@ onBeforeUnmount(() => {
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
-
-  document.removeEventListener("network-quiesced", fetchHomeData);
 });
 
 onMounted(() => {
@@ -111,11 +109,6 @@ onMounted(() => {
   api.get("/config").then(({ data: data }) => {
     configStore.set(data);
   });
-});
-
-function fetchHomeData() {
-  // Remove it so it's not called multiple times
-  document.removeEventListener("network-quiesced", fetchHomeData);
 
   userApi
     .fetchCurrentUser()
@@ -134,9 +127,7 @@ function fetchHomeData() {
     .catch((error) => {
       console.error(error);
     });
-}
-
-document.addEventListener("network-quiesced", fetchHomeData);
+});
 </script>
 
 <template>
