@@ -5,7 +5,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, onBeforeMount } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
@@ -15,16 +15,25 @@ const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const heartbeat = storeHeartbeat();
 
-const { VERSION, GITHUB_VERSION } = heartbeat.value;
-localStorage.setItem("newVersion", GITHUB_VERSION);
-const newVersionDismissed = ref(
-  localStorage.getItem("dismissNewVersion") === GITHUB_VERSION
-);
+const { VERSION } = heartbeat.value;
+const GITHUB_VERSION = ref(VERSION);
+const latestVersionDismissed = ref(VERSION === "development");
 
-function dismissNewVersion() {
-  localStorage.setItem("dismissNewVersion", GITHUB_VERSION);
-  newVersionDismissed.value = true;
+function dismissVersionBanner() {
+  localStorage.setItem("dismissedVersion", GITHUB_VERSION.value);
+  latestVersionDismissed.value = true;
 }
+
+onBeforeMount(async () => {
+  const response = await fetch(
+    "https://api.github.com/repos/rommapp/romm/releases/latest"
+  );
+  const json = await response.json();
+  GITHUB_VERSION.value = json.name;
+  latestVersionDismissed.value =
+    VERSION === "development" ||
+    json.name === localStorage.getItem("dismissedVersion");
+});
 
 async function logout() {
   identityApi
@@ -86,7 +95,12 @@ async function logout() {
   ></v-btn>
   <v-list-item
     class="bg-terciary py-1 px-1 text-subtitle-2"
-    v-if="GITHUB_VERSION && VERSION !== GITHUB_VERSION && !newVersionDismissed && !rail"
+    v-if="
+      GITHUB_VERSION &&
+      VERSION !== GITHUB_VERSION &&
+      !latestVersionDismissed &&
+      !rail
+    "
   >
     <v-card>
       <v-card-text class="py-2 px-4">
@@ -100,7 +114,7 @@ async function logout() {
         </v-row>
         <v-row no-gutters>
           <v-col class="py-1">
-            <span @click="dismissNewVersion()" class="pointer text-grey"
+            <span @click="dismissVersionBanner()" class="pointer text-grey"
               >Dismiss</span
             ><span class="ml-4"
               ><a
