@@ -32,18 +32,13 @@ class User(BaseModel, SimpleUser):
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
-        lazy="selectin",
         back_populates="user",
     )
-    states: Mapped[list[State]] = relationship(
-        "State", lazy="selectin", back_populates="user"
-    )
+    states: Mapped[list[State]] = relationship("State", back_populates="user")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", lazy="selectin", back_populates="user"
+        "Screenshot", back_populates="user"
     )
-    notes: Mapped[list[RomNote]] = relationship(
-        "RomNote", lazy="selectin", back_populates="user"
-    )
+    notes: Mapped[list[RomNote]] = relationship("RomNote", back_populates="user")
 
     @property
     def oauth_scopes(self):

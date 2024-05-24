@@ -12,12 +12,8 @@ class DBUsersHandler(DBBaseHandler):
         return session.merge(user)
 
     @begin_session
-    def get_user_by_username(
-        self, username: str, session: Session = None
-    ) -> User | None:
-        return session.scalars(
-            select(User).filter_by(username=username).limit(1)
-        ).first()
+    def get_user_by_username(self, username: str, session: Session = None):
+        return session.scalar(select(User).filter_by(username=username).limit(1))
 
     @begin_session
     def get_user(self, id: int, session: Session = None) -> User:
@@ -33,7 +29,11 @@ class DBUsersHandler(DBBaseHandler):
         )
 
     @begin_session
-    def delete_user(self, id: int, session: Session = None) -> None:
+    def get_users(self, session: Session = None):
+        return session.scalars(select(User)).all()
+
+    @begin_session
+    def delete_user(self, id: int, session: Session = None):
         return session.execute(
             delete(User)
             .where(User.id == id)
@@ -41,9 +41,5 @@ class DBUsersHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_users(self, session: Session = None) -> list[User]:
-        return session.scalars(select(User)).all()
-
-    @begin_session
-    def get_admin_users(self, session: Session = None) -> list[User]:
+    def get_admin_users(self, session: Session = None):
         return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()

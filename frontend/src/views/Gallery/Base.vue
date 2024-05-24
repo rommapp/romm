@@ -8,6 +8,7 @@ import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, toTop, views } from "@/utils";
@@ -23,6 +24,7 @@ const galleryFilterStore = storeGalleryFilter();
 const gettingRoms = ref(false);
 const fabMenu = ref(false);
 const scrolledToTop = ref(true);
+const platforms = storePlatforms();
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -31,7 +33,7 @@ const {
   searchRoms,
   cursor,
   searchCursor,
-  platform,
+  platformID,
 } = storeToRefs(romsStore);
 
 // Event listeners bus
@@ -58,7 +60,7 @@ async function fetchRoms() {
 
   await romApi
     .getRoms({
-      platformId: platform.value.id,
+      platformId: platformID.value,
       cursor: galleryFilterStore.isFiltered()
         ? searchCursor.value
         : cursor.value,
@@ -82,12 +84,12 @@ async function fetchRoms() {
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for ${platform.value.name}: ${error}`,
+        msg: `Couldn't fetch roms for platform ID ${platformID.value}: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
       });
-      console.error(`Couldn't fetch roms for ${platform.value.name}: ${error}`);
+      console.error(`Couldn't fetch roms for platform ID ${platformID.value}: ${error}`);
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -184,13 +186,19 @@ function onScroll() {
 }
 
 onMounted(async () => {
-  const { data: platform } = await platformApi.getPlatform(
-    Number(route.params.platform)
-  );
-  romsStore.setPlatform(platform);
+  const storedPlatformID = romsStore.platformID;
+  const platformID = Number(route.params.platform);
+  
+  romsStore.setPlatformID(platformID);
+
+  const platform = platforms.get(platformID);
+  if (!platform) {
+    const { data } = await platformApi.getPlatform(platformID)
+    platforms.add(data);
+  }
 
   // If platform is different, reset store and fetch roms
-  if (platform.id != romsStore.platform.id) {
+  if (storedPlatformID != platformID) {
     resetGallery();
     await fetchRoms();
   }
@@ -219,10 +227,16 @@ onBeforeRouteUpdate(async (to, _) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
-  const { data: newPlatform } = await platformApi.getPlatform(
-    Number(to.params.platform)
-  );
-  romsStore.setPlatform(newPlatform);
+  
+  const platformID = Number(to.params.platform);
+  romsStore.setPlatformID(platformID);
+
+  const platform = platforms.get(platformID);
+  if (!platform) {
+    const { data } = await platformApi.getPlatform(platformID)
+    platforms.add(data);
+  }
+
   await fetchRoms();
   setFilters();
 });

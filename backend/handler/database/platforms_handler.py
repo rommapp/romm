@@ -1,22 +1,24 @@
 import functools
+from sqlalchemy import delete, or_, select
+from sqlalchemy.orm import Session, Query, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
-from sqlalchemy import delete, or_
-from sqlalchemy.orm import Query, Session, joinedload
 
 from .base_handler import DBBaseHandler
 
 
-def with_query(func):
+def with_roms(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         session = kwargs.get("session")
         if session is None:
             raise ValueError("session is required")
 
-        kwargs["query"] = session.query(Platform).options(joinedload(Platform.roms))
+        kwargs["query"] = select(Platform).options(
+            selectinload(Platform.roms).load_only(Rom.id)
+        )
         return func(*args, **kwargs)
 
     return wrapper
@@ -24,32 +26,36 @@ def with_query(func):
 
 class DBPlatformsHandler(DBBaseHandler):
     @begin_session
-    @with_query
+    @with_roms
     def add_platform(
         self, platform: Platform, query: Query = None, session: Session = None
     ) -> Platform | None:
-        session.merge(platform)
+        platform = session.merge(platform)
         session.flush()
 
-        return query.filter(Platform.fs_slug == platform.fs_slug).first()
+        return session.scalar(query.filter_by(id=platform.id).limit(1))
 
     @begin_session
-    @with_query
+    @with_roms
     def get_platforms(
         self, id: int | None = None, query: Query = None, session: Session = None
     ) -> list[Platform] | Platform | None:
         return (
-            query.get(id)
+            session.scalar(query.filter_by(id=id).limit(1))
             if id
-            else (session.scalars(query.order_by(Platform.name.asc())).unique().all())  # type: ignore[attr-defined]
+            else (
+                session.scalars(select(Platform).order_by(Platform.name.asc()))
+                .unique()
+                .all()
+            )
         )
 
     @begin_session
-    @with_query
+    @with_roms
     def get_platform_by_fs_slug(
         self, fs_slug: str, query: Query = None, session: Session = None
     ) -> Platform | None:
-        return session.scalars(query.filter_by(fs_slug=fs_slug).limit(1)).first()
+        return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
 
     @begin_session
     def delete_platform(self, id: int, session: Session = None) -> int:
