@@ -111,9 +111,6 @@ class Rom(BaseModel):
     def get_sibling_roms(self) -> list["Rom"]:
         from handler.database import db_rom_handler
 
-        if not self.igdb_id:
-            return []
-
         with db_rom_handler.session.begin() as session:
             return session.scalars(
                 select(Rom).where(
