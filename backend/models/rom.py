@@ -118,8 +118,8 @@ class Rom(BaseModel):
                         Rom.platform_id == self.platform_id,
                         Rom.id != self.id,
                         or_(
-                            and_(Rom.igdb_id == self.igdb_id, Rom.igdb_id != None), # noqa
-                            and_(Rom.moby_id == self.moby_id, Rom.moby_id != None), # noqa
+                            and_(Rom.igdb_id == self.igdb_id, Rom.igdb_id != None),  # noqa
+                            and_(Rom.moby_id == self.moby_id, Rom.moby_id != None),  # noqa
                         ),
                     )
                 )
