@@ -5,11 +5,11 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import stateApi from "@/services/api/state";
-import storeRoms, { type UserRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 
 import type { StateSchema } from "@/__generated__";
 
-const props = defineProps<{ rom: UserRom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const statesToUpload = ref<File[]>([]);
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");

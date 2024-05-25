@@ -5,11 +5,11 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import { platformSlugEJSCoreMap } from "@/utils";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import type { UserRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { ValueOf } from "@/types";
 
 const props = defineProps<{
-  rom: UserRom;
+  rom: DetailedRom;
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;

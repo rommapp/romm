@@ -14,7 +14,7 @@ import TitleInfo from "@/components/Details/Title.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { UserRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref, watch } from "vue";
@@ -22,7 +22,7 @@ import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 const route = useRoute();
-const rom = ref<UserRom>();
+const rom = ref<DetailedRom>();
 const platform = ref<PlatformSchema>();
 const tab = ref<
   | "details"

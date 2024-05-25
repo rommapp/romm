@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import storeGalleryFilter from "@/stores/galleryFilter";
-import type { UserRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import { useDisplay } from "vuetify";
 
-defineProps<{ rom: UserRom }>();
+defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const galleryFilter = storeGalleryFilter();
 </script>
