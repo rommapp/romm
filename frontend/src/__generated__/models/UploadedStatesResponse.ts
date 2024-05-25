@@ -9,3 +9,4 @@ export type UploadedStatesResponse = {
     uploaded: number;
     states: Array<StateSchema>;
 };
+

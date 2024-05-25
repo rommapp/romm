@@ -9,3 +9,4 @@ export type UploadedSavesResponse = {
     uploaded: number;
     saves: Array<SaveSchema>;
 };
+

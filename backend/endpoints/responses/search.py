@@ -9,4 +9,3 @@ class SearchRomSchema(BaseModel):
     summary: str
     igdb_url_cover: str = ""
     moby_url_cover: str = ""
-    url_screenshots: list[str]

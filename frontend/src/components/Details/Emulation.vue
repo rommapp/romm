@@ -2,13 +2,13 @@
 import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import rom from "@/services/api/rom";
-import type { Rom } from "@/stores/roms";
+import type { UserRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import Player from "@/views/Play/Player.vue";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 
-const props = defineProps<{ rom: Rom; platform: Platform }>();
+const props = defineProps<{ rom: UserRom; platform: Platform }>();
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);

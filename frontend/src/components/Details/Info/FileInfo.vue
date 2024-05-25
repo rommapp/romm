@@ -2,10 +2,10 @@
 import type { PlatformSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import storeDownload from "@/stores/download";
-import type { Rom } from "@/stores/roms";
+import type { UserRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 
-defineProps<{ rom: Rom; platform: PlatformSchema }>();
+defineProps<{ rom: UserRom; platform: PlatformSchema }>();
 const downloadStore = storeDownload();
 </script>
 <template>

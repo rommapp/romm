@@ -41,6 +41,7 @@ export type { TokenResponse } from './models/TokenResponse';
 export type { UploadedSavesResponse } from './models/UploadedSavesResponse';
 export type { UploadedScreenshotsResponse } from './models/UploadedScreenshotsResponse';
 export type { UploadedStatesResponse } from './models/UploadedStatesResponse';
+export type { UserRomSchema } from './models/UserRomSchema';
 export type { UserSchema } from './models/UserSchema';
 export type { ValidationError } from './models/ValidationError';
 export type { WatcherDict } from './models/WatcherDict';

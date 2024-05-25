@@ -14,3 +14,4 @@ export type HeartbeatResponse = {
     ANY_SOURCE_ENABLED: boolean;
     METADATA_SOURCES: MetadataSourcesDict;
 };
+

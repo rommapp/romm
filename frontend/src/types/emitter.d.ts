@@ -47,11 +47,11 @@ export type Events = {
   showEditUserDialog: User;
   showDeleteUserDialog: User;
   showDeleteSavesDialog: {
-    rom: Rom;
+    rom: UserRom;
     saves: SaveSchema[];
   };
   showDeleteStatesDialog: {
-    rom: Rom;
+    rom: UserRom;
     states: StateSchema[];
   };
   showEmulation: null;
@@ -69,5 +69,5 @@ export type Events = {
   filterBarShow: null;
   filterBarReset: null;
   sortBarShow: null;
-  romUpdated: Rom;
+  romUpdated: UserRom;
 };
