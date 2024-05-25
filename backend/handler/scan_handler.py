@@ -10,6 +10,8 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata.igdb_handler import IGDBPlatform
+from handler.metadata.moby_handler import MobyGamesPlatform
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
@@ -48,6 +50,7 @@ def _get_main_platform_igdb_id(platform: Platform):
 def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
+    metadata_sources: list[str] = ["igdb", "moby"],
 ) -> Platform:
     """Get platform details
 
@@ -83,8 +86,16 @@ def scan_platform(
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
-    moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
+    igdb_platform = (
+        meta_igdb_handler.get_platform(platform_attrs["slug"])
+        if "igdb" in metadata_sources
+        else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
+    )
+    moby_platform = (
+        meta_moby_handler.get_platform(platform_attrs["slug"])
+        if "moby" in metadata_sources
+        else MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
+    )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
