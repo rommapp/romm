@@ -96,7 +96,8 @@ async def search_rom(
                 "name": "",
                 "summary": "",
                 "igdb_url_cover": "",
-                "moby_url_cover": "",            },
+                "moby_url_cover": "",
+            },
             **item,
         }
         for item in list(merged_dict.values())
