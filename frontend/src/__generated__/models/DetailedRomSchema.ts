@@ -11,7 +11,7 @@ import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { StateSchema } from './StateSchema';
 
-export type UserRomSchema = {
+export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);
     sgdb_id: (number | null);

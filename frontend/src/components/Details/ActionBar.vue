@@ -3,13 +3,13 @@ import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
-import type { UserRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getDownloadLink, platformSlugEJSCoreMap } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
-const props = defineProps<{ rom: UserRom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
@@ -24,7 +24,7 @@ function toggleEmulation() {
   emitter?.emit("showEmulation", null);
 }
 
-async function copyDownloadLink(rom: UserRom) {
+async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink =
     location.protocol +
     "//" +

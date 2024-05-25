@@ -15,6 +15,7 @@ export type { Body_update_rom_roms__id__put } from './models/Body_update_rom_rom
 export type { Body_update_user_users__id__put } from './models/Body_update_user_users__id__put';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { CursorPage_RomSchema_ } from './models/CursorPage_RomSchema_';
+export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { FirmwareSchema } from './models/FirmwareSchema';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
@@ -41,7 +42,6 @@ export type { TokenResponse } from './models/TokenResponse';
 export type { UploadedSavesResponse } from './models/UploadedSavesResponse';
 export type { UploadedScreenshotsResponse } from './models/UploadedScreenshotsResponse';
 export type { UploadedStatesResponse } from './models/UploadedStatesResponse';
-export type { UserRomSchema } from './models/UserRomSchema';
 export type { UserSchema } from './models/UserSchema';
 export type { ValidationError } from './models/ValidationError';
 export type { WatcherDict } from './models/WatcherDict';

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { UserRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 
-const props = defineProps<{ rom: UserRom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const combined = ref([
   ...(props.rom.igdb_metadata?.remakes ?? []),
   ...(props.rom.igdb_metadata?.remasters ?? []),

@@ -1,4 +1,4 @@
-import type { RomSchema, UserRomSchema } from "@/__generated__/";
+import type { RomSchema, DetailedRomSchema } from "@/__generated__/";
 import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
@@ -11,7 +11,7 @@ export type Rom = RomSchema & {
   siblings?: RomSchema[]; // Added by the frontend
 };
 
-export type UserRom = UserRomSchema;
+export type DetailedRom = DetailedRomSchema;
 
 export default defineStore("roms", {
   state: () => ({
