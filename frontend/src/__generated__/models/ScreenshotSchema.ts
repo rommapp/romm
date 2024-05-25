@@ -18,3 +18,4 @@ export type ScreenshotSchema = {
     created_at: string;
     updated_at: string;
 };
+

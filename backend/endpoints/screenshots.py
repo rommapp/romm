@@ -55,6 +55,5 @@ def add_screenshots(
     return {
         "uploaded": len(screenshots),
         "screenshots": [s for s in rom.screenshots if s.user_id == current_user.id],
-        "url_screenshots": rom.url_screenshots,
         "merged_screenshots": rom.merged_screenshots,
     }

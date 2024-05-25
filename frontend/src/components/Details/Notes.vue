@@ -2,13 +2,13 @@
 import { ref } from "vue";
 import { useTheme } from "vuetify";
 
-import { type Rom } from "@/stores/roms";
+import type { UserRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import romApi from "@/services/api/rom";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: UserRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 

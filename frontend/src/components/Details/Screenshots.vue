@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
+import type { UserRom } from "@/stores/roms";
 import { useDisplay } from "vuetify";
 
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: UserRom }>();
 const { xs } = useDisplay();
 </script>
 <template>

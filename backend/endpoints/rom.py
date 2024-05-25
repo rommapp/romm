@@ -10,6 +10,7 @@ from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
     RomSchema,
+    UserRomSchema,
     RomNoteSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -119,7 +120,7 @@ def get_roms(
     "/roms/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
 )
-def get_rom(request: Request, id: int) -> RomSchema:
+def get_rom(request: Request, id: int) -> UserRomSchema:
     """Get rom endpoint
 
     Args:
@@ -127,9 +128,9 @@ def get_rom(request: Request, id: int) -> RomSchema:
         id (int): Rom internal id
 
     Returns:
-        RomSchema: Rom stored in the database
+        UserRomSchema: Rom stored in the database
     """
-    return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
+    return UserRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(
@@ -248,7 +249,7 @@ async def update_rom(
     rename_as_igdb: bool = False,
     remove_cover: bool = False,
     artwork: Optional[UploadFile] = File(None),
-) -> RomSchema:
+) -> UserRomSchema:
     """Update rom endpoint
 
     Args:
@@ -261,7 +262,7 @@ async def update_rom(
         HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
 
     Returns:
-        RomSchema: Rom stored in the database
+        UserRomSchema: Rom stored in the database
     """
 
     data = await request.form()
@@ -375,7 +376,7 @@ async def update_rom(
 
     db_rom_handler.update_rom(id, cleaned_data)
 
-    return db_rom_handler.get_roms(id)
+    return UserRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])

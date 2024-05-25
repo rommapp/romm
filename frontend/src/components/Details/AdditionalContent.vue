@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
+import type { UserRom } from "@/stores/roms";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: UserRom }>();
 import { useTheme } from "vuetify";
 const theme = useTheme();
 </script>

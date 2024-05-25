@@ -8,3 +8,4 @@ export type TinfoilFeedSchema = {
     directories: Array<string>;
     success: string;
 };
+

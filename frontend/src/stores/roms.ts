@@ -1,7 +1,7 @@
-import type { PlatformSchema, RomSchema } from "@/__generated__/";
-import { groupBy, isNull, uniqBy } from "lodash";
+import type { RomSchema, UserRomSchema } from "@/__generated__/";
+import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
-import { defineStore, type Store } from "pinia";
+import { defineStore } from "pinia";
 import storeGalleryFilter from "./galleryFilter";
 import type { ExtractPiniaStoreType } from "@/types";
 
@@ -10,6 +10,8 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 export type Rom = RomSchema & {
   siblings?: RomSchema[]; // Added by the frontend
 };
+
+export type UserRom = UserRomSchema;
 
 export default defineStore("roms", {
   state: () => ({

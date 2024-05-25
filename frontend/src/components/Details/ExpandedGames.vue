@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
+import type { UserRom } from "@/stores/roms";
 
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: UserRom }>();
 </script>
 <template>
     <v-col class="pa-0" cols="4" sm="2" md="3" lg="3" v-for="game in rom.igdb_metadata?.expanded_games">
