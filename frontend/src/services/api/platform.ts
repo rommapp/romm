@@ -1,5 +1,6 @@
-import type { MessageResponse, PlatformSchema } from "@/__generated__";
+import type { MessageResponse } from "@/__generated__";
 import api from "@/services/api/index";
+import type { Platform } from "@/stores/platforms";
 
 export const platformApi = api;
 
@@ -7,28 +8,28 @@ async function uploadPlatform({
   fsSlug,
 }: {
   fsSlug: string;
-}): Promise<{ data: PlatformSchema }> {
+}): Promise<{ data: Platform }> {
   return api.post("/platforms", { fs_slug: fsSlug });
 }
 
-async function getPlatforms(): Promise<{ data: PlatformSchema[] }> {
+async function getPlatforms(): Promise<{ data: Platform[] }> {
   return api.get("/platforms");
 }
 
 async function getPlatform(
   id: number | undefined
-): Promise<{ data: PlatformSchema }> {
+): Promise<{ data: Platform }> {
   return api.get(`/platforms/${id}`);
 }
 
-async function getSupportedPlatforms(): Promise<{ data: PlatformSchema[] }> {
+async function getSupportedPlatforms(): Promise<{ data: Platform[] }> {
   return api.get("/platforms/supported");
 }
 
 async function updatePlatform({
   platform,
 }: {
-  platform: PlatformSchema;
+  platform: Platform;
 }): Promise<{ data: MessageResponse }> {
   return api.delete(`/platforms/${platform.id}`);
 }
@@ -36,7 +37,7 @@ async function updatePlatform({
 async function deletePlatform({
   platform,
 }: {
-  platform: PlatformSchema;
+  platform: Platform;
 }): Promise<{ data: MessageResponse }> {
   return api.delete(`/platforms/${platform.id}`);
 }
