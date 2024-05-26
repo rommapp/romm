@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
@@ -10,6 +9,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import { type SimpleRom } from "@/stores/roms";
 
 const theme = useTheme();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -73,7 +73,7 @@ async function filterRoms() {
   }
 }
 
-function romDetails(rom: RomSchema) {
+function romDetails(rom: SimpleRom) {
   router.push({
     name: "rom",
     params: { rom: rom.id },

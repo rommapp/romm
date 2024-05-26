@@ -3,7 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -11,7 +11,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const rom = ref<Rom | null>(null);
+const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const renameAsIGDB = ref(false);
 const searching = ref(false);

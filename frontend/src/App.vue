@@ -7,7 +7,7 @@ import socket from "@/services/socket";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
 import storeAuth from "@/stores/auth";
 import storeScanning from "@/stores/scanning";
@@ -42,7 +42,7 @@ socket.on(
   }
 );
 
-socket.on("scan:scanning_rom", (rom: Rom) => {
+socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   scanningStore.set(true);
   if (romsStore.platformID === rom.platform_id) {
     romsStore.add([rom]);

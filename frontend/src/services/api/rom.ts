@@ -7,7 +7,7 @@ import type {
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
-import type { Rom, DetailedRom } from "@/stores/roms";
+import type { SimpleRom, DetailedRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
@@ -104,7 +104,7 @@ async function downloadRom({
   rom,
   files = [],
 }: {
-  rom: Rom;
+  rom: SimpleRom;
   files?: string[];
 }) {
   const a = document.createElement("a");
@@ -123,7 +123,7 @@ async function downloadRom({
   }
 }
 
-export type UpdateRom = Rom & {
+export type UpdateRom = SimpleRom & {
   artwork?: File;
 };
 
@@ -154,7 +154,7 @@ async function deleteRoms({
   roms,
   deleteFromFs = false,
 }: {
-  roms: Rom[];
+  roms: SimpleRom[];
   deleteFromFs: boolean;
 }): Promise<{ data: MessageResponse }> {
   return api.post("/roms/delete", {
