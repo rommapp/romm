@@ -82,8 +82,7 @@ function onTouchEnd() {
       absolute
     />
     <v-hover v-slot="{ isHovering, props }" open-delay="800">
-      <v-img
-        :value="rom.id"
+      <img
         :key="rom.id"
         v-bind="props"
         :src="
@@ -93,24 +92,8 @@ function onTouchEnd() {
             ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
-        :lazy-src="
-          !rom.igdb_id && !rom.moby_id && !rom.has_cover
-            ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-            : !rom.has_cover
-            ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-            : `/assets/romm/resources/${rom.path_cover_s}`
-        "
-        :aspect-ratio="3 / 4"
+        style="aspect-ratio: 3 / 4; width: 100%"
       >
-        <template v-slot:placeholder>
-          <div class="d-flex align-center justify-center fill-height">
-            <v-progress-circular
-              color="romm-accent-1"
-              :width="2"
-              indeterminate
-            />
-          </div>
-        </template>
         <v-expand-transition>
           <div
             v-if="isHovering || !rom.has_cover"
@@ -118,6 +101,7 @@ function onTouchEnd() {
             :class="{
               'text-truncate': galleryViewStore.current == 0 && !isHovering,
             }"
+            style="position: absolute; top: 0; width: 100%;"
           >
             <v-list-item>{{ rom.name }}</v-list-item>
           </div>
@@ -154,7 +138,7 @@ function onTouchEnd() {
             +{{ rom.siblings.length }}
           </v-chip>
         </v-row>
-      </v-img>
+      </img>
     </v-hover>
   </router-link>
 </template>
