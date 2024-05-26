@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
@@ -15,6 +14,7 @@ import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
+import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref, watch } from "vue";
@@ -23,7 +23,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 const route = useRoute();
 const rom = ref<DetailedRom>();
-const platform = ref<PlatformSchema>();
+const platform = ref<Platform>();
 const tab = ref<
   | "details"
   | "saves"

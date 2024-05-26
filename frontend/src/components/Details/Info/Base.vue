@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { PlatformSchema } from "@/__generated__";
+import type { Platform } from "@/stores/platforms";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import type { DetailedRom } from "@/stores/roms";
 
-defineProps<{ rom: DetailedRom; platform: PlatformSchema }>();
+defineProps<{ rom: DetailedRom; platform: Platform }>();
 </script>
 <template>
   <file-info :rom="rom" :platform="platform" />

@@ -3,10 +3,10 @@ import { identity } from "lodash";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
 import type { DetailedRom } from "@/stores/roms";
-import type { PlatformSchema } from "@/__generated__/";
+import type { Platform } from "@/stores/platforms";
 import { useDisplay } from "vuetify";
 
-defineProps<{ rom: DetailedRom; platform: PlatformSchema }>();
+defineProps<{ rom: DetailedRom; platform: Platform }>();
 const { smAndDown } = useDisplay();
 </script>
 <template>
