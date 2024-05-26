@@ -250,7 +250,7 @@ onBeforeRouteUpdate(async (to, _) => {
       <!-- Gallery cards view -->
       <v-col
         class="pa-1"
-        v-show="galleryViewStore.current != 2"
+        v-if="galleryViewStore.current != 2"
         :cols="views[galleryViewStore.current]['size-cols']"
         :xs="views[galleryViewStore.current]['size-xs']"
         :sm="views[galleryViewStore.current]['size-sm']"
@@ -270,7 +270,7 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-col>
 
       <!-- Gallery list view -->
-      <v-col v-show="galleryViewStore.current == 2">
+      <v-col v-if="galleryViewStore.current == 2">
         <game-data-table />
       </v-col>
     </v-row>
