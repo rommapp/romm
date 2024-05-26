@@ -2,13 +2,12 @@ import type {
   AddRomsResponse,
   CursorPage_RomSchema_,
   MessageResponse,
-  RomSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
-import type { Rom } from "@/stores/roms";
+import type { SimpleRom, DetailedRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
@@ -64,7 +63,7 @@ async function getRecentRoms(): Promise<{ data: CursorPage_RomSchema_ }> {
   });
 }
 
-async function getRom({ romId }: { romId: number }): Promise<{ data: Rom }> {
+async function getRom({ romId }: { romId: number }): Promise<{ data: DetailedRom }> {
   return api.get(`/roms/${romId}`);
 }
 
@@ -105,7 +104,7 @@ async function downloadRom({
   rom,
   files = [],
 }: {
-  rom: Rom;
+  rom: SimpleRom;
   files?: string[];
 }) {
   const a = document.createElement("a");
@@ -124,7 +123,7 @@ async function downloadRom({
   }
 }
 
-export type UpdateRom = Rom & {
+export type UpdateRom = SimpleRom & {
   artwork?: File;
 };
 
@@ -136,7 +135,7 @@ async function updateRom({
   rom: UpdateRom;
   renameAsIGDB?: boolean;
   removeCover?: boolean;
-}): Promise<{ data: RomSchema }> {
+}): Promise<{ data: DetailedRom }> {
   var formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
@@ -155,7 +154,7 @@ async function deleteRoms({
   roms,
   deleteFromFs = false,
 }: {
-  roms: Rom[];
+  roms: SimpleRom[];
   deleteFromFs: boolean;
 }): Promise<{ data: MessageResponse }> {
   return api.post("/roms/delete", {
@@ -172,7 +171,7 @@ async function updateRomNote({
   romId: number;
   rawMarkdown: string;
   isPublic: boolean;
-}): Promise<{ data: RomSchema }> {
+}): Promise<{ data: DetailedRom }> {
   return api.put(`/roms/${romId}/note`, {
     raw_markdown: rawMarkdown,
     is_public: isPublic,

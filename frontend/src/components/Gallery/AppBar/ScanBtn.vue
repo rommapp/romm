@@ -3,7 +3,6 @@ import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
-import { computed, ref } from "vue";
 
 // Props
 const scanningStore = storeScanning();

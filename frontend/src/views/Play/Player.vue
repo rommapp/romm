@@ -5,11 +5,11 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import { platformSlugEJSCoreMap } from "@/utils";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { ValueOf } from "@/types";
 
 const props = defineProps<{
-  rom: Rom;
+  rom: DetailedRom;
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;
@@ -200,7 +200,6 @@ window.EJS_onSaveState = function ({
               if (stateRef.value)
                 stateRef.value.screenshot = data.screenshots[0];
               props.rom.user_screenshots = data.screenshots;
-              props.rom.url_screenshots = data.url_screenshots;
               props.rom.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
@@ -243,7 +242,6 @@ window.EJS_onSaveState = function ({
           })
           .then(({ data }) => {
             props.rom.user_screenshots = data.screenshots;
-            props.rom.url_screenshots = data.url_screenshots;
             props.rom.merged_screenshots = data.merged_screenshots;
           })
           .catch((e) => console.log(e));
@@ -330,7 +328,6 @@ window.EJS_onSaveSave = function ({
             .then(({ data }) => {
               if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
               props.rom.user_screenshots = data.screenshots;
-              props.rom.url_screenshots = data.url_screenshots;
               props.rom.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
@@ -368,7 +365,6 @@ window.EJS_onSaveSave = function ({
           })
           .then(({ data }) => {
             props.rom.user_screenshots = data.screenshots;
-            props.rom.url_screenshots = data.url_screenshots;
             props.rom.merged_screenshots = data.merged_screenshots;
           })
           .catch((e) => console.log(e));

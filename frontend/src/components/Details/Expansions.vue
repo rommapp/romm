@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: DetailedRom }>();
 </script>
 <template>
   <v-row no-gutters>

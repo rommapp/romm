@@ -4,7 +4,7 @@ import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import type { SaveSchema, StateSchema } from "@/__generated__";
@@ -13,7 +13,7 @@ const { xs, mdAndDown, lgAndUp } = useDisplay();
 const romsStore = storeRoms();
 const show = ref(false);
 const assetType = ref<"user_saves" | "user_states">("user_saves");
-const romRef = ref<Rom | null>(null);
+const romRef = ref<DetailedRom | null>(null);
 const assets = ref<(SaveSchema | StateSchema)[]>([]);
 const deleteFromFs = ref(false);
 

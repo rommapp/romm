@@ -1,5 +1,5 @@
 import cronstrue from "cronstrue";
-import type { Rom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 
 export const views: Record<
   number,
@@ -75,7 +75,7 @@ export function getDownloadLink({
   rom,
   files = [],
 }: {
-  rom: Rom;
+  rom: SimpleRom;
   files?: string[];
 }) {
   // Force download of all multirom-parts when no part is selected

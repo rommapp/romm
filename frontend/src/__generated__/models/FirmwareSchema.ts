@@ -17,3 +17,4 @@ export type FirmwareSchema = {
     md5_hash: string;
     sha1_hash: string;
 };
+

@@ -1,6 +1,6 @@
 import type { ScreenshotSchema, UploadedScreenshotsResponse } from "@/__generated__";
 import api from "@/services/api/index";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
 export const screenshotApi = api;
 
@@ -8,7 +8,7 @@ async function uploadScreenshots({
   rom,
   screenshots,
 }: {
-  rom: Rom;
+  rom: DetailedRom;
   screenshots: File[];
 }): Promise<{ data: UploadedScreenshotsResponse }> {
   let formData = new FormData();

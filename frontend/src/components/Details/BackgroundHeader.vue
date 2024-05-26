@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { RomSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
 import { useTheme } from "vuetify";
 const theme = useTheme();
 
-const props = defineProps<{ rom: RomSchema }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const imgSrc =
   !props.rom.igdb_id && !props.rom.moby_id && !props.rom.has_cover
     ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`

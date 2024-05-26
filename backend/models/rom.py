@@ -17,6 +17,9 @@ from sqlalchemy import (
     DateTime,
     func,
     UniqueConstraint,
+    select,
+    and_,
+    or_,
 )
 from sqlalchemy.orm import Mapped, relationship
 
@@ -108,14 +111,17 @@ class Rom(BaseModel):
     def get_sibling_roms(self) -> list["Rom"]:
         from handler.database import db_rom_handler
 
-        if not self.igdb_id:
-            return []
-
         with db_rom_handler.session.begin() as session:
             return session.scalars(
-                db_rom_handler.get_roms(platform_id=self.platform_id).filter(
-                    Rom.id != self.id,
-                    Rom.igdb_id == self.igdb_id,
+                select(Rom).where(
+                    and_(
+                        Rom.platform_id == self.platform_id,
+                        Rom.id != self.id,
+                        or_(
+                            and_(Rom.igdb_id == self.igdb_id, Rom.igdb_id != None),  # noqa
+                            and_(Rom.moby_id == self.moby_id, Rom.moby_id != None),  # noqa
+                        ),
+                    )
                 )
             ).all()
 
