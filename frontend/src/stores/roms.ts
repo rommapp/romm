@@ -7,7 +7,7 @@ import type { ExtractPiniaStoreType } from "@/types";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-export type Rom = RomSchema & {
+export type SimpleRom = RomSchema & {
   siblings?: RomSchema[]; // Added by the frontend
 };
 
@@ -16,12 +16,12 @@ export type DetailedRom = DetailedRomSchema;
 export default defineStore("roms", {
   state: () => ({
     _platformID: 0,
-    _all: [] as Rom[],
-    _grouped: [] as Rom[],
+    _all: [] as SimpleRom[],
+    _grouped: [] as SimpleRom[],
     _filteredIDs: [] as number[],
     _searchIDs: [] as number[],
     _selectedIDs: [] as number[],
-    recentRoms: [] as Rom[],
+    recentRoms: [] as SimpleRom[],
     lastSelectedIndex: -1,
     cursor: "" as string | null,
     searchCursor: "" as string | null,
@@ -64,7 +64,7 @@ export default defineStore("roms", {
         )
       )
         .map((games) => ({
-          ...(games.shift() as Rom),
+          ...(games.shift() as SimpleRom),
           siblings: games,
         }))
         .sort((a, b) => {
@@ -74,23 +74,23 @@ export default defineStore("roms", {
     setPlatformID(platformID: number) {
       this._platformID = platformID;
     },
-    setRecentRoms(roms: Rom[]) {
+    setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
     },
     // All roms
-    set(roms: Rom[]) {
+    set(roms: SimpleRom[]) {
       this._all = roms;
       this._reorder();
     },
-    add(roms: Rom[]) {
+    add(roms: SimpleRom[]) {
       this._all = this._all.concat(roms);
       this._reorder();
     },
-    update(rom: Rom) {
+    update(rom: SimpleRom) {
       this._all = this._all.map((value) => (value.id === rom.id ? rom : value));
       this._reorder();
     },
-    remove(roms: Rom[]) {
+    remove(roms: SimpleRom[]) {
       this._all = this._all.filter((value) => {
         return !roms.find((rom) => {
           return rom.id === value.id;
@@ -116,7 +116,7 @@ export default defineStore("roms", {
       this.lastSelectedIndex = -1;
     },
     // Filter roms by gallery filter store state
-    setFiltered(roms: Rom[], galleryFilter: GalleryFilterStore) {
+    setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = roms.map((rom) => rom.id);
       if (galleryFilter.filterUnmatched) this.filterUnmatched();
       if (galleryFilter.selectedGenre) {
@@ -166,17 +166,17 @@ export default defineStore("roms", {
         .map((rom) => rom.id);
     },
     // Search roms
-    setSearch(roms: Rom[]) {
+    setSearch(roms: SimpleRom[]) {
       this._searchIDs = roms.map((rom) => rom.id);
     },
     // Selected roms
-    setSelection(roms: Rom[]) {
+    setSelection(roms: SimpleRom[]) {
       this._selectedIDs = roms.map((rom) => rom.id);
     },
-    addToSelection(rom: Rom) {
+    addToSelection(rom: SimpleRom) {
       this._selectedIDs.push(rom.id);
     },
-    removeFromSelection(rom: Rom) {
+    removeFromSelection(rom: SimpleRom) {
       this._selectedIDs = this._selectedIDs.filter((id) => {
         return id !== rom.id;
       });
