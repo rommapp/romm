@@ -10,7 +10,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 <template>
   <v-btn @click="emitter?.emit('toggleDrawer', null)" rounded="0" icon>
     <v-avatar rounded="0">
-      <v-img src="/assets/isotipo.svg" />
+      <img src="/assets/isotipo.svg" />
     </v-avatar>
   </v-btn>
 </template>
