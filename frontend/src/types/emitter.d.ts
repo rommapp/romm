@@ -1,6 +1,6 @@
 import type { SaveSchema, SearchRomSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
-import type { Rom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
 export type UserItem = User & {
@@ -17,12 +17,12 @@ export type SnackbarStatus = {
 
 export type Events = {
   showDeletePlatformDialog: Platform;
-  showMatchRomDialog: Rom;
+  showMatchRomDialog: SimpleRom;
   showSelectSourceDialog: SearchRomSchema;
   showSearchRomDialog: null;
-  showEditRomDialog: Rom;
+  showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;
-  showDeleteRomDialog: Rom[];
+  showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
   showFirmwareDialog: Platform;
   showAddPlatformDialog: null;
@@ -47,11 +47,11 @@ export type Events = {
   showEditUserDialog: User;
   showDeleteUserDialog: User;
   showDeleteSavesDialog: {
-    rom: Rom;
+    rom: DetailedRom;
     saves: SaveSchema[];
   };
   showDeleteStatesDialog: {
-    rom: Rom;
+    rom: DetailedRom;
     states: StateSchema[];
   };
   showEmulation: null;
@@ -69,5 +69,5 @@ export type Events = {
   filterBarShow: null;
   filterBarReset: null;
   sortBarShow: null;
-  romUpdated: Rom;
+  romUpdated: DetailedRom;
 };

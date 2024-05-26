@@ -8,3 +8,4 @@ export type WatcherDict = {
     TITLE: string;
     MESSAGE: string;
 };
+

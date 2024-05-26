@@ -7,3 +7,4 @@ export type AddRomsResponse = {
     uploaded_roms: Array<string>;
     skipped_roms: Array<string>;
 };
+

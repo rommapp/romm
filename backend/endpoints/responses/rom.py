@@ -93,15 +93,7 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[str]
-    url_screenshots: list[str]
-    merged_screenshots: list[str]
     full_path: str
-
-    sibling_roms: list["RomSchema"] = Field(default_factory=list)
-    user_saves: list[SaveSchema] = Field(default_factory=list)
-    user_states: list[StateSchema] = Field(default_factory=list)
-    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    user_notes: list[RomNoteSchema] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -119,8 +111,17 @@ class RomSchema(BaseModel):
             .lower()
         )
 
+
+class DetailedRomSchema(RomSchema):
+    merged_screenshots: list[str]
+    sibling_roms: list["RomSchema"] = Field(default_factory=list)
+    user_saves: list[SaveSchema] = Field(default_factory=list)
+    user_states: list[StateSchema] = Field(default_factory=list)
+    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
+    user_notes: list[RomNoteSchema] = Field(default_factory=list)
+
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "RomSchema":
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "DetailedRomSchema":
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 

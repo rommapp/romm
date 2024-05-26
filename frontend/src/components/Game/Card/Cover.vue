@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity, isNull } from "lodash";
 import { ref } from "vue";
@@ -9,7 +9,7 @@ import { useTheme } from "vuetify";
 
 // Props
 defineProps<{
-  rom: Rom;
+  rom: SimpleRom;
   isHoveringTop: boolean;
   showSelector: boolean;
   selected: boolean;

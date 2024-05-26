@@ -7,10 +7,10 @@ import romApi from "@/services/api/rom";
 import firmwareApi from "@/services/api/firmware";
 import { useRoute } from "vue-router";
 import Player from "@/views/Play/Player.vue";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
 const route = useRoute();
-const rom = ref<Rom | null>(null);
+const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 
 const biosRef = ref<FirmwareSchema | null>(null);
