@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LazyImage from "@/components/LazyImage.vue";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -82,9 +83,10 @@ function onTouchEnd() {
       absolute
     />
     <v-hover v-slot="{ isHovering, props }" open-delay="800">
-      <img
+      <lazy-image
         :key="rom.id"
         v-bind="props"
+        :placeholder="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
         :src="
           !rom.igdb_id && !rom.moby_id && !rom.has_cover
             ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
@@ -101,7 +103,7 @@ function onTouchEnd() {
             :class="{
               'text-truncate': galleryViewStore.current == 0 && !isHovering,
             }"
-            style="position: absolute; top: 0; width: 100%;"
+            style="position: absolute; top: 0; width: 100%"
           >
             <v-list-item>{{ rom.name }}</v-list-item>
           </div>
@@ -138,7 +140,7 @@ function onTouchEnd() {
             +{{ rom.siblings.length }}
           </v-chip>
         </v-row>
-      </img>
+      </lazy-image>
     </v-hover>
   </router-link>
 </template>
