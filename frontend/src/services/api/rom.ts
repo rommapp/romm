@@ -32,7 +32,7 @@ async function uploadRoms({
 
 async function getRoms({
   platformId = null,
-  size = 60,
+  size = 5000,
   cursor = "",
   searchTerm = "",
   orderBy = "name",

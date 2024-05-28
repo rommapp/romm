@@ -11,7 +11,7 @@ import storeRoms from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { RomSelectEvent } from "@/types/rom";
-import { normalizeString, toTop, views } from "@/utils";
+import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
@@ -34,7 +34,10 @@ const {
   cursor,
   searchCursor,
   platformID,
+  itemsPerBatch,
 } = storeToRefs(romsStore);
+const itemsShown = ref(itemsPerBatch.value);
+const noPlatformError = ref(false);
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -89,7 +92,9 @@ async function fetchRoms() {
         color: "red",
         timeout: 4000,
       });
-      console.error(`Couldn't fetch roms for platform ID ${platformID.value}: ${error}`);
+      console.error(
+        `Couldn't fetch roms for platform ID ${platformID.value}: ${error}`
+      );
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -108,6 +113,7 @@ async function onFilterChange() {
     return;
   }
   await fetchRoms();
+  emitter?.emit("updateDataTablePages", null);
 }
 
 function selectRom({ event, index, selected }: RomSelectEvent) {
@@ -168,6 +174,16 @@ function resetGallery() {
   romsStore.reset();
   scrolledToTop.value = true;
   galleryFilterStore.reset();
+  itemsShown.value = itemsPerBatch.value;
+}
+
+function scrollToTop() {
+  window.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: "smooth",
+  });
+  scrolledToTop.value = true;
 }
 
 function onScroll() {
@@ -175,11 +191,12 @@ function onScroll() {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
     scrolledToTop.value = scrollTop === 0;
 
-    if (!cursor.value && !searchCursor.value) return;
+    // if (!cursor.value && !searchCursor.value) return;
 
-    const scrollOffset = 60;
+    const scrollOffset = 1000;
     if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-      await fetchRoms();
+      // await fetchRoms();
+      itemsShown.value = itemsShown.value + itemsPerBatch.value;
       setFilters();
     }
   }, 100);
@@ -188,13 +205,20 @@ function onScroll() {
 onMounted(async () => {
   const storedPlatformID = romsStore.platformID;
   const platformID = Number(route.params.platform);
-  
+
   romsStore.setPlatformID(platformID);
 
   const platform = platforms.get(platformID);
   if (!platform) {
-    const { data } = await platformApi.getPlatform(platformID)
-    platforms.add(data);
+    // const { data } =
+    await platformApi
+      .getPlatform(platformID)
+      .then((data) => {
+        platforms.add(data.data);
+      })
+      .catch((error) => {
+        noPlatformError.value = true;
+      });
   }
 
   // If platform is different, reset store and fetch roms
@@ -227,13 +251,13 @@ onBeforeRouteUpdate(async (to, _) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
-  
+
   const platformID = Number(to.params.platform);
   romsStore.setPlatformID(platformID);
 
   const platform = platforms.get(platformID);
   if (!platform) {
-    const { data } = await platformApi.getPlatform(platformID)
+    const { data } = await platformApi.getPlatform(platformID);
     platforms.add(data);
   }
 
@@ -248,6 +272,7 @@ onBeforeRouteUpdate(async (to, _) => {
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters>
       <!-- Gallery cards view -->
+      <!-- v-show instead of v-if to avoid recalculate -->
       <v-col
         class="pa-1"
         v-if="galleryViewStore.current != 2"
@@ -257,7 +282,7 @@ onBeforeRouteUpdate(async (to, _) => {
         :md="views[galleryViewStore.current]['size-md']"
         :lg="views[galleryViewStore.current]['size-lg']"
         :xl="views[galleryViewStore.current]['size-xl']"
-        v-for="rom in filteredRoms"
+        v-for="rom in filteredRoms.slice(0, itemsShown)"
         :key="rom.id"
       >
         <game-card
@@ -276,50 +301,62 @@ onBeforeRouteUpdate(async (to, _) => {
     </v-row>
   </template>
 
+  <template v-if="noPlatformError">
+    <v-empty-state
+      headline="Whoops, 404"
+      title="Platform not found"
+      text="The platform you were looking for does not exist"
+      icon="mdi-controller-off"
+    ></v-empty-state>
+  </template>
+
   <v-layout-item
-    class="text-end"
+    v-show="!scrolledToTop"
+    class="text-end pr-2"
     :model-value="true"
     position="bottom"
-    size="88"
+    size="65"
   >
-    <div class="ma-4">
-      <v-scroll-y-reverse-transition>
-        <v-btn
-          id="scrollToTop"
-          v-show="!scrolledToTop"
-          color="primary"
-          elevation="8"
-          icon
-          class="mr-2"
-          size="large"
-          @click="toTop()"
-          ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
+    <v-row no-gutters>
+      <v-col>
+        <v-scroll-y-reverse-transition>
+          <v-btn
+            id="scrollToTop"
+            color="primary"
+            elevation="8"
+            icon
+            class="ml-2"
+            size="large"
+            @click="scrollToTop()"
+            ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
+          >
+        </v-scroll-y-reverse-transition>
+        <v-menu
+          location="top"
+          v-model="fabMenu"
+          :transition="
+            fabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
+          "
         >
-      </v-scroll-y-reverse-transition>
-      <v-menu
-        location="top"
-        v-model="fabMenu"
-        :transition="
-          fabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
-        "
-      >
-        <template v-slot:activator="{ props }">
-          <v-fab-transition>
-            <v-btn
-              v-show="romsStore._selectedIDs.length > 0"
-              color="romm-accent-1"
-              v-bind="props"
-              elevation="8"
-              icon
-              size="large"
-              >{{ romsStore._selectedIDs.length }}</v-btn
-            >
-          </v-fab-transition>
-        </template>
+          <template v-slot:activator="{ props }">
+            <v-fab-transition>
+              <v-btn
+                v-show="romsStore._selectedIDs.length > 0"
+                color="romm-accent-1"
+                v-bind="props"
+                elevation="8"
+                class="ml-2"
+                icon
+                size="large"
+                >{{ romsStore._selectedIDs.length }}</v-btn
+              >
+            </v-fab-transition>
+          </template>
 
-        <fab-menu />
-      </v-menu>
-    </div>
+          <fab-menu />
+        </v-menu>
+      </v-col>
+    </v-row>
   </v-layout-item>
 </template>
 

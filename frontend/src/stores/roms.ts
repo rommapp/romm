@@ -26,6 +26,7 @@ export default defineStore("roms", {
     cursor: "" as string | null,
     searchCursor: "" as string | null,
     selecting: false,
+    itemsPerBatch: 72,
   }),
 
   getters: {

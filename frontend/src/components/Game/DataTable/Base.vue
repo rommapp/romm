@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, inject, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
@@ -7,6 +7,8 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import {
   formatBytes,
   languageToEmoji,
@@ -62,21 +64,39 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-const PER_PAGE_OPTIONS = [
-  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
-] as const;
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("updateDataTablePages", updateDataTablePages);
 
 // Props
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const auth = storeAuth();
-const romsPerPage = ref(-1);
+const page = ref(1);
+const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
+const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
+const pageCount = ref(0);
 
 // Functions
 function rowClick(_: Event, row: any) {
   router.push({ name: "rom", params: { rom: row.item.id } });
 }
+
+function updateDataTablePages() {
+  pageCount.value = Math.ceil(
+    romsStore.filteredRoms.length / romsPerPage.value
+  );
+}
+
+watch(romsPerPage, async () => {
+  localStorage.setItem("romsPerPage", romsPerPage.value.toString());
+  updateDataTablePages();
+});
+
+onMounted(() => {
+  updateDataTablePages();
+});
 </script>
 
 <template>
@@ -91,6 +111,7 @@ function rowClick(_: Event, row: any) {
     @click:row="rowClick"
     show-select
     v-model="romsStore._selectedIDs"
+    v-model:page="page"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
@@ -100,15 +121,8 @@ function rowClick(_: Event, row: any) {
           :indeterminate="true"
           absolute
         />
-        <v-img
+        <img
           :src="
-            !item.igdb_id && !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              : `/assets/romm/resources/${item.path_cover_s}`
-          "
-          :lazy-src="
             !item.igdb_id && !item.has_cover
               ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
               : !item.has_cover
@@ -118,6 +132,16 @@ function rowClick(_: Event, row: any) {
           min-height="150"
         />
       </v-avatar>
+    </template>
+    <template v-slot:item.name="{ item }">
+      <span>
+        {{ item.name }}
+      </span>
+    </template>
+    <template v-slot:item.file_name="{ item }">
+      <span>
+        {{ item.file_name }}
+      </span>
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
@@ -170,6 +194,32 @@ function rowClick(_: Event, row: any) {
         </template>
         <admin-menu :rom="item" />
       </v-menu>
+    </template>
+
+    <template v-slot:bottom>
+      <v-divider class="border-opacity-25" />
+      <v-row no-gutters class="pt-2 px-6 align-center">
+        <v-col cols="11" class="px-6">
+          <v-pagination
+            class="mr-6"
+            rounded="0"
+            :show-first-last-page="true"
+            active-color="romm-accent-1"
+            v-model="page"
+            :length="pageCount"
+          ></v-pagination>
+        </v-col>
+        <v-col>
+          <v-select
+            label="Roms per page"
+            density="compact"
+            variant="outlined"
+            :items="PER_PAGE_OPTIONS"
+            v-model="romsPerPage"
+            hide-details
+          />
+        </v-col>
+      </v-row>
     </template>
   </v-data-table>
 </template>
