@@ -174,6 +174,7 @@ function resetGallery() {
   romsStore.reset();
   scrolledToTop.value = true;
   galleryFilterStore.reset();
+  itemsShown.value = itemsPerBatch.value;
 }
 
 function scrollToTop() {
