@@ -27,7 +27,7 @@ const {
   <div v-if="showFilterBar">
     <v-row no-gutters class="pa-1">
       <filter-unmatched-btn />
-      <v-select
+      <v-autocomplete
         hide-details
         clearable
         label="Genre"
@@ -37,8 +37,8 @@ const {
         @update:model-value="emitter?.emit('filter', null);"
         v-model="selectedGenre"
         :items="galleryFilterStore.filterGenres"
-      ></v-select>
-      <v-select
+      ></v-autocomplete>
+      <v-autocomplete
         hide-details
         clearable
         label="Franchise"
@@ -48,8 +48,8 @@ const {
         @update:model-value="emitter?.emit('filter', null)"
         v-model="selectedFranchise"
         :items="galleryFilterStore.filterFranchises"
-      ></v-select>
-      <v-select
+      ></v-autocomplete>
+      <v-autocomplete
         hide-details
         clearable
         label="Collection"
@@ -59,8 +59,8 @@ const {
         @update:model-value="emitter?.emit('filter', null)"
         v-model="selectedCollection"
         :items="galleryFilterStore.filterCollections"
-      ></v-select>
-      <v-select
+      ></v-autocomplete>
+      <v-autocomplete
         hide-details
         clearable
         label="Company"
@@ -70,7 +70,7 @@ const {
         @update:model-value="emitter?.emit('filter', null)"
         v-model="selectedCompany"
         :items="galleryFilterStore.filterCompanies"
-      ></v-select>
+      ></v-autocomplete>
     </v-row>
     <v-divider
       :thickness="2"
