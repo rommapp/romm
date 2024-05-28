@@ -68,6 +68,7 @@ export type Events = {
   filter: null;
   filterBarShow: null;
   filterBarReset: null;
+  updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;
 };
