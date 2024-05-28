@@ -64,11 +64,7 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-const PER_PAGE_OPTIONS = [
-  { value: 25, title: "25" },
-  { value: 50, title: "50" },
-  { value: 100, title: "100" },
-] as const;
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("updateDataTablePages", updateDataTablePages);
 
@@ -218,7 +214,7 @@ onMounted(() => {
             label="Roms per page"
             density="compact"
             variant="outlined"
-            :items="[10, 25, 50]"
+            :items="PER_PAGE_OPTIONS"
             v-model="romsPerPage"
             hide-details
           />
