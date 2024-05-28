@@ -42,6 +42,7 @@ emitter?.on("showEmulation", () => {
   showEmulation.value = !showEmulation.value;
   tab.value = showEmulation.value ? "emulation" : "details";
 });
+const noRomError = ref(false);
 
 async function fetchDetails() {
   if (!route.params.rom) return;
@@ -52,6 +53,7 @@ async function fetchDetails() {
       rom.value = response.data;
     })
     .catch((error) => {
+
       console.log(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
@@ -69,6 +71,7 @@ async function fetchDetails() {
       platform.value = response.data;
     })
     .catch((error) => {
+      noRomError.value = true;
       console.log(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
@@ -268,6 +271,15 @@ watch(
         </v-col>
       </template>
     </v-row>
+  </template>
+
+  <template v-if="noRomError">
+    <v-empty-state
+      headline="Whoops, 404"
+      title="Game not found"
+      text="The game you were looking for does not exist"
+      icon="mdi-disc-alert"
+    ></v-empty-state>
   </template>
 </template>
 

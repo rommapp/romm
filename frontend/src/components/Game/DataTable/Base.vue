@@ -63,7 +63,9 @@ const HEADERS = [
 ] as const;
 
 const PER_PAGE_OPTIONS = [
-  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
+  { value: 25, title: "25" },
+  { value: 50, title: "50" },
+  { value: 100, title: "100" },
 ] as const;
 
 // Props
@@ -71,7 +73,7 @@ const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const auth = storeAuth();
-const romsPerPage = ref(-1);
+const romsPerPage = ref(25);
 
 // Functions
 function rowClick(_: Event, row: any) {
@@ -100,15 +102,8 @@ function rowClick(_: Event, row: any) {
           :indeterminate="true"
           absolute
         />
-        <v-img
+        <img
           :src="
-            !item.igdb_id && !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              : `/assets/romm/resources/${item.path_cover_s}`
-          "
-          :lazy-src="
             !item.igdb_id && !item.has_cover
               ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
               : !item.has_cover

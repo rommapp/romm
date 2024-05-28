@@ -48,14 +48,6 @@ export const views: Record<
 
 export const defaultAvatarPath = "/assets/default/user.png";
 
-export function toTop() {
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "smooth",
-  });
-}
-
 export function normalizeString(s: string) {
   return s
     .toLowerCase()
