@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, inject, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
@@ -7,6 +7,8 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import {
   formatBytes,
   languageToEmoji,
@@ -67,18 +69,36 @@ const PER_PAGE_OPTIONS = [
   { value: 50, title: "50" },
   { value: 100, title: "100" },
 ] as const;
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("updateDataTablePages", updateDataTablePages);
 
 // Props
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const auth = storeAuth();
-const romsPerPage = ref(25);
+const page = ref(1);
+const romsPerPage = ref(10);
+const pageCount = ref(0);
 
 // Functions
 function rowClick(_: Event, row: any) {
   router.push({ name: "rom", params: { rom: row.item.id } });
 }
+
+function updateDataTablePages() {
+  pageCount.value = Math.ceil(
+    romsStore.filteredRoms.length / romsPerPage.value
+  );
+}
+
+watch(romsPerPage, async () => {
+  updateDataTablePages();
+});
+
+onMounted(() => {
+  updateDataTablePages();
+});
 </script>
 
 <template>
@@ -93,6 +113,7 @@ function rowClick(_: Event, row: any) {
     @click:row="rowClick"
     show-select
     v-model="romsStore._selectedIDs"
+    v-model:page="page"
   >
     <template v-slot:item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
@@ -113,6 +134,16 @@ function rowClick(_: Event, row: any) {
           min-height="150"
         />
       </v-avatar>
+    </template>
+    <template v-slot:item.name="{ item }">
+      <span>
+        {{ item.name }}
+      </span>
+    </template>
+    <template v-slot:item.file_name="{ item }">
+      <span>
+        {{ item.file_name }}
+      </span>
     </template>
     <template v-slot:item.file_size_bytes="{ item }">
       <span>
@@ -165,6 +196,32 @@ function rowClick(_: Event, row: any) {
         </template>
         <admin-menu :rom="item" />
       </v-menu>
+    </template>
+
+    <template v-slot:bottom>
+      <v-divider class="border-opacity-25" />
+      <v-row no-gutters class="pt-2 px-6 align-center">
+        <v-col cols="11" class="px-6">
+          <v-pagination
+            class="mr-6"
+            rounded="0"
+            :show-first-last-page="true"
+            active-color="romm-accent-1"
+            v-model="page"
+            :length="pageCount"
+          ></v-pagination>
+        </v-col>
+        <v-col>
+          <v-select
+            label="Roms per page"
+            density="compact"
+            variant="outlined"
+            :items="[10, 25, 50]"
+            v-model="romsPerPage"
+            hide-details
+          />
+        </v-col>
+      </v-row>
     </template>
   </v-data-table>
 </template>

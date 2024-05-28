@@ -113,6 +113,7 @@ async function onFilterChange() {
     return;
   }
   await fetchRoms();
+  emitter?.emit("updateDataTablePages", null);
 }
 
 function selectRom({ event, index, selected }: RomSelectEvent) {
@@ -309,6 +310,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <v-layout-item
+    v-show="!scrolledToTop"
     class="text-end pr-2"
     :model-value="true"
     position="bottom"
@@ -319,7 +321,6 @@ onBeforeRouteUpdate(async (to, _) => {
         <v-scroll-y-reverse-transition>
           <v-btn
             id="scrollToTop"
-            v-show="!scrolledToTop"
             color="primary"
             elevation="8"
             icon
