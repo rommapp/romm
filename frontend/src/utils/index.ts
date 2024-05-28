@@ -70,16 +70,13 @@ export function getDownloadLink({
   rom: SimpleRom;
   files?: string[];
 }) {
-  // Force download of all multirom-parts when no part is selected
-  if (files.length == 0) {
-    files = rom.files;
+  const queryParams = new URLSearchParams();
+  if (files.length) {
+    files.forEach((file) => queryParams.append("files", file));
   }
-
-  var filesParams = "";
-  files.forEach((file) => {
-    filesParams += `files=${file}&`;
-  });
-  return `/api/roms/${rom.id}/content/${rom.file_name}?${filesParams}`;
+  return `/api/roms/${rom.id}/content/${
+    rom.file_name
+  }?${queryParams.toString()}`;
 }
 
 /**

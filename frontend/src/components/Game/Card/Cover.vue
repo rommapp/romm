@@ -96,50 +96,52 @@ function onTouchEnd() {
         "
         style="aspect-ratio: 3 / 4; width: 100%"
       >
-        <v-expand-transition>
-          <div
-            v-if="isHovering || !rom.has_cover"
-            class="translucent text-caption"
-            :class="{
-              'text-truncate': galleryViewStore.current == 0 && !isHovering,
-            }"
-            style="position: absolute; top: 0; width: 100%"
-          >
-            <v-list-item>{{ rom.name }}</v-list-item>
-          </div>
-        </v-expand-transition>
-        <v-row no-gutters class="text-white px-1">
-          <v-chip
-            v-if="rom.regions.filter(identity).length > 0 && showRegions"
-            :title="`Regions: ${rom.regions.join(', ')}`"
-            class="translucent mr-1 mt-1 px-1"
-            :class="{ 'emoji-collection': rom.regions.length > 3 }"
-            density="compact"
-          >
-            <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
-              {{ regionToEmoji(region) }}
-            </span>
-          </v-chip>
-          <v-chip
-            v-if="rom.languages.filter(identity).length > 0 && showLanguages"
-            :title="`Languages: ${rom.languages.join(', ')}`"
-            class="translucent mr-1 mt-1 px-1"
-            :class="{ 'emoji-collection': rom.languages.length > 3 }"
-            density="compact"
-          >
-            <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
-              {{ languageToEmoji(language) }}
-            </span>
-          </v-chip>
-          <v-chip
-            v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
-            :title="`${rom.siblings.length + 1} versions`"
-            class="translucent mr-1 mt-1"
-            density="compact"
-          >
-            +{{ rom.siblings.length }}
-          </v-chip>
-        </v-row>
+        <div style="position: absolute; top: 0; width: 100%;">
+          <v-expand-transition>
+            <div
+              v-if="isHovering || !rom.has_cover"
+              class="translucent text-caption"
+              :class="{
+                'text-truncate': galleryViewStore.current == 0 && !isHovering,
+              }"
+              
+            >
+              <v-list-item>{{ rom.name }}</v-list-item>
+            </div>
+          </v-expand-transition>
+          <v-row no-gutters class="text-white px-1">
+            <v-chip
+              v-if="rom.regions.filter(identity).length > 0 && showRegions"
+              :title="`Regions: ${rom.regions.join(', ')}`"
+              class="translucent mr-1 mt-1 px-1"
+              :class="{ 'emoji-collection': rom.regions.length > 3 }"
+              density="compact"
+            >
+              <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
+                {{ regionToEmoji(region) }}
+              </span>
+            </v-chip>
+            <v-chip
+              v-if="rom.languages.filter(identity).length > 0 && showLanguages"
+              :title="`Languages: ${rom.languages.join(', ')}`"
+              class="translucent mr-1 mt-1 px-1"
+              :class="{ 'emoji-collection': rom.languages.length > 3 }"
+              density="compact"
+            >
+              <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
+                {{ languageToEmoji(language) }}
+              </span>
+            </v-chip>
+            <v-chip
+              v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
+              :title="`${rom.siblings.length + 1} versions`"
+              class="translucent mr-1 mt-1"
+              density="compact"
+            >
+              +{{ rom.siblings.length }}
+            </v-chip>
+          </v-row>
+        </div>
       </lazy-image>
     </v-hover>
   </router-link>
