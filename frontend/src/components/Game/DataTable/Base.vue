@@ -78,7 +78,8 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const auth = storeAuth();
 const page = ref(1);
-const romsPerPage = ref(10);
+const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
+const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
 const pageCount = ref(0);
 
 // Functions
@@ -93,6 +94,7 @@ function updateDataTablePages() {
 }
 
 watch(romsPerPage, async () => {
+  localStorage.setItem("romsPerPage", romsPerPage.value.toString());
   updateDataTablePages();
 });
 
