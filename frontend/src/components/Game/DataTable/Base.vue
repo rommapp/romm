@@ -12,7 +12,7 @@ import type { Emitter } from "mitt";
 import {
   formatBytes,
   languageToEmoji,
-  platformSlugEJSCoreMap,
+  ejsCoresMap,
   regionToEmoji,
 } from "@/utils";
 import { useTheme } from "vuetify";
@@ -171,7 +171,7 @@ onMounted(() => {
         <v-icon>mdi-download</v-icon>
       </v-btn>
       <v-btn
-        v-if="item.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
+        v-if="item.platform_slug.toLowerCase() in ejsCoresMap"
         size="small"
         variant="text"
         :href="`/play/${item.id}`"

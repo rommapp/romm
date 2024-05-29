@@ -4,7 +4,7 @@ import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import type { SimpleRom } from "@/stores/roms";
-import { platformSlugEJSCoreMap } from "@/utils";
+import { ejsCoresMap } from "@/utils";
 
 // Props
 defineProps<{ rom: SimpleRom }>();
@@ -25,7 +25,7 @@ const downloadStore = storeDownload();
         variant="text"
       />
       <v-btn
-        v-if="rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
+        v-if="rom.platform_slug.toLowerCase() in ejsCoresMap"
         class="action-bar-btn"
         :href="`/play/${rom.id}`"
         icon="mdi-play"
