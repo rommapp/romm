@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { RomFile } from './RomFile';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomNoteSchema } from './RomNoteSchema';
@@ -46,7 +47,7 @@ export type DetailedRomSchema = {
     languages: Array<string>;
     tags: Array<string>;
     multi: boolean;
-    files: Array<string>;
+    files: Array<RomFile>;
     full_path: string;
     merged_screenshots: Array<string>;
     sibling_roms?: Array<RomSchema>;

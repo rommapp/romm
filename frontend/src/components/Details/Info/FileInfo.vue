@@ -37,8 +37,8 @@ const downloadStore = storeDownload();
       <v-select
         :label="rom.file_name"
         item-title="file_name"
-        v-model="downloadStore.filesToDownloadMultiFileRom"
-        :items="rom.files"
+        v-model="downloadStore.filesToDownload"
+        :items="rom.files.map(f => f.filename)"
         class="my-2"
         density="compact"
         variant="outlined"

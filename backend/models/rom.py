@@ -22,7 +22,14 @@ from sqlalchemy import (
     or_,
 )
 from sqlalchemy.orm import Mapped, relationship
+from typing_extensions import TypedDict
 
+
+class RomFile(TypedDict):
+    filename: str
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
 
 class Rom(BaseModel):
     __tablename__ = "roms"
@@ -61,7 +68,7 @@ class Rom(BaseModel):
     )
 
     multi: bool = Column(Boolean, default=False)
-    files: JSON = Column(JSON, default=[])
+    files: list[RomFile] = Column(JSON, default=[])
 
     platform_id = Column(
         Integer(),

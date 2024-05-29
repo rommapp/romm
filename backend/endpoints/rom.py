@@ -25,6 +25,7 @@ from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
 from urllib.parse import quote
+
 router = APIRouter()
 
 
@@ -154,7 +155,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     return FileResponse(
-        path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
+        path=rom_path if not rom.multi else f'{rom_path}/{rom.files[0]["filename"]}',
         filename=file_name,
         headers={
             "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
@@ -187,7 +188,7 @@ def get_rom_content(
 
     rom = db_rom_handler.get_roms(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = files or rom.files
+    files_to_download = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)
@@ -237,7 +238,9 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'
+        },
         emit_body={"id": rom.id},
     )
 

@@ -26,6 +26,7 @@ export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyGamesPlatform } from './models/MobyGamesPlatform';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
+export type { RomFile } from './models/RomFile';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomNoteSchema } from './models/RomNoteSchema';

@@ -10,7 +10,7 @@ from handler.socket_handler import socket_handler
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
-from models.rom import Rom
+from models.rom import Rom, RomFile
 
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
@@ -92,7 +92,7 @@ class RomSchema(BaseModel):
     tags: list[str]
 
     multi: bool
-    files: list[str]
+    files: list[RomFile]
     full_path: str
 
     class Config:
