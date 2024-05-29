@@ -31,6 +31,7 @@ class RomFile(TypedDict):
     md5_hash: str
     sha1_hash: str
 
+
 class Rom(BaseModel):
     __tablename__ = "roms"
 

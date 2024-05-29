@@ -25,12 +25,19 @@ def test_scan_platform():
 @pytest.mark.vcr
 async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
+    files = [{
+        "file_name": "Paper Mario (USA).z64",
+        "crc_hash": "9d0d1c6e",
+        "md5_hash": "f1b7f9e4f4d0e0b7b9faa1b1f2f8e4e9",
+        "sha1_hash": "c3c7f9f3d1d0e0b7b9faa1b1f2f8e4e9",
+    }]
+
     rom = await scan_rom(
         platform,
         {
             "file_name": "Paper Mario (USA).z64",
             "multi": False,
-            "files": ["Paper Mario (USA).z64"],
+            "files": files,
         },
         ScanType.QUICK,
     )
@@ -40,11 +47,6 @@ async def test_scan_rom():
     assert rom.name == "Paper Mario"
     assert rom.igdb_id == 3340
     assert rom.file_size_bytes == 1024
-    assert rom.files == [{
-        "file_name": "Paper Mario (USA).z64",
-        "crc_hash": "9d0d1c6e",
-        "md5_hash": "f1b7f9e4f4d0e0b7b9faa1b1f2f8e4e9",
-        "sha1_hash": "c3c7f9f3d1d0e0b7b9faa1b1f2f8e4e9",
-    }]
+    assert rom.files == files
     assert rom.tags == []
     assert not rom.multi
