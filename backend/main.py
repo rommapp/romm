@@ -3,7 +3,13 @@ import sys
 
 import alembic.config
 import uvicorn
-from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY, DISABLE_CSRF_PROTECTION
+from config import (
+    DEV_HOST,
+    DEV_PORT,
+    ROMM_AUTH_SECRET_KEY,
+    DISABLE_CSRF_PROTECTION,
+    SCAN_TIMEOUT,
+)
 from contextlib import asynccontextmanager
 from endpoints import (
     auth,
@@ -22,7 +28,7 @@ from endpoints import (
     feeds,
     firmware,
 )
-import endpoints.sockets.scan  # noqa
+from endpoints.sockets.scan import scan_platforms
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
@@ -32,6 +38,8 @@ from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
+from handler.redis_handler import high_prio_queue
+from handler.scan_handler import ScanType
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 
@@ -102,6 +110,11 @@ app.mount("/ws", socket_handler.socket_app)
 if __name__ == "__main__":
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
+
+    # Run a no-scan in the background on startup
+    high_prio_queue.enqueue(
+        scan_platforms, [], ScanType.NO_SCAN, [], [], job_timeout=SCAN_TIMEOUT
+    )
 
     # Run application
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
