@@ -3,16 +3,16 @@ import { ref, onBeforeUnmount } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import { platformSlugEJSCoreMap } from "@/utils";
+import { ejsCoresMap } from "@/utils";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
-import type { ValueOf } from "@/types";
 
 const props = defineProps<{
   rom: DetailedRom;
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;
+  core: string | null;
 }>();
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
@@ -21,13 +21,12 @@ onBeforeUnmount(() => {
   window.location.reload();
 });
 
-type EJSPlatformSlug = keyof typeof platformSlugEJSCoreMap;
-type EJSCore = ValueOf<typeof platformSlugEJSCoreMap>;
+export type EJSPlatformSlug = keyof typeof ejsCoresMap;
 
 // Declare global variables for EmulatorJS
 declare global {
   interface Window {
-    EJS_core: EJSCore;
+    EJS_core: string;
     EJS_biosUrl: string;
     EJS_player: string;
     EJS_pathtodata: string;
@@ -53,10 +52,10 @@ declare global {
   }
 }
 
+const supportedCores =
+  ejsCoresMap[props.rom.platform_slug.toLowerCase() as EJSPlatformSlug];
 window.EJS_core =
-  platformSlugEJSCoreMap[
-    props.rom.platform_slug.toLowerCase() as EJSPlatformSlug
-  ];
+  supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = props.rom.id;
 window.EJS_gameUrl = `/api/roms/${props.rom.id}/content/${props.rom.file_name}`;
 window.EJS_biosUrl = props.bios

@@ -5,7 +5,7 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, platformSlugEJSCoreMap } from "@/utils";
+import { getDownloadLink, ejsCoresMap } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
@@ -16,7 +16,7 @@ const auth = storeAuth();
 const emulation = ref(false);
 const playInfoIcon = ref("mdi-play");
 const emulationSupported =
-  props.rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap;
+  props.rom.platform_slug.toLowerCase() in ejsCoresMap;
 
 function toggleEmulation() {
   emulation.value = !emulation.value;
