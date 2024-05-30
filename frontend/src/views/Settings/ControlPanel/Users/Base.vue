@@ -41,20 +41,18 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-
-const PER_PAGE_OPTIONS = [
-  { value: 5, title: "5" },
-  { value: 10, title: "10" },
-  { value: 25, title: "25" },
-  { value: -1, title: "$vuetify.dataFooter.itemsPerPageAll" },
-];
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const usersStore = storeUsers();
-const usersPerPage = ref(5);
 const userSearch = ref("");
+const storedUsersPerPage = parseInt(localStorage.getItem("usersPerPage") ?? "");
+const usersPerPage = ref(isNaN(storedUsersPerPage) ? 25 : storedUsersPerPage);
+const page = ref(1);
+const pageCount = ref(0);
+emitter?.on("updateDataTablePages", updateDataTablePages);
 
 function disableUser(user: User) {
   userApi.updateUser(user).catch(({ response, message }) => {
@@ -67,6 +65,10 @@ function disableUser(user: User) {
       timeout: 5000,
     });
   });
+}
+
+function updateDataTablePages() {
+  pageCount.value = Math.ceil(usersStore.all.length / usersPerPage.value);
 }
 
 onMounted(() => {
@@ -116,6 +118,7 @@ onMounted(() => {
         :search="userSearch"
         :headers="HEADERS"
         :items="usersStore.all"
+        v-model:page="page"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
         <template v-slot:item.avatar_path="{ item }">
@@ -159,6 +162,32 @@ onMounted(() => {
             @click="emitter?.emit('showDeleteUserDialog', item)"
             ><v-icon>mdi-delete</v-icon></v-btn
           >
+        </template>
+
+        <template v-slot:bottom>
+          <v-divider class="border-opacity-25" />
+          <v-row no-gutters class="pt-2 align-center">
+            <v-col cols="12" class="px-6">
+              <v-pagination
+                rounded="0"
+                :show-first-last-page="true"
+                active-color="romm-accent-1"
+                v-model="page"
+                :length="pageCount"
+              ></v-pagination>
+            </v-col>
+            <v-col cols="5" sm="2" xl="1">
+              <v-select
+                class="pa-2"
+                label="Users per page"
+                density="compact"
+                variant="outlined"
+                :items="PER_PAGE_OPTIONS"
+                v-model="usersPerPage"
+                hide-details
+              />
+            </v-col>
+          </v-row>
         </template>
       </v-data-table>
     </v-card-text>
