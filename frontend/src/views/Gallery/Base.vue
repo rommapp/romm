@@ -190,12 +190,12 @@ function onScroll() {
   window.setTimeout(async () => {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
     scrolledToTop.value = scrollTop === 0;
-
-    // if (!cursor.value && !searchCursor.value) return;
-
-    const scrollOffset = 1000;
-    if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-      // await fetchRoms();
+    const totalScrollableHeight = scrollHeight - clientHeight;
+    const ninetyPercentPoint = totalScrollableHeight * 0.9;
+    if (
+      scrollTop >= ninetyPercentPoint &&
+      itemsShown.value < filteredRoms.value.length
+    ) {
       itemsShown.value = itemsShown.value + itemsPerBatch.value;
       setFilters();
     }
@@ -217,6 +217,7 @@ onMounted(async () => {
         platforms.add(data.data);
       })
       .catch((error) => {
+        console.log(error)
         noPlatformError.value = true;
       });
   }
@@ -234,10 +235,12 @@ onMounted(async () => {
   setFilters();
 
   window.addEventListener("wheel", onScroll);
+  window.addEventListener("touchstart", onScroll);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
+  window.removeEventListener("touchstart", onScroll);
 });
 
 onBeforeRouteLeave((to, from, next) => {
@@ -272,10 +275,10 @@ onBeforeRouteUpdate(async (to, _) => {
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters>
       <!-- Gallery cards view -->
-      <!-- v-show instead of v-if to avoid recalculate -->
+      <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
         class="pa-1"
-        v-if="galleryViewStore.current != 2"
+        v-show="galleryViewStore.current != 2"
         :cols="views[galleryViewStore.current]['size-cols']"
         :xs="views[galleryViewStore.current]['size-xs']"
         :sm="views[galleryViewStore.current]['size-sm']"
@@ -295,10 +298,17 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-col>
 
       <!-- Gallery list view -->
-      <v-col v-if="galleryViewStore.current == 2">
+      <v-col v-show="galleryViewStore.current == 2">
         <game-data-table />
       </v-col>
     </v-row>
+  </template>
+
+  <template v-else>
+    <v-empty-state v-if="!gettingRoms"
+      headline="No games to show"
+      icon="mdi-disc-alert"
+    ></v-empty-state>
   </template>
 
   <template v-if="noPlatformError">
@@ -311,7 +321,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <v-layout-item
-    v-show="!scrolledToTop"
+    v-show="!scrolledToTop || romsStore._selectedIDs.length > 0"
     class="text-end pr-2"
     :model-value="true"
     position="bottom"
@@ -321,6 +331,7 @@ onBeforeRouteUpdate(async (to, _) => {
       <v-col>
         <v-scroll-y-reverse-transition>
           <v-btn
+            v-show="!scrolledToTop"
             id="scrollToTop"
             color="primary"
             elevation="8"
