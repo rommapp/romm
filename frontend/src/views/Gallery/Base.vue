@@ -190,12 +190,12 @@ function onScroll() {
   window.setTimeout(async () => {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
     scrolledToTop.value = scrollTop === 0;
-
-    // if (!cursor.value && !searchCursor.value) return;
-
-    const scrollOffset = 1000;
-    if (scrollTop + clientHeight + scrollOffset >= scrollHeight) {
-      // await fetchRoms();
+    const totalScrollableHeight = scrollHeight - clientHeight;
+    const ninetyPercentPoint = totalScrollableHeight * 0.9;
+    if (
+      scrollTop >= ninetyPercentPoint &&
+      itemsShown.value < filteredRoms.value.length
+    ) {
       itemsShown.value = itemsShown.value + itemsPerBatch.value;
       setFilters();
     }
@@ -234,10 +234,12 @@ onMounted(async () => {
   setFilters();
 
   window.addEventListener("wheel", onScroll);
+  window.addEventListener("touchstart", onScroll);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
+  window.removeEventListener("touchstart", onScroll);
 });
 
 onBeforeRouteLeave((to, from, next) => {
@@ -311,7 +313,7 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <v-layout-item
-    v-show="!scrolledToTop"
+    v-show="!scrolledToTop || romsStore._selectedIDs.length > 0"
     class="text-end pr-2"
     :model-value="true"
     position="bottom"
@@ -321,6 +323,7 @@ onBeforeRouteUpdate(async (to, _) => {
       <v-col>
         <v-scroll-y-reverse-transition>
           <v-btn
+            v-show="!scrolledToTop"
             id="scrollToTop"
             color="primary"
             elevation="8"
