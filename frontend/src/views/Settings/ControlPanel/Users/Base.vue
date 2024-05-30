@@ -167,7 +167,7 @@ onMounted(() => {
         <template v-slot:bottom>
           <v-divider class="border-opacity-25" />
           <v-row no-gutters class="pt-2 align-center">
-            <v-col cols="12" class="px-6">
+            <v-col cols="11" class="px-6">
               <v-pagination
                 rounded="0"
                 :show-first-last-page="true"
