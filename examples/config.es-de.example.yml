@@ -9,11 +9,17 @@ exclude:
         - 'xml'
         - 'txt'
       names:
-        - 'roms'
-        - 'pfx'
         - 'info.txt'
         - 'metadata.txt'
         - 'systeminfo.txt'
+        - 'psy.ggjud.iso'
+        - 'psy.ggjud.nfo'
+    multi_file:
+      names:
+        - 'roms'
+        - 'pfx'
+        - 'mlc01'
+        - '.Trash*'
 
 system:
   platforms:
