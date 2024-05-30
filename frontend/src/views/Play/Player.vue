@@ -3,7 +3,7 @@ import { ref, onBeforeUnmount } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import { ejsCoresMap } from "@/utils";
+import { getSupportedCores } from "@/utils";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import type { DetailedRom } from "@/stores/roms";
 
@@ -20,8 +20,6 @@ const stateRef = ref<StateSchema | null>(props.state);
 onBeforeUnmount(() => {
   window.location.reload();
 });
-
-export type EJSPlatformSlug = keyof typeof ejsCoresMap;
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -52,8 +50,7 @@ declare global {
   }
 }
 
-const supportedCores =
-  ejsCoresMap[props.rom.platform_slug.toLowerCase() as EJSPlatformSlug];
+const supportedCores = getSupportedCores(props.rom.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = props.rom.id;

@@ -3,8 +3,8 @@ import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import rom from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import { formatBytes, ejsCoresMap } from "@/utils";
-import Player, { type EJSPlatformSlug } from "@/views/Play/Player.vue";
+import { formatBytes, getSupportedCores } from "@/utils";
+import Player from "@/views/Play/Player.vue";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 
@@ -14,7 +14,7 @@ const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
 
-const supportedCores = ejsCoresMap[props.platform.slug as EJSPlatformSlug];
+const supportedCores = getSupportedCores(props.platform.slug);
 const coreRef = ref<string | null>(supportedCores[0]);
 
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
