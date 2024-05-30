@@ -2,11 +2,11 @@
 import { onMounted, ref } from "vue";
 import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { formatBytes, ejsCoresMap } from "@/utils";
+import { formatBytes, getSupportedCores } from "@/utils";
 import romApi from "@/services/api/rom";
 import firmwareApi from "@/services/api/firmware";
 import { useRoute } from "vue-router";
-import Player, { type EJSPlatformSlug } from "@/views/Play/Player.vue";
+import Player from "@/views/Play/Player.vue";
 import type { DetailedRom } from "@/stores/roms";
 
 const route = useRoute();
@@ -32,9 +32,7 @@ onMounted(async () => {
     romId: parseInt(route.params.rom as string),
   });
   rom.value = romResponse.data;
-  supportedCores.value = [
-    ...ejsCoresMap[rom.value.platform_slug as EJSPlatformSlug],
-  ];
+  supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
   coreRef.value = supportedCores.value[0];
 
   const firmwareResponse = await firmwareApi.getFirmware({

@@ -266,7 +266,7 @@ export function languageToEmoji(language: string) {
   }
 }
 
-export const ejsCoresMap = {
+const _EJS_CORES_MAP = {
   "3do": ["opera"],
   amiga: ["puae"],
   arcade: [
@@ -342,3 +342,13 @@ export const ejsCoresMap = {
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
 } as const;
+
+export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
+
+export function getSupportedCores(platformSlug: string) {
+  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+}
+
+export function isEmulationSupported(platformSlug: string) {
+  return platformSlug.toLowerCase() in _EJS_CORES_MAP;
+}
