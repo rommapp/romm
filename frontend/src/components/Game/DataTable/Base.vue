@@ -210,6 +210,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="5" sm="2" xl="1">
           <v-select
+            class="pa-2"
             label="Roms per page"
             density="compact"
             variant="outlined"
