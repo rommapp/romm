@@ -217,6 +217,7 @@ onMounted(async () => {
         platforms.add(data.data);
       })
       .catch((error) => {
+        console.log(error)
         noPlatformError.value = true;
       });
   }
@@ -274,10 +275,10 @@ onBeforeRouteUpdate(async (to, _) => {
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters>
       <!-- Gallery cards view -->
-      <!-- v-show instead of v-if to avoid recalculate -->
+      <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
         class="pa-1"
-        v-if="galleryViewStore.current != 2"
+        v-show="galleryViewStore.current != 2"
         :cols="views[galleryViewStore.current]['size-cols']"
         :xs="views[galleryViewStore.current]['size-xs']"
         :sm="views[galleryViewStore.current]['size-sm']"
@@ -297,10 +298,17 @@ onBeforeRouteUpdate(async (to, _) => {
       </v-col>
 
       <!-- Gallery list view -->
-      <v-col v-if="galleryViewStore.current == 2">
+      <v-col v-show="galleryViewStore.current == 2">
         <game-data-table />
       </v-col>
     </v-row>
+  </template>
+
+  <template v-else>
+    <v-empty-state v-if="!gettingRoms"
+      headline="No games to show"
+      icon="mdi-disc-alert"
+    ></v-empty-state>
   </template>
 
   <template v-if="noPlatformError">
