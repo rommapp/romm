@@ -4,7 +4,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
+import { inject, ref, nextTick } from "vue";
 
 // Props
 const showFilterBar = ref(false);
@@ -34,7 +34,7 @@ const {
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null);"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedGenre"
         :items="galleryFilterStore.filterGenres"
       ></v-autocomplete>
@@ -45,7 +45,7 @@ const {
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null)"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedFranchise"
         :items="galleryFilterStore.filterFranchises"
       ></v-autocomplete>
@@ -56,7 +56,7 @@ const {
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null)"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedCollection"
         :items="galleryFilterStore.filterCollections"
       ></v-autocomplete>
@@ -67,7 +67,7 @@ const {
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null)"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedCompany"
         :items="galleryFilterStore.filterCompanies"
       ></v-autocomplete>
