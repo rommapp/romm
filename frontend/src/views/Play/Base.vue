@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { formatBytes } from "@/utils";
+import { formatBytes, getSupportedCores } from "@/utils";
 import romApi from "@/services/api/rom";
 import firmwareApi from "@/services/api/firmware";
 import { useRoute } from "vue-router";
@@ -16,6 +16,8 @@ const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
+const supportedCores = ref<string[]>([]);
+const coreRef = ref<string | null>(null);
 const gameRunning = ref(false);
 
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -30,6 +32,8 @@ onMounted(async () => {
     romId: parseInt(route.params.rom as string),
   });
   rom.value = romResponse.data;
+  supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
+  coreRef.value = supportedCores.value[0];
 
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
@@ -55,6 +59,22 @@ function onFullScreenChange() {
         class="mx-auto mt-6 mb-5"
         width="250"
         src="/assets/emulatorjs/powered_by_emulatorjs.png"
+      />
+      <v-select
+        v-if="supportedCores.length > 1"
+        density="compact"
+        class="my-2"
+        hide-details
+        variant="outlined"
+        clearable
+        label="Core"
+        v-model="coreRef"
+        :items="
+          supportedCores.map((c) => ({
+            title: c,
+            value: c,
+          }))
+        "
       />
       <v-select
         class="my-1"
@@ -132,7 +152,13 @@ function onFullScreenChange() {
     </v-col>
 
     <v-col class="bg-primary" rounded id="game-wrapper">
-      <player :rom="rom" :state="stateRef" :save="saveRef" :bios="biosRef" />
+      <player
+        :rom="rom"
+        :state="stateRef"
+        :save="saveRef"
+        :bios="biosRef"
+        :core="coreRef"
+      />
     </v-col>
   </v-row>
 </template>
