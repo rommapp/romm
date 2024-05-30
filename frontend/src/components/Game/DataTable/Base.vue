@@ -198,10 +198,9 @@ onMounted(() => {
 
     <template v-slot:bottom>
       <v-divider class="border-opacity-25" />
-      <v-row no-gutters class="pt-2 px-6 align-center">
+      <v-row no-gutters class="pt-2 align-center">
         <v-col cols="11" class="px-6">
           <v-pagination
-            class="mr-6"
             rounded="0"
             :show-first-last-page="true"
             active-color="romm-accent-1"
@@ -209,8 +208,9 @@ onMounted(() => {
             :length="pageCount"
           ></v-pagination>
         </v-col>
-        <v-col>
+        <v-col cols="5" sm="2" xl="1">
           <v-select
+            class="pa-2"
             label="Roms per page"
             density="compact"
             variant="outlined"

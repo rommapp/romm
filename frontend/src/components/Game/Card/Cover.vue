@@ -5,7 +5,7 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity, isNull } from "lodash";
-import { ref } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useTheme } from "vuetify";
 
 // Props
@@ -58,6 +58,18 @@ function onTouchStart(event: TouchEvent) {
 function onTouchEnd() {
   clearTimeout(timeout);
 }
+
+function onScroll() {
+  clearTimeout(timeout);
+}
+
+onMounted(() => {
+  window.addEventListener("scroll", onScroll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("scroll", onScroll);
+});
 </script>
 
 <template>
@@ -96,7 +108,7 @@ function onTouchEnd() {
         "
         style="aspect-ratio: 3 / 4; width: 100%"
       >
-        <div style="position: absolute; top: 0; width: 100%;">
+        <div style="position: absolute; top: 0; width: 100%">
           <v-expand-transition>
             <div
               v-if="isHovering || !rom.has_cover"
@@ -104,7 +116,6 @@ function onTouchEnd() {
               :class="{
                 'text-truncate': galleryViewStore.current == 0 && !isHovering,
               }"
-              
             >
               <v-list-item>{{ rom.name }}</v-list-item>
             </div>
