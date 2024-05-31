@@ -20,7 +20,7 @@ const fileNameInputRules = {
   newFileName: (value: string) => !value.includes("/") || "Invalid characters",
 };
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showEditRomDialog", (romToEdit) => {
+emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
   rom.value = romToEdit;
 });
@@ -180,6 +180,7 @@ function closeDialog() {
             <cover
               :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
               :rom="rom"
+              :src="imagePreviewUrl"
             >
               <template v-slot:editable>
                 <v-chip-group class="position-absolute edit-cover pa-0">

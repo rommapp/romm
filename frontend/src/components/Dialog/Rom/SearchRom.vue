@@ -249,12 +249,18 @@ onBeforeUnmount(() => {
                   <v-img
                     v-bind="props"
                     :src="
-                      !rom.igdb_id && !rom.moby_id
+                      !rom.igdb_id && !rom.moby_id && !rom.has_cover
                         ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                         : `/assets/romm/resources/${rom.path_cover_l}`
                     "
+                    :lazy-src="
+                      !rom.igdb_id && !rom.moby_id
+                        ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                        : rom.has_cover
+                        ? `/assets/romm/resources/${rom.path_cover_s}`
+                        : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                    "
                     :aspect-ratio="3 / 4"
-                    lazy
                   >
                     <template v-slot:error>
                       <v-img
