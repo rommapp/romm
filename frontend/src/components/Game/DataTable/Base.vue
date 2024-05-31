@@ -121,16 +121,34 @@ onMounted(() => {
           :indeterminate="true"
           absolute
         />
-        <img
+        <v-img
           :src="
-            !item.igdb_id && !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+            !item.igdb_id && !item.moby_id
+              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+              : `/assets/romm/resources/${item.path_cover_l}`
+          "
+          :lazy-src="
+            !item.igdb_id && !item.moby_id
+              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
               : `/assets/romm/resources/${item.path_cover_s}`
           "
-          min-height="150"
-        />
+        >
+          <template v-slot:error>
+            <v-img
+              :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+            ></v-img>
+          </template>
+          <template v-slot:placeholder>
+            <div class="d-flex align-center justify-center fill-height">
+              <v-progress-circular
+                :width="2"
+                :size="20"
+                color="romm-accent-1"
+                indeterminate
+              />
+            </div>
+          </template>
+        </v-img>
       </v-avatar>
     </template>
     <template v-slot:item.name="{ item }">

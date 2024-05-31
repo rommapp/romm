@@ -95,18 +95,22 @@ onUnmounted(() => {
       absolute
     />
     <v-hover v-slot="{ isHovering, props }" open-delay="800">
-      <lazy-image
+      <v-img
+        :value="rom.id"
         :key="rom.id"
         v-bind="props"
         :placeholder="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
         :src="
-          !rom.igdb_id && !rom.moby_id && !rom.has_cover
+          !rom.igdb_id && !rom.moby_id
             ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-            : !rom.has_cover
-            ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
-        style="aspect-ratio: 3 / 4; width: 100%"
+        :lazy-src="
+          !rom.igdb_id && !rom.moby_id
+            ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+            : `/assets/romm/resources/${rom.path_cover_s}`
+        "
+        :aspect-ratio="3 / 4"
       >
         <div v-bind="props" style="position: absolute; top: 0; width: 100%">
           <v-expand-transition>
@@ -153,7 +157,23 @@ onUnmounted(() => {
             </v-chip>
           </v-row>
         </div>
-      </lazy-image>
+        <template v-slot:error>
+          <v-img
+            :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+            :aspect-ratio="3 / 4"
+          ></v-img>
+        </template>
+        <template v-slot:placeholder>
+          <div class="d-flex align-center justify-center fill-height">
+            <v-progress-circular
+              :width="2"
+              :size="40"
+              color="romm-accent-1"
+              indeterminate
+            />
+          </div>
+        </template>
+      </v-img>
     </v-hover>
   </router-link>
 </template>
