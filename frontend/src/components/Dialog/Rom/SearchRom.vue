@@ -47,8 +47,8 @@ async function searchRoms() {
   inputElement?.blur();
   searching.value = true;
   searchedRoms.value = (
-    await romApi.getRoms({ searchTerm: searchValue.value, size: 250 })
-  ).data.items.sort((a, b) => {
+    await romApi.getRoms({ searchTerm: searchValue.value })
+  ).data.sort((a, b) => {
     return a.platform_name.localeCompare(b.platform_name);
   });
   platforms.value = [

@@ -26,8 +26,8 @@ def test_get_all_roms(access_token, rom, platform):
     assert response.status_code == 200
 
     body = response.json()
-    assert len(body["items"]) == 1
-    assert body["items"][0]["id"] == rom.id
+    assert len(body) == 1
+    assert body[0]["id"] == rom.id
 
 
 @patch("endpoints.rom.fs_rom_handler.rename_file")
