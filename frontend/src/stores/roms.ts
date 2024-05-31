@@ -23,8 +23,6 @@ export default defineStore("roms", {
     _selectedIDs: [] as number[],
     recentRoms: [] as SimpleRom[],
     lastSelectedIndex: -1,
-    cursor: "" as string | null,
-    searchCursor: "" as string | null,
     selecting: false,
     itemsPerBatch: 72,
   }),
