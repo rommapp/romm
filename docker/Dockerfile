@@ -89,9 +89,9 @@ RUN apk add --no-cache \
         openssl-dev
 
 # Create python venv and install dependencies
-RUN python3 -m venv /backend/
 COPY ./pyproject.toml ./poetry.lock /
-RUN . /backend/bin/activate && \
+RUN python3 -m venv /backend/ && \
+    . /backend/bin/activate && \
     pip install --no-cache --upgrade pip && \
     pip install --no-cache git+https://github.com/radoering/poetry.git@non-package-mode && \
     pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt && \
@@ -102,15 +102,6 @@ RUN . /backend/bin/activate && \
     python3 -m poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt && \
     grep -v -x -f /installed_poetry_requirements.txt /installed_pip_requirements.txt > /build_requirements.txt && \
     pip uninstall -y -r /build_requirements.txt
-
-COPY ./backend /backend
-
-# Setup init script and config files
-COPY ./docker/init_scripts/* /
-COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
-
-# Install Redis from build stage
-COPY --from=redis-build-stage /usr/local/bin/redis* /usr/local/bin/
 
 # Cleanup unnecessary packages and files
 RUN apk del \
@@ -129,9 +120,16 @@ RUN apk del \
         /poetry.lock \
         /installed_pip_requirements.txt \
         /installed_poetry_requirements.txt \
-        /build_requirements.txt \
-        /docker-entrypoint.sh \
-        /docker-entrypoint.d
+        /build_requirements.txt
+
+COPY ./backend /backend
+
+# Setup init script and config files
+COPY ./docker/init_scripts/* /
+COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
+
+# Install Redis from build stage
+COPY --from=redis-build-stage /usr/local/bin/redis* /usr/local/bin/
 
 # User permissions
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
