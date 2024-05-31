@@ -4,17 +4,36 @@ import { useTheme } from "vuetify";
 const theme = useTheme();
 
 const props = defineProps<{ rom: DetailedRom }>();
-const imgSrc =
-  !props.rom.igdb_id && !props.rom.moby_id && !props.rom.has_cover
-    ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-    : !props.rom.has_cover
-    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-    : `/assets/romm/resources/${props.rom.path_cover_s}`;
 </script>
 
 <template>
   <v-card rounded="0">
-    <v-img :src="imgSrc" id="background-header" />
+    <v-img
+      :src="
+        !rom.igdb_id && !rom.moby_id
+          ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+          : `/assets/romm/resources/${rom.path_cover_l}`
+      "
+      id="background-header"
+      lazy
+    >
+      <template v-slot:error>
+        <v-img
+          :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+          :aspect-ratio="3 / 4"
+        ></v-img>
+      </template>
+      <template v-slot:placeholder>
+        <div class="d-flex align-center justify-center fill-height">
+          <v-progress-circular
+            :width="2"
+            :size="40"
+            color="romm-accent-1"
+            indeterminate
+          />
+        </div>
+      </template>
+    </v-img>
   </v-card>
 </template>
 <style scoped>
