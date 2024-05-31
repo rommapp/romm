@@ -11,8 +11,8 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.metadata import meta_igdb_handler, meta_moby_handler
-from handler.metadata.igdb_handler import IGDBRom, IGDBPlatform
-from handler.metadata.moby_handler import MobyGamesRom, MobyGamesPlatform
+from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
+from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
@@ -51,7 +51,7 @@ def _get_main_platform_igdb_id(platform: Platform):
 def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    metadata_sources: list[str] = ["igdb", "moby"],
+    metadata_sources: list[str] = None,
 ) -> Platform:
     """Get platform details
 
@@ -62,6 +62,9 @@ def scan_platform(
     """
 
     log.info(f"· {fs_slug}")
+
+    if metadata_sources is None:
+        metadata_sources = ["igdb", "moby"]
 
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from stat import S_IFREG
-from typing import Annotated, Optional
+from typing import Annotated
 from urllib.parse import quote
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
@@ -15,7 +15,7 @@ from endpoints.responses.rom import (
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File, status
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -86,9 +86,9 @@ def add_roms(
 @protected_route(router.get, "/roms", ["roms.read"])
 def get_roms(
     request: Request,
-    platform_id: int = None,
+    platform_id: int | None = None,
     search_term: str = "",
-    limit: int = None,
+    limit: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
 ) -> list[RomSchema]:
@@ -248,7 +248,7 @@ async def update_rom(
     id: int,
     rename_as_igdb: bool = False,
     remove_cover: bool = False,
-    artwork: Optional[UploadFile] = File(None),
+    artwork: UploadFile | None = None,
 ) -> DetailedRomSchema:
     """Update rom endpoint
 
