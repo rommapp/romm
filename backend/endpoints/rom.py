@@ -16,8 +16,6 @@ from endpoints.responses.rom import (
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from fastapi_pagination.cursor import CursorPage, CursorParams
-from fastapi_pagination.ext.sqlalchemy import paginate
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -25,6 +23,7 @@ from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
 from urllib.parse import quote
+
 router = APIRouter()
 
 
@@ -88,12 +87,11 @@ def add_roms(
 def get_roms(
     request: Request,
     platform_id: int = None,
-    size: int = 60,
-    cursor: str = "",
     search_term: str = "",
+    limit: int = None,
     order_by: str = "name",
     order_dir: str = "asc",
-) -> CursorPage[RomSchema]:
+) -> list[RomSchema]:
     """Get roms endpoint
 
     Args:
@@ -101,18 +99,18 @@ def get_roms(
         id (int, optional): Rom internal id
 
     Returns:
-        RomSchema: Rom stored in the database
+        list[RomSchema]: List of roms stored in the database
     """
 
     with db_rom_handler.session.begin() as session:
-        cursor_params = CursorParams(size=size, cursor=cursor)
-        qq = db_rom_handler.get_roms(
-            platform_id=platform_id,
-            search_term=search_term.lower(),
-            order_by=order_by.lower(),
-            order_dir=order_dir.lower(),
-        )
-        return paginate(session, qq, cursor_params)
+        return session.scalars(
+            db_rom_handler.get_roms(
+                platform_id=platform_id,
+                search_term=search_term.lower(),
+                order_by=order_by.lower(),
+                order_dir=order_dir.lower(),
+            ).limit(limit)
+        ).all()
 
 
 @protected_route(
@@ -237,7 +235,9 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'
+        },
         emit_body={"id": rom.id},
     )
 
