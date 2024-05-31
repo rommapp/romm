@@ -392,6 +392,12 @@ window.EJS_onGameStart = async () => {
 }
 </style>
 
+<style>
+#game .ejs_cheat_code {
+  background-color: white;
+}
+</style>
+
 <!-- Other config options: https://emulatorjs.org/docs/Options.html -->
 
 <!-- window.EJS_biosUrl; -->
