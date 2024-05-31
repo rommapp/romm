@@ -88,6 +88,7 @@ def get_roms(
     request: Request,
     platform_id: int = None,
     search_term: str = "",
+    limit: int = None,
     order_by: str = "name",
     order_dir: str = "asc",
 ) -> list[RomSchema]:
@@ -108,31 +109,7 @@ def get_roms(
                 search_term=search_term.lower(),
                 order_by=order_by.lower(),
                 order_dir=order_dir.lower(),
-            )
-        ).all()
-
-
-@protected_route(router.get, "/roms/recent", ["roms.read"])
-def get_recent_roms(
-    request: Request,
-    size: int = 15,
-) -> list[RomSchema]:
-    """Get the most recent roms endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int, optional): Rom internal id
-
-    Returns:
-        list[RomSchema]: List of roms stored in the database
-    """
-
-    with db_rom_handler.session.begin() as session:
-        return session.scalars(
-            db_rom_handler.get_roms(
-                order_by="id",
-                order_dir="desc",
-            ).limit(size)
+            ).limit(limit)
         ).all()
 
 
