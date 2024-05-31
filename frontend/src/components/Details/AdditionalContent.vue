@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 import { useTheme } from "vuetify";
 const theme = useTheme();
 </script>
@@ -41,23 +41,16 @@ const theme = useTheme();
                   )}`
                 : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             "
-            :lazy-src="
-              `${expansion.cover_url}`
-                ? `https:${expansion.cover_url.replace(
-                    't_thumb',
-                    't_cover_big'
-                  )}`
-                : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-            "
             :aspect-ratio="3 / 4"
-            ><v-chip
+          >
+            <v-chip
               class="px-2 position-absolute chip-type text-white translucent"
               density="compact"
               label
             >
               <span>expansion</span>
-            </v-chip></v-img
-          >
+            </v-chip>
+          </v-img>
         </v-card>
       </a>
     </v-col>
@@ -94,12 +87,8 @@ const theme = useTheme();
                 ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_big')}`
                 : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             "
-            :lazy-src="
-              `${dlc.cover_url}`
-                ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_small')}`
-                : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-            "
             :aspect-ratio="3 / 4"
+            lazy
             ><v-chip
               class="px-2 position-absolute chip-type text-white translucent"
               density="compact"

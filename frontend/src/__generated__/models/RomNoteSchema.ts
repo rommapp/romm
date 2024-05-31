@@ -10,4 +10,5 @@ export type RomNoteSchema = {
   last_edited_at: string;
   raw_markdown: string;
   is_public: boolean;
+  user__username: string;
 };

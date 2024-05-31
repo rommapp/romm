@@ -29,10 +29,10 @@ onBeforeMount(async () => {
     "https://api.github.com/repos/rommapp/romm/releases/latest"
   );
   const json = await response.json();
-  GITHUB_VERSION.value = json.name;
+  GITHUB_VERSION.value = json.tag_name;
   latestVersionDismissed.value =
     VERSION === "development" ||
-    json.name === localStorage.getItem("dismissedVersion");
+    json.tag_name === localStorage.getItem("dismissedVersion");
 });
 
 async function logout() {
@@ -108,7 +108,7 @@ async function logout() {
           <v-col class="py-1">
             <span
               >New version available
-              <span class="text-romm-accent-1">{{ GITHUB_VERSION }}</span></span
+              <span class="text-romm-accent-1">v{{ GITHUB_VERSION }}</span></span
             >
           </v-col>
         </v-row>
@@ -119,7 +119,7 @@ async function logout() {
             ><span class="ml-4"
               ><a
                 target="_blank"
-                :href="`https://github.com/rommapp/romm/releases/tag/v${GITHUB_VERSION}`"
+                :href="`https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION}`"
                 >See what's new!</a
               ></span
             >

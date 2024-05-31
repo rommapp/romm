@@ -8,6 +8,5 @@ import type { ScreenshotSchema } from "./ScreenshotSchema";
 export type UploadedScreenshotsResponse = {
   uploaded: number;
   screenshots: Array<ScreenshotSchema>;
-  url_screenshots: Array<string>;
   merged_screenshots: Array<string>;
 };

@@ -2,17 +2,20 @@
 import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import rom from "@/services/api/rom";
-import type { Rom } from "@/stores/roms";
-import { formatBytes } from "@/utils";
+import type { DetailedRom } from "@/stores/roms";
+import { formatBytes, getSupportedCores } from "@/utils";
 import Player from "@/views/Play/Player.vue";
 import { ref } from "vue";
 import type { Platform } from "@/stores/platforms";
 
-const props = defineProps<{ rom: Rom; platform: Platform }>();
+const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
+
+const supportedCores = getSupportedCores(props.platform.slug);
+const coreRef = ref<string | null>(supportedCores[0]);
 
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
@@ -35,6 +38,22 @@ function onFullScreenChange() {
 <template>
   <v-row v-if="rom && !gameRunning" no-gutters class="align-center">
     <v-col cols="5" class="text-truncate mx-1">
+      <v-select
+        v-if="supportedCores.length > 1"
+        density="compact"
+        class="my-2"
+        hide-details
+        variant="outlined"
+        clearable
+        label="Core"
+        v-model="coreRef"
+        :items="
+          supportedCores.map((c) => ({
+            title: c,
+            value: c,
+          }))
+        "
+      />
       <v-select
         density="compact"
         class="my-2"
@@ -137,7 +156,13 @@ function onFullScreenChange() {
 
   <v-row no-gutters>
     <v-col v-if="gameRunning" cols="12" rounded id="game-wrapper">
-      <player :rom="props.rom" :state="stateRef" :save="saveRef" :bios="biosRef" />
+      <player
+        :rom="props.rom"
+        :state="stateRef"
+        :save="saveRef"
+        :bios="biosRef"
+        :core="coreRef"
+      />
     </v-col>
   </v-row>
 </template>

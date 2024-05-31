@@ -179,25 +179,7 @@ function closeDialog() {
           <v-col cols="12" md="4" lg="3">
             <cover
               :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
-              :romId="rom.id"
-              :src="
-                imagePreviewUrl
-                  ? imagePreviewUrl
-                  : !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                  : !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : `/assets/romm/resources/${rom.path_cover_l}`
-              "
-              :lazy-src="
-                imagePreviewUrl
-                  ? imagePreviewUrl
-                  : !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                  : !rom.has_cover
-                  ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                  : `/assets/romm/resources/${rom.path_cover_s}`
-              "
+              :rom="rom"
             >
               <template v-slot:editable>
                 <v-chip-group class="position-absolute edit-cover pa-0">

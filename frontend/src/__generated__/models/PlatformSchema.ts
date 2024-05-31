@@ -9,11 +9,11 @@ export type PlatformSchema = {
   id: number;
   slug: string;
   fs_slug: string;
+  name: string;
+  rom_count: number;
   igdb_id?: number | null;
   sgdb_id?: number | null;
   moby_id?: number | null;
-  name: string;
   logo_path?: string | null;
-  rom_count: number;
   firmware?: Array<FirmwareSchema>;
 };

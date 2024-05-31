@@ -4,7 +4,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
+import { inject, ref, nextTick } from "vue";
 
 // Props
 const showFilterBar = ref(false);
@@ -27,50 +27,50 @@ const {
   <div v-if="showFilterBar">
     <v-row no-gutters class="pa-1">
       <filter-unmatched-btn />
-      <v-select
+      <v-autocomplete
         hide-details
         clearable
         label="Genre"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null);"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedGenre"
         :items="galleryFilterStore.filterGenres"
-      ></v-select>
-      <v-select
+      ></v-autocomplete>
+      <v-autocomplete
         hide-details
         clearable
         label="Franchise"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null)"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedFranchise"
         :items="galleryFilterStore.filterFranchises"
-      ></v-select>
-      <v-select
+      ></v-autocomplete>
+      <v-autocomplete
         hide-details
         clearable
         label="Collection"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null)"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedCollection"
         :items="galleryFilterStore.filterCollections"
-      ></v-select>
-      <v-select
+      ></v-autocomplete>
+      <v-autocomplete
         hide-details
         clearable
         label="Company"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="emitter?.emit('filter', null)"
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         v-model="selectedCompany"
         :items="galleryFilterStore.filterCompanies"
-      ></v-select>
+      ></v-autocomplete>
     </v-row>
     <v-divider
       :thickness="2"

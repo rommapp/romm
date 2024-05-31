@@ -1,15 +1,16 @@
 <script setup lang="ts">
+import LazyImage from "@/components/LazyImage.vue";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity, isNull } from "lodash";
-import { ref } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useTheme } from "vuetify";
 
 // Props
 defineProps<{
-  rom: Rom;
+  rom: SimpleRom;
   isHoveringTop: boolean;
   showSelector: boolean;
   selected: boolean;
@@ -57,6 +58,18 @@ function onTouchStart(event: TouchEvent) {
 function onTouchEnd() {
   clearTimeout(timeout);
 }
+
+function onScroll() {
+  clearTimeout(timeout);
+}
+
+onMounted(() => {
+  window.addEventListener("scroll", onScroll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("scroll", onScroll);
+});
 </script>
 
 <template>
@@ -86,74 +99,80 @@ function onTouchEnd() {
         :value="rom.id"
         :key="rom.id"
         v-bind="props"
+        :placeholder="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
         :src="
-          !rom.igdb_id && !rom.moby_id && !rom.has_cover
+          !rom.igdb_id && !rom.moby_id
             ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-            : !rom.has_cover
-            ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             : `/assets/romm/resources/${rom.path_cover_l}`
         "
         :lazy-src="
-          !rom.igdb_id && !rom.moby_id && !rom.has_cover
-            ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-            : !rom.has_cover
-            ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+          !rom.igdb_id && !rom.moby_id
+            ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
             : `/assets/romm/resources/${rom.path_cover_s}`
         "
         :aspect-ratio="3 / 4"
       >
+        <div v-bind="props" style="position: absolute; top: 0; width: 100%">
+          <v-expand-transition>
+            <div
+              v-if="isHovering || !rom.has_cover"
+              class="translucent text-caption"
+              :class="{
+                'text-truncate': galleryViewStore.current == 0 && !isHovering,
+              }"
+            >
+              <v-list-item>{{ rom.name }}</v-list-item>
+            </div>
+          </v-expand-transition>
+          <v-row no-gutters class="text-white px-1">
+            <v-chip
+              v-if="rom.regions.filter(identity).length > 0 && showRegions"
+              :title="`Regions: ${rom.regions.join(', ')}`"
+              class="translucent mr-1 mt-1 px-1"
+              :class="{ 'emoji-collection': rom.regions.length > 3 }"
+              density="compact"
+            >
+              <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
+                {{ regionToEmoji(region) }}
+              </span>
+            </v-chip>
+            <v-chip
+              v-if="rom.languages.filter(identity).length > 0 && showLanguages"
+              :title="`Languages: ${rom.languages.join(', ')}`"
+              class="translucent mr-1 mt-1 px-1"
+              :class="{ 'emoji-collection': rom.languages.length > 3 }"
+              density="compact"
+            >
+              <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
+                {{ languageToEmoji(language) }}
+              </span>
+            </v-chip>
+            <v-chip
+              v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
+              :title="`${rom.siblings.length + 1} versions`"
+              class="translucent mr-1 mt-1"
+              density="compact"
+            >
+              +{{ rom.siblings.length }}
+            </v-chip>
+          </v-row>
+        </div>
+        <template v-slot:error>
+          <v-img
+            :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+            :aspect-ratio="3 / 4"
+          ></v-img>
+        </template>
         <template v-slot:placeholder>
           <div class="d-flex align-center justify-center fill-height">
             <v-progress-circular
-              color="romm-accent-1"
               :width="2"
+              :size="40"
+              color="romm-accent-1"
               indeterminate
             />
           </div>
         </template>
-        <v-expand-transition>
-          <div
-            v-if="isHovering || !rom.has_cover"
-            class="translucent text-caption"
-            :class="{
-              'text-truncate': galleryViewStore.current == 0 && !isHovering,
-            }"
-          >
-            <v-list-item>{{ rom.name }}</v-list-item>
-          </div>
-        </v-expand-transition>
-        <v-row no-gutters class="text-white px-1">
-          <v-chip
-            v-if="rom.regions.filter(identity).length > 0 && showRegions"
-            :title="`Regions: ${rom.regions.join(', ')}`"
-            class="translucent mr-1 mt-1 px-1"
-            :class="{ 'emoji-collection': rom.regions.length > 3 }"
-            density="compact"
-          >
-            <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
-              {{ regionToEmoji(region) }}
-            </span>
-          </v-chip>
-          <v-chip
-            v-if="rom.languages.filter(identity).length > 0 && showLanguages"
-            :title="`Languages: ${rom.languages.join(', ')}`"
-            class="translucent mr-1 mt-1 px-1"
-            :class="{ 'emoji-collection': rom.languages.length > 3 }"
-            density="compact"
-          >
-            <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
-              {{ languageToEmoji(language) }}
-            </span>
-          </v-chip>
-          <v-chip
-            v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
-            :title="`${rom.siblings.length + 1} versions`"
-            class="translucent mr-1 mt-1"
-            density="compact"
-          >
-            +{{ rom.siblings.length }}
-          </v-chip>
-        </v-row>
       </v-img>
     </v-hover>
   </router-link>

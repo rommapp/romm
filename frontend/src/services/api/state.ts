@@ -1,6 +1,6 @@
 import type { StateSchema, UploadedStatesResponse } from "@/__generated__";
 import api from "@/services/api/index";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
 export const stateApi = api;
 
@@ -9,7 +9,7 @@ async function uploadStates({
   states,
   emulator,
 }: {
-  rom: Rom;
+  rom: DetailedRom;
   states: File[];
   emulator?: string;
 }): Promise<{ data: UploadedStatesResponse }> {

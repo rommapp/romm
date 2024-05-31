@@ -1,7 +1,6 @@
-import json
+from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
@@ -27,8 +26,8 @@ def test_get_all_roms(access_token, rom, platform):
     assert response.status_code == 200
 
     body = response.json()
-    assert len(body["items"]) == 1
-    assert body["items"][0]["id"] == rom.id
+    assert len(body) == 1
+    assert body[0]["id"] == rom.id
 
 
 @patch("endpoints.rom.fs_rom_handler.rename_file")
@@ -45,12 +44,6 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
             "file_name": "Metroid Prime Remastered.zip",
             "summary": "summary test",
             "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
-            "url_screenshots": json.dumps(
-                [
-                    "https://images.igdb.com/igdb/image/upload/t_original/qhiqlmwvvuaqxxn4cxlr.jpg",
-                    "https://images.igdb.com/igdb/image/upload/t_original/kqkixazzsokqgoxmuish.jpg",
-                ]
-            ),
             "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
             "franchises": '[{"id": 756, "name": "Metroid"}]',
             "collections": '[{"id": 243, "name": "Metroid"}, {"id": 6240, "name": "Metroid Prime"}]',
