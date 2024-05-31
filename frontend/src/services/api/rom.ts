@@ -52,8 +52,8 @@ async function getRoms({
 }
 
 async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
-  return api.get("/roms/recent", {
-    params: { size: 15 },
+  return api.get("/roms", {
+    params: { order_by: "id", order_dir: "desc", limit: 15 },
   });
 }
 
