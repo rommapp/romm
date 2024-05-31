@@ -61,12 +61,12 @@ async function fetchRoms() {
     })
     .then(({ data }) => {
       // Add any new roms to the store
-      const allRomsSet = [...allRoms.value, ...data.items];
+      const allRomsSet = [...allRoms.value, ...data];
       romsStore.set(allRomsSet);
       romsStore.setFiltered(allRomsSet, galleryFilterStore);
 
       if (galleryFilterStore.isFiltered()) {
-        const serchedRomsSet = [...searchRoms.value, ...data.items];
+        const serchedRomsSet = [...searchRoms.value, ...data];
         romsStore.setSearch(serchedRomsSet);
         romsStore.setFiltered(serchedRomsSet, galleryFilterStore);
       }

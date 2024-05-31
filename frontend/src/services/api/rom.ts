@@ -1,7 +1,7 @@
 import type {
   AddRomsResponse,
-  CursorPage_RomSchema_,
   MessageResponse,
+  RomSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
@@ -32,24 +32,18 @@ async function uploadRoms({
 
 async function getRoms({
   platformId = null,
-  size = 5000,
-  cursor = "",
   searchTerm = "",
   orderBy = "name",
   orderDir = "asc",
 }: {
   platformId?: number | null;
-  size?: number | null;
-  cursor?: string | null;
   searchTerm?: string | null;
   orderBy?: string | null;
   orderDir?: string | null;
-}): Promise<{ data: CursorPage_RomSchema_ }> {
+}): Promise<{ data: SimpleRom[] }> {
   return api.get(`/roms`, {
     params: {
       platform_id: platformId,
-      size: size,
-      cursor: cursor,
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
@@ -57,9 +51,9 @@ async function getRoms({
   });
 }
 
-async function getRecentRoms(): Promise<{ data: CursorPage_RomSchema_ }> {
-  return api.get("/roms", {
-    params: { size: 15, order_by: "id", order_dir: "desc" },
+async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
+  return api.get("/roms/recent", {
+    params: { size: 15 },
   });
 }
 
