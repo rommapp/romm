@@ -23,7 +23,6 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "postinstall": "cd node_modules/emulatorjs/data/minify/ && npm i && npm run build",
     "typecheck": "vue-tsc --noEmit",
     "generate": "openapi --input http://localhost:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
@@ -31,6 +30,7 @@
     "@mdi/font": "7.0.96",
     "roboto-fontface": "^0.10.0",
     "vue": "^3.4.27",
+    "vue-router": "^4.3.2",
     "vuetify": "^3.6.5",
     "webfontloader": "^1.6.28"
   },

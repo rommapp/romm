@@ -17,14 +17,14 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
 
 # # install generall required packages
-# RUN apk add --upgrade \
-#         bash \
-#         curl \
-#         libffi \
-#         mariadb-connector-c \
-#         netcat-openbsd \
-#         python3 \
-#         tzdata
+RUN apk add --upgrade \
+        bash \
+        curl \
+        libffi \
+        # mariadb-connector-c \
+        netcat-openbsd \
+        # python3 \
+        tzdata
 
 # # Install additional build dependencies
 # RUN apk add --upgrade \
@@ -142,11 +142,6 @@ COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # cleanup leftover files that are not needed at runtime
 RUN rm -r \
-    /pyproject.toml \
-    /poetry.lock \
-    /installed_pip_requirements.txt \
-    /installed_poetry_requirements.txt \
-    /build_requirements.txt \
     /docker-entrypoint.sh \
     /docker-entrypoint.d
 

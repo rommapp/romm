@@ -13,33 +13,33 @@
 
 # Set INIT_DEBUG to false if not set by docker env
 # (this env var is currently undocumented and usually just needed for development purposes)
-# INIT_DEBUG="${INIT_DEBUG:="false"}"
+INIT_DEBUG="${INIT_DEBUG:="false"}"
 
 # print debug log output if enabled
-# debug_log () {
-#     if [ "${INIT_DEBUG}" == "true" ]; then
-#         echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
-#     fi
-# }
+debug_log () {
+    if [ "${INIT_DEBUG}" == "true" ]; then
+        echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+    fi
+}
 
-# # print debug log output if enabled
-# info_log () {
-#     echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}"
-# }
+# print debug log output if enabled
+info_log () {
+    echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}"
+}
 
-# # print error log output if enabled
-# error_log () {
-#     echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
-#     exit 1
-# }
+# print error log output if enabled
+error_log () {
+    echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}"
+    exit 1
+}
 
-# wait_for_gunicorn_socket () {
-#     info_log "waiting for gunicorn socket file..."
-#     while [ ! -S /tmp/gunicorn.sock ]; do
-#         sleep 1
-#     done
-#     info_log "gunicorn socket file found"
-# }
+wait_for_gunicorn_socket () {
+    info_log "waiting for gunicorn socket file..."
+    while [ ! -S /tmp/gunicorn.sock ]; do
+        sleep 1
+    done
+    info_log "gunicorn socket file found"
+}
 
 # # function that runs or main process and creates a corresponding PID file,
 # start_bin_gunicorn () {
@@ -60,17 +60,16 @@
 # }
 
 # # Commands to start nginx (handling PID creation internally)
-# start_bin_nginx () {
-#     wait_for_gunicorn_socket
+start_bin_nginx () {
 
-#     info_log "starting nginx"
-#     if [ "$EUID" -ne 0 ]; then
-#         nginx
-#     else
-#         # if container runs as root, drop permissions
-#         nginx -g 'user romm;'
-#     fi
-# }
+    info_log "starting nginx"
+    if [ "$EUID" -ne 0 ]; then
+        nginx
+    else
+        # if container runs as root, drop permissions
+        nginx -g 'user romm;'
+    fi
+}
 
 # start_bin_redis-server () {
 #     info_log "starting redis-server"
