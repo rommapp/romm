@@ -31,8 +31,6 @@ const {
   filteredRoms,
   selectedRoms,
   searchRoms,
-  cursor,
-  searchCursor,
   platformID,
   itemsPerBatch,
 } = storeToRefs(romsStore);
@@ -48,12 +46,7 @@ emitter?.on("openFabMenu", (open) => {
 
 // Functions
 async function fetchRoms() {
-  if (
-    (searchCursor.value === null && galleryFilterStore.isFiltered()) ||
-    (cursor.value === null && !galleryFilterStore.isFiltered()) ||
-    gettingRoms.value
-  )
-    return;
+  if (gettingRoms.value) return;
 
   gettingRoms.value = true;
   emitter?.emit("showLoadingDialog", {
@@ -64,9 +57,6 @@ async function fetchRoms() {
   await romApi
     .getRoms({
       platformId: platformID.value,
-      cursor: galleryFilterStore.isFiltered()
-        ? searchCursor.value
-        : cursor.value,
       searchTerm: normalizeString(galleryFilterStore.filterSearch),
     })
     .then(({ data }) => {
@@ -76,13 +66,9 @@ async function fetchRoms() {
       romsStore.setFiltered(allRomsSet, galleryFilterStore);
 
       if (galleryFilterStore.isFiltered()) {
-        if (data.next_page !== undefined) searchCursor.value = data.next_page;
-
         const serchedRomsSet = [...searchRoms.value, ...data.items];
         romsStore.setSearch(serchedRomsSet);
         romsStore.setFiltered(serchedRomsSet, galleryFilterStore);
-      } else if (data.next_page !== undefined) {
-        cursor.value = data.next_page;
       }
     })
     .catch((error) => {
@@ -106,7 +92,6 @@ async function fetchRoms() {
 }
 
 async function onFilterChange() {
-  searchCursor.value = "";
   romsStore.setSearch([]);
   if (!galleryFilterStore.isFiltered()) {
     romsStore.setFiltered(allRoms.value, galleryFilterStore);
@@ -169,8 +154,6 @@ function setFilters() {
 }
 
 function resetGallery() {
-  cursor.value = "";
-  searchCursor.value = "";
   romsStore.reset();
   scrolledToTop.value = true;
   galleryFilterStore.reset();
@@ -217,7 +200,7 @@ onMounted(async () => {
         platforms.add(data.data);
       })
       .catch((error) => {
-        console.log(error)
+        console.log(error);
         noPlatformError.value = true;
       });
   }
@@ -305,7 +288,8 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <template v-else>
-    <v-empty-state v-if="!gettingRoms"
+    <v-empty-state
+      v-if="!gettingRoms && galleryFilterStore.isFiltered()"
       headline="No games to show"
       icon="mdi-disc-alert"
     ></v-empty-state>

@@ -48,10 +48,11 @@ export default defineStore("galleryFilter", {
       this.filterUnmatched = !this.filterUnmatched;
     },
     isFiltered() {
-      return (
+      return Boolean(
         normalizeString(this.filterSearch).trim() != "" ||
+        this.filterUnmatched ||
         this.selectedGenre ||
-        this.filterFranchises ||
+        this.selectedFranchise ||
         this.selectedCollection ||
         this.selectedCompany
       );
