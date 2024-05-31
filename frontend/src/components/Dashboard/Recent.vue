@@ -19,7 +19,7 @@ onMounted(() => {
   romApi
     .getRecentRoms()
     .then(({ data: recentData }) => {
-      romsStore.setRecentRoms(recentData.items);
+      romsStore.setRecentRoms(recentData);
     })
     .catch((error) => {
       console.error(error);
