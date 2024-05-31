@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
-
 const props = defineProps<{ slug: string }>();
-const platformIconUrl = ref(
-  `/assets/platforms/${props.slug.toLowerCase()}.ico`
-);
-
-function onImageError() {
-  platformIconUrl.value = "/assets/platforms/default.ico";
-}
 </script>
 
 <template>
-  <v-img :src="platformIconUrl" @error="onImageError" />
+  <v-img :src="`/assets/platforms/${props.slug.toLowerCase()}.ico`"
+    ><template v-slot:error
+      ><v-img src="/assets/platforms/default.ico"></v-img></template
+  ></v-img>
 </template>

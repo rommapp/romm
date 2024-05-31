@@ -2,7 +2,7 @@
 import storeDownload from "@/stores/download";
 import { type SimpleRom } from "@/stores/roms";
 
-defineProps<{ rom: SimpleRom }>();
+defineProps<{ rom: SimpleRom; src: string | undefined | null }>();
 const downloadStore = storeDownload();
 import { useTheme } from "vuetify";
 const theme = useTheme();
@@ -16,7 +16,9 @@ const theme = useTheme();
       :value="rom.id"
       :key="rom.id"
       :src="
-        !rom.igdb_id && !rom.moby_id
+        src
+          ? src
+          : !rom.igdb_id && !rom.moby_id && !rom.has_cover
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
           : `/assets/romm/resources/${rom.path_cover_l}`
       "

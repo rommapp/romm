@@ -81,7 +81,6 @@ const theme = useTheme();
           >
           <v-img
             v-bind="props"
-            class="cover"
             :src="
               `${dlc.cover_url}`
                 ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_big')}`
