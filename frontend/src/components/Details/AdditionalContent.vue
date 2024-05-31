@@ -87,12 +87,8 @@ const theme = useTheme();
                 ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_big')}`
                 : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
             "
-            :lazy-src="
-              `${dlc.cover_url}`
-                ? `https:${dlc.cover_url.replace('t_thumb', 't_cover_small')}`
-                : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-            "
             :aspect-ratio="3 / 4"
+            lazy
             ><v-chip
               class="px-2 position-absolute chip-type text-white translucent"
               density="compact"
