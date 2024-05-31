@@ -25,7 +25,6 @@ from endpoints import (
 import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_pagination import add_pagination
 from handler.database import db_user_handler
 from handler.socket_handler import socket_handler
 from handler.auth import auth_handler
@@ -95,7 +94,6 @@ app.include_router(raw.router)
 app.include_router(screenshots.router)
 app.include_router(firmware.router)
 
-add_pagination(app)
 app.mount("/ws", socket_handler.socket_app)
 
 
