@@ -358,13 +358,6 @@ onBeforeUnmount(() => {
                         ? matchedRom.igdb_url_cover
                         : matchedRom.moby_url_cover
                     "
-                    :lazy-src="
-                      !matchedRom.igdb_url_cover && !matchedRom.moby_url_cover
-                        ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                        : matchedRom.igdb_url_cover
-                        ? matchedRom.igdb_url_cover
-                        : matchedRom.moby_url_cover
-                    "
                     :aspect-ratio="3 / 4"
                   >
                     <template v-slot:placeholder>
