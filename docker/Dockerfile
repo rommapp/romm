@@ -138,8 +138,14 @@ RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
 # Move everything to final stage
-FROM scratch
+FROM scratch as final-stage
 COPY --from=production-stage / /
 
 # Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library"]
+VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
+
+# Expose ports and start
+EXPOSE 8080
+EXPOSE 6379/tcp
+WORKDIR /romm
+CMD ["/init"]
