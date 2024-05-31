@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { RomSchema } from "@/__generated__";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
@@ -10,6 +9,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import { type SimpleRom } from "@/stores/roms";
 
 const theme = useTheme();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -47,8 +47,8 @@ async function searchRoms() {
   inputElement?.blur();
   searching.value = true;
   searchedRoms.value = (
-    await romApi.getRoms({ searchTerm: searchValue.value, size: 250 })
-  ).data.items.sort((a, b) => {
+    await romApi.getRoms({ searchTerm: searchValue.value })
+  ).data.sort((a, b) => {
     return a.platform_name.localeCompare(b.platform_name);
   });
   platforms.value = [
@@ -73,7 +73,7 @@ async function filterRoms() {
   }
 }
 
-function romDetails(rom: RomSchema) {
+function romDetails(rom: SimpleRom) {
   router.push({
     name: "rom",
     params: { rom: rom.id },
@@ -249,28 +249,27 @@ onBeforeUnmount(() => {
                   <v-img
                     v-bind="props"
                     :src="
-                      !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                      !rom.igdb_id && !rom.moby_id
                         ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                        : !rom.has_cover
-                        ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                         : `/assets/romm/resources/${rom.path_cover_l}`
                     "
-                    :lazy-src="
-                      !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                        ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                        : !rom.has_cover
-                        ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                        : `/assets/romm/resources/${rom.path_cover_s}`
-                    "
                     :aspect-ratio="3 / 4"
+                    lazy
                   >
+                    <template v-slot:error>
+                      <v-img
+                        :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+                        :aspect-ratio="3 / 4"
+                      ></v-img>
+                    </template>
                     <template v-slot:placeholder>
                       <div
                         class="d-flex align-center justify-center fill-height"
                       >
                         <v-progress-circular
-                          color="romm-accent-1"
                           :width="2"
+                          :size="40"
+                          color="romm-accent-1"
                           indeterminate
                         />
                       </div>

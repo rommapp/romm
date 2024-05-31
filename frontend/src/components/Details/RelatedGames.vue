@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const combined = ref([
   ...(props.rom.igdb_metadata?.remakes ?? []),
   ...(props.rom.igdb_metadata?.remasters ?? []),
@@ -39,12 +39,8 @@ const theme = useTheme();
               ? `https:${game.cover_url.replace('t_thumb', 't_cover_big')}`
               : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
           "
-          :lazy-src="
-            `${game.cover_url}`
-              ? `https:${game.cover_url.replace('t_thumb', 't_cover_small')}`
-              : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-          "
           :aspect-ratio="3 / 4"
+          lazy
           ><v-chip
             class="px-2 position-absolute chip-type text-white translucent"
             density="compact"

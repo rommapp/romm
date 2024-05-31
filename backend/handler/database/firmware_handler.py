@@ -21,7 +21,11 @@ class DBFirmwareHandler(DBBaseHandler):
         return (
             session.scalar(select(Firmware).filter_by(id=id).limit(1))
             if id
-            else select(Firmware).filter_by(platform_id=platform_id).all()
+            else session.scalars(
+                select(Firmware)
+                .filter_by(platform_id=platform_id)
+                .order_by(Firmware.file_name.asc())
+            ).all()
         )
 
     @begin_session

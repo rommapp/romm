@@ -10,14 +10,13 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
+    DetailedRomSchema,
     RomNoteSchema,
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File, status
 from fastapi.responses import FileResponse
-from fastapi_pagination.cursor import CursorPage, CursorParams
-from fastapi_pagination.ext.sqlalchemy import paginate
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -87,13 +86,12 @@ def add_roms(
 @protected_route(router.get, "/roms", ["roms.read"])
 def get_roms(
     request: Request,
-    platform_id: int | None = None,
-    size: int = 60,
-    cursor: str = "",
+    platform_id: int = None,
     search_term: str = "",
+    limit: int = None,
     order_by: str = "name",
     order_dir: str = "asc",
-) -> CursorPage[RomSchema]:
+) -> list[RomSchema]:
     """Get roms endpoint
 
     Args:
@@ -101,18 +99,18 @@ def get_roms(
         id (int, optional): Rom internal id
 
     Returns:
-        RomSchema: Rom stored in the database
+        list[RomSchema]: List of roms stored in the database
     """
 
     with db_rom_handler.session.begin() as session:
-        cursor_params = CursorParams(size=size, cursor=cursor)
-        qq = db_rom_handler.get_roms(
-            platform_id=platform_id,
-            search_term=search_term.lower(),
-            order_by=order_by.lower(),
-            order_dir=order_dir.lower(),
-        )
-        return paginate(session, qq, cursor_params)
+        return session.scalars(
+            db_rom_handler.get_roms(
+                platform_id=platform_id,
+                search_term=search_term.lower(),
+                order_by=order_by.lower(),
+                order_dir=order_dir.lower(),
+            ).limit(limit)
+        ).all()
 
 
 @protected_route(
@@ -120,7 +118,7 @@ def get_roms(
     "/roms/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
 )
-def get_rom(request: Request, id: int) -> RomSchema:
+def get_rom(request: Request, id: int) -> DetailedRomSchema:
     """Get rom endpoint
 
     Args:
@@ -128,9 +126,9 @@ def get_rom(request: Request, id: int) -> RomSchema:
         id (int): Rom internal id
 
     Returns:
-        RomSchema: Rom stored in the database
+        DetailedRomSchema: Rom stored in the database
     """
-    return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(
@@ -250,8 +248,8 @@ async def update_rom(
     id: int,
     rename_as_igdb: bool = False,
     remove_cover: bool = False,
-    artwork: Optional[UploadFile] = None,
-) -> RomSchema:
+    artwork: Optional[UploadFile] = File(None),
+) -> DetailedRomSchema:
     """Update rom endpoint
 
     Args:
@@ -264,7 +262,7 @@ async def update_rom(
         HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
 
     Returns:
-        RomSchema: Rom stored in the database
+        DetailedRomSchema: Rom stored in the database
     """
 
     data = await request.form()
@@ -378,7 +376,7 @@ async def update_rom(
 
     db_rom_handler.update_rom(id, cleaned_data)
 
-    return db_rom_handler.get_roms(id)
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])

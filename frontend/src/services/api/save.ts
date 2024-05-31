@@ -1,6 +1,6 @@
 import type { SaveSchema, UploadedSavesResponse } from "@/__generated__";
 import api from "@/services/api/index";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
 export const saveApi = api;
 
@@ -9,7 +9,7 @@ async function uploadSaves({
   saves,
   emulator,
 }: {
-  rom: Rom;
+  rom: DetailedRom;
   saves: File[];
   emulator?: string;
 }): Promise<{ data: UploadedSavesResponse }> {

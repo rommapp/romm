@@ -31,7 +31,6 @@ class ScreenshotSchema(BaseAsset):
 class UploadedScreenshotsResponse(TypedDict):
     uploaded: int
     screenshots: list[ScreenshotSchema]
-    url_screenshots: list[str]
     merged_screenshots: list[str]
 
 

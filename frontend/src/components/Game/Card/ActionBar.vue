@@ -3,11 +3,11 @@ import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
-import type { Rom } from "@/stores/roms";
-import { platformSlugEJSCoreMap } from "@/utils";
+import type { SimpleRom } from "@/stores/roms";
+import { isEmulationSupported } from "@/utils";
 
 // Props
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: SimpleRom }>();
 const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
@@ -25,7 +25,7 @@ const downloadStore = storeDownload();
         variant="text"
       />
       <v-btn
-        v-if="rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap"
+        v-if="isEmulationSupported(rom.platform_slug)"
         class="action-bar-btn"
         :href="`/play/${rom.id}`"
         icon="mdi-play"

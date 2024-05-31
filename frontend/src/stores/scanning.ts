@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import type { Rom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 
 export default defineStore("scanning", {
   state: () => ({
@@ -8,7 +8,7 @@ export default defineStore("scanning", {
       name: string;
       slug: string;
       id: number;
-      roms: Rom[];
+      roms: SimpleRom[];
     }[],
     scanStats: {
       scanned_platforms: 0,

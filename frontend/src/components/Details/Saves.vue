@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { SaveSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const savesToUpload = ref<File[]>([]);
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
