@@ -120,7 +120,9 @@ class DetailedRomSchema(RomSchema):
     user_notes: list[RomNoteSchema] = Field(default_factory=list)
 
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "DetailedRomSchema":
+    def from_orm_with_request(
+        cls, db_rom: Rom, request: Request
+    ) -> "DetailedRomSchema":
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 

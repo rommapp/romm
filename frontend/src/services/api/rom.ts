@@ -57,7 +57,11 @@ async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
   });
 }
 
-async function getRom({ romId }: { romId: number }): Promise<{ data: DetailedRom }> {
+async function getRom({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: DetailedRom }> {
   return api.get(`/roms/${romId}`);
 }
 

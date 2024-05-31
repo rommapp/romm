@@ -34,55 +34,55 @@ error_log() {
 	exit 1
 }
 
-wait_for_gunicorn_socket () {
-    info_log "waiting for gunicorn socket file..."
-    while [ ! -S /tmp/gunicorn.sock ]; do
-        sleep 1
-    done
-    info_log "gunicorn socket file found"
+wait_for_gunicorn_socket() {
+	info_log "waiting for gunicorn socket file..."
+	while [[ ! -S /tmp/gunicorn.sock ]]; do
+		sleep 1
+	done
+	info_log "gunicorn socket file found"
 }
 
 # function that runs or main process and creates a corresponding PID file,
-start_bin_gunicorn () {
-    # cleanup potentially leftover socket
-    rm /tmp/gunicorn.sock -f
+start_bin_gunicorn() {
+	# cleanup potentially leftover socket
+	rm /tmp/gunicorn.sock -f
 
-    # commands to start our main application and store its PID to check for crashes
-    info_log "starting gunicorn"
-    gunicorn \
-        --access-logfile - \
-        --error-logfile - \
-        --worker-class uvicorn.workers.UvicornWorker \
-        --bind=0.0.0.0:5000 \
-        --bind=unix:/tmp/gunicorn.sock \
-        --pid=/tmp/gunicorn.pid \
-        --workers ${GUNICORN_WORKERS:=2} \
-        main:app &
+	# commands to start our main application and store its PID to check for crashes
+	info_log "starting gunicorn"
+	gunicorn \
+		--access-logfile - \
+		--error-logfile - \
+		--worker-class uvicorn.workers.UvicornWorker \
+		--bind=0.0.0.0:5000 \
+		--bind=unix:/tmp/gunicorn.sock \
+		--pid=/tmp/gunicorn.pid \
+		--workers "${GUNICORN_WORKERS:=2}" \
+		main:app &
 }
 
 # Commands to start nginx (handling PID creation internally)
-start_bin_nginx () {
-    wait_for_gunicorn_socket
+start_bin_nginx() {
+	wait_for_gunicorn_socket
 
-    info_log "starting nginx"
-    if [ "$EUID" -ne 0 ]; then
-        nginx
-    else
-        # if container runs as root, drop permissions
-        nginx -g 'user romm;'
-    fi
+	info_log "starting nginx"
+	if [[ ${EUID} -ne 0 ]]; then
+		nginx
+	else
+		# if container runs as root, drop permissions
+		nginx -g 'user romm;'
+	fi
 }
 
-start_bin_redis-server () {
-    info_log "starting redis-server"
-    # Check if /usr/local/etc/redis/redis.conf exists and use it if so
-    if [ -f /usr/local/etc/redis/redis.conf ]; then
-        redis-server /usr/local/etc/redis/redis.conf &
-    else
-        redis-server --dir /redis-data &
-    fi
-    REDIS_PID=$!
-    echo $REDIS_PID > /tmp/redis-server.pid
+start_bin_redis-server() {
+	info_log "starting redis-server"
+	# Check if /usr/local/etc/redis/redis.conf exists and use it if so
+	if [[ -f /usr/local/etc/redis/redis.conf ]]; then
+		redis-server /usr/local/etc/redis/redis.conf &
+	else
+		redis-server --dir /redis-data &
+	fi
+	REDIS_PID=$!
+	echo "${REDIS_PID}" >/tmp/redis-server.pid
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
@@ -150,17 +150,17 @@ while true; do
 		debug_log "database schema already upgraded during current container lifecycle"
 	fi
 
-    # Start gunicorn if we dont have a corresponding PID file
-    watchdog_process_pid bin gunicorn
-    
-    # Start nginx if we dont have a corresponding PID file
-    watchdog_process_pid bin nginx
+	# Start gunicorn if we dont have a corresponding PID file
+	watchdog_process_pid bin gunicorn
 
-    # only start the watcher.py if we actually want to use the rescan on fs change feature
-    if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
-        # Start watcher if we dont have a corresponding PID file
-        watchdog_process_pid python watcher
-    fi
+	# Start nginx if we dont have a corresponding PID file
+	watchdog_process_pid bin nginx
+
+	# only start the watcher.py if we actually want to use the rescan on fs change feature
+	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
+		# Start watcher if we dont have a corresponding PID file
+		watchdog_process_pid python watcher
+	fi
 
 	# Start background worker processes
 	debug_log "Starting worker and scheduler"
