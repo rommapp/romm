@@ -1,4 +1,5 @@
 from functools import cached_property
+from datetime import datetime
 
 from config import FRONTEND_RESOURCES_PATH
 from models.assets import Save, Screenshot, State
@@ -13,6 +14,12 @@ from sqlalchemy import (
     String,
     Text,
     BigInteger,
+    DateTime,
+    func,
+    UniqueConstraint,
+    select,
+    and_,
+    or_,
 )
 from sqlalchemy.orm import Mapped, relationship
 
@@ -62,19 +69,17 @@ class Rom(BaseModel):
         nullable=False,
     )
 
-    platform = relationship("Platform", lazy="selectin", back_populates="roms")
+    platform = relationship("Platform", lazy="immediate")
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
-        lazy="selectin",
         back_populates="rom",
     )
-    states: Mapped[list[State]] = relationship(
-        "State", lazy="selectin", back_populates="rom"
-    )
+    states: Mapped[list[State]] = relationship("State", back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", lazy="selectin", back_populates="rom"
+        "Screenshot", back_populates="rom"
     )
+    notes: Mapped[list["RomNote"]] = relationship("RomNote", back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -104,16 +109,19 @@ class Rom(BaseModel):
 
     # This is an expensive operation so don't call it on a list of roms
     def get_sibling_roms(self) -> list["Rom"]:
-        from handler import db_rom_handler
-
-        if not self.igdb_id:
-            return []
+        from handler.database import db_rom_handler
 
         with db_rom_handler.session.begin() as session:
             return session.scalars(
-                db_rom_handler.get_roms(platform_id=self.platform_id).filter(
-                    Rom.id != self.id,
-                    Rom.igdb_id == self.igdb_id,
+                select(Rom).where(
+                    and_(
+                        Rom.platform_id == self.platform_id,
+                        Rom.id != self.id,
+                        or_(
+                            and_(Rom.igdb_id == self.igdb_id, Rom.igdb_id != None),  # noqa
+                            and_(Rom.moby_id == self.moby_id, Rom.moby_id != None),  # noqa
+                        ),
+                    )
                 )
             ).all()
 
@@ -156,3 +164,35 @@ class Rom(BaseModel):
 
     def __repr__(self) -> str:
         return self.file_name
+
+
+class RomNote(BaseModel):
+    __tablename__ = "rom_notes"
+    __table_args__ = (
+        UniqueConstraint("rom_id", "user_id", name="unique_rom_user_note"),
+    )
+
+    id: int = Column(Integer(), primary_key=True, autoincrement=True)
+    last_edited_at: datetime = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    raw_markdown: str = Column(Text, nullable=False, default="")
+    is_public: bool = Column(Boolean, default=False)
+
+    rom_id: int = Column(
+        Integer(),
+        ForeignKey("roms.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: int = Column(
+        Integer(),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    rom = relationship("Rom", lazy="joined", back_populates="notes")
+    user = relationship("User", lazy="joined", back_populates="notes")
+
+    @property
+    def user__username(self) -> str:
+        return self.user.username

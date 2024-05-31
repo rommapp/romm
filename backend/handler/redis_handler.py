@@ -14,8 +14,18 @@ class QueuePrio(Enum):
     LOW = "low"
 
 
-redis_client = Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, username=REDIS_USERNAME, db=REDIS_DB)
-redis_url = f"redis://{REDIS_USERNAME}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}" if REDIS_PASSWORD else f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+redis_client = Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    password=REDIS_PASSWORD,
+    username=REDIS_USERNAME,
+    db=REDIS_DB,
+)
+redis_url = (
+    f"redis://{REDIS_USERNAME}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    if REDIS_PASSWORD
+    else f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+)
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)

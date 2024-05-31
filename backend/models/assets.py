@@ -26,13 +26,6 @@ class BaseAsset(BaseModel):
     file_path = Column(String(length=1000), nullable=False)
     file_size_bytes = Column(BigInteger(), default=0, nullable=False)
 
-    rom_id = Column(
-        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
-    )
-    user_id = Column(
-        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
@@ -42,18 +35,29 @@ class BaseAsset(BaseModel):
         return f"/api/raw/assets/{self.full_path}?timestamp={self.updated_at}"
 
 
-class Save(BaseAsset):
+class RomAsset(BaseAsset):
+    __abstract__ = True
+
+    rom_id = Column(
+        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = Column(
+        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+
+class Save(RomAsset):
     __tablename__ = "saves"
     __table_args__ = {"extend_existing": True}
 
     emulator = Column(String(length=50), nullable=True)
 
-    rom = relationship("Rom", lazy="selectin", back_populates="saves")
-    user = relationship("User", lazy="selectin", back_populates="saves")
+    rom = relationship("Rom", lazy="joined", back_populates="saves")
+    user = relationship("User", lazy="joined", back_populates="saves")
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
-        from handler import db_rom_handler
+        from handler.database import db_rom_handler
 
         db_rom = db_rom_handler.get_roms(self.rom_id)
         for screenshot in db_rom.screenshots:
@@ -63,18 +67,18 @@ class Save(BaseAsset):
         return None
 
 
-class State(BaseAsset):
+class State(RomAsset):
     __tablename__ = "states"
     __table_args__ = {"extend_existing": True}
 
     emulator = Column(String(length=50), nullable=True)
 
-    rom = relationship("Rom", lazy="selectin", back_populates="states")
-    user = relationship("User", lazy="selectin", back_populates="states")
+    rom = relationship("Rom", lazy="joined", back_populates="states")
+    user = relationship("User", lazy="joined", back_populates="states")
 
     @cached_property
     def screenshot(self) -> Optional["Screenshot"]:
-        from handler import db_rom_handler
+        from handler.database import db_rom_handler
 
         db_rom = db_rom_handler.get_roms(self.rom_id)
         for screenshot in db_rom.screenshots:
@@ -84,9 +88,9 @@ class State(BaseAsset):
         return None
 
 
-class Screenshot(BaseAsset):
+class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
-    rom = relationship("Rom", lazy="selectin", back_populates="screenshots")
-    user = relationship("User", lazy="selectin", back_populates="screenshots")
+    rom = relationship("Rom", lazy="joined", back_populates="screenshots")
+    user = relationship("User", lazy="joined", back_populates="screenshots")

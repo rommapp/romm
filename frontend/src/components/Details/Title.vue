@@ -2,10 +2,11 @@
 import { identity } from "lodash";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import { regionToEmoji, languageToEmoji } from "@/utils";
-import type { RomSchema, PlatformSchema } from "@/__generated__/";
+import type { DetailedRom } from "@/stores/roms";
+import type { Platform } from "@/stores/platforms";
 import { useDisplay } from "vuetify";
 
-defineProps<{ rom: RomSchema; platform: PlatformSchema }>();
+defineProps<{ rom: DetailedRom; platform: Platform }>();
 const { smAndDown } = useDisplay();
 </script>
 <template>
@@ -47,7 +48,7 @@ const { smAndDown } = useDisplay();
         :to="{ name: 'platform', params: { platform: platform.id } }"
       >
         {{ platform.name }}
-        <v-avatar :rounded="0" size="40" class="ml-1 py-1">
+        <v-avatar :rounded="0" size="30" class="ml-2">
           <platform-icon :key="platform.slug" :slug="platform.slug" />
         </v-avatar>
       </v-chip>

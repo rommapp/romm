@@ -10,24 +10,21 @@ from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
     RomSchema,
+    DetailedRomSchema,
+    RomNoteSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi_pagination.cursor import CursorPage, CursorParams
 from fastapi_pagination.ext.sqlalchemy import paginate
-from handler import (
-    db_platform_handler,
-    db_rom_handler,
-    fs_resource_handler,
-    fs_rom_handler,
-    igdb_handler,
-    moby_handler,
-)
-from handler.fs_handler import CoverSize
+from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.base_handler import CoverSize
+from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
-
+from urllib.parse import quote
 router = APIRouter()
 
 
@@ -46,7 +43,7 @@ def add_roms(
         HTTPException: No files were uploaded
 
     Returns:
-        UploadRomResponse: Standard message response
+        AddRomsResponse: Standard message response
     """
 
     platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug
@@ -123,7 +120,7 @@ def get_roms(
     "/roms/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
 )
-def get_rom(request: Request, id: int) -> RomSchema:
+def get_rom(request: Request, id: int) -> DetailedRomSchema:
     """Get rom endpoint
 
     Args:
@@ -131,9 +128,9 @@ def get_rom(request: Request, id: int) -> RomSchema:
         id (int): Rom internal id
 
     Returns:
-        RomSchema: Rom stored in the database
+        DetailedRomSchema: Rom stored in the database
     """
-    return RomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(
@@ -160,7 +157,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
         path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
         filename=file_name,
         headers={
-            "Content-Disposition": f'attachment; filename="{rom.name}.zip"',
+            "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
             "Content-Type": "application/zip",
             "Content-Length": str(rom.file_size_bytes),
         },
@@ -240,7 +237,7 @@ def get_rom_content(
     return CustomStreamingResponse(
         zipped_chunks,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{file_name}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'},
         emit_body={"id": rom.id},
     )
 
@@ -252,7 +249,7 @@ async def update_rom(
     rename_as_igdb: bool = False,
     remove_cover: bool = False,
     artwork: Optional[UploadFile] = File(None),
-) -> RomSchema:
+) -> DetailedRomSchema:
     """Update rom endpoint
 
     Args:
@@ -265,7 +262,7 @@ async def update_rom(
         HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
 
     Returns:
-        RomSchema: Rom stored in the database
+        DetailedRomSchema: Rom stored in the database
     """
 
     data = await request.form()
@@ -278,13 +275,13 @@ async def update_rom(
     cleaned_data["moby_id"] = data.get("moby_id", None)
 
     if cleaned_data["moby_id"]:
-        moby_rom = moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+        moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
     else:
         cleaned_data.update({"moby_metadata": {}})
 
     if cleaned_data["igdb_id"]:
-        igdb_rom = igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
     else:
         cleaned_data.update({"igdb_metadata": {}})
@@ -379,7 +376,7 @@ async def update_rom(
 
     db_rom_handler.update_rom(id, cleaned_data)
 
-    return db_rom_handler.get_roms(id)
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])
@@ -425,3 +422,23 @@ async def delete_roms(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
+
+
+@protected_route(router.put, "/roms/{id}/note", ["notes.write"])
+async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
+    db_note = db_rom_handler.get_rom_note(id, request.user.id)
+    if not db_note:
+        db_note = db_rom_handler.add_rom_note(id, request.user.id)
+
+    data = await request.json()
+    db_rom_handler.update_rom_note(
+        db_note.id,
+        {
+            "last_edited_at": datetime.now(),
+            "raw_markdown": data.get("raw_markdown", db_note.raw_markdown),
+            "is_public": data.get("is_public", db_note.is_public),
+        },
+    )
+
+    db_note = db_rom_handler.get_rom_note(id, request.user.id)
+    return db_note

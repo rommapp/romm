@@ -3,9 +3,10 @@ from handler.scan_handler import _get_main_platform_igdb_id
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchRomSchema
 from fastapi import APIRouter, Request, HTTPException, status
-from handler import db_rom_handler, igdb_handler, moby_handler
-from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
-from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
+from handler.database import db_rom_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata.igdb_handler import IGDB_API_ENABLED
+from handler.metadata.moby_handler import MOBY_API_ENABLED
 from logger.logger import log
 
 router = APIRouter()
@@ -57,8 +58,12 @@ async def search_rom(
     log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
     if search_by.lower() == "id":
         try:
-            igdb_matched_roms = igdb_handler.get_matched_roms_by_id(int(search_term))
-            moby_matched_roms = moby_handler.get_matched_roms_by_id(int(search_term))
+            igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_id(
+                int(search_term)
+            )
+            moby_matched_roms = meta_moby_handler.get_matched_roms_by_id(
+                int(search_term)
+            )
         except ValueError:
             log.error(f"Search error: invalid ID '{search_term}'")
             raise HTTPException(
@@ -66,10 +71,10 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             )
     elif search_by.lower() == "name":
-        igdb_matched_roms = igdb_handler.get_matched_roms_by_name(
+        igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_name(
             search_term, _get_main_platform_igdb_id(rom.platform), search_extended
         )
-        moby_matched_roms = moby_handler.get_matched_roms_by_name(
+        moby_matched_roms = meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
 
@@ -92,7 +97,6 @@ async def search_rom(
                 "summary": "",
                 "igdb_url_cover": "",
                 "moby_url_cover": "",
-                "url_screenshots": [],
             },
             **item,
         }

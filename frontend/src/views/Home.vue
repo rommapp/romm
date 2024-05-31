@@ -8,9 +8,11 @@ import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatfo
 import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
 import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
+import ViewFirmwareDialog from "@/components/Dialog/Platform/ViewFirmware.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import MatchRomDialog from "@/components/Dialog/Rom/MatchRom/MatchRom.vue";
+import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
@@ -18,14 +20,12 @@ import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
 import platformApi from "@/services/api/platform";
-import userApi from "@/services/api/user";
-import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, ref } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -33,7 +33,6 @@ const { mdAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
-const auth = storeAuth();
 const refreshView = ref(0);
 
 // Event listeners bus
@@ -44,27 +43,6 @@ emitter?.on("refreshDrawer", async () => {
 });
 emitter?.on("refreshView", async () => {
   refreshView.value = refreshView.value + 1;
-});
-
-// Functions
-onMounted(() => {
-  platformApi
-    .getPlatforms()
-    .then(({ data: platforms }) => {
-      platformsStore.set(platforms);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-  userApi
-    .fetchCurrentUser()
-    .then(({ data: user }) => {
-      auth.setUser(user);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
 });
 </script>
 
@@ -82,7 +60,9 @@ onMounted(() => {
   <delete-platform-dialog />
   <search-rom-dialog />
   <match-rom-dialog />
+  <copy-rom-download-link-dialog />
   <upload-rom-dialog />
+  <view-firmware-dialog />
   <edit-rom-dialog />
   <delete-rom-dialog />
   <delete-asset-dialog />

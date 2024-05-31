@@ -7,7 +7,8 @@ from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler import auth_handler, oauth_handler, db_user_handler
+from handler.auth import auth_handler, oauth_handler
+from handler.database import db_user_handler
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
@@ -43,10 +44,10 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        user, payload = await oauth_handler.get_current_active_user_from_bearer_token(
+        user, claims = await oauth_handler.get_current_active_user_from_bearer_token(
             token
         )
-        if payload.get("type") != "refresh":
+        if claims.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
@@ -55,7 +56,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             data={
                 "sub": user.username,
                 "iss": "romm:oauth",
-                "scopes": payload.get("scopes"),
+                "scopes": claims.get("scopes"),
                 "type": "access",
             },
             expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),

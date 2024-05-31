@@ -2,10 +2,10 @@
 import { inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import type { Rom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import storeHeartbeat from "@/stores/heartbeat";
 
-defineProps<{ rom: Rom }>();
+defineProps<{ rom: SimpleRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 </script>

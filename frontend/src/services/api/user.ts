@@ -30,29 +30,27 @@ async function fetchCurrentUser(): Promise<{ data: UserSchema | null }> {
 
 async function updateUser({
   id,
-  username,
-  password,
-  role,
-  enabled,
   avatar,
-}: {
-  id: number;
-  username: string;
-  password: string;
-  role: string;
-  enabled: boolean;
-  avatar?: File[];
+  ...attrs
+}: UserSchema &  {
+  avatar?: File;
+  password?: string;
 }): Promise<{ data: UserSchema }> {
   return api.put(
     `/users/${id}`,
     {
-      avatar: avatar ? avatar[0] : null,
+      avatar: avatar || null,
     },
     {
       headers: {
         "Content-Type": avatar ? "multipart/form-data" : "application/json",
       },
-      params: { username, password, role, enabled },
+      params: {
+        username: attrs.username,
+        password: attrs.password,
+        enabled: attrs.enabled,
+        role: attrs.role,
+      },
     }
   );
 }

@@ -1,13 +1,13 @@
 # v3.0.3 (_25-03-2024_)
 
-## Fixed 
+## Fixed
  - Removed ``PUID/GUID`` environment variables. Instead, use the ``user: "XXXX:XXXX"`` entry in docker-compose to set the owner of newly created file/folders and mounted volumes
 
 <br>
 
 # v3.0.2 (_25-03-2024_)
 
-> [!WARNING]  
+> [!WARNING]
 > RomM has been organized in ``github`` and ``dockerhub``! New images will be upload to ``rommapp/romm`` repository on dockerhub and ghcr.
 
 ## Added
@@ -29,7 +29,7 @@
 
 # v3.0.1 (_13-03-2024_)
 
-> [!WARNING]  
+> [!WARNING]
 > This hotfix requires a few changes:
 
 * A new volume has to be bound to `/redis-data`, check the [docker-compose.example.yml file](https://github.com/rommapp/romm/blob/3.0.1/examples/docker-compose.example.yml)
@@ -89,7 +89,7 @@
 
 ## Changed
  - Platforms can only be deleted from RomM's database. Checkbox to delete platform from filesystem have been removed.
- 
+
 <br>
 
 # v2.3.0 (_08-01-2024_)
@@ -123,7 +123,7 @@
 
 ## Changed
  - Now region and language tags are case insensitive to show ``emojis``.
- 
+
 <br>
 
 # v2.2.0 (_31-12-2023_)
@@ -132,7 +132,7 @@
  - Support for ``productID`` in the file name for ``switch`` titles.
  - Rom name sorting now sorts smarter, avoiding leading articles such ``The`` or ``A``, like in ``The Legend of Zelda``. Closes [#449](https://github.com/rommapp/romm/issues/449) and [#450](https://github.com/rommapp/romm/issues/450)
  - Support for file names with multiple ``regions`` and ``languages``. Also uses ``emojis`` to display them. Closes [#473](https://github.com/rommapp/romm/issues/473)
- - Added a button to manually ``run`` all tasks. Closes [#437](https://github.com/rommapp/romm/issues/437) 
+ - Added a button to manually ``run`` all tasks. Closes [#437](https://github.com/rommapp/romm/issues/437)
  - Now if a game doesn't have cover, it will show a screenshot if available. Closes [#455](https://github.com/rommapp/romm/issues/455)
  - Added a little warning icon in the platform selector if the platform is not found by IGDB.
  - Now if a platform is not found by IGDB, the platform name is ``titleized``. Ex: ``pocket-challenge-v2 -> Pocket Challenge V2``.  Closes [#486](https://github.com/rommapp/romm/issues/486)
@@ -140,7 +140,7 @@
  - Support for support for AES/MVS. Closes [#503](https://github.com/rommapp/romm/issues/503)
  - Added [Helm Chart](https://artifacthub.io/packages/helm/crystalnet/romm) to deploy on Kubernetes by @psych0d0g
  - ``Rescan unidentified`` added to the scan view, allowing to rescan only those entries that IGDB couldn't identify in previous scans. Closes [#519](https://github.com/rommapp/romm/issues/519)
- - ``Config file`` visualization added to the new ``Config`` tab in the ``Control Panel``. Partially implements some concepts of [#457](https://github.com/rommapp/romm/issues/457) 
+ - ``Config file`` visualization added to the new ``Config`` tab in the ``Control Panel``. Partially implements some concepts of [#457](https://github.com/rommapp/romm/issues/457)
 
 ## Fixed
  - Now sorting by size in the gallery table view works as expected. Closes [#423](https://github.com/rommapp/romm/issues/423)
@@ -156,7 +156,7 @@
  - Fixed multi-part games download when any part of the game contains a ``comma`` in the name. Closes [#520](https://github.com/rommapp/romm/issues/520)
 
 ## Changed
- - Improved the docker ``init scripts`` handling by @psych0d0g. 
+ - Improved the docker ``init scripts`` handling by @psych0d0g.
  - Now the ``scan`` can continue after failing finding roms for one platform. Closes [#460](https://github.com/rommapp/romm/issues/460)
  - Logs improved a lot.
 
@@ -382,7 +382,7 @@
 ## Fixed
  - Download feature is now fixed for RomM structucture 1
 ## Changed
- - Library path binding changed from ``/library`` to ``/romm/library``. Check [docker-compose](examples/docker-compose.example.yml) 
+ - Library path binding changed from ``/library`` to ``/romm/library``. Check [docker-compose](examples/docker-compose.example.yml)
 
 <br>
 
@@ -403,7 +403,7 @@
 
 # v1.5 (_30-03-2023_)
 
-> [!WARNING]  
+> [!WARNING]
 > In order to make the new features to work, it is mandatory this time to drop all the database. This will only make you need to re-scan, but you won't lose the cover changes or file changes you made. I apologize for the inconveniences this may cause, as this is a new software, it may change a little bit the first weeks, at least until I can develop a proper way to migrate between versions. I hope you can understand these initial wipes in order to make a better tool.
 
 ## Added
@@ -435,7 +435,7 @@
 ## Fixed
 **`Breaking change`** - **This breaking change only applies for mariaDB users**:
 
-Some users reported errors when scanning files with large names because file_names are limited to 100 characters in the database. As I want to give as much flexibility as possible I changed some database columns. 
+Some users reported errors when scanning files with large names because file_names are limited to 100 characters in the database. As I want to give as much flexibility as possible I changed some database columns.
 
 If you didn't make a lot of manual changes you can just get rid of the database and recreate it, scanning your library again. If you did some changes and don't want to lose the progress, you should do this changes manually from the mariadb container (or wherever you have your mariadb database) since there is not any kind of CLI for this migration.
 
@@ -486,8 +486,8 @@ Columns to modify (examples in case that you set it with database name as romm, 
  - Game names parentheses are now omitted when searching game in IGDB, allowing game names to have tags.
 
 <br>
- 
+
 # v1.0 (_27-03-2023_)
- 
+
 ## Added
 - Birth of RomM

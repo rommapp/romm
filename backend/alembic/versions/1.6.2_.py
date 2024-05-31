@@ -1,10 +1,11 @@
 """init to 1.6.2
 
 Revision ID: 1.6.2
-Revises: 
+Revises:
 Create Date: 2023-04-10 23:02:37.472055
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.exc import OperationalError

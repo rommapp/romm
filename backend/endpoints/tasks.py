@@ -16,7 +16,6 @@ async def run_tasks(request: Request) -> MessageResponse:
         RunTasksResponse: Standard message response
     """
 
-    await update_mame_xml_task.run()
     await update_switch_titledb_task.run()
     return {"msg": "All tasks ran successfully!"}
 
@@ -31,9 +30,7 @@ async def run_task(request: Request, task: str) -> MessageResponse:
         RunTasksResponse: Standard message response
     """
 
-    tasks = {
-        "switch_titledb": update_switch_titledb_task 
-    }
- 
+    tasks = {"switch_titledb": update_switch_titledb_task}
+
     await tasks[task].run()
     return {"msg": f"Task {task} run successfully!"}

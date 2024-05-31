@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 import type { SearchRomSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -59,7 +58,7 @@ function closeDialog() {
     <v-row class="justify-center" no-gutters>
       <v-col
         class="pa-2"
-        :class="{'cover':!xs, 'cover-xs': xs}"
+        :class="{ cover: !xs, 'cover-xs': xs }"
         v-for="source in sources"
       >
         <v-hover v-slot="{ isHovering, props }">
@@ -76,12 +75,8 @@ function closeDialog() {
                   ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                   : source.url_cover
               "
-              :lazy-src="
-                !source.url_cover
-                  ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                  : source.url_cover
-              "
               :aspect-ratio="3 / 4"
+              lazy
             >
               <template v-slot:placeholder>
                 <div class="d-flex align-center justify-center fill-height">

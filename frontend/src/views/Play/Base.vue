@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { isNull } from "lodash";
-import type { SaveSchema, StateSchema } from "@/__generated__";
-import { formatBytes } from "@/utils";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { formatBytes, getSupportedCores } from "@/utils";
 import romApi from "@/services/api/rom";
+import firmwareApi from "@/services/api/firmware";
 import { useRoute } from "vue-router";
 import Player from "@/views/Play/Player.vue";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
 const route = useRoute();
-const rom = ref<Rom | null>(null);
+const rom = ref<DetailedRom | null>(null);
+const firmwareOptions = ref<FirmwareSchema[]>([]);
+
+const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
+const supportedCores = ref<string[]>([]);
+const coreRef = ref<string | null>(null);
 const gameRunning = ref(false);
 
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -21,15 +27,18 @@ const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
-onMounted(() => {
-  romApi
-    .getRom({ romId: parseInt(route.params.rom as string) })
-    .then((response) => {
-      rom.value = response.data;
-    })
-    .catch((error) => {
-      console.log(error);
-    });
+onMounted(async () => {
+  const romResponse = await romApi.getRom({
+    romId: parseInt(route.params.rom as string),
+  });
+  rom.value = romResponse.data;
+  supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
+  coreRef.value = supportedCores.value[0];
+
+  const firmwareResponse = await firmwareApi.getFirmware({
+    platformId: romResponse.data.platform_id,
+  });
+  firmwareOptions.value = firmwareResponse.data;
 });
 
 function onPlay() {
@@ -51,15 +60,36 @@ function onFullScreenChange() {
         width="250"
         src="/assets/emulatorjs/powered_by_emulatorjs.png"
       />
-      <!-- <v-select
+      <v-select
+        v-if="supportedCores.length > 1"
+        density="compact"
+        class="my-2"
+        hide-details
+        variant="outlined"
+        clearable
+        label="Core"
+        v-model="coreRef"
+        :items="
+          supportedCores.map((c) => ({
+            title: c,
+            value: c,
+          }))
+        "
+      />
+      <v-select
         class="my-1"
         hide-details
         variant="outlined"
         clearable
-        disabled
         label="BIOS"
-        :items="['gba-bios.zip']"
-      /> -->
+        v-model="biosRef"
+        :items="
+          firmwareOptions.map((f) => ({
+            title: f.file_name,
+            value: f,
+          })) ?? []
+        "
+      />
       <v-select
         class="my-1"
         hide-details
@@ -122,7 +152,13 @@ function onFullScreenChange() {
     </v-col>
 
     <v-col class="bg-primary" rounded id="game-wrapper">
-      <player :rom="rom" :state="stateRef" :save="saveRef" />
+      <player
+        :rom="rom"
+        :state="stateRef"
+        :save="saveRef"
+        :bios="biosRef"
+        :core="coreRef"
+      />
     </v-col>
   </v-row>
 </template>
