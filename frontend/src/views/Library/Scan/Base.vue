@@ -100,7 +100,6 @@ watch(metadataOptions, (newOptions) => {
         :items="platforms.value"
         variant="outlined"
         density="comfortable"
-        rounded="0"
         multiple
         return-object
         clearable
@@ -138,7 +137,6 @@ watch(metadataOptions, (newOptions) => {
         return-object
         clearable
         hide-details
-        rounded="0"
         chips
       >
         <template v-slot:item="{ props, item }">

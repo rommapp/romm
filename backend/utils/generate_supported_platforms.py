@@ -1,7 +1,7 @@
 # poetry_npm run python3 -m utils.generate_supported_platforms
 
-from handler.metadata_handler.igdb_handler import IGDB_PLATFORM_LIST
-from handler.metadata_handler.moby_handler import SLUG_TO_MOBY_ID
+from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
+from handler.metadata.moby_handler import SLUG_TO_MOBY_ID
 
 IGDB_SLUG_TO_MOBY_SLUG = {
     "bbcmicro": "bbc-micro",
@@ -99,7 +99,9 @@ if __name__ == "__main__":
     # Sort platforms by key
     supported_platforms = dict(sorted(supported_platforms.items()))
 
-    print("Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**")
+    print(
+        "Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**"
+    )
     print("\n")
     print("|Platform Name|Folder Name|IGDB|Mobygames|")
     print("|---|---|---|---|")

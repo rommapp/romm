@@ -62,7 +62,9 @@ def migrate_to_mysql() -> None:
                 if table_name == "alembic_version":
                     continue
 
-                table_data = sqlite_conn.execute(text(f"SELECT * FROM {table_name}")).fetchall()
+                table_data = sqlite_conn.execute(
+                    text(f"SELECT * FROM {table_name}")
+                ).fetchall()
 
                 # Insert data into MariaDB table
                 for row in table_data:

@@ -13,7 +13,7 @@ def begin_session(func):
 
         try:
             with args[0].session.begin() as s:
-                kwargs['session'] = s
+                kwargs["session"] = s
                 return func(*args, **kwargs)
         except ProgrammingError as e:
             log.critical(str(e))

@@ -2,13 +2,12 @@ import type {
   AddRomsResponse,
   CursorPage_RomSchema_,
   MessageResponse,
-  RomSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
-import type { Rom } from "@/stores/roms";
+import type { SimpleRom, DetailedRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
@@ -33,7 +32,7 @@ async function uploadRoms({
 
 async function getRoms({
   platformId = null,
-  size = 60,
+  size = 5000,
   cursor = "",
   searchTerm = "",
   orderBy = "name",
@@ -64,7 +63,7 @@ async function getRecentRoms(): Promise<{ data: CursorPage_RomSchema_ }> {
   });
 }
 
-async function getRom({ romId }: { romId: number }): Promise<{ data: Rom }> {
+async function getRom({ romId }: { romId: number }): Promise<{ data: DetailedRom }> {
   return api.get(`/roms/${romId}`);
 }
 
@@ -105,7 +104,7 @@ async function downloadRom({
   rom,
   files = [],
 }: {
-  rom: Rom;
+  rom: SimpleRom;
   files?: string[];
 }) {
   const a = document.createElement("a");
@@ -124,8 +123,8 @@ async function downloadRom({
   }
 }
 
-export type UpdateRom = Rom & {
-  artwork?: File[];
+export type UpdateRom = SimpleRom & {
+  artwork?: File;
 };
 
 async function updateRom({
@@ -136,7 +135,7 @@ async function updateRom({
   rom: UpdateRom;
   renameAsIGDB?: boolean;
   removeCover?: boolean;
-}): Promise<{ data: RomSchema }> {
+}): Promise<{ data: DetailedRom }> {
   var formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
@@ -144,7 +143,7 @@ async function updateRom({
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
-  if (rom.artwork) formData.append("artwork", rom.artwork[0]);
+  if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: { rename_as_igdb: renameAsIGDB, remove_cover: removeCover },
@@ -155,12 +154,27 @@ async function deleteRoms({
   roms,
   deleteFromFs = false,
 }: {
-  roms: Rom[];
+  roms: SimpleRom[];
   deleteFromFs: boolean;
 }): Promise<{ data: MessageResponse }> {
   return api.post("/roms/delete", {
     roms: roms.map((r) => r.id),
     delete_from_fs: deleteFromFs,
+  });
+}
+
+async function updateRomNote({
+  romId,
+  rawMarkdown,
+  isPublic,
+}: {
+  romId: number;
+  rawMarkdown: string;
+  isPublic: boolean;
+}): Promise<{ data: DetailedRom }> {
+  return api.put(`/roms/${romId}/note`, {
+    raw_markdown: rawMarkdown,
+    is_public: isPublic,
   });
 }
 
@@ -173,4 +187,5 @@ export default {
   searchRom,
   updateRom,
   deleteRoms,
+  updateRomNote,
 };

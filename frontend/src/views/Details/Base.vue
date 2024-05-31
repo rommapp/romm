@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { PlatformSchema } from "@/__generated__";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
@@ -9,30 +8,32 @@ import Info from "@/components/Details/Info/Base.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
+import Notes from "@/components/Details/Notes.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
+import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 const route = useRoute();
-const rom = ref<Rom>();
-const platform = ref<PlatformSchema>();
+const rom = ref<DetailedRom>();
+const platform = ref<Platform>();
 const tab = ref<
   | "details"
   | "saves"
   | "states"
+  | "notes"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
   | "emulation"
 >("details");
-const theme = useTheme();
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const showEmulation = ref(false);
@@ -40,6 +41,7 @@ emitter?.on("showEmulation", () => {
   showEmulation.value = !showEmulation.value;
   tab.value = showEmulation.value ? "emulation" : "details";
 });
+const noRomError = ref(false);
 
 async function fetchDetails() {
   if (!route.params.rom) return;
@@ -67,6 +69,7 @@ async function fetchDetails() {
       platform.value = response.data;
     })
     .catch((error) => {
+      noRomError.value = true;
       console.log(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
@@ -116,23 +119,7 @@ watch(
           'cover-xs': smAndDown,
         }"
       >
-        <cover
-          :romId="rom.id"
-          :src="
-            !rom.igdb_id && !rom.moby_id && !rom.has_cover
-              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-              : !rom.has_cover
-              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-              : `/assets/romm/resources/${rom.path_cover_l}`
-          "
-          :lazy-src="
-            !rom.igdb_id && !rom.moby_id && !rom.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : !rom.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              : `/assets/romm/resources/${rom.path_cover_s}`
-          "
-        />
+        <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
         <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
       </v-col>
@@ -177,6 +164,7 @@ watch(
             <v-tab value="details" rounded="0">Details</v-tab>
             <v-tab value="saves" rounded="0">Saves</v-tab>
             <v-tab value="states" rounded="0">States</v-tab>
+            <v-tab value="notes" rounded="0">Notes</v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -222,6 +210,9 @@ watch(
               <v-window-item value="states">
                 <states :rom="rom" />
               </v-window-item>
+              <v-window-item value="notes">
+                <notes :rom="rom" />
+              </v-window-item>
               <v-window-item
                 v-if="
                   mdAndDown &&
@@ -249,7 +240,7 @@ watch(
             </v-window>
             <v-window v-if="showEmulation" v-model="tab" class="py-2">
               <v-window-item value="emulation">
-                <emulation :rom="rom" />
+                <emulation :rom="rom" :platform="platform" />
               </v-window-item>
             </v-window>
           </v-col>
@@ -262,6 +253,15 @@ watch(
         </v-col>
       </template>
     </v-row>
+  </template>
+
+  <template v-if="noRomError">
+    <v-empty-state
+      headline="Whoops, 404"
+      title="Game not found"
+      text="The game you were looking for does not exist"
+      icon="mdi-disc-alert"
+    ></v-empty-state>
   </template>
 </template>
 

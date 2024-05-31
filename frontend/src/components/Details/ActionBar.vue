@@ -3,20 +3,19 @@ import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
-import type { Rom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, platformSlugEJSCoreMap } from "@/utils";
+import { getDownloadLink, isEmulationSupported } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
-const props = defineProps<{ rom: Rom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const emulation = ref(false);
 const playInfoIcon = ref("mdi-play");
-const emulationSupported =
-  props.rom.platform_slug.toLowerCase() in platformSlugEJSCoreMap;
+const emulationSupported = isEmulationSupported(props.rom.platform_slug);
 
 function toggleEmulation() {
   emulation.value = !emulation.value;
@@ -24,22 +23,28 @@ function toggleEmulation() {
   emitter?.emit("showEmulation", null);
 }
 
-function copyDownloadLink(rom: Rom) {
-  navigator.clipboard.writeText(
+async function copyDownloadLink(rom: DetailedRom) {
+  const downloadLink =
+    location.protocol +
+    "//" +
     location.host +
-      encodeURI(
-        getDownloadLink({
-          rom,
-          files: downloadStore.filesToDownloadMultiFileRom,
-        })
-      )
-  );
-  emitter?.emit("snackbarShow", {
-    msg: "Download link copied to clipboard!",
-    icon: "mdi-check-bold",
-    color: "green",
-    timeout: 2000,
-  });
+    encodeURI(
+      getDownloadLink({
+        rom,
+        files: downloadStore.filesToDownloadMultiFileRom,
+      })
+    );
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(downloadLink);
+    emitter?.emit("snackbarShow", {
+      msg: "Download link copied to clipboard!",
+      icon: "mdi-check-bold",
+      color: "green",
+      timeout: 2000,
+    });
+  } else {
+    emitter?.emit("showCopyDownloadLinkDialog", downloadLink);
+  }
 }
 </script>
 

@@ -24,7 +24,7 @@ cp env.template .env
 ### - Install system dependencies
 
 ```sh
-# https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux): 
+# https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux):
 sudo apt install libmariadb3 libmariadb-dev pipx
 ```
 

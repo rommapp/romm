@@ -3,15 +3,16 @@ import { ref, onBeforeUnmount } from "vue";
 import stateApi from "@/services/api/state";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import { platformSlugEJSCoreMap } from "@/utils";
-import type { SaveSchema, StateSchema } from "@/__generated__";
-import type { Rom } from "@/stores/roms";
-import type { ValueOf } from "@/types";
+import { getSupportedCores } from "@/utils";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{
-  rom: Rom;
+  rom: DetailedRom;
   save: SaveSchema | null;
   state: StateSchema | null;
+  bios: FirmwareSchema | null;
+  core: string | null;
 }>();
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
@@ -20,13 +21,11 @@ onBeforeUnmount(() => {
   window.location.reload();
 });
 
-type EJSPlatformSlug = keyof typeof platformSlugEJSCoreMap;
-type EJSCore = ValueOf<typeof platformSlugEJSCoreMap>;
-
 // Declare global variables for EmulatorJS
 declare global {
   interface Window {
-    EJS_core: EJSCore;
+    EJS_core: string;
+    EJS_biosUrl: string;
     EJS_player: string;
     EJS_pathtodata: string;
     EJS_color: string;
@@ -51,12 +50,14 @@ declare global {
   }
 }
 
+const supportedCores = getSupportedCores(props.rom.platform_slug);
 window.EJS_core =
-  platformSlugEJSCoreMap[
-    props.rom.platform_slug.toLowerCase() as EJSPlatformSlug
-  ];
+  supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = props.rom.id;
 window.EJS_gameUrl = `/api/roms/${props.rom.id}/content/${props.rom.file_name}`;
+window.EJS_biosUrl = props.bios
+  ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
+  : "";
 window.EJS_player = "#game";
 window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
@@ -195,7 +196,6 @@ window.EJS_onSaveState = function ({
               if (stateRef.value)
                 stateRef.value.screenshot = data.screenshots[0];
               props.rom.user_screenshots = data.screenshots;
-              props.rom.url_screenshots = data.url_screenshots;
               props.rom.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
@@ -238,7 +238,6 @@ window.EJS_onSaveState = function ({
           })
           .then(({ data }) => {
             props.rom.user_screenshots = data.screenshots;
-            props.rom.url_screenshots = data.url_screenshots;
             props.rom.merged_screenshots = data.merged_screenshots;
           })
           .catch((e) => console.log(e));
@@ -325,7 +324,6 @@ window.EJS_onSaveSave = function ({
             .then(({ data }) => {
               if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
               props.rom.user_screenshots = data.screenshots;
-              props.rom.url_screenshots = data.url_screenshots;
               props.rom.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
@@ -363,7 +361,6 @@ window.EJS_onSaveSave = function ({
           })
           .then(({ data }) => {
             props.rom.user_screenshots = data.screenshots;
-            props.rom.url_screenshots = data.url_screenshots;
             props.rom.merged_screenshots = data.merged_screenshots;
           })
           .catch((e) => console.log(e));

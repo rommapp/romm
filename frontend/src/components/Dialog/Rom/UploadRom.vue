@@ -299,9 +299,11 @@ function closeDialog() {
 .edit-content-mobile {
   width: 85vw;
 }
+
 .file-input {
   display: none;
 }
+
 .scroll {
   overflow-y: scroll;
 }

@@ -12,4 +12,9 @@ class SocketHandler:
             client_manager=socketio.AsyncRedisManager(redis_url),
         )
 
-        self.socket_app = socketio.ASGIApp(self.socket_server, socketio_path="/ws/socket.io")
+        self.socket_app = socketio.ASGIApp(
+            self.socket_server, socketio_path="/ws/socket.io"
+        )
+
+
+socket_handler = SocketHandler()

@@ -5,6 +5,7 @@ Revises: 2.0.0
 Create Date: 2023-09-12 18:18:27.158732
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.exc import OperationalError
@@ -87,7 +88,7 @@ def upgrade() -> None:
             nullable=True,
             existing_server_default=sa.text("'[]'"),
         )
-    
+
     try:
         with op.batch_alter_table("roms", schema=None) as batch_op:
             batch_op.create_foreign_key(

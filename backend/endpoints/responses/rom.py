@@ -1,13 +1,14 @@
 import re
+from datetime import datetime
 from typing import Optional, get_type_hints
 from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from handler import socket_handler
-from handler.metadata_handler.igdb_handler import IGDBMetadata
-from handler.metadata_handler.moby_handler import MobyMetadata
+from handler.socket_handler import socket_handler
+from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.moby_handler import MobyMetadata
 from pydantic import BaseModel, computed_field, Field
 from models.rom import Rom
 
@@ -24,6 +25,28 @@ RomMobyMetadata = TypedDict(
     {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
     total=False,
 )
+
+
+class RomNoteSchema(BaseModel):
+    id: int
+    user_id: int
+    rom_id: int
+    last_edited_at: datetime
+    raw_markdown: str
+    is_public: bool
+    user__username: str
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def for_user(cls, db_rom: Rom, user_id: int) -> list["RomNoteSchema"]:
+        return [
+            cls.model_validate(n)
+            for n in db_rom.notes
+            # This is what filters out private notes
+            if n.user_id == user_id or n.is_public
+        ]
 
 
 class RomSchema(BaseModel):
@@ -70,14 +93,7 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[str]
-    url_screenshots: list[str]
-    merged_screenshots: list[str]
     full_path: str
-
-    sibling_roms: list["RomSchema"] = Field(default_factory=list)
-    user_saves: list[SaveSchema] = Field(default_factory=list)
-    user_states: list[StateSchema] = Field(default_factory=list)
-    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -95,8 +111,17 @@ class RomSchema(BaseModel):
             .lower()
         )
 
+
+class DetailedRomSchema(RomSchema):
+    merged_screenshots: list[str]
+    sibling_roms: list["RomSchema"] = Field(default_factory=list)
+    user_saves: list[SaveSchema] = Field(default_factory=list)
+    user_states: list[StateSchema] = Field(default_factory=list)
+    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
+    user_notes: list[RomNoteSchema] = Field(default_factory=list)
+
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "RomSchema":
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "DetailedRomSchema":
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
@@ -114,6 +139,7 @@ class RomSchema(BaseModel):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
+        rom.user_notes = RomNoteSchema.for_user(db_rom, user_id)
 
         return rom
 

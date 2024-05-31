@@ -1,13 +1,12 @@
 // Plugins
 import vue from "@vitejs/plugin-vue";
-import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 import { VitePWA } from "vite-plugin-pwa";
-import pluginRewriteAll from "vite-plugin-rewrite-all";
-import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { viteStaticCopy } from "vite-plugin-static-copy";
+import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // Utilities
+import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
-import { fileURLToPath, URL } from "node:url";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -20,7 +19,6 @@ export default defineConfig(({ mode }) => {
       target: "esnext",
     },
     plugins: [
-      pluginRewriteAll(),
       vue({
         template: { transformAssetUrls },
       }),
@@ -50,13 +48,16 @@ export default defineConfig(({ mode }) => {
       viteStaticCopy({
         targets: [
           {
-            src: 'node_modules/emulatorjs/data/*',
-            dest: 'assets/emulatorjs/'
-          }
-        ]
-      })
+            src: "node_modules/emulatorjs/data/*",
+            dest: "assets/emulatorjs/",
+          },
+        ],
+      }),
     ],
-    define: { "process.env": {} },
+    define: {
+      "process.env": {},
+      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: true,
+    },
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),

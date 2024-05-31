@@ -15,6 +15,8 @@ class Role(enum.Enum):
 
 
 class User(BaseModel, SimpleUser):
+    from models.rom import RomNote
+
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 
@@ -30,19 +32,17 @@ class User(BaseModel, SimpleUser):
 
     saves: Mapped[list[Save]] = relationship(
         "Save",
-        lazy="selectin",
         back_populates="user",
     )
-    states: Mapped[list[State]] = relationship(
-        "State", lazy="selectin", back_populates="user"
-    )
+    states: Mapped[list[State]] = relationship("State", back_populates="user")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", lazy="selectin", back_populates="user"
+        "Screenshot", back_populates="user"
     )
+    notes: Mapped[list[RomNote]] = relationship("RomNote", back_populates="user")
 
     @property
     def oauth_scopes(self):
-        from handler.auth_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
+        from handler.auth.base_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 
         if self.role == Role.ADMIN:
             return FULL_SCOPES
@@ -58,6 +58,6 @@ class User(BaseModel, SimpleUser):
         return f"User:{self.id}".encode("utf-8").hex()
 
     def set_last_active(self):
-        from handler import db_user_handler
+        from handler.database import db_user_handler
 
         db_user_handler.update_user(self.id, {"last_active": datetime.datetime.now()})

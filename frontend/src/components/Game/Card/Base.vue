@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import storeRoms, { type Rom } from "@/stores/roms.js";
+import storeRoms, { type SimpleRom } from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
 import Cover from "@/components/Game/Card/Cover.vue";
 
 // Props
 const props = defineProps<{
-  rom: Rom;
+  rom: SimpleRom;
   index: number;
   selected: boolean;
   showSelector: boolean;

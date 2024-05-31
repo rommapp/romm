@@ -7,10 +7,10 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
-from handler.metadata_handler.igdb_handler import IGDB_API_ENABLED
-from handler.metadata_handler.moby_handler import MOBY_API_ENABLED
+from handler.metadata.igdb_handler import IGDB_API_ENABLED
+from handler.metadata.moby_handler import MOBY_API_ENABLED
 from fastapi import APIRouter
-from handler import github_handler
+from utils import get_version
 
 router = APIRouter()
 
@@ -24,8 +24,7 @@ def heartbeat() -> HeartbeatResponse:
     """
 
     return {
-        "VERSION": github_handler.get_version(),
-        "NEW_VERSION": github_handler.check_new_version(),
+        "VERSION": get_version(),
         "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
         "METADATA_SOURCES": {
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
@@ -49,5 +48,5 @@ def heartbeat() -> HeartbeatResponse:
                 "TITLE": "Scheduled Switch TitleDB update",
                 "MESSAGE": "Updates the Nintendo Switch TitleDB file",
             },
-        }
+        },
     }

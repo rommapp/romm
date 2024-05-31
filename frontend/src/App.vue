@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
+import userApi from "@/services/api/user";
+import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type Rom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
+import storeAuth from "@/stores/auth";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, onBeforeUnmount } from "vue";
+import { inject, onMounted, onBeforeUnmount } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -24,6 +28,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 // Props
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
+const auth = storeAuth();
+const platformsStore = storePlatforms();
 
 socket.on(
   "scan:scanning_platform",
@@ -36,9 +42,9 @@ socket.on(
   }
 );
 
-socket.on("scan:scanning_rom", (rom: Rom) => {
+socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   scanningStore.set(true);
-  if (romsStore.platform.name === rom.platform_name) {
+  if (romsStore.platformID === rom.platform_id) {
     romsStore.add([rom]);
     romsStore.setFiltered(
       isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
@@ -95,13 +101,32 @@ onBeforeUnmount(() => {
   socket.off("scan:done_ko");
 });
 
-onBeforeMount(() => {
+onMounted(() => {
   api.get("/heartbeat").then(({ data: data }) => {
     heartbeat.set(data);
   });
+
   api.get("/config").then(({ data: data }) => {
     configStore.set(data);
   });
+
+  userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
+  platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 });
 </script>
 

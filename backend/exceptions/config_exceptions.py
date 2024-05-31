@@ -5,7 +5,8 @@ class ConfigNotReadableException(Exception):
 
     def __repr__(self) -> str:
         return self.message
-    
+
+
 class ConfigNotWritableException(Exception):
     def __init__(self):
         self.message = "Config file is not writable. Check config.yml permissions"
