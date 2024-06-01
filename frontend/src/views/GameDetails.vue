@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import ActionBar from "@/components/Details/ActionBar.vue";
-import AdditionalContent from "@/components/Details/AdditionalContent.vue";
-import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
-import Cover from "@/components/Details/Cover.vue";
-import Emulation from "@/components/Details/Emulation.vue";
-import Info from "@/components/Details/Info/Base.vue";
-import RelatedGames from "@/components/Details/RelatedGames.vue";
-import Saves from "@/components/Details/Saves.vue";
-import States from "@/components/Details/States.vue";
-import Notes from "@/components/Details/Notes.vue";
-import TitleInfo from "@/components/Details/Title.vue";
+import ActionBar from "@/components/Game/Details/ActionBar.vue";
+import AdditionalContent from "@/components/Game/Details/AdditionalContent.vue";
+import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
+import Cover from "@/components/Game/Card/Base.vue";
+import Emulation from "@/components/Game/Details/Emulation.vue";
+import Info from "@/components/Game/Details/Info/Base.vue";
+import RelatedGames from "@/components/Game/Details/RelatedGames.vue";
+import Saves from "@/components/Game/Details/Saves.vue";
+import States from "@/components/Game/Details/States.vue";
+import Notes from "@/components/Game/Details/Notes.vue";
+import TitleInfo from "@/components/Game/Details/Title.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
@@ -283,9 +283,5 @@ watch(
 }
 .info-xs {
   margin-top: 50px;
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
 }
 </style>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
-import ControlPanelConfig from "@/views/Settings/ControlPanel/Config/Base.vue";
-import ControlPanelGeneral from "@/views/Settings/ControlPanel/General/Base.vue";
-import ControlPanelUsers from "@/views/Settings/ControlPanel/Users/Base.vue";
+import ControlPanelConfig from "@/views/Settings/Config/Base.vue";
+import ControlPanelGeneral from "@/views/Settings/General/Base.vue";
+import ControlPanelUsers from "@/views/Settings/Users/Base.vue";
 import { ref } from "vue";
 
 // Props

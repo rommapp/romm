@@ -39,9 +39,3 @@ function setUnmatched() {
     ></v-tooltip
   >
 </template>
-<style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
-</style>

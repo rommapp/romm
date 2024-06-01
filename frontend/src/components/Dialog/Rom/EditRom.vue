@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Cover from "@/components/Details/Cover.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -177,12 +177,12 @@ function closeDialog() {
             />
           </v-col>
           <v-col cols="12" md="4" lg="3">
-            <cover
+            <game-card
               :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
               :rom="rom"
               :src="imagePreviewUrl"
             >
-              <template v-slot:editable>
+              <template v-slot:append-inner>
                 <v-chip-group class="position-absolute edit-cover pa-0">
                   <v-chip
                     class="translucent"
@@ -208,7 +208,7 @@ function closeDialog() {
                   >
                 </v-chip-group>
               </template>
-            </cover>
+            </game-card>
           </v-col>
         </v-row>
         <v-row class="justify-center pa-2" no-gutters>
@@ -235,12 +235,5 @@ function closeDialog() {
 .edit-cover {
   bottom: -0.1rem;
   right: -0.3rem;
-}
-.file-input {
-  display: none;
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
 }
 </style>

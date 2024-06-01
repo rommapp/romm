@@ -7,13 +7,6 @@ import { onMounted, ref } from "vue";
 
 // Props
 const romsStore = storeRoms();
-const scroll_container = ref();
-
-// Methods
-function scrollX(e: WheelEvent) {
-  // TODO: fix horizontal scroll with wheel
-  scroll_container.value.scrollLeft += e.deltaY;
-}
 
 onMounted(() => {
   romApi
@@ -35,12 +28,8 @@ onMounted(() => {
       ></v-toolbar
     >
     <v-divider class="border-opacity-25" />
-    <v-card-text class="scroll">
-      <v-row
-        ref="scroll_container"
-        @mousewheel="scrollX"
-        class="flex-nowrap overflow-x-auto"
-      >
+    <v-card-text>
+      <v-row class="flex-nowrap overflow-x-auto">
         <v-col
           class="pa-1 pb-2"
           v-for="rom in romsStore.recentRoms"
@@ -52,12 +41,7 @@ onMounted(() => {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <game-card
-            :index="rom.id"
-            :rom="rom"
-            :selected="false"
-            :showSelector="false"
-          />
+          <game-card :rom="rom" transform-scale show-action-bar />
         </v-col>
       </v-row>
       <!-- TODO: Check recently added games in the last 30 days -->
@@ -65,8 +49,3 @@ onMounted(() => {
     </v-card-text>
   </v-card>
 </template>
-<style scoped>
-.scroll {
-  overflow-x: visible;
-}
-</style>

@@ -15,32 +15,32 @@ const routes = [
       {
         path: "/",
         name: "dashboard",
-        component: () => import("@/views/Dashboard/Base.vue"),
+        component: () => import("@/views/Dashboard.vue"),
       },
       {
         path: "/platform/:platform",
         name: "platform",
-        component: () => import("@/views/Gallery/Base.vue"),
+        component: () => import("@/views/Gallery.vue"),
       },
       {
         path: "/rom/:rom",
         name: "rom",
-        component: () => import("@/views/Details/Base.vue"),
+        component: () => import("@/views/GameDetails.vue"),
       },
       {
         path: "/library/scan",
         name: "scan",
-        component: () => import("@/views/Library/Scan/Base.vue"),
+        component: () => import("@/views/Scan.vue"),
       },
       {
         path: "/settings/control-panel/",
         name: "controlPanel",
-        component: () => import("@/views/Settings/ControlPanel/Base.vue"),
+        component: () => import("@/views/Settings/ControlPanel.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Dashboard/Base.vue"),
+        component: () => import("@/views/Dashboard.vue"),
       },
     ],
   },

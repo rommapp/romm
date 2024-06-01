@@ -2,11 +2,13 @@
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
+import GameCardFlags from "@/components/Game/Card/Flags.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
+
 import storeRoms from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
@@ -42,6 +44,9 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 emitter?.on("openFabMenu", (open) => {
   fabMenu.value = open;
+});
+emitter?.on("selectRom", (rom) => {
+  selectRom;
 });
 
 // Functions
@@ -89,16 +94,6 @@ async function fetchRoms() {
         scrim: false,
       });
     });
-}
-
-async function onFilterChange() {
-  romsStore.setSearch([]);
-  if (!galleryFilterStore.isFiltered()) {
-    romsStore.setFiltered(allRoms.value, galleryFilterStore);
-    return;
-  }
-  await fetchRoms();
-  emitter?.emit("updateDataTablePages", null);
 }
 
 function selectRom({ event, index, selected }: RomSelectEvent) {
@@ -153,11 +148,14 @@ function setFilters() {
   ]);
 }
 
-function resetGallery() {
-  romsStore.reset();
-  scrolledToTop.value = true;
-  galleryFilterStore.reset();
-  itemsShown.value = itemsPerBatch.value;
+async function onFilterChange() {
+  romsStore.setSearch([]);
+  if (!galleryFilterStore.isFiltered()) {
+    romsStore.setFiltered(allRoms.value, galleryFilterStore);
+    return;
+  }
+  await fetchRoms();
+  emitter?.emit("updateDataTablePages", null);
 }
 
 function scrollToTop() {
@@ -183,6 +181,13 @@ function onScroll() {
       setFilters();
     }
   }, 100);
+}
+
+function resetGallery() {
+  romsStore.reset();
+  scrolledToTop.value = true;
+  galleryFilterStore.reset();
+  itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
@@ -255,6 +260,8 @@ onBeforeRouteUpdate(async (to, _) => {
 <template>
   <gallery-app-bar />
 
+  <span v-for="rom in selectedRoms">{{ rom.name }}: {{ rom.id }} | </span>
+
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters>
       <!-- Gallery cards view -->
@@ -274,10 +281,14 @@ onBeforeRouteUpdate(async (to, _) => {
         <game-card
           :rom="rom"
           :index="filteredRoms.indexOf(rom)"
-          :selected="selectedRoms.includes(rom)"
-          :showSelector="true"
-          @selectRom="selectRom"
-        />
+          title-on-hover
+          show-action-bar
+          transform-scale
+        >
+          <template v-slot:prepend-inner>
+            <game-card-flags :rom="rom" />
+          </template>
+        </game-card>
       </v-col>
 
       <!-- Gallery list view -->
@@ -356,10 +367,6 @@ onBeforeRouteUpdate(async (to, _) => {
 </template>
 
 <style scoped>
-.game-card.game-selected {
-  border: 2px solid rgba(var(--v-theme-romm-accent-1));
-  padding: 0;
-}
 #scrollToTop {
   border: 1px solid rgba(var(--v-theme-romm-accent-1));
 }

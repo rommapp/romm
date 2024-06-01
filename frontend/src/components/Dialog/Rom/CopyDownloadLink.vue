@@ -81,7 +81,4 @@ function closeDialog() {
   width: 85vw;
   max-height: 600px;
 }
-.scroll {
-  overflow-y: scroll;
-}
 </style>

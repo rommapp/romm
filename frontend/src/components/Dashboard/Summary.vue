@@ -52,8 +52,3 @@ onBeforeMount(() => {
     </v-card-text>
   </v-card>
 </template>
-<style scoped>
-.scroll {
-  overflow-x: visible;
-}
-</style>

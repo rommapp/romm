@@ -327,7 +327,10 @@ onBeforeUnmount(() => {
           v-show="!searching && matchedRoms.length == 0"
           no-gutters
         >
-          <span>No results found</span>
+          <v-empty-state
+            headline="No games to show"
+            icon="mdi-disc-alert"
+          ></v-empty-state>
         </v-row>
         <v-row no-gutters>
           <v-col
@@ -344,9 +347,9 @@ onBeforeUnmount(() => {
               <v-card
                 @click="selectMatched(matchedRom)"
                 v-bind="props"
-                class="matched-rom"
+                class="transform-scale"
                 :class="{ 'on-hover': isHovering }"
-                :elevation="isHovering ? 20 : 3"
+                :elevation="isHovering ? 20 : 2"
               >
                 <v-hover v-slot="{ isHovering, props }" open-delay="800">
                   <v-img
@@ -453,44 +456,17 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-#select-source-dialog {
-  z-index: 9999 !important;
-}
-
-.scroll {
-  overflow-y: scroll;
-}
-
 .search-content {
   width: 65vw;
   height: 80vh;
 }
-
 .search-content-tablet {
   width: 75vw;
   height: 640px;
 }
-
 .search-content-mobile {
   width: 85vw;
   height: 640px;
-}
-.matched-rom {
-  transition-property: all;
-  transition-duration: 0.1s;
-}
-.matched-rom.on-hover {
-  z-index: 1 !important;
-  transform: scale(1.05);
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
-}
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
 }
 .source-filter {
   cursor: pointer;
@@ -502,5 +478,8 @@ onBeforeUnmount(() => {
 .source-disabled {
   cursor: not-allowed !important;
   opacity: 0.4 !important;
+}
+#select-source-dialog {
+  z-index: 9999 !important;
 }
 </style>
