@@ -2,78 +2,10 @@
 FROM node:lts-alpine as front-build-stage
 WORKDIR /front
 COPY ./frontend ./
-RUN npm install
-RUN npm run build
+RUN npm install && npm run build
 
-# Setup frontend
-FROM nginx:1.25.4-alpine3.18-slim as production-stage
-ARG WEBSERVER_FOLDER=/var/www/html
-COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
-COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
-COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
-COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
-RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
-    ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
-
-# install generall required packages
-RUN apk add --upgrade \
-        bash \
-        curl \
-        libffi \
-        mariadb-connector-c \
-        netcat-openbsd \
-        python3 \
-        tzdata
-
-# Install additional build dependencies
-RUN apk add --upgrade \
-        gcc \
-        libffi-dev \
-        mariadb-connector-c-dev \
-        musl-dev \
-        python3-dev \
-        py3-pip \
-        git \
-        wget \
-        coreutils \
-        dpkg-dev dpkg \
-        linux-headers \
-        make \
-        openssl-dev
-
-# Create python venv to not clash with OS python packages
-RUN python3 -m venv /backend/
-
-# move over project specific dependecy files
-COPY ./pyproject.toml ./poetry.lock /
-
-# Install poetry using pip
-RUN . /backend/bin/activate && \
-    pip install --no-cache --upgrade pip && \
-    pip install --no-cache git+https://github.com/radoering/poetry.git@non-package-mode && \
-    pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt
-
-# Install project dependencies using poetry
-RUN . /backend/bin/activate && \
-    mkdir -p /root/.cache/pypoetry/virtualenvs && \
-    python3 -m poetry config --no-cache virtualenvs.create false && \
-    python3 -m poetry env use 3.11 && \
-    python3 -m poetry install --no-interaction --no-ansi --no-cache --only main && \
-    python3 -m poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt
-
-# cleanup python dependencies that are not needed anymore
-RUN . /backend/bin/activate && \
-    grep -v -x -f /installed_poetry_requirements.txt /installed_pip_requirements.txt > /build_requirements.txt && \
-    pip uninstall -y -r /build_requirements.txt
-
-COPY ./backend /backend
-
-# Setup init script and config files
-COPY ./docker/init_scripts/* /
-COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
-
-# Install redis
+# Build Redis
+FROM alpine:3.18 as redis-build-stage
 ENV REDIS_VERSION 7.2.4
 ENV REDIS_DOWNLOAD_URL http://download.redis.io/releases/redis-7.2.4.tar.gz
 ENV REDIS_DOWNLOAD_SHA 8d104c26a154b29fd67d6568b4f375212212ad41e0c2caa3d66480e78dbd3b59
@@ -124,7 +56,54 @@ RUN wget -O redis.tar.gz "$REDIS_DOWNLOAD_URL"; \
 	redis-server --version; \
 	echo '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"redis-server-sbom","packages":[{"name":"redis-server","versionInfo":"7.2.4","SPDXID":"SPDXRef-Package--redis-server","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceType":"purl","referenceLocator":"pkg:generic/redis-server@7.2.4?os_name=alpine&os_version=3.19"}],"licenseDeclared":"BSD-3-Clause"}]}' > /usr/local/redis.spdx.json
 
-# cleanup additional build dependencies
+# Setup frontend and backend
+FROM nginx:1.25.4-alpine3.18-slim as production-stage
+ARG WEBSERVER_FOLDER=/var/www/html
+
+COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
+COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
+COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
+COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
+RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
+    ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
+    ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
+
+# Install required packages and dependencies
+RUN apk add --no-cache \
+        bash \
+        curl \
+        libffi \
+        mariadb-connector-c \
+        netcat-openbsd \
+        python3 \
+        tzdata \
+        gcc \
+        libffi-dev \
+        mariadb-connector-c-dev \
+        musl-dev \
+        python3-dev \
+        py3-pip \
+        git \
+        coreutils \
+        make \
+        openssl-dev
+
+# Create python venv and install dependencies
+COPY ./pyproject.toml ./poetry.lock /
+RUN python3 -m venv /backend/ && \
+    . /backend/bin/activate && \
+    pip install --no-cache --upgrade pip && \
+    pip install --no-cache git+https://github.com/radoering/poetry.git@non-package-mode && \
+    pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt && \
+    mkdir -p /root/.cache/pypoetry/virtualenvs && \
+    python3 -m poetry config --no-cache virtualenvs.create false && \
+    python3 -m poetry env use 3.11 && \
+    python3 -m poetry install --no-interaction --no-ansi --no-cache --only main && \
+    python3 -m poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt && \
+    grep -v -x -f /installed_poetry_requirements.txt /installed_pip_requirements.txt > /build_requirements.txt && \
+    pip uninstall -y -r /build_requirements.txt
+
+# Cleanup unnecessary packages and files
 RUN apk del \
         gcc \
         libffi-dev \
@@ -133,31 +112,31 @@ RUN apk del \
         python3-dev \
         py3-pip \
         git \
-        wget \
         coreutils \
-        dpkg-dev dpkg \
-        linux-headers \
         make \
-        openssl-dev
+        openssl-dev && \
+    rm -r \
+        /pyproject.toml \
+        /poetry.lock \
+        /installed_pip_requirements.txt \
+        /installed_poetry_requirements.txt \
+        /build_requirements.txt
 
-# cleanup leftover files that are not needed at runtime
-RUN rm -r \
-    /pyproject.toml \
-    /poetry.lock \
-    /installed_pip_requirements.txt \
-    /installed_poetry_requirements.txt \
-    /build_requirements.txt \
-    /docker-entrypoint.sh \
-    /docker-entrypoint.d
+COPY ./backend /backend
+
+# Setup init script and config files
+COPY ./docker/init_scripts/* /
+COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
+
+# Install Redis from build stage
+COPY --from=redis-build-stage /usr/local/bin/redis* /usr/local/bin/
 
 # User permissions
-RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm
+RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
+    mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
-# Create the directories and set ownership and permissions
-RUN mkdir /romm /redis-data && chown romm:romm /romm /redis-data
-
-# Move everything we prepared over to our final docker image
-FROM scratch
+# Move everything to final stage
+FROM scratch as final-stage
 COPY --from=production-stage / /
 
 # Declare the supported volumes
