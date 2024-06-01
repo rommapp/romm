@@ -65,9 +65,3 @@ const galleryFilter = storeGalleryFilter();
     </v-row>
   </template>
 </template>
-<style scoped>
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(3px);
-}
-</style>

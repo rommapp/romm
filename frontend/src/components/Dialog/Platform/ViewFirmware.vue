@@ -344,11 +344,4 @@ function selectAllFirmware() {
   width: 85vw;
 }
 
-.file-input {
-  display: none;
-}
-
-.scroll {
-  overflow-y: scroll;
-}
 </style>

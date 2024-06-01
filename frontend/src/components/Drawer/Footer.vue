@@ -129,8 +129,3 @@ async function logout() {
     </v-card>
   </v-list-item>
 </template>
-<style scoped>
-.pointer {
-  cursor: pointer;
-}
-</style>

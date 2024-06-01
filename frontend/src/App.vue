@@ -138,8 +138,41 @@ onMounted(() => {
     </v-main>
   </v-app>
 </template>
-<style>
+<style lang="scss">
 body {
   background-color: rgba(var(--v-theme-background));
+}
+.translucent {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+}
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(255, 255, 255, 1) !important;
+  color: rgb(41, 41, 41) !important;
+}
+.scroll {
+  overflow-x: visible;
+  overflow-y: scroll;
+}
+.emoji-collection {
+  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
+}
+.emoji {
+  margin: 0 2px;
+}
+.file-input {
+  display: none !important;
+}
+.transform-scale {
+  transition-property: all !important;
+  transition-duration: 0.1s !important;
+}
+.transform-scale.on-hover {
+  z-index: 1 !important;
+  transform: scale(1.05) !important;
+}
+.pointer {
+  cursor: pointer !important;
 }
 </style>

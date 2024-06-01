@@ -15,6 +15,7 @@ import {
   isEmulationSupported,
   regionToEmoji,
 } from "@/utils";
+import GameCard from "@/components/Game/Card/Base.vue";
 import { useTheme } from "vuetify";
 const theme = useTheme();
 
@@ -114,14 +115,15 @@ onMounted(() => {
     v-model:page="page"
   >
     <template v-slot:item.path_cover_s="{ item }">
-      <v-avatar :rounded="0">
-        <v-progress-linear
+      <game-card :rom="item"></game-card>
+      <!-- <v-avatar :rounded="0"> -->
+        <!-- <v-progress-linear
           color="romm-accent-1"
           :active="downloadStore.value.includes(item.id)"
           :indeterminate="true"
           absolute
-        />
-        <v-img
+        /> -->
+        <!-- <v-img
           :src="
             !item.igdb_id && !item.moby_id && !item.has_cover
               ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
@@ -150,8 +152,8 @@ onMounted(() => {
               />
             </div>
           </template>
-        </v-img>
-      </v-avatar>
+        </v-img> -->
+      <!-- </v-avatar> -->
     </template>
     <template v-slot:item.name="{ item }">
       <span>

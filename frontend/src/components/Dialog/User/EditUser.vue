@@ -194,13 +194,6 @@ function closeDialog() {
 </template>
 
 <style scoped>
-.file-input {
-  display: none;
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(2px);
-}
 .v-card--reveal {
   align-items: center;
   bottom: 0;

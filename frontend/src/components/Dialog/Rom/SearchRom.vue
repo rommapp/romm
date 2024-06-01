@@ -6,6 +6,8 @@ import type { Events } from "@/types/emitter";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity, isNull } from "lodash";
 import type { Emitter } from "mitt";
+import GameCard from "@/components/Game/Card/Base.vue";
+import GameCardFlags from "@/components/Game/Card/Flags.vue";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
@@ -237,112 +239,11 @@ onBeforeUnmount(() => {
             v-show="!searching"
             v-for="rom in filteredRoms"
           >
-            <v-hover v-slot="{ isHovering, props }">
-              <v-card
-                @click="romDetails(rom)"
-                v-bind="props"
-                class="matched-rom"
-                :class="{ 'on-hover': isHovering }"
-                :elevation="isHovering ? 20 : 3"
-              >
-                <v-hover v-slot="{ isHovering, props }" open-delay="800">
-                  <v-img
-                    v-bind="props"
-                    :src="
-                      !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                        ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                        : `/assets/romm/resources/${rom.path_cover_l}`
-                    "
-                    :lazy-src="
-                      !rom.igdb_id && !rom.moby_id
-                        ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                        : rom.has_cover
-                        ? `/assets/romm/resources/${rom.path_cover_s}`
-                        : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                    "
-                    :aspect-ratio="3 / 4"
-                  >
-                    <template v-slot:error>
-                      <v-img
-                        :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-                        :aspect-ratio="3 / 4"
-                      ></v-img>
-                    </template>
-                    <template v-slot:placeholder>
-                      <div
-                        class="d-flex align-center justify-center fill-height"
-                      >
-                        <v-progress-circular
-                          :width="2"
-                          :size="40"
-                          color="romm-accent-1"
-                          indeterminate
-                        />
-                      </div>
-                    </template>
-                    <v-expand-transition>
-                      <div
-                        v-if="isHovering || !rom.has_cover"
-                        class="translucent text-caption"
-                        :class="{
-                          'text-truncate':
-                            galleryViewStore.current == 0 && !isHovering,
-                        }"
-                      >
-                        <v-list-item>{{ rom.name }}</v-list-item>
-                      </div>
-                    </v-expand-transition>
-                    <v-row no-gutters class="text-white px-1">
-                      <v-chip
-                        v-if="
-                          rom.regions.filter(identity).length > 0 && showRegions
-                        "
-                        :title="`Regions: ${rom.regions.join(', ')}`"
-                        class="translucent mr-1 mt-1 px-1"
-                        :class="{ 'emoji-collection': rom.regions.length > 3 }"
-                        density="compact"
-                      >
-                        <span
-                          class="emoji"
-                          v-for="region in rom.regions.slice(0, 3)"
-                        >
-                          {{ regionToEmoji(region) }}
-                        </span>
-                      </v-chip>
-                      <v-chip
-                        v-if="
-                          rom.languages.filter(identity).length > 0 &&
-                          showLanguages
-                        "
-                        :title="`Languages: ${rom.languages.join(', ')}`"
-                        class="translucent mr-1 mt-1 px-1"
-                        :class="{
-                          'emoji-collection': rom.languages.length > 3,
-                        }"
-                        density="compact"
-                      >
-                        <span
-                          class="emoji"
-                          v-for="language in rom.languages.slice(0, 3)"
-                        >
-                          {{ languageToEmoji(language) }}
-                        </span>
-                      </v-chip>
-                      <v-chip
-                        v-if="
-                          rom.siblings &&
-                          rom.siblings.length > 0 &&
-                          showSiblings
-                        "
-                        :title="`${rom.siblings.length + 1} versions`"
-                        class="translucent mr-1 mt-1"
-                        density="compact"
-                      >
-                        +{{ rom.siblings.length }}
-                      </v-chip>
-                    </v-row></v-img
-                  ></v-hover
-                >
+            <game-card :rom="rom" title-on-hover transform-scale>
+              <template v-slot:prepend-inner>
+                <game-card-flags :rom="rom" />
+              </template>
+              <template v-slot:footer>
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">
@@ -356,8 +257,8 @@ onBeforeUnmount(() => {
                     </v-avatar>
                   </v-row>
                 </v-card-text>
-              </v-card>
-            </v-hover>
+              </template>
+            </game-card>
           </v-col>
         </v-row>
       </v-card-text>
@@ -366,14 +267,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
-.scroll {
-  overflow-y: scroll;
-}
-
 .search-content {
   width: 60vw;
   height: 80vh;
@@ -395,18 +288,5 @@ onBeforeUnmount(() => {
 .matched-rom.on-hover {
   z-index: 1 !important;
   transform: scale(1.05);
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
-}
-
-.emoji-collection {
-  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
-}
-
-.emoji {
-  margin: 0 2px;
 }
 </style>

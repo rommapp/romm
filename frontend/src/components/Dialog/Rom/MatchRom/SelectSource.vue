@@ -149,13 +149,5 @@ function closeDialog() {
   z-index: 1 !important;
   transform: scale(1.05);
 }
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
-}
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
+
 </style>

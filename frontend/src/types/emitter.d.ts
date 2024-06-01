@@ -71,4 +71,5 @@ export type Events = {
   updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;
+  selectRom: SimpleRom;
 };
