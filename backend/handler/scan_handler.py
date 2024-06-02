@@ -51,7 +51,7 @@ def _get_main_platform_igdb_id(platform: Platform):
 def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    metadata_sources: list[str] = None,
+    metadata_sources: list[str] | None = None,
 ) -> Platform:
     """Get platform details
 

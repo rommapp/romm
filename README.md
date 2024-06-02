@@ -51,8 +51,7 @@ Before running the [image][docker-tags], please ensure that Docker is installed 
 3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables][wiki-env-variables].
 4. Launch the container(s) with `docker-compose up -d`.
 
-> [!NOTE]
-> **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting] for troubleshooting steps and common issues.**
+> [!NOTE] > **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting] for troubleshooting steps and common issues.**
 
 # Configuration
 
