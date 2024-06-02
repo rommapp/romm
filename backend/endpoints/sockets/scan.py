@@ -224,6 +224,12 @@ async def scan_platforms(
                             **RomSchema.model_validate(rom).model_dump(),
                         },
                     )
+                elif rom:
+                    # Just to update the filesystem data
+                    rom.file_name = fs_rom["file_name"]
+                    rom.multi = fs_rom["multi"]
+                    rom.files = fs_rom["files"]
+                    db_rom_handler.add_rom(rom)
 
             db_rom_handler.purge_roms(
                 platform.id, [rom["file_name"] for rom in fs_roms]

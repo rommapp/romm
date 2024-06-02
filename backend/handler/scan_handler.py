@@ -26,6 +26,7 @@ class ScanType(Enum):
     UNIDENTIFIED = "unidentified"
     PARTIAL = "partial"
     COMPLETE = "complete"
+    NO_SCAN = "no_scan"
 
 
 def _get_main_platform_igdb_id(platform: Platform):

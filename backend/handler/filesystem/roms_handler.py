@@ -1,7 +1,9 @@
 import os
 import re
-from pathlib import Path
+import binascii
+import hashlib
 import shutil
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -81,12 +83,39 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
+    def _calculate_rom_size(self, data: bytes) -> int:
+        return {
+            "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
+            .to_bytes(4, byteorder="big")
+            .hex(),
+            "md5_hash": hashlib.md5(data).hexdigest(),
+            "sha1_hash": hashlib.sha1(data).hexdigest(),
+        }
+
     def get_rom_files(self, rom: str, roms_path: str) -> list[str]:
         rom_files: list = []
 
-        for path, _, files in os.walk(f"{roms_path}/{rom}"):
-            for f in self._exclude_files(files, "multi_parts"):
-                rom_files.append(f"{Path(path, f)}".replace(f"{roms_path}/{rom}/", ""))
+        # Check if rom is a multi-part rom
+        if os.path.isdir(f"{roms_path}/{rom}"):
+            multi_files = os.listdir(f"{roms_path}/{rom}")
+            for file in multi_files:
+                with open(Path(roms_path, rom, file), "rb") as f:
+                    data = f.read()
+                    rom_files.append(
+                        {
+                            "filename": file,
+                            **self._calculate_rom_size(data),
+                        }
+                    )
+        else:
+            with open(Path(roms_path, rom), "rb") as f:
+                data = f.read()
+                rom_files.append(
+                    {
+                        "filename": rom,
+                        **self._calculate_rom_size(data),
+                    }
+                )
 
         return rom_files
 
