@@ -7,7 +7,7 @@ runs:
     - name: Setup node
       uses: actions/setup-node@v4
       with:
-        node-version: 16
+        node-version: 18
 
     - name: Install dependencies
       shell: bash
