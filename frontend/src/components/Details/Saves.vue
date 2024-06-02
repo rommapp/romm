@@ -8,14 +8,15 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
+const romRef = ref<DetailedRom>(props.rom);
 const savesToUpload = ref<File[]>([]);
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
 
 emitter?.on("romUpdated", (rom) => {
-  if (rom?.id === props.rom.id) {
-    props.rom.user_saves = rom.user_saves;
+  if (rom?.id === romRef.value.id) {
+    romRef.value.user_saves = rom.user_saves;
   }
 });
 
@@ -32,7 +33,7 @@ async function downloadSaves() {
 
 async function uploadSaves() {
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${savesToUpload.value.length} saves to ${props.rom.name}...`,
+    msg: `Uploading ${savesToUpload.value.length} saves to ${romRef.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -40,12 +41,12 @@ async function uploadSaves() {
   await saveApi
     .uploadSaves({
       saves: savesToUpload.value,
-      rom: props.rom,
+      rom: romRef.value,
     })
     .then(({ data }) => {
       const { saves, uploaded } = data;
-      props.rom.user_saves = saves;
-      romsStore.update(props.rom);
+      romRef.value.user_saves = saves;
+      romsStore.update(romRef.value);
       savesToUpload.value = [];
 
       emitter?.emit("snackbarShow", {

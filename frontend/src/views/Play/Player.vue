@@ -14,6 +14,7 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   core: string | null;
 }>();
+const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
 
@@ -51,11 +52,11 @@ declare global {
   }
 }
 
-const supportedCores = getSupportedCores(props.rom.platform_slug);
+const supportedCores = getSupportedCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
-window.EJS_gameID = props.rom.id;
-window.EJS_gameUrl = `/api/roms/${props.rom.id}/content/${props.rom.file_name}`;
+window.EJS_gameID = romRef.value.id;
+window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
@@ -66,11 +67,11 @@ window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
 window.EJS_defaultOptions = { "save-state-location": "browser" };
-if (props.rom.name) window.EJS_gameName = props.rom.name;
+if (romRef.value.name) window.EJS_gameName = romRef.value.name;
 
 function buildStateName(): string {
-  const states = props.rom.user_states?.map((s) => s.file_name) ?? [];
-  const romName = props.rom.file_name_no_ext.trim();
+  const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
+  const romName = romRef.value.file_name_no_ext.trim();
   let stateName = `${romName}.state.auto`;
   if (!states.includes(stateName)) return stateName;
 
@@ -85,8 +86,8 @@ function buildStateName(): string {
 }
 
 function buildSaveName(): string {
-  const saves = props.rom.user_saves?.map((s) => s.file_name) ?? [];
-  const romName = props.rom.file_name_no_ext.trim();
+  const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
+  const romName = romRef.value.file_name_no_ext.trim();
   let saveName = `${romName}.srm`;
   if (!saves.includes(saveName)) return saveName;
 
@@ -186,7 +187,7 @@ window.EJS_onSaveState = function ({
         } else {
           screenshotApi
             .uploadScreenshots({
-              rom: props.rom,
+              rom: romRef.value,
               screenshots: [
                 new File([screenshot], `${buildStateName()}.png`, {
                   type: "application/octet-stream",
@@ -196,8 +197,8 @@ window.EJS_onSaveState = function ({
             .then(({ data }) => {
               if (stateRef.value)
                 stateRef.value.screenshot = data.screenshots[0];
-              props.rom.user_screenshots = data.screenshots;
-              props.rom.merged_screenshots = data.merged_screenshots;
+              romRef.value.user_screenshots = data.screenshots;
+              romRef.value.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
         }
@@ -209,10 +210,10 @@ window.EJS_onSaveState = function ({
           downloadFallback(state, stateRef.value?.file_name ?? "state");
         }
       });
-  } else if (props.rom) {
+  } else if (romRef.value) {
     stateApi
       .uploadStates({
-        rom: props.rom,
+        rom: romRef.value,
         emulator: window.EJS_core,
         states: [
           new File([state], buildStateName(), {
@@ -224,13 +225,13 @@ window.EJS_onSaveState = function ({
         const allStates = data.states.sort(
           (a: StateSchema, b: StateSchema) => a.id - b.id
         );
-        if (props.rom) props.rom.user_states = allStates;
+        if (romRef.value) romRef.value.user_states = allStates;
         stateRef.value = allStates.pop() ?? null;
         window.EJS_emulator.displayMessage("SAVED TO ROMM");
 
         screenshotApi
           .uploadScreenshots({
-            rom: props.rom,
+            rom: romRef.value,
             screenshots: [
               new File([screenshot], `${buildStateName()}.png`, {
                 type: "application/octet-stream",
@@ -238,8 +239,8 @@ window.EJS_onSaveState = function ({
             ],
           })
           .then(({ data }) => {
-            props.rom.user_screenshots = data.screenshots;
-            props.rom.merged_screenshots = data.merged_screenshots;
+            romRef.value.user_screenshots = data.screenshots;
+            romRef.value.merged_screenshots = data.merged_screenshots;
           })
           .catch((e) => console.log(e));
       })
@@ -315,7 +316,7 @@ window.EJS_onSaveSave = function ({
         } else {
           screenshotApi
             .uploadScreenshots({
-              rom: props.rom,
+              rom: romRef.value,
               screenshots: [
                 new File([screenshot], `${buildSaveName()}.png`, {
                   type: "application/octet-stream",
@@ -324,8 +325,8 @@ window.EJS_onSaveSave = function ({
             })
             .then(({ data }) => {
               if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
-              props.rom.user_screenshots = data.screenshots;
-              props.rom.merged_screenshots = data.merged_screenshots;
+              romRef.value.user_screenshots = data.screenshots;
+              romRef.value.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
         }
@@ -333,10 +334,10 @@ window.EJS_onSaveSave = function ({
       .catch(() => {
         downloadFallback(save, saveRef.value?.file_name ?? "save");
       });
-  } else if (props.rom) {
+  } else if (romRef.value) {
     saveApi
       .uploadSaves({
-        rom: props.rom,
+        rom: romRef.value,
         emulator: window.EJS_core,
         saves: [
           new File([save], buildSaveName(), {
@@ -348,12 +349,12 @@ window.EJS_onSaveSave = function ({
         const allSaves = data.saves.sort(
           (a: SaveSchema, b: SaveSchema) => a.id - b.id
         );
-        if (props.rom) props.rom.user_saves = allSaves;
+        if (romRef.value) romRef.value.user_saves = allSaves;
         saveRef.value = allSaves.pop() ?? null;
 
         screenshotApi
           .uploadScreenshots({
-            rom: props.rom,
+            rom: romRef.value,
             screenshots: [
               new File([screenshot], `${buildSaveName()}.png`, {
                 type: "application/octet-stream",
@@ -361,8 +362,8 @@ window.EJS_onSaveSave = function ({
             ],
           })
           .then(({ data }) => {
-            props.rom.user_screenshots = data.screenshots;
-            props.rom.merged_screenshots = data.merged_screenshots;
+            romRef.value.user_screenshots = data.screenshots;
+            romRef.value.merged_screenshots = data.merged_screenshots;
           })
           .catch((e) => console.log(e));
       })

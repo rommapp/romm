@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 let eslint = require("@eslint/js");
 let tseslint = require("typescript-eslint");
 let globals = require("globals");
@@ -8,7 +10,7 @@ module.exports = tseslint.config(
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
   {
-    ignores: ["node_modules", "dist", "__generated__", "**/*.config.js"],
+    ignores: ["node_modules", "dist", "__generated__", "*.config.js"],
     languageOptions: {
       parserOptions: {
         parser: "@typescript-eslint/parser",
@@ -22,8 +24,8 @@ module.exports = tseslint.config(
     },
     rules: {
       "vue/multi-word-component-names": "off",
+      // Vuetify supports modifier syntax of { [x: `item.${string}`]: ... }
       "vue/valid-v-slot": "off",
-      "vue/no-mutating-props": "off",
     },
   },
 );

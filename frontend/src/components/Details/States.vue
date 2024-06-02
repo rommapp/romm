@@ -10,14 +10,15 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { StateSchema } from "@/__generated__";
 
 const props = defineProps<{ rom: DetailedRom }>();
+const romRef = ref<DetailedRom>(props.rom);
 const statesToUpload = ref<File[]>([]);
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
 
 emitter?.on("romUpdated", (rom) => {
-  if (rom?.id === props.rom.id) {
-    props.rom.user_states = rom.user_states;
+  if (rom?.id === romRef.value.id) {
+    romRef.value.user_states = rom.user_states;
   }
 });
 
@@ -34,7 +35,7 @@ async function downloasStates() {
 
 async function uploadStates() {
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${statesToUpload.value.length} states to ${props.rom.name}...`,
+    msg: `Uploading ${statesToUpload.value.length} states to ${romRef.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -42,12 +43,12 @@ async function uploadStates() {
   await stateApi
     .uploadStates({
       states: statesToUpload.value,
-      rom: props.rom,
+      rom: romRef.value,
     })
     .then(({ data }) => {
       const { states, uploaded } = data;
-      props.rom.user_states = states;
-      romsStore.update(props.rom);
+      romRef.value.user_states = states;
+      romsStore.update(romRef.value);
       statesToUpload.value = [];
 
       emitter?.emit("snackbarShow", {
