@@ -1,21 +1,18 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import romApi from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
-import type { Events } from "@/types/emitter";
-import { languageToEmoji, regionToEmoji } from "@/utils";
-import { identity, isNull } from "lodash";
-import type { Emitter } from "mitt";
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import romApi from "@/services/api/rom";
+import type { SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
-import { type SimpleRom } from "@/stores/roms";
+import { useDisplay } from "vuetify";
 
-const theme = useTheme();
+// Props
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const galleryViewStore = storeGalleryView();
 const show = ref(false);
 const searching = ref(false);
 const router = useRouter();
@@ -24,21 +21,12 @@ const filteredRoms = ref();
 const platforms = ref();
 const selectedPlatform = ref();
 const searchValue = ref("");
-const showRegions = isNull(localStorage.getItem("settings.showRegions"))
-  ? true
-  : localStorage.getItem("settings.showRegions") === "true";
-const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
-  ? true
-  : localStorage.getItem("settings.showLanguages") === "true";
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", () => {
   show.value = true;
 });
 
+// Functions
 function clearFilter() {
   selectedPlatform.value = null;
 }
@@ -75,11 +63,8 @@ async function filterRoms() {
   }
 }
 
-function romDetails(rom: SimpleRom) {
-  router.push({
-    name: "rom",
-    params: { rom: rom.id },
-  });
+function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
+  router.push({ name: "rom", params: { rom: emitData.rom.id } });
   closeDialog();
 }
 
@@ -228,7 +213,7 @@ onBeforeUnmount(() => {
           v-show="!searching && searchedRoms?.length == 0"
           no-gutters
         >
-          <span>No results found</span>
+          <empty-game />
         </v-row>
         <v-row no-gutters>
           <v-col
@@ -239,7 +224,12 @@ onBeforeUnmount(() => {
             v-show="!searching"
             v-for="rom in filteredRoms"
           >
-            <game-card :rom="rom" title-on-hover transform-scale>
+            <game-card
+              :rom="rom"
+              title-on-hover
+              transform-scale
+              @click="onGameClick"
+            >
               <template #prepend-inner>
                 <game-card-flags :rom="rom" />
               </template>

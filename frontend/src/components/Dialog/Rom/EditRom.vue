@@ -140,7 +140,7 @@ function closeDialog() {
 
       <v-card-text>
         <v-row class="align-center" no-gutters>
-          <v-col cols="12" md="8" lg="9">
+          <v-col cols="12" md="12" lg="9">
             <v-text-field
               class="py-2"
               :class="{ 'pr-4': lgAndUp }"
@@ -176,17 +176,21 @@ function closeDialog() {
               hide-details
             />
           </v-col>
-          <v-col cols="12" md="4" lg="3">
-            <game-card
-              :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
-              :rom="rom"
-              :src="imagePreviewUrl"
-            >
+          <v-col
+            cols="12"
+            md="12"
+            lg="3"
+            :class="{
+              'my-4': mdAndDown,
+              'px-10': mdAndDown,
+            }"
+          >
+            <game-card :rom="rom" :src="imagePreviewUrl">
               <template #append-inner>
-                <v-chip-group class="position-absolute edit-cover pa-0">
+                <v-chip-group class="pa-0">
                   <v-chip
                     class="translucent"
-                    size="small"
+                    :size="mdAndDown ? 'large' : 'small'"
                     @click="triggerFileInput"
                     label
                     ><v-icon>mdi-pencil</v-icon>
@@ -201,7 +205,7 @@ function closeDialog() {
                   </v-chip>
                   <v-chip
                     class="translucent"
-                    size="small"
+                    :size="mdAndDown ? 'large' : 'small'"
                     @click="removeArtwork"
                     label
                     ><v-icon class="text-red">mdi-delete</v-icon></v-chip
@@ -231,9 +235,5 @@ function closeDialog() {
 }
 .edit-content-mobile {
   width: 85vw;
-}
-.edit-cover {
-  bottom: -0.1rem;
-  right: -0.3rem;
 }
 </style>

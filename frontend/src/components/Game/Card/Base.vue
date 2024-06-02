@@ -113,7 +113,10 @@ onMounted(() => {
 
             <slot name="prepend-inner"></slot>
           </div>
-          <slot name="append-inner"></slot>
+          <div class="position-absolute append-inner">
+            <slot name="append-inner"></slot>
+          </div>
+
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
@@ -177,5 +180,9 @@ onMounted(() => {
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
+}
+.append-inner {
+  bottom: -0.1rem;
+  right: -0.3rem;
 }
 </style>
