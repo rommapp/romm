@@ -158,14 +158,14 @@ onBeforeUnmount(() => {
 
 <template>
   <v-dialog
-    :modelValue="show"
+    :model-value="show"
     scroll-strategy="none"
     width="auto"
     :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     no-click-animation
     persistent
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card
       :class="{
@@ -175,10 +175,25 @@ onBeforeUnmount(() => {
       }"
       rounded="0"
     >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-search-web" class="ml-5" />
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="9"
+            xs="9"
+            sm="10"
+            md="10"
+            lg="11"
+          >
+            <v-icon
+              icon="mdi-search-web"
+              class="ml-5"
+            />
             <span class="ml-4">Filter:</span>
 
             <v-tooltip
@@ -191,9 +206,9 @@ onBeforeUnmount(() => {
                   : 'IGDB source is not enabled'
               "
               open-delay="500"
-              ><template v-slot:activator="{ props }">
+            >
+              <template #activator="{ props }">
                 <v-avatar
-                  @click="toggleSourceFilter('igdb')"
                   v-bind="props"
                   class="ml-3 source-filter"
                   :class="{
@@ -203,10 +218,12 @@ onBeforeUnmount(() => {
                   }"
                   size="30"
                   rounded="1"
+                  @click="toggleSourceFilter('igdb')"
                 >
                   <v-img src="/assets/scrappers/igdb.png" />
-                </v-avatar> </template
-            ></v-tooltip>
+                </v-avatar>
+              </template>
+            </v-tooltip>
 
             <v-tooltip
               location="top"
@@ -218,9 +235,9 @@ onBeforeUnmount(() => {
                   : 'Mobygames source is not enabled'
               "
               open-delay="500"
-              ><template v-slot:activator="{ props }">
+            >
+              <template #activator="{ props }">
                 <v-avatar
-                  @click="toggleSourceFilter('moby')"
                   v-bind="props"
                   class="ml-3 source-filter"
                   :class="{
@@ -230,89 +247,131 @@ onBeforeUnmount(() => {
                   }"
                   size="30"
                   rounded="1"
+                  @click="toggleSourceFilter('moby')"
                 >
                   <v-img src="/assets/scrappers/moby.png" />
-                </v-avatar> </template
-            ></v-tooltip>
+                </v-avatar>
+              </template>
+            </v-tooltip>
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="5" xs="5" sm="5" md="6" lg="8">
+      <v-toolbar
+        density="compact"
+        class="bg-primary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="5"
+            xs="5"
+            sm="5"
+            md="6"
+            lg="8"
+          >
             <v-text-field
               id="search-text-field"
-              @keyup.enter="searchRom()"
-              @click:clear="searchTerm = ''"
-              class="bg-terciary"
               v-model="searchTerm"
+              class="bg-terciary"
               label="search"
               hide-details
               clearable
+              @keyup.enter="searchRom()"
+              @click:clear="searchTerm = ''"
             />
           </v-col>
-          <v-col cols="3" xs="3" sm="3" md="2" lg="2">
+          <v-col
+            cols="3"
+            xs="3"
+            sm="3"
+            md="2"
+            lg="2"
+          >
             <v-select
+              v-model="searchBy"
               label="by"
               class="bg-terciary"
               :items="['ID', 'Name']"
-              v-model="searchBy"
               hide-details
             />
           </v-col>
 
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+          <v-col
+            cols="2"
+            xs="2"
+            sm="2"
+            md="2"
+            lg="1"
+          >
             <v-tooltip
               location="top"
               class="tooltip"
               transition="fade-transition"
               text="Extended search to match by alternative names. This will take longer."
               open-delay="500"
-              ><template v-slot:activator="{ props }">
+            >
+              <template #activator="{ props }">
                 <v-btn
                   v-bind="props"
-                  @click="toggleExtended"
                   class="bg-terciary"
                   :color="searchExtended ? 'romm-accent-1' : ''"
                   rounded="0"
                   variant="tonal"
                   icon="mdi-layers-search-outline"
-                  block /></template></v-tooltip
-          ></v-col>
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+                  block
+                  @click="toggleExtended"
+                />
+              </template>
+            </v-tooltip>
+          </v-col>
+          <v-col
+            cols="2"
+            xs="2"
+            sm="2"
+            md="2"
+            lg="1"
+          >
             <v-btn
               type="submit"
-              @click="searchRom()"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-search-web"
               block
               :disabled="searching"
+              @click="searchRom()"
             />
           </v-col>
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text class="pa-1 scroll">
         <v-row
-          class="justify-center align-center loader-searching fill-height"
           v-show="searching"
+          class="justify-center align-center loader-searching fill-height"
           no-gutters
         >
           <v-progress-circular
@@ -323,44 +382,48 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row
-          class="justify-center align-center loader-searching fill-height"
           v-show="!searching && matchedRoms.length == 0"
+          class="justify-center align-center loader-searching fill-height"
           no-gutters
         >
           <span>No results found</span>
         </v-row>
         <v-row no-gutters>
           <v-col
+            v-for="matchedRom in filteredMatchedRoms"
+            v-show="!searching"
+            :key="matchedRom.slug"
             class="pa-1"
             cols="4"
             xs="4"
             sm="3"
             md="3"
             lg="2"
-            v-show="!searching"
-            v-for="matchedRom in filteredMatchedRoms"
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
-                @click="selectMatched(matchedRom)"
                 v-bind="props"
                 class="matched-rom"
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
+                @click="selectMatched(matchedRom)"
               >
-                <v-hover v-slot="{ isHovering, props }" open-delay="800">
+                <v-hover
+                  v-slot="{ isHovering: childHovering, props: childProps }"
+                  open-delay="800"
+                >
                   <v-img
-                    v-bind="props"
+                    v-bind="childProps"
                     :src="
                       !matchedRom.igdb_url_cover && !matchedRom.moby_url_cover
                         ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                         : matchedRom.igdb_url_cover
-                        ? matchedRom.igdb_url_cover
-                        : matchedRom.moby_url_cover
+                          ? matchedRom.igdb_url_cover
+                          : matchedRom.moby_url_cover
                     "
                     :aspect-ratio="3 / 4"
                   >
-                    <template v-slot:placeholder>
+                    <template #placeholder>
                       <div
                         class="d-flex align-center justify-center fill-height"
                       >
@@ -374,53 +437,63 @@ onBeforeUnmount(() => {
                     <v-expand-transition>
                       <div
                         v-if="
-                          isHovering ||
-                          (!matchedRom.igdb_url_cover &&
-                            !matchedRom.moby_url_cover)
+                          childHovering ||
+                            (!matchedRom.igdb_url_cover &&
+                              !matchedRom.moby_url_cover)
                         "
                         class="translucent text-caption"
                       >
                         <v-list-item>{{ matchedRom.name }}</v-list-item>
                       </div>
                     </v-expand-transition>
-                    <v-row no-gutters class="text-white pa-1">
+                    <v-row
+                      no-gutters
+                      class="text-white pa-1"
+                    >
                       <v-tooltip
                         location="top"
                         class="tooltip"
                         transition="fade-transition"
                         text="IGDB matched"
                         open-delay="500"
-                        ><template v-slot:activator="{ props }">
+                      >
+                        <template #activator="{ props: tooltipProps }">
                           <v-avatar
-                            v-bind="props"
                             v-if="matchedRom.igdb_id"
+                            v-bind="tooltipProps"
                             size="30"
                             rounded="1"
                           >
                             <v-img
                               src="/assets/scrappers/igdb.png"
-                            /> </v-avatar></template
-                      ></v-tooltip>
+                            />
+                          </v-avatar>
+                        </template>
+                      </v-tooltip>
                       <v-tooltip
                         location="top"
                         class="tooltip"
                         transition="fade-transition"
                         text="Mobygames matched"
                         open-delay="500"
-                        ><template v-slot:activator="{ props }">
+                      >
+                        <template #activator="{ props: tooltipProps }">
                           <v-avatar
-                            v-bind="props"
                             v-if="matchedRom.moby_id"
+                            v-bind="tooltipProps"
                             class="ml-1"
                             size="30"
                             rounded="1"
                           >
                             <v-img
                               src="/assets/scrappers/moby.png"
-                            /> </v-avatar></template
-                      ></v-tooltip>
-                    </v-row> </v-img
-                ></v-hover>
+                            />
+                          </v-avatar>
+                        </template>
+                      </v-tooltip>
+                    </v-row>
+                  </v-img>
+                </v-hover>
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">
@@ -436,9 +509,15 @@ onBeforeUnmount(() => {
         </v-row>
       </v-card-text>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
-      <v-toolbar class="bg-terciary" density="compact">
+      <v-toolbar
+        class="bg-terciary"
+        density="compact"
+      >
         <v-checkbox
           v-model="renameAsIGDB"
           label="Rename rom"
@@ -449,7 +528,10 @@ onBeforeUnmount(() => {
     </v-card>
   </v-dialog>
 
-  <select-source-dialog id="select-source-dialog" @update-rom="updateRom" />
+  <select-source-dialog
+    id="select-source-dialog"
+    @update-rom="updateRom"
+  />
 </template>
 
 <style scoped>

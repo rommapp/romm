@@ -41,6 +41,7 @@ declare global {
     EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EJS_emulator: any;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
@@ -383,7 +384,7 @@ window.EJS_onGameStart = async () => {
 </script>
 
 <template>
-  <div id="game"></div>
+  <div id="game" />
 </template>
 
 <style scoped>

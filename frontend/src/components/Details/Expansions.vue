@@ -5,7 +5,15 @@ defineProps<{ rom: DetailedRom }>();
 </script>
 <template>
   <v-row no-gutters>
-    <v-col cols="4" sm="3" md="4" lg="6" xl="4" v-for="expansion in rom.igdb_metadata?.expansions">
+    <v-col
+      v-for="expansion in rom.igdb_metadata?.expansions"
+      :key="expansion.id"
+      cols="4"
+      sm="3"
+      md="4"
+      lg="6"
+      xl="4"
+    >
       <v-card class="ma-1">
         <v-img
           class="cover"

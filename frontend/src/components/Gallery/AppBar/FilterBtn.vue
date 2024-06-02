@@ -19,7 +19,8 @@ function showFilterBar() {
     transition="fade-transition"
     text="Filter gallery"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+  >
+    <template #activator="{ props }">
       <v-btn
         class="ml-0"
         variant="text"
@@ -27,8 +28,10 @@ function showFilterBar() {
         v-bind="props"
         icon="mdi-filter-variant"
         :color="isShowFilterBar ? 'romm-accent-1' : ''"
-        @click="showFilterBar" /></template
-  ></v-tooltip>
+        @click="showFilterBar"
+      />
+    </template>
+  </v-tooltip>
 </template>
 <style scoped>
 .tooltip :deep(.v-overlay__content) {

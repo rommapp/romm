@@ -23,14 +23,16 @@ function triggerFileInput() {
   fileInput?.click();
 }
 
-function previewImage(event: { target: { files: any[] } }) {
-  const file = event.target.files[0];
+function previewImage(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files) return;
+
   const reader = new FileReader();
   reader.onload = () => {
     imagePreviewUrl.value = reader.result?.toString();
   };
-  if (file) {
-    reader.readAsDataURL(file);
+  if (input.files[0]) {
+    reader.readAsDataURL(input.files[0]);
   }
 }
 
@@ -74,62 +76,89 @@ function closeDialog() {
     v-model="show"
     max-width="700px"
     :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     scroll-strategy="none"
     no-click-animation
     persistent
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card>
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
           <v-col cols="10">
-            <v-icon icon="mdi-pencil-box" class="ml-5 mr-2" />
+            <v-icon
+              icon="mdi-pencil-box"
+              class="ml-5 mr-2"
+            />
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text>
-        <v-row class="align-center" no-gutters>
-          <v-col cols="12" sm="8">
-            <v-row class="pa-2" no-gutters>
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="12"
+            sm="8"
+          >
+            <v-row
+              class="pa-2"
+              no-gutters
+            >
               <v-col>
                 <v-text-field
+                  v-model="user.username"
                   rounded="0"
                   variant="outlined"
-                  v-model="user.username"
                   label="username"
                   required
                   hide-details
                   clearable
-                ></v-text-field>
+                />
               </v-col>
             </v-row>
-            <v-row class="pa-2" no-gutters>
+            <v-row
+              class="pa-2"
+              no-gutters
+            >
               <v-col>
                 <v-text-field
+                  v-model="user.password"
                   rounded="0"
                   variant="outlined"
-                  v-model="user.password"
                   label="Password"
                   required
                   hide-details
                   clearable
-                ></v-text-field>
+                />
               </v-col>
             </v-row>
-            <v-row class="pa-2" no-gutters>
+            <v-row
+              class="pa-2"
+              no-gutters
+            >
               <v-col>
                 <v-select
                   v-model="user.role"
@@ -139,21 +168,31 @@ function closeDialog() {
                   label="Role"
                   required
                   hide-details
-                ></v-select>
+                />
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12" sm="4">
-            <v-row class="pa-2 justify-center" no-gutters>
+          <v-col
+            cols="12"
+            sm="4"
+          >
+            <v-row
+              class="pa-2 justify-center"
+              no-gutters
+            >
               <v-hover v-slot="{ isHovering, props }">
-                <v-avatar size="190" class="ml-4" v-bind="props">
+                <v-avatar
+                  size="190"
+                  class="ml-4"
+                  v-bind="props"
+                >
                   <v-img
                     :src="
                       imagePreviewUrl
                         ? imagePreviewUrl
                         : user.avatar_path
-                        ? `/assets/romm/assets/${user.avatar_path}`
-                        : defaultAvatarPath
+                          ? `/assets/romm/assets/${user.avatar_path}`
+                          : defaultAvatarPath
                     "
                   >
                     <v-fade-transition>
@@ -167,8 +206,8 @@ function closeDialog() {
                     </v-fade-transition>
                     <v-file-input
                       id="file-input"
-                      class="file-input text-truncate"
                       v-model="user.avatar"
+                      class="file-input text-truncate"
                       label="Avatar"
                       prepend-inner-icon="mdi-image"
                       prepend-icon=""
@@ -182,11 +221,22 @@ function closeDialog() {
             </v-row>
           </v-col>
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
-          <v-btn class="text-romm-green bg-terciary ml-5" @click="editUser()"
-            >Apply</v-btn
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
+          <v-btn
+            class="bg-terciary"
+            @click="closeDialog"
           >
+            Cancel
+          </v-btn>
+          <v-btn
+            class="text-romm-green bg-terciary ml-5"
+            @click="editUser()"
+          >
+            Apply
+          </v-btn>
         </v-row>
       </v-card-text>
     </v-card>

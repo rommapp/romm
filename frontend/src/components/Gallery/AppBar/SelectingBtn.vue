@@ -12,16 +12,19 @@ const romsStore = storeRoms();
     transition="fade-transition"
     text="Active multi-select"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+  >
+    <template #activator="{ props }">
       <v-btn
-        @click="romsStore.isSelecting()"
         :color="romsStore.selecting ? 'romm-accent-1' : ''"
         rounded="0"
         variant="text"
         v-bind="props"
         class="mr-0"
-        icon="mdi-select-group" /></template
-  ></v-tooltip>
+        icon="mdi-select-group"
+        @click="romsStore.isSelecting()"
+      />
+    </template>
+  </v-tooltip>
 </template>
 <style scoped>
 .tooltip :deep(.v-overlay__content) {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import rom from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, getSupportedCores } from "@/utils";
 import Player from "@/views/Play/Player.vue";
@@ -36,17 +35,24 @@ function onFullScreenChange() {
 </script>
 
 <template>
-  <v-row v-if="rom && !gameRunning" no-gutters class="align-center">
-    <v-col cols="5" class="text-truncate mx-1">
+  <v-row
+    v-if="rom && !gameRunning"
+    no-gutters
+    class="align-center"
+  >
+    <v-col
+      cols="5"
+      class="text-truncate mx-1"
+    >
       <v-select
         v-if="supportedCores.length > 1"
+        v-model="coreRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="Core"
-        v-model="coreRef"
         :items="
           supportedCores.map((c) => ({
             title: c,
@@ -55,13 +61,13 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="biosRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="BIOS"
-        v-model="biosRef"
         :items="
           props.platform.firmware?.map((f) => ({
             title: f.file_name,
@@ -70,13 +76,13 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="saveRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="Save"
-        v-model="saveRef"
         :items="
           props.rom.user_saves?.map((s) => ({
             title: s.file_name,
@@ -86,13 +92,13 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="stateRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="State"
-        v-model="stateRef"
         :items="
           props.rom.user_states?.map((s) => ({
             title: s.file_name,
@@ -115,27 +121,34 @@ function onFullScreenChange() {
         ]"
       /> -->
       <v-checkbox
-        hide-details
         v-model="fullScreenOnPlay"
-        @change="onFullScreenChange"
+        hide-details
         color="romm-accent-1"
         label="Full screen"
+        @change="onFullScreenChange"
       />
     </v-col>
-    <v-col cols="6" class="mx-1">
+    <v-col
+      cols="6"
+      class="mx-1"
+    >
       <v-img
         class="bg-black"
         height="160"
         :src="
           stateRef?.screenshot?.download_path ??
-          props.rom.merged_screenshots[0] ??
-          `/assets/emulatorjs/loading_black.png`
+            props.rom.merged_screenshots[0] ??
+            `/assets/emulatorjs/loading_black.png`
         "
       />
     </v-col>
   </v-row>
 
-  <v-row no-gutters class="align-center mt-6" v-if="!gameRunning">
+  <v-row
+    v-if="!gameRunning"
+    no-gutters
+    class="align-center mt-6"
+  >
     <v-col cols="5">
       <v-btn
         block
@@ -145,17 +158,27 @@ function onFullScreenChange() {
         size="x-large"
         @click="onPlay()"
       >
-        <v-icon class="mr-2">mdi-play</v-icon>Play
+        <v-icon class="mr-2">
+          mdi-play
+        </v-icon>Play
       </v-btn>
     </v-col>
     <v-spacer />
     <v-col cols="5">
-      <img width="150" src="/assets/emulatorjs/powered_by_emulatorjs.png" />
+      <img
+        width="150"
+        src="/assets/emulatorjs/powered_by_emulatorjs.png"
+      >
     </v-col>
   </v-row>
 
   <v-row no-gutters>
-    <v-col v-if="gameRunning" cols="12" rounded id="game-wrapper">
+    <v-col
+      v-if="gameRunning"
+      id="game-wrapper"
+      cols="12"
+      rounded
+    >
       <player
         :rom="props.rom"
         :state="stateRef"

@@ -1,7 +1,6 @@
 import type {
   AddRomsResponse,
   MessageResponse,
-  RomSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
@@ -19,7 +18,7 @@ async function uploadRoms({
   platformId: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
-  let formData = new FormData();
+  const formData = new FormData();
   romsToUpload.forEach((rom) => formData.append("roms", rom));
 
   return api.post("/roms", formData, {
@@ -134,7 +133,7 @@ async function updateRom({
   renameAsIGDB?: boolean;
   removeCover?: boolean;
 }): Promise<{ data: DetailedRom }> {
-  var formData = new FormData();
+  const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");

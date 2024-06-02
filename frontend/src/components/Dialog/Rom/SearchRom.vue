@@ -92,14 +92,14 @@ onBeforeUnmount(() => {
 
 <template>
   <v-dialog
-    :modelValue="show"
+    :model-value="show"
     scroll-strategy="none"
     width="auto"
     :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     no-click-animation
     persistent
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card
       :class="{
@@ -109,109 +109,162 @@ onBeforeUnmount(() => {
       }"
       rounded="0"
     >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="10" xs="10" sm="11" md="11" lg="11">
-            <v-icon icon="mdi-magnify" class="ml-5" />
-            <v-avatar :rounded="0" :size="30" class="mx-4"
-              ><v-img src="/assets/isotipo.svg"
-            /></v-avatar>
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="10"
+            xs="10"
+            sm="11"
+            md="11"
+            lg="11"
+          >
+            <v-icon
+              icon="mdi-magnify"
+              class="ml-5"
+            />
+            <v-avatar
+              :rounded="0"
+              :size="30"
+              class="mx-4"
+            >
+              <v-img src="/assets/isotipo.svg" />
+            </v-avatar>
           </v-col>
-          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
+          <v-col
+            cols="2"
+            xs="2"
+            sm="1"
+            md="1"
+            lg="1"
+          >
             <v-btn
-              @click="closeDialog"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="12" sm="5" md="6" lg="7">
+      <v-toolbar
+        density="compact"
+        class="bg-primary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="12"
+            sm="5"
+            md="6"
+            lg="7"
+          >
             <v-text-field
-              autofocus
               id="search-text-field"
-              @keyup.enter="searchRoms"
-              @click:clear="searchRoms"
               v-model="searchValue"
+              autofocus
               label="Search"
               hide-details
               class="bg-terciary"
               clearable
+              @keyup.enter="searchRoms"
+              @click:clear="searchRoms"
             />
           </v-col>
           <template v-if="!xs">
-            <v-col sm="5" lg="4">
+            <v-col
+              sm="5"
+              lg="4"
+            >
               <v-select
-                @click:clear="clearFilter"
+                v-model="selectedPlatform"
                 clearable
                 label="Platform"
                 class="bg-terciary"
                 hide-details
-                v-model="selectedPlatform"
-                @update:model-value="filterRoms"
                 :items="platforms"
-              >
-              </v-select>
+                @click:clear="clearFilter"
+                @update:model-value="filterRoms"
+              />
             </v-col>
-            <v-col sm="2" md="1">
+            <v-col
+              sm="2"
+              md="1"
+            >
               <v-btn
                 type="submit"
-                @click="searchRoms"
                 class="bg-terciary"
                 rounded="0"
                 variant="text"
                 icon="mdi-magnify"
                 block
                 :disabled="searching"
+                @click="searchRoms"
               />
             </v-col>
           </template>
         </v-row>
       </v-toolbar>
 
-      <v-toolbar v-if="xs" density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
+      <v-toolbar
+        v-if="xs"
+        density="compact"
+        class="bg-primary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
           <v-col cols="10">
             <v-select
-              @click:clear="clearFilter"
+              v-model="selectedPlatform"
               clearable
               label="Platform"
               class="bg-terciary"
               hide-details
-              v-model="selectedPlatform"
-              @update:model-value="filterRoms"
               :items="platforms"
-            >
-            </v-select>
+              @click:clear="clearFilter"
+              @update:model-value="filterRoms"
+            />
           </v-col>
           <v-col cols="2">
             <v-btn
               type="submit"
-              @click="searchRoms"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-magnify"
               block
               :disabled="searching"
+              @click="searchRoms"
             />
           </v-col>
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text class="pa-1 scroll">
         <v-row
-          class="justify-center align-center loader-searching fill-height"
           v-show="searching"
+          class="justify-center align-center loader-searching fill-height"
           no-gutters
         >
           <v-progress-circular
@@ -222,32 +275,36 @@ onBeforeUnmount(() => {
           />
         </v-row>
         <v-row
-          class="justify-center align-center loader-searching fill-height"
           v-show="!searching && searchedRoms?.length == 0"
+          class="justify-center align-center loader-searching fill-height"
           no-gutters
         >
           <span>No results found</span>
         </v-row>
         <v-row no-gutters>
           <v-col
+            v-for="rom in filteredRoms"
+            v-show="!searching"
+            :key="rom.id"
             class="pa-1"
             cols="4"
             sm="3"
             md="2"
-            v-show="!searching"
-            v-for="rom in filteredRoms"
           >
             <v-hover v-slot="{ isHovering, props }">
               <v-card
-                @click="romDetails(rom)"
                 v-bind="props"
                 class="matched-rom"
                 :class="{ 'on-hover': isHovering }"
                 :elevation="isHovering ? 20 : 3"
+                @click="romDetails(rom)"
               >
-                <v-hover v-slot="{ isHovering, props }" open-delay="800">
+                <v-hover
+                  v-slot="{ isHovering: isChildHovering, props: hoverProps }"
+                  open-delay="800"
+                >
                   <v-img
-                    v-bind="props"
+                    v-bind="hoverProps"
                     :src="
                       !rom.igdb_id && !rom.moby_id
                         ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
@@ -256,13 +313,13 @@ onBeforeUnmount(() => {
                     :aspect-ratio="3 / 4"
                     lazy
                   >
-                    <template v-slot:error>
+                    <template #error>
                       <v-img
                         :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
                         :aspect-ratio="3 / 4"
-                      ></v-img>
+                      />
                     </template>
-                    <template v-slot:placeholder>
+                    <template #placeholder>
                       <div
                         class="d-flex align-center justify-center fill-height"
                       >
@@ -276,17 +333,20 @@ onBeforeUnmount(() => {
                     </template>
                     <v-expand-transition>
                       <div
-                        v-if="isHovering || !rom.has_cover"
+                        v-if="isChildHovering || !rom.has_cover"
                         class="translucent text-caption"
                         :class="{
                           'text-truncate':
-                            galleryViewStore.current == 0 && !isHovering,
+                            galleryViewStore.current == 0 && !isChildHovering,
                         }"
                       >
                         <v-list-item>{{ rom.name }}</v-list-item>
                       </div>
                     </v-expand-transition>
-                    <v-row no-gutters class="text-white px-1">
+                    <v-row
+                      no-gutters
+                      class="text-white px-1"
+                    >
                       <v-chip
                         v-if="
                           rom.regions.filter(identity).length > 0 && showRegions
@@ -297,8 +357,9 @@ onBeforeUnmount(() => {
                         density="compact"
                       >
                         <span
-                          class="emoji"
                           v-for="region in rom.regions.slice(0, 3)"
+                          :key="region"
+                          class="emoji"
                         >
                           {{ regionToEmoji(region) }}
                         </span>
@@ -306,7 +367,7 @@ onBeforeUnmount(() => {
                       <v-chip
                         v-if="
                           rom.languages.filter(identity).length > 0 &&
-                          showLanguages
+                            showLanguages
                         "
                         :title="`Languages: ${rom.languages.join(', ')}`"
                         class="translucent mr-1 mt-1 px-1"
@@ -316,8 +377,9 @@ onBeforeUnmount(() => {
                         density="compact"
                       >
                         <span
-                          class="emoji"
                           v-for="language in rom.languages.slice(0, 3)"
+                          :key="language"
+                          class="emoji"
                         >
                           {{ languageToEmoji(language) }}
                         </span>
@@ -325,8 +387,8 @@ onBeforeUnmount(() => {
                       <v-chip
                         v-if="
                           rom.siblings &&
-                          rom.siblings.length > 0 &&
-                          showSiblings
+                            rom.siblings.length > 0 &&
+                            showSiblings
                         "
                         :title="`${rom.siblings.length + 1} versions`"
                         class="translucent mr-1 mt-1"
@@ -334,15 +396,19 @@ onBeforeUnmount(() => {
                       >
                         +{{ rom.siblings.length }}
                       </v-chip>
-                    </v-row></v-img
-                  ></v-hover
-                >
+                    </v-row>
+                  </v-img>
+                </v-hover>
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">
                       <span>{{ rom.name }}</span>
                     </v-col>
-                    <v-avatar :rounded="0" size="20" class="ml-2">
+                    <v-avatar
+                      :rounded="0"
+                      size="20"
+                      class="ml-2"
+                    >
                       <platform-icon
                         :key="rom.platform_slug"
                         :slug="rom.platform_slug"

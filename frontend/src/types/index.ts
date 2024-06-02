@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export function isKeyof<T extends object>(
   key: PropertyKey,
   obj: T,

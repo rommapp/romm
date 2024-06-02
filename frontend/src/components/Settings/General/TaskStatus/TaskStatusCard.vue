@@ -36,9 +36,14 @@ const runAllTasks = async () => {
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
+    >
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-pulse</v-icon>
+        <v-icon class="mr-3">
+          mdi-pulse
+        </v-icon>
         Task Status
       </v-toolbar-title>
       <v-btn
@@ -63,6 +68,7 @@ const runAllTasks = async () => {
 
         <v-col
           v-for="task in heartbeatStore.value.SCHEDULER"
+          :key="task.TITLE"
           cols="12"
           md="4"
           sm="6"
