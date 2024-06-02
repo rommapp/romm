@@ -24,8 +24,6 @@ const romsStore = storeRoms();
 const galleryFilter = storeGalleryFilter();
 const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
-
-// Props
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 const auth = storeAuth();

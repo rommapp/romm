@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useTheme } from "vuetify";
-
-import type { DetailedRom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import type { DetailedRom } from "@/stores/roms";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
+import { ref } from "vue";
+import { useTheme } from "vuetify";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
-
 const editingNote = ref(false);
 const ownNote = ref(
   props.rom.user_notes?.find((note) => note.user_id === auth.user?.id) ?? {

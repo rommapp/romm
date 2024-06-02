@@ -6,6 +6,7 @@ import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import RDialog from "@/components/common/Dialog.vue";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -78,6 +79,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- <r-dialog
+    v-model="show"
+    :loading-condition="searching"
+    :empty-state-condition="searchedRoms?.length == 0"
+  ></r-dialog> -->
+
   <v-dialog
     :modelValue="show"
     scroll-strategy="none"
@@ -226,27 +233,25 @@ onBeforeUnmount(() => {
           >
             <game-card
               :rom="rom"
+              @click="onGameClick"
               title-on-hover
               transform-scale
-              @click="onGameClick"
             >
               <template #prepend-inner>
                 <game-card-flags :rom="rom" />
               </template>
               <template #footer>
-                <v-card-text>
-                  <v-row class="pa-1 align-center">
-                    <v-col class="pa-0 ml-1 text-truncate">
-                      <span>{{ rom.name }}</span>
-                    </v-col>
-                    <v-avatar :rounded="0" size="20" class="ml-2">
-                      <platform-icon
-                        :key="rom.platform_slug"
-                        :slug="rom.platform_slug"
-                      />
-                    </v-avatar>
-                  </v-row>
-                </v-card-text>
+                <v-row class="pa-1 align-center" no-gutters>
+                  <v-col class="pa-0 ml-1 text-truncate">
+                    <span>{{ rom.name }}</span>
+                  </v-col>
+                  <v-avatar :rounded="0" size="20" class="ml-2">
+                    <platform-icon
+                      :key="rom.platform_slug"
+                      :slug="rom.platform_slug"
+                    />
+                  </v-avatar>
+                </v-row>
               </template>
             </game-card>
           </v-col>

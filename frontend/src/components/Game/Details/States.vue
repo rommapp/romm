@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-
-import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
+import type { StateSchema } from "@/__generated__";
 import stateApi from "@/services/api/state";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
-
-import type { StateSchema } from "@/__generated__";
+import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const statesToUpload = ref<File[]>([]);
@@ -104,7 +102,9 @@ async function uploadStates() {
       v-for="state in rom.user_states"
       :key="state.id"
       :title="state.file_name"
-      :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(state.file_size_bytes)}`"
+      :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(
+        state.file_size_bytes
+      )}`"
     >
       <template #prepend>
         <v-checkbox
@@ -141,7 +141,12 @@ async function uploadStates() {
   </v-btn>
   <v-btn
     :disabled="!selectedStates.length"
-    @click="emitter?.emit('showDeleteStatesDialog', { rom: props.rom, states: selectedStates })"
+    @click="
+      emitter?.emit('showDeleteStatesDialog', {
+        rom: props.rom,
+        states: selectedStates,
+      })
+    "
     rounded="0"
     variant="text"
     class="mt-3 bg-terciary text-romm-red"

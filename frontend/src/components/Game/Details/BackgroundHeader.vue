@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { DetailedRom } from "@/stores/roms";
 import { useTheme } from "vuetify";
-const theme = useTheme();
 
-const props = defineProps<{ rom: DetailedRom }>();
+defineProps<{ rom: DetailedRom }>();
+const theme = useTheme();
 </script>
 
 <template>

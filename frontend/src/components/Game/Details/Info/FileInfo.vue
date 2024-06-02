@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Platform } from "@/stores/platforms";
 import VersionSwitcher from "@/components/Game/Details/VersionSwitcher.vue";
 import storeDownload from "@/stores/download";
+import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 

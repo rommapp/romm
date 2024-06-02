@@ -6,19 +6,19 @@ import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatfo
 import CreatePlatformVersionDialog from "@/components/Dialog/Config/CreatePlatformVersion.vue";
 import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatformBinding.vue";
 import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
-import LoadingDialog from "@/components/Dialog/Loading.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import ViewFirmwareDialog from "@/components/Dialog/Platform/ViewFirmware.vue";
+import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import MatchRomDialog from "@/components/Dialog/Rom/MatchRom/MatchRom.vue";
-import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
+import LoadingDialog from "@/components/LoadingView.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
@@ -48,7 +48,6 @@ emitter?.on("refreshView", async () => {
 
 <template>
   <v-progress-linear
-    id="scan-progress-bar"
     color="romm-accent-1"
     :active="scanning"
     :indeterminate="true"
@@ -76,10 +75,3 @@ emitter?.on("refreshView", async () => {
   <delete-user-dialog />
   <loading-dialog />
 </template>
-
-<style scoped>
-#scan-progress-bar {
-  z-index: 2015 !important;
-  position: fixed;
-}
-</style>
