@@ -61,6 +61,7 @@
     "esbuild": "^0.20.2",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.26.0",
+    "globals": "^15.3.0",
     "openapi-typescript-codegen": "^0.25.0",
     "sass": "^1.77.1",
     "tslib": "^2.6.2",
@@ -73,6 +74,6 @@
     "vue-tsc": "^1.8.27"
   },
   "engines": {
-    "node": "16"
+    "node": "18"
   }
 }
