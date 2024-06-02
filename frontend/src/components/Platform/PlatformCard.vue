@@ -27,8 +27,15 @@ defineProps<{ platform: Platform }>();
             </div>
           </v-row>
           <v-row class="pa-1 justify-center">
-            <v-avatar :rounded="0" size="105" class="mt-2">
-              <platform-icon :key="platform.slug" :slug="platform.slug" />
+            <v-avatar
+              :rounded="0"
+              size="105"
+              class="mt-2"
+            >
+              <platform-icon
+                :key="platform.slug"
+                :slug="platform.slug"
+              />
             </v-avatar>
             <v-chip
               class="bg-chip position-absolute"

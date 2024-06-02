@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
 import platformApi from "@/services/api/platform";
@@ -233,7 +232,7 @@ onBeforeRouteLeave((to, from, next) => {
   next();
 });
 
-onBeforeRouteUpdate(async (to, _) => {
+onBeforeRouteUpdate(async (to) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
@@ -256,27 +255,30 @@ onBeforeRouteUpdate(async (to, _) => {
   <gallery-app-bar />
 
   <template v-if="filteredRoms.length > 0">
-    <v-row class="pa-1" no-gutters>
+    <v-row
+      class="pa-1"
+      no-gutters
+    >
       <!-- Gallery cards view -->
       <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
-        class="pa-1"
+        v-for="rom in filteredRoms.slice(0, itemsShown)"
         v-show="galleryViewStore.current != 2"
+        :key="rom.id"
+        class="pa-1"
         :cols="views[galleryViewStore.current]['size-cols']"
         :xs="views[galleryViewStore.current]['size-xs']"
         :sm="views[galleryViewStore.current]['size-sm']"
         :md="views[galleryViewStore.current]['size-md']"
         :lg="views[galleryViewStore.current]['size-lg']"
         :xl="views[galleryViewStore.current]['size-xl']"
-        v-for="rom in filteredRoms.slice(0, itemsShown)"
-        :key="rom.id"
       >
         <game-card
           :rom="rom"
           :index="filteredRoms.indexOf(rom)"
           :selected="selectedRoms.includes(rom)"
-          :showSelector="true"
-          @selectRom="selectRom"
+          :show-selector="true"
+          @select-rom="selectRom"
         />
       </v-col>
 
@@ -292,7 +294,7 @@ onBeforeRouteUpdate(async (to, _) => {
       v-if="!gettingRoms && galleryFilterStore.isFiltered()"
       headline="No games to show"
       icon="mdi-disc-alert"
-    ></v-empty-state>
+    />
   </template>
 
   <template v-if="noPlatformError">
@@ -301,7 +303,7 @@ onBeforeRouteUpdate(async (to, _) => {
       title="Platform not found"
       text="The platform you were looking for does not exist"
       icon="mdi-controller-off"
-    ></v-empty-state>
+    />
   </template>
 
   <v-layout-item
@@ -323,17 +325,20 @@ onBeforeRouteUpdate(async (to, _) => {
             class="ml-2"
             size="large"
             @click="scrollToTop()"
-            ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
           >
+            <v-icon color="romm-accent-1">
+              mdi-chevron-up
+            </v-icon>
+          </v-btn>
         </v-scroll-y-reverse-transition>
         <v-menu
-          location="top"
           v-model="fabMenu"
+          location="top"
           :transition="
             fabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
           "
         >
-          <template v-slot:activator="{ props }">
+          <template #activator="{ props }">
             <v-fab-transition>
               <v-btn
                 v-show="romsStore._selectedIDs.length > 0"
@@ -343,8 +348,9 @@ onBeforeRouteUpdate(async (to, _) => {
                 class="ml-2"
                 icon
                 size="large"
-                >{{ romsStore._selectedIDs.length }}</v-btn
               >
+                {{ romsStore._selectedIDs.length }}
+              </v-btn>
             </v-fab-transition>
           </template>
 

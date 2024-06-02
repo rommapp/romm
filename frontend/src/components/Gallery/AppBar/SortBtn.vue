@@ -19,7 +19,8 @@ function showSortBar() {
     text="Order gallery"
     transition="fade-transition"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+  >
+    <template #activator="{ props }">
       <v-btn
         class="ml-0"
         variant="text"
@@ -27,8 +28,10 @@ function showSortBar() {
         icon="mdi-sort"
         v-bind="props"
         :color="isShowSortBar ? 'romm-accent-1' : ''"
-        @click="showSortBar" /></template
-  ></v-tooltip>
+        @click="showSortBar"
+      />
+    </template>
+  </v-tooltip>
 </template>
 <style scoped>
 .tooltip :deep(.v-overlay__content) {

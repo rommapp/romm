@@ -18,8 +18,7 @@ const cronExpression = convertCronExperssion(props.task.CRON);
     <span
       class="font-weight-bold text-body-1"
       :class="task.ENABLED ? 'text-romm-accent-1' : ''"
-      >{{ task.TITLE }}</span
-    >
+    >{{ task.TITLE }}</span>
     <p class="mt-1">
       {{ task.MESSAGE }}
       {{ cronExpression }}

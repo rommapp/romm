@@ -68,13 +68,15 @@ async function uploadSaves() {
 }
 </script>
 <template>
-  <v-row class="pa-2 align-center" no-gutters>
+  <v-row
+    class="pa-2 align-center"
+    no-gutters
+  >
     <v-col>
       <v-list-item class="px-0">
         <v-file-input
-          @keyup.enter="uploadSaves()"
-          label="Select save files..."
           v-model="savesToUpload"
+          label="Select save files..."
           prepend-inner-icon="mdi-file"
           prepend-icon=""
           multiple
@@ -83,12 +85,13 @@ async function uploadSaves() {
           variant="outlined"
           density="compact"
           hide-details
+          @keyup.enter="uploadSaves()"
         />
-        <template v-slot:append>
+        <template #append>
           <v-btn
             :disabled="!savesToUpload.length"
-            @click="uploadSaves()"
             class="text-romm-green ml-3 bg-terciary"
+            @click="uploadSaves()"
           >
             Upload
           </v-btn>
@@ -96,17 +99,20 @@ async function uploadSaves() {
       </v-list-item>
     </v-col>
   </v-row>
-  <v-list rounded="0" class="pa-0">
+  <v-list
+    rounded="0"
+    class="pa-0"
+  >
     <v-list-item
-      class="px-3"
       v-for="save in rom.user_saves"
       :key="save.id"
+      class="px-3"
       :title="save.file_name"
       :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(
         save.file_size_bytes
       )}`"
     >
-      <template v-slot:prepend>
+      <template #prepend>
         <v-checkbox
           v-model="selectedSaves"
           :value="save"
@@ -114,7 +120,7 @@ async function uploadSaves() {
           hide-details
         />
       </template>
-      <template v-slot:append>
+      <template #append>
         <v-btn
           icon
           :href="save.download_path"
@@ -131,25 +137,25 @@ async function uploadSaves() {
   </v-list>
   <v-btn
     :disabled="!selectedSaves.length"
-    @click="downloadSaves()"
     rounded="0"
     variant="text"
     class="mt-3 mr-3 bg-terciary"
+    @click="downloadSaves()"
   >
     <v-icon>mdi-download</v-icon>
     Download
   </v-btn>
   <v-btn
     :disabled="!selectedSaves.length"
+    rounded="0"
+    variant="text"
+    class="mt-3 bg-terciary text-romm-red"
     @click="
       emitter?.emit('showDeleteSavesDialog', {
         rom: props.rom,
         saves: selectedSaves,
       })
     "
-    rounded="0"
-    variant="text"
-    class="mt-3 bg-terciary text-romm-red"
   >
     <v-icon>mdi-delete</v-icon>
     Delete

@@ -70,13 +70,15 @@ async function uploadStates() {
 }
 </script>
 <template>
-  <v-row class="pa-2 align-center" no-gutters>
+  <v-row
+    class="pa-2 align-center"
+    no-gutters
+  >
     <v-col>
       <v-list-item class="px-0">
         <v-file-input
-          @keyup.enter="uploadStates()"
-          label="Select state files..."
           v-model="statesToUpload"
+          label="Select state files..."
           prepend-inner-icon="mdi-file"
           prepend-icon=""
           multiple
@@ -85,12 +87,13 @@ async function uploadStates() {
           variant="outlined"
           density="compact"
           hide-details
+          @keyup.enter="uploadStates()"
         />
-        <template v-slot:append>
+        <template #append>
           <v-btn
             :disabled="!statesToUpload.length"
-            @click="uploadStates()"
             class="text-romm-green ml-3 bg-terciary"
+            @click="uploadStates()"
           >
             Upload
           </v-btn>
@@ -98,15 +101,18 @@ async function uploadStates() {
       </v-list-item>
     </v-col>
   </v-row>
-  <v-list rounded="0" class="pa-0">
+  <v-list
+    rounded="0"
+    class="pa-0"
+  >
     <v-list-item
-      class="pa-2 pl-4"
       v-for="state in rom.user_states"
       :key="state.id"
+      class="pa-2 pl-4"
       :title="state.file_name"
       :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(state.file_size_bytes)}`"
     >
-      <template v-slot:prepend>
+      <template #prepend>
         <v-checkbox
           v-model="selectedStates"
           :value="state"
@@ -114,7 +120,7 @@ async function uploadStates() {
           hide-details
         />
       </template>
-      <template v-slot:append>
+      <template #append>
         <v-btn
           rounded="0"
           variant="text"
@@ -131,20 +137,20 @@ async function uploadStates() {
   </v-list>
   <v-btn
     :disabled="!selectedStates.length"
-    @click="downloasStates()"
     rounded="0"
     variant="text"
     class="mt-3 mr-3 bg-terciary"
+    @click="downloasStates()"
   >
     <v-icon>mdi-download</v-icon>
     Download
   </v-btn>
   <v-btn
     :disabled="!selectedStates.length"
-    @click="emitter?.emit('showDeleteStatesDialog', { rom: props.rom, states: selectedStates })"
     rounded="0"
     variant="text"
     class="mt-3 bg-terciary text-romm-red"
+    @click="emitter?.emit('showDeleteStatesDialog', { rom: props.rom, states: selectedStates })"
   >
     <v-icon>mdi-delete</v-icon>
     Delete

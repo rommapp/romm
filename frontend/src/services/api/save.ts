@@ -13,7 +13,7 @@ async function uploadSaves({
   saves: File[];
   emulator?: string;
 }): Promise<{ data: UploadedSavesResponse }> {
-  let formData = new FormData();
+  const formData = new FormData();
   saves.forEach((save) => formData.append("saves", save));
 
   return api.post("/saves", formData, {
@@ -31,7 +31,7 @@ async function updateSave({
   save: SaveSchema;
   file: File;
 }): Promise<{ data: SaveSchema }> {
-  var formData = new FormData();
+  const formData = new FormData();
   formData.append("file", file);
 
   return api.put(`/saves/${save.id}`, formData);

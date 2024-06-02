@@ -52,24 +52,35 @@ async function copyDownloadLink(rom: DetailedRom) {
   <v-row no-gutters>
     <v-col>
       <v-btn
+        :disabled="downloadStore.value.includes(rom.id)"
+        rounded="0"
+        color="primary"
+        block
         @click="
           romApi.downloadRom({
             rom,
             files: downloadStore.filesToDownloadMultiFileRom,
           })
         "
-        :disabled="downloadStore.value.includes(rom.id)"
-        rounded="0"
-        color="primary"
-        block
       >
-        <v-icon icon="mdi-download" size="large" />
+        <v-icon
+          icon="mdi-download"
+          size="large"
+        />
       </v-btn>
     </v-col>
     <v-col>
-      <v-btn @click="copyDownloadLink(rom)" rounded="0" color="primary" block
-        ><v-icon icon="mdi-content-copy" size="large"
-      /></v-btn>
+      <v-btn
+        rounded="0"
+        color="primary"
+        block
+        @click="copyDownloadLink(rom)"
+      >
+        <v-icon
+          icon="mdi-content-copy"
+          size="large"
+        />
+      </v-btn>
     </v-col>
     <v-col>
       <v-tooltip
@@ -78,15 +89,18 @@ async function copyDownloadLink(rom: DetailedRom) {
         location="bottom"
         :disabled="emulationSupported"
       >
-        <template v-slot:activator="{ props }">
-          <div v-bind="props">
+        <template #activator="{ props: tooltipProps }">
+          <div v-bind="tooltipProps">
             <v-btn
               rounded="0"
               block
-              @click="toggleEmulation"
               :disabled="!emulationSupported"
+              @click="toggleEmulation"
             >
-              <v-icon :icon="playInfoIcon" size="large" />
+              <v-icon
+                :icon="playInfoIcon"
+                size="large"
+              />
             </v-btn>
           </div>
         </template>
@@ -94,14 +108,17 @@ async function copyDownloadLink(rom: DetailedRom) {
     </v-col>
     <v-col>
       <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props: menuProps }">
           <v-btn
             :disabled="!auth.scopes.includes('roms.write')"
-            v-bind="props"
+            v-bind="menuProps"
             rounded="0"
             block
           >
-            <v-icon icon="mdi-dots-vertical" size="large" />
+            <v-icon
+              icon="mdi-dots-vertical"
+              size="large"
+            />
           </v-btn>
         </template>
         <admin-menu :rom="rom" />

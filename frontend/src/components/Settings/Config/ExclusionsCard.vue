@@ -21,9 +21,14 @@ const editable = ref(false);
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
+    >
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-cancel</v-icon>
+        <v-icon class="mr-3">
+          mdi-cancel
+        </v-icon>
         Excluded
       </v-toolbar-title>
       <v-btn
@@ -32,17 +37,19 @@ const editable = ref(false);
         rounded="0"
         size="small"
         variant="text"
-        @click="editable = !editable"
         icon="mdi-cog"
         disabled
-      >
-      </v-btn>
+        @click="editable = !editable"
+      />
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
 
     <v-card-text class="pa-1">
-      <v-row no-gutters class="bg-terciary mt-1 mb-2 px-3">
+      <v-row
+        no-gutters
+        class="bg-terciary mt-1 mb-2 px-3"
+      >
         <v-toolbar-title class="pa-2 text-body-1">
           <v-icon>mdi-controller-off</v-icon>
           Platforms
@@ -50,9 +57,16 @@ const editable = ref(false);
         <v-divider class="border-opacity-25 mb-1" />
         <v-row no-gutters>
           <v-col class="pa-1">
-            <v-chip label class="ma-1" v-for="excluded in excluded_platforms">{{
-              excluded
-            }}</v-chip>
+            <v-chip
+              v-for="excluded in excluded_platforms"
+              :key="excluded"
+              label
+              class="ma-1"
+            >
+              {{
+                excluded
+              }}
+            </v-chip>
             <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') && editable"
@@ -73,7 +87,10 @@ const editable = ref(false);
         </v-row>
       </v-row>
 
-      <v-row no-gutters class="bg-terciary mt-1 mb-2 px-3">
+      <v-row
+        no-gutters
+        class="bg-terciary mt-1 mb-2 px-3"
+      >
         <v-toolbar-title class="pa-2 text-body-1">
           <v-icon>mdi-file-document-remove-outline</v-icon>
           Single Roms Files
@@ -82,11 +99,13 @@ const editable = ref(false);
         <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
+              v-for="excluded in excludad_single_roms_files"
+              :key="excluded"
               label
               class="ma-1"
-              v-for="excluded in excludad_single_roms_files"
-              >{{ excluded }}</v-chip
             >
+              {{ excluded }}
+            </v-chip>
             <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') && editable"
@@ -102,7 +121,10 @@ const editable = ref(false);
         </v-row>
       </v-row>
 
-      <v-row no-gutters class="bg-terciary mt-1 mb-2 px-3">
+      <v-row
+        no-gutters
+        class="bg-terciary mt-1 mb-2 px-3"
+      >
         <v-toolbar-title class="pa-2 text-body-1">
           <v-icon>mdi-file-document-remove-outline</v-icon>
           Single Roms Extensions
@@ -111,11 +133,13 @@ const editable = ref(false);
         <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
+              v-for="excluded in excludad_single_roms_ext"
+              :key="excluded"
               label
               class="ma-1"
-              v-for="excluded in excludad_single_roms_ext"
-              >{{ excluded }}</v-chip
             >
+              {{ excluded }}
+            </v-chip>
             <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') && editable"
@@ -131,7 +155,10 @@ const editable = ref(false);
         </v-row>
       </v-row>
 
-      <v-row no-gutters class="bg-terciary mt-1 mb-2 px-3">
+      <v-row
+        no-gutters
+        class="bg-terciary mt-1 mb-2 px-3"
+      >
         <v-toolbar-title class="pa-2 text-body-1">
           <v-icon>mdi-file-document-remove-outline</v-icon>
           Multi Roms Files
@@ -140,11 +167,13 @@ const editable = ref(false);
         <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
+              v-for="excluded in excludad_multi_roms_files"
+              :key="excluded"
               label
               class="ma-1"
-              v-for="excluded in excludad_multi_roms_files"
-              >{{ excluded }}</v-chip
             >
+              {{ excluded }}
+            </v-chip>
             <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') && editable"
@@ -160,7 +189,10 @@ const editable = ref(false);
         </v-row>
       </v-row>
 
-      <v-row no-gutters class="bg-terciary mt-1 mb-2 px-3">
+      <v-row
+        no-gutters
+        class="bg-terciary mt-1 mb-2 px-3"
+      >
         <v-toolbar-title class="pa-2 text-body-1">
           <v-icon>mdi-file-document-remove-outline</v-icon>
           Multi Roms Parts Files
@@ -169,11 +201,13 @@ const editable = ref(false);
         <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
+              v-for="excluded in excludad_multi_roms_parts_files"
+              :key="excluded"
               label
               class="ma-1"
-              v-for="excluded in excludad_multi_roms_parts_files"
-              >{{ excluded }}</v-chip
             >
+              {{ excluded }}
+            </v-chip>
             <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') && editable"
@@ -189,7 +223,10 @@ const editable = ref(false);
         </v-row>
       </v-row>
 
-      <v-row no-gutters class="bg-terciary mt-1 mb-2 px-3">
+      <v-row
+        no-gutters
+        class="bg-terciary mt-1 mb-2 px-3"
+      >
         <v-toolbar-title class="pa-2 text-body-1">
           <v-icon>mdi-file-document-remove-outline</v-icon>
           Multi Roms Parts Extensions
@@ -198,11 +235,13 @@ const editable = ref(false);
         <v-row no-gutters>
           <v-col class="pa-1">
             <v-chip
+              v-for="excluded in excludad_multi_roms_parts_ext"
+              :key="excluded"
               label
               class="ma-1"
-              v-for="excluded in excludad_multi_roms_parts_ext"
-              >{{ excluded }}</v-chip
             >
+              {{ excluded }}
+            </v-chip>
             <v-expand-transition>
               <v-btn
                 v-if="authStore.scopes.includes('platforms.write') && editable"

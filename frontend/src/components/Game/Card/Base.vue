@@ -25,18 +25,18 @@ function selectRom(event: MouseEvent) {
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props }">
+  <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="props"
+      v-bind="hoverProps"
       :class="{ 'on-hover': isHovering, 'rom-selected': selected }"
       :elevation="isHovering ? 20 : 3"
     >
       <cover
         :rom="rom"
-        :showSelector="showSelector"
-        :isHoveringTop="!!isHovering"
+        :show-selector="showSelector"
+        :is-hovering-top="!!isHovering"
         :selected="selected"
-        @selectRom="selectRom"
+        @select-rom="selectRom"
       />
       <action-bar :rom="rom" />
     </v-card>

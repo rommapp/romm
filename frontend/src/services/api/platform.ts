@@ -47,5 +47,6 @@ export default {
   getPlatforms,
   getPlatform,
   getSupportedPlatforms,
+  updatePlatform,
   deletePlatform,
 };

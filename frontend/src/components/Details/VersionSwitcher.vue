@@ -27,21 +27,20 @@ function updateVersion() {
 
 <template>
   <v-select
+    v-model="version"
     label="Version"
     variant="outlined"
     density="compact"
     class="version-select"
     hide-details
-    v-model="version"
-    @update:model-value="updateVersion"
     :items="
       [rom, ...rom.sibling_roms].map((i) => ({
         title: formatItem(i),
         value: i.id,
       }))
     "
-  >
-  </v-select>
+    @update:model-value="updateVersion"
+  />
 </template>
 
 <style scoped>

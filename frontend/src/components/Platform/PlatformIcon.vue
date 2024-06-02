@@ -12,5 +12,8 @@ function onImageError() {
 </script>
 
 <template>
-  <v-img :src="platformIconUrl" @error="onImageError" />
+  <v-img
+    :src="platformIconUrl"
+    @error="onImageError"
+  />
 </template>
