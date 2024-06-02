@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
-import userApi from "@/services/api/user";
 import platformApi from "@/services/api/platform";
+import userApi from "@/services/api/user";
 import socket from "@/services/socket";
+import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
-import storeAuth from "@/stores/auth";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, onBeforeUnmount } from "vue";
+import { inject, onBeforeUnmount, onMounted } from "vue";
 
 // Props
 const scanningStore = storeScanning();
@@ -140,26 +140,31 @@ onMounted(() => {
 </template>
 <style lang="scss">
 body {
-  background-color: rgba(var(--v-theme-background));
+  background-color: rgba(var(--v-theme-background)) !important;
 }
 .translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+  background: rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(10px) !important;
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000 !important;
 }
 .tooltip :deep(.v-overlay__content) {
   background: rgba(255, 255, 255, 1) !important;
   color: rgb(41, 41, 41) !important;
 }
 .scroll {
-  overflow-x: visible;
-  overflow-y: scroll;
+  overflow-x: visible !important;
+  overflow-y: scroll !important;
 }
 .emoji-collection {
-  mask-image: linear-gradient(to right, black 0%, black 70%, transparent 100%);
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 70%,
+    transparent 100%
+  ) !important;
 }
 .emoji {
-  margin: 0 2px;
+  margin: 0 2px !important;
 }
 .file-input {
   display: none !important;
