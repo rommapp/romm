@@ -135,7 +135,6 @@ onMounted(() => {
           </template>
         </v-img>
       </v-hover>
-      <!-- </router-link> -->
       <v-card-text v-if="titleOnFooter">
         <v-row class="pa-1 align-center">
           <v-col class="pa-0 ml-1 text-truncate">

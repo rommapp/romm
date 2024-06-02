@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
+import type { Events, SnackbarStatus } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import type { SnackbarStatus, Events } from "@/types/emitter";
+import { inject, ref } from "vue";
 
 // Props
 const show = ref(false);

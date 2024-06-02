@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { identity } from "lodash";
 import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import { regionToEmoji, languageToEmoji } from "@/utils";
-import type { DetailedRom } from "@/stores/roms";
 import type { Platform } from "@/stores/platforms";
+import type { DetailedRom } from "@/stores/roms";
+import { languageToEmoji, regionToEmoji } from "@/utils";
+import { identity } from "lodash";
 import { useDisplay } from "vuetify";
 
 defineProps<{ rom: DetailedRom; platform: Platform }>();
