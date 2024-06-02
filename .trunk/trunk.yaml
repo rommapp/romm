@@ -18,24 +18,24 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
-    # - markdownlint@0.40.0
-    - actionlint@1.7.0
+    - eslint@8.57.0
+    - actionlint@1.7.1
     - bandit@1.7.8
     - black@24.4.2
-    - checkov@3.2.106
+    - checkov@3.2.120
     - git-diff-check
     - isort@5.13.2
     - mypy@1.10.0
-    - osv-scanner@1.7.3
+    - osv-scanner@1.7.4
     - oxipng@9.1.1
     - prettier@3.2.5
-    - ruff@0.4.5
+    - ruff@0.4.6
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.3.2
     - taplo@0.8.1
-    - trivy@0.51.2
-    - trufflehog@3.76.3
+    - trivy@0.51.4
+    - trufflehog@3.77.0
     - yamllint@1.35.1
   ignore:
     - linters: [ALL]
@@ -43,6 +43,8 @@ lint:
         - src/__generated__/**
         - docker/Dockerfile
 actions:
+  disabled:
+    - trunk-check-pre-push
   enabled:
     - trunk-announce
     - trunk-fmt-pre-commit
