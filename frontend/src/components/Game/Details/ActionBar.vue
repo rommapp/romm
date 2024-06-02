@@ -78,7 +78,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         location="bottom"
         :disabled="emulationSupported"
       >
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <div v-bind="props">
             <v-btn
               rounded="0"
@@ -94,7 +94,7 @@ async function copyDownloadLink(rom: DetailedRom) {
     </v-col>
     <v-col>
       <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-btn
             :disabled="!auth.scopes.includes('roms.write')"
             v-bind="props"

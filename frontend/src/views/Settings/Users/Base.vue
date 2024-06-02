@@ -121,7 +121,7 @@ onMounted(() => {
         v-model:page="page"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
-        <template v-slot:item.avatar_path="{ item }">
+        <template #item.avatar_path="{ item }">
           <v-avatar>
             <v-img
               :src="
@@ -132,10 +132,10 @@ onMounted(() => {
             />
           </v-avatar>
         </template>
-        <template v-slot:item.last_active="{ item }">
+        <template #item.last_active="{ item }">
           {{ formatTimestamp(item.last_active) }}
         </template>
-        <template v-slot:item.enabled="{ item }">
+        <template #item.enabled="{ item }">
           <v-switch
             color="romm-accent-1"
             :disabled="item.id == auth.user?.id"
@@ -144,7 +144,7 @@ onMounted(() => {
             hide-details
           />
         </template>
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <v-btn
             variant="text"
             class="ma-1 bg-terciary"
@@ -164,7 +164,7 @@ onMounted(() => {
           >
         </template>
 
-        <template v-slot:bottom>
+        <template #bottom>
           <v-divider class="border-opacity-25" />
           <v-row no-gutters class="pt-2 align-center">
             <v-col cols="11" class="px-6">

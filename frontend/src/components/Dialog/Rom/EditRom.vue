@@ -182,7 +182,7 @@ function closeDialog() {
               :rom="rom"
               :src="imagePreviewUrl"
             >
-              <template v-slot:append-inner>
+              <template #append-inner>
                 <v-chip-group class="position-absolute edit-cover pa-0">
                   <v-chip
                     class="translucent"

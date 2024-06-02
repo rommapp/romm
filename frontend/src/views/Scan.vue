@@ -15,6 +15,29 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const { smAndDown } = useDisplay();
 
+const platformsToScan = ref<Platform[]>([]);
+
+// Use a computed property to reactively update metadataOptions based on heartbeat
+const metadataOptions = computed(() => [
+  {
+    name: "IGDB",
+    value: "igdb",
+    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
+  },
+  {
+    name: "MobyGames",
+    value: "moby",
+    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+  },
+]);
+// Use the computed metadataOptions to filter out disabled sources
+const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
+// Since metadataOptions is now a computed property, it will automatically update.
+// Therefore, we only need to watch metadataOptions for changes.
+watch(metadataOptions, (newOptions) => {
+  metadataSources.value = newOptions.filter((option) => !option.disabled);
+});
+
 const scanOptions = [
   {
     title: "New platforms",
@@ -38,25 +61,7 @@ const scanOptions = [
     value: "complete",
   },
 ];
-
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: "IGDB",
-    value: "igdb",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-  },
-  {
-    name: "MobyGames",
-    value: "moby",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-  },
-]);
-
-const platformsToScan = ref<Platform[]>([]);
 const scanType = ref("quick");
-// Use the computed metadataOptions to filter out disabled sources
-const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
@@ -81,12 +86,6 @@ socket.on("scan:done", (stats) => {
 async function stopScan() {
   socket.emit("scan:stop");
 }
-
-// Since metadataOptions is now a computed property, it will automatically update.
-// Therefore, we only need to watch metadataOptions for changes.
-watch(metadataOptions, (newOptions) => {
-  metadataSources.value = newOptions.filter((option) => !option.disabled);
-});
 </script>
 
 <template>
@@ -106,9 +105,9 @@ watch(metadataOptions, (newOptions) => {
         hide-details
         chips
       >
-        <template v-slot:item="{ props, item }">
+        <template #item="{ props, item }">
           <v-list-item class="py-2" v-bind="props" :title="item.raw.name ?? ''">
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :rounded="0" size="35">
                 <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
               </v-avatar>
@@ -139,7 +138,7 @@ watch(metadataOptions, (newOptions) => {
         hide-details
         chips
       >
-        <template v-slot:item="{ props, item }">
+        <template #item="{ props, item }">
           <v-list-item
             v-bind="props"
             :title="item.raw.name"
@@ -172,7 +171,7 @@ watch(metadataOptions, (newOptions) => {
         v-model="scanType"
         :items="scanOptions"
       >
-        <template v-slot:item="{ props, item }">
+        <template #item="{ props, item }">
           <v-list-item
             v-bind="props"
             :subtitle="item.raw.subtitle"
@@ -193,7 +192,7 @@ watch(metadataOptions, (newOptions) => {
       :loading="scanning"
     >
       Scan
-      <template v-slot:loader>
+      <template #loader>
         <v-progress-circular
           color="romm-accent-1"
           :width="2"

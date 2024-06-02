@@ -13,7 +13,7 @@ const galleryView = storeGalleryView();
     transition="fade-transition"
     text="Change view"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+    ><template #activator="{ props }">
       <v-btn
         @click="galleryView.next()"
         rounded="0"

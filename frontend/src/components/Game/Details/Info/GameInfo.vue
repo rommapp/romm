@@ -42,7 +42,7 @@ const galleryFilter = storeGalleryFilter();
           progress="terciary"
           :height="xs ? '300' : '400'"
         >
-          <template v-slot:prev="{ props }">
+          <template #prev="{ props }">
             <v-btn
               icon="mdi-chevron-left"
               class="translucent"
@@ -53,7 +53,7 @@ const galleryFilter = storeGalleryFilter();
             v-for="screenshot_url in rom.merged_screenshots"
             :src="screenshot_url"
           />
-          <template v-slot:next="{ props }">
+          <template #next="{ props }">
             <v-btn
               icon="mdi-chevron-right"
               class="translucent"

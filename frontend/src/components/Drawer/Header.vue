@@ -5,7 +5,7 @@ defineProps<{ rail: boolean }>();
 </script>
 <template>
   <v-list-item :class="{ 'ml-1': !rail, 'ml-0': rail }" class="my-2">
-    <template v-slot:prepend>
+    <template #prepend>
       <router-link :to="{ name: 'dashboard' }">
         <v-avatar :rounded="0" :size="rail ? 40 : 60"
           ><v-img src="/assets/isotipo.svg"
@@ -15,7 +15,7 @@ defineProps<{ rail: boolean }>();
         /></v-avatar>
       </router-link>
     </template>
-    <template v-if="!rail" v-slot:append>
+    <template v-if="!rail" #append>
       <rail-btn :rail="rail" />
     </template>
   </v-list-item>

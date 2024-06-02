@@ -12,7 +12,7 @@ defineProps<{ rom: SearchRomSchema }>();
       transition="fade-transition"
       text="IGDB matched"
       open-delay="500"
-      ><template v-slot:activator="{ props }">
+      ><template #activator="{ props }">
         <v-avatar v-bind="props" v-if="rom.igdb_id" size="30" rounded="1">
           <v-img src="/assets/scrappers/igdb.png" /> </v-avatar></template
     ></v-tooltip>
@@ -22,7 +22,7 @@ defineProps<{ rom: SearchRomSchema }>();
       transition="fade-transition"
       text="Mobygames matched"
       open-delay="500"
-      ><template v-slot:activator="{ props }">
+      ><template #activator="{ props }">
         <v-avatar
           v-bind="props"
           v-if="rom.moby_id"

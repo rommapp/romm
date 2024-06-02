@@ -47,14 +47,14 @@ const editable = ref(false);
           :title="slug"
         >
           <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :rounded="0" size="40" class="mx-2">
                 <platform-icon class="platform-icon" :key="slug" :slug="slug" />
               </v-avatar>
             </template>
             <v-list-item class="bg-primary pr-2 pl-2">
               <span>{{ fsSlug }}</span>
-              <template v-slot:append>
+              <template #append>
                 <v-slide-x-reverse-transition>
                   <v-btn
                     v-if="

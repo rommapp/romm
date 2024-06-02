@@ -4,7 +4,7 @@ const props = defineProps<{ slug: string }>();
 
 <template>
   <v-img :src="`/assets/platforms/${props.slug.toLowerCase()}.ico`"
-    ><template v-slot:error
+    ><template #error
       ><v-img src="/assets/platforms/default.ico"></v-img></template
   ></v-img>
 </template>

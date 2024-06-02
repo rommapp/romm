@@ -18,6 +18,7 @@ import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref, watch } from "vue";
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
@@ -255,14 +256,7 @@ watch(
     </v-row>
   </template>
 
-  <template v-if="noRomError">
-    <v-empty-state
-      headline="Whoops, 404"
-      title="Game not found"
-      text="The game you were looking for does not exist"
-      icon="mdi-disc-alert"
-    ></v-empty-state>
-  </template>
+  <empty-game v-if="noRomError" />
 </template>
 
 <style scoped>

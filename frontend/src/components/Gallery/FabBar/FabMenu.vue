@@ -7,7 +7,7 @@ import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
+import { inject } from "vue";
 import { useRoute } from "vue-router";
 
 // Event listeners bus
@@ -61,7 +61,7 @@ function onDownload() {
     text="Reset selection"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         color="terciary"
@@ -74,7 +74,7 @@ function onDownload() {
   </v-tooltip>
 
   <v-tooltip open-delay="500" class="tooltip" text="Select all" location="top">
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         color="terciary"
@@ -92,7 +92,7 @@ function onDownload() {
     text="Scan selected games"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         v-if="auth.scopes.includes('roms.write')"
@@ -113,7 +113,7 @@ function onDownload() {
     text="Download selected games"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         color="terciary"
@@ -133,7 +133,7 @@ function onDownload() {
     text="Delete selected games"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         v-if="auth.scopes.includes('roms.write')"

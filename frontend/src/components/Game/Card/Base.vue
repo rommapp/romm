@@ -1,94 +1,55 @@
 <script setup lang="ts">
-import storeDownload from "@/stores/download";
-import storeRoms, { type SimpleRom } from "@/stores/roms.js";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
-import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref } from "vue";
+import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
+import storeRoms, { type SimpleRom } from "@/stores/roms.js";
+import { storeToRefs } from "pinia";
+import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
 // Props
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom;
-    index?: number | null;
     transformScale?: boolean;
     titleOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
-    detailsOnClick?: boolean;
     withBorder?: boolean;
     src?: string;
   }>(),
   {
-    index: null,
     transformScale: false,
     titleOnHover: false,
     titleOnFooter: false,
     showActionBar: false,
-    detailsOnClick: true,
     withBorder: false,
     src: "",
   }
 );
-const emit = defineEmits(["selectRom"]);
+const emit = defineEmits(["click", "touchstart", "touchend"]);
+const handleClick = (event: MouseEvent) => {
+  emit("click", { event: event, rom: props.rom });
+};
+const handleTouchStart = (event: TouchEvent) => {
+  emit("touchstart", { event: event, rom: props.rom });
+};
+const handleTouchEnd = (event: TouchEvent) => {
+  emit("touchend", { event: event, rom: props.rom });
+};
 const romsStore = storeRoms();
 const downloadStore = storeDownload();
 const { selectedRoms } = storeToRefs(romsStore);
 const card = ref();
-let timeout: ReturnType<typeof setTimeout>;
+
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 
 // Functions
-function selectRom(event: MouseEvent) {
-  if (!selectedRoms.value.includes(props.rom)) {
-    romsStore.addToSelection(props.rom);
-  } else {
-    romsStore.removeFromSelection(props.rom);
-  }
-  emit("selectRom", {
-    event,
-    selected: !selectedRoms.value.includes(props.rom),
-  });
-}
-
-function onNavigate(event: MouseEvent) {
-  if (
-    event.ctrlKey ||
-    event.shiftKey ||
-    romsStore.selecting ||
-    romsStore.selectedRoms.length > 0
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    emit("selectRom", event);
-  }
-}
-
-function onTouchStart(event: TouchEvent) {
+onMounted(() => {
   card.value.$el.addEventListener("contextmenu", (event: Event) => {
     event.preventDefault();
   });
-  timeout = setTimeout(() => {
-    emit("selectRom", event);
-  }, 500);
-}
-
-function onTouchEnd() {
-  clearTimeout(timeout);
-}
-
-function onScroll() {
-  clearTimeout(timeout);
-}
-
-onMounted(() => {
-  window.addEventListener("scroll", onScroll);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 
@@ -110,80 +71,68 @@ onUnmounted(() => {
         :indeterminate="true"
         absolute
       />
-      <router-link
-        style="text-decoration: none; color: inherit"
-        :to="
-          romsStore.selecting ||
-          romsStore.selectedRoms.length > 0 ||
-          !detailsOnClick
-            ? {}
-            : {
-                name: 'rom',
-                params: { rom: rom.id },
-              }
-        "
-        ref="card"
-        @click="onNavigate"
-        @touchstart="onTouchStart"
-        @touchend="onTouchEnd"
-      >
-        <v-hover v-slot="{ isHovering, props }" open-delay="800">
-          <v-img
-            v-bind="props"
-            :src="
-              src
-                ? src
-                : !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                : `/assets/romm/resources/${rom.path_cover_l}`
-            "
-            :lazy-src="
-              !rom.igdb_id && !rom.moby_id
-                ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                : rom.has_cover
-                ? `/assets/romm/resources/${rom.path_cover_s}`
-                : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-            "
-            :aspect-ratio="3 / 4"
-          >
-            <div v-bind="props" style="position: absolute; top: 0; width: 100%">
-              <template v-if="titleOnHover">
-                <v-expand-transition>
-                  <div
-                    v-if="isHovering || !rom.has_cover"
-                    class="translucent text-caption"
-                    :class="{
-                      'text-truncate':
-                        galleryViewStore.current == 0 && !isHovering,
-                    }"
-                  >
-                    <v-list-item>{{ rom.name }}</v-list-item>
-                  </div>
-                </v-expand-transition>
-              </template>
+      <v-hover v-slot="{ isHovering, props }" open-delay="800">
+        <v-img
+          @click="handleClick"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+          v-bind="props"
+          class="pointer"
+          ref="card"
+          :src="
+            src
+              ? src
+              : !rom.igdb_id && !rom.moby_id && !rom.has_cover
+              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+              : `/assets/romm/resources/${rom.path_cover_l}`
+          "
+          :lazy-src="
+            !rom.igdb_id && !rom.moby_id
+              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+              : rom.has_cover
+              ? `/assets/romm/resources/${rom.path_cover_s}`
+              : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+          "
+          :aspect-ratio="3 / 4"
+        >
+          <div v-bind="props" style="position: absolute; top: 0; width: 100%">
+            <template v-if="titleOnHover">
+              <v-expand-transition>
+                <div
+                  v-if="isHovering || !rom.has_cover"
+                  class="translucent text-caption"
+                  :class="{
+                    'text-truncate':
+                      galleryViewStore.current == 0 && !isHovering,
+                  }"
+                >
+                  <v-list-item>{{ rom.name }}</v-list-item>
+                </div>
+              </v-expand-transition>
+            </template>
 
-              <slot name="prepend-inner"></slot>
+            <slot name="prepend-inner"></slot>
+          </div>
+          <slot name="append-inner"></slot>
+          <template #error>
+            <v-img
+              :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+              :aspect-ratio="3 / 4"
+            ></v-img>
+          </template>
+          <template #placeholder>
+            <div class="d-flex align-center justify-center fill-height">
+              <v-progress-circular
+                :width="2"
+                :size="40"
+                color="romm-accent-1"
+                indeterminate
+              />
             </div>
-            <slot name="append-inner"></slot>
-            <template v-slot:error>
-              <v-img
-                :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-                :aspect-ratio="3 / 4"
-              ></v-img>
-            </template>
-            <template v-slot:placeholder>
-              <div class="d-flex align-center justify-center fill-height">
-                <v-progress-circular
-                  :width="2"
-                  :size="40"
-                  color="romm-accent-1"
-                  indeterminate
-                />
-              </div>
-            </template>
-          </v-img>
-        </v-hover>
-      </router-link>
+          </template>
+        </v-img>
+      </v-hover>
+      <!-- </router-link> -->
       <v-card-text v-if="titleOnFooter">
         <v-row class="pa-1 align-center">
           <v-col class="pa-0 ml-1 text-truncate">
@@ -222,5 +171,11 @@ onUnmounted(() => {
 .v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
   max-height: 0; /* Set max-height to 0 when entering or leaving */
   overflow: hidden;
+}
+.v-img {
+  user-select: none; /* Prevents text selection */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
 }
 </style>

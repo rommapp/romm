@@ -114,7 +114,7 @@ onMounted(() => {
     v-model="romsStore._selectedIDs"
     v-model:page="page"
   >
-    <template v-slot:item.path_cover_s="{ item }">
+    <template #item.path_cover_s="{ item }">
       <game-card :rom="item"></game-card>
       <!-- <v-avatar :rounded="0"> -->
         <!-- <v-progress-linear
@@ -137,12 +137,12 @@ onMounted(() => {
               : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
           "
         >
-          <template v-slot:error>
+          <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
             ></v-img>
           </template>
-          <template v-slot:placeholder>
+          <template #placeholder>
             <div class="d-flex align-center justify-center fill-height">
               <v-progress-circular
                 :width="2"
@@ -155,32 +155,32 @@ onMounted(() => {
         </v-img> -->
       <!-- </v-avatar> -->
     </template>
-    <template v-slot:item.name="{ item }">
+    <template #item.name="{ item }">
       <span>
         {{ item.name }}
       </span>
     </template>
-    <template v-slot:item.file_name="{ item }">
+    <template #item.file_name="{ item }">
       <span>
         {{ item.file_name }}
       </span>
     </template>
-    <template v-slot:item.file_size_bytes="{ item }">
+    <template #item.file_size_bytes="{ item }">
       <span>
         {{ formatBytes(item.file_size_bytes) }}
       </span>
     </template>
-    <template v-slot:item.regions="{ item }">
+    <template #item.regions="{ item }">
       <span class="px-1" v-for="region in item.regions">
         {{ regionToEmoji(region) }}
       </span>
     </template>
-    <template v-slot:item.languages="{ item }">
+    <template #item.languages="{ item }">
       <span class="px-1" v-for="language in item.languages">
         {{ languageToEmoji(language) }}
       </span>
     </template>
-    <template v-slot:item.actions="{ item }">
+    <template #item.actions="{ item }">
       <v-btn
         class="ma-1 bg-terciary"
         rounded="0"
@@ -203,7 +203,7 @@ onMounted(() => {
         <v-icon>mdi-play</v-icon>
       </v-btn>
       <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-btn
             rounded="0"
             :disabled="!auth.scopes.includes('roms.write')"
@@ -218,7 +218,7 @@ onMounted(() => {
       </v-menu>
     </template>
 
-    <template v-slot:bottom>
+    <template #bottom>
       <v-divider class="border-opacity-25" />
       <v-row no-gutters class="pt-2 align-center">
         <v-col cols="11" class="px-6">

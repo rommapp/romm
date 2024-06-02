@@ -7,6 +7,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import { useDisplay, useTheme } from "vuetify";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
@@ -191,7 +192,7 @@ onBeforeUnmount(() => {
                   : 'IGDB source is not enabled'
               "
               open-delay="500"
-              ><template v-slot:activator="{ props }">
+              ><template #activator="{ props }">
                 <v-avatar
                   @click="toggleSourceFilter('igdb')"
                   v-bind="props"
@@ -218,7 +219,7 @@ onBeforeUnmount(() => {
                   : 'Mobygames source is not enabled'
               "
               open-delay="500"
-              ><template v-slot:activator="{ props }">
+              ><template #activator="{ props }">
                 <v-avatar
                   @click="toggleSourceFilter('moby')"
                   v-bind="props"
@@ -281,7 +282,7 @@ onBeforeUnmount(() => {
               transition="fade-transition"
               text="Extended search to match by alternative names. This will take longer."
               open-delay="500"
-              ><template v-slot:activator="{ props }">
+              ><template #activator="{ props }">
                 <v-btn
                   v-bind="props"
                   @click="toggleExtended"
@@ -327,10 +328,7 @@ onBeforeUnmount(() => {
           v-show="!searching && matchedRoms.length == 0"
           no-gutters
         >
-          <v-empty-state
-            headline="No games to show"
-            icon="mdi-disc-alert"
-          ></v-empty-state>
+          <empty-game />
         </v-row>
         <v-row no-gutters>
           <v-col
@@ -363,7 +361,7 @@ onBeforeUnmount(() => {
                     "
                     :aspect-ratio="3 / 4"
                   >
-                    <template v-slot:placeholder>
+                    <template #placeholder>
                       <div
                         class="d-flex align-center justify-center fill-height"
                       >
@@ -393,7 +391,7 @@ onBeforeUnmount(() => {
                         transition="fade-transition"
                         text="IGDB matched"
                         open-delay="500"
-                        ><template v-slot:activator="{ props }">
+                        ><template #activator="{ props }">
                           <v-avatar
                             v-bind="props"
                             v-if="matchedRom.igdb_id"
@@ -410,7 +408,7 @@ onBeforeUnmount(() => {
                         transition="fade-transition"
                         text="Mobygames matched"
                         open-delay="500"
-                        ><template v-slot:activator="{ props }">
+                        ><template #activator="{ props }">
                           <v-avatar
                             v-bind="props"
                             v-if="matchedRom.moby_id"

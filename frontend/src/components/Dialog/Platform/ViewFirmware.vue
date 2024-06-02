@@ -233,7 +233,7 @@ function selectAllFirmware() {
             v-for="firmware in selectedPlatform?.firmware ?? []"
             :key="firmware.id"
           >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-checkbox
                 v-model="selectedFirmware"
                 :value="firmware"
@@ -259,7 +259,7 @@ function selectAllFirmware() {
               {{ firmware.md5_hash }}
             </v-list-item-subtitle>
 
-            <template v-slot:append>
+            <template #append>
               <v-btn
                 icon
                 :href="`/api/firmware/${firmware.id}/content/${firmware.file_name}`"
