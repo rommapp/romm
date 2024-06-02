@@ -3,14 +3,14 @@ import type { SearchRomSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useTheme, useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
+// Props
 const show = ref(false);
 const sources = ref<any>([]);
 const theme = useTheme();
-const emit = defineEmits(["updateRom"]);
 const { xs } = useDisplay();
-
+const emit = defineEmits(["select:source"]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSelectSourceDialog", (matchedRom: SearchRomSchema) => {
   sources.value.push({
@@ -26,15 +26,16 @@ emitter?.on("showSelectSourceDialog", (matchedRom: SearchRomSchema) => {
   show.value = true;
 });
 
+// Functions
 function selectSource(matchedRom: SearchRomSchema, source: string) {
   if (source == "igdb") {
     emit(
-      "updateRom",
+      "select:source",
       Object.assign(matchedRom, { url_cover: matchedRom.igdb_url_cover })
     );
   } else if (source == "moby") {
     emit(
-      "updateRom",
+      "select:source",
       Object.assign(matchedRom, { url_cover: matchedRom.moby_url_cover })
     );
   }
@@ -149,5 +150,4 @@ function closeDialog() {
   z-index: 1 !important;
   transform: scale(1.05);
 }
-
 </style>

@@ -1,21 +1,19 @@
 <script setup lang="ts">
-import { ref, inject, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
-
 import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import {
   formatBytes,
-  languageToEmoji,
   isEmulationSupported,
+  languageToEmoji,
   regionToEmoji,
 } from "@/utils";
-import GameCard from "@/components/Game/Card/Base.vue";
+import type { Emitter } from "mitt";
+import { inject, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 const theme = useTheme();
 
@@ -102,58 +100,27 @@ onMounted(() => {
 
 <template>
   <v-data-table
+    @click:row="rowClick"
     :items-per-page="romsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
-    items-per-page-text=""
-    :fixed-footer="false"
-    :headers="HEADERS"
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
-    @click:row="rowClick"
-    show-select
+    :headers="HEADERS"
     v-model="romsStore._selectedIDs"
     v-model:page="page"
+    show-select
+    hover
   >
     <template #item.path_cover_s="{ item }">
-      <game-card :rom="item"></game-card>
-      <!-- <v-avatar :rounded="0"> -->
-        <!-- <v-progress-linear
-          color="romm-accent-1"
-          :active="downloadStore.value.includes(item.id)"
-          :indeterminate="true"
-          absolute
-        /> -->
-        <!-- <v-img
+      <v-avatar :rounded="0" size="45"
+        ><v-img
           :src="
             !item.igdb_id && !item.moby_id && !item.has_cover
-              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-              : `/assets/romm/resources/${item.path_cover_l}`
-          "
-          :lazy-src="
-            !item.igdb_id && !item.moby_id
               ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : item.has_cover
-              ? `/assets/romm/resources/${item.path_cover_s}`
-              : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : `/assets/romm/resources/${item.path_cover_s}`
           "
-        >
-          <template #error>
-            <v-img
-              :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-            ></v-img>
-          </template>
-          <template #placeholder>
-            <div class="d-flex align-center justify-center fill-height">
-              <v-progress-circular
-                :width="2"
-                :size="20"
-                color="romm-accent-1"
-                indeterminate
-              />
-            </div>
-          </template>
-        </v-img> -->
-      <!-- </v-avatar> -->
+        ></v-img
+      ></v-avatar>
     </template>
     <template #item.name="{ item }">
       <span>
@@ -245,3 +212,10 @@ onMounted(() => {
     </template>
   </v-data-table>
 </template>
+<style scoped>
+.custom-data-table .v-data-table__tr .v-data-table__tr--clickable {
+  background-color: #f5f5f5 !important; /* Change to desired hover color */
+  color: #333 !important; /* Change text color on hover */
+  border: 1px solid #ddd !important; /* Add border on hover */
+}
+</style>

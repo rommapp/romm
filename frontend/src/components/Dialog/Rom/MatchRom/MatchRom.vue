@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
 import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
+import MatchedCard from "@/components/Game/Card/Matched.vue";
+import RDialog from "@/components/common/Dialog.vue";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
-import EmptyGame from "@/components/Gallery/EmptyGame.vue";
-import { useDisplay, useTheme } from "vuetify";
 
-const { xs, mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
@@ -21,7 +20,6 @@ const searchBy = ref("Name");
 const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
-const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
@@ -158,314 +156,152 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <v-dialog
-    :modelValue="show"
-    scroll-strategy="none"
-    width="auto"
-    :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
-    no-click-animation
-    persistent
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-search-web"
+    :loading-condition="searching"
+    :empty-state-condition="matchedRoms.length == 0"
+    empty-state-type="game"
   >
-    <v-card
-      :class="{
-        'search-content': lgAndUp,
-        'search-content-tablet': mdAndDown,
-        'search-content-mobile': xs,
-      }"
-      rounded="0"
-    >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-search-web" class="ml-5" />
-            <span class="ml-4">Filter:</span>
-
-            <v-tooltip
-              location="top"
-              class="tooltip"
-              transition="fade-transition"
-              :text="
-                heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED
-                  ? 'Filter IGDB matches'
-                  : 'IGDB source is not enabled'
-              "
-              open-delay="500"
-              ><template #activator="{ props }">
-                <v-avatar
-                  @click="toggleSourceFilter('igdb')"
-                  v-bind="props"
-                  class="ml-3 source-filter"
-                  :class="{
-                    filtered: isIGDBFiltered,
-                    'source-disabled':
-                      !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
-                  }"
-                  size="30"
-                  rounded="1"
-                >
-                  <v-img src="/assets/scrappers/igdb.png" />
-                </v-avatar> </template
-            ></v-tooltip>
-
-            <v-tooltip
-              location="top"
-              class="tooltip"
-              transition="fade-transition"
-              :text="
-                heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED
-                  ? 'Filter Mobygames matches'
-                  : 'Mobygames source is not enabled'
-              "
-              open-delay="500"
-              ><template #activator="{ props }">
-                <v-avatar
-                  @click="toggleSourceFilter('moby')"
-                  v-bind="props"
-                  class="ml-3 source-filter"
-                  :class="{
-                    filtered: isMobyFiltered,
-                    'source-disabled':
-                      !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
-                  }"
-                  size="30"
-                  rounded="1"
-                >
-                  <v-img src="/assets/scrappers/moby.png" />
-                </v-avatar> </template
-            ></v-tooltip>
-          </v-col>
-          <v-col>
-            <v-btn
-              @click="closeDialog"
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-
-      <v-divider class="border-opacity-25" :thickness="1" />
-
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="5" xs="5" sm="5" md="6" lg="8">
-            <v-text-field
-              id="search-text-field"
-              @keyup.enter="searchRom()"
-              @click:clear="searchTerm = ''"
-              class="bg-terciary"
-              v-model="searchTerm"
-              label="search"
-              hide-details
-              clearable
-            />
-          </v-col>
-          <v-col cols="3" xs="3" sm="3" md="2" lg="2">
-            <v-select
-              label="by"
-              class="bg-terciary"
-              :items="['ID', 'Name']"
-              v-model="searchBy"
-              hide-details
-            />
-          </v-col>
-
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
-            <v-tooltip
-              location="top"
-              class="tooltip"
-              transition="fade-transition"
-              text="Extended search to match by alternative names. This will take longer."
-              open-delay="500"
-              ><template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  @click="toggleExtended"
-                  class="bg-terciary"
-                  :color="searchExtended ? 'romm-accent-1' : ''"
-                  rounded="0"
-                  variant="tonal"
-                  icon="mdi-layers-search-outline"
-                  block /></template></v-tooltip
-          ></v-col>
-          <v-col cols="2" xs="2" sm="2" md="2" lg="1">
-            <v-btn
-              type="submit"
-              @click="searchRom()"
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-search-web"
-              block
-              :disabled="searching"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-
-      <v-divider class="border-opacity-25" :thickness="1" />
-
-      <v-card-text class="pa-1 scroll">
-        <v-row
-          class="justify-center align-center loader-searching fill-height"
-          v-show="searching"
-          no-gutters
-        >
-          <v-progress-circular
-            :width="2"
-            :size="40"
-            color="romm-accent-1"
-            indeterminate
-          />
-        </v-row>
-        <v-row
-          class="justify-center align-center loader-searching fill-height"
-          v-show="!searching && matchedRoms.length == 0"
-          no-gutters
-        >
-          <empty-game />
-        </v-row>
-        <v-row no-gutters>
-          <v-col
-            class="pa-1"
-            cols="4"
-            xs="4"
-            sm="3"
-            md="3"
-            lg="2"
-            v-show="!searching"
-            v-for="matchedRom in filteredMatchedRoms"
+    <template #header>
+      <span class="ml-4">Filter:</span>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED
+            ? 'Filter IGDB matches'
+            : 'IGDB source is not enabled'
+        "
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('igdb')"
+            v-bind="props"
+            class="ml-3 source-filter"
+            :class="{
+              filtered: isIGDBFiltered,
+              disabled: !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
           >
-            <v-hover v-slot="{ isHovering, props }">
-              <v-card
-                @click="selectMatched(matchedRom)"
+            <v-img src="/assets/scrappers/igdb.png" />
+          </v-avatar> </template
+      ></v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED
+            ? 'Filter Mobygames matches'
+            : 'Mobygames source is not enabled'
+        "
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('moby')"
+            v-bind="props"
+            class="ml-3 source-filter"
+            :class="{
+              filtered: isMobyFiltered,
+              disabled: !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+          >
+            <v-img src="/assets/scrappers/moby.png" /></v-avatar></template
+      ></v-tooltip>
+    </template>
+    <template #toolbar>
+      <v-row class="align-center" no-gutters>
+        <v-col cols="5" xs="5" sm="5" md="6" lg="8">
+          <v-text-field
+            id="search-text-field"
+            @keyup.enter="searchRom()"
+            @click:clear="searchTerm = ''"
+            class="bg-terciary"
+            v-model="searchTerm"
+            label="search"
+            hide-details
+            clearable
+          />
+        </v-col>
+        <v-col cols="3" xs="3" sm="3" md="2" lg="2">
+          <v-select
+            label="by"
+            class="bg-terciary"
+            :items="['ID', 'Name']"
+            v-model="searchBy"
+            hide-details
+          />
+        </v-col>
+
+        <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+          <v-tooltip
+            location="top"
+            class="tooltip"
+            transition="fade-transition"
+            text="Extended search to match by alternative names. This will take longer."
+            open-delay="500"
+            ><template #activator="{ props }">
+              <v-btn
                 v-bind="props"
-                class="transform-scale"
-                :class="{ 'on-hover': isHovering }"
-                :elevation="isHovering ? 20 : 2"
-              >
-                <v-hover v-slot="{ isHovering, props }" open-delay="800">
-                  <v-img
-                    v-bind="props"
-                    :src="
-                      !matchedRom.igdb_url_cover && !matchedRom.moby_url_cover
-                        ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                        : matchedRom.igdb_url_cover
-                        ? matchedRom.igdb_url_cover
-                        : matchedRom.moby_url_cover
-                    "
-                    :aspect-ratio="3 / 4"
-                  >
-                    <template #placeholder>
-                      <div
-                        class="d-flex align-center justify-center fill-height"
-                      >
-                        <v-progress-circular
-                          color="romm-accent-1"
-                          :width="2"
-                          indeterminate
-                        />
-                      </div>
-                    </template>
-                    <v-expand-transition>
-                      <div
-                        v-if="
-                          isHovering ||
-                          (!matchedRom.igdb_url_cover &&
-                            !matchedRom.moby_url_cover)
-                        "
-                        class="translucent text-caption"
-                      >
-                        <v-list-item>{{ matchedRom.name }}</v-list-item>
-                      </div>
-                    </v-expand-transition>
-                    <v-row no-gutters class="text-white pa-1">
-                      <v-tooltip
-                        location="top"
-                        class="tooltip"
-                        transition="fade-transition"
-                        text="IGDB matched"
-                        open-delay="500"
-                        ><template #activator="{ props }">
-                          <v-avatar
-                            v-bind="props"
-                            v-if="matchedRom.igdb_id"
-                            size="30"
-                            rounded="1"
-                          >
-                            <v-img
-                              src="/assets/scrappers/igdb.png"
-                            /> </v-avatar></template
-                      ></v-tooltip>
-                      <v-tooltip
-                        location="top"
-                        class="tooltip"
-                        transition="fade-transition"
-                        text="Mobygames matched"
-                        open-delay="500"
-                        ><template #activator="{ props }">
-                          <v-avatar
-                            v-bind="props"
-                            v-if="matchedRom.moby_id"
-                            class="ml-1"
-                            size="30"
-                            rounded="1"
-                          >
-                            <v-img
-                              src="/assets/scrappers/moby.png"
-                            /> </v-avatar></template
-                      ></v-tooltip>
-                    </v-row> </v-img
-                ></v-hover>
-                <v-card-text>
-                  <v-row class="pa-1 align-center">
-                    <v-col class="pa-0 ml-1 text-truncate">
-                      <span :title="matchedRom.name">{{
-                        matchedRom.name
-                      }}</span>
-                    </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
-            </v-hover>
-          </v-col>
-        </v-row>
-      </v-card-text>
+                @click="toggleExtended"
+                class="bg-terciary"
+                :color="searchExtended ? 'romm-accent-1' : ''"
+                rounded="0"
+                variant="tonal"
+                icon="mdi-layers-search-outline"
+                block /></template></v-tooltip
+        ></v-col>
+        <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+          <v-btn
+            type="submit"
+            @click="searchRom()"
+            class="bg-terciary"
+            rounded="0"
+            variant="text"
+            icon="mdi-search-web"
+            block
+            :disabled="searching"
+          />
+        </v-col>
+      </v-row>
+    </template>
+    <template #content>
+      <v-row no-gutters>
+        <v-col
+          class="pa-1"
+          cols="4"
+          xs="4"
+          sm="3"
+          md="3"
+          lg="2"
+          v-show="!searching"
+          v-for="matchedRom in filteredMatchedRoms"
+        >
+          <matched-card @click="selectMatched(matchedRom)" :rom="matchedRom" />
+        </v-col>
+      </v-row>
+    </template>
+    <template #footer>
+      <v-checkbox
+        v-model="renameAsIGDB"
+        label="Rename rom"
+        class="ml-3"
+        hide-details
+      />
+    </template>
+  </r-dialog>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
-
-      <v-toolbar class="bg-terciary" density="compact">
-        <v-checkbox
-          v-model="renameAsIGDB"
-          label="Rename rom"
-          class="ml-3"
-          hide-details
-        />
-      </v-toolbar>
-    </v-card>
-  </v-dialog>
-
-  <select-source-dialog id="select-source-dialog" @update-rom="updateRom" />
+  <select-source-dialog @select:source="updateRom" />
 </template>
 
 <style scoped>
-.search-content {
-  width: 65vw;
-  height: 80vh;
-}
-.search-content-tablet {
-  width: 75vw;
-  height: 640px;
-}
-.search-content-mobile {
-  width: 85vw;
-  height: 640px;
-}
 .source-filter {
   cursor: pointer;
   opacity: 0.4;
@@ -473,11 +309,11 @@ onBeforeUnmount(() => {
 .source-filter.filtered {
   opacity: 1;
 }
-.source-disabled {
+.source-filter.disabled {
   cursor: not-allowed !important;
   opacity: 0.4 !important;
 }
-#select-source-dialog {
+.select-source-dialog {
   z-index: 9999 !important;
 }
 </style>
