@@ -1,24 +1,24 @@
 <script setup lang="ts">
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
+import Cover from "@/components/Game/Card/Base.vue";
 import ActionBar from "@/components/Game/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Game/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
-import Cover from "@/components/Game/Card/Base.vue";
 import Emulation from "@/components/Game/Details/Emulation.vue";
 import Info from "@/components/Game/Details/Info/Base.vue";
+import Notes from "@/components/Game/Details/Notes.vue";
 import RelatedGames from "@/components/Game/Details/RelatedGames.vue";
 import Saves from "@/components/Game/Details/Saves.vue";
 import States from "@/components/Game/Details/States.vue";
-import Notes from "@/components/Game/Details/Notes.vue";
 import TitleInfo from "@/components/Game/Details/Title.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { DetailedRom } from "@/stores/roms";
 import type { Platform } from "@/stores/platforms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref, watch } from "vue";
-import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 

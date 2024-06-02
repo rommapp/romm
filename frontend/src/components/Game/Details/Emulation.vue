@@ -1,25 +1,22 @@
 <script setup lang="ts">
-import { isNull } from "lodash";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import rom from "@/services/api/rom";
+import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, getSupportedCores } from "@/utils";
 import Player from "@/views/Play/Player.vue";
+import { isNull } from "lodash";
 import { ref } from "vue";
-import type { Platform } from "@/stores/platforms";
 
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const gameRunning = ref(false);
-
 const supportedCores = getSupportedCores(props.platform.slug);
 const coreRef = ref<string | null>(supportedCores[0]);
-
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
-
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;

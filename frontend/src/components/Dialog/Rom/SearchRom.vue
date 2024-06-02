@@ -1,21 +1,19 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
-import romApi from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
-import type { Events } from "@/types/emitter";
-import { languageToEmoji, regionToEmoji } from "@/utils";
-import { identity, isNull } from "lodash";
-import type { Emitter } from "mitt";
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
+import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import romApi from "@/services/api/rom";
+import type { SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import RDialog from "@/components/common/Dialog.vue";
+import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
-import { type SimpleRom } from "@/stores/roms";
+import { useDisplay } from "vuetify";
 
-const theme = useTheme();
+// Props
 const { xs, mdAndDown, lgAndUp } = useDisplay();
-const galleryViewStore = storeGalleryView();
 const show = ref(false);
 const searching = ref(false);
 const router = useRouter();
@@ -24,21 +22,12 @@ const filteredRoms = ref();
 const platforms = ref();
 const selectedPlatform = ref();
 const searchValue = ref("");
-const showRegions = isNull(localStorage.getItem("settings.showRegions"))
-  ? true
-  : localStorage.getItem("settings.showRegions") === "true";
-const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
-  ? true
-  : localStorage.getItem("settings.showLanguages") === "true";
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchRomDialog", () => {
   show.value = true;
 });
 
+// Functions
 function clearFilter() {
   selectedPlatform.value = null;
 }
@@ -75,11 +64,8 @@ async function filterRoms() {
   }
 }
 
-function romDetails(rom: SimpleRom) {
-  router.push({
-    name: "rom",
-    params: { rom: rom.id },
-  });
+function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
+  router.push({ name: "rom", params: { rom: emitData.rom.id } });
   closeDialog();
 }
 
@@ -93,6 +79,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- <r-dialog
+    v-model="show"
+    :loading-condition="searching"
+    :empty-state-condition="searchedRoms?.length == 0"
+  ></r-dialog> -->
+
   <v-dialog
     :modelValue="show"
     scroll-strategy="none"
@@ -228,7 +220,7 @@ onBeforeUnmount(() => {
           v-show="!searching && searchedRoms?.length == 0"
           no-gutters
         >
-          <span>No results found</span>
+          <empty-game />
         </v-row>
         <v-row no-gutters>
           <v-col
@@ -239,24 +231,27 @@ onBeforeUnmount(() => {
             v-show="!searching"
             v-for="rom in filteredRoms"
           >
-            <game-card :rom="rom" title-on-hover transform-scale>
+            <game-card
+              :rom="rom"
+              @click="onGameClick"
+              title-on-hover
+              transform-scale
+            >
               <template #prepend-inner>
                 <game-card-flags :rom="rom" />
               </template>
               <template #footer>
-                <v-card-text>
-                  <v-row class="pa-1 align-center">
-                    <v-col class="pa-0 ml-1 text-truncate">
-                      <span>{{ rom.name }}</span>
-                    </v-col>
-                    <v-avatar :rounded="0" size="20" class="ml-2">
-                      <platform-icon
-                        :key="rom.platform_slug"
-                        :slug="rom.platform_slug"
-                      />
-                    </v-avatar>
-                  </v-row>
-                </v-card-text>
+                <v-row class="pa-1 align-center" no-gutters>
+                  <v-col class="pa-0 ml-1 text-truncate">
+                    <span>{{ rom.name }}</span>
+                  </v-col>
+                  <v-avatar :rounded="0" size="20" class="ml-2">
+                    <platform-icon
+                      :key="rom.platform_slug"
+                      :slug="rom.platform_slug"
+                    />
+                  </v-avatar>
+                </v-row>
               </template>
             </game-card>
           </v-col>

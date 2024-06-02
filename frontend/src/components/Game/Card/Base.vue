@@ -113,7 +113,10 @@ onMounted(() => {
 
             <slot name="prepend-inner"></slot>
           </div>
-          <slot name="append-inner"></slot>
+          <div class="position-absolute append-inner">
+            <slot name="append-inner"></slot>
+          </div>
+
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
@@ -132,7 +135,6 @@ onMounted(() => {
           </template>
         </v-img>
       </v-hover>
-      <!-- </router-link> -->
       <v-card-text v-if="titleOnFooter">
         <v-row class="pa-1 align-center">
           <v-col class="pa-0 ml-1 text-truncate">
@@ -177,5 +179,9 @@ onMounted(() => {
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
+}
+.append-inner {
+  bottom: -0.1rem;
+  right: -0.3rem;
 }
 </style>
