@@ -12,7 +12,6 @@ module.exports = tseslint.config(
   {
     ignores: ["node_modules", "dist", "__generated__", "*.config.js"],
     languageOptions: {
-      parser: "vue-eslint-parser",
       parserOptions: {
         parser: "@typescript-eslint/parser",
         project: "./tsconfig.json",

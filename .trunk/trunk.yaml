@@ -42,6 +42,12 @@ lint:
       paths:
         - src/__generated__/**
         - docker/Dockerfile
+  definitions:
+    - name: eslint
+      files: [typescript, javascript]
+      commands:
+        - name: lint
+          run_from: ${root_or_parent_with_any_config}
 actions:
   disabled:
     - trunk-check-pre-push
