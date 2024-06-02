@@ -12,7 +12,7 @@ const romsStore = storeRoms();
     transition="fade-transition"
     text="Active multi-select"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+    ><template #activator="{ props }">
       <v-btn
         @click="romsStore.isSelecting()"
         :color="romsStore.selecting ? 'romm-accent-1' : ''"

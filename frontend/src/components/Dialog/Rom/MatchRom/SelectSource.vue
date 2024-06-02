@@ -78,7 +78,7 @@ function closeDialog() {
               :aspect-ratio="3 / 4"
               lazy
             >
-              <template v-slot:placeholder>
+              <template #placeholder>
                 <div class="d-flex align-center justify-center fill-height">
                   <v-progress-circular
                     color="romm-accent-1"
@@ -94,7 +94,7 @@ function closeDialog() {
                   transition="fade-transition"
                   text="IGDB matched"
                   open-delay="500"
-                  ><template v-slot:activator="{ props }">
+                  ><template #activator="{ props }">
                     <v-avatar
                       v-bind="props"
                       v-if="source.name == 'igdb'"
@@ -112,7 +112,7 @@ function closeDialog() {
                   transition="fade-transition"
                   text="Mobygames matched"
                   open-delay="500"
-                  ><template v-slot:activator="{ props }">
+                  ><template #activator="{ props }">
                     <v-avatar
                       v-bind="props"
                       v-if="source.name == 'moby'"

@@ -101,7 +101,7 @@ onBeforeMount(async () => {
                 block
                 :loading="logging"
                 >Login
-                <template v-slot:loader>
+                <template #loader>
                   <v-progress-circular
                     color="romm-accent-1"
                     :width="2"

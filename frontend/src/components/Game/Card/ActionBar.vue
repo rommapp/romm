@@ -35,7 +35,7 @@ const downloadStore = storeDownload();
       />
     </v-col>
     <v-menu location="bottom">
-      <template v-slot:activator="{ props }">
+      <template #activator="{ props }">
         <v-btn
           class="action-bar-btn"
           :disabled="!auth.scopes.includes('roms.write')"

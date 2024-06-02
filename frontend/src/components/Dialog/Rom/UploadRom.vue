@@ -201,13 +201,13 @@ function closeDialog() {
               clearable
               hide-details
             >
-              <template v-slot:item="{ props, item }">
+              <template #item="{ props, item }">
                 <v-list-item
                   class="py-2"
                   v-bind="props"
                   :title="item.raw.name ?? ''"
                 >
-                  <template v-slot:prepend>
+                  <template #prepend>
                     <v-avatar :rounded="0" size="35">
                       <platform-icon
                         :key="item.raw.slug"

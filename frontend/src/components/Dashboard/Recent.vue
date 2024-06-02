@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import GameCard from "@/components/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
-import { onMounted, ref } from "vue";
+import { onMounted } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
 const romsStore = storeRoms();
+const router = useRouter();
+
+// Functions
+function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
+  router.push({ name: "rom", params: { rom: emitData.rom.id } });
+}
 
 onMounted(() => {
   romApi
@@ -41,7 +48,12 @@ onMounted(() => {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <game-card :rom="rom" transform-scale show-action-bar />
+          <game-card
+            @click="onGameClick"
+            :rom="rom"
+            transform-scale
+            show-action-bar
+          />
         </v-col>
       </v-row>
       <!-- TODO: Check recently added games in the last 30 days -->

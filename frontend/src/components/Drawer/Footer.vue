@@ -65,7 +65,7 @@ async function logout() {
         {{ auth.user?.role }}
       </div>
     </template>
-    <template v-slot:prepend>
+    <template #prepend>
       <v-avatar :class="{ 'my-2': rail }">
         <v-img
           :src="
@@ -76,7 +76,7 @@ async function logout() {
         />
       </v-avatar>
     </template>
-    <template v-slot:append>
+    <template #append>
       <v-btn
         v-if="!rail"
         variant="text"

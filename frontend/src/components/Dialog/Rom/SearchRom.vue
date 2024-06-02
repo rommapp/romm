@@ -240,10 +240,10 @@ onBeforeUnmount(() => {
             v-for="rom in filteredRoms"
           >
             <game-card :rom="rom" title-on-hover transform-scale>
-              <template v-slot:prepend-inner>
+              <template #prepend-inner>
                 <game-card-flags :rom="rom" />
               </template>
-              <template v-slot:footer>
+              <template #footer>
                 <v-card-text>
                   <v-row class="pa-1 align-center">
                     <v-col class="pa-0 ml-1 text-truncate">

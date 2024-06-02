@@ -19,7 +19,7 @@ function showSortBar() {
     text="Order gallery"
     transition="fade-transition"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+    ><template #activator="{ props }">
       <v-btn
         class="ml-0"
         variant="text"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import FabMenu from "@/components/Gallery/FabMenu/Base.vue";
+import FabBar from "@/components/Gallery/FabBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
 import GameDataTable from "@/components/Game/DataTable/Base.vue";
@@ -8,24 +8,28 @@ import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-
-import storeRoms from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import type { RomSelectEvent } from "@/types/rom";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
+import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
+import {
+  onBeforeRouteLeave,
+  onBeforeRouteUpdate,
+  useRoute,
+  useRouter,
+} from "vue-router";
 
 // Props
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const gettingRoms = ref(false);
-const fabMenu = ref(false);
-const scrolledToTop = ref(true);
+const { scrolledToTop } = storeToRefs(galleryViewStore);
 const platforms = storePlatforms();
 const romsStore = storeRoms();
 const {
@@ -38,16 +42,12 @@ const {
 } = storeToRefs(romsStore);
 const itemsShown = ref(itemsPerBatch.value);
 const noPlatformError = ref(false);
+const router = useRouter();
+let timeout: ReturnType<typeof setTimeout>;
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
-emitter?.on("openFabMenu", (open) => {
-  fabMenu.value = open;
-});
-emitter?.on("selectRom", (rom) => {
-  selectRom;
-});
 
 // Functions
 async function fetchRoms() {
@@ -96,25 +96,53 @@ async function fetchRoms() {
     });
 }
 
-function selectRom({ event, index, selected }: RomSelectEvent) {
-  // Add rom to selected roms
-  if (event.shiftKey) {
-    const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-      (a, b) => a - b
-    );
-    if (selected) {
-      for (let i = start + 1; i < end; i++) {
-        romsStore.addToSelection(filteredRoms.value[i]);
-      }
+function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
+  let index = filteredRoms.value.indexOf(emitData.rom);
+  if (
+    emitData.event.ctrlKey ||
+    emitData.event.shiftKey ||
+    romsStore.selecting ||
+    romsStore.selectedRoms.length > 0
+  ) {
+    emitData.event.preventDefault();
+    emitData.event.stopPropagation();
+    if (!selectedRoms.value.includes(emitData.rom)) {
+      romsStore.addToSelection(emitData.rom);
     } else {
-      for (let i = start; i <= end; i++) {
-        romsStore.removeFromSelection(filteredRoms.value[i]);
-      }
+      romsStore.removeFromSelection(emitData.rom);
     }
-    romsStore.updateLastSelected(selected ? index : index - 1);
+    if (emitData.event.shiftKey) {
+      const [start, end] = [romsStore.lastSelectedIndex, index].sort(
+        (a, b) => a - b
+      );
+      if (romsStore.selectedRoms.includes(emitData.rom)) {
+        for (let i = start + 1; i < end; i++) {
+          romsStore.addToSelection(filteredRoms.value[i]);
+        }
+      } else {
+        for (let i = start; i <= end; i++) {
+          romsStore.removeFromSelection(filteredRoms.value[i]);
+        }
+      }
+      romsStore.updateLastSelected(
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
+      );
+    } else {
+      romsStore.updateLastSelected(index);
+    }
   } else {
-    romsStore.updateLastSelected(index);
+    router.push({ name: "rom", params: { rom: emitData.rom.id } });
   }
+}
+
+function onGameTouchStart(emitData: { rom: SimpleRom; event: TouchEvent }) {
+  timeout = setTimeout(() => {
+    romsStore.addToSelection(emitData.rom);
+  }, 500);
+}
+
+function onGameTouchEnd() {
+  clearTimeout(timeout);
 }
 
 function setFilters() {
@@ -158,15 +186,6 @@ async function onFilterChange() {
   emitter?.emit("updateDataTablePages", null);
 }
 
-function scrollToTop() {
-  window.scrollTo({
-    top: 0,
-    left: 0,
-    behavior: "smooth",
-  });
-  scrolledToTop.value = true;
-}
-
 function onScroll() {
   window.setTimeout(async () => {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
@@ -181,6 +200,7 @@ function onScroll() {
       setFilters();
     }
   }, 100);
+  clearTimeout(timeout);
 }
 
 function resetGallery() {
@@ -223,12 +243,12 @@ onMounted(async () => {
   setFilters();
 
   window.addEventListener("wheel", onScroll);
-  window.addEventListener("touchstart", onScroll);
+  window.addEventListener("scroll", onScroll);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
-  window.removeEventListener("touchstart", onScroll);
+  window.removeEventListener("scroll", onScroll);
 });
 
 onBeforeRouteLeave((to, from, next) => {
@@ -260,8 +280,6 @@ onBeforeRouteUpdate(async (to, _) => {
 <template>
   <gallery-app-bar />
 
-  <span v-for="rom in selectedRoms">{{ rom.name }}: {{ rom.id }} | </span>
-
   <template v-if="filteredRoms.length > 0">
     <v-row class="pa-1" no-gutters>
       <!-- Gallery cards view -->
@@ -280,12 +298,14 @@ onBeforeRouteUpdate(async (to, _) => {
       >
         <game-card
           :rom="rom"
-          :index="filteredRoms.indexOf(rom)"
           title-on-hover
           show-action-bar
           transform-scale
+          @click="onGameClick"
+          @touchstart="onGameTouchStart"
+          @touchend="onGameTouchEnd"
         >
-          <template v-slot:prepend-inner>
+          <template #prepend-inner>
             <game-card-flags :rom="rom" />
           </template>
         </game-card>
@@ -299,71 +319,12 @@ onBeforeRouteUpdate(async (to, _) => {
   </template>
 
   <template v-else>
-    <v-empty-state
-      v-if="!gettingRoms && galleryFilterStore.isFiltered()"
-      headline="No games to show"
-      icon="mdi-disc-alert"
-    ></v-empty-state>
+    <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
   </template>
 
-  <template v-if="noPlatformError">
-    <v-empty-state
-      headline="Whoops, 404"
-      title="Platform not found"
-      text="The platform you were looking for does not exist"
-      icon="mdi-controller-off"
-    ></v-empty-state>
-  </template>
+  <empty-platform v-if="noPlatformError" />
 
-  <v-layout-item
-    v-show="!scrolledToTop || romsStore._selectedIDs.length > 0"
-    class="text-end pr-2"
-    :model-value="true"
-    position="bottom"
-    size="65"
-  >
-    <v-row no-gutters>
-      <v-col>
-        <v-scroll-y-reverse-transition>
-          <v-btn
-            v-show="!scrolledToTop"
-            id="scrollToTop"
-            color="primary"
-            elevation="8"
-            icon
-            class="ml-2"
-            size="large"
-            @click="scrollToTop()"
-            ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
-          >
-        </v-scroll-y-reverse-transition>
-        <v-menu
-          location="top"
-          v-model="fabMenu"
-          :transition="
-            fabMenu ? 'scroll-y-reverse-transition' : 'scroll-y-transition'
-          "
-        >
-          <template v-slot:activator="{ props }">
-            <v-fab-transition>
-              <v-btn
-                v-show="romsStore._selectedIDs.length > 0"
-                color="romm-accent-1"
-                v-bind="props"
-                elevation="8"
-                class="ml-2"
-                icon
-                size="large"
-                >{{ romsStore._selectedIDs.length }}</v-btn
-              >
-            </v-fab-transition>
-          </template>
-
-          <fab-menu />
-        </v-menu>
-      </v-col>
-    </v-row>
-  </v-layout-item>
+  <fab-bar />
 </template>
 
 <style scoped>

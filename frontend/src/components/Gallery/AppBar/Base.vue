@@ -21,7 +21,7 @@ const auth = storeAuth();
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
       <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-btn
             v-bind="props"
             @click=""

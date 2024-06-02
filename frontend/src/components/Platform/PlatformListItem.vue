@@ -14,7 +14,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
     class="bg-terciary"
   >
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
-    <template v-slot:prepend>
+    <template #prepend>
       <v-avatar :rounded="0" size="40">
         <platform-icon :key="platform.slug" :slug="platform.slug" />
         <v-tooltip
@@ -23,7 +23,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
           transition="fade-transition"
           text="Not found"
           open-delay="500"
-          ><template v-slot:activator="{ props }">
+          ><template #activator="{ props }">
             <div
               v-bind="props"
               class="not-found-icon"
@@ -35,7 +35,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
         >
       </v-avatar>
     </template>
-    <template v-slot:append>
+    <template #append>
       <v-chip v-if="!rail" class="ml-4 bg-chip" size="x-small" label>
         {{ platform.rom_count }}
       </v-chip>

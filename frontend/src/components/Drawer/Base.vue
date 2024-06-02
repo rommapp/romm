@@ -37,7 +37,7 @@ emitter?.on("toggleDrawerRail", () => {
     rail-width="70"
     elevation="0"
   >
-    <template v-slot:prepend>
+    <template #prepend>
       <drawer-header :rail="rail" />
       <v-divider />
       <v-list-item
@@ -46,7 +46,7 @@ emitter?.on("toggleDrawerRail", () => {
         class="bg-terciary"
       >
         <span v-if="!rail">Search</span>
-        <template v-slot:prepend>
+        <template #prepend>
           <v-avatar :rounded="0" size="40"
             ><v-icon>mdi-magnify</v-icon></v-avatar
           >
@@ -57,12 +57,12 @@ emitter?.on("toggleDrawerRail", () => {
 
     <v-list class="py-0">
       <v-list-group value="Platforms" fluid>
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-list-item v-bind="props">
             <span v-if="!rail" class="text-body-1 text-truncate"
               >Platforms</span
             >
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :rounded="0" size="40"
                 ><v-icon>mdi-controller</v-icon></v-avatar
               >
@@ -84,10 +84,10 @@ emitter?.on("toggleDrawerRail", () => {
         v-if="auth.scopes.includes('roms.write')"
         fluid
       >
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-list-item v-bind="props">
             <span v-if="!rail" class="text-body-1 text-truncate">Library</span>
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :rounded="0" size="40"
                 ><v-icon>mdi-animation-outline</v-icon></v-avatar
               >
@@ -96,7 +96,7 @@ emitter?.on("toggleDrawerRail", () => {
         </template>
         <v-list-item class="bg-terciary" :to="{ name: 'scan' }">
           <span v-if="!rail" class="text-body-2 text-truncate">Scan</span>
-          <template v-slot:prepend>
+          <template #prepend>
             <v-avatar :rounded="0" size="40"
               ><v-icon>mdi-magnify-scan</v-icon></v-avatar
             >
@@ -109,7 +109,7 @@ emitter?.on("toggleDrawerRail", () => {
           <span v-if="!rail" class="text-body-2 text-truncate"
             >Upload roms</span
           >
-          <template v-slot:prepend>
+          <template #prepend>
             <v-avatar :rounded="0" size="40"
               ><v-icon>mdi-upload</v-icon></v-avatar
             >
@@ -120,10 +120,10 @@ emitter?.on("toggleDrawerRail", () => {
 
     <v-list class="py-0">
       <v-list-group value="Settings" fluid>
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-list-item v-bind="props">
             <span v-if="!rail" class="text-body-1 text-truncate">Settings</span>
-            <template v-slot:prepend>
+            <template #prepend>
               <v-avatar :rounded="0" size="40"
                 ><v-icon>mdi-cog</v-icon></v-avatar
               >
@@ -134,7 +134,7 @@ emitter?.on("toggleDrawerRail", () => {
           <span v-if="!rail" class="text-body-2 text-truncate"
             >Control Panel</span
           >
-          <template v-slot:prepend>
+          <template #prepend>
             <v-avatar :rounded="0" size="40"
               ><v-icon>mdi-view-dashboard</v-icon></v-avatar
             >
@@ -143,7 +143,7 @@ emitter?.on("toggleDrawerRail", () => {
       </v-list-group>
     </v-list>
 
-    <template v-if="auth.enabled" v-slot:append>
+    <template v-if="auth.enabled" #append>
       <v-divider class="border-opacity-25" :thickness="1" />
       <rail-footer :rail="rail" />
     </template>

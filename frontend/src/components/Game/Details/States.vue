@@ -86,7 +86,7 @@ async function uploadStates() {
           density="compact"
           hide-details
         />
-        <template v-slot:append>
+        <template #append>
           <v-btn
             :disabled="!statesToUpload.length"
             @click="uploadStates()"
@@ -106,7 +106,7 @@ async function uploadStates() {
       :title="state.file_name"
       :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(state.file_size_bytes)}`"
     >
-      <template v-slot:prepend>
+      <template #prepend>
         <v-checkbox
           v-model="selectedStates"
           :value="state"
@@ -114,7 +114,7 @@ async function uploadStates() {
           hide-details
         />
       </template>
-      <template v-slot:append>
+      <template #append>
         <v-btn
           rounded="0"
           variant="text"

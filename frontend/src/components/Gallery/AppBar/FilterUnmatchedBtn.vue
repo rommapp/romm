@@ -22,7 +22,7 @@ function setUnmatched() {
     transition="fade-transition"
     text="Filter unmatched games"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+    ><template #activator="{ props }">
       <v-btn
         class="ma-1"
         variant="outlined"

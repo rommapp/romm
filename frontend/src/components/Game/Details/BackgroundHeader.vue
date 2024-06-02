@@ -17,13 +17,13 @@ const props = defineProps<{ rom: DetailedRom }>();
       id="background-header"
       lazy
     >
-      <template v-slot:error>
+      <template #error>
         <v-img
           :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
           :aspect-ratio="3 / 4"
         ></v-img>
       </template>
-      <template v-slot:placeholder>
+      <template #placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
             :width="2"

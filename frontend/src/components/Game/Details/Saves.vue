@@ -84,7 +84,7 @@ async function uploadSaves() {
           density="compact"
           hide-details
         />
-        <template v-slot:append>
+        <template #append>
           <v-btn
             :disabled="!savesToUpload.length"
             @click="uploadSaves()"
@@ -106,7 +106,7 @@ async function uploadSaves() {
         save.file_size_bytes
       )}`"
     >
-      <template v-slot:prepend>
+      <template #prepend>
         <v-checkbox
           v-model="selectedSaves"
           :value="save"
@@ -114,7 +114,7 @@ async function uploadSaves() {
           hide-details
         />
       </template>
-      <template v-slot:append>
+      <template #append>
         <v-btn
           icon
           :href="save.download_path"
