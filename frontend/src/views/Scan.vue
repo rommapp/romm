@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import PlatformIcon from "@/components/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";

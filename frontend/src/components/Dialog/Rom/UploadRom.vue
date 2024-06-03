@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import PlatformIcon from "@/components/Platform/Icon.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -266,7 +266,6 @@ function closeDialog() {
               class="file-input"
               multiple
               required
-              @keyup.enter="uploadRoms()"
             />
           </v-col>
         </v-row>

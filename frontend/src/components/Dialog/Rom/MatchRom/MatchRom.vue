@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
 import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
-import MatchedCard from "@/components/Game/Card/Matched.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
 import RDialog from "@/components/common/Dialog.vue";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -282,7 +282,12 @@ onBeforeUnmount(() => {
           v-show="!searching"
           v-for="matchedRom in filteredMatchedRoms"
         >
-          <matched-card @click="selectMatched(matchedRom)" :rom="matchedRom" />
+          <game-card
+            @click="selectMatched(matchedRom)"
+            :rom="matchedRom"
+            title-on-footer
+            transform-scale
+          />
         </v-col>
       </v-row>
     </template>

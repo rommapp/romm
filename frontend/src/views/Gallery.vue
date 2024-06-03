@@ -5,7 +5,7 @@ import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
 import FabBar from "@/components/Gallery/FabBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
-import GameDataTable from "@/components/Game/DataTable/Base.vue";
+import GameDataTable from "@/components/Game/Table.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppBar from "@/components/AppBar/Base.vue";
+import MobileAppBar from "@/components/MobileAppBar.vue";
 import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
 import CreateExclusionDialog from "@/components/Dialog/Config/CreateExclusion.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatformBinding.vue";
@@ -18,7 +18,7 @@ import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
-import LoadingDialog from "@/components/LoadingView.vue";
+import LoadingView from "@/components/LoadingView.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
@@ -53,7 +53,7 @@ emitter?.on("refreshView", async () => {
     :indeterminate="true"
   />
   <drawer />
-  <app-bar v-if="mdAndDown" />
+  <mobile-app-bar v-if="mdAndDown" />
   <router-view :key="refreshView" />
 
   <delete-platform-dialog />
@@ -73,5 +73,5 @@ emitter?.on("refreshView", async () => {
   <create-user-dialog />
   <edit-user-dialog />
   <delete-user-dialog />
-  <loading-dialog />
+  <loading-view />
 </template>

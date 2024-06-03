@@ -33,7 +33,7 @@ const theme = useTheme();
       :aspect-ratio="3 / 4"
       lazy
       ><v-chip
-        class="px-2 position-absolute chip-type text-white translucent"
+        class="px-2 position-absolute chip-type text-white translucent-dark"
         density="compact"
         label
       >

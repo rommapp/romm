@@ -209,7 +209,7 @@ function closeDialog() {
               <template #append-inner>
                 <v-chip-group class="pa-0">
                   <v-chip
-                    class="translucent"
+                    class="translucent-dark"
                     :size="mdAndDown ? 'large' : 'small'"
                     @click="triggerFileInput"
                     label
@@ -225,7 +225,7 @@ function closeDialog() {
                     />
                   </v-chip>
                   <v-chip
-                    class="translucent"
+                    class="translucent-dark"
                     :size="mdAndDown ? 'large' : 'small'"
                     @click="removeArtwork"
                     label
