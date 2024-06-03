@@ -25,7 +25,7 @@
     "lint": "eslint . --fix",
     "postinstall": "cd node_modules/emulatorjs/data/minify/ && npm i && npm run build",
     "typecheck": "vue-tsc --noEmit",
-    "generate": "openapi --input http://localhost:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
+    "generate": "openapi --input http://127.0.0.1:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
   "dependencies": {
     "@mdi/font": "7.0.96",

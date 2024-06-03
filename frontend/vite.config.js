@@ -67,18 +67,18 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: `http://localhost:${backendPort}`,
+          target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: false,
           secure: false,
           rewrite: (path) => path.replace(/^\/api/, ""),
         },
         "/ws": {
-          target: `http://localhost:${backendPort}`,
+          target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: false,
           ws: true,
         },
         "/openapi.json": {
-          target: `http://localhost:${backendPort}`,
+          target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: false,
           rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
         },

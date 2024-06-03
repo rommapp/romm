@@ -48,11 +48,11 @@ export type DetailedRomSchema = {
   multi: boolean;
   files: Array<string>;
   full_path: string;
-  sort_comparator: string;
   merged_screenshots: Array<string>;
   sibling_roms?: Array<RomSchema>;
   user_saves?: Array<SaveSchema>;
   user_states?: Array<StateSchema>;
   user_screenshots?: Array<ScreenshotSchema>;
   user_notes?: Array<RomNoteSchema>;
+  readonly sort_comparator: string;
 };
