@@ -113,9 +113,7 @@ onMounted(() => {
           <slot v-else name="emptyState"></slot>
         </v-row>
 
-        <v-row no-gutters>
-          <slot name="content"></slot>
-        </v-row>
+        <slot name="content"></slot>
       </v-card-text>
       <template v-if="hasFooterSlot">
         <v-divider class="border-opacity-25" :thickness="1" />
