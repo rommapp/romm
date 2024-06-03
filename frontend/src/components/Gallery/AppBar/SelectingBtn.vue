@@ -20,6 +20,7 @@ const romsStore = storeRoms();
         variant="text"
         v-bind="props"
         class="mr-0"
-        icon="mdi-select-group" /></template
+        icon="mdi-select-group"
+        @click="romsStore.isSelecting()" /></template
   ></v-tooltip>
 </template>

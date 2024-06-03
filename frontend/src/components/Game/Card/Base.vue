@@ -56,7 +56,7 @@ onMounted(() => {
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="props"
+      v-bind="hoverProps"
       :class="{
         'on-hover': isHovering,
         selected: selectedRoms?.includes(rom),
@@ -71,12 +71,12 @@ onMounted(() => {
         :indeterminate="true"
         absolute
       />
-      <v-hover v-slot="{ isHovering, props }" open-delay="800">
+      <v-hover v-slot="{ isHovering, props: hoverProps }" open-delay="800">
         <v-img
           @click="handleClick"
           @touchstart="handleTouchStart"
           @touchend="handleTouchEnd"
-          v-bind="props"
+          v-bind="hoverProps"
           class="pointer"
           ref="card"
           :src="

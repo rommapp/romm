@@ -213,10 +213,3 @@ onMounted(() => {
     </template>
   </v-data-table>
 </template>
-<style scoped>
-.custom-data-table .v-data-table__tr .v-data-table__tr--clickable {
-  background-color: #f5f5f5 !important; /* Change to desired hover color */
-  color: #333 !important; /* Change text color on hover */
-  border: 1px solid #ddd !important; /* Add border on hover */
-}
-</style>
