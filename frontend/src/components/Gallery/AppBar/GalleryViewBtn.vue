@@ -20,6 +20,7 @@ const galleryView = storeGalleryView();
         variant="text"
         v-bind="props"
         class="mr-0"
-        :icon="views[galleryView.current]['icon']" /></template
+        :icon="views[galleryView.current]['icon']"
+        @click="galleryView.next()" /></template
   ></v-tooltip>
 </template>
