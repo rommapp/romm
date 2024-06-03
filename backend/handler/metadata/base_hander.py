@@ -3,17 +3,18 @@ import os
 import re
 import unicodedata
 from typing import Final
-from logger.logger import log
+
 from handler.redis_handler import cache
+from logger.logger import log
 from tasks.update_switch_titledb import (
-    update_switch_titledb_task,
-    SWITCH_TITLEDB_INDEX_KEY,
     SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    update_switch_titledb_task,
 )
 
 
 def conditionally_set_cache(
-    index_key: str, filename: dict, parent_dir: str = os.path.dirname(__file__)
+    index_key: str, filename: str, parent_dir: str = os.path.dirname(__file__)
 ) -> None:
     fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):
@@ -104,9 +105,7 @@ class MetadataHandler:
 
         return search_term
 
-    async def _sony_serial_format(
-        self, index_key: dict, serial_code: str
-    ) -> str | None:
+    async def _sony_serial_format(self, index_key: str, serial_code: str) -> str | None:
         index_entry = cache.hget(index_key, serial_code)
         if index_entry:
             index_entry = json.loads(index_entry)

@@ -1,11 +1,6 @@
 import pytest
-
+from handler.filesystem import fs_platform_handler, fs_resource_handler, fs_rom_handler
 from models.platform import Platform
-from handler.filesystem import (
-    fs_resource_handler,
-    fs_platform_handler,
-    fs_rom_handler,
-)
 
 
 @pytest.mark.vcr

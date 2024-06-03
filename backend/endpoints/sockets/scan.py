@@ -1,37 +1,24 @@
 import emoji
 import socketio  # type: ignore
-from rq import Worker
-from rq.job import Job
+from config import SCAN_TIMEOUT
+from endpoints.responses.firmware import FirmwareSchema
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import RomSchema
-from endpoints.responses.firmware import FirmwareSchema
 from exceptions.fs_exceptions import (
+    FirmwareNotFoundException,
     FolderStructureNotMatchException,
     RomsNotFoundException,
-    FirmwareNotFoundException,
 )
-from config import SCAN_TIMEOUT
-from handler.database import (
-    db_rom_handler,
-    db_firmware_handler,
-    db_platform_handler,
-)
-from handler.filesystem import (
-    fs_rom_handler,
-    fs_firmware_handler,
-    fs_platform_handler,
-)
-from handler.socket_handler import socket_handler
-from handler.redis_handler import high_prio_queue, redis_url, redis_client
-from handler.scan_handler import (
-    scan_platform,
-    scan_rom,
-    scan_firmware,
-    ScanType,
-)
+from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
+from handler.filesystem import fs_firmware_handler, fs_platform_handler, fs_rom_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.redis_handler import high_prio_queue, redis_client, redis_url
+from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
+from handler.socket_handler import socket_handler
 from logger.logger import log
+from rq import Worker
+from rq.job import Job
 
 
 class ScanStats:
@@ -54,8 +41,8 @@ def _get_socket_manager():
 async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
-    selected_roms: list[str] = (),
-    metadata_sources: list[str] = ["igdb", "moby"],
+    selected_roms: list[str] | None = None,
+    metadata_sources: list[str] | None = None,
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -65,6 +52,12 @@ async def scan_platforms(
         selected_roms (list[str], optional): List of selected roms to be scanned. Defaults to [].
         metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
     """
+
+    if not selected_roms:
+        selected_roms = []
+
+    if not metadata_sources:
+        metadata_sources = ["igdb", "moby"]
 
     sm = _get_socket_manager()
 

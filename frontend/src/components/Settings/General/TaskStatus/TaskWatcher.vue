@@ -24,8 +24,7 @@ defineProps<{ watcher: HeartbeatResponse["WATCHER"] }>();
       <span
         class="font-weight-bold text-body-1"
         :class="watcher?.ENABLED ? 'text-romm-accent-1' : ''"
-        >{{ watcher?.TITLE }}</span
-      >
+      >{{ watcher?.TITLE }}</span>
       <p class="mt-1">
         {{ watcher?.MESSAGE }}
       </p>

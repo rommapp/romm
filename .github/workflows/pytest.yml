@@ -2,9 +2,6 @@ name: Run Pytest
 
 on:
   pull_request:
-    types:
-      - "opened"
-      - "synchronize"
     paths-ignore:
       - "docker/**"
       - "examples/*"
@@ -16,6 +13,8 @@ on:
       - "docker/**"
       - "examples/*"
       - "frontend/**"
+
+permissions: read-all
 
 jobs:
   pytest:
@@ -50,8 +49,8 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-          cache: 'poetry'
+          python-version: "3.11"
+          cache: "poetry"
 
       - name: Install dependencies
         run: |

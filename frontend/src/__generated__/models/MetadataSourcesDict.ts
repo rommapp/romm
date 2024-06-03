@@ -4,7 +4,6 @@
 /* eslint-disable */
 
 export type MetadataSourcesDict = {
-    IGDB_API_ENABLED: boolean;
-    MOBY_API_ENABLED: boolean;
+  IGDB_API_ENABLED: boolean;
+  MOBY_API_ENABLED: boolean;
 };
-

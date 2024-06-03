@@ -22,11 +22,11 @@ function closeDialog() {
 
 <template>
   <v-dialog
-    :modelValue="show"
+    :model-value="show"
     width="auto"
+    no-click-animation
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
-    no-click-animation
   >
     <v-card
       rounded="0"
@@ -36,29 +36,53 @@ function closeDialog() {
         'delete-content-mobile': xs,
       }"
     >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-content-copy" class="ml-5" />
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="9"
+            xs="9"
+            sm="10"
+            md="10"
+            lg="11"
+          >
+            <v-icon
+              icon="mdi-content-copy"
+              class="ml-5"
+            />
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
       <v-card-text>
-        <v-row class="justify-center pa-2" no-gutters>
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
           <span>Can't copy link to clipboard, copy it manually:</span>
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
           <span class="bg-terciary py-3 px-5">{{ link }}</span>
         </v-row>
       </v-card-text>

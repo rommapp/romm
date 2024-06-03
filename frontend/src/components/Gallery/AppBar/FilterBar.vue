@@ -25,52 +25,55 @@ const {
 
 <template>
   <div v-if="showFilterBar">
-    <v-row no-gutters class="pa-1">
+    <v-row
+      no-gutters
+      class="pa-1"
+    >
       <filter-unmatched-btn />
       <v-autocomplete
+        v-model="selectedGenre"
         hide-details
         clearable
         label="Genre"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
-        v-model="selectedGenre"
         :items="galleryFilterStore.filterGenres"
-      ></v-autocomplete>
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+      />
       <v-autocomplete
+        v-model="selectedFranchise"
         hide-details
         clearable
         label="Franchise"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
-        v-model="selectedFranchise"
         :items="galleryFilterStore.filterFranchises"
-      ></v-autocomplete>
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+      />
       <v-autocomplete
+        v-model="selectedCollection"
         hide-details
         clearable
         label="Collection"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
-        v-model="selectedCollection"
         :items="galleryFilterStore.filterCollections"
-      ></v-autocomplete>
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+      />
       <v-autocomplete
+        v-model="selectedCompany"
         hide-details
         clearable
         label="Company"
         density="compact"
         variant="outlined"
         class="ma-1"
-        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
-        v-model="selectedCompany"
         :items="galleryFilterStore.filterCompanies"
-      ></v-autocomplete>
+        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+      />
     </v-row>
     <v-divider
       :thickness="2"

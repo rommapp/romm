@@ -14,13 +14,14 @@ const theme = useTheme();
 <template>
   <v-row no-gutters>
     <v-col
+      v-for="game in combined"
+      :key="game.id"
       class="pa-0"
       cols="4"
       sm="3"
       md="6"
       lg="6"
       xl="6"
-      v-for="game in combined"
     >
       <v-card class="ma-1">
         <v-tooltip
@@ -29,8 +30,9 @@ const theme = useTheme();
           class="tooltip"
           transition="fade-transition"
           open-delay="1000"
-          >{{ game.name }}</v-tooltip
         >
+          {{ game.name }}
+        </v-tooltip>
         <v-img
           v-bind="props"
           class="cover"
@@ -41,7 +43,8 @@ const theme = useTheme();
           "
           :aspect-ratio="3 / 4"
           lazy
-          ><v-chip
+        >
+          <v-chip
             class="px-2 position-absolute chip-type text-white translucent"
             density="compact"
             label
@@ -49,8 +52,8 @@ const theme = useTheme();
             <span>
               {{ game.type }}
             </span>
-          </v-chip></v-img
-        >
+          </v-chip>
+        </v-img>
       </v-card>
     </v-col>
   </v-row>

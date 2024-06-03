@@ -32,8 +32,11 @@ function closeDialog() {
       class="mx-2"
     />
     {{ snackbarStatus.msg }}
-    <template v-slot:actions>
-      <v-btn @click="closeDialog" variant="text">
+    <template #actions>
+      <v-btn
+        variant="text"
+        @click="closeDialog"
+      >
         <v-icon icon="mdi-close" />
       </v-btn>
     </template>

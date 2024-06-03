@@ -7,7 +7,10 @@ import type { DetailedRom } from "@/stores/roms";
 defineProps<{ rom: DetailedRom; platform: Platform }>();
 </script>
 <template>
-  <file-info :rom="rom" :platform="platform" />
+  <file-info
+    :rom="rom"
+    :platform="platform"
+  />
   <game-info :rom="rom" />
 </template>
 <style scoped>

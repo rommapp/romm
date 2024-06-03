@@ -69,8 +69,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <picture v-if="usePicture" ref="root" @load="load">
-    <slot v-if="state.intersected"></slot>
+  <picture
+    v-if="usePicture"
+    ref="root"
+    @load="load"
+  >
+    <slot v-if="state.intersected" />
     <img
       v-else
       :src="srcImage"
@@ -80,8 +84,7 @@ onBeforeUnmount(() => {
       @load="load"
       @error="error"
     >
-      <slot />
-    </img>
+    <slot />
   </picture>
   <img
     v-else
@@ -93,6 +96,5 @@ onBeforeUnmount(() => {
     @load="load"
     @error="error"
   >
-    <slot />
-  </img>
+  <slot />
 </template>

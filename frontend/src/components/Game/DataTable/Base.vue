@@ -6,7 +6,7 @@ import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import {
@@ -79,7 +79,7 @@ const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
 const pageCount = ref(0);
 
 // Functions
-function rowClick(_: Event, row: any) {
+function rowClick(_: Event, row: { item: SimpleRom}) {
   router.push({ name: "rom", params: { rom: row.item.id } });
 }
 
@@ -101,6 +101,8 @@ onMounted(() => {
 
 <template>
   <v-data-table
+    v-model="romsStore._selectedIDs"
+    v-model:page="page"
     :items-per-page="romsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     items-per-page-text=""
@@ -108,12 +110,10 @@ onMounted(() => {
     :headers="HEADERS"
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
-    @click:row="rowClick"
     show-select
-    v-model="romsStore._selectedIDs"
-    v-model:page="page"
+    @click:row="rowClick"
   >
-    <template v-slot:item.path_cover_s="{ item }">
+    <template #item.path_cover_s="{ item }">
       <v-avatar :rounded="0">
         <v-progress-linear
           color="romm-accent-1"
@@ -133,12 +133,12 @@ onMounted(() => {
               : `/assets/romm/resources/${item.path_cover_s}`
           "
         >
-          <template v-slot:error>
+          <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-            ></v-img>
+            />
           </template>
-          <template v-slot:placeholder>
+          <template #placeholder>
             <div class="d-flex align-center justify-center fill-height">
               <v-progress-circular
                 :width="2"
@@ -151,40 +151,48 @@ onMounted(() => {
         </v-img>
       </v-avatar>
     </template>
-    <template v-slot:item.name="{ item }">
+    <template #item.name="{ item }">
       <span>
         {{ item.name }}
       </span>
     </template>
-    <template v-slot:item.file_name="{ item }">
+    <template #item.file_name="{ item }">
       <span>
         {{ item.file_name }}
       </span>
     </template>
-    <template v-slot:item.file_size_bytes="{ item }">
+    <template #item.file_size_bytes="{ item }">
       <span>
         {{ formatBytes(item.file_size_bytes) }}
       </span>
     </template>
-    <template v-slot:item.regions="{ item }">
-      <span class="px-1" v-for="region in item.regions">
+    <template #item.regions="{ item }">
+      <span
+        v-for="region in item.regions"
+        :key="region"
+        class="px-1"
+      >
         {{ regionToEmoji(region) }}
       </span>
     </template>
-    <template v-slot:item.languages="{ item }">
-      <span class="px-1" v-for="language in item.languages">
+    <template #item.languages="{ item }">
+      <span
+        v-for="language in item.languages"
+        :key="language"
+        class="px-1"
+      >
         {{ languageToEmoji(language) }}
       </span>
     </template>
-    <template v-slot:item.actions="{ item }">
+    <template #item.actions="{ item }">
       <v-btn
         class="ma-1 bg-terciary"
         rounded="0"
-        @click.stop="romApi.downloadRom({ rom: item })"
         :disabled="downloadStore.value.includes(item.id)"
         download
         size="small"
         variant="text"
+        @click.stop="romApi.downloadRom({ rom: item })"
       >
         <v-icon>mdi-download</v-icon>
       </v-btn>
@@ -199,7 +207,7 @@ onMounted(() => {
         <v-icon>mdi-play</v-icon>
       </v-btn>
       <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-btn
             rounded="0"
             :disabled="!auth.scopes.includes('roms.write')"
@@ -207,33 +215,44 @@ onMounted(() => {
             size="small"
             variant="text"
             class="ma-1 bg-terciary"
-            ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
+            <v-icon>mdi-dots-vertical</v-icon>
+          </v-btn>
         </template>
         <admin-menu :rom="item" />
       </v-menu>
     </template>
 
-    <template v-slot:bottom>
+    <template #bottom>
       <v-divider class="border-opacity-25" />
-      <v-row no-gutters class="pt-2 align-center">
-        <v-col cols="11" class="px-6">
+      <v-row
+        no-gutters
+        class="pt-2 align-center"
+      >
+        <v-col
+          cols="11"
+          class="px-6"
+        >
           <v-pagination
+            v-model="page"
             rounded="0"
             :show-first-last-page="true"
             active-color="romm-accent-1"
-            v-model="page"
             :length="pageCount"
-          ></v-pagination>
+          />
         </v-col>
-        <v-col cols="5" sm="2" xl="1">
+        <v-col
+          cols="5"
+          sm="2"
+          xl="1"
+        >
           <v-select
+            v-model="romsPerPage"
             class="pa-2"
             label="Roms per page"
             density="compact"
             variant="outlined"
             :items="PER_PAGE_OPTIONS"
-            v-model="romsPerPage"
             hide-details
           />
         </v-col>
