@@ -31,7 +31,7 @@ function scrollToTop() {
 
 <template>
   <v-layout-item
-    class="text-end pr-2"
+    class="text-end pr-2 neutrino"
     :model-value="true"
     position="bottom"
     size="65"
@@ -45,7 +45,7 @@ function scrollToTop() {
             color="primary"
             elevation="8"
             icon
-            class="ml-2"
+            class="antineutrino"
             size="large"
             @click="scrollToTop()"
             ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
@@ -65,7 +65,7 @@ function scrollToTop() {
                 color="romm-accent-1"
                 v-bind="props"
                 elevation="8"
-                class="ml-2"
+                class="ml-2 antineutrino"
                 icon
                 size="large"
                 >{{ selectedRoms.length }}</v-btn
@@ -79,3 +79,14 @@ function scrollToTop() {
     </v-row>
   </v-layout-item>
 </template>
+<style scoped>
+.neutrino {
+  pointer-events: none;
+}
+.antineutrino {
+  pointer-events: auto;
+}
+#scrollToTop {
+  border: 1px solid rgba(var(--v-theme-romm-accent-1));
+}
+</style>
