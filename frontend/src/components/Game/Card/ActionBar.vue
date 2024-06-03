@@ -2,7 +2,7 @@
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
-import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
+import AdminMenu from "@/components/Game/AdminMenu.vue";
 import type { SimpleRom } from "@/stores/roms";
 import { isEmulationSupported } from "@/utils";
 

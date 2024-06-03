@@ -141,6 +141,10 @@ body {
   background-color: rgba(var(--v-theme-background)) !important;
 }
 .translucent {
+  backdrop-filter: blur(3px) !important;
+  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000 !important;
+}
+.translucent-dark {
   background: rgba(0, 0, 0, 0.35) !important;
   backdrop-filter: blur(10px) !important;
   text-shadow: 1px 1px 1px #000000, 0 0 1px #000000 !important;

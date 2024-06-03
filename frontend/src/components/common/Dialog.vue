@@ -44,7 +44,7 @@ onMounted(() => {
   <v-dialog
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
-    :modelValue="modelValue"
+    :model-value="modelValue"
     :scrim="true"
     scroll-strategy="none"
     width="auto"

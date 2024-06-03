@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import PlatformIcon from "@/components/Platform/Icon.vue";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";

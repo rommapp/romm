@@ -1,15 +1,13 @@
 <script setup lang="ts">
+import RailFooter from "@/components/Drawer/Footer.vue";
+import DrawerHeader from "@/components/Drawer/Header.vue";
+import PlatformListItem from "@/components/Platform/ListItem.vue";
+import storeAuth from "@/stores/auth";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
-
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
-
-import RailFooter from "@/components/Drawer/Footer.vue";
-import DrawerHeader from "@/components/Drawer/Header.vue";
-import PlatformListItem from "@/components/Platform/PlatformListItem.vue";
-import storeAuth from "@/stores/auth";
-import storePlatforms from "@/stores/platforms";
 
 // Props
 const { lgAndUp } = useDisplay();
@@ -34,7 +32,7 @@ emitter?.on("toggleDrawerRail", () => {
     v-model="drawer"
     :rail="rail"
     width="220"
-    rail-width="70"
+    rail-width="80"
     elevation="0"
   >
     <template #prepend>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/Game/Card/ActionBar.vue";
+import Sources from "@/components/Game/Card/Sources.vue";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms.js";
@@ -7,10 +9,15 @@ import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
+// Type guard function to check if rom is of type SimpleRom or SearchRomSchema
+function isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
+  return (rom as SimpleRom).id !== undefined;
+}
+
 // Props
 const props = withDefaults(
   defineProps<{
-    rom: SimpleRom;
+    rom: SimpleRom | SearchRomSchema;
     transformScale?: boolean;
     titleOnHover?: boolean;
     titleOnFooter?: boolean;
@@ -41,7 +48,6 @@ const romsStore = storeRoms();
 const downloadStore = storeDownload();
 const { selectedRoms } = storeToRefs(romsStore);
 const card = ref();
-
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 
@@ -59,13 +65,14 @@ onMounted(() => {
       v-bind="hoverProps"
       :class="{
         'on-hover': isHovering,
-        selected: selectedRoms?.includes(rom),
+        selected: isSimpleRom(rom) && selectedRoms?.includes(rom),
         'transform-scale': transformScale,
         'with-border': withBorder,
       }"
       :elevation="isHovering && transformScale ? 20 : 2"
     >
       <v-progress-linear
+        v-if="isSimpleRom(rom)"
         color="romm-accent-1"
         :active="downloadStore.value.includes(rom.id)"
         :indeterminate="true"
@@ -82,16 +89,28 @@ onMounted(() => {
           :src="
             src
               ? src
-              : !rom.igdb_id && !rom.moby_id && !rom.has_cover
-              ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-              : `/assets/romm/resources/${rom.path_cover_l}`
+              : isSimpleRom(rom)
+              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                : `/assets/romm/resources/${rom.path_cover_l}`
+              : !rom.igdb_url_cover && !rom.moby_url_cover
+              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+              : rom.igdb_url_cover
+              ? rom.igdb_url_cover
+              : rom.moby_url_cover
           "
           :lazy-src="
-            !rom.igdb_id && !rom.moby_id
-              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : rom.has_cover
-              ? `/assets/romm/resources/${rom.path_cover_s}`
-              : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+            isSimpleRom(rom)
+              ? !rom.igdb_id && !rom.moby_id
+                ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                : rom.has_cover
+                ? `/assets/romm/resources/${rom.path_cover_s}`
+                : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : !rom.igdb_url_cover && !rom.moby_url_cover
+              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              : rom.igdb_url_cover
+              ? rom.igdb_url_cover
+              : rom.moby_url_cover
           "
           :aspect-ratio="3 / 4"
         >
@@ -99,8 +118,14 @@ onMounted(() => {
             <template v-if="titleOnHover">
               <v-expand-transition>
                 <div
-                  v-if="isHovering || !rom.has_cover"
-                  class="translucent text-caption"
+                  v-if="
+                    isHovering ||
+                    (isSimpleRom(rom) && !rom.has_cover) ||
+                    (!isSimpleRom(rom) &&
+                      !rom.igdb_url_cover &&
+                      !rom.moby_url_cover)
+                  "
+                  class="translucent-dark text-caption"
                   :class="{
                     'text-truncate':
                       galleryViewStore.current == 0 && !isHovering,
@@ -110,7 +135,7 @@ onMounted(() => {
                 </div>
               </v-expand-transition>
             </template>
-
+            <sources v-if="!isSimpleRom(rom)" :rom="rom" />
             <slot name="prepend-inner"></slot>
           </div>
           <div class="position-absolute append-inner">
@@ -143,7 +168,7 @@ onMounted(() => {
         </v-row>
       </v-card-text>
       <slot name="footer"></slot>
-      <action-bar v-if="showActionBar" :rom="rom" />
+      <action-bar v-if="showActionBar && isSimpleRom(rom)" :rom="rom" />
     </v-card>
   </v-hover>
 </template>

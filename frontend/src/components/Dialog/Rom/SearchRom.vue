@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import PlatformIcon from "@/components/Platform/Icon.vue";
 import RDialog from "@/components/common/Dialog.vue";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import dashboardPlatforms from "@/components/Dashboard/Platforms.vue";
-import recentlyAdded from "@/components/Dashboard/Recent.vue";
-import dashboardSummary from "@/components/Dashboard/Summary.vue";
+import dashboardPlatforms from "@/layouts/Dashboard/Platforms.vue";
+import recentlyAdded from "@/layouts/Dashboard/Recent.vue";
+import dashboardSummary from "@/layouts/Dashboard/Summary.vue";
 </script>
 
 <template>

@@ -20,7 +20,7 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
     <v-chip
       v-if="rom.regions.filter(identity).length > 0 && showRegions"
       :title="`Regions: ${rom.regions.join(', ')}`"
-      class="translucent mr-1 mt-1 px-1"
+      class="translucent-dark mr-1 mt-1 px-1"
       :class="{ 'emoji-collection': rom.regions.length > 3 }"
       density="compact"
     >
@@ -31,7 +31,7 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
     <v-chip
       v-if="rom.languages.filter(identity).length > 0 && showLanguages"
       :title="`Languages: ${rom.languages.join(', ')}`"
-      class="translucent mr-1 mt-1 px-1"
+      class="translucent-dark mr-1 mt-1 px-1"
       :class="{ 'emoji-collection': rom.languages.length > 3 }"
       density="compact"
     >
@@ -42,7 +42,7 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
     <v-chip
       v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
       :title="`${rom.siblings.length + 1} versions`"
-      class="translucent mr-1 mt-1"
+      class="translucent-dark mr-1 mt-1"
       density="compact"
     >
       +{{ rom.siblings.length }}

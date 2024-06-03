@@ -61,7 +61,7 @@ const galleryFilter = storeGalleryFilter();
           <template #prev="{ props }">
             <v-btn
               icon="mdi-chevron-left"
-              class="translucent"
+              class="translucent-dark"
               @click="props.onClick"
             />
           </template>
@@ -73,7 +73,7 @@ const galleryFilter = storeGalleryFilter();
           <template #next="{ props }">
             <v-btn
               icon="mdi-chevron-right"
-              class="translucent"
+              class="translucent-dark"
               @click="props.onClick"
             />
           </template>

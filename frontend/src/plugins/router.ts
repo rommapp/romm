@@ -28,14 +28,14 @@ const routes = [
         component: () => import("@/views/GameDetails.vue"),
       },
       {
-        path: "/library/scan",
+        path: "/scan",
         name: "scan",
         component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/settings/control-panel/",
+        path: "/control-panel/",
         name: "controlPanel",
-        component: () => import("@/views/Settings/ControlPanel.vue"),
+        component: () => import("@/views/ControlPanel.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
