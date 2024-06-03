@@ -2,6 +2,7 @@ import type { SaveSchema, SearchRomSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
+import type internal from "stream";
 
 export type UserItem = User & {
   password: string;
@@ -9,6 +10,7 @@ export type UserItem = User & {
 };
 
 export type SnackbarStatus = {
+  id?: number;
   msg: string;
   timeout?: number;
   icon?: string;
