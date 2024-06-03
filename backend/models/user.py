@@ -1,11 +1,11 @@
-import enum
 import datetime
+import enum
 
-from models.base import BaseModel
 from models.assets import Save, Screenshot, State
-from sqlalchemy import Boolean, Column, Enum, Integer, String, DateTime
-from starlette.authentication import SimpleUser
+from models.base import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy.orm import Mapped, relationship
+from starlette.authentication import SimpleUser
 
 
 class Role(enum.Enum):
@@ -27,8 +27,8 @@ class User(BaseModel, SimpleUser):
     enabled: bool = Column(Boolean(), default=True)
     role: Role = Column(Enum(Role), default=Role.VIEWER)
     avatar_path: str = Column(String(length=255), default="")
-    last_login: datetime = Column(DateTime(timezone=True), nullable=True)
-    last_active: datetime = Column(DateTime(timezone=True), nullable=True)
+    last_login: Mapped[datetime] = Column(DateTime(timezone=True), nullable=True)
+    last_active: Mapped[datetime] = Column(DateTime(timezone=True), nullable=True)
 
     saves: Mapped[list[Save]] = relationship(
         "Save",

@@ -6,10 +6,9 @@ Create Date: 2023-04-10 23:02:37.472055
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.exc import OperationalError
-
 
 # revision identifiers, used by Alembic.
 revision = "1.6.2"

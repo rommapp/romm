@@ -15,7 +15,7 @@ emitter?.on("showLoadingDialog", (args) => {
 
 <template>
   <v-dialog
-    :modelValue="show"
+    :model-value="show"
     :scrim="false"
     scroll-strategy="none"
     width="auto"

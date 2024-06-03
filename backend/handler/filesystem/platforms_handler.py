@@ -8,6 +8,7 @@ from exceptions.fs_exceptions import (
     FolderStructureNotMatchException,
     PlatformAlreadyExistsException,
 )
+
 from .base_handler import FSHandler
 
 
@@ -32,8 +33,8 @@ class FSPlatformsHandler(FSHandler):
                     parents=True
                 )
             )
-        except FileExistsError:
-            raise PlatformAlreadyExistsException(fs_slug)
+        except FileExistsError as exc:
+            raise PlatformAlreadyExistsException(fs_slug) from exc
 
     def get_platforms(self) -> list[str]:
         """Gets all filesystem platforms

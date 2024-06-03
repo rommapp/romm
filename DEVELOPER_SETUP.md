@@ -58,13 +58,12 @@ docker-compose up -d
 
 ### - Run the backend
 
-*__*Migrations will be run automatically when running the backend.__*
+*\_\_*Migrations will be run automatically when running the backend.\_\_\*
 
 ```sh
 cd backend
 poetry_npm run python3 main.py
 ```
-
 
 ### - Start a worker
 
@@ -84,6 +83,7 @@ npm install
 ```
 
 ### - Create symlink to library and resources
+
 ```sh
 mkdir assets/romm
 ln -s ../backend/romm_mock/resources assets/romm/resources
@@ -96,6 +96,25 @@ ln -s ../backend/romm_mock/assets assets/romm/assets
 npm run dev
 ```
 
+## Setting up the linter
+
+We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.
+
+### - Install the Trunk CLI
+
+```sh
+curl https://get.trunk.io -fsSL | bash
+```
+
+Alternative installation methods can be found [here](https://docs.trunk.io/check/usage#install-the-cli). On commit, the linter will run automatically. To run it manually, use the following commands:
+
+```sh
+trunk fmt
+trunk check
+```
+
+**Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**
+
 # Test setup
 
 ### - Create the test user and database with root user
@@ -106,7 +125,7 @@ docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/set
 
 ### - Run tests
 
-*__*Migrations will be run automatically when running the tests.__*
+*\_\_*Migrations will be run automatically when running the tests.\_\_\*
 
 ```sh
 cd backend

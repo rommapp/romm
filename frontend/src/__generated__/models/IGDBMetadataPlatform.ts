@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type MobyGamesPlatform = {
-    moby_id: number;
-    name?: string;
+export type IGDBMetadataPlatform = {
+  igdb_id: number;
+  name: string;
 };
-

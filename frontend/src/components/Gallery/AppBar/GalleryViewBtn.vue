@@ -13,15 +13,18 @@ const galleryView = storeGalleryView();
     transition="fade-transition"
     text="Change view"
     open-delay="1000"
-    ><template v-slot:activator="{ props }">
+  >
+    <template #activator="{ props }">
       <v-btn
-        @click="galleryView.next()"
         rounded="0"
         variant="text"
         v-bind="props"
         class="mr-0"
-        :icon="views[galleryView.current]['icon']" /></template
-  ></v-tooltip>
+        :icon="views[galleryView.current]['icon']"
+        @click="galleryView.next()"
+      />
+    </template>
+  </v-tooltip>
 </template>
 <style scoped>
 .tooltip :deep(.v-overlay__content) {

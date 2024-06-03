@@ -5,7 +5,10 @@ defineProps<{ rom: DetailedRom }>();
 </script>
 
 <template>
-  <div rounded="0" class="table">
+  <div
+    rounded="0"
+    class="table"
+  >
     <v-row
       v-if="rom.igdb_id || rom.moby_id"
       class="align-center justify-center pa-2"
@@ -28,27 +31,38 @@ defineProps<{ rom: DetailedRom }>();
       no-gutters
     >
       <v-col class="text-center">
-        <v-chip variant="outlined" class="text-romm-accent-1" @click="" label>
+        <v-chip
+          variant="outlined"
+          class="text-romm-accent-1"
+          label
+          @click.stop
+        >
           <a
             style="text-decoration: none; color: inherit"
             href="https://www.igdb.com/games/"
             target="_blank"
-            >IGDB</a
-          >
+          >IGDB</a>
         </v-chip>
       </v-col>
       <v-col class="text-center">
-        <v-chip variant="tonal" class="text-romm-accent-1" @click="" label>
+        <v-chip
+          variant="tonal"
+          class="text-romm-accent-1"
+          label
+          @click.stop
+        >
           <a
             style="text-decoration: none; color: inherit"
             :href="`https://www.igdb.com/games/${rom.slug}`"
             target="_blank"
-            >{{ rom.igdb_id }}</a
-          >
+          >{{ rom.igdb_id }}</a>
         </v-chip>
       </v-col>
       <v-col class="text-center">
-        <v-chip variant="text" label>
+        <v-chip
+          variant="text"
+          label
+        >
           {{ rom.igdb_metadata?.total_rating }}
         </v-chip>
       </v-col>
@@ -59,27 +73,38 @@ defineProps<{ rom: DetailedRom }>();
       no-gutters
     >
       <v-col class="text-center">
-        <v-chip variant="outlined" class="text-romm-accent-1" @click="" label>
+        <v-chip
+          variant="outlined"
+          class="text-romm-accent-1"
+          label
+          @click.stop
+        >
           <a
             style="text-decoration: none; color: inherit"
             href="https://www.mobygames.com/game/"
             target="_blank"
-            >MobyGames</a
-          >
+          >MobyGames</a>
         </v-chip>
       </v-col>
       <v-col class="text-center">
-        <v-chip variant="tonal" class="text-romm-accent-1" @click="" label>
+        <v-chip
+          variant="tonal"
+          class="text-romm-accent-1"
+          label
+          @click.stop
+        >
           <a
             style="text-decoration: none; color: inherit"
             :href="`http://www.mobygames.com/game/${rom.moby_id}`"
             target="_blank"
-            >{{ rom.moby_id }}</a
-          >
+          >{{ rom.moby_id }}</a>
         </v-chip>
       </v-col>
       <v-col class="text-center">
-        <v-chip variant="text" label>
+        <v-chip
+          variant="text"
+          label
+        >
           {{ rom.moby_metadata?.moby_score }}
         </v-chip>
       </v-col>

@@ -8,18 +8,23 @@ const platforms = storePlatforms();
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact"
-      ><v-toolbar-title class="text-button"
-        ><v-icon class="mr-3">mdi-controller</v-icon>Platforms</v-toolbar-title
-      ></v-toolbar
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
     >
+      <v-toolbar-title class="text-button">
+        <v-icon class="mr-3">
+          mdi-controller
+        </v-icon>Platforms
+      </v-toolbar-title>
+    </v-toolbar>
     <v-divider class="border-opacity-25" />
     <v-card-text>
       <v-row>
         <v-col
           v-for="platform in platforms.filledPlatforms"
-          class="pa-1"
           :key="platform.slug"
+          class="pa-1"
           :cols="views[0]['size-cols']"
           :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"
@@ -27,7 +32,10 @@ const platforms = storePlatforms();
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <platform-card :platform="platform" :key="platform.slug" />
+          <platform-card
+            :key="platform.slug"
+            :platform="platform"
+          />
         </v-col>
       </v-row>
     </v-card-text>

@@ -25,17 +25,17 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 def protected_route(
     method: Any,
     path: str,
-    scopes: list[str] = [],
+    scopes: list[str] | None = None,
     **kwargs,
 ):
     def decorator(func: DecoratedCallable):
-        fn = requires(scopes)(func)
+        fn = requires(scopes or [])(func)
         return method(
             path,
             dependencies=[
                 Security(
                     dependency=oauth2_password_bearer,
-                    scopes=scopes,
+                    scopes=scopes or [],
                 ),
                 Security(dependency=HTTPBasic(auto_error=False)),
             ],

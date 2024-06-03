@@ -7,13 +7,14 @@ Create Date: 2024-02-08 15:03:26.338964
 """
 
 import os
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
+from config import ROMM_DB_DRIVER
+from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import sessionmaker
-from config import ROMM_DB_DRIVER
-from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
 
 # revision identifiers, used by Alembic.
 revision = "0014_asset_files"
@@ -63,14 +64,16 @@ def migrate_to_mysql() -> None:
                     continue
 
                 table_data = sqlite_conn.execute(
-                    text(f"SELECT * FROM {table_name}")
+                    text(f"SELECT * FROM {table_name}")  # nosec B608
                 ).fetchall()
 
                 # Insert data into MariaDB table
                 for row in table_data:
                     mapped_row = {f"{i}": value for i, value in enumerate(row, start=1)}
                     columns = ",".join([f":{i}" for i in range(1, len(row) + 1)])
-                    insert_query = f"INSERT INTO {table_name} VALUES ({columns})"
+                    insert_query = (
+                        f"INSERT INTO {table_name} VALUES ({columns})"  # nosec B608
+                    )
                     maria_conn.execute(text(insert_query), mapped_row)
 
             maria_conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))

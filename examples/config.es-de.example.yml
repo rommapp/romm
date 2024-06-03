@@ -6,126 +6,125 @@ exclude:
   roms:
     single_file:
       extensions:
-        - 'xml'
-        - 'txt'
+        - "xml"
+        - "txt"
       names:
-        - 'info.txt'
-        - 'metadata.txt'
-        - 'systeminfo.txt'
-        - 'psy.ggjud.iso'
-        - 'psy.ggjud.nfo'
+        - "info.txt"
+        - "metadata.txt"
+        - "systeminfo.txt"
+        - "psy.ggjud.iso"
+        - "psy.ggjud.nfo"
     multi_file:
       names:
-        - 'roms'
-        - 'pfx'
-        - 'mlc01'
-        - '.Trash*'
+        - "roms"
+        - "pfx"
+        - "mlc01"
+        - ".Trash*"
 
 system:
   platforms:
-    3do: '3do' # 3DO Interactive Multiplayer
-    n3ds: '3ds' # Nintendo 3DS
-    amstradcpc: 'acpc' # Amstrad CPC
-    amiga: 'amiga' # Amiga
-    amigacd32: 'amiga-cd32' # Amiga CD32
-    android: 'android' # Android
-    apple2gs: 'apple2gs' # Apple IIGD
-    apple2: 'appleii' # Apple II
-    arcade: 'arcade' # Arcade
-    arcadia: 'arcadia-2001' # Arcadia 2001
-    arduboy: 'arduboy' # Arduboy
-    astrocde: 'astrocade' # Bally Astrocade
-    apfm1000: 'apf' # APF-M1000/Imagination Machine
-    atarijaguarcd: 'atari-jaguar-cd' # Atari Jaguar CD
-    atarist: 'atari-st' # Atari ST/STE
-    atari2600: 'atari2600' # Atari 2600
-    atari5200: 'atari5200' # Atari 5200
-    atari7800: 'atari7800' # Atari 7800
-    atari800: 'atari8bit' # Atari 8-bit
-    c16: 'c16' # Commodore 16
-    c64: 'c64' # Commodore C64/128/MAX
-    pv1000: 'casio-pv-1000' # Casio PV-1000
-    colecovision: 'colecovision' # ColecoVision
-    cdtv: 'commodore-cdtv' # CDTV
-    crvision: 'creativision' # CreatiVision
-    dreamcast: 'dc' # Dreamcast
-    dos: 'dos' # DOS
-    dragon32: 'dragon-32-slash-64' # Dragon 32/64
-    channelf: 'fairchild-channel-f' # Channel F
-    famicom: 'famicom' # Family Computer
-    fds: 'fds' # Family Computer Disk System
-    fmtowns: 'fm-towns' # FM Towns
-    gameandwatch: 'g-and-w' # Game & Watch
-    gamecom: 'game-dot-com' # Game.Com
-    gb: 'gb' # Game Boy
-    gba: 'gba' # Game Boy Advance
-    gbc: 'gbc' # Game Boy Color
-    megadrive: 'genesis-slash-megadrive' # Genesis/Mega Drive
-    lcdgames: 'handheld-electronic-lcd' # Handheld Electronic LCD
-    intellivision: 'intellivision' # Intellivision
-    j2me: 'j2me' # J2ME
-    atarijaguar: 'jaguar' # Atari Jaguar
-    atarilynx: 'lynx' # Atari Lynx
-    macintosh: 'mac' # Mac
-    megaduck: 'mega-duck-slash-cougar-boy' # Mega Duck/Cougar Boy
-    msx: 'msx' # MSX
-    msx2: 'msx2' # MSX2
-    n64: 'n64' # Nintendo 64
-    nds: 'nds' # Nintendo DS
-    neogeocd: 'neo-geo-cd' # Neo Geo CD
-    ngp: 'neo-geo-pocket' # Neo Geo Pocket
-    ngpc: 'neo-geo-pocket-color' # Neo Geo Pocket Color
-    neogeo: 'neogeoaes' # Neo Geo
-    nes: 'nes' # Nintendo Entertainment System
-    gc: 'ngc' # GameCube
-    n64dd: 'nintendo-64dd' # Nintendo 64DD
-    odyssey2: 'odyssey-2-slash-videopac-g7000' # Odyssey 2/Videopac G7000
-    oric: 'oric' # Oric
-    palm: 'palm-os' # Palm OS
-    pc88: 'pc-8800-series' # PC-8800 Series
-    pc98: 'pc-9800-series' # PC-9800 Series
-    pcfx: 'pc-fx' # PC-FX
-    pokemini: 'pokemon-mini' # Pokémon mini
-    psx: 'ps' # PlayStation
-    ps2: 'ps2' # PlayStation 2
-    ps3: 'ps3' # PlayStation 3
-    ps4: 'ps4--1' # PlayStation 4
-    psp: 'psp' # PlayStation Portable
-    samcoupe: 'sam-coupe' # SAM Coupé
-    satellaview: 'satellaview' # Satellaview
-    sega32x: 'sega-32x' # SEGA 32X
-    mastersystem: 'sega-master-system' # SEGA Master System
-    sega32x: 'sega32' # Sega 32X
-    megacd: 'segacd' # SEGA CD
-    sfc: 'sfam' # Super Famicom
-    sg-1000: 'sg1000' # SG-1000
-    x68000: 'sharp-x68000' # Sharp X68000
-    snes: 'snes' # Super Nintendo Entertainment System
-    spectravideo: 'spectravideo' # Spectravideo
-    supergrafx: 'supergrafx' # PC Engine SuperGrafx
-    supervision: 'supervision' # Supervision
-    switch: 'switch' # Nintendo Switch
-    symbian: 'symbian' # Symbian
-    ti99: 'ti-99' # Texas Instruments TI-99
-    trs-80: 'trs-80' # TRS-80
-    tg-cd: 'turbografx-16-slash-pc-engine-cd' # TurboGrafx CD
-    tg16: 'turbografx16--1' # TurboGrafx-16
-    vectrex: 'vectrex' # Vectrex
-    vic20: 'vic-20' # Commodore VIC-20
-    videopac: 'videopac-g7400' # Videopac+ G7400
-    virtualboy: 'virtualboy' # Virtual Boy
-    vsmile: 'vsmile' # V.Smile
-    wii: 'wii' # Wii
-    wiiu: 'wiiu' # Wii U
-    pc: 'win' # PC (Microsoft Windows)
-    wonderswan: 'wonderswan' # WonderSwan
-    wonderswancolor: 'wonderswan-color' # WonderSwan Color
-    x1: 'x1' # Sharp X1
-    xbox: 'xbox' # Xbox
-    xbox360: 'xbox360' # Xbox 360
-    zmachine: 'z-machine' # Z-machine
-    zx81: 'zx80' # ZX80
-    zxspectrum: 'zxs' # ZX Spectrum
-    naomi: 'arcade'
-    naomi2: 'arcade'
-    naomigd: 'arcade'
+    3do: "3do" # 3DO Interactive Multiplayer
+    n3ds: "3ds" # Nintendo 3DS
+    amstradcpc: "acpc" # Amstrad CPC
+    amiga: "amiga" # Amiga
+    amigacd32: "amiga-cd32" # Amiga CD32
+    android: "android" # Android
+    apple2gs: "apple2gs" # Apple IIGD
+    apple2: "appleii" # Apple II
+    arcade: "arcade" # Arcade
+    arcadia: "arcadia-2001" # Arcadia 2001
+    arduboy: "arduboy" # Arduboy
+    astrocde: "astrocade" # Bally Astrocade
+    apfm1000: "apf" # APF-M1000/Imagination Machine
+    atarijaguarcd: "atari-jaguar-cd" # Atari Jaguar CD
+    atarist: "atari-st" # Atari ST/STE
+    atari2600: "atari2600" # Atari 2600
+    atari5200: "atari5200" # Atari 5200
+    atari7800: "atari7800" # Atari 7800
+    atari800: "atari8bit" # Atari 8-bit
+    c16: "c16" # Commodore 16
+    c64: "c64" # Commodore C64/128/MAX
+    pv1000: "casio-pv-1000" # Casio PV-1000
+    colecovision: "colecovision" # ColecoVision
+    cdtv: "commodore-cdtv" # CDTV
+    crvision: "creativision" # CreatiVision
+    dreamcast: "dc" # Dreamcast
+    dos: "dos" # DOS
+    dragon32: "dragon-32-slash-64" # Dragon 32/64
+    channelf: "fairchild-channel-f" # Channel F
+    famicom: "famicom" # Family Computer
+    fds: "fds" # Family Computer Disk System
+    fmtowns: "fm-towns" # FM Towns
+    gameandwatch: "g-and-w" # Game & Watch
+    gamecom: "game-dot-com" # Game.Com
+    gb: "gb" # Game Boy
+    gba: "gba" # Game Boy Advance
+    gbc: "gbc" # Game Boy Color
+    megadrive: "genesis-slash-megadrive" # Genesis/Mega Drive
+    lcdgames: "handheld-electronic-lcd" # Handheld Electronic LCD
+    intellivision: "intellivision" # Intellivision
+    j2me: "j2me" # J2ME
+    atarijaguar: "jaguar" # Atari Jaguar
+    atarilynx: "lynx" # Atari Lynx
+    macintosh: "mac" # Mac
+    megaduck: "mega-duck-slash-cougar-boy" # Mega Duck/Cougar Boy
+    msx: "msx" # MSX
+    msx2: "msx2" # MSX2
+    n64: "n64" # Nintendo 64
+    nds: "nds" # Nintendo DS
+    neogeocd: "neo-geo-cd" # Neo Geo CD
+    ngp: "neo-geo-pocket" # Neo Geo Pocket
+    ngpc: "neo-geo-pocket-color" # Neo Geo Pocket Color
+    neogeo: "neogeoaes" # Neo Geo
+    nes: "nes" # Nintendo Entertainment System
+    gc: "ngc" # GameCube
+    n64dd: "nintendo-64dd" # Nintendo 64DD
+    odyssey2: "odyssey-2-slash-videopac-g7000" # Odyssey 2/Videopac G7000
+    oric: "oric" # Oric
+    palm: "palm-os" # Palm OS
+    pc88: "pc-8800-series" # PC-8800 Series
+    pc98: "pc-9800-series" # PC-9800 Series
+    pcfx: "pc-fx" # PC-FX
+    pokemini: "pokemon-mini" # Pokémon mini
+    psx: "ps" # PlayStation
+    ps2: "ps2" # PlayStation 2
+    ps3: "ps3" # PlayStation 3
+    ps4: "ps4--1" # PlayStation 4
+    psp: "psp" # PlayStation Portable
+    samcoupe: "sam-coupe" # SAM Coupé
+    satellaview: "satellaview" # Satellaview
+    mastersystem: "sega-master-system" # SEGA Master System
+    sega32x: "sega32" # Sega 32X
+    megacd: "segacd" # SEGA CD
+    sfc: "sfam" # Super Famicom
+    sg-1000: "sg1000" # SG-1000
+    x68000: "sharp-x68000" # Sharp X68000
+    snes: "snes" # Super Nintendo Entertainment System
+    spectravideo: "spectravideo" # Spectravideo
+    supergrafx: "supergrafx" # PC Engine SuperGrafx
+    supervision: "supervision" # Supervision
+    switch: "switch" # Nintendo Switch
+    symbian: "symbian" # Symbian
+    ti99: "ti-99" # Texas Instruments TI-99
+    trs-80: "trs-80" # TRS-80
+    tg-cd: "turbografx-16-slash-pc-engine-cd" # TurboGrafx CD
+    tg16: "turbografx16--1" # TurboGrafx-16
+    vectrex: "vectrex" # Vectrex
+    vic20: "vic-20" # Commodore VIC-20
+    videopac: "videopac-g7400" # Videopac+ G7400
+    virtualboy: "virtualboy" # Virtual Boy
+    vsmile: "vsmile" # V.Smile
+    wii: "wii" # Wii
+    wiiu: "wiiu" # Wii U
+    pc: "win" # PC (Microsoft Windows)
+    wonderswan: "wonderswan" # WonderSwan
+    wonderswancolor: "wonderswan-color" # WonderSwan Color
+    x1: "x1" # Sharp X1
+    xbox: "xbox" # Xbox
+    xbox360: "xbox360" # Xbox 360
+    zmachine: "z-machine" # Z-machine
+    zx81: "zx80" # ZX80
+    zxspectrum: "zxs" # ZX Spectrum
+    naomi: "arcade"
+    naomi2: "arcade"
+    naomigd: "arcade"
