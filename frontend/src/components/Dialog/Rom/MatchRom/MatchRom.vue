@@ -277,10 +277,8 @@ onBeforeUnmount(() => {
         <v-col
           class="pa-1"
           cols="4"
-          xs="4"
           sm="3"
-          md="3"
-          lg="2"
+          md="2"
           v-show="!searching"
           v-for="matchedRom in filteredMatchedRoms"
         >
