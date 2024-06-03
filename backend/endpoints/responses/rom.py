@@ -97,8 +97,8 @@ class RomSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @property
     @computed_field
+    @property
     def sort_comparator(self) -> str:
         return (
             re.sub(
