@@ -137,8 +137,8 @@ onMounted(() => {
 <template>
   <v-app>
     <v-main>
-      <!-- <notification /> -->
-      <notification-stack />
+      <notification />
+      <!-- <notification-stack /> -->
       <v-btn
         @click="
           emitter?.emit('snackbarShow', {
