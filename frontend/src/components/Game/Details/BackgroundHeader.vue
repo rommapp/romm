@@ -9,19 +9,19 @@ const theme = useTheme();
 <template>
   <v-card rounded="0">
     <v-img
+      id="background-header"
       :src="
         !rom.igdb_id && !rom.moby_id
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
           : `/assets/romm/resources/${rom.path_cover_l}`
       "
-      id="background-header"
       lazy
     >
       <template #error>
         <v-img
           :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
           :aspect-ratio="3 / 4"
-        ></v-img>
+        />
       </template>
       <template #placeholder>
         <div class="d-flex align-center justify-center fill-height">

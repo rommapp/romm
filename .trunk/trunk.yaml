@@ -1,0 +1,57 @@
+# This file controls the behavior of Trunk: https://docs.trunk.io/cli
+# To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
+version: 0.1
+cli:
+  version: 1.22.1
+# Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
+plugins:
+  sources:
+    - id: trunk
+      ref: v1.5.0
+      uri: https://github.com/trunk-io/plugins
+# Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
+runtimes:
+  enabled:
+    - go@1.21.0
+    - node@18.12.1
+    - python@3.10.8
+# This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
+lint:
+  enabled:
+    - eslint@8.57.0
+    - actionlint@1.7.1
+    - bandit@1.7.8
+    - black@24.4.2
+    - checkov@3.2.120
+    - git-diff-check
+    - isort@5.13.2
+    - mypy@1.10.0
+    - osv-scanner@1.7.4
+    - oxipng@9.1.1
+    - prettier@3.2.5
+    - ruff@0.4.6
+    - shellcheck@0.10.0
+    - shfmt@3.6.0
+    - svgo@3.3.2
+    - taplo@0.8.1
+    - trivy@0.51.4
+    - trufflehog@3.77.0
+    - yamllint@1.35.1
+  ignore:
+    - linters: [ALL]
+      paths:
+        - src/__generated__/**
+        - docker/Dockerfile
+  definitions:
+    - name: eslint
+      files: [typescript, javascript]
+      commands:
+        - name: lint
+          run_from: ${root_or_parent_with_any_config}
+actions:
+  disabled:
+    - trunk-check-pre-push
+  enabled:
+    - trunk-announce
+    - trunk-fmt-pre-commit
+    - trunk-upgrade-available

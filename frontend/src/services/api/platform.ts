@@ -17,7 +17,7 @@ async function getPlatforms(): Promise<{ data: Platform[] }> {
 }
 
 async function getPlatform(
-  id: number | undefined
+  id: number | undefined,
 ): Promise<{ data: Platform }> {
   return api.get(`/platforms/${id}`);
 }
@@ -47,5 +47,6 @@ export default {
   getPlatforms,
   getPlatform,
   getSupportedPlatforms,
+  updatePlatform,
   deletePlatform,
 };

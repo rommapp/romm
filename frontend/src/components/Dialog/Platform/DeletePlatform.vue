@@ -55,50 +55,70 @@ function closeDialog() {
     v-if="platform"
     v-model="show"
     width="auto"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     no-click-animation
     :scrim="true"
     persistent
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card>
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
           <v-col cols="10">
-            <v-icon icon="mdi-delete" class="ml-5 mr-2" />
+            <v-icon
+              icon="mdi-delete"
+              class="ml-5 mr-2"
+            />
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text>
-        <v-row class="justify-center pa-2" no-gutters>
-          <span class="mr-1">Deleting platform</span
-          ><span class="text-romm-accent-1"
-            >{{ platform.name }} - [<span class="text-romm-accent-1">{{
-              platform.fs_slug
-            }}</span
-            >]</span
-          >.
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
+          <span class="mr-1">Deleting platform</span><span class="text-romm-accent-1">{{ platform.name }} - [<span class="text-romm-accent-1">{{
+            platform.fs_slug
+          }}</span>]</span>.
           <span class="ml-1">Do you confirm?</span>
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
+          <v-btn
+            class="bg-terciary"
+            @click="closeDialog"
+          >
+            Cancel
+          </v-btn>
           <v-btn
             class="bg-terciary text-romm-red ml-5"
             @click="deletePlatform()"
-            >Confirm</v-btn
           >
+            Confirm
+          </v-btn>
         </v-row>
       </v-card-text>
     </v-card>

@@ -16,13 +16,17 @@ const { smAndDown } = useDisplay();
     no-gutters
   >
     <v-col>
-      <span class="text-h5 font-weight-bold px-1 mb-1" variant="text" label>{{
+      <span
+        class="text-h5 font-weight-bold px-1 mb-1"
+        variant="text"
+        label
+      >{{
         rom.name
       }}</span>
       <v-chip
+        v-if="Number(rom.first_release_date) > 0"
         class="font-italic ml-2"
         size="x-small"
-        v-if="Number(rom.first_release_date) > 0"
       >
         {{
           new Date(Number(rom.first_release_date) * 1000).toLocaleDateString(
@@ -48,32 +52,51 @@ const { smAndDown } = useDisplay();
         :to="{ name: 'platform', params: { platform: platform.id } }"
       >
         {{ platform.name }}
-        <v-avatar :rounded="0" size="30" class="ml-2">
-          <platform-icon :key="platform.slug" :slug="platform.slug" />
+        <v-avatar
+          :rounded="0"
+          size="30"
+          class="ml-2"
+        >
+          <platform-icon
+            :key="platform.slug"
+            :slug="platform.slug"
+          />
         </v-avatar>
       </v-chip>
       <v-chip
+        v-if="rom.regions.filter(identity).length > 0"
         size="small"
         class="mr-1 my-2"
-        v-if="rom.regions.filter(identity).length > 0"
         :title="`Regions: ${rom.regions.join(', ')}`"
       >
-        <span class="px-1" v-for="region in rom.regions">{{
+        <span
+          v-for="region in rom.regions"
+          :key="region"
+          class="px-1"
+        >{{
           regionToEmoji(region)
         }}</span>
       </v-chip>
       <v-chip
+        v-if="rom.languages.filter(identity).length > 0"
         size="small"
         class="mr-1 my-2"
-        v-if="rom.languages.filter(identity).length > 0"
         :title="`Languages: ${rom.languages.join(', ')}`"
       >
-        <span class="px-1" v-for="language in rom.languages">{{
+        <span
+          v-for="language in rom.languages"
+          :key="language"
+          class="px-1"
+        >{{
           languageToEmoji(language)
         }}</span>
       </v-chip>
-      <v-chip size="small" v-if="rom.revision" class="my-2"
-        >Revision {{ rom.revision }}
+      <v-chip
+        v-if="rom.revision"
+        size="small"
+        class="my-2"
+      >
+        Revision {{ rom.revision }}
       </v-chip>
     </v-col>
   </v-row>
@@ -90,11 +113,20 @@ const { smAndDown } = useDisplay();
         :href="`https://www.igdb.com/games/${rom.slug}`"
         target="_blank"
       >
-        <v-chip size="x-small" @click="">
+        <v-chip
+          size="x-small"
+          @click.stop
+        >
           <span>IGDB</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-divider
+            class="mx-2 border-opacity-25"
+            vertical
+          />
           <span>ID: {{ rom.igdb_id }}</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-divider
+            class="mx-2 border-opacity-25"
+            vertical
+          />
           <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
         </v-chip>
       </a>
@@ -105,11 +137,20 @@ const { smAndDown } = useDisplay();
         target="_blank"
         :class="{ 'ml-2': rom.igdb_id }"
       >
-        <v-chip size="x-small" @click="">
+        <v-chip
+          size="x-small"
+          @click.stop
+        >
           <span>Mobygames</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-divider
+            class="mx-2 border-opacity-25"
+            vertical
+          />
           <span>ID: {{ rom.moby_id }}</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-divider
+            class="mx-2 border-opacity-25"
+            vertical
+          />
           <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
         </v-chip>
       </a>

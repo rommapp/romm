@@ -4,6 +4,5 @@
 /* eslint-disable */
 
 export type Body_add_states_states_post = {
-    states: Array<Blob>;
+  states?: Array<Blob> | null;
 };
-

@@ -22,7 +22,8 @@ function setUnmatched() {
     transition="fade-transition"
     text="Filter unmatched games"
     open-delay="1000"
-    ><template #activator="{ props }">
+  >
+    <template #activator="{ props }">
       <v-btn
         class="ma-1"
         variant="outlined"
@@ -30,7 +31,8 @@ function setUnmatched() {
         :color="filterUnmatched ? 'romm-accent-1' : 'romm-gray'"
         v-bind="props"
         @click="setUnmatched()"
-        ><v-icon
+      >
+        <v-icon
           class="mx-5"
           :color="filterUnmatched ? 'romm-accent-1' : 'romm-white'"
           >mdi-file-find-outline</v-icon

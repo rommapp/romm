@@ -54,7 +54,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props }">
+  <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
       v-bind="props"
       :class="{

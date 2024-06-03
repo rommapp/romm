@@ -83,11 +83,19 @@ onMounted(() => {
 });
 </script>
 <template>
-  <v-card rounded="0" elevation="0">
-    <v-toolbar class="bg-terciary" density="compact">
-      <v-toolbar-title class="text-button"
-        ><v-icon class="mr-3">mdi-account-group</v-icon>Users</v-toolbar-title
-      >
+  <v-card
+    rounded="0"
+    elevation="0"
+  >
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
+    >
+      <v-toolbar-title class="text-button">
+        <v-icon class="mr-3">
+          mdi-account-group
+        </v-icon>Users
+      </v-toolbar-title>
       <v-btn
         prepend-icon="mdi-plus"
         variant="outlined"
@@ -113,12 +121,12 @@ onMounted(() => {
         class="bg-secondary"
       />
       <v-data-table
-        :items-per-page-options="PER_PAGE_OPTIONS"
         v-model:items-per-page="usersPerPage"
+        v-model:page="page"
+        :items-per-page-options="PER_PAGE_OPTIONS"
         :search="userSearch"
         :headers="HEADERS"
         :items="usersStore.all"
-        v-model:page="page"
         :sort-by="[{ key: 'username', order: 'asc' }]"
       >
         <template #item.avatar_path="{ item }">
@@ -137,11 +145,11 @@ onMounted(() => {
         </template>
         <template #item.enabled="{ item }">
           <v-switch
+            v-model="item.enabled"
             color="romm-accent-1"
             :disabled="item.id == auth.user?.id"
-            v-model="item.enabled"
-            @change="disableUser(item)"
             hide-details
+            @change="disableUser(item)"
           />
         </template>
         <template #item.actions="{ item }">
@@ -160,30 +168,41 @@ onMounted(() => {
             size="small"
             rounded="0"
             @click="emitter?.emit('showDeleteUserDialog', item)"
-            ><v-icon>mdi-delete</v-icon></v-btn
           >
+            <v-icon>mdi-delete</v-icon>
+          </v-btn>
         </template>
 
         <template #bottom>
           <v-divider class="border-opacity-25" />
-          <v-row no-gutters class="pt-2 align-center">
-            <v-col cols="11" class="px-6">
+          <v-row
+            no-gutters
+            class="pt-2 align-center"
+          >
+            <v-col
+              cols="11"
+              class="px-6"
+            >
               <v-pagination
+                v-model="page"
                 rounded="0"
                 :show-first-last-page="true"
                 active-color="romm-accent-1"
-                v-model="page"
                 :length="pageCount"
-              ></v-pagination>
+              />
             </v-col>
-            <v-col cols="5" sm="2" xl="1">
+            <v-col
+              cols="5"
+              sm="2"
+              xl="1"
+            >
               <v-select
+                v-model="usersPerPage"
                 class="pa-2"
                 label="Users per page"
                 density="compact"
                 variant="outlined"
                 :items="PER_PAGE_OPTIONS"
-                v-model="usersPerPage"
                 hide-details
               />
             </v-col>

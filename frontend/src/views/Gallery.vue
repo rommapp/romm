@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
+import EmptyGame from "@/components/Gallery/EmptyGame.vue";
+import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
 import FabBar from "@/components/Gallery/FabBar/Base.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
@@ -13,8 +15,6 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
-import EmptyGame from "@/components/Gallery/EmptyGame.vue";
-import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import {
@@ -258,7 +258,7 @@ onBeforeRouteLeave((to, from, next) => {
   next();
 });
 
-onBeforeRouteUpdate(async (to, _) => {
+onBeforeRouteUpdate(async (to) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
   resetGallery();
@@ -285,16 +285,16 @@ onBeforeRouteUpdate(async (to, _) => {
       <!-- Gallery cards view -->
       <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
-        class="pa-1"
+        v-for="rom in filteredRoms.slice(0, itemsShown)"
         v-show="galleryViewStore.current != 2"
+        :key="rom.id"
+        class="pa-1"
         :cols="views[galleryViewStore.current]['size-cols']"
         :xs="views[galleryViewStore.current]['size-xs']"
         :sm="views[galleryViewStore.current]['size-sm']"
         :md="views[galleryViewStore.current]['size-md']"
         :lg="views[galleryViewStore.current]['size-lg']"
         :xl="views[galleryViewStore.current]['size-xl']"
-        v-for="rom in filteredRoms.slice(0, itemsShown)"
-        :key="rom.id"
       >
         <game-card
           :rom="rom"

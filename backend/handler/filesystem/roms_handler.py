@@ -1,19 +1,21 @@
 import os
 import re
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from models.platform import Platform
+
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
     LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
+    TAG_REGEX,
+    FSHandler,
 )
-from .base_handler import FSHandler, TAG_REGEX
 
 
 class FSRomsHandler(FSHandler):
@@ -128,8 +130,15 @@ class FSRomsHandler(FSHandler):
         ]
 
     def get_rom_file_size(
-        self, roms_path: str, file_name: str, multi: bool, multi_files: list = []
+        self,
+        roms_path: str,
+        file_name: str,
+        multi: bool,
+        multi_files: list[str] | None = None,
     ):
+        if multi_files is None:
+            multi_files = []
+
         files = (
             [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
             if not multi

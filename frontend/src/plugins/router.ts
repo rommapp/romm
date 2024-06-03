@@ -51,7 +51,6 @@ const routes = [
 ];
 
 const router = createRouter({
-  // @ts-ignore
   history: createWebHistory(process.env.BASE_URL),
   routes,
 });

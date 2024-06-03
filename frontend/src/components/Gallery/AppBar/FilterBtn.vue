@@ -19,7 +19,8 @@ function showFilterBar() {
     transition="fade-transition"
     text="Filter gallery"
     open-delay="1000"
-    ><template #activator="{ props }">
+  >
+    <template #activator="{ props }">
       <v-btn
         class="ml-0"
         variant="text"

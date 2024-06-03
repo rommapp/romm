@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Final
 
 from endpoints.forms.identity import OAuth2RequestForm
@@ -133,7 +133,9 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
 
 @router.post("/login")
-def login(request: Request, credentials=Depends(HTTPBasic())) -> MessageResponse:
+def login(
+    request: Request, credentials=Depends(HTTPBasic())  # noqa
+) -> MessageResponse:
     """Session login endpoint
 
     Args:

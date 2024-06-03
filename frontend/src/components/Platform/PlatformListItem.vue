@@ -8,9 +8,9 @@ defineProps<{ platform: Platform; rail: boolean }>();
 
 <template>
   <v-list-item
+    :key="platform.slug"
     :to="{ name: 'platform', params: { platform: platform.id } }"
     :value="platform.slug"
-    :key="platform.slug"
     class="bg-terciary"
   >
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
@@ -25,14 +25,14 @@ defineProps<{ platform: Platform; rail: boolean }>();
           open-delay="500"
           ><template #activator="{ props }">
             <div
+              v-if="!platform.igdb_id && !platform.moby_id"
               v-bind="props"
               class="not-found-icon"
-              v-if="!platform.igdb_id && !platform.moby_id"
             >
               ⚠️
-            </div></template
-          ></v-tooltip
-        >
+            </div>
+          </template>
+        </v-tooltip>
       </v-avatar>
     </template>
     <template #append>

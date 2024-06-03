@@ -14,7 +14,9 @@ class SGDBBaseHandler:
 
     def get_details(self, term):
         search_response = requests.get(
-            f"{self.BASE_URL}/search/autocomplete/{term}", headers=self.headers
+            f"{self.BASE_URL}/search/autocomplete/{term}",
+            headers=self.headers,
+            timeout=120,
         ).json()
 
         if len(search_response["data"]) == 0:
@@ -25,7 +27,7 @@ class SGDBBaseHandler:
         game_name = search_response["data"][0]["name"]
 
         game_response = requests.get(
-            f"{self.BASE_URL}/grid/game/{game_id}", headers=self.headers
+            f"{self.BASE_URL}/grid/game/{game_id}", headers=self.headers, timeout=120
         ).json()
 
         if len(game_response["data"]) == 0:

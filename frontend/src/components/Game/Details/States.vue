@@ -8,14 +8,15 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
+const romRef = ref<DetailedRom>(props.rom);
 const statesToUpload = ref<File[]>([]);
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const romsStore = storeRoms();
 
 emitter?.on("romUpdated", (rom) => {
-  if (rom?.id === props.rom.id) {
-    props.rom.user_states = rom.user_states;
+  if (rom?.id === romRef.value.id) {
+    romRef.value.user_states = rom.user_states;
   }
 });
 
@@ -32,7 +33,7 @@ async function downloasStates() {
 
 async function uploadStates() {
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${statesToUpload.value.length} states to ${props.rom.name}...`,
+    msg: `Uploading ${statesToUpload.value.length} states to ${romRef.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -40,12 +41,12 @@ async function uploadStates() {
   await stateApi
     .uploadStates({
       states: statesToUpload.value,
-      rom: props.rom,
+      rom: romRef.value,
     })
     .then(({ data }) => {
       const { states, uploaded } = data;
-      props.rom.user_states = states;
-      romsStore.update(props.rom);
+      romRef.value.user_states = states;
+      romsStore.update(romRef.value);
       statesToUpload.value = [];
 
       emitter?.emit("snackbarShow", {
@@ -72,9 +73,8 @@ async function uploadStates() {
     <v-col>
       <v-list-item class="px-0">
         <v-file-input
-          @keyup.enter="uploadStates()"
-          label="Select state files..."
           v-model="statesToUpload"
+          label="Select state files..."
           prepend-inner-icon="mdi-file"
           prepend-icon=""
           multiple
@@ -83,12 +83,13 @@ async function uploadStates() {
           variant="outlined"
           density="compact"
           hide-details
+          @keyup.enter="uploadStates()"
         />
         <template #append>
           <v-btn
             :disabled="!statesToUpload.length"
-            @click="uploadStates()"
             class="text-romm-green ml-3 bg-terciary"
+            @click="uploadStates()"
           >
             Upload
           </v-btn>
@@ -98,9 +99,9 @@ async function uploadStates() {
   </v-row>
   <v-list rounded="0" class="pa-0">
     <v-list-item
-      class="pa-2 pl-4"
       v-for="state in rom.user_states"
       :key="state.id"
+      class="pa-2 pl-4"
       :title="state.file_name"
       :subtitle="`${state.emulator || 'unknown'} - ${formatBytes(
         state.file_size_bytes
@@ -131,10 +132,10 @@ async function uploadStates() {
   </v-list>
   <v-btn
     :disabled="!selectedStates.length"
-    @click="downloasStates()"
     rounded="0"
     variant="text"
     class="mt-3 mr-3 bg-terciary"
+    @click="downloasStates()"
   >
     <v-icon>mdi-download</v-icon>
     Download

@@ -32,7 +32,7 @@ async function updateUser({
   id,
   avatar,
   ...attrs
-}: UserSchema &  {
+}: UserSchema & {
   avatar?: File;
   password?: string;
 }): Promise<{ data: UserSchema }> {
@@ -51,7 +51,7 @@ async function updateUser({
         enabled: attrs.enabled,
         role: attrs.role,
       },
-    }
+    },
   );
 }
 

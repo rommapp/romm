@@ -1,8 +1,9 @@
 import functools
+
 from decorators.database import begin_session
 from models.rom import Rom, RomNote
-from sqlalchemy import and_, delete, func, select, update, or_, Select
-from sqlalchemy.orm import Session, Query, selectinload
+from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -26,21 +27,21 @@ def with_assets(func):
 
 
 class DBRomsHandler(DBBaseHandler):
-    def _filter(self, data: Select[Rom], platform_id: int | None, search_term: str):
+    def _filter(self, data, platform_id: int | None, search_term: str):
         if platform_id:
             data = data.filter_by(platform_id=platform_id)
 
         if search_term:
             data = data.filter(
                 or_(
-                    Rom.file_name.ilike(f"%{search_term}%"),
-                    Rom.name.ilike(f"%{search_term}%"),
+                    Rom.file_name.ilike(f"%{search_term}%"),  # type: ignore[attr-defined]
+                    Rom.name.ilike(f"%{search_term}%"),  # type: ignore[attr-defined]
                 )
             )
 
         return data
 
-    def _order(self, data: Select[Rom], order_by: str, order_dir: str):
+    def _order(self, data, order_by: str, order_dir: str):
         if order_by == "id":
             _column = Rom.id
         else:
@@ -63,8 +64,8 @@ class DBRomsHandler(DBBaseHandler):
     @with_assets
     def get_roms(
         self,
-        id: int = None,
-        platform_id: int = None,
+        id: int | None = None,
+        platform_id: int | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
@@ -135,7 +136,7 @@ class DBRomsHandler(DBBaseHandler):
     ) -> int:
         return session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="evaluate")
         )
 

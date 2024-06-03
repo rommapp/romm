@@ -5,9 +5,14 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 
-// Props
+type ScanSource = {
+  url_cover: string | undefined;
+  name: string;
+  rom: SearchRomSchema;
+};
+
 const show = ref(false);
-const sources = ref<any>([]);
+const sources = ref<ScanSource[]>([]);
 const theme = useTheme();
 const { xs } = useDisplay();
 const emit = defineEmits(["select:source"]);
@@ -50,25 +55,29 @@ function closeDialog() {
 
 <template>
   <v-dialog
-    @update:model-value="closeDialog()"
-    :modelValue="show"
+    :model-value="show"
     scrim="true"
     scroll-strategy="none"
     width="auto"
+    @update:model-value="closeDialog()"
   >
-    <v-row class="justify-center" no-gutters>
+    <v-row
+      class="justify-center"
+      no-gutters
+    >
       <v-col
+        v-for="source in sources"
+        :key="source.name"
         class="pa-2"
         :class="{ cover: !xs, 'cover-xs': xs }"
-        v-for="source in sources"
       >
         <v-hover v-slot="{ isHovering, props }">
           <v-card
-            @click="selectSource(source.rom, source.name)"
             v-bind="props"
             class="matched-rom"
             :class="{ 'on-hover': isHovering }"
             :elevation="isHovering ? 20 : 3"
+            @click="selectSource(source.rom, source.name)"
           >
             <v-img
               :src="
@@ -88,43 +97,52 @@ function closeDialog() {
                   />
                 </div>
               </template>
-              <v-row no-gutters class="text-white pa-1">
+              <v-row
+                no-gutters
+                class="text-white pa-1"
+              >
                 <v-tooltip
                   location="top"
                   class="tooltip"
                   transition="fade-transition"
                   text="IGDB matched"
                   open-delay="500"
-                  ><template #activator="{ props }">
+                >
+                  <template #activator="{ props: tooltipProps }">
                     <v-avatar
-                      v-bind="props"
                       v-if="source.name == 'igdb'"
+                      v-bind="tooltipProps"
                       class="mr-1"
                       size="30"
                       rounded="1"
                     >
                       <v-img
                         src="/assets/scrappers/igdb.png"
-                      /> </v-avatar></template
-                ></v-tooltip>
+                      />
+                    </v-avatar>
+                  </template>
+                </v-tooltip>
                 <v-tooltip
                   location="top"
                   class="tooltip"
                   transition="fade-transition"
                   text="Mobygames matched"
                   open-delay="500"
-                  ><template #activator="{ props }">
+                >
+                  <template #activator="{ props: tooltipProps }">
                     <v-avatar
-                      v-bind="props"
                       v-if="source.name == 'moby'"
+                      v-bind="tooltipProps"
                       class="mr-1"
                       size="30"
                       rounded="1"
                     >
                       <v-img
                         src="/assets/scrappers/moby.png"
-                      /> </v-avatar></template
-                ></v-tooltip>
+                      />
+                    </v-avatar>
+                  </template>
+                </v-tooltip>
               </v-row>
             </v-img>
           </v-card>

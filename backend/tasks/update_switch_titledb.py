@@ -5,9 +5,9 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
-from tasks.tasks import RemoteFilePullTask
-from logger.logger import log
 from handler.redis_handler import cache
+from logger.logger import log
+from tasks.tasks import RemoteFilePullTask
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"

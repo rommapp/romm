@@ -28,19 +28,24 @@ onMounted(() => {
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact"
-      ><v-toolbar-title class="text-button"
-        ><v-icon class="mr-3">mdi-shimmer</v-icon>Recently
-        added</v-toolbar-title
-      ></v-toolbar
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
     >
+      <v-toolbar-title class="text-button">
+        <v-icon class="mr-3">
+          mdi-shimmer
+        </v-icon>Recently
+        added
+      </v-toolbar-title>
+    </v-toolbar>
     <v-divider class="border-opacity-25" />
     <v-card-text>
       <v-row class="flex-nowrap overflow-x-auto">
         <v-col
-          class="pa-1 pb-2"
           v-for="rom in romsStore.recentRoms"
           :key="rom.id"
+          class="pa-1 pb-2"
           :cols="views[0]['size-cols']"
           :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"

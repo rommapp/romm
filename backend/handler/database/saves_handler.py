@@ -8,17 +8,17 @@ from .base_handler import DBBaseHandler
 
 class DBSavesHandler(DBBaseHandler):
     @begin_session
-    def add_save(self, save: Save, session: Session = None):
+    def add_save(self, save: Save, session: Session = None) -> Save:
         return session.merge(save)
 
     @begin_session
-    def get_save(self, id: int, session: Session = None):
+    def get_save(self, id: int, session: Session = None) -> Save:
         return session.get(Save, id)
 
     @begin_session
     def get_save_by_filename(
         self, rom_id: int, user_id: int, file_name: str, session: Session = None
-    ):
+    ) -> Save | None:
         return session.scalars(
             select(Save)
             .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
@@ -26,8 +26,8 @@ class DBSavesHandler(DBBaseHandler):
         ).first()
 
     @begin_session
-    def update_save(self, id: int, data: dict, session: Session = None):
-        session.execute(
+    def update_save(self, id: int, data: dict, session: Session = None) -> Save:
+        return session.execute(
             update(Save)
             .where(Save.id == id)
             .values(**data)
@@ -35,7 +35,7 @@ class DBSavesHandler(DBBaseHandler):
         )
 
     @begin_session
-    def delete_save(self, id: int, session: Session = None):
+    def delete_save(self, id: int, session: Session = None) -> None:
         return session.execute(
             delete(Save)
             .where(Save.id == id)
@@ -45,7 +45,7 @@ class DBSavesHandler(DBBaseHandler):
     @begin_session
     def purge_saves(
         self, rom_id: int, user_id: int, saves: list[str], session: Session = None
-    ):
+    ) -> None:
         return session.execute(
             delete(Save)
             .where(

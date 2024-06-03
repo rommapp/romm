@@ -122,7 +122,7 @@ watch(
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
-        <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
+        <related-games v-if="mdAndUp" class="mt-3 px-2" :rom="rom" />
       </v-col>
       <v-col
         cols="12"
@@ -162,10 +162,10 @@ watch(
             slider-color="romm-accent-1"
             rounded="0"
           >
-            <v-tab value="details" rounded="0">Details</v-tab>
-            <v-tab value="saves" rounded="0">Saves</v-tab>
-            <v-tab value="states" rounded="0">States</v-tab>
-            <v-tab value="notes" rounded="0">Notes</v-tab>
+            <v-tab value="details" rounded="0"> Details </v-tab>
+            <v-tab value="saves" rounded="0"> Saves </v-tab>
+            <v-tab value="states" rounded="0"> States </v-tab>
+            <v-tab value="notes" rounded="0"> Notes </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -174,8 +174,9 @@ watch(
               "
               value="additionalcontent"
               rounded="0"
-              >Additional content</v-tab
             >
+              Additional content
+            </v-tab>
             <!-- TODO: user screenshots -->
             <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
             <v-tab
@@ -187,8 +188,9 @@ watch(
               "
               value="relatedgames"
               rounded="0"
-              >Related Games</v-tab
             >
+              Related Games
+            </v-tab>
           </v-tabs>
           <v-tabs
             v-if="showEmulation"
@@ -196,7 +198,7 @@ watch(
             slider-color="romm-accent-1"
             rounded="0"
           >
-            <v-tab value="emulation" rounded="0">Emulation</v-tab>
+            <v-tab value="emulation" rounded="0"> Emulation </v-tab>
           </v-tabs>
         </v-row>
         <v-row no-gutters class="mb-4">
