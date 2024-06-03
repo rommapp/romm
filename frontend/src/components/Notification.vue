@@ -1,29 +1,36 @@
 <script setup lang="ts">
 import type { Events, SnackbarStatus } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import storeNotifications from "@/stores/notifications";
 import { inject, ref } from "vue";
 
 // Props
 const show = ref(false);
 const snackbarStatus = ref<SnackbarStatus>({ msg: "" });
+const notificationStore = storeNotifications();
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("snackbarShow", (snackbar: SnackbarStatus) => {
   show.value = true;
   snackbarStatus.value = snackbar;
+  snackbarStatus.value.id = notificationStore.notifications.length + 1;
+  // notificationStore.add(snackbarStatus.value);
 });
 
 function closeDialog() {
+  notificationStore.remove(snackbarStatus.value.id);
   show.value = false;
 }
 </script>
 
 <template>
   <v-snackbar
+    transition="scroll-y-transition"
     v-model="show"
-    :timeout="snackbarStatus.timeout ? snackbarStatus.timeout : 2000"
-    location="top"
+    :timeout="snackbarStatus.timeout ? snackbarStatus.timeout : 3000"
+    @timeout="closeDialog"
+    location="top right"
     color="tooltip"
   >
     <v-icon

@@ -9,7 +9,7 @@ import { useTheme } from "vuetify";
 const theme = useTheme();
 const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
 const selectedTheme = ref(isNaN(storedTheme) ? autoThemeKey : storedTheme);
-const options = computed(() => [
+const themeOptions = computed(() => [
   {
     name: "dark",
     icon: "mdi-moon-waning-crescent",
@@ -45,7 +45,13 @@ function toggleTheme() {
         @update:model-value="toggleTheme"
       >
         <v-row no-gutters>
-          <v-col cols="4" sm="3" md="2" class="pa-1" v-for="theme in options">
+          <v-col
+            cols="4"
+            sm="3"
+            md="2"
+            class="pa-1"
+            v-for="theme in themeOptions"
+          >
             <theme-option
               :key="theme.name"
               :text="theme.name"
