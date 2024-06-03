@@ -6,9 +6,8 @@ Create Date: 2024-05-05 11:20:54.243980
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0018_firmware"

@@ -56,7 +56,11 @@ async function logout() {
 </script>
 
 <template>
-  <v-list-item height="60" class="bg-primary text-button" rounded="0">
+  <v-list-item
+    height="60"
+    class="bg-primary text-button"
+    rounded="0"
+  >
     <template v-if="!rail">
       <div class="text-no-wrap text-truncate text-subtitle-1">
         {{ auth.user?.username }}
@@ -82,7 +86,7 @@ async function logout() {
         variant="text"
         icon="mdi-location-exit"
         @click="logout()"
-      ></v-btn>
+      />
     </template>
   </v-list-item>
   <v-btn
@@ -92,37 +96,33 @@ async function logout() {
     icon="mdi-location-exit"
     block
     @click="logout()"
-  ></v-btn>
+  />
   <v-list-item
-    class="bg-terciary py-1 px-1 text-subtitle-2"
     v-if="
       GITHUB_VERSION &&
-      VERSION !== GITHUB_VERSION &&
-      !latestVersionDismissed &&
-      !rail
+        VERSION !== GITHUB_VERSION &&
+        !latestVersionDismissed &&
+        !rail
     "
+    class="bg-terciary py-1 px-1 text-subtitle-2"
   >
     <v-card>
       <v-card-text class="py-2 px-4">
         <v-row no-gutters>
           <v-col class="py-1">
-            <span
-              >New version available
-              <span class="text-romm-accent-1">v{{ GITHUB_VERSION }}</span></span
-            >
+            <span>New version available
+              <span class="text-romm-accent-1">v{{ GITHUB_VERSION }}</span></span>
           </v-col>
         </v-row>
         <v-row no-gutters>
           <v-col class="py-1">
-            <span @click="dismissVersionBanner()" class="pointer text-grey"
-              >Dismiss</span
-            ><span class="ml-4"
-              ><a
-                target="_blank"
-                :href="`https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION}`"
-                >See what's new!</a
-              ></span
-            >
+            <span
+              class="pointer text-grey"
+              @click="dismissVersionBanner()"
+            >Dismiss</span><span class="ml-4"><a
+              target="_blank"
+              :href="`https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION}`"
+            >See what's new!</a></span>
           </v-col>
         </v-row>
       </v-card-text>

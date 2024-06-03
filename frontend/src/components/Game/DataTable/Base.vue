@@ -3,7 +3,7 @@ import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
   formatBytes,
@@ -78,7 +78,7 @@ const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
 const pageCount = ref(0);
 
 // Functions
-function rowClick(_: Event, row: any) {
+function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: "rom", params: { rom: row.item.id } });
 }
 
@@ -151,11 +151,11 @@ onMounted(() => {
       <v-btn
         class="ma-1 bg-terciary"
         rounded="0"
-        @click.stop="romApi.downloadRom({ rom: item })"
         :disabled="downloadStore.value.includes(item.id)"
         download
         size="small"
         variant="text"
+        @click.stop="romApi.downloadRom({ rom: item })"
       >
         <v-icon>mdi-download</v-icon>
       </v-btn>
@@ -178,8 +178,9 @@ onMounted(() => {
             size="small"
             variant="text"
             class="ma-1 bg-terciary"
-            ><v-icon>mdi-dots-vertical</v-icon></v-btn
           >
+            <v-icon>mdi-dots-vertical</v-icon>
+          </v-btn>
         </template>
         <admin-menu :rom="item" />
       </v-menu>
@@ -190,21 +191,21 @@ onMounted(() => {
       <v-row no-gutters class="pt-2 align-center">
         <v-col cols="11" class="px-6">
           <v-pagination
+            v-model="page"
             rounded="0"
             :show-first-last-page="true"
             active-color="romm-accent-1"
-            v-model="page"
             :length="pageCount"
-          ></v-pagination>
+          />
         </v-col>
         <v-col cols="5" sm="2" xl="1">
           <v-select
+            v-model="romsPerPage"
             class="pa-2"
             label="Roms per page"
             density="compact"
             variant="outlined"
             :items="PER_PAGE_OPTIONS"
-            v-model="romsPerPage"
             hide-details
           />
         </v-col>

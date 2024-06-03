@@ -111,14 +111,14 @@ function selectAllFirmware() {
 
 <template>
   <v-dialog
-    :modelValue="show"
+    :model-value="show"
     scroll-strategy="none"
     width="auto"
     :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     no-click-animation
     persistent
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card
       rounded="0"
@@ -128,28 +128,52 @@ function selectAllFirmware() {
         'edit-content-mobile': xs,
       }"
     >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-memory" class="ml-5" />
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="9"
+            xs="9"
+            sm="10"
+            md="10"
+            lg="11"
+          >
+            <v-icon
+              icon="mdi-memory"
+              class="ml-5"
+            />
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
+      <v-toolbar
+        density="compact"
+        class="bg-primary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
           <v-col>
             <v-btn
               block
@@ -159,36 +183,46 @@ function selectAllFirmware() {
               variant="text"
               @click="triggerFileInput"
             >
-              <v-icon :class="{ 'mr-2': !xs }">mdi-plus</v-icon>
+              <v-icon :class="{ 'mr-2': !xs }">
+                mdi-plus
+              </v-icon>
               <span v-if="!xs">Add firmware</span>
             </v-btn>
             <v-file-input
-              class="file-input"
               id="file-input"
-              @keyup.enter="uploadFirmware()"
               v-model="filesToUpload"
+              class="file-input"
               multiple
               required
+              @keyup.enter="uploadFirmware()"
             />
           </v-col>
-          <v-col cols="5" sm="3">
+          <v-col
+            cols="5"
+            sm="3"
+          >
             <v-btn
               block
               icon=""
               class="text-romm-green bg-terciary"
               rounded="0"
               variant="text"
-              @click="uploadFirmware()"
               :disabled="filesToUpload.length == 0 || selectedPlatform == null"
+              @click="uploadFirmware()"
             >
-              <v-icon>mdi-upload</v-icon
-              ><span v-if="smAndUp" class="ml-2">Upload</span>
+              <v-icon>mdi-upload</v-icon><span
+                v-if="smAndUp"
+                class="ml-2"
+              >Upload</span>
             </v-btn>
           </v-col>
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text
         v-if="filesToUpload.length > 0"
@@ -196,42 +230,57 @@ function selectAllFirmware() {
       >
         <v-row
           v-for="file in filesToUpload"
+          :key="file.name"
           class="py-2 align-center"
           no-gutters
         >
-          <v-col cols="6" sm="9">
+          <v-col
+            cols="6"
+            sm="9"
+          >
             <span>{{ file.name }}</span>
           </v-col>
-          <v-col cols="4" sm="2">
-            [<span class="text-romm-accent-1">{{ formatBytes(file.size) }}</span
-            >]
+          <v-col
+            cols="4"
+            sm="2"
+          >
+            [<span class="text-romm-accent-1">{{ formatBytes(file.size) }}</span>]
           </v-col>
-          <v-col cols="2" sm="1"
-            ><v-btn
-              @click="removeFileFromList(file.name)"
+          <v-col
+            cols="2"
+            sm="1"
+          >
+            <v-btn
               icon
               size="x-small"
               rounded="0"
               variant="text"
               class="pa-0 ma-0"
-              ><v-icon class="text-romm-red">mdi-delete</v-icon></v-btn
-            ></v-col
-          >
+              @click="removeFileFromList(file.name)"
+            >
+              <v-icon class="text-romm-red">
+                mdi-delete
+              </v-icon>
+            </v-btn>
+          </v-col>
         </v-row>
       </v-card-text>
 
       <v-card-text
-        class="my-4 py-0"
         v-if="
           selectedPlatform?.firmware != undefined &&
-          selectedPlatform?.firmware?.length > 0
+            selectedPlatform?.firmware?.length > 0
         "
+        class="my-4 py-0"
       >
-        <v-list rounded="0" class="pa-0">
+        <v-list
+          rounded="0"
+          class="pa-0"
+        >
           <v-list-item
-            class="px-3"
             v-for="firmware in selectedPlatform?.firmware ?? []"
             :key="firmware.id"
+            class="px-3"
           >
             <template #prepend>
               <v-checkbox
@@ -276,11 +325,19 @@ function selectAllFirmware() {
         </v-list>
       </v-card-text>
 
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="5" sm="3">
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="5"
+            sm="3"
+          >
             <v-btn
-              @click="selectAllFirmware()"
               class="bg-terciary ml-3"
               rounded="0"
               variant="text"
@@ -290,12 +347,15 @@ function selectAllFirmware() {
                   selectedPlatform?.firmware?.length > 0
                 )
               "
+              @click="selectAllFirmware()"
             >
-              <v-icon class="pr-2">{{
-                allFirmwareSelected()
-                  ? "mdi-checkbox-marked"
-                  : "mdi-checkbox-blank-outline"
-              }}</v-icon>
+              <v-icon class="pr-2">
+                {{
+                  allFirmwareSelected()
+                    ? "mdi-checkbox-marked"
+                    : "mdi-checkbox-blank-outline"
+                }}
+              </v-icon>
               <span v-if="smAndUp">{{
                 allFirmwareSelected() ? "Unselect all" : "Select all"
               }}</span>
@@ -305,24 +365,30 @@ function selectAllFirmware() {
             <v-btn
               :icon="!smAndUp ?? 'mdi-download'"
               :disabled="!selectedFirmware.length"
-              @click="downloadFirmware()"
               rounded="0"
               variant="text"
               class="my-3 bg-terciary"
+              @click="downloadFirmware()"
             >
               <v-icon>mdi-download</v-icon>
-              <span v-if="smAndUp" class="ml-2">Download</span>
+              <span
+                v-if="smAndUp"
+                class="ml-2"
+              >Download</span>
             </v-btn>
             <v-btn
               :icon="!smAndUp ?? 'mdi-delete'"
               :disabled="!selectedFirmware.length"
-              @click="deleteFirmware()"
               rounded="0"
               variant="text"
               class="my-3 mr-3 bg-terciary text-romm-red"
+              @click="deleteFirmware()"
             >
               <v-icon>mdi-delete</v-icon>
-              <span v-if="smAndUp" class="ml-2">Delete</span>
+              <span
+                v-if="smAndUp"
+                class="ml-2"
+              >Delete</span>
             </v-btn>
           </v-col>
         </v-row>

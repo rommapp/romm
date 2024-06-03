@@ -37,13 +37,13 @@ function onFullScreenChange() {
     <v-col cols="5" class="text-truncate mx-1">
       <v-select
         v-if="supportedCores.length > 1"
+        v-model="coreRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="Core"
-        v-model="coreRef"
         :items="
           supportedCores.map((c) => ({
             title: c,
@@ -52,13 +52,13 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="biosRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="BIOS"
-        v-model="biosRef"
         :items="
           props.platform.firmware?.map((f) => ({
             title: f.file_name,
@@ -67,13 +67,13 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="saveRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="Save"
-        v-model="saveRef"
         :items="
           props.rom.user_saves?.map((s) => ({
             title: s.file_name,
@@ -83,13 +83,13 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="stateRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="State"
-        v-model="stateRef"
         :items="
           props.rom.user_states?.map((s) => ({
             title: s.file_name,
@@ -112,11 +112,11 @@ function onFullScreenChange() {
         ]"
       /> -->
       <v-checkbox
-        hide-details
         v-model="fullScreenOnPlay"
-        @change="onFullScreenChange"
+        hide-details
         color="romm-accent-1"
         label="Full screen"
+        @change="onFullScreenChange"
       />
     </v-col>
     <v-col cols="6" class="mx-1">
@@ -132,7 +132,7 @@ function onFullScreenChange() {
     </v-col>
   </v-row>
 
-  <v-row no-gutters class="align-center mt-6" v-if="!gameRunning">
+  <v-row v-if="!gameRunning" no-gutters class="align-center mt-6">
     <v-col cols="5">
       <v-btn
         block
@@ -142,7 +142,7 @@ function onFullScreenChange() {
         size="x-large"
         @click="onPlay()"
       >
-        <v-icon class="mr-2">mdi-play</v-icon>Play
+        <v-icon class="mr-2"> mdi-play </v-icon>Play
       </v-btn>
     </v-col>
     <v-spacer />
@@ -152,7 +152,7 @@ function onFullScreenChange() {
   </v-row>
 
   <v-row no-gutters>
-    <v-col v-if="gameRunning" cols="12" rounded id="game-wrapper">
+    <v-col v-if="gameRunning" id="game-wrapper" cols="12" rounded>
       <player
         :rom="props.rom"
         :state="stateRef"

@@ -3,22 +3,19 @@ package-mode = false
 name = "romm"
 version = "0.0.1"
 description = "A beautiful, powerful, self-hosted rom manager"
-license = "GNU GPLv3"
+license = "GNU AGPLv3"
 repository = "https://github.com/rommapp/romm"
-authors = [
-    "Zurdi <https://github.com/zurdi15/>",
-    "Georges-Antoine Assi <contact@me.gantoine.com>",
-]
+authors = ["Zurdi <zurdi@romm.app>", "Arcane <arcane@romm.app>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-requests = "2.32.0"
+requests = "^2.32.2"
 fastapi = "0.110.0"
 uvicorn = "0.29.0"
 gunicorn = "22.0.0"
 websockets = "12.0"
 python-socketio = "5.11.1"
-SQLAlchemy = {extras = ["mypy"], version = "^2.0.28"}
+SQLAlchemy = { extras = ["mypy"], version = "^2.0.30" }
 alembic = "1.13.1"
 PyYAML = "6.0.1"
 Unidecode = "1.3.8"
@@ -32,7 +29,7 @@ aioredis = "^2.0.1"
 types-pyyaml = "^6.0.12.20240311"
 types-requests = "^2.31.0.20240311"
 types-redis = "^4.6.0.20240311 "
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 itsdangerous = "^2.1.2"
 stream-zip = "^0.0.71"
 rq-scheduler = "^0.13.1"
@@ -56,8 +53,3 @@ pytest-asyncio = "^0.23.5"
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
 mypy = "^1.10.0"
-
-[tool.mypy]
-plugins = "sqlalchemy.ext.mypy.plugin"
-check_untyped_defs = true
-exclude = ["tests", "alembic"]

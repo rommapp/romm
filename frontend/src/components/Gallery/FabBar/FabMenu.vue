@@ -94,8 +94,8 @@ function onDownload() {
   >
     <template #activator="{ props }">
       <v-btn
-        v-bind="props"
         v-if="auth.scopes.includes('roms.write')"
+        v-bind="props"
         color="terciary"
         elevation="8"
         icon
@@ -135,15 +135,15 @@ function onDownload() {
   >
     <template #activator="{ props }">
       <v-btn
-        v-bind="props"
         v-if="auth.scopes.includes('roms.write')"
+        v-bind="props"
         color="terciary"
         elevation="8"
         icon
         class="mb-3 ml-1"
         @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
       >
-        <v-icon color="romm-red">mdi-delete</v-icon>
+        <v-icon color="romm-red"> mdi-delete </v-icon>
       </v-btn>
     </template>
   </v-tooltip>

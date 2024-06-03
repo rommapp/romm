@@ -13,11 +13,12 @@ const authStore = storeAuth();
 const platformsVersions = configStore.value.PLATFORMS_VERSIONS;
 const editable = ref(false);
 </script>
+
 <template>
   <v-card rounded="0">
     <v-toolbar class="bg-terciary" density="compact">
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-gamepad-variant</v-icon>
+        <v-icon class="mr-3"> mdi-gamepad-variant </v-icon>
         Platforms Versions
       </v-toolbar-title>
       <v-btn
@@ -26,10 +27,9 @@ const editable = ref(false);
         rounded="0"
         size="small"
         variant="text"
-        @click="editable = !editable"
         icon="mdi-cog"
-      >
-      </v-btn>
+        @click="editable = !editable"
+      />
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
@@ -37,13 +37,13 @@ const editable = ref(false);
     <v-card-text class="pa-1">
       <v-row no-gutters class="align-center">
         <v-col
+          v-for="(slug, fsSlug) in platformsVersions"
+          :key="slug"
           cols="6"
           sm="4"
           md="3"
           lg="2"
           xl="2"
-          v-for="(slug, fsSlug) in platformsVersions"
-          :key="slug"
           :title="slug"
         >
           <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
@@ -64,13 +64,13 @@ const editable = ref(false);
                     variant="text"
                     size="x-small"
                     icon="mdi-pencil"
+                    class="ml-2"
                     @click="
                       emitter?.emit('showCreatePlatformVersionDialog', {
                         fsSlug,
                         slug,
                       })
                     "
-                    class="ml-2"
                   />
                 </v-slide-x-reverse-transition>
                 <v-slide-x-reverse-transition>
@@ -82,13 +82,13 @@ const editable = ref(false);
                     variant="text"
                     size="x-small"
                     icon="mdi-delete"
+                    class="text-romm-red"
                     @click="
                       emitter?.emit('showDeletePlatformVersionDialog', {
                         fsSlug,
                         slug,
                       })
                     "
-                    class="text-romm-red"
                   />
                 </v-slide-x-reverse-transition>
               </template>
