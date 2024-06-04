@@ -15,7 +15,6 @@ const combined = ref([
       class="pa-0"
       cols="4"
       sm="3"
-      md="3"
       lg="4"
       xl="6"
       v-for="expansion in combined"

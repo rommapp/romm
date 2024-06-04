@@ -86,9 +86,7 @@ function closeDialog() {
         >
           <v-col
             cols="9"
-            xs="9"
             sm="10"
-            md="10"
             lg="11"
           >
             <v-icon

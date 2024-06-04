@@ -91,7 +91,7 @@ async function stopScan() {
 <template>
   <v-row class="px-4 pt-4 align-center" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" xs="12" sm="12" md="6" xl="6" class="pr-1">
+    <v-col cols="12" md="6" class="pr-1">
       <v-autocomplete
         v-model="platformsToScan"
         label="Platforms"
@@ -120,10 +120,8 @@ async function stopScan() {
     <!-- Source options -->
     <v-col
       cols="12"
-      xs="5"
       sm="5"
       md="3"
-      xl="3"
       class="pr-1"
       :class="{ 'mt-3': smAndDown }"
     >
@@ -158,10 +156,8 @@ async function stopScan() {
     <!-- Scan options -->
     <v-col
       cols="12"
-      xs="7"
       sm="7"
       md="3"
-      xl="3"
       class="pr-1"
       :class="{ 'mt-3': smAndDown }"
     >

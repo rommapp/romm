@@ -17,8 +17,6 @@ const combined = ref([
       cols="4"
       sm="3"
       md="6"
-      lg="6"
-      xl="6"
       v-for="rom in combined"
     >
       <related-card :rom="rom" />

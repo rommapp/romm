@@ -131,9 +131,7 @@ function closeDialog() {
         >
           <v-col
             cols="9"
-            xs="9"
             sm="10"
-            md="10"
             lg="11"
           >
             <v-icon
@@ -160,7 +158,7 @@ function closeDialog() {
 
       <v-card-text>
         <v-row class="align-center" no-gutters>
-          <v-col cols="12" md="12" lg="9">
+          <v-col cols="12" lg="9">
             <v-text-field
               v-model="rom.name"
               class="py-2"
@@ -198,7 +196,6 @@ function closeDialog() {
           </v-col>
           <v-col
             cols="12"
-            md="12"
             lg="3"
             :class="{
               'my-4': mdAndDown,
