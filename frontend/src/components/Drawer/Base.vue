@@ -2,6 +2,7 @@
 import RailFooter from "@/components/Drawer/Footer.vue";
 import DrawerHeader from "@/components/Drawer/Header.vue";
 import PlatformListItem from "@/components/Platform/ListItem.vue";
+import ActionBar from "@/components/Drawer/ActionBar.vue";
 import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
@@ -31,37 +32,13 @@ emitter?.on("toggleDrawerRail", () => {
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    width="220"
+    width="230"
     rail-width="80"
     elevation="0"
   >
-    <!-- @click="emitter?.emit('showSearchRomDialog', null)" -->
     <template #prepend>
       <drawer-header :rail="rail" />
-
-      <div class="px-5 py-2">
-        <v-btn
-          block
-          color="terciary"
-          rounded="xl"
-          variant="elevated"
-          @click="emitter?.emit('showSearchRomDialog', null)"
-          ><v-icon>mdi-magnify</v-icon><span v-if="!rail">Search</span></v-btn
-        >
-      </div>
-
-      <!-- <v-list-item
-        :class="{ 'px-4': !rail }"
-        class="bg-terciary"
-        @click="emitter?.emit('showSearchRomDialog', null)"
-      >
-        <span v-if="!rail">Search</span>
-        <template #prepend>
-          <v-avatar :rounded="0" size="40">
-            <v-icon>mdi-magnify</v-icon>
-          </v-avatar>
-        </template>
-      </v-list-item> -->
+      <action-bar :rail="rail" class="mb-1" />
     </template>
 
     <v-list class="py-0">
@@ -111,7 +88,7 @@ emitter?.on("toggleDrawerRail", () => {
             </v-avatar>
           </template>
         </v-list-item>
-        <v-list-item
+        <!-- <v-list-item
           class="bg-terciary"
           @click="emitter?.emit('showUploadRomDialog', null)"
         >
@@ -123,10 +100,9 @@ emitter?.on("toggleDrawerRail", () => {
               <v-icon>mdi-upload</v-icon>
             </v-avatar>
           </template>
-        </v-list-item>
+        </v-list-item> -->
       </v-list-group>
     </v-list>
-
     <v-list class="py-0">
       <v-list-group value="Settings" fluid>
         <template #activator="{ props }">

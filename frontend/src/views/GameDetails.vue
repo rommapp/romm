@@ -126,7 +126,6 @@ watch(
       </v-col>
       <v-col
         cols="12"
-        sm="12"
         md="7"
         lg="6"
         xl="8"
@@ -138,7 +137,6 @@ watch(
       >
         <v-col
           cols="12"
-          sm="12"
           md="6"
           lg="5"
           xl="6"

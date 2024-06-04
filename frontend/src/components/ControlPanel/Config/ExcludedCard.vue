@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const authStore = storeAuth();
-
 defineProps<{
   set: string[];
   editable: boolean;

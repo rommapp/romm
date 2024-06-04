@@ -16,7 +16,7 @@ defineProps<{ rail: boolean }>();
       </router-link>
     </template>
     <template v-if="!rail" #append>
-      <rail-btn :rail="rail" />
+      <rail-btn :rail="rail" class="ml-1" />
     </template>
   </v-list-item>
   <v-list-item v-if="rail" class="pa-0">

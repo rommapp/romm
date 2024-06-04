@@ -8,15 +8,32 @@ import Tasks from "@/layouts/ControlPanel/General/Tasks.vue";
 import Theme from "@/layouts/ControlPanel/General/Theme.vue";
 import Users from "@/layouts/ControlPanel/Users/Users.vue";
 import storeAuth from "@/stores/auth";
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 // Props
 const auth = storeAuth();
-const tab = ref("general");
+const route = useRoute();
+const router = useRouter();
+const tab = ref();
+
+function onChangeTab() {
+  router.push({ name: "controlPanel", query: { tab: tab.value } });
+}
+
+onMounted(async () => {
+  tab.value = route.query.tab ? route.query.tab : "general";
+  onChangeTab();
+});
 </script>
 <template>
   <v-app-bar elevation="0" density="compact">
-    <v-tabs v-model="tab" slider-color="romm-accent-1" class="bg-primary">
+    <v-tabs
+      v-model="tab"
+      slider-color="romm-accent-1"
+      class="bg-primary"
+      @update:model-value="onChangeTab"
+    >
       <v-tab value="general" rounded="0"> General </v-tab>
       <v-tab
         v-if="auth.scopes.includes('platforms.write')"

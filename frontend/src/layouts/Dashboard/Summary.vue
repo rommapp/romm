@@ -19,7 +19,7 @@ onBeforeMount(() => {
 </script>
 <template>
   <v-card rounded="0">
-    <v-card-text class="pa-0">
+    <v-card-text class="pa-1">
       <v-row no-gutters class="flex-nowrap overflow-x-auto text-center">
         <v-col>
           <v-chip

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import RTable from "@/components/User/Table.vue";
+import UsersTable from "@/components/User/Table.vue";
+import RSection from "@/components/common/Section.vue";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
@@ -9,11 +10,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 const userSearch = ref("");
 </script>
 <template>
-  <v-card rounded="0" elevation="0">
-    <v-toolbar class="bg-terciary" density="compact">
-      <v-toolbar-title class="text-button">
-        <v-icon class="mr-3"> mdi-account-group </v-icon>Users
-      </v-toolbar-title>
+  <r-section icon="mdi-account-group" title="Users">
+    <template #toolbar-append>
       <v-btn
         prepend-icon="mdi-plus"
         variant="outlined"
@@ -22,11 +20,8 @@ const userSearch = ref("");
       >
         Add
       </v-btn>
-    </v-toolbar>
-
-    <v-divider />
-
-    <v-card-text class="pa-0">
+    </template>
+    <template #content>
       <v-text-field
         v-model="userSearch"
         prepend-inner-icon="mdi-magnify"
@@ -38,7 +33,7 @@ const userSearch = ref("");
         density="comfortable"
         class="bg-secondary"
       />
-      <r-table :user-search="userSearch" />
-    </v-card-text>
-  </v-card>
+      <users-table :user-search="userSearch" />
+    </template>
+  </r-section>
 </template>
