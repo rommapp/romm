@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import NotificationStack from "@/layouts/NotificationStack.vue";
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
 import platformApi from "@/services/api/platform";
@@ -9,6 +8,7 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeNotifications from "@/stores/notifications";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
@@ -17,7 +17,6 @@ import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted } from "vue";
-import storeNotifications from "@/stores/notifications";
 
 // Props
 const scanningStore = storeScanning();
@@ -130,8 +129,6 @@ onMounted(() => {
       console.error(error);
     });
 });
-
-
 </script>
 
 <template>
@@ -139,16 +136,6 @@ onMounted(() => {
     <v-main>
       <notification />
       <!-- <notification-stack /> -->
-      <v-btn
-        @click="
-          emitter?.emit('snackbarShow', {
-            msg: 'test notification'+notifications.length,
-            icon: 'mdi-check-bold',
-            color: 'green',
-          })
-        "
-        >Add</v-btn
-      >
       <router-view />
     </v-main>
   </v-app>

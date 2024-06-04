@@ -4,7 +4,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, nextTick } from "vue";
+import { inject, nextTick, ref } from "vue";
 
 // Props
 const showFilterBar = ref(false);
@@ -12,7 +12,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filterBarShow", () => {
   showFilterBar.value = !showFilterBar.value;
 });
-emitter?.on("filterBarReset", () => {});
 
 const galleryFilterStore = storeGalleryFilter();
 const {
@@ -24,11 +23,9 @@ const {
 </script>
 
 <template>
-  <div v-if="showFilterBar">
-    <v-row
-      no-gutters
-      class="pa-1"
-    >
+  <!-- TODO: try secondary drawer to filter -->
+  <v-app-bar v-if="showFilterBar" elevation="0" density="comfortable">
+    <v-row no-gutters class="px-1">
       <filter-unmatched-btn />
       <v-autocomplete
         v-model="selectedGenre"
@@ -75,10 +72,5 @@ const {
         @update:model-value="nextTick(() => emitter?.emit('filter', null))"
       />
     </v-row>
-    <v-divider
-      :thickness="2"
-      class="mx-2 border-opacity-25"
-      color="romm-accent-1"
-    />
-  </div>
+  </v-app-bar>
 </template>
