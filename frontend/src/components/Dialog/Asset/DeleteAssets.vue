@@ -99,7 +99,7 @@ function closeDialog() {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+          <v-col cols="9" sm="10" lg="11">
             <v-icon icon="mdi-delete" class="ml-5" />
           </v-col>
           <v-col>

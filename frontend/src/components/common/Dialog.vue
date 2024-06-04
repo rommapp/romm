@@ -61,14 +61,14 @@ onMounted(() => {
     >
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
-          <v-col cols="10" xs="10" sm="11" md="11" lg="11">
+          <v-col cols="10" sm="11">
             <v-icon v-if="icon" :icon="icon" class="ml-5" />
             <v-avatar v-if="showRommIcon" :rounded="0" :size="30" class="mx-4"
               ><v-img src="/assets/isotipo.svg"
             /></v-avatar>
             <slot name="header"></slot>
           </v-col>
-          <v-col cols="2" xs="2" sm="1" md="1" lg="1">
+          <v-col cols="2" sm="1">
             <v-btn
               @click="closeDialog"
               rounded="0"

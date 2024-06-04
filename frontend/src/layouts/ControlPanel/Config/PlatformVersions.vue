@@ -39,7 +39,6 @@ const editable = ref(false);
           sm="4"
           md="3"
           lg="2"
-          xl="2"
           :title="slug"
         >
           <platform-bind-card

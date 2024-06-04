@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
-        <v-col cols="5" xs="5" sm="5" md="6" lg="8">
+        <v-col cols="5" md="6" lg="8">
           <v-text-field
             id="search-text-field"
             @keyup.enter="searchRom()"
@@ -230,7 +230,7 @@ onBeforeUnmount(() => {
             clearable
           />
         </v-col>
-        <v-col cols="3" xs="3" sm="3" md="2" lg="2">
+        <v-col cols="3" md="2">
           <v-select
             label="by"
             class="bg-terciary"
@@ -240,7 +240,7 @@ onBeforeUnmount(() => {
           />
         </v-col>
 
-        <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+        <v-col cols="2" lg="1">
           <v-tooltip
             location="top"
             class="tooltip"
@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
                 icon="mdi-layers-search-outline"
                 block /></template></v-tooltip
         ></v-col>
-        <v-col cols="2" xs="2" sm="2" md="2" lg="1">
+        <v-col cols="2" lg="1">
           <v-btn
             type="submit"
             @click="searchRom()"
