@@ -98,7 +98,6 @@ onBeforeUnmount(() => {
 <template>
   <r-dialog
     v-model="show"
-    show-romm-icon
     icon="mdi-magnify"
     :loading-condition="searching"
     :empty-state-condition="searchedRoms?.length == 0 && searched"

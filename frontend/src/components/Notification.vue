@@ -3,9 +3,11 @@ import type { Events, SnackbarStatus } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import storeNotifications from "@/stores/notifications";
 import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
 const show = ref(false);
+const { xs, mdAndDown, lgAndUp } = useDisplay();
 const snackbarStatus = ref<SnackbarStatus>({ msg: "" });
 const notificationStore = storeNotifications();
 
@@ -30,7 +32,7 @@ function closeDialog() {
     v-model="show"
     :timeout="snackbarStatus.timeout ? snackbarStatus.timeout : 3000"
     @timeout="closeDialog"
-    location="top right"
+    :location="xs ? 'top' : 'top right'"
     color="tooltip"
   >
     <v-icon

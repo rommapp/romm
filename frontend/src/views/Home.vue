@@ -51,6 +51,7 @@ emitter?.on("refreshView", async () => {
     color="romm-accent-1"
     :active="scanning"
     :indeterminate="true"
+    absolute
   />
   <drawer />
   <mobile-app-bar v-if="mdAndDown" />
@@ -75,3 +76,8 @@ emitter?.on("refreshView", async () => {
   <delete-user-dialog />
   <loading-view />
 </template>
+<style scoped>
+.v-progress-linear {
+  z-index: 9999 !important;
+}
+</style>

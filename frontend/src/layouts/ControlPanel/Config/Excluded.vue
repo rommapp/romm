@@ -56,6 +56,7 @@ const editable = ref(false);
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
+        disabled
         class="ma-2"
         rounded="0"
         size="small"
