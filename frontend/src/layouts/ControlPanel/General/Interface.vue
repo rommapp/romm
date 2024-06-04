@@ -88,7 +88,7 @@ const options = computed(() => [
       <v-row no-gutters>
         <v-col cols="12" md="6" v-for="option in options" :key="option.title">
           <interface-option
-            class="my-2"
+            class="mx-2"
             :disabled="option.disabled"
             :title="option.title"
             :description="option.description"

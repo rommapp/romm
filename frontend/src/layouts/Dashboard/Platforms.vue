@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlatformCard from "@/components/Platform/Card.vue";
+import RSection from "@/components/common/Section.vue";
 import storePlatforms from "@/stores/platforms";
 import { views } from "@/utils";
 
@@ -7,15 +8,9 @@ import { views } from "@/utils";
 const platforms = storePlatforms();
 </script>
 <template>
-  <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
-      <v-toolbar-title class="text-button">
-        <v-icon class="mr-3"> mdi-controller </v-icon>Platforms
-      </v-toolbar-title>
-    </v-toolbar>
-    <v-divider class="border-opacity-25" />
-    <v-card-text>
-      <v-row>
+  <r-section icon="mdi-controller" title="Platforms">
+    <template #content>
+      <v-row no-gutters>
         <v-col
           v-for="platform in platforms.filledPlatforms"
           :key="platform.slug"
@@ -30,6 +25,6 @@ const platforms = storePlatforms();
           <platform-card :key="platform.slug" :platform="platform" />
         </v-col>
       </v-row>
-    </v-card-text>
-  </v-card>
+    </template>
+  </r-section>
 </template>

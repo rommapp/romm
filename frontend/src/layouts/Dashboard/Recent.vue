@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GameCard from "@/components/Game/Card/Base.vue";
+import RSection from "@/components/common/Section.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
@@ -27,19 +28,13 @@ onMounted(() => {
 });
 </script>
 <template>
-  <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
-      <v-toolbar-title class="text-button">
-        <v-icon class="mr-3"> mdi-shimmer </v-icon>Recently added
-      </v-toolbar-title>
-    </v-toolbar>
-    <v-divider class="border-opacity-25" />
-    <v-card-text>
-      <v-row class="flex-nowrap overflow-x-auto">
+  <r-section icon="mdi-shimmer" title="Recently added">
+    <template #content>
+      <v-row class="flex-nowrap overflow-x-auto" no-gutters>
         <v-col
           v-for="rom in romsStore.recentRoms"
           :key="rom.id"
-          class="pa-1 pb-2"
+          class="px-1 pt-1 pb-2"
           :cols="views[0]['size-cols']"
           :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"
@@ -57,6 +52,7 @@ onMounted(() => {
       </v-row>
       <!-- TODO: Check recently added games in the last 30 days -->
       <!-- TODO: Add a button to upload roms if no roms were uploaded in the last 30 days -->
-    </v-card-text>
-  </v-card>
+    </template>
+  </r-section>
+
 </template>

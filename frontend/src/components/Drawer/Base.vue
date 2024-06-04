@@ -35,10 +35,22 @@ emitter?.on("toggleDrawerRail", () => {
     rail-width="80"
     elevation="0"
   >
+    <!-- @click="emitter?.emit('showSearchRomDialog', null)" -->
     <template #prepend>
       <drawer-header :rail="rail" />
-      <v-divider />
-      <v-list-item
+
+      <div class="px-5 py-2">
+        <v-btn
+          block
+          color="terciary"
+          rounded="xl"
+          variant="elevated"
+          @click="emitter?.emit('showSearchRomDialog', null)"
+          ><v-icon>mdi-magnify</v-icon><span v-if="!rail">Search</span></v-btn
+        >
+      </div>
+
+      <!-- <v-list-item
         :class="{ 'px-4': !rail }"
         class="bg-terciary"
         @click="emitter?.emit('showSearchRomDialog', null)"
@@ -49,8 +61,7 @@ emitter?.on("toggleDrawerRail", () => {
             <v-icon>mdi-magnify</v-icon>
           </v-avatar>
         </template>
-      </v-list-item>
-      <v-divider />
+      </v-list-item> -->
     </template>
 
     <v-list class="py-0">
@@ -142,7 +153,7 @@ emitter?.on("toggleDrawerRail", () => {
     </v-list>
 
     <template v-if="auth.enabled" #append>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider />
       <rail-footer :rail="rail" />
     </template>
   </v-navigation-drawer>

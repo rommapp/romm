@@ -19,33 +19,56 @@ onBeforeMount(() => {
 </script>
 <template>
   <v-card rounded="0">
-    <v-card-text class="pa-1 scroll">
-      <v-row no-gutters class="flex-nowrap overflow-x-auto py-1">
+    <v-card-text class="pa-0">
+      <v-row no-gutters class="flex-nowrap overflow-x-auto text-center">
         <v-col>
-          <v-chip class="text-overline" variant="text" label>
-            <v-icon class="mr-2"> mdi-controller </v-icon
-            >{{ stats.PLATFORMS }} Platforms
+          <v-chip
+            class="text-overline"
+            prepend-icon="mdi-controller"
+            variant="text"
+            label
+          >
+            {{ stats.PLATFORMS }} Platforms
           </v-chip>
         </v-col>
         <v-col>
-          <v-chip class="text-overline" variant="text" label>
-            <v-icon class="mr-2"> mdi-disc </v-icon>{{ stats.ROMS }} Games
+          <v-chip
+            class="text-overline"
+            prepend-icon="mdi-disc"
+            variant="text"
+            label
+          >
+            {{ stats.ROMS }} Games
           </v-chip>
         </v-col>
         <v-col>
-          <v-chip class="text-overline" variant="text" label>
-            <v-icon class="mr-2"> mdi-file </v-icon>{{ stats.SAVES }} Saves
+          <v-chip
+            class="text-overline"
+            prepend-icon="mdi-content-save"
+            variant="text"
+            label
+          >
+            {{ stats.SAVES }} Saves
           </v-chip>
         </v-col>
         <v-col>
-          <v-chip class="text-overline" variant="text" label>
-            <v-icon class="mr-2"> mdi-file </v-icon>{{ stats.STATES }} States
+          <v-chip
+            class="text-overline"
+            prepend-icon="mdi-file"
+            variant="text"
+            label
+          >
+            {{ stats.STATES }} States
           </v-chip>
         </v-col>
         <v-col>
-          <v-chip class="text-overline" variant="text" label>
-            <v-icon class="mr-2"> mdi-image </v-icon
-            >{{ stats.SCREENSHOTS }} Screenshots
+          <v-chip
+            class="text-overline"
+            prepend-icon="mdi-image-area"
+            variant="text"
+            label
+          >
+            {{ stats.SCREENSHOTS }} Screenshots
           </v-chip>
         </v-col>
       </v-row>

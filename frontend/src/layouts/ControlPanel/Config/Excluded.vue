@@ -1,263 +1,80 @@
 <script setup lang="ts">
-import storeConfig from "@/stores/config";
+import RSection from "@/components/common/Section.vue";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import ExcludedCard from "@/components/ControlPanel/Config/ExcludedCard.vue";
 import { inject, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const authStore = storeAuth();
-const excluded_platforms = configStore.value.EXCLUDED_PLATFORMS;
-const excludad_single_roms_files = configStore.value.EXCLUDED_SINGLE_FILES;
-const excludad_single_roms_ext = configStore.value.EXCLUDED_SINGLE_EXT;
-const excludad_multi_roms_files = configStore.value.EXCLUDED_MULTI_FILES;
-const excludad_multi_roms_parts_files =
-  configStore.value.EXCLUDED_MULTI_PARTS_FILES;
-const excludad_multi_roms_parts_ext =
-  configStore.value.EXCLUDED_MULTI_PARTS_EXT;
+const exclusions = [
+  {
+    set: configStore.value.EXCLUDED_PLATFORMS,
+    title: "Platform",
+    icon: "mdi-controller-off",
+    emit: "platform",
+  },
+  {
+    set: configStore.value.EXCLUDED_SINGLE_FILES,
+    title: "Single rom files",
+    icon: "mdi-file-document-remove-outline",
+    emit: "singleFile",
+  },
+  {
+    set: configStore.value.EXCLUDED_SINGLE_EXT,
+    title: "Single Roms Extensions",
+    icon: "mdi-file-document-remove-outline",
+    emit: "singleFileExt",
+  },
+  {
+    set: configStore.value.EXCLUDED_MULTI_FILES,
+    title: "Multi Roms Files",
+    icon: "mdi-file-document-remove-outline",
+    emit: "multiFile",
+  },
+  {
+    set: configStore.value.EXCLUDED_MULTI_PARTS_FILES,
+    title: "Multi Roms Parts Files",
+    icon: "mdi-file-document-remove-outline",
+    emit: "multiFilePart",
+  },
+  {
+    set: configStore.value.EXCLUDED_MULTI_PARTS_EXT,
+    title: "Multi Roms Parts Extensions",
+    icon: "mdi-file-document-remove-outline",
+    emit: "multiFilePartExt",
+  },
+];
 const editable = ref(false);
 </script>
 <template>
-  <v-card rounded="0">
-    <v-toolbar
-      class="bg-terciary"
-      density="compact"
-    >
-      <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">
-          mdi-cancel
-        </v-icon>
-        Excluded
-      </v-toolbar-title>
+  <r-section icon="mdi-cancel" title="Excluded">
+    <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
         class="ma-2"
         rounded="0"
         size="small"
+        :color="editable ? 'romm-accent-1' : ''"
         variant="text"
         icon="mdi-cog"
-        disabled
         @click="editable = !editable"
       />
-    </v-toolbar>
-
-    <v-divider class="border-opacity-25" />
-
-    <v-card-text class="pa-1">
-      <v-row
-        no-gutters
-        class="bg-terciary mt-1 mb-2 px-3"
-      >
-        <v-toolbar-title class="pa-2 text-body-1">
-          <v-icon>mdi-controller-off</v-icon>
-          Platforms
-        </v-toolbar-title>
-        <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters>
-          <v-col class="pa-1">
-            <v-chip
-              v-for="excluded in excluded_platforms"
-              :key="excluded"
-              label
-              class="ma-1"
-            >
-              {{
-                excluded
-              }}
-            </v-chip>
-            <v-expand-transition>
-              <v-btn
-                v-if="authStore.scopes.includes('platforms.write') && editable"
-                rounded="1"
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                class="text-romm-accent-1 ml-1"
-                @click="
-                  emitter?.emit('showCreateExclusionDialog', {
-                    exclude: 'platforms',
-                  })
-                "
-              >
-                Add
-              </v-btn>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
-      </v-row>
-
-      <v-row
-        no-gutters
-        class="bg-terciary mt-1 mb-2 px-3"
-      >
-        <v-toolbar-title class="pa-2 text-body-1">
-          <v-icon>mdi-file-document-remove-outline</v-icon>
-          Single Roms Files
-        </v-toolbar-title>
-        <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters>
-          <v-col class="pa-1">
-            <v-chip
-              v-for="excluded in excludad_single_roms_files"
-              :key="excluded"
-              label
-              class="ma-1"
-            >
-              {{ excluded }}
-            </v-chip>
-            <v-expand-transition>
-              <v-btn
-                v-if="authStore.scopes.includes('platforms.write') && editable"
-                rounded="1"
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                class="text-romm-accent-1 ml-1"
-              >
-                Add
-              </v-btn>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
-      </v-row>
-
-      <v-row
-        no-gutters
-        class="bg-terciary mt-1 mb-2 px-3"
-      >
-        <v-toolbar-title class="pa-2 text-body-1">
-          <v-icon>mdi-file-document-remove-outline</v-icon>
-          Single Roms Extensions
-        </v-toolbar-title>
-        <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters>
-          <v-col class="pa-1">
-            <v-chip
-              v-for="excluded in excludad_single_roms_ext"
-              :key="excluded"
-              label
-              class="ma-1"
-            >
-              {{ excluded }}
-            </v-chip>
-            <v-expand-transition>
-              <v-btn
-                v-if="authStore.scopes.includes('platforms.write') && editable"
-                rounded="1"
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                class="text-romm-accent-1 ml-1"
-              >
-                Add
-              </v-btn>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
-      </v-row>
-
-      <v-row
-        no-gutters
-        class="bg-terciary mt-1 mb-2 px-3"
-      >
-        <v-toolbar-title class="pa-2 text-body-1">
-          <v-icon>mdi-file-document-remove-outline</v-icon>
-          Multi Roms Files
-        </v-toolbar-title>
-        <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters>
-          <v-col class="pa-1">
-            <v-chip
-              v-for="excluded in excludad_multi_roms_files"
-              :key="excluded"
-              label
-              class="ma-1"
-            >
-              {{ excluded }}
-            </v-chip>
-            <v-expand-transition>
-              <v-btn
-                v-if="authStore.scopes.includes('platforms.write') && editable"
-                rounded="1"
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                class="text-romm-accent-1 ml-1"
-              >
-                Add
-              </v-btn>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
-      </v-row>
-
-      <v-row
-        no-gutters
-        class="bg-terciary mt-1 mb-2 px-3"
-      >
-        <v-toolbar-title class="pa-2 text-body-1">
-          <v-icon>mdi-file-document-remove-outline</v-icon>
-          Multi Roms Parts Files
-        </v-toolbar-title>
-        <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters>
-          <v-col class="pa-1">
-            <v-chip
-              v-for="excluded in excludad_multi_roms_parts_files"
-              :key="excluded"
-              label
-              class="ma-1"
-            >
-              {{ excluded }}
-            </v-chip>
-            <v-expand-transition>
-              <v-btn
-                v-if="authStore.scopes.includes('platforms.write') && editable"
-                rounded="1"
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                class="text-romm-accent-1 ml-1"
-              >
-                Add
-              </v-btn>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
-      </v-row>
-
-      <v-row
-        no-gutters
-        class="bg-terciary mt-1 mb-2 px-3"
-      >
-        <v-toolbar-title class="pa-2 text-body-1">
-          <v-icon>mdi-file-document-remove-outline</v-icon>
-          Multi Roms Parts Extensions
-        </v-toolbar-title>
-        <v-divider class="border-opacity-25 mb-1" />
-        <v-row no-gutters>
-          <v-col class="pa-1">
-            <v-chip
-              v-for="excluded in excludad_multi_roms_parts_ext"
-              :key="excluded"
-              label
-              class="ma-1"
-            >
-              {{ excluded }}
-            </v-chip>
-            <v-expand-transition>
-              <v-btn
-                v-if="authStore.scopes.includes('platforms.write') && editable"
-                rounded="1"
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                class="text-romm-accent-1 ml-1"
-              >
-                Add
-              </v-btn>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
-      </v-row>
-    </v-card-text>
-  </v-card>
+    </template>
+    <template #content>
+      <excluded-card
+        v-for="exclusion in exclusions"
+        class="mb-1"
+        :set="exclusion.set"
+        :emit="exclusion.emit"
+        :title="exclusion.title"
+        :icon="exclusion.icon"
+        :editable="editable && authStore.scopes.includes('platforms.write')"
+      />
+    </template>
+  </r-section>
 </template>
-
-<style scoped></style>

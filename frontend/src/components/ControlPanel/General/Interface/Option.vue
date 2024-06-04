@@ -15,7 +15,7 @@ const emit = defineEmits(["update:modelValue"]);
 </script>
 <template>
   <v-card elevation="0">
-    <v-list-item class="pa-0"
+    <v-list-item class="pa-1"
       ><template #prepend
         ><v-icon :class="modelValue ? 'text-romm-accent-1' : ''" :icon="icon"
       /></template>

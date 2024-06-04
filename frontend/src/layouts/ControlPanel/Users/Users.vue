@@ -24,7 +24,7 @@ const userSearch = ref("");
       </v-btn>
     </v-toolbar>
 
-    <v-divider class="border-opacity-25" />
+    <v-divider />
 
     <v-card-text class="pa-0">
       <v-text-field
