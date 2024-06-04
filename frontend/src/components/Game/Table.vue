@@ -187,7 +187,7 @@ onMounted(() => {
     </template>
 
     <template #bottom>
-      <v-divider class="border-opacity-25" />
+      <v-divider />
       <v-row no-gutters class="pt-2 align-center">
         <v-col cols="11" class="px-6">
           <v-pagination

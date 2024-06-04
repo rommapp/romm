@@ -109,8 +109,8 @@ function closeDialog() {
         </v-row>
       </v-toolbar>
       <v-divider
-        class="border-opacity-25"
-        :thickness="1"
+        
+        
       />
       <v-card-text>
         <v-row
@@ -161,8 +161,8 @@ function closeDialog() {
       </v-card-text>
 
       <v-divider
-        class="border-opacity-25"
-        :thickness="1"
+        
+        
       />
       <v-toolbar
         class="bg-terciary"

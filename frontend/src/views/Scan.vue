@@ -89,8 +89,8 @@ async function stopScan() {
 </script>
 
 <template>
-  <!-- Platform selector -->
   <v-row class="px-4 pt-4 align-center" no-gutters>
+    <!-- Platform selector -->
     <v-col cols="12" xs="12" sm="12" md="6" xl="6" class="pr-1">
       <v-autocomplete
         v-model="platformsToScan"
@@ -116,6 +116,8 @@ async function stopScan() {
         </template>
       </v-autocomplete>
     </v-col>
+
+    <!-- Source options -->
     <v-col
       cols="12"
       xs="5"
@@ -153,6 +155,7 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
+    <!-- Scan options -->
     <v-col
       cols="12"
       xs="7"
@@ -162,7 +165,6 @@ async function stopScan() {
       class="pr-1"
       :class="{ 'mt-3': smAndDown }"
     >
-      <!-- Scan options -->
       <v-select
         v-model="scanType"
         hide-details
@@ -178,6 +180,7 @@ async function stopScan() {
     </v-col>
   </v-row>
 
+  <!-- Scan buttons -->
   <v-row class="pa-4 align-center" no-gutters>
     <v-btn
       :disabled="scanning || metadataSources.length == 0"
@@ -221,7 +224,7 @@ async function stopScan() {
   <v-divider
     class="border-opacity-100 mx-4"
     color="romm-accent-1"
-    :thickness="1"
+    
   />
 
   <!-- Scan log -->

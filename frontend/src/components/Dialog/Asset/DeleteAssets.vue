@@ -49,9 +49,10 @@ async function deleteAssets() {
     .then(() => {
       if (romRef.value?.[assetType.value]) {
         const deletedAssetIds = assets.value.map((asset) => asset.id);
-        romRef.value[assetType.value] = romRef.value[assetType.value]?.filter(
-          (asset) => !deletedAssetIds.includes(asset.id)
-        ) ?? [];
+        romRef.value[assetType.value] =
+          romRef.value[assetType.value]?.filter(
+            (asset) => !deletedAssetIds.includes(asset.id)
+          ) ?? [];
         romsStore.update(romRef.value);
         emitter?.emit("romUpdated", romRef.value);
       }
@@ -65,7 +66,8 @@ async function deleteAssets() {
         color: "red",
         timeout: 4000,
       });
-    }).finally(() => {
+    })
+    .finally(() => {
       closeDialog();
     });
 }
@@ -95,25 +97,10 @@ function closeDialog() {
         'delete-content-mobile': xs,
       }"
     >
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="9"
-            xs="9"
-            sm="10"
-            md="10"
-            lg="11"
-          >
-            <v-icon
-              icon="mdi-delete"
-              class="ml-5"
-            />
+      <v-toolbar density="compact" class="bg-terciary">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
+            <v-icon icon="mdi-delete" class="ml-5" />
           </v-col>
           <v-col>
             <v-btn
@@ -127,25 +114,16 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider
-        class="border-opacity-25"
-        :thickness="1"
-      />
+      <v-divider />
       <v-card-text>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
+        <v-row class="justify-center pa-2" no-gutters>
           <span>Deleting the following</span>
           <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
           <span>{{ assetType }}. Do you confirm?</span>
         </v-row>
       </v-card-text>
       <v-card-text class="scroll bg-terciary py-0">
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
+        <v-row class="justify-center pa-2" no-gutters>
           <v-list class="bg-terciary py-0">
             <v-list-item
               v-for="asset in assets"
@@ -158,33 +136,16 @@ function closeDialog() {
         </v-row>
       </v-card-text>
       <v-card-text>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="text-romm-red bg-terciary ml-5"
-            @click="deleteAssets()"
-          >
+        <v-row class="justify-center pa-2" no-gutters>
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="text-romm-red bg-terciary ml-5" @click="deleteAssets()">
             Confirm
           </v-btn>
         </v-row>
       </v-card-text>
 
-      <v-divider
-        class="border-opacity-25"
-        :thickness="1"
-      />
-      <v-toolbar
-        class="bg-terciary"
-        density="compact"
-      >
+      <v-divider />
+      <v-toolbar class="bg-terciary" density="compact">
         <v-checkbox
           v-model="deleteFromFs"
           label="Remove from filesystem"

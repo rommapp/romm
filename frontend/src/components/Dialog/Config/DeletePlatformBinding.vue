@@ -67,7 +67,7 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider  />
 
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>

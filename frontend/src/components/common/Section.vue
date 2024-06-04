@@ -17,9 +17,10 @@ withDefaults(
       <slot name="toolbar-append"></slot>
     </v-toolbar>
 
-    <v-divider class="border-opacity-25" />
+    <v-divider />
 
-    <v-card-text>
+    <!-- Check style card-text -->
+    <v-card-text class="pa-1">
       <slot name="content"></slot>
     </v-card-text>
   </v-card>

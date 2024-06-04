@@ -35,17 +35,17 @@ const tab = ref("general");
     </v-tabs>
   </v-app-bar>
 
-  <v-window v-model="tab" class="pa-1">
+  <v-window v-model="tab">
     <v-window-item value="general">
       <theme />
-      <interface class="mt-1" />
-      <tasks v-if="auth.scopes.includes('tasks.run')" class="mt-1" />
+      <interface />
+      <tasks v-if="auth.scopes.includes('tasks.run')" />
     </v-window-item>
 
     <v-window-item value="config">
       <platform-binding />
       <platform-versions />
-      <excluded class="mt-1" />
+      <excluded />
     </v-window-item>
 
     <v-window-item value="users">

@@ -31,7 +31,7 @@ const editable = ref(false);
       />
     </v-toolbar>
 
-    <v-divider class="border-opacity-25" />
+    <v-divider />
 
     <v-card-text class="pa-1">
       <v-row no-gutters class="align-center">

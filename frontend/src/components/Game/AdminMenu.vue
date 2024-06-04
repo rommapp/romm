@@ -33,7 +33,7 @@ const heartbeat = storeHeartbeat();
         }}
       </v-list-item-subtitle>
     </v-list-item>
-    <v-divider class="border-opacity-25" />
+    <v-divider />
     <v-list-item
       class="py-4 pr-5"
       @click="emitter?.emit('showEditRomDialog', { ...rom })"
@@ -45,7 +45,7 @@ const heartbeat = storeHeartbeat();
         />Edit
       </v-list-item-title>
     </v-list-item>
-    <v-divider class="border-opacity-25" />
+    <v-divider />
     <v-list-item
       class="py-4 pr-5 text-romm-red"
       @click="emitter?.emit('showDeleteRomDialog', [rom])"

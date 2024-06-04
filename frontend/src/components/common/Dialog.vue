@@ -80,13 +80,13 @@ onMounted(() => {
         </v-row>
       </v-toolbar>
 
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider />
 
       <template v-if="hasToolbarSlot">
         <v-toolbar density="compact" class="bg-primary">
           <slot name="toolbar"></slot>
         </v-toolbar>
-        <v-divider class="border-opacity-25" :thickness="1" />
+        <v-divider />
       </template>
 
       <v-card-text class="pa-1 scroll">
@@ -116,7 +116,7 @@ onMounted(() => {
         <slot name="content"></slot>
       </v-card-text>
       <template v-if="hasFooterSlot">
-        <v-divider class="border-opacity-25" :thickness="1" />
+        <v-divider />
         <v-toolbar class="bg-terciary" density="compact">
           <slot name="footer"></slot>
         </v-toolbar>

@@ -83,7 +83,7 @@ const runAllTasks = async () => {
       <v-row no-gutters class="align-center">
         <v-col cols="12" md="6" v-for="task in tasks">
           <task
-            class="my-2"
+            class="ma-3"
             :enabled="task.enabled"
             :title="task.title"
             :description="task.description"

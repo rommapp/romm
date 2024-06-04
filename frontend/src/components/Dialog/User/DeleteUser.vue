@@ -80,8 +80,8 @@ function closeDialog() {
       </v-toolbar>
 
       <v-divider
-        class="border-opacity-25"
-        :thickness="1"
+        
+        
       />
 
       <v-card-text>

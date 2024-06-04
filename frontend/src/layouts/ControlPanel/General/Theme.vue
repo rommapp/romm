@@ -49,7 +49,7 @@ function toggleTheme() {
             cols="4"
             sm="3"
             md="2"
-            class="pa-1"
+            class="pa-2"
             v-for="theme in themeOptions"
           >
             <theme-option
