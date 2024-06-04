@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { ref, inject } from "vue";
+import { inject, nextTick, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
 const isShowFilterBar = ref(false);
 function showFilterBar() {
-  emitter?.emit("filterBarShow", null);
+  nextTick(() => emitter?.emit("filterBarShow", null));
+  //  TODO: isShowFilterBar in store as global variable
   isShowFilterBar.value = !isShowFilterBar.value;
 }
 </script>

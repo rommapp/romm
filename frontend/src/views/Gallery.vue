@@ -32,14 +32,8 @@ const gettingRoms = ref(false);
 const { scrolledToTop } = storeToRefs(galleryViewStore);
 const platforms = storePlatforms();
 const romsStore = storeRoms();
-const {
-  allRoms,
-  filteredRoms,
-  selectedRoms,
-  searchRoms,
-  platformID,
-  itemsPerBatch,
-} = storeToRefs(romsStore);
+const { allRoms, filteredRoms, selectedRoms, platformID, itemsPerBatch } =
+  storeToRefs(romsStore);
 const itemsShown = ref(itemsPerBatch.value);
 const noPlatformError = ref(false);
 const router = useRouter();
@@ -65,16 +59,8 @@ async function fetchRoms() {
       searchTerm: normalizeString(galleryFilterStore.filterSearch),
     })
     .then(({ data }) => {
-      // Add any new roms to the store
-      const allRomsSet = [...allRoms.value, ...data];
-      romsStore.set(allRomsSet);
-      romsStore.setFiltered(allRomsSet, galleryFilterStore);
-
-      if (galleryFilterStore.isFiltered()) {
-        const serchedRomsSet = [...searchRoms.value, ...data];
-        romsStore.setSearch(serchedRomsSet);
-        romsStore.setFiltered(serchedRomsSet, galleryFilterStore);
-      }
+      romsStore.set(data);
+      romsStore.setFiltered(data, galleryFilterStore);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -94,6 +80,42 @@ async function fetchRoms() {
         scrim: false,
       });
     });
+}
+
+function setFilters() {
+  galleryFilterStore.setFilterGenre([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.genres.map((genre) => genre))
+        .sort()
+    ),
+  ]);
+  galleryFilterStore.setFilterFranchise([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
+        .sort()
+    ),
+  ]);
+  galleryFilterStore.setFilterCompany([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.companies.map((company) => company))
+        .sort()
+    ),
+  ]);
+  galleryFilterStore.setFilterCollection([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.collections.map((collection) => collection))
+        .sort()
+    ),
+  ]);
+}
+
+async function onFilterChange() {
+  romsStore.setFiltered(allRoms.value, galleryFilterStore);
+  emitter?.emit("updateDataTablePages", null);
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -145,47 +167,6 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-function setFilters() {
-  galleryFilterStore.setFilterGenre([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort()
-    ),
-  ]);
-  galleryFilterStore.setFilterFranchise([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort()
-    ),
-  ]);
-  galleryFilterStore.setFilterCompany([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort()
-    ),
-  ]);
-  galleryFilterStore.setFilterCollection([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort()
-    ),
-  ]);
-}
-
-async function onFilterChange() {
-  romsStore.setSearch([]);
-  if (!galleryFilterStore.isFiltered()) {
-    romsStore.setFiltered(allRoms.value, galleryFilterStore);
-    return;
-  }
-  await fetchRoms();
-  emitter?.emit("updateDataTablePages", null);
-}
-
 function onScroll() {
   window.setTimeout(async () => {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
@@ -205,8 +186,8 @@ function onScroll() {
 
 function resetGallery() {
   romsStore.reset();
-  scrolledToTop.value = true;
   galleryFilterStore.reset();
+  scrolledToTop.value = true;
   itemsShown.value = itemsPerBatch.value;
 }
 
