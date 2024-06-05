@@ -115,24 +115,18 @@ onMounted(() => {
       />
     </template>
     <template #item.actions="{ item }">
-      <v-btn
-        variant="text"
-        class="ma-1 bg-terciary"
-        size="small"
-        rounded="0"
-        @click="emitter?.emit('showEditUserDialog', item)"
-      >
-        <v-icon>mdi-pencil</v-icon>
-      </v-btn>
-      <v-btn
-        variant="text"
-        class="ma-1 bg-terciary text-romm-red"
-        size="small"
-        rounded="0"
-        @click="emitter?.emit('showDeleteUserDialog', item)"
-      >
-        <v-icon>mdi-delete</v-icon>
-      </v-btn>
+      <v-btn-group divided density="compact">
+        <v-btn size="small" @click="emitter?.emit('showEditUserDialog', item)">
+          <v-icon>mdi-pencil</v-icon>
+        </v-btn>
+        <v-btn
+          class="text-romm-red"
+          size="small"
+          @click="emitter?.emit('showDeleteUserDialog', item)"
+        >
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
     </template>
 
     <template #bottom>

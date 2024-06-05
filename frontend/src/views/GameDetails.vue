@@ -116,8 +116,8 @@ watch(
       <v-col
         class="cover"
         :class="{
-          'cover-lg': mdAndUp,
-          'cover-xs': smAndDown,
+          'cover-desktop': mdAndUp,
+          'cover-mobile': smAndDown,
         }"
       >
         <cover :rom="rom" />
@@ -142,7 +142,7 @@ watch(
           xl="6"
           class="px-0"
           :class="{
-            'position-absolute title-lg': mdAndUp,
+            'position-absolute title-desktop': mdAndUp,
             'justify-center': smAndDown,
           }"
         >
@@ -266,13 +266,13 @@ watch(
   max-width: 270px;
   max-height: 360px;
 }
-.cover-lg {
+.cover-desktop {
   margin-top: -230px;
 }
-.title-lg {
+.title-desktop {
   margin-top: -190px;
 }
-.cover-xs {
+.cover-mobile {
   margin-top: -280px;
 }
 .info-xs {

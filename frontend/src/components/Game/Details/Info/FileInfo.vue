@@ -14,43 +14,23 @@ const downloadStore = storeDownload();
     class="align-center my-3"
     no-gutters
   >
-    <v-col
-      cols="3"
-      xl="2"
-    >
+    <v-col cols="3" xl="2">
       <span>Ver.</span>
     </v-col>
     <v-col>
-      <version-switcher
-        :rom="rom"
-        :platform="platform"
-      />
+      <version-switcher :rom="rom" :platform="platform" />
     </v-col>
   </v-row>
-  <v-row
-    v-if="!rom.multi"
-    class="align-center my-3"
-    no-gutters
-  >
-    <v-col
-      cols="3"
-      xl="2"
-    >
+  <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
+    <v-col cols="3" xl="2">
       <span>File</span>
     </v-col>
     <v-col class="text-body-1">
       <span>{{ rom.file_name }}</span>
     </v-col>
   </v-row>
-  <v-row
-    v-if="rom.multi"
-    class="align-center my-3"
-    no-gutters
-  >
-    <v-col
-      cols="3"
-      xl="2"
-    >
+  <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
+    <v-col cols="3" xl="2">
       <span>Files</span>
     </v-col>
     <v-col>
@@ -70,29 +50,16 @@ const downloadStore = storeDownload();
       />
     </v-col>
   </v-row>
-  <v-row
-    class="align-center my-3"
-    no-gutters
-  >
-    <v-col
-      cols="3"
-      xl="2"
-    >
+  <v-row class="align-center my-3" no-gutters>
+    <v-col cols="3" xl="2">
       <span>Size</span>
     </v-col>
     <v-col>
       <span>{{ formatBytes(rom.file_size_bytes) }}</span>
     </v-col>
   </v-row>
-  <v-row
-    v-if="rom.tags.length > 0"
-    class="align-center my-3"
-    no-gutters
-  >
-    <v-col
-      cols="3"
-      xl="2"
-    >
+  <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
+    <v-col cols="3" xl="2">
       <span>Tags</span>
     </v-col>
     <v-col>

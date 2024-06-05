@@ -24,6 +24,7 @@ export default defineStore("roms", {
     lastSelectedIndex: -1,
     selecting: false,
     itemsPerBatch: 72,
+    gettingRoms: false,
   }),
 
   getters: {

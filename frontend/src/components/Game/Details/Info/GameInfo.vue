@@ -9,20 +9,9 @@ const galleryFilter = storeGalleryFilter();
 </script>
 <template>
   <v-divider class="mx-2 my-4" />
-  <template
-    v-for="filter in galleryFilter.filters"
-    :key="filter"
-  >
-    <v-row
-      v-if="rom[filter].length > 0"
-      class="align-center my-3"
-      no-gutters
-    >
-      <v-col
-        cols="3"
-        xl="2"
-        class="text-capitalize"
-      >
+  <template v-for="filter in galleryFilter.filters" :key="filter">
+    <v-row v-if="rom[filter].length > 0" class="align-center my-3" no-gutters>
+      <v-col cols="3" xl="2" class="text-capitalize">
         <span>{{ filter }}</span>
       </v-col>
       <v-col>

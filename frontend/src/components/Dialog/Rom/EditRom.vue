@@ -116,28 +116,15 @@ function closeDialog() {
     <v-card
       rounded="0"
       :class="{
-        'edit-content': lgAndUp,
-        'edit-content-tablet': mdAndDown,
-        'edit-content-mobile': xs,
+        'content-desktop': lgAndUp,
+        'content-tablet': mdAndDown,
+        'content-mobile': xs,
       }"
     >
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="9"
-            sm="10"
-            lg="11"
-          >
-            <v-icon
-              icon="mdi-pencil-box"
-              class="ml-5"
-            />
+      <v-toolbar density="compact" class="bg-terciary">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="9" sm="10" lg="11">
+            <v-icon icon="mdi-pencil-box" class="ml-5" />
           </v-col>
           <v-col>
             <v-btn
@@ -151,10 +138,7 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider
-        
-        
-      />
+      <v-divider />
 
       <v-card-text>
         <v-row class="align-center" no-gutters>
@@ -227,29 +211,16 @@ function closeDialog() {
                     @click="removeArtwork"
                     label
                   >
-                    <v-icon class="text-red">
-                      mdi-delete
-                    </v-icon>
+                    <v-icon class="text-red"> mdi-delete </v-icon>
                   </v-chip>
                 </v-chip-group>
               </template>
             </game-card>
           </v-col>
         </v-row>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="text-romm-green ml-5 bg-terciary"
-            @click="updateRom()"
-          >
+        <v-row class="justify-center pa-2" no-gutters>
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="text-romm-green ml-5 bg-terciary" @click="updateRom()">
             Apply
           </v-btn>
         </v-row>
@@ -259,13 +230,13 @@ function closeDialog() {
 </template>
 
 <style scoped>
-.edit-content {
+.content-desktop {
   width: 900px;
 }
-.edit-content-tablet {
+.content-tablet {
   width: 620px;
 }
-.edit-content-mobile {
+.content-mobile {
   width: 85vw;
 }
 </style>

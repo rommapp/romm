@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/Game/AdminMenu.vue";
+import RAvatar from "@/components/Game/Avatar.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
@@ -11,21 +12,31 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
+import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useTheme } from "vuetify";
-const theme = useTheme();
 
+// Props
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("updateDataTablePages", updateDataTablePages);
+const theme = useTheme();
+const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
+  ? true
+  : localStorage.getItem("settings.showSiblings") === "true";
+const router = useRouter();
+const downloadStore = storeDownload();
+const romsStore = storeRoms();
+const auth = storeAuth();
+const page = ref(1);
+const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
+const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
+const pageCount = ref(0);
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const HEADERS = [
   {
-    title: "",
-    align: "start",
-    sortable: false,
-    key: "path_cover_s",
-  },
-  {
-    title: "Name",
+    title: "Title",
     align: "start",
     sortable: true,
     key: "name",
@@ -63,20 +74,6 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
-const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("updateDataTablePages", updateDataTablePages);
-
-// Props
-const router = useRouter();
-const downloadStore = storeDownload();
-const romsStore = storeRoms();
-const auth = storeAuth();
-const page = ref(1);
-const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
-const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
-const pageCount = ref(0);
-
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: "rom", params: { rom: row.item.id } });
@@ -111,26 +108,36 @@ onMounted(() => {
     show-select
     hover
   >
-    <template #item.path_cover_s="{ item }">
-      <v-avatar :rounded="0" size="45"
-        ><v-img
-          :src="
-            !item.igdb_id && !item.moby_id && !item.has_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-              : `/assets/romm/resources/${item.path_cover_s}`
-          "
-        ></v-img
-      ></v-avatar>
-    </template>
     <template #item.name="{ item }">
-      <span>
-        {{ item.name }}
-      </span>
+      <td style="min-width: 400px">
+        <v-list-item class="px-0">
+          <template #prepend>
+            <r-avatar
+              :src="
+                !item.igdb_id && !item.moby_id && !item.has_cover
+                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                  : `/assets/romm/resources/${item.path_cover_s}`
+              "
+            />
+          </template>
+
+          <span>{{ item.name }}</span>
+          <template #append>
+            <v-chip
+              v-if="item.siblings && item.siblings.length > 0 && showSiblings"
+              class="translucent-dark ml-2"
+              size="x-small"
+            >
+              <span class="text-caption">+{{ item.siblings.length + 1 }}</span>
+            </v-chip>
+          </template>
+        </v-list-item>
+      </td>
     </template>
     <template #item.file_name="{ item }">
-      <span>
-        {{ item.file_name }}
-      </span>
+      <td style="min-width: 300px">
+        <span>{{ item.file_name }}</span>
+      </td>
     </template>
     <template #item.file_size_bytes="{ item }">
       <span>
@@ -148,47 +155,40 @@ onMounted(() => {
       </span>
     </template>
     <template #item.actions="{ item }">
-      <v-btn
-        class="ma-1 bg-terciary"
-        rounded="0"
-        :disabled="downloadStore.value.includes(item.id)"
-        download
-        size="small"
-        variant="text"
-        @click.stop="romApi.downloadRom({ rom: item })"
-      >
-        <v-icon>mdi-download</v-icon>
-      </v-btn>
-      <v-btn
-        v-if="isEmulationSupported(item.platform_slug)"
-        size="small"
-        variant="text"
-        :href="`/play/${item.id}`"
-        class="my-1 bg-terciary"
-        rounded="0"
-      >
-        <v-icon>mdi-play</v-icon>
-      </v-btn>
-      <v-menu location="bottom">
-        <template #activator="{ props }">
-          <v-btn
-            rounded="0"
-            :disabled="!auth.scopes.includes('roms.write')"
-            v-bind="props"
-            size="small"
-            variant="text"
-            class="ma-1 bg-terciary"
-          >
-            <v-icon>mdi-dots-vertical</v-icon>
-          </v-btn>
-        </template>
-        <admin-menu :rom="item" />
-      </v-menu>
+      <v-btn-group divided density="compact">
+        <v-btn
+          :disabled="downloadStore.value.includes(item.id)"
+          download
+          size="small"
+          @click.stop="romApi.downloadRom({ rom: item })"
+        >
+          <v-icon>mdi-download</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="isEmulationSupported(item.platform_slug)"
+          size="small"
+          :href="`/play/${item.id}`"
+        >
+          <v-icon>mdi-play</v-icon>
+        </v-btn>
+        <v-menu location="bottom">
+          <template #activator="{ props }">
+            <v-btn
+              :disabled="!auth.scopes.includes('roms.write')"
+              v-bind="props"
+              size="small"
+            >
+              <v-icon>mdi-dots-vertical</v-icon>
+            </v-btn>
+          </template>
+          <admin-menu :rom="item" />
+        </v-menu>
+      </v-btn-group>
     </template>
 
     <template #bottom>
       <v-divider />
-      <v-row no-gutters class="pt-2 align-center">
+      <v-row no-gutters class="pt-2 align-center justify-center">
         <v-col cols="11" class="px-6">
           <v-pagination
             v-model="page"

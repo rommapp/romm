@@ -49,63 +49,49 @@ async function copyDownloadLink(rom: DetailedRom) {
 </script>
 
 <template>
-  <v-row no-gutters>
-    <v-col>
-      <v-btn
-        :disabled="downloadStore.value.includes(rom.id)"
-        rounded="0"
-        color="primary"
-        block
-        @click="
-          romApi.downloadRom({
-            rom,
-            files: downloadStore.filesToDownloadMultiFileRom,
-          })
-        "
-      >
-        <v-icon icon="mdi-download" size="large" />
-      </v-btn>
-    </v-col>
-    <v-col>
-      <v-btn rounded="0" color="primary" block @click="copyDownloadLink(rom)">
-        <v-icon icon="mdi-content-copy" size="large" />
-      </v-btn>
-    </v-col>
-    <v-col>
-      <v-tooltip
-        class="tooltip"
-        text="Emulation not currently supported"
-        location="bottom"
-        :disabled="emulationSupported"
-      >
-        <template #activator="{ props: tooltipProps }">
-          <div v-bind="tooltipProps">
-            <v-btn
-              rounded="0"
-              block
-              :disabled="!emulationSupported"
-              @click="toggleEmulation"
-            >
-              <v-icon :icon="playInfoIcon" size="large" />
-            </v-btn>
-          </div>
-        </template>
-      </v-tooltip>
-    </v-col>
-    <v-col>
-      <v-menu location="bottom">
-        <template #activator="{ props: menuProps }">
-          <v-btn
-            :disabled="!auth.scopes.includes('roms.write')"
-            v-bind="menuProps"
-            rounded="0"
-            block
-          >
-            <v-icon icon="mdi-dots-vertical" size="large" />
-          </v-btn>
-        </template>
-        <admin-menu :rom="rom" />
-      </v-menu>
-    </v-col>
-  </v-row>
+  <v-btn-group divided density="compact" rounded="0" class="d-flex flex-row">
+    <v-btn
+      class="flex-grow-1"
+      :disabled="downloadStore.value.includes(rom.id)"
+      @click="
+        romApi.downloadRom({
+          rom,
+          files: downloadStore.filesToDownloadMultiFileRom,
+        })
+      "
+    >
+      <v-icon icon="mdi-download" size="large" />
+    </v-btn>
+    <v-btn class="flex-grow-1" @click="copyDownloadLink(rom)">
+      <v-icon icon="mdi-content-copy" />
+    </v-btn>
+    <v-tooltip
+      class="tooltip"
+      text="Emulation not currently supported"
+      location="bottom"
+      :disabled="emulationSupported"
+    >
+      <template #activator="{ props: tooltipProps }">
+        <v-btn
+          class="flex-grow-1"
+          :disabled="!emulationSupported"
+          @click="toggleEmulation"
+        >
+          <v-icon :icon="playInfoIcon" />
+        </v-btn>
+      </template>
+    </v-tooltip>
+    <v-menu location="bottom">
+      <template #activator="{ props: menuProps }">
+        <v-btn
+          class="flex-grow-1"
+          :disabled="!auth.scopes.includes('roms.write')"
+          v-bind="menuProps"
+        >
+          <v-icon icon="mdi-dots-vertical" size="large" />
+        </v-btn>
+      </template>
+      <admin-menu :rom="rom" />
+    </v-menu>
+  </v-btn-group>
 </template>

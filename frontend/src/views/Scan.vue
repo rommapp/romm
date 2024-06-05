@@ -118,13 +118,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col
-      cols="12"
-      sm="5"
-      md="3"
-      class="pr-1"
-      :class="{ 'mt-3': smAndDown }"
-    >
+    <v-col cols="12" sm="5" md="3" class="pr-1" :class="{ 'mt-3': smAndDown }">
       <v-select
         v-model="metadataSources"
         label="Metadata sources"
@@ -154,13 +148,7 @@ async function stopScan() {
       </v-select>
     </v-col>
     <!-- Scan options -->
-    <v-col
-      cols="12"
-      sm="7"
-      md="3"
-      class="pr-1"
-      :class="{ 'mt-3': smAndDown }"
-    >
+    <v-col cols="12" sm="7" md="3" class="pr-1" :class="{ 'mt-3': smAndDown }">
       <v-select
         v-model="scanType"
         hide-details
@@ -217,11 +205,7 @@ async function stopScan() {
     </span>
   </v-row>
 
-  <v-divider
-    class="border-opacity-100 mx-4"
-    color="romm-accent-1"
-    
-  />
+  <v-divider class="border-opacity-100 mx-4" color="romm-accent-1" />
 
   <!-- Scan log -->
   <div class="overflow-y-auto scan-log mt-4">

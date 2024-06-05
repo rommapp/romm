@@ -16,7 +16,7 @@ import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   onBeforeRouteLeave,
   onBeforeRouteUpdate,
@@ -28,18 +28,21 @@ import {
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
-const gettingRoms = ref(false);
-const { scrolledToTop } = storeToRefs(galleryViewStore);
+const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const platforms = storePlatforms();
 const romsStore = storeRoms();
-const { allRoms, filteredRoms, selectedRoms, platformID, itemsPerBatch } =
-  storeToRefs(romsStore);
+const {
+  allRoms,
+  filteredRoms,
+  selectedRoms,
+  platformID,
+  itemsPerBatch,
+  gettingRoms,
+} = storeToRefs(romsStore);
 const itemsShown = ref(itemsPerBatch.value);
 const noPlatformError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
-
-// Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
@@ -168,20 +171,24 @@ function onGameTouchEnd() {
 }
 
 function onScroll() {
-  window.setTimeout(async () => {
-    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-    scrolledToTop.value = scrollTop === 0;
-    const totalScrollableHeight = scrollHeight - clientHeight;
-    const ninetyPercentPoint = totalScrollableHeight * 0.9;
-    if (
-      scrollTop >= ninetyPercentPoint &&
-      itemsShown.value < filteredRoms.value.length
-    ) {
-      itemsShown.value = itemsShown.value + itemsPerBatch.value;
-      setFilters();
-    }
-  }, 100);
-  clearTimeout(timeout);
+  if (galleryViewStore.currentView != 2) {
+    window.setTimeout(async () => {
+      const { scrollTop, scrollHeight, clientHeight } =
+        document.documentElement;
+      scrolledToTop.value = scrollTop === 0;
+      const totalScrollableHeight = scrollHeight - clientHeight;
+      const ninetyPercentPoint = totalScrollableHeight * 0.9;
+      if (
+        scrollTop >= ninetyPercentPoint &&
+        itemsShown.value < filteredRoms.value.length
+      ) {
+        itemsShown.value = itemsShown.value + itemsPerBatch.value;
+        setFilters();
+        galleryViewStore.scroll = scrollHeight;
+      }
+    }, 100);
+    clearTimeout(timeout);
+  }
 }
 
 function resetGallery() {
@@ -217,12 +224,7 @@ onMounted(async () => {
     await fetchRoms();
   }
 
-  // If platform is the same but there are no roms, fetch them
-  if (filteredRoms.value.length == 0) {
-    await fetchRoms();
-  }
   setFilters();
-
   window.addEventListener("wheel", onScroll);
   window.addEventListener("scroll", onScroll);
 });
@@ -232,15 +234,8 @@ onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
 });
 
-onBeforeRouteLeave((to, from, next) => {
-  if (!to.fullPath.includes(from.path)) {
-    resetGallery();
-  }
-  next();
-});
-
 onBeforeRouteUpdate(async (to) => {
-  // Triggers when change query param of the same route
+  // Triggers when change param of the same route
   // Reset store if switching to another platform
   resetGallery();
 
@@ -256,32 +251,45 @@ onBeforeRouteUpdate(async (to) => {
   await fetchRoms();
   setFilters();
 });
+
+watch(currentView, (newView) => {
+  // If change from table view to grid,
+  // scroll to top to avoid auto fetch roms (freeze)
+  if (newView == 0) {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "instant",
+    });
+  }
+});
 </script>
 
 <template>
   <gallery-app-bar />
 
   <template v-if="filteredRoms.length > 0">
-    <v-row class="pa-1" no-gutters>
+    <v-row no-gutters>
       <!-- Gallery cards view -->
       <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
         v-for="rom in filteredRoms.slice(0, itemsShown)"
-        v-show="galleryViewStore.current != 2"
+        v-show="currentView != 2"
         :key="rom.id"
         class="pa-1"
-        :cols="views[galleryViewStore.current]['size-cols']"
-        :xs="views[galleryViewStore.current]['size-xs']"
-        :sm="views[galleryViewStore.current]['size-sm']"
-        :md="views[galleryViewStore.current]['size-md']"
-        :lg="views[galleryViewStore.current]['size-lg']"
-        :xl="views[galleryViewStore.current]['size-xl']"
+        :cols="views[currentView]['size-cols']"
+        :xs="views[currentView]['size-xs']"
+        :sm="views[currentView]['size-sm']"
+        :md="views[currentView]['size-md']"
+        :lg="views[currentView]['size-lg']"
+        :xl="views[currentView]['size-xl']"
       >
         <game-card
           :rom="rom"
           title-on-hover
           show-action-bar
           transform-scale
+          with-border
           @click="onGameClick"
           @touchstart="onGameTouchStart"
           @touchend="onGameTouchEnd"
@@ -293,7 +301,7 @@ onBeforeRouteUpdate(async (to) => {
       </v-col>
 
       <!-- Gallery list view -->
-      <v-col v-show="galleryViewStore.current == 2">
+      <v-col v-show="currentView == 2">
         <game-data-table />
       </v-col>
     </v-row>

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/Gallery/AppBar/AdminMenu.vue";
-import FilterBar from "@/components/Gallery/AppBar/FilterBar.vue";
+import FilterDrawer from "@/components/Gallery/FilterDrawer/Base.vue";
 import FilterBtn from "@/components/Gallery/AppBar/FilterBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/FilterTextField.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/SelectingBtn.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/GalleryViewBtn.vue";
-import SortBar from "@/components/Gallery/AppBar/SortBar.vue";
+import SelectingBtn from "@/components/Gallery/AppBar/SelectingBtn.vue";
 import storeAuth from "@/stores/auth";
 
 // Props
@@ -13,12 +12,7 @@ const auth = storeAuth();
 </script>
 
 <template>
-  <v-app-bar
-    id="gallery-app-bar"
-    elevation="0"
-    density="compact"
-  >
-    <!-- <sort-btn /> -->
+  <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
     <filter-btn />
     <filter-text-field />
     <selecting-btn />
@@ -40,12 +34,7 @@ const auth = storeAuth();
     </template>
   </v-app-bar>
 
-  <v-expand-transition>
-    <sort-bar />
-  </v-expand-transition>
-  <v-expand-transition>
-    <filter-bar />
-  </v-expand-transition>
+  <filter-drawer />
 </template>
 
 <style scoped>

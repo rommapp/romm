@@ -9,7 +9,9 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import { useDisplay } from "vuetify";
 
+const { mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
@@ -163,6 +165,9 @@ onBeforeUnmount(() => {
     :loading-condition="searching"
     :empty-state-condition="matchedRoms.length == 0"
     empty-state-type="game"
+    scroll-content
+    :width="lgAndUp ? '60vw' : mdAndDown ? '75vw' : '85vw'"
+    :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>
       <span class="ml-4">Filter:</span>

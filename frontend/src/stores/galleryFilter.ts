@@ -1,8 +1,9 @@
-import { defineStore } from "pinia";
 import { normalizeString } from "@/utils";
+import { defineStore } from "pinia";
 
 export default defineStore("galleryFilter", {
   state: () => ({
+    activeFilterDrawer: false,
     filterSearch: "",
     filters: ["genres", "franchises", "collections", "companies"] as const,
     filterGenres: [] as string[],
@@ -17,6 +18,9 @@ export default defineStore("galleryFilter", {
   }),
 
   actions: {
+    switchActiveFilterDrawer() {
+      this.activeFilterDrawer = !this.activeFilterDrawer;
+    },
     setFilterSearch(filterSearch: string) {
       this.filterSearch = normalizeString(filterSearch);
     },
@@ -44,8 +48,11 @@ export default defineStore("galleryFilter", {
     setSelectedFilterCompany(company: string) {
       this.selectedCompany = company;
     },
-    setFilterUnmatched() {
+    switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
+    },
+    disableFilterUnmatched() {
+      this.filterUnmatched = false;
     },
     isFiltered() {
       return Boolean(
@@ -54,7 +61,7 @@ export default defineStore("galleryFilter", {
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
-          this.selectedCompany,
+          this.selectedCompany
       );
     },
     reset() {

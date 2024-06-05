@@ -1,26 +1,29 @@
 <script setup lang="ts">
+import RAvatar from "@/components/Game/Avatar.vue";
+import RDialog from "@/components/common/Dialog.vue";
+import romApi from "@/services/api/rom";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
-import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
-
+// Props
+const theme = useTheme();
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const romsStore = storeRoms();
 const roms = ref();
 const deleteFromFs = ref(false);
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteRomDialog", (romsToDelete) => {
   roms.value = romsToDelete;
   show.value = true;
 });
 
+// Functions
 async function deleteRoms() {
   await romApi
     .deleteRoms({ roms: roms.value, deleteFromFs: deleteFromFs.value })
@@ -59,136 +62,70 @@ function closeDialog() {
 </script>
 
 <template>
-  <v-dialog
-    :model-value="show"
-    width="auto"
-    no-click-animation
-    persistent
-    :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-delete"
+    scroll-content
+    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
-    <v-card
-      rounded="0"
-      :class="{
-        'delete-content': lgAndUp,
-        'delete-content-tablet': mdAndDown,
-        'delete-content-mobile': xs,
-      }"
-    >
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="9"
-            sm="10"
-            lg="11"
-          >
-            <v-icon
-              icon="mdi-delete"
-              class="ml-5"
-            />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider
-        
-        
-      />
-      <v-card-text>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
+    <template #toolbar>
+      <v-row class="justify-center">
+        <v-list-item>
           <span>Deleting the following</span>
           <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
           <span>games. Do you confirm?</span>
-        </v-row>
-      </v-card-text>
-      <v-card-text class="scroll bg-terciary py-0">
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-list class="bg-terciary py-0">
-            <v-list-item
-              v-for="rom in roms"
-              :key="rom.id"
-              class="justify-center bg-terciary"
-            >
-              {{ rom.name }} - [<span class="text-romm-accent-1">{{
-                rom.file_name
-              }}</span>]
-            </v-list-item>
-          </v-list>
-        </v-row>
-      </v-card-text>
-      <v-card-text>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="text-romm-red bg-terciary ml-5"
-            @click="deleteRoms()"
-          >
-            Confirm
-          </v-btn>
-        </v-row>
-      </v-card-text>
-
-      <v-divider
-        
-        
-      />
-      <v-toolbar
-        class="bg-terciary"
-        density="compact"
-      >
+        </v-list-item>
+      </v-row>
+    </template>
+    <template #content>
+      <v-list>
+        <v-list-item v-for="rom in roms" :key="rom.id" class="justify-center">
+          <template #prepend>
+            <r-avatar
+              :src="
+                !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                  : `/assets/romm/resources/${rom.path_cover_s}`
+              "
+            />
+          </template>
+          {{ rom.name }} - [<span class="text-romm-accent-1">{{
+            rom.file_name
+          }}</span
+          >]
+        </v-list-item>
+      </v-list>
+    </template>
+    <template #footer>
+      <v-row no-gutters class="justify-center align-center bg-primary">
+        <v-btn @click="closeDialog" class="bg-terciary"> Cancel </v-btn>
+        <v-btn class="text-romm-red ml-2 bg-terciary" @click="deleteRoms()">
+          Confirm
+        </v-btn>
         <v-checkbox
           v-model="deleteFromFs"
           label="Remove from filesystem"
-          class="ml-3"
+          class="ml-5"
           hide-details
         />
-      </v-toolbar>
-    </v-card>
-  </v-dialog>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
 
 <style scoped>
-.delete-content {
+.content-desktop {
   width: 900px;
   max-height: 600px;
 }
 
-.delete-content-tablet {
+.content-tablet {
   width: 570px;
   max-height: 600px;
 }
 
-.delete-content-mobile {
+.content-mobile {
   width: 85vw;
   max-height: 600px;
 }
