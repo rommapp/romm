@@ -128,7 +128,7 @@ onMounted(() => {
                   class="translucent-dark text-caption"
                   :class="{
                     'text-truncate':
-                      galleryViewStore.current == 0 && !isHovering,
+                      galleryViewStore.currentView == 0 && !isHovering,
                   }"
                 >
                   <v-list-item>{{ rom.name }}</v-list-item>

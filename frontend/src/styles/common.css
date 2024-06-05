@@ -37,7 +37,6 @@ body {
   transition-duration: 0.1s !important;
 }
 .transform-scale.on-hover {
-  z-index: 1 !important;
   transform: scale(1.05) !important;
 }
 .pointer {

@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, nextTick, ref } from "vue";
+import { storeToRefs } from "pinia";
+import { inject, nextTick } from "vue";
 
 // Props
+const galleryFilterStore = storeGalleryFilter();
 const emitter = inject<Emitter<Events>>("emitter");
-const isShowFilterBar = ref(false);
+const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
 function showFilterBar() {
-  nextTick(() => emitter?.emit("filterBarShow", null));
-  //  TODO: isShowFilterBar in store as global variable
-  isShowFilterBar.value = !isShowFilterBar.value;
+  nextTick(() => emitter?.emit("filterDrawerShow", null));
+  galleryFilterStore.switchActiveFilterDrawer();
 }
 </script>
 
@@ -28,7 +30,7 @@ function showFilterBar() {
         rounded="0"
         v-bind="props"
         icon="mdi-filter-variant"
-        :color="isShowFilterBar ? 'romm-accent-1' : ''"
+        :color="activeFilterDrawer ? 'romm-accent-1' : ''"
         @click="showFilterBar" /></template
   ></v-tooltip>
 </template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { views } from "@/utils";
 import storeGalleryView from "@/stores/galleryView";
+import { views } from "@/utils";
 
 // Props
 const galleryView = storeGalleryView();
@@ -20,7 +20,7 @@ const galleryView = storeGalleryView();
         variant="text"
         v-bind="props"
         class="mr-0"
-        :icon="views[galleryView.current]['icon']"
+        :icon="views[galleryView.currentView]['icon']"
         @click="galleryView.next()" /></template
   ></v-tooltip>
 </template>

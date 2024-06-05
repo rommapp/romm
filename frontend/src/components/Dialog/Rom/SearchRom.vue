@@ -9,6 +9,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 
 // Define types
 type Platform = {
@@ -21,6 +22,7 @@ type SelectItem = {
 };
 
 // Props
+const { mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
 const searched = ref(false);
@@ -102,6 +104,9 @@ onBeforeUnmount(() => {
     :loading-condition="searching"
     :empty-state-condition="searchedRoms?.length == 0 && searched"
     empty-state-type="game"
+    scroll-content
+    :width="lgAndUp ? '60vw' : mdAndDown ? '75vw' : '85vw'"
+    :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -201,20 +206,3 @@ onBeforeUnmount(() => {
     </template>
   </r-dialog>
 </template>
-
-<style scoped>
-.search-content {
-  width: 60vw;
-  height: 90vh;
-}
-
-.search-content-tablet {
-  width: 75vw;
-  height: 775px;
-}
-
-.search-content-mobile {
-  width: 85vw;
-  height: 775px;
-}
-</style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RommIso from "@/components/common/RommIso.vue";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
@@ -15,9 +16,7 @@ const emitter = inject<Emitter<Events>>("emitter");
       icon
       @click="emitter?.emit('toggleDrawer', null)"
     >
-      <v-avatar rounded="0">
-        <img src="/assets/isotipo.svg" />
-      </v-avatar>
+      <romm-iso />
     </v-btn>
   </v-app-bar>
 </template>

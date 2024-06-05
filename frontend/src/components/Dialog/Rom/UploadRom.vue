@@ -162,28 +162,15 @@ function closeDialog() {
     <v-card
       rounded="0"
       :class="{
-        'edit-content': lgAndUp,
-        'edit-content-tablet': mdAndDown,
-        'edit-content-mobile': xs,
+        'content-desktop': lgAndUp,
+        'content-tablet': mdAndDown,
+        'content-mobile': xs,
       }"
     >
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="9"
-            sm="10"
-            lg="11"
-          >
-            <v-icon
-              icon="mdi-upload"
-              class="ml-5"
-            />
+      <v-toolbar density="compact" class="bg-terciary">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="9" sm="10" lg="11">
+            <v-icon icon="mdi-upload" class="ml-5" />
           </v-col>
           <v-col>
             <v-btn
@@ -198,24 +185,11 @@ function closeDialog() {
         </v-row>
       </v-toolbar>
 
-      <v-divider
-        
-        
-      />
+      <v-divider />
 
-      <v-toolbar
-        density="compact"
-        class="bg-primary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="10"
-            sm="8"
-            lg="9"
-          >
+      <v-toolbar density="compact" class="bg-primary">
+        <v-row class="align-center" no-gutters>
+          <v-col cols="10" sm="8" lg="9">
             <v-autocomplete
               v-model="selectedPlatform"
               label="Platform"
@@ -254,9 +228,8 @@ function closeDialog() {
               variant="text"
               @click="triggerFileInput"
             >
-              <v-icon :class="{ 'mr-2': !xs }">
-                mdi-plus
-              </v-icon><span v-if="!xs">Add roms</span>
+              <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
+              ><span v-if="!xs">Add roms</span>
             </v-btn>
             <v-file-input
               id="file-input"
@@ -269,10 +242,7 @@ function closeDialog() {
         </v-row>
       </v-toolbar>
 
-      <v-divider
-        
-        
-      />
+      <v-divider />
 
       <v-card-text
         v-if="romsToUpload.length > 0"
@@ -284,17 +254,12 @@ function closeDialog() {
           class="py-2 align-center"
           no-gutters
         >
-          <v-col
-            cols="8"
-            lg="9"
-          >
+          <v-col cols="8" lg="9">
             {{ rom.name }}
           </v-col>
-          <v-col
-            cols="3"
-            lg="2"
-          >
-            [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span>]
+          <v-col cols="3" lg="2">
+            [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span
+            >]
           </v-col>
           <v-col cols="1">
             <v-btn
@@ -305,25 +270,15 @@ function closeDialog() {
               class="pa-0 ma-0"
               @click="removeRomFromList(rom.name)"
             >
-              <v-icon class="text-romm-red">
-                mdi-delete
-              </v-icon>
+              <v-icon class="text-romm-red"> mdi-delete </v-icon>
             </v-btn>
           </v-col>
         </v-row>
       </v-card-text>
 
       <v-card-text class="my-4 py-0">
-        <v-row
-          class="justify-center px-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
+        <v-row class="justify-center px-2" no-gutters>
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             class="text-romm-green ml-5 bg-terciary"
             :disabled="romsToUpload.length == 0 || selectedPlatform == null"
@@ -338,17 +293,15 @@ function closeDialog() {
 </template>
 
 <style scoped>
-.edit-content {
+.content-desktop {
   width: 900px;
 }
 
-.edit-content-tablet {
+.content-tablet {
   width: 570px;
 }
 
-.edit-content-mobile {
+.content-mobile {
   width: 85vw;
 }
-
-
 </style>

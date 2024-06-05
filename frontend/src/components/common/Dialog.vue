@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref, useSlots } from "vue";
-import { useDisplay } from "vuetify";
 import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
+import RommIso from "@/components/common/RommIso.vue";
 
 // Props
 withDefaults(
@@ -11,19 +11,26 @@ withDefaults(
     loadingCondition?: boolean;
     emptyStateCondition?: boolean;
     emptyStateType?: string | null;
+    expandContentOnEmptyState?: boolean;
+    scrollContent?: boolean;
     showRommIcon?: boolean;
     icon?: string | null;
+    width?: string;
+    height?: string;
   }>(),
   {
     loadingCondition: false,
     emptyStateCondition: false,
     emptyStateType: null,
+    expandContentOnEmptyState: false,
+    scrollContent: false,
     showRommIcon: false,
     icon: null,
+    width: "",
+    height: "",
   }
 );
 const emit = defineEmits(["update:modelValue", "close"]);
-const { xs, mdAndDown, lgAndUp } = useDisplay();
 const hasToolbarSlot = ref(false);
 const hasFooterSlot = ref(false);
 
@@ -46,26 +53,17 @@ onMounted(() => {
     @keydown.esc="closeDialog"
     :model-value="modelValue"
     :scrim="true"
-    scroll-strategy="none"
-    width="auto"
+    :width="width"
+    scroll-strategy="block"
     no-click-animation
     persistent
   >
-    <v-card
-      :class="{
-        desktop: lgAndUp,
-        tablet: mdAndDown,
-        mobile: xs,
-      }"
-      rounded="0"
-    >
+    <v-card rounded="0" :height="height">
       <v-toolbar density="compact" class="bg-terciary">
         <v-row class="align-center" no-gutters>
           <v-col cols="10" sm="11">
             <v-icon v-if="icon" :icon="icon" class="ml-5" />
-            <v-avatar v-if="showRommIcon" :rounded="0" :size="30" class="mx-4"
-              ><v-img src="/assets/isotipo.svg"
-            /></v-avatar>
+            <romm-iso :size="30" class="mx-4" v-if="showRommIcon" />
             <slot name="header"></slot>
           </v-col>
           <v-col cols="2" sm="1">
@@ -83,13 +81,13 @@ onMounted(() => {
       <v-divider />
 
       <template v-if="hasToolbarSlot">
-        <v-toolbar density="compact" class="bg-primary">
+        <v-toolbar density="compact" class="bg-terciary">
           <slot name="toolbar"></slot>
         </v-toolbar>
         <v-divider />
       </template>
 
-      <v-card-text class="pa-1 scroll">
+      <v-card-text class="pa-1" :class="{ scroll: scrollContent }">
         <v-row
           v-if="loadingCondition"
           class="justify-center align-center fill-height"
@@ -124,20 +122,3 @@ onMounted(() => {
     </v-card>
   </v-dialog>
 </template>
-
-<style scoped>
-.desktop {
-  width: 60vw;
-  height: 90vh;
-}
-
-.tablet {
-  width: 75vw;
-  height: 775px;
-}
-
-.mobile {
-  width: 85vw;
-  height: 775px;
-}
-</style>

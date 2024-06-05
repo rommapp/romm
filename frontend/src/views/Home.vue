@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import MobileAppBar from "@/components/MobileAppBar.vue";
 import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
 import CreateExclusionDialog from "@/components/Dialog/Config/CreateExclusion.vue";
 import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatformBinding.vue";
@@ -19,6 +18,7 @@ import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
 import LoadingView from "@/components/LoadingView.vue";
+import MobileAppBar from "@/components/MobileAppBar.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
