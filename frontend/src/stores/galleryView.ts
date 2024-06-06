@@ -2,9 +2,11 @@ import { defineStore } from "pinia";
 
 export default defineStore("galleryView", {
   state: () => ({
-    currentView: JSON.parse(localStorage.getItem("currentView") ?? "0") as number,
+    currentView: JSON.parse(
+      localStorage.getItem("currentView") ?? "0",
+    ) as number,
     scrolledToTop: false,
-    scroll: 0
+    scroll: 0,
   }),
 
   actions: {
