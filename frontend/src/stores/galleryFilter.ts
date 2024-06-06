@@ -61,7 +61,7 @@ export default defineStore("galleryFilter", {
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
-          this.selectedCompany
+          this.selectedCompany,
       );
     },
     reset() {

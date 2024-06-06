@@ -12,7 +12,7 @@ export default defineStore("notifications", {
     },
     remove(id: number | undefined) {
       this.notifications = this.notifications.filter(
-        (notification) => notification.id !== id
+        (notification) => notification.id !== id,
       );
     },
     clear() {
