@@ -114,9 +114,11 @@ onMounted(() => {
           <template #prepend>
             <r-avatar
               :src="
-                !item.igdb_id && !item.moby_id && !item.has_cover
+                !item.igdb_id && !item.moby_id
                   ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                  : `/assets/romm/resources/${item.path_cover_s}`
+                  : item.has_cover
+                  ? `/assets/romm/resources/${item.path_cover_s}`
+                  : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
               "
             />
           </template>
@@ -189,7 +191,7 @@ onMounted(() => {
     <template #bottom>
       <v-divider />
       <v-row no-gutters class="pt-2 align-center justify-center">
-        <v-col cols="11" class="px-6">
+        <v-col cols="12" sm="10" xl="11" class="px-6">
           <v-pagination
             v-model="page"
             rounded="0"
