@@ -20,7 +20,7 @@ const HEADERS = [
     width: "40px",
   },
   {
-    title: "Username",
+    title: "Name",
     align: "start",
     sortable: true,
     key: "username",
@@ -131,7 +131,7 @@ onMounted(() => {
 
     <template #bottom>
       <v-divider />
-      <v-row no-gutters class="pt-2 align-center">
+      <v-row no-gutters class="pt-2 align-center justify-center">
         <v-col cols="11" class="px-6">
           <v-pagination
             v-model="page"

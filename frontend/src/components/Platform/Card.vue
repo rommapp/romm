@@ -13,7 +13,7 @@ defineProps<{ platform: Platform }>();
     <v-hover v-slot="{ isHovering, props }">
       <v-card
         v-bind="props"
-        class="bg-terciary"
+        class="bg-terciary transform-scale"
         :class="{ 'on-hover': isHovering }"
         :elevation="isHovering ? 20 : 3"
       >
