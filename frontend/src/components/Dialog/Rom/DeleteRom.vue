@@ -70,37 +70,46 @@ function closeDialog() {
     :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
     <template #prepend>
-      <v-row class="justify-center my-2 px-6">
-        <v-list-item>
+        <v-list-item class="text-center">
           <span>Deleting the following</span>
           <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
           <span>games. Do you confirm?</span>
+          <template #append>
+            <v-checkbox hide-details label="Select All"></v-checkbox>
+          </template>
         </v-list-item>
-      </v-row>
     </template>
     <template #content>
-      <v-list>
-        <v-list-item v-for="rom in roms" :key="rom.id" class="justify-center">
-          <template #prepend>
-            <r-avatar
-              :src="
-                !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                  : `/assets/romm/resources/${rom.path_cover_s}`
-              "
-            />
-          </template>
-          {{ rom.name }} - [<span class="text-romm-accent-1">{{
-            rom.file_name
-          }}</span
-          >]
-        </v-list-item>
-      </v-list>
+      <v-list-item v-for="rom in roms" :key="rom.id" class="justify-center">
+        <template #prepend>
+          <r-avatar
+            :src="
+              !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                : `/assets/romm/resources/${rom.path_cover_s}`
+            "
+          />
+        </template>
+        {{ rom.name }} - [<span class="text-romm-accent-1">{{
+          rom.file_name
+        }}</span
+        >]
+        <template #append>
+          <!-- TODO: check to remove from fs -->
+          <v-checkbox hide-details></v-checkbox>
+        </template>
+      </v-list-item>
     </template>
     <template #append>
       <v-row class="justify-center my-2">
-        <v-btn class="bg-terciary" @click="closeDialog" variant="flat"> Cancel </v-btn>
-        <v-btn class="text-romm-red ml-2 bg-terciary" variant="flat" @click="deleteRoms">
+        <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          Cancel
+        </v-btn>
+        <v-btn
+          class="text-romm-red ml-2 bg-terciary"
+          variant="flat"
+          @click="deleteRoms"
+        >
           Confirm
         </v-btn>
       </v-row>
