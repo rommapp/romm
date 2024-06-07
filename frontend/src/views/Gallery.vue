@@ -18,10 +18,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
-  onBeforeRouteLeave,
   onBeforeRouteUpdate,
   useRoute,
   useRouter,
+  type RouteLocationNormalized,
 } from "vue-router";
 
 // Props
@@ -234,23 +234,33 @@ onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
 });
 
-onBeforeRouteUpdate(async (to) => {
-  // Triggers when change param of the same route
-  // Reset store if switching to another platform
-  resetGallery();
+onBeforeRouteUpdate(
+  async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
+    // Triggers when change param of the same route
+    // Reset store if switching to another platform
+    if (
+      !(
+        to.path != from.path ||
+        JSON.stringify(to.query) != JSON.stringify(from.query)
+      )
+    )
+      return;
 
-  const platformID = Number(to.params.platform);
-  romsStore.setPlatformID(platformID);
+    resetGallery();
 
-  const platform = platforms.get(platformID);
-  if (!platform) {
-    const { data } = await platformApi.getPlatform(platformID);
-    platforms.add(data);
+    const platformID = Number(to.params.platform);
+    romsStore.setPlatformID(platformID);
+
+    const platform = platforms.get(platformID);
+    if (!platform) {
+      const { data } = await platformApi.getPlatform(platformID);
+      platforms.add(data);
+    }
+
+    await fetchRoms();
+    setFilters();
   }
-
-  await fetchRoms();
-  setFilters();
-});
+);
 
 watch(currentView, (newView) => {
   // If change from table view to grid,
