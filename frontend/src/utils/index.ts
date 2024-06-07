@@ -297,7 +297,7 @@ const _EJS_CORES_MAP = {
   fds: ["fceumm", "nestopia"],
   "game-televisison": ["fceumm"],
   "new-style-nes": ["fceumm"],
-  n64: ["mupen64plus_next"],
+  n64: ["mupen64plus_next", "parallel-n64"],
   "ique-player": ["mupen64plus_next"],
   nds: ["melonds", "desmume2015"],
   "nintendo-ds-lite": ["melonds", "desmume2015"],
