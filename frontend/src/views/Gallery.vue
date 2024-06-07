@@ -20,8 +20,7 @@ import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   onBeforeRouteUpdate,
   useRoute,
-  useRouter,
-  type RouteLocationNormalized,
+  useRouter
 } from "vue-router";
 
 // Props
@@ -206,7 +205,6 @@ onMounted(async () => {
 
   const platform = platforms.get(platformID);
   if (!platform) {
-    // const { data } =
     await platformApi
       .getPlatform(platformID)
       .then((data) => {
@@ -234,33 +232,25 @@ onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
 });
 
-onBeforeRouteUpdate(
-  async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
-    // Triggers when change param of the same route
-    // Reset store if switching to another platform
-    if (
-      !(
-        to.path != from.path ||
-        JSON.stringify(to.query) != JSON.stringify(from.query)
-      )
-    )
-      return;
+onBeforeRouteUpdate(async (to, from) => {
+  // Triggers when change param of the same route
+  // Reset store if switching to another platform
+  if (to.path === from.path) return;
 
-    resetGallery();
+  resetGallery();
 
-    const platformID = Number(to.params.platform);
-    romsStore.setPlatformID(platformID);
+  const platformID = Number(to.params.platform);
+  romsStore.setPlatformID(platformID);
 
-    const platform = platforms.get(platformID);
-    if (!platform) {
-      const { data } = await platformApi.getPlatform(platformID);
-      platforms.add(data);
-    }
-
-    await fetchRoms();
-    setFilters();
+  const platform = platforms.get(platformID);
+  if (!platform) {
+    const { data } = await platformApi.getPlatform(platformID);
+    platforms.add(data);
   }
-);
+
+  await fetchRoms();
+  setFilters();
+});
 
 watch(currentView, (newView) => {
   // If change from table view to grid,
