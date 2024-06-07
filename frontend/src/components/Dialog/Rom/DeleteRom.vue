@@ -11,7 +11,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { mdAndDown, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -69,8 +69,8 @@ function closeDialog() {
     scroll-content
     :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
-    <template #toolbar>
-      <v-row class="justify-center">
+    <template #prepend>
+      <v-row class="justify-center my-2 px-6">
         <v-list-item>
           <span>Deleting the following</span>
           <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
@@ -97,12 +97,16 @@ function closeDialog() {
         </v-list-item>
       </v-list>
     </template>
-    <template #footer>
-      <v-row no-gutters class="justify-center align-center bg-primary">
-        <v-btn @click="closeDialog" class="bg-terciary"> Cancel </v-btn>
-        <v-btn class="text-romm-red ml-2 bg-terciary" @click="deleteRoms()">
+    <template #append>
+      <v-row class="justify-center my-2">
+        <v-btn class="bg-terciary" @click="closeDialog" variant="flat"> Cancel </v-btn>
+        <v-btn class="text-romm-red ml-2 bg-terciary" variant="flat" @click="deleteRoms">
           Confirm
         </v-btn>
+      </v-row>
+    </template>
+    <template #footer>
+      <v-row no-gutters class="align-center">
         <v-checkbox
           v-model="deleteFromFs"
           label="Remove from filesystem"
