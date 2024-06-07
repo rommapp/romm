@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/Platform/Icon.vue";
+import RDialog from "@/components/common/Dialog.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -149,159 +150,105 @@ function closeDialog() {
 </script>
 
 <template>
-  <v-dialog
-    :model-value="show"
-    scroll-strategy="none"
-    width="auto"
-    :scrim="true"
-    no-click-animation
-    persistent
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-upload"
+    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
-    <v-card
-      rounded="0"
-      :class="{
-        'content-desktop': lgAndUp,
-        'content-tablet': mdAndDown,
-        'content-mobile': xs,
-      }"
-    >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" sm="10" lg="11">
-            <v-icon icon="mdi-upload" class="ml-5" />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-
-      <v-divider />
-
-      <v-toolbar density="compact" class="bg-primary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="10" sm="8" lg="9">
-            <v-autocomplete
-              v-model="selectedPlatform"
-              label="Platform"
-              item-title="name"
-              :items="supportedPlatforms"
-              prepend-inner-icon="mdi-controller"
-              prepend-icon=""
-              return-object
-              clearable
-              hide-details
-            >
-              <template #item="{ props, item }">
-                <v-list-item
-                  class="py-2"
-                  v-bind="props"
-                  :title="item.raw.name ?? ''"
-                >
-                  <template #prepend>
-                    <v-avatar :rounded="0" size="35">
-                      <platform-icon
-                        :key="item.raw.slug"
-                        :slug="item.raw.slug"
-                      />
-                    </v-avatar>
-                  </template>
-                </v-list-item>
-              </template>
-            </v-autocomplete>
-          </v-col>
-          <v-col>
-            <v-btn
-              block
-              icon=""
-              class="text-romm-accent-1 bg-terciary"
-              rounded="0"
-              variant="text"
-              @click="triggerFileInput"
-            >
-              <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
-              ><span v-if="!xs">Add roms</span>
-            </v-btn>
-            <v-file-input
-              id="file-input"
-              v-model="romsToUpload"
-              class="file-input"
-              multiple
-              required
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-
-      <v-divider />
-
-      <v-card-text
-        v-if="romsToUpload.length > 0"
-        class="scroll bg-terciary py-2 px-8"
-      >
-        <v-row
-          v-for="rom in romsToUpload"
-          :key="rom.name"
-          class="py-2 align-center"
-          no-gutters
-        >
-          <v-col cols="8" lg="9">
-            {{ rom.name }}
-          </v-col>
-          <v-col cols="3" lg="2">
-            [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span
-            >]
-          </v-col>
-          <v-col cols="1">
-            <v-btn
-              icon
-              size="x-small"
-              rounded="0"
-              variant="text"
-              class="pa-0 ma-0"
-              @click="removeRomFromList(rom.name)"
-            >
-              <v-icon class="text-romm-red"> mdi-delete </v-icon>
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-card-text>
-
-      <v-card-text class="my-4 py-0">
-        <v-row class="justify-center px-2" no-gutters>
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn
-            class="text-romm-green ml-5 bg-terciary"
-            :disabled="romsToUpload.length == 0 || selectedPlatform == null"
-            @click="uploadRoms()"
+    <template #toolbar>
+      <v-row class="align-center" no-gutters>
+        <v-col cols="10" sm="8" lg="9">
+          <v-autocomplete
+            v-model="selectedPlatform"
+            label="Platform"
+            item-title="name"
+            :items="supportedPlatforms"
+            prepend-inner-icon="mdi-controller"
+            prepend-icon=""
+            return-object
+            clearable
+            hide-details
           >
-            Upload
+            <template #item="{ props, item }">
+              <v-list-item
+                class="py-2"
+                v-bind="props"
+                :title="item.raw.name ?? ''"
+              >
+                <template #prepend>
+                  <v-avatar :rounded="0" size="35">
+                    <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
+                  </v-avatar>
+                </template>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+        </v-col>
+        <v-col>
+          <v-btn
+            block
+            icon=""
+            class="text-romm-accent-1 bg-terciary"
+            rounded="0"
+            variant="text"
+            @click="triggerFileInput"
+          >
+            <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
+            ><span v-if="!xs">Add roms</span>
           </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+          <v-file-input
+            id="file-input"
+            v-model="romsToUpload"
+            class="file-input"
+            multiple
+            required
+          />
+        </v-col>
+      </v-row>
+    </template>
+    <template #content>
+      <v-row
+        v-for="rom in romsToUpload"
+        :key="rom.name"
+        class="py-2 align-center"
+        no-gutters
+      >
+        <v-col cols="8" lg="9">
+          {{ rom.name }}
+        </v-col>
+        <v-col cols="3" lg="2">
+          [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span
+          >]
+        </v-col>
+        <v-col cols="1">
+          <v-btn
+            icon
+            size="x-small"
+            rounded="0"
+            variant="text"
+            class="pa-0 ma-0"
+            @click="removeRomFromList(rom.name)"
+          >
+            <v-icon class="text-romm-red"> mdi-delete </v-icon>
+          </v-btn>
+        </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center my-2" no-gutters>
+        <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          Cancel
+        </v-btn>
+        <v-btn
+          class="text-romm-green ml-5 bg-terciary"
+          variant="flat"
+          :disabled="romsToUpload.length == 0 || selectedPlatform == null"
+          @click="uploadRoms"
+        >
+          Upload
+        </v-btn>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
-
-<style scoped>
-.content-desktop {
-  width: 900px;
-}
-
-.content-tablet {
-  width: 570px;
-}
-
-.content-mobile {
-  width: 85vw;
-}
-</style>

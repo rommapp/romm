@@ -89,7 +89,7 @@ onMounted(() => {
       </v-toolbar>
       <v-divider />
 
-      <v-card-text v-if="hasPrependSlot" class="pa-1 bg-terciary">
+      <v-card-text v-if="hasPrependSlot" class="pa-1">
         <slot name="prepend"></slot>
       </v-card-text>
 
@@ -119,7 +119,7 @@ onMounted(() => {
 
         <slot name="content"></slot>
       </v-card-text>
-      <v-card-text v-if="hasAppendSlot" class="pa-1 bg-terciary">
+      <v-card-text v-if="hasAppendSlot" class="pa-1">
         <slot name="append"></slot>
       </v-card-text>
 

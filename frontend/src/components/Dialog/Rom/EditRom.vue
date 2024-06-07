@@ -111,7 +111,7 @@ function closeDialog() {
     :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
     <template #content>
-      <v-row class="align-center pa-4" no-gutters>
+      <v-row class="align-center px-4 pt-2" no-gutters>
         <v-col cols="12" lg="9" :class="{ 'pr-4': lgAndUp }">
           <v-text-field
             v-model="rom.name"
@@ -187,7 +187,7 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center pa-2" no-gutters>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn class="bg-terciary" @click="closeDialog" variant="flat"> Cancel </v-btn>
         <v-btn class="text-romm-green ml-5 bg-terciary" @click="updateRom" variant="flat">
           Apply
