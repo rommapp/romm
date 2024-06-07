@@ -6,10 +6,10 @@ Create Date: 2023-09-12 18:18:27.158732
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.exc import OperationalError
+from alembic import op
 from sqlalchemy.dialects import mysql
+from sqlalchemy.exc import OperationalError
 
 # revision identifiers, used by Alembic.
 revision = "0009_models_refactor"

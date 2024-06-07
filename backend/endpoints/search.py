@@ -1,12 +1,12 @@
 import emoji
-from handler.scan_handler import _get_main_platform_igdb_id
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchRomSchema
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from handler.database import db_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 
 router = APIRouter()
@@ -16,7 +16,7 @@ router = APIRouter()
 async def search_rom(
     request: Request,
     rom_id: str,
-    search_term: str = None,
+    search_term: str | None = None,
     search_by: str = "name",
     search_extended: bool = False,
 ) -> list[SearchRomSchema]:
@@ -64,12 +64,12 @@ async def search_rom(
             moby_matched_roms = meta_moby_handler.get_matched_roms_by_id(
                 int(search_term)
             )
-        except ValueError:
+        except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
-            )
+            ) from exc
     elif search_by.lower() == "name":
         igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_name(
             search_term, _get_main_platform_igdb_id(rom.platform), search_extended

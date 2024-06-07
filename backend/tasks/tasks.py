@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 
 import requests
 from exceptions.task_exceptions import SchedulerException
+from handler.redis_handler import low_prio_queue
 from logger.logger import log
 from rq_scheduler import Scheduler
-from handler.redis_handler import low_prio_queue
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
 
@@ -15,7 +15,7 @@ class PeriodicTask(ABC):
         func: str,
         description,
         enabled: bool = False,
-        cron_string: str = None,
+        cron_string: str | None = None,
     ):
         self.func = func
         self.description = description or func
@@ -84,7 +84,7 @@ class RemoteFilePullTask(PeriodicTask):
         log.info(f"Scheduled {self.description} started...")
 
         try:
-            response = requests.get(self.url)
+            response = requests.get(self.url, timeout=120)
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as e:

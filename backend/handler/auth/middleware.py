@@ -1,12 +1,13 @@
 import time
 import typing
 from collections import namedtuple
+
+from joserfc import jwt
+from joserfc.errors import BadSignatureError
 from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette_csrf.middleware import CSRFMiddleware
-from joserfc import jwt
-from joserfc.errors import BadSignatureError
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):

@@ -1,8 +1,8 @@
 from config import ENABLE_SCHEDULED_RESCAN, SCHEDULED_RESCAN_CRON
 from endpoints.sockets.scan import scan_platforms
+from handler.scan_handler import ScanType
 from logger.logger import log
 from tasks.tasks import PeriodicTask
-from handler.scan_handler import ScanType
 
 
 class ScanLibraryTask(PeriodicTask):

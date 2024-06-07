@@ -2,12 +2,10 @@
 import { ref, inject } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import storeConfig from "@/stores/config";
 import configApi from "@/services/api/config";
 
 // Props
 const show = ref(false);
-const configStore = storeConfig();
 const emitter = inject<Emitter<Events>>("emitter");
 const excludeToCreate = ref();
 const exclusionToCreate = ref();
@@ -31,36 +29,63 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog v-model="show" max-width="500px" :scrim="true">
+  <v-dialog
+    v-model="show"
+    max-width="500px"
+    :scrim="true"
+  >
     <v-card>
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
           <v-col cols="10">
-            <v-icon icon="mdi-controller" class="ml-5" />
-            <v-icon icon="mdi-menu-right" class="ml-1 text-romm-gray" />
-            <v-icon icon="mdi-controller" class="ml-1 text-romm-accent-1" />
+            <v-icon
+              icon="mdi-controller"
+              class="ml-5"
+            />
+            <v-icon
+              icon="mdi-menu-right"
+              class="ml-1 text-romm-gray"
+            />
+            <v-icon
+              icon="mdi-controller"
+              class="ml-1 text-romm-accent-1"
+            />
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text>
-        <v-row class="pa-2 align-center" no-gutters>
-          <v-icon icon="mdi-menu-right" class="mx-2 text-romm-gray" />
+        <v-row
+          class="pa-2 align-center"
+          no-gutters
+        >
+          <v-icon
+            icon="mdi-menu-right"
+            class="mx-2 text-romm-gray"
+          />
           <v-text-field
-            class="text-romm-accent-1"
-            @keyup.enter=""
             v-model="exclusionToCreate"
+            class="text-romm-accent-1"
             label="RomM platform"
             color="romm-accent-1"
             base-color="romm-accent-1"
@@ -69,11 +94,19 @@ function closeDialog() {
             hide-details
           />
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
           <v-btn
-            @click="addExclusion()"
+            class="bg-terciary"
+            @click="closeDialog"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
             class="text-romm-green bg-terciary ml-5"
+            @click="addExclusion()"
           >
             Confirm
           </v-btn>

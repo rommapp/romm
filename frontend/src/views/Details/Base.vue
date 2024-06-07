@@ -120,8 +120,15 @@ watch(
         }"
       >
         <cover :rom="rom" />
-        <action-bar class="mt-2" :rom="rom" />
-        <related-games class="mt-3 px-2" v-if="mdAndUp" :rom="rom" />
+        <action-bar
+          class="mt-2"
+          :rom="rom"
+        />
+        <related-games
+          v-if="mdAndUp"
+          class="mt-3 px-2"
+          :rom="rom"
+        />
       </v-col>
       <v-col
         cols="12"
@@ -147,7 +154,10 @@ watch(
             'justify-center': smAndDown,
           }"
         >
-          <title-info :rom="rom" :platform="platform" />
+          <title-info
+            :rom="rom"
+            :platform="platform"
+          />
         </v-col>
         <v-row
           :class="{
@@ -161,33 +171,55 @@ watch(
             slider-color="romm-accent-1"
             rounded="0"
           >
-            <v-tab value="details" rounded="0">Details</v-tab>
-            <v-tab value="saves" rounded="0">Saves</v-tab>
-            <v-tab value="states" rounded="0">States</v-tab>
-            <v-tab value="notes" rounded="0">Notes</v-tab>
+            <v-tab
+              value="details"
+              rounded="0"
+            >
+              Details
+            </v-tab>
+            <v-tab
+              value="saves"
+              rounded="0"
+            >
+              Saves
+            </v-tab>
+            <v-tab
+              value="states"
+              rounded="0"
+            >
+              States
+            </v-tab>
+            <v-tab
+              value="notes"
+              rounded="0"
+            >
+              Notes
+            </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
-                ((rom.igdb_metadata?.expansions ?? []).length > 0 ||
-                  (rom.igdb_metadata?.dlcs ?? []).length > 0)
+                  ((rom.igdb_metadata?.expansions ?? []).length > 0 ||
+                    (rom.igdb_metadata?.dlcs ?? []).length > 0)
               "
               value="additionalcontent"
               rounded="0"
-              >Additional content</v-tab
             >
+              Additional content
+            </v-tab>
             <!-- TODO: user screenshots -->
             <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
             <v-tab
               v-if="
                 smAndDown &&
-                ((rom.igdb_metadata?.remakes ?? []).length > 0 ||
-                  (rom.igdb_metadata?.remasters ?? []).length > 0 ||
-                  (rom.igdb_metadata?.expanded_games ?? []).length > 0)
+                  ((rom.igdb_metadata?.remakes ?? []).length > 0 ||
+                    (rom.igdb_metadata?.remasters ?? []).length > 0 ||
+                    (rom.igdb_metadata?.expanded_games ?? []).length > 0)
               "
               value="relatedgames"
               rounded="0"
-              >Related Games</v-tab
             >
+              Related Games
+            </v-tab>
           </v-tabs>
           <v-tabs
             v-if="showEmulation"
@@ -195,14 +227,29 @@ watch(
             slider-color="romm-accent-1"
             rounded="0"
           >
-            <v-tab value="emulation" rounded="0">Emulation</v-tab>
+            <v-tab
+              value="emulation"
+              rounded="0"
+            >
+              Emulation
+            </v-tab>
           </v-tabs>
         </v-row>
-        <v-row no-gutters class="mb-4">
+        <v-row
+          no-gutters
+          class="mb-4"
+        >
           <v-col cols="12">
-            <v-window v-if="!showEmulation" v-model="tab" class="py-2">
+            <v-window
+              v-if="!showEmulation"
+              v-model="tab"
+              class="py-2"
+            >
               <v-window-item value="details">
-                <info :rom="rom" :platform="platform" />
+                <info
+                  :rom="rom"
+                  :platform="platform"
+                />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />
@@ -216,7 +263,7 @@ watch(
               <v-window-item
                 v-if="
                   mdAndDown &&
-                  (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
+                    (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
                 "
                 value="additionalcontent"
               >
@@ -229,18 +276,25 @@ watch(
               <v-window-item
                 v-if="
                   smAndDown &&
-                  (rom.igdb_metadata?.remakes ||
-                    rom.igdb_metadata?.remasters ||
-                    rom.igdb_metadata?.expanded_games)
+                    (rom.igdb_metadata?.remakes ||
+                      rom.igdb_metadata?.remasters ||
+                      rom.igdb_metadata?.expanded_games)
                 "
                 value="relatedgames"
               >
                 <related-games :rom="rom" />
               </v-window-item>
             </v-window>
-            <v-window v-if="showEmulation" v-model="tab" class="py-2">
+            <v-window
+              v-if="showEmulation"
+              v-model="tab"
+              class="py-2"
+            >
               <v-window-item value="emulation">
-                <emulation :rom="rom" :platform="platform" />
+                <emulation
+                  :rom="rom"
+                  :platform="platform"
+                />
               </v-window-item>
             </v-window>
           </v-col>
@@ -261,7 +315,7 @@ watch(
       title="Game not found"
       text="The game you were looking for does not exist"
       icon="mdi-disc-alert"
-    ></v-empty-state>
+    />
   </template>
 </template>
 

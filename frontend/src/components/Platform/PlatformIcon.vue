@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import storeConfig from "@/stores/config";
 
 const props = defineProps<{ slug: string }>();
-const platformIconUrl = ref(
-  `/assets/platforms/${props.slug.toLowerCase()}.ico`
-);
+const configStore = storeConfig();
+const slug = configStore.value.PLATFORMS_VERSIONS[props.slug] ?? props.slug;
+const platformIconUrl = ref(`/assets/platforms/${slug.toLowerCase()}.ico`);
 
 function onImageError() {
   platformIconUrl.value = "/assets/platforms/default.ico";
@@ -12,5 +13,8 @@ function onImageError() {
 </script>
 
 <template>
-  <v-img :src="platformIconUrl" @error="onImageError" />
+  <v-img
+    :src="platformIconUrl"
+    @error="onImageError"
+  />
 </template>

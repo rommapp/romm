@@ -1,18 +1,12 @@
-import os
 import json
+import os
 from functools import cached_property
-from sqlalchemy.orm import relationship
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    String,
-    BigInteger,
-)
 
-from models.base import BaseModel
-from handler.redis_handler import cache
 from handler.metadata.base_hander import conditionally_set_cache
+from handler.redis_handler import cache
+from models.base import BaseModel
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 KNOWN_BIOS_KEY = "romm:known_bios_files"
 conditionally_set_cache(

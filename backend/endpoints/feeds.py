@@ -1,14 +1,14 @@
-from config import ROMM_HOST, DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, ROMM_HOST
 from decorators.auth import protected_route
-from models.rom import Rom
-from fastapi import APIRouter, Request
-from handler.database import db_platform_handler, db_rom_handler
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
-    WebrcadeFeedSchema,
     TinfoilFeedSchema,
+    WebrcadeFeedSchema,
 )
+from fastapi import APIRouter, Request
+from handler.database import db_platform_handler, db_rom_handler
+from models.rom import Rom
 
 router = APIRouter()
 
