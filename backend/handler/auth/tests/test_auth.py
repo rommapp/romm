@@ -1,12 +1,12 @@
-import pytest
 from base64 import b64encode
-from fastapi.exceptions import HTTPException
 
-from models.user import User
-from handler.database import db_user_handler
+import pytest
+from fastapi.exceptions import HTTPException
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.base_handler import WRITE_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
+from handler.database import db_user_handler
+from models.user import User
 
 
 def test_verify_password():

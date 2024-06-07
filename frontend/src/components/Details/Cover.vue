@@ -13,8 +13,8 @@ const theme = useTheme();
     :loading="downloadStore.value.includes(rom.id) ? 'romm-accent-1' : false"
   >
     <v-img
-      :value="rom.id"
       :key="rom.id"
+      :value="rom.id"
       :src="
         !rom.igdb_id && !rom.moby_id
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
@@ -23,14 +23,14 @@ const theme = useTheme();
       :aspect-ratio="3 / 4"
       lazy
     >
-      <slot name="editable"></slot>
-      <template v-slot:error>
+      <slot name="editable" />
+      <template #error>
         <v-img
           :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
           :aspect-ratio="3 / 4"
-        ></v-img>
+        />
       </template>
-      <template v-slot:placeholder>
+      <template #placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
             :width="2"

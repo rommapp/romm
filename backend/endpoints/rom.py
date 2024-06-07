@@ -1,20 +1,21 @@
 import os
 from datetime import datetime
 from stat import S_IFREG
-from typing import Annotated, Optional
+from typing import Annotated
+from urllib.parse import quote
 
-from config import LIBRARY_BASE_PATH, DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
-    RomSchema,
     DetailedRomSchema,
     RomNoteSchema,
+    RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -22,14 +23,13 @@ from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
-from urllib.parse import quote
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
 def add_roms(
-    request: Request, platform_id: int, roms: list[UploadFile] = File(...)
+    request: Request, platform_id: int, roms: list[UploadFile] | None = None
 ) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
@@ -86,9 +86,9 @@ def add_roms(
 @protected_route(router.get, "/roms", ["roms.read"])
 def get_roms(
     request: Request,
-    platform_id: int = None,
+    platform_id: int | None = None,
     search_term: str = "",
-    limit: int = None,
+    limit: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
 ) -> list[RomSchema]:
@@ -248,7 +248,7 @@ async def update_rom(
     id: int,
     rename_as_igdb: bool = False,
     remove_cover: bool = False,
-    artwork: Optional[UploadFile] = File(None),
+    artwork: UploadFile | None = None,
 ) -> DetailedRomSchema:
     """Update rom endpoint
 
@@ -306,11 +306,11 @@ async def update_rom(
                 new_name=fs_safe_file_name,
                 file_path=db_rom.file_path,
             )
-    except RomAlreadyExistsException as e:
-        log.error(str(e))
+    except RomAlreadyExistsException as exc:
+        log.error(str(exc))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
 
     cleaned_data["file_name"] = fs_safe_file_name
     cleaned_data["file_name_no_tags"] = fs_rom_handler.get_file_name_with_no_tags(
@@ -416,10 +416,12 @@ async def delete_roms(
                 fs_rom_handler.remove_file(
                     file_name=rom.file_name, file_path=rom.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
 

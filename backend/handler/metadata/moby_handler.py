@@ -1,23 +1,24 @@
+import re
+import time
+from typing import Final
+from urllib.parse import quote
+
 import pydash
 import requests
 import yarl
-import re
-import time
 from config import MOBYGAMES_API_KEY
-from typing import Final, Optional
-from typing_extensions import NotRequired, TypedDict
-from requests.exceptions import HTTPError, Timeout
-from logger.logger import log
-from unidecode import unidecode as uc
-from urllib.parse import quote
 from fastapi import HTTPException, status
+from logger.logger import log
+from requests.exceptions import HTTPError, Timeout
+from typing_extensions import NotRequired, TypedDict
+from unidecode import unidecode as uc
 
 from .base_hander import (
-    MetadataHandler,
     PS2_OPL_REGEX,
-    SWITCH_TITLEDB_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SONY_SERIAL_REGEX,
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+    MetadataHandler,
 )
 
 # Used to display the Mobygames API status in the frontend
@@ -31,15 +32,21 @@ ARCADE_MOBY_IDS: Final = [143, 36]
 
 
 class MobyGamesPlatform(TypedDict):
-    moby_id: int
+    slug: str
+    moby_id: int | None
     name: NotRequired[str]
+
+
+class MobyMetadataPlatform(TypedDict):
+    moby_id: int
+    name: str
 
 
 class MobyMetadata(TypedDict):
     moby_score: str
     genres: list[str]
     alternate_titles: list[str]
-    platforms: list[MobyGamesPlatform]
+    platforms: list[MobyMetadataPlatform]
 
 
 class MobyGamesRom(TypedDict):
@@ -49,7 +56,7 @@ class MobyGamesRom(TypedDict):
     summary: NotRequired[str]
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
-    moby_metadata: Optional[MobyMetadata]
+    moby_metadata: NotRequired[MobyMetadata]
 
 
 def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
@@ -80,12 +87,12 @@ class MobyGamesHandler(MetadataHandler):
             res = requests.get(authorized_url, timeout=timeout)
             res.raise_for_status()
             return res.json()
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
             log.critical("Connection error: can't connect to Mobygames", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Mobygames, check your internet connection",
-            )
+            ) from exc
         except HTTPError as err:
             if err.response.status_code == 401:
                 # Sometimes Mobygames returns 401 even with a valid API key
@@ -249,7 +256,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
-        return MobyGamesRom({k: v for k, v in rom.items() if v})
+        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not MOBY_API_ENABLED:
@@ -272,7 +279,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
-        return MobyGamesRom({k: v for k, v in rom.items() if v})
+        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     def get_matched_roms_by_id(self, moby_id: int) -> list[MobyGamesRom]:
         if not MOBY_API_ENABLED:
@@ -297,7 +304,7 @@ class MobyGamesHandler(MetadataHandler):
         matched_roms = self._request(str(url)).get("games", [])
 
         return [
-            MobyGamesRom(
+            MobyGamesRom(  # type: ignore[misc]
                 {
                     k: v
                     for k, v in {
@@ -318,7 +325,12 @@ class MobyGamesHandler(MetadataHandler):
         ]
 
 
-SLUG_TO_MOBY_ID: Final = {
+class SlugToMobyId(TypedDict):
+    id: int
+    name: str
+
+
+SLUG_TO_MOBY_ID: dict[str, SlugToMobyId] = {
     "1292-advanced-programmable-video-system": {
         "id": 253,
         "name": "1292 Advanced Programmable Video System",

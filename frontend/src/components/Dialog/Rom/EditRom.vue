@@ -31,14 +31,16 @@ function triggerFileInput() {
   fileInput?.click();
 }
 
-function previewImage(event: { target: { files: any[] } }) {
-  const file = event.target.files[0];
+function previewImage(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files) return;
+
   const reader = new FileReader();
   reader.onload = () => {
     imagePreviewUrl.value = reader.result?.toString();
   };
-  if (file) {
-    reader.readAsDataURL(file);
+  if (input.files[0]) {
+    reader.readAsDataURL(input.files[0]);
   }
 }
 
@@ -101,15 +103,15 @@ function closeDialog() {
 
 <template>
   <v-dialog
-    :modelValue="show"
+    v-if="rom"
+    :model-value="show"
     scroll-strategy="none"
     width="auto"
     :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     no-click-animation
     persistent
-    v-if="rom"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card
       rounded="0"
@@ -119,43 +121,67 @@ function closeDialog() {
         'edit-content-mobile': xs,
       }"
     >
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="9" xs="9" sm="10" md="10" lg="11">
-            <v-icon icon="mdi-pencil-box" class="ml-5" />
+      <v-toolbar
+        density="compact"
+        class="bg-terciary"
+      >
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="9"
+            xs="9"
+            sm="10"
+            md="10"
+            lg="11"
+          >
+            <v-icon
+              icon="mdi-pencil-box"
+              class="ml-5"
+            />
           </v-col>
           <v-col>
             <v-btn
-              @click="closeDialog"
               class="bg-terciary"
               rounded="0"
               variant="text"
               icon="mdi-close"
               block
+              @click="closeDialog"
             />
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider class="border-opacity-25" :thickness="1" />
+      <v-divider
+        class="border-opacity-25"
+        :thickness="1"
+      />
 
       <v-card-text>
-        <v-row class="align-center" no-gutters>
-          <v-col cols="12" md="8" lg="9">
+        <v-row
+          class="align-center"
+          no-gutters
+        >
+          <v-col
+            cols="12"
+            md="8"
+            lg="9"
+          >
             <v-text-field
+              v-model="rom.name"
               class="py-2"
               :class="{ 'pr-4': lgAndUp }"
-              @keyup.enter="updateRom()"
-              v-model="rom.name"
               label="Name"
               variant="outlined"
               required
               hide-details
+              @keyup.enter="updateRom()"
             />
             <v-text-field
+              v-model="rom.file_name"
               class="py-2"
               :class="{ 'pr-4': lgAndUp }"
-              @keyup.enter="updateRom()"
-              v-model="rom.file_name"
               :rules="[
                 fileNameInputRules.newFileName,
                 fileNameInputRules.required,
@@ -164,31 +190,37 @@ function closeDialog() {
               variant="outlined"
               required
               hide-details
+              @keyup.enter="updateRom()"
             />
             <v-textarea
+              v-model="rom.summary"
               class="py-2"
               :class="{ 'pr-4': lgAndUp }"
-              @keyup.enter="updateRom()"
-              v-model="rom.summary"
               label="Summary"
               variant="outlined"
               required
               hide-details
+              @keyup.enter="updateRom()"
             />
           </v-col>
-          <v-col cols="12" md="4" lg="3">
+          <v-col
+            cols="12"
+            md="4"
+            lg="3"
+          >
             <cover
               :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
               :rom="rom"
             >
-              <template v-slot:editable>
+              <template #editable>
                 <v-chip-group class="position-absolute edit-cover pa-0">
                   <v-chip
                     class="translucent"
                     size="small"
-                    @click="triggerFileInput"
                     label
-                    ><v-icon>mdi-pencil</v-icon>
+                    @click="triggerFileInput"
+                  >
+                    <v-icon>mdi-pencil</v-icon>
                     <v-file-input
                       id="file-input"
                       v-model="rom.artwork"
@@ -201,20 +233,34 @@ function closeDialog() {
                   <v-chip
                     class="translucent"
                     size="small"
-                    @click="removeArtwork"
                     label
-                    ><v-icon class="text-red">mdi-delete</v-icon></v-chip
+                    @click="removeArtwork"
                   >
+                    <v-icon class="text-red">
+                      mdi-delete
+                    </v-icon>
+                  </v-chip>
                 </v-chip-group>
               </template>
             </cover>
           </v-col>
         </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
-          <v-btn @click="closeDialog" class="bg-terciary">Cancel</v-btn>
-          <v-btn @click="updateRom()" class="text-romm-green ml-5 bg-terciary"
-            >Apply</v-btn
+        <v-row
+          class="justify-center pa-2"
+          no-gutters
+        >
+          <v-btn
+            class="bg-terciary"
+            @click="closeDialog"
           >
+            Cancel
+          </v-btn>
+          <v-btn
+            class="text-romm-green ml-5 bg-terciary"
+            @click="updateRom()"
+          >
+            Apply
+          </v-btn>
         </v-row>
       </v-card-text>
     </v-card>

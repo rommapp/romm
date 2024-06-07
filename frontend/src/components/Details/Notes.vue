@@ -50,22 +50,33 @@ function onEditNote() {
   <v-card>
     <v-card-title>
       <v-row class="px-2 pt-1">
-        <v-col cols="10" class="d-flex align-center">
+        <v-col
+          cols="10"
+          class="d-flex align-center"
+        >
           <h3>My notes</h3>
         </v-col>
-        <v-col cols="2" class="text-right">
+        <v-col
+          cols="2"
+          class="text-right"
+        >
           <v-btn
             icon
-            @click="togglePublic"
             size="small"
             :title="ownNote.is_public ? 'Make private' : 'Make public'"
             class="mr-2"
+            @click="togglePublic"
           >
             <v-icon>
               {{ ownNote.is_public ? "mdi-eye" : "mdi-eye-off" }}
             </v-icon>
           </v-btn>
-          <v-btn icon @click="onEditNote" size="small" title="Edit note">
+          <v-btn
+            icon
+            size="small"
+            title="Edit note"
+            @click="onEditNote"
+          >
             <v-icon>
               {{ editingNote ? "mdi-check" : "mdi-pencil" }}
             </v-icon>
@@ -80,31 +91,37 @@ function onEditNote() {
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
-        :noUploadImg="true"
+        :no-upload-img="true"
         class="editor-preview"
       />
       <MdPreview
         v-else
-        :modelValue="ownNote.raw_markdown"
+        :model-value="ownNote.raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-        previewTheme="vuepress"
-        codeTheme="github"
+        preview-theme="vuepress"
+        code-theme="github"
       />
     </v-card-text>
   </v-card>
-  <v-card v-if="publicNotes.length > 0" class="mt-3">
+  <v-card
+    v-if="publicNotes.length > 0"
+    class="mt-3"
+  >
     <v-card-title class="px-6 pt-4">
       <h3>Public notes</h3>
     </v-card-title>
     <v-card-text>
       <v-list>
-        <v-list-item v-for="note in publicNotes" :key="note.id">
+        <v-list-item
+          v-for="note in publicNotes"
+          :key="note.id"
+        >
           <v-list-item-title>{{ note.user__username }}</v-list-item-title>
           <MdPreview
-            :modelValue="note.raw_markdown"
+            :model-value="note.raw_markdown"
             :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-            previewTheme="vuepress"
-            codeTheme="github"
+            preview-theme="vuepress"
+            code-theme="github"
           />
         </v-list-item>
       </v-list>

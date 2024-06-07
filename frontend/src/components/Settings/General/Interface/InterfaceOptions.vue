@@ -34,9 +34,14 @@ function toggleSiblings() {
 
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
+    >
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-palette-swatch-outline</v-icon>
+        <v-icon class="mr-3">
+          mdi-palette-swatch-outline
+        </v-icon>
         Interface
       </v-toolbar-title>
     </v-toolbar>
@@ -44,8 +49,15 @@ function toggleSiblings() {
     <v-divider class="border-opacity-25" />
 
     <v-card-text>
-      <v-row no-gutters class="align-center">
-        <v-col cols="8" lg="4" class="d-flex">
+      <v-row
+        no-gutters
+        class="align-center"
+      >
+        <v-col
+          cols="8"
+          lg="4"
+          class="d-flex"
+        >
           <v-icon
             :class="groupRomsRef ? 'text-romm-accent-1' : ''"
             :icon="groupRomsRef ? 'mdi-group' : 'mdi-ungroup'"
@@ -54,21 +66,23 @@ function toggleSiblings() {
             <span
               class="font-weight-bold text-body-1"
               :class="groupRomsRef ? 'text-romm-accent-1' : ''"
-              >Group roms</span
-            >
+            >Group roms</span>
             <p class="mt-1">
               Group versions of the same rom together in the gallery
             </p>
           </div>
         </v-col>
-        <v-col cols="3" lg="2">
+        <v-col
+          cols="3"
+          lg="2"
+        >
           <v-switch
-            class="ml-3"
             v-model="groupRomsRef"
+            class="ml-3"
             color="romm-accent-1"
-            @update:model-value="toggleGroupRoms"
             hide-details
-          ></v-switch>
+            @update:model-value="toggleGroupRoms"
+          />
         </v-col>
 
         <v-col
@@ -89,28 +103,37 @@ function toggleSiblings() {
             <span
               class="font-weight-bold text-body-1"
               :class="siblingsRef && groupRomsRef ? 'text-romm-accent-1' : ''"
-              >Show siblings</span
-            >
+            >Show siblings</span>
             <p class="mt-1">
               Show siblings count in the gallery when "Group roms option is
               enabled"
             </p>
           </div>
         </v-col>
-        <v-col cols="4" lg="2">
+        <v-col
+          cols="4"
+          lg="2"
+        >
           <v-switch
+            v-model="siblingsRef"
             :disabled="!groupRomsRef"
             class="ml-3"
-            v-model="siblingsRef"
             color="romm-accent-1"
-            @update:model-value="toggleSiblings"
             hide-details
-          ></v-switch>
+            @update:model-value="toggleSiblings"
+          />
         </v-col>
       </v-row>
 
-      <v-row no-gutters class="align-center">
-        <v-col cols="8" lg="4" class="d-flex">
+      <v-row
+        no-gutters
+        class="align-center"
+      >
+        <v-col
+          cols="8"
+          lg="4"
+          class="d-flex"
+        >
           <v-icon
             :class="regionsRef ? 'text-romm-accent-1' : ''"
             :icon="
@@ -123,22 +146,30 @@ function toggleSiblings() {
             <span
               class="font-weight-bold text-body-1"
               :class="regionsRef ? 'text-romm-accent-1' : ''"
-              >Show regions</span
-            >
-            <p class="mt-1">Show region flags in the gallery</p>
+            >Show regions</span>
+            <p class="mt-1">
+              Show region flags in the gallery
+            </p>
           </div>
         </v-col>
-        <v-col cols="4" lg="2">
+        <v-col
+          cols="4"
+          lg="2"
+        >
           <v-switch
-            class="ml-3"
             v-model="regionsRef"
+            class="ml-3"
             color="romm-accent-1"
-            @update:model-value="toggleRegions"
             hide-details
-          ></v-switch>
+            @update:model-value="toggleRegions"
+          />
         </v-col>
 
-        <v-col cols="8" lg="4" class="d-flex">
+        <v-col
+          cols="8"
+          lg="4"
+          class="d-flex"
+        >
           <v-icon
             :class="languagesRef ? 'text-romm-accent-1' : ''"
             :icon="languagesRef ? 'mdi-flag-outline' : 'mdi-flag-off-outline'"
@@ -147,19 +178,23 @@ function toggleSiblings() {
             <span
               class="font-weight-bold text-body-1"
               :class="languagesRef ? 'text-romm-accent-1' : ''"
-              >Show languages</span
-            >
-            <p class="mt-1">Show language flags in the gallery</p>
+            >Show languages</span>
+            <p class="mt-1">
+              Show language flags in the gallery
+            </p>
           </div>
         </v-col>
-        <v-col cols="4" lg="2">
+        <v-col
+          cols="4"
+          lg="2"
+        >
           <v-switch
-            class="ml-3"
             v-model="languagesRef"
+            class="ml-3"
             color="romm-accent-1"
-            @update:model-value="toggleLanguages"
             hide-details
-          ></v-switch>
+            @update:model-value="toggleLanguages"
+          />
         </v-col>
       </v-row>
     </v-card-text>

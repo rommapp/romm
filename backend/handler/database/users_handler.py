@@ -8,7 +8,7 @@ from .base_handler import DBBaseHandler
 
 class DBUsersHandler(DBBaseHandler):
     @begin_session
-    def add_user(self, user: User, session: Session = None):
+    def add_user(self, user: User, session: Session = None) -> User:
         return session.merge(user)
 
     @begin_session
@@ -16,12 +16,12 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalar(select(User).filter_by(username=username).limit(1))
 
     @begin_session
-    def get_user(self, id: int, session: Session = None):
+    def get_user(self, id: int, session: Session = None) -> User:
         return session.get(User, id)
 
     @begin_session
-    def update_user(self, id: int, data: dict, session: Session = None):
-        session.execute(
+    def update_user(self, id: int, data: dict, session: Session = None) -> User:
+        return session.execute(
             update(User)
             .where(User.id == id)
             .values(**data)

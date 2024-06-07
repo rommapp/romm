@@ -1,11 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Final
 
-from config import (
-    ROMM_AUTH_PASSWORD,
-    ROMM_AUTH_SECRET_KEY,
-    ROMM_AUTH_USERNAME,
-)
+from config import ROMM_AUTH_PASSWORD, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_USERNAME
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -135,8 +131,8 @@ class OAuthHandler:
 
         try:
             payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
-        except (BadSignatureError, ValueError):
-            raise OAuthCredentialsException
+        except (BadSignatureError, ValueError) as exc:
+            raise OAuthCredentialsException from exc
 
         issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":

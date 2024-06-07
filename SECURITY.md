@@ -1,6 +1,6 @@
-Thanks for helping make RomM safer for everyone.
-
 ## Reporting Security Issues
+
+Thanks for helping make RomM safer for everyone.
 
 If you believe you have found a security vulnerability in RomM, please report it to us through coordinated disclosure.
 
