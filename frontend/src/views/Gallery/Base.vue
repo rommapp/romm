@@ -14,7 +14,7 @@ import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, type RouteLocationNormalized } from "vue-router";
 
 // Props
 const route = useRoute();
@@ -225,16 +225,23 @@ onBeforeUnmount(() => {
   window.removeEventListener("touchstart", onScroll);
 });
 
+function pathChanged(to: RouteLocationNormalized, from: RouteLocationNormalized) {
+  return to.path != from.path || JSON.stringify(to.query) != JSON.stringify(from.query);
+
+}
+
 onBeforeRouteLeave((to, from, next) => {
-  if (!to.fullPath.includes(from.path)) {
+  if (!pathChanged(to, from)) {
     resetGallery();
   }
   next();
 });
 
-onBeforeRouteUpdate(async (to) => {
+onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change query param of the same route
   // Reset store if switching to another platform
+  if (!pathChanged(to, from)) return;
+
   resetGallery();
 
   const platformID = Number(to.params.platform);
