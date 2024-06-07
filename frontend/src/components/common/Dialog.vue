@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, useSlots } from "vue";
 import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
 import RommIso from "@/components/common/RommIso.vue";
+import { onMounted, ref, useSlots } from "vue";
 
 // Props
 withDefaults(
@@ -32,6 +32,8 @@ withDefaults(
 );
 const emit = defineEmits(["update:modelValue", "close"]);
 const hasToolbarSlot = ref(false);
+const hasPrependSlot = ref(false);
+const hasAppendSlot = ref(false);
 const hasFooterSlot = ref(false);
 
 // Functions
@@ -43,6 +45,8 @@ function closeDialog() {
 onMounted(() => {
   const slots = useSlots();
   hasToolbarSlot.value = !!slots.toolbar;
+  hasPrependSlot.value = !!slots.prepend;
+  hasAppendSlot.value = !!slots.append;
   hasFooterSlot.value = !!slots.footer;
 });
 </script>
@@ -80,12 +84,14 @@ onMounted(() => {
 
       <v-divider />
 
-      <template v-if="hasToolbarSlot">
-        <v-toolbar density="compact" class="bg-terciary">
-          <slot name="toolbar"></slot>
-        </v-toolbar>
-        <v-divider />
-      </template>
+      <v-toolbar v-if="hasToolbarSlot" density="compact" class="bg-terciary">
+        <slot name="toolbar"></slot>
+      </v-toolbar>
+      <v-divider />
+
+      <v-card-text v-if="hasPrependSlot" class="pa-1 bg-terciary">
+        <slot name="prepend"></slot>
+      </v-card-text>
 
       <v-card-text class="pa-1" :class="{ scroll: scrollContent }">
         <v-row
@@ -113,6 +119,10 @@ onMounted(() => {
 
         <slot name="content"></slot>
       </v-card-text>
+      <v-card-text v-if="hasAppendSlot" class="pa-1 bg-terciary">
+        <slot name="append"></slot>
+      </v-card-text>
+
       <template v-if="hasFooterSlot">
         <v-divider />
         <v-toolbar class="bg-terciary" density="compact">
