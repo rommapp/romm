@@ -15,7 +15,7 @@ import {
 import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 
 // Props
@@ -26,6 +26,7 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
 const router = useRouter();
+const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const auth = storeAuth();
@@ -92,6 +93,11 @@ function updateUrlHash() {
 watch(romsPerPage, async () => {
   localStorage.setItem("romsPerPage", romsPerPage.value.toString());
   updateDataTablePages();
+});
+
+// Watch route to avoid race condition
+watch(route, () => {
+  page.value = parseInt(window.location.hash.slice(1)) || 1;
 });
 
 onMounted(() => {
