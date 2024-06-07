@@ -29,7 +29,7 @@ const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const auth = storeAuth();
-const page = ref(1);
+const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
 const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
 const pageCount = ref(0);
@@ -83,6 +83,10 @@ function updateDataTablePages() {
   pageCount.value = Math.ceil(
     romsStore.filteredRoms.length / romsPerPage.value
   );
+}
+
+function updateUrlHash() {
+  window.location.hash = String(page.value);
 }
 
 watch(romsPerPage, async () => {
@@ -194,6 +198,7 @@ onMounted(() => {
         <v-col cols="12" sm="10" xl="11" class="px-6">
           <v-pagination
             v-model="page"
+            @update:model-value="updateUrlHash"
             rounded="0"
             :show-first-last-page="true"
             active-color="romm-accent-1"
