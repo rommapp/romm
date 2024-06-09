@@ -1,36 +1,36 @@
 import re
 import sys
+from contextlib import asynccontextmanager
 
 import alembic.config
+import endpoints.sockets.scan  # noqa
 import uvicorn
-from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY, DISABLE_CSRF_PROTECTION
-from contextlib import asynccontextmanager
+from config import DEV_HOST, DEV_PORT, DISABLE_CSRF_PROTECTION, ROMM_AUTH_SECRET_KEY
 from endpoints import (
     auth,
     config,
+    feeds,
+    firmware,
     heartbeat,
     platform,
-    rom,
     raw,
+    rom,
     saves,
+    screenshots,
     search,
     states,
     stats,
     tasks,
     user,
-    screenshots,
-    feeds,
-    firmware,
 )
-import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from handler.database import db_user_handler
-from handler.socket_handler import socket_handler
 from handler.auth import auth_handler
 from handler.auth.base_handler import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
+from handler.database import db_user_handler
+from handler.socket_handler import socket_handler
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 

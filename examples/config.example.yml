@@ -46,7 +46,7 @@ system:
   platforms:
     # gc: 'ngc' # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
     # psx: 'ps' # In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
-  
+
   # Asociate one platform to it's main version
   versions:
     # naomi: 'arcade'

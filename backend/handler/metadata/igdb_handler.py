@@ -1,24 +1,25 @@
-import pydash
-import requests
 import functools
 import re
 import sys
 import time
-from typing import Final, Optional
-from typing_extensions import NotRequired, TypedDict
+from typing import Final
+
+import pydash
+import requests
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
+from typing_extensions import NotRequired, TypedDict
 from unidecode import unidecode as uc
 
 from .base_hander import (
-    MetadataHandler,
     PS2_OPL_REGEX,
-    SWITCH_TITLEDB_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
     SONY_SERIAL_REGEX,
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+    MetadataHandler,
 )
 
 # Used to display the IGDB API status in the frontend
@@ -35,8 +36,14 @@ ARCADE_IGDB_IDS: Final = [52, 79, 80]
 
 
 class IGDBPlatform(TypedDict):
-    igdb_id: int
+    slug: str
+    igdb_id: int | None
     name: NotRequired[str]
+
+
+class IGDBMetadataPlatform(TypedDict):
+    igdb_id: int
+    name: str
 
 
 class IGDBRelatedGame(TypedDict):
@@ -57,7 +64,7 @@ class IGDBMetadata(TypedDict):
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
-    platforms: list[IGDBPlatform]
+    platforms: list[IGDBMetadataPlatform]
     expansions: list[IGDBRelatedGame]
     dlcs: list[IGDBRelatedGame]
     remasters: list[IGDBRelatedGame]
@@ -74,7 +81,7 @@ class IGDBRom(TypedDict):
     summary: NotRequired[str]
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
-    igdb_metadata: Optional[IGDBMetadata]
+    igdb_metadata: NotRequired[IGDBMetadata]
 
 
 def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
@@ -93,35 +100,77 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
             "game_modes": pydash.map_(rom.get("game_modes", []), "name"),
             "companies": pydash.map_(rom.get("involved_companies", []), "company.name"),
             "platforms": [
-                {"igdb_id": p.get("id", ""), "name": p.get("name", "")}
+                IGDBMetadataPlatform(igdb_id=p.get("id", ""), name=p.get("name", ""))
                 for p in rom.get("platforms", [])
             ],
             "expansions": [
-                {"cover_url": pydash.get(e, "cover.url", ""), "type": "expansion", **e}
+                IGDBRelatedGame(
+                    id=e["id"],
+                    slug=e["slug"],
+                    name=e["name"],
+                    cover_url=pydash.get(e, "cover.url", ""),
+                    type="expansion",
+                )
                 for e in rom.get("expansions", [])
             ],
             "dlcs": [
-                {"cover_url": pydash.get(d, "cover.url", ""), "type": "dlc", **d}
+                IGDBRelatedGame(
+                    id=d["id"],
+                    slug=d["slug"],
+                    name=d["name"],
+                    cover_url=pydash.get(d, "cover.url", ""),
+                    type="dlc",
+                )
                 for d in rom.get("dlcs", [])
             ],
             "remasters": [
-                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remaster", **r}
+                IGDBRelatedGame(
+                    id=r["id"],
+                    slug=r["slug"],
+                    name=r["name"],
+                    cover_url=pydash.get(r, "cover.url", ""),
+                    type="remaster",
+                )
                 for r in rom.get("remasters", [])
             ],
             "remakes": [
-                {"cover_url": pydash.get(r, "cover.url", ""), "type": "remake", **r}
+                IGDBRelatedGame(
+                    id=r["id"],
+                    slug=r["slug"],
+                    name=r["name"],
+                    cover_url=pydash.get(r, "cover.url", ""),
+                    type="remake",
+                )
                 for r in rom.get("remakes", [])
             ],
             "expanded_games": [
-                {"cover_url": pydash.get(g, "cover.url", ""), "type": "expanded", **g}
+                IGDBRelatedGame(
+                    id=g["id"],
+                    slug=g["slug"],
+                    name=g["name"],
+                    cover_url=pydash.get(g, "cover.url", ""),
+                    type="expanded",
+                )
                 for g in rom.get("expanded_games", [])
             ],
             "ports": [
-                {"cover_url": pydash.get(p, "cover.url", ""), "type": "port", **p}
+                IGDBRelatedGame(
+                    id=p["id"],
+                    slug=p["slug"],
+                    name=p["name"],
+                    cover_url=pydash.get(p, "cover.url", ""),
+                    type="port",
+                )
                 for p in rom.get("ports", [])
             ],
             "similar_games": [
-                {"cover_url": pydash.get(s, "cover.url", ""), "type": "similar", **s}
+                IGDBRelatedGame(
+                    id=s["id"],
+                    slug=s["slug"],
+                    name=s["name"],
+                    cover_url=pydash.get(s, "cover.url", ""),
+                    type="similar",
+                )
                 for s in rom.get("similar_games", [])
             ],
         }
@@ -149,9 +198,9 @@ class IGDBBaseHandler(MetadataHandler):
     def check_twitch_token(func):
         @functools.wraps(func)
         def wrapper(*args):
-            args[0].headers["Authorization"] = (
-                f"Bearer {args[0].twitch_auth.get_oauth_token()}"
-            )
+            args[0].headers[
+                "Authorization"
+            ] = f"Bearer {args[0].twitch_auth.get_oauth_token()}"
             return func(*args)
 
         return wrapper
@@ -167,12 +216,12 @@ class IGDBBaseHandler(MetadataHandler):
 
             res.raise_for_status()
             return res.json()
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
             log.critical("Connection error: can't connect to IGDB", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection",
-            )
+            ) from exc
         except HTTPError as err:
             # Retry once if the auth token is invalid
             if err.response.status_code != 401:
@@ -469,7 +518,7 @@ class IGDBBaseHandler(MetadataHandler):
                 matched_roms.extend(alternative_matched_roms)
 
         # Use a dictionary to keep track of unique ids
-        unique_ids = {}
+        unique_ids: dict[str, dict[str, str]] = {}
 
         # Use a list comprehension to filter duplicates based on the 'id' key
         matched_roms = [
@@ -479,7 +528,7 @@ class IGDBBaseHandler(MetadataHandler):
         ]
 
         return [
-            IGDBRom(
+            IGDBRom(  # type: ignore[misc]
                 {
                     k: v
                     for k, v in {
@@ -509,11 +558,11 @@ class IGDBBaseHandler(MetadataHandler):
 
 class TwitchAuth:
     def _update_twitch_token(self) -> str:
-        token = ""
+        token = None
         expires_in = 0
 
         if not IGDB_API_ENABLED:
-            return token
+            return ""
 
         try:
             res = requests.post(
@@ -528,16 +577,16 @@ class TwitchAuth:
 
             if res.status_code == 400:
                 log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
-                return token
+                return ""
             else:
                 token = res.json().get("access_token", "")
                 expires_in = res.json().get("expires_in", 0)
         except requests.exceptions.ConnectionError:
             log.critical("Can't connect to IGDB, check your internet connection.")
-            return token
+            return ""
 
         if not token or expires_in == 0:
-            return token
+            return ""
 
         # Set token in redis to expire in <expires_in> seconds
         cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]

@@ -13,7 +13,11 @@ const auth = storeAuth();
 </script>
 
 <template>
-  <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
+  <v-app-bar
+    id="gallery-app-bar"
+    elevation="0"
+    density="compact"
+  >
     <!-- <sort-btn /> -->
     <filter-btn />
     <filter-text-field />
@@ -21,14 +25,14 @@ const auth = storeAuth();
     <gallery-view-btn />
     <template v-if="auth.scopes.includes('roms.write')">
       <v-menu location="bottom">
-        <template v-slot:activator="{ props }">
+        <template #activator="{ props }">
           <v-btn
             v-bind="props"
-            @click=""
             rounded="0"
             variant="text"
             class="mr-0"
             icon="mdi-dots-vertical"
+            @click.stop
           />
         </template>
         <admin-menu />

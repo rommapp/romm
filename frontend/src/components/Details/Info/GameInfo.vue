@@ -9,13 +9,29 @@ const galleryFilter = storeGalleryFilter();
 </script>
 <template>
   <v-divider class="mx-2 my-4" />
-  <template v-for="filter in galleryFilter.filters">
-    <v-row v-if="rom[filter].length > 0" class="align-center my-3" no-gutters>
-      <v-col cols="3" xl="2" class="text-capitalize">
+  <template
+    v-for="filter in galleryFilter.filters"
+    :key="filter"
+  >
+    <v-row
+      v-if="rom[filter].length > 0"
+      class="align-center my-3"
+      no-gutters
+    >
+      <v-col
+        cols="3"
+        xl="2"
+        class="text-capitalize"
+      >
         <span>{{ filter }}</span>
       </v-col>
       <v-col>
-        <v-chip v-for="value in rom[filter]" class="my-1 mr-2" label>
+        <v-chip
+          v-for="value in rom[filter]"
+          :key="value"
+          class="my-1 mr-2"
+          label
+        >
           {{ value }}
         </v-chip>
       </v-col>
@@ -25,7 +41,7 @@ const galleryFilter = storeGalleryFilter();
     <v-divider class="mx-2 my-4" />
     <v-row no-gutters>
       <v-col class="text-caption">
-        <p v-html="rom.summary"></p>
+        <p v-text="rom.summary" />
       </v-col>
     </v-row>
   </template>
@@ -42,7 +58,7 @@ const galleryFilter = storeGalleryFilter();
           progress="terciary"
           :height="xs ? '300' : '400'"
         >
-          <template v-slot:prev="{ props }">
+          <template #prev="{ props }">
             <v-btn
               icon="mdi-chevron-left"
               class="translucent"
@@ -51,9 +67,10 @@ const galleryFilter = storeGalleryFilter();
           </template>
           <v-carousel-item
             v-for="screenshot_url in rom.merged_screenshots"
+            :key="screenshot_url"
             :src="screenshot_url"
           />
-          <template v-slot:next="{ props }">
+          <template #next="{ props }">
             <v-btn
               icon="mdi-chevron-right"
               class="translucent"

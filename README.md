@@ -7,30 +7,39 @@
   </h3>
   <br/>
 
-[![license-badge]][license-badge-url]
-[![release-badge]][release-badge-url]
-[![docker-pulls-badge]][docker-pulls-badge-url]
+[![license-badge-img]][license-badge]
+[![release-badge-img]][release-badge]
+[![docker-pulls-badge-img]][docker-pulls-badge]
 
-[![discord-badge]][discord-badge-url]
-[![unraid-badge]][unraid-badge-url]
-[![wiki-badge]][wiki-url]
+[![discord-badge-img]][discord-badge]
+[![unraid-badge-img]][unraid-badge]
+[![wiki-badge-img]][wiki]
 
   </div>
 </div>
 
 > [!WARNING]
-> Version 3.0 introduces exciting new fetures that require some changes to how RomM is setup and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/rommapp/romm/wiki/Upgrading-to-3.0) before upgrading.**
+> Version 3.0 introduces exciting new features that require changes to how RomM is set up and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/rommapp/romm/wiki/Upgrading-to-3.0) before upgrading.**
 
+# Table of Contents
+- [Overview](#overview)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Folder Structure](#folder-structure)
+- [Naming Convention](#naming-convention)
+- [Community](#community)
+
+<a name ='overview'> </a>
 # Overview
 
-RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators.
+RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
 
 ## Features
 
-- Scans your existing games library and enchances it with metadata from [IGDB][igdb-api] and [MobyGames][mobygames-api]
+- Scans your existing games library and enhances it with metadata from [IGDB][igdb-api] and [MobyGames][mobygames-api]
 - Supports a large number of **[platforms][platform-support]**
-- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs-url]
-- Share your library with friend while [limiting access and permissions][authentication]
+- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs]
+- Share your library with friends while [limiting access and permissions][wiki-authentication]
 - Supports MAME, Nintendo Switch, and Sony Playstation naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
 - Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
@@ -38,27 +47,28 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Preview
 
-|                              🖥 Desktop                              |                                                  📱 Mobile                                                   |
+|                             🖥 Desktop                              |                                                  📱 Mobile                                                   |
 | :-----------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/romm-desktop-slider.gif" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" /> |
 
+<a name ='installation'> </a>
 # Installation
 
-Before running the [image][docker-tags], ensure that Docker is installed and running on your system.
+Before running the [image][docker-tags], please ensure that Docker is installed and running on your system.
 
 1. [Generate API keys][wiki-generate-api-keys] for IGDB and/or MobyGames to fetch metadata.
 2. Verify that your library folder structure matches one of the options listed in the [folder structure][folder-structure] section.
 3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables][wiki-env-variables].
 4. Launch the container(s) with `docker-compose up -d`.
 
-> [!NOTE]
-> **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting-url] for troubleshooting steps and common issues.**
+> [!NOTE] > **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting] for troubleshooting steps and common issues.**
 
 # Configuration
 
+<a name ='folder-structure'> </a>
 ## Folder Structure
 
-As mentioned in the installation section, RomM requires a specific folder structure to work. The two supported structures are as follows:
+As mentioned in the installation section, RomM requires a specific folder structure. The two supported structures are as follows:
 
 <table border="0">
  <tr>
@@ -138,19 +148,20 @@ As mentioned in the installation section, RomM requires a specific folder struct
 
 ## Configuration File
 
-RomM's "understanding" of your library can be configured with a `config.yaml` file or through the `config` tab in the `Control Panel` under `Settings` section. Refer to the [example config.yml][configuration-file-example] file for guidance on how to configure it, and the [example docker-compose.yml][docker-compose-example] file on how to mount it into the container.
+RomM's "understanding" of your library can be configured with a `config.yaml` file or through the `config` tab in the `Control Panel` under the `Settings` section. Refer to the [example config.yml][configuration-file-example] file for guidance on how to configure it and the [example docker-compose.yml][docker-compose-example] file on how to mount it into the container.
 
 ## Scheduler
 
-The scheduler allows you to scheduled async tasks that run in the Redis container at regular intervals. Jobs can be run at a specific time in the future, after a time delta, or at recurring internals using cron notation. The [wiki page on the scheduler][wiki-scheduled-tasks] has more information on how which tasks are available and how to enable them.
+The scheduler allows you to schedule async tasks that run in the Redis container at regular intervals. Jobs can be run at a specific time in the future, after a time delta, or at recurring internals using cron notation. The [wiki page on the scheduler][wiki-scheduled-tasks] has more information on which tasks are available and how to enable them.
 
+<a name ='naming-convention'> </a>
 # Naming Convention
 
 ## Platform Support
 
-If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][wiki-supported-platforms-url] page. **The folder is is case sensitive and must be used exactly how it appears in the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
+If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][wiki-supported-platforms] page. **The folder is case-sensitive and must be used exactly as it appears on the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
 
-Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons-url]).
+Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons]).
 
 ## Tag Support
 
@@ -161,22 +172,23 @@ Games can be tagged with region, revision, or other tags by using parentheses in
 
 Tags can be used to search for games in the search bar. For example, searching for **(USA)** will return all games with the USA tag.
 
+<a name ='community'> </a>
 # Community
 
-Here are a few projects maintained by members of our community. As they are not regularly reviewed by the RomM team, **we recommend you closely review them before use**.
+Here are a few projects maintained by members of our community. Since the RomM team does not regularly review them, **we recommend that you review them closely before you use them**.
 
 - CasaOS app via the [BigBear App Store][big-bear-casaos]
 - [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
 
-Join us on discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
+Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
-[![discord-invite]][discord-invite-url]
+[![discord-invite-img]][discord-invite]
 
 ## Support
 
 If you like this project, consider buying me a coffee!
 
-[![coffee-donate]][coffee-donate-url]
+[![coffee-donate-img]][coffee-donate]
 
 ## Our Friends
 
@@ -189,11 +201,11 @@ Here are a few projects that we think you might like:
 
 <!-- Sections -->
 
-[folder-structure]: #-folder-structure
-[platform-support]: #-platform-support
-[authentication]: #-authentication
-[tag-support]: #-tag-support
-[configuration-file]: #-configuration-file
+[folder-structure]: #folder-structure
+[platform-support]: #platform-support
+[authentication]: #authentication
+[tag-support]: #tag-support
+[configuration-file]: #configuration-file
 
 <!-- Files -->
 
@@ -202,43 +214,43 @@ Here are a few projects that we think you might like:
 
 <!-- Wiki links -->
 
-[wiki-url]: https://github.com/rommapp/romm/wiki
-[wiki-supported-platforms-url]: https://github.com/rommapp/romm/wiki/Supported-Platforms
-[wiki-authentication-url]: https://github.com/rommapp/romm/wiki/Authentication
-[wiki-platforms-icons-url]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
-[wiki-troubleshooting-url]: https://github.com/rommapp/romm/wiki/Troubleshooting
-[wiki-emulatorjs-url]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
+[wiki]: https://github.com/rommapp/romm/wiki
+[wiki-supported-platforms]: https://github.com/rommapp/romm/wiki/Supported-Platforms
+[wiki-authentication]: https://github.com/rommapp/romm/wiki/Authentication
+[wiki-platforms-icons]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
+[wiki-troubleshooting]: https://github.com/rommapp/romm/wiki/Troubleshooting
+[wiki-emulatorjs]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
 [wiki-env-variables]: https://github.com/rommapp/romm/wiki/Environment-Variables
 [wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
 [wiki-generate-api-keys]: https://github.com/rommapp/romm/wiki/Generate-API-Keys
 
 <!-- Badges -->
 
-[license-badge]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
-[license-badge-url]: LICENSE
-[release-badge]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
-[release-badge-url]: https://github.com/rommapp/romm/releases
-[discord-badge]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
-[discord-badge-url]: https://discord.gg/P5HtHnhUDH
-[unraid-badge]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
-[unraid-badge-url]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
-[wiki-badge]: https://img.shields.io/badge/Wiki-736e9b?style=for-the-badge
-[docker-pulls-badge]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
-[docker-pulls-badge-url]: https://hub.docker.com/r/rommapp/romm
+[license-badge-img]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
+[license-badge]: LICENSE
+[release-badge-img]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
+[release-badge]: https://github.com/rommapp/romm/releases
+[discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
+[discord-badge]: https://discord.gg/P5HtHnhUDH
+[unraid-badge-img]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
+[unraid-badge]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
+[wiki-badge-img]: https://img.shields.io/badge/Wiki-736e9b?style=for-the-badge
+[docker-pulls-badge-img]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
+[docker-pulls-badge]: https://hub.docker.com/r/rommapp/romm
 
 <!-- Links -->
 
-[discord-invite]: https://invidget.switchblade.xyz/P5HtHnhUDH
-[discord-invite-url]: https://discord.gg/P5HtHnhUDH
-[coffee-donate]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
-[coffee-donate-url]: https://www.buymeacoff.ee/zurdi15
+[discord-invite-img]: https://invidget.switchblade.xyz/P5HtHnhUDH
+[discord-invite]: https://discord.gg/P5HtHnhUDH
+[coffee-donate-img]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
+[coffee-donate]: https://www.buymeacoff.ee/zurdi15
 
 <!-- External links -->
 
 [docker-tags]: https://hub.docker.com/r/rommapp/romm/tags
 [igdb-api]: https://api-docs.igdb.com/#account-creation
 [mobygames-api]: https://www.mobygames.com/info/api/
-[titleid-program-id-url]: https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop
+[titleid-program-id]: https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop
 [igdb-platforms-list]: https://www.igdb.com/platforms
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm

@@ -1,18 +1,19 @@
-import pytest
-
 from datetime import timedelta
+
+import pytest
 from handler.auth import oauth_handler
 from handler.tests.conftest import (  # noqa
-    setup_database,
-    clear_database,
     admin_user,
+    clear_database,
     editor_user,
-    viewer_user,
     platform,
     rom,
     save,
+    setup_database,
     state,
+    viewer_user,
 )
+
 from ..auth import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 
 

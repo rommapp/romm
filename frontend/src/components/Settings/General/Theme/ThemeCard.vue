@@ -24,9 +24,14 @@ function toggleTheme() {
 
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
+    >
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-brush-variant</v-icon>
+        <v-icon class="mr-3">
+          mdi-brush-variant
+        </v-icon>
         Theme
       </v-toolbar-title>
     </v-toolbar>
@@ -35,8 +40,8 @@ function toggleTheme() {
 
     <v-card-text class="pa-3">
       <v-item-group
-        mandatory
         v-model="selectedTheme"
+        mandatory
         @update:model-value="toggleTheme"
       >
         <v-row no-gutters>
@@ -50,7 +55,11 @@ function toggleTheme() {
             value="light"
             icon="mdi-white-balance-sunny"
           />
-          <theme-option key="auto" value="auto" icon="mdi-theme-light-dark" />
+          <theme-option
+            key="auto"
+            value="auto"
+            icon="mdi-theme-light-dark"
+          />
         </v-row>
       </v-item-group>
     </v-card-text>

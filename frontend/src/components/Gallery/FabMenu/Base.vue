@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { inject } from "vue";
+import type { Emitter } from "mitt";
+import { useRoute } from "vue-router";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
@@ -6,9 +9,6 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
-import { useRoute } from "vue-router";
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -61,7 +61,7 @@ function onDownload() {
     text="Reset selection"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         color="terciary"
@@ -73,8 +73,13 @@ function onDownload() {
     </template>
   </v-tooltip>
 
-  <v-tooltip open-delay="500" class="tooltip" text="Select all" location="top">
-    <template v-slot:activator="{ props }">
+  <v-tooltip
+    open-delay="500"
+    class="tooltip"
+    text="Select all"
+    location="top"
+  >
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         color="terciary"
@@ -92,10 +97,10 @@ function onDownload() {
     text="Scan selected games"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
-        v-bind="props"
         v-if="auth.scopes.includes('roms.write')"
+        v-bind="props"
         color="terciary"
         elevation="8"
         icon
@@ -113,7 +118,7 @@ function onDownload() {
     text="Download selected games"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
         v-bind="props"
         color="terciary"
@@ -133,17 +138,19 @@ function onDownload() {
     text="Delete selected games"
     location="top"
   >
-    <template v-slot:activator="{ props }">
+    <template #activator="{ props }">
       <v-btn
-        v-bind="props"
         v-if="auth.scopes.includes('roms.write')"
+        v-bind="props"
         color="terciary"
         elevation="8"
         icon
         class="mb-3 ml-1"
         @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
       >
-        <v-icon color="romm-red">mdi-delete</v-icon>
+        <v-icon color="romm-red">
+          mdi-delete
+        </v-icon>
       </v-btn>
     </template>
   </v-tooltip>

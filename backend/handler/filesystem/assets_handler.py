@@ -2,10 +2,11 @@ import os
 import shutil
 from pathlib import Path
 
+from config import ASSETS_BASE_PATH
 from fastapi import UploadFile
 from logger.logger import log
 from models.user import User
-from config import ASSETS_BASE_PATH
+
 from .base_handler import FSHandler
 
 
@@ -38,7 +39,7 @@ class FSAssetsHandler(FSHandler):
         return os.path.join(self.user_folder_path(user), "profile")
 
     def _build_asset_file_path(
-        self, user: User, folder: str, platform_fs_slug, emulator: str = None
+        self, user: User, folder: str, platform_fs_slug, emulator: str | None = None
     ):
         user_folder_path = self.user_folder_path(user)
         if emulator:
@@ -47,13 +48,13 @@ class FSAssetsHandler(FSHandler):
 
     # /users/557365723a31/saves/n64/mupen64plus
     def build_saves_file_path(
-        self, user: User, platform_fs_slug: str, emulator: str = None
+        self, user: User, platform_fs_slug: str, emulator: str | None = None
     ):
         return self._build_asset_file_path(user, "saves", platform_fs_slug, emulator)
 
     # /users/557365723a31/states/n64/mupen64plus
     def build_states_file_path(
-        self, user: User, platform_fs_slug: str, emulator: str = None
+        self, user: User, platform_fs_slug: str, emulator: str | None = None
     ):
         return self._build_asset_file_path(user, "states", platform_fs_slug, emulator)
 

@@ -25,12 +25,12 @@ onMounted(() => {
 
 <template>
   <v-text-field
-    prepend-inner-icon="mdi-filter-outline"
-    @update:model-value="filterRoms"
     v-model="filter"
+    prepend-inner-icon="mdi-filter-outline"
     label="Filter"
     rounded="0"
     hide-details
     clearable
+    @update:model-value="filterRoms"
   />
 </template>

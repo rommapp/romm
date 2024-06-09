@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import type { DetailedRom } from "@/stores/roms";
-import { useDisplay } from "vuetify";
 
 defineProps<{ rom: DetailedRom }>();
-const { xs } = useDisplay();
 </script>
 <template>
+  <div />
   <!-- TODO: user screenshots -->
   <!-- <v-carousel
     hide-delimiter-background

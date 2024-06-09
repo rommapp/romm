@@ -11,37 +11,51 @@ const heartbeat = storeHeartbeat();
 </script>
 
 <template>
-  <v-list rounded="0" class="pa-0">
+  <v-list
+    rounded="0"
+    class="pa-0"
+  >
     <v-list-item
       :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
+      class="py-4 pr-5"
       @click="emitter?.emit('showMatchRomDialog', rom)"
-      class="py-4 pr-5"
     >
-      <v-list-item-title class="d-flex"
-        ><v-icon icon="mdi-search-web" class="mr-2" />Manual
-        search</v-list-item-title
-      >
-      <v-list-item-subtitle>{{
-        !heartbeat.value.ANY_SOURCE_ENABLED ? "No metadata source enabled" : ""
-      }}</v-list-item-subtitle>
+      <v-list-item-title class="d-flex">
+        <v-icon
+          icon="mdi-search-web"
+          class="mr-2"
+        />Manual
+        search
+      </v-list-item-title>
+      <v-list-item-subtitle>
+        {{
+          !heartbeat.value.ANY_SOURCE_ENABLED ? "No metadata source enabled" : ""
+        }}
+      </v-list-item-subtitle>
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
+      class="py-4 pr-5"
       @click="emitter?.emit('showEditRomDialog', { ...rom })"
-      class="py-4 pr-5"
     >
-      <v-list-item-title class="d-flex"
-        ><v-icon icon="mdi-pencil-box" class="mr-2" />Edit</v-list-item-title
-      >
+      <v-list-item-title class="d-flex">
+        <v-icon
+          icon="mdi-pencil-box"
+          class="mr-2"
+        />Edit
+      </v-list-item-title>
     </v-list-item>
     <v-divider class="border-opacity-25" />
     <v-list-item
-      @click="emitter?.emit('showDeleteRomDialog', [rom])"
       class="py-4 pr-5 text-romm-red"
+      @click="emitter?.emit('showDeleteRomDialog', [rom])"
     >
-      <v-list-item-title class="d-flex"
-        ><v-icon icon="mdi-delete" class="mr-2" />Delete</v-list-item-title
-      >
+      <v-list-item-title class="d-flex">
+        <v-icon
+          icon="mdi-delete"
+          class="mr-2"
+        />Delete
+      </v-list-item-title>
     </v-list-item>
   </v-list>
 </template>

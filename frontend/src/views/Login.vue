@@ -55,10 +55,14 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <span id="bg"></span>
+  <span id="bg" />
 
   <v-container class="fill-height justify-center">
-    <v-card id="card" class="py-8 px-5" width="500">
+    <v-card
+      id="card"
+      class="py-8 px-5"
+      width="500"
+    >
       <v-row>
         <v-col>
           <v-img
@@ -69,39 +73,46 @@ onBeforeMount(async () => {
           />
 
           <v-row class="text-white justify-center mt-2">
-            <v-col cols="10" md="8">
+            <v-col
+              cols="10"
+              md="8"
+            >
               <v-text-field
-                @keyup.enter="login()"
+                v-model="username"
                 prepend-inner-icon="mdi-account"
                 type="text"
-                v-model="username"
                 label="Username"
                 variant="underlined"
-              ></v-text-field>
-              <v-text-field
                 @keyup.enter="login()"
+              />
+              <v-text-field
+                v-model="password"
                 prepend-inner-icon="mdi-lock"
                 :type="visiblePassword ? 'text' : 'password'"
-                v-model="password"
                 label="Password"
                 variant="underlined"
                 :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
+                @keyup.enter="login()"
                 @click:append-inner="visiblePassword = !visiblePassword"
-              ></v-text-field>
+              />
             </v-col>
           </v-row>
 
           <v-row class="justify-center">
-            <v-col cols="10" md="8">
+            <v-col
+              cols="10"
+              md="8"
+            >
               <v-btn
-                @click="login()"
                 :disabled="logging"
                 color="romm-accent-1"
                 append-icon="mdi-chevron-right-circle-outline"
                 block
                 :loading="logging"
-                >Login
-                <template v-slot:loader>
+                @click="login()"
+              >
+                Login
+                <template #loader>
                   <v-progress-circular
                     color="romm-accent-1"
                     :width="2"
@@ -116,7 +127,10 @@ onBeforeMount(async () => {
       </v-row>
     </v-card>
 
-    <div class="position-absolute" id="version">
+    <div
+      id="version"
+      class="position-absolute"
+    >
       <span class="text-white">{{ heartbeatStore.value.VERSION }}</span>
     </div>
   </v-container>

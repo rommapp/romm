@@ -15,9 +15,14 @@ const editable = ref(false);
 </script>
 <template>
   <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
+    <v-toolbar
+      class="bg-terciary"
+      density="compact"
+    >
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">mdi-gamepad-variant</v-icon>
+        <v-icon class="mr-3">
+          mdi-gamepad-variant
+        </v-icon>
         Platforms Versions
       </v-toolbar-title>
       <v-btn
@@ -26,35 +31,45 @@ const editable = ref(false);
         rounded="0"
         size="small"
         variant="text"
-        @click="editable = !editable"
         icon="mdi-cog"
-      >
-      </v-btn>
+        @click="editable = !editable"
+      />
     </v-toolbar>
 
     <v-divider class="border-opacity-25" />
 
     <v-card-text class="pa-1">
-      <v-row no-gutters class="align-center">
+      <v-row
+        no-gutters
+        class="align-center"
+      >
         <v-col
+          v-for="(slug, fsSlug) in platformsVersions"
+          :key="slug"
           cols="6"
           sm="4"
           md="3"
           lg="2"
           xl="2"
-          v-for="(slug, fsSlug) in platformsVersions"
-          :key="slug"
           :title="slug"
         >
           <v-list-item class="bg-terciary ma-1 pa-1 text-truncate">
-            <template v-slot:prepend>
-              <v-avatar :rounded="0" size="40" class="mx-2">
-                <platform-icon class="platform-icon" :key="slug" :slug="slug" />
+            <template #prepend>
+              <v-avatar
+                :rounded="0"
+                size="40"
+                class="mx-2"
+              >
+                <platform-icon
+                  :key="slug"
+                  class="platform-icon"
+                  :slug="slug"
+                />
               </v-avatar>
             </template>
             <v-list-item class="bg-primary pr-2 pl-2">
               <span>{{ fsSlug }}</span>
-              <template v-slot:append>
+              <template #append>
                 <v-slide-x-reverse-transition>
                   <v-btn
                     v-if="
@@ -64,13 +79,13 @@ const editable = ref(false);
                     variant="text"
                     size="x-small"
                     icon="mdi-pencil"
+                    class="ml-2"
                     @click="
                       emitter?.emit('showCreatePlatformVersionDialog', {
                         fsSlug,
                         slug,
                       })
                     "
-                    class="ml-2"
                   />
                 </v-slide-x-reverse-transition>
                 <v-slide-x-reverse-transition>
@@ -82,20 +97,27 @@ const editable = ref(false);
                     variant="text"
                     size="x-small"
                     icon="mdi-delete"
+                    class="text-romm-red"
                     @click="
                       emitter?.emit('showDeletePlatformVersionDialog', {
                         fsSlug,
                         slug,
                       })
                     "
-                    class="text-romm-red"
                   />
                 </v-slide-x-reverse-transition>
               </template>
             </v-list-item>
           </v-list-item>
         </v-col>
-        <v-col cols="6" sm="4" md="3" lg="2" xl="2" class="px-1">
+        <v-col
+          cols="6"
+          sm="4"
+          md="3"
+          lg="2"
+          xl="2"
+          class="px-1"
+        >
           <v-expand-transition>
             <v-btn
               v-if="authStore.scopes.includes('platforms.write') && editable"

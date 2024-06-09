@@ -50,11 +50,11 @@ export default defineStore("galleryFilter", {
     isFiltered() {
       return Boolean(
         normalizeString(this.filterSearch).trim() != "" ||
-        this.filterUnmatched ||
-        this.selectedGenre ||
-        this.selectedFranchise ||
-        this.selectedCollection ||
-        this.selectedCompany
+          this.filterUnmatched ||
+          this.selectedGenre ||
+          this.selectedFranchise ||
+          this.selectedCollection ||
+          this.selectedCompany,
       );
     },
     reset() {

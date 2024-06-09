@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import LazyImage from "@/components/LazyImage.vue";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -74,16 +73,16 @@ onUnmounted(() => {
 
 <template>
   <router-link
+    ref="card"
     style="text-decoration: none; color: inherit"
     :to="
       romsStore.selecting || romsStore.selectedRoms.length > 0
         ? {}
         : {
-            name: 'rom',
-            params: { rom: rom.id },
-          }
+          name: 'rom',
+          params: { rom: rom.id },
+        }
     "
-    ref="card"
     @click="onNavigate"
     @touchstart="onTouchStart"
     @touchend="onTouchEnd"
@@ -94,10 +93,13 @@ onUnmounted(() => {
       :indeterminate="true"
       absolute
     />
-    <v-hover v-slot="{ isHovering, props }" open-delay="800">
+    <v-hover
+      v-slot="{ isHovering, props }"
+      open-delay="800"
+    >
       <v-img
-        :value="rom.id"
         :key="rom.id"
+        :value="rom.id"
         v-bind="props"
         :placeholder="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
         :src="
@@ -112,7 +114,10 @@ onUnmounted(() => {
         "
         :aspect-ratio="3 / 4"
       >
-        <div v-bind="props" style="position: absolute; top: 0; width: 100%">
+        <div
+          v-bind="props"
+          style="position: absolute; top: 0; width: 100%"
+        >
           <v-expand-transition>
             <div
               v-if="isHovering || !rom.has_cover"
@@ -124,7 +129,10 @@ onUnmounted(() => {
               <v-list-item>{{ rom.name }}</v-list-item>
             </div>
           </v-expand-transition>
-          <v-row no-gutters class="text-white px-1">
+          <v-row
+            no-gutters
+            class="text-white px-1"
+          >
             <v-chip
               v-if="rom.regions.filter(identity).length > 0 && showRegions"
               :title="`Regions: ${rom.regions.join(', ')}`"
@@ -132,7 +140,11 @@ onUnmounted(() => {
               :class="{ 'emoji-collection': rom.regions.length > 3 }"
               density="compact"
             >
-              <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
+              <span
+                v-for="region in rom.regions.slice(0, 3)"
+                :key="region"
+                class="emoji"
+              >
                 {{ regionToEmoji(region) }}
               </span>
             </v-chip>
@@ -143,7 +155,11 @@ onUnmounted(() => {
               :class="{ 'emoji-collection': rom.languages.length > 3 }"
               density="compact"
             >
-              <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
+              <span
+                v-for="language in rom.languages.slice(0, 3)"
+                :key="language"
+                class="emoji"
+              >
                 {{ languageToEmoji(language) }}
               </span>
             </v-chip>
@@ -157,13 +173,13 @@ onUnmounted(() => {
             </v-chip>
           </v-row>
         </div>
-        <template v-slot:error>
+        <template #error>
           <v-img
             :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
             :aspect-ratio="3 / 4"
-          ></v-img>
+          />
         </template>
-        <template v-slot:placeholder>
+        <template #placeholder>
           <div class="d-flex align-center justify-center fill-height">
             <v-progress-circular
               :width="2"

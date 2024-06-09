@@ -1,7 +1,7 @@
 from fastapi.security.http import HTTPBasic
+from handler.auth import auth_handler, oauth_handler
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
-from handler.auth import auth_handler, oauth_handler
 
 
 class HybridAuthBackend(AuthenticationBackend):
