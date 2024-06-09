@@ -33,7 +33,7 @@ services:
       - romm-db
 
   romm-db:
-    image: mariadb:latest
+    image: mariadb:latest # if you experience issues, try: linuxserver/mariadb:latest
     container_name: romm-db
     restart: unless-stopped
     environment:
