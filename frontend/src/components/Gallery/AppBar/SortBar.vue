@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 // Props
 const showSortBar = ref(false);
-const romsStore = storeRoms();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("sortBarShow", () => {
   showSortBar.value = !showSortBar.value;
@@ -18,7 +16,10 @@ function sort() {}
 
 <template>
   <div v-if="showSortBar">
-    <v-row no-gutters class="pt-1 px-1">
+    <v-row
+      no-gutters
+      class="pt-1 px-1"
+    >
       <!-- <v-col cols="6" sm="6" md="6" lg="6" xl="6">
           <v-select
             hide-details
@@ -49,7 +50,7 @@ function sort() {}
           :items="sortBy"
           :model="sorted"
           @update:model-value="sort"
-        ></v-select>
+        />
       </v-col>
     </v-row>
     <v-divider

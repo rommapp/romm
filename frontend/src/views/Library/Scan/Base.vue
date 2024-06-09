@@ -91,12 +91,22 @@ watch(metadataOptions, (newOptions) => {
 
 <template>
   <!-- Platform selector -->
-  <v-row class="px-4 pt-4 align-center" no-gutters>
-    <v-col cols="12" xs="12" sm="12" md="6" xl="6" class="pr-1">
+  <v-row
+    class="px-4 pt-4 align-center"
+    no-gutters
+  >
+    <v-col
+      cols="12"
+      xs="12"
+      sm="12"
+      md="6"
+      xl="6"
+      class="pr-1"
+    >
       <v-autocomplete
+        v-model="platformsToScan"
         label="Platforms"
         item-title="name"
-        v-model="platformsToScan"
         :items="platforms.value"
         variant="outlined"
         density="comfortable"
@@ -106,11 +116,21 @@ watch(metadataOptions, (newOptions) => {
         hide-details
         chips
       >
-        <template v-slot:item="{ props, item }">
-          <v-list-item class="py-2" v-bind="props" :title="item.raw.name ?? ''">
-            <template v-slot:prepend>
-              <v-avatar :rounded="0" size="35">
-                <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
+        <template #item="{ props, item }">
+          <v-list-item
+            class="py-2"
+            v-bind="props"
+            :title="item.raw.name ?? ''"
+          >
+            <template #prepend>
+              <v-avatar
+                :rounded="0"
+                size="35"
+              >
+                <platform-icon
+                  :key="item.raw.slug"
+                  :slug="item.raw.slug"
+                />
               </v-avatar>
             </template>
           </v-list-item>
@@ -127,9 +147,9 @@ watch(metadataOptions, (newOptions) => {
       :class="{ 'mt-3': smAndDown }"
     >
       <v-select
+        v-model="metadataSources"
         label="Metadata sources"
         item-title="name"
-        v-model="metadataSources"
         :items="metadataOptions"
         variant="outlined"
         density="comfortable"
@@ -139,7 +159,7 @@ watch(metadataOptions, (newOptions) => {
         hide-details
         chips
       >
-        <template v-slot:item="{ props, item }">
+        <template #item="{ props, item }">
           <v-list-item
             v-bind="props"
             :title="item.raw.name"
@@ -150,7 +170,7 @@ watch(metadataOptions, (newOptions) => {
                 ? 'mdi-checkbox-marked'
                 : 'mdi-square-outline'
             "
-          ></v-list-item>
+          />
         </template>
       </v-select>
     </v-col>
@@ -165,35 +185,38 @@ watch(metadataOptions, (newOptions) => {
     >
       <!-- Scan options -->
       <v-select
+        v-model="scanType"
         hide-details
         density="comfortable"
         variant="outlined"
         label="Scan option"
-        v-model="scanType"
         :items="scanOptions"
       >
-        <template v-slot:item="{ props, item }">
+        <template #item="{ props, item }">
           <v-list-item
             v-bind="props"
             :subtitle="item.raw.subtitle"
-          ></v-list-item>
+          />
         </template>
       </v-select>
     </v-col>
   </v-row>
 
-  <v-row class="pa-4 align-center" no-gutters>
+  <v-row
+    class="pa-4 align-center"
+    no-gutters
+  >
     <v-btn
-      @click="scan()"
       :disabled="scanning || metadataSources.length == 0"
       prepend-icon="mdi-magnify-scan"
       rounded="4"
       height="40"
       :color="scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'"
       :loading="scanning"
+      @click="scan()"
     >
       Scan
-      <template v-slot:loader>
+      <template #loader>
         <v-progress-circular
           color="romm-accent-1"
           :width="2"
@@ -204,12 +227,12 @@ watch(metadataOptions, (newOptions) => {
     </v-btn>
     <v-btn
       class="ml-2"
-      @click="stopScan()"
       :disabled="!scanning"
       prepend-icon="mdi-alert-octagon"
       rounded="4"
       height="40"
       :color="scanning ? 'red' : ''"
+      @click="stopScan()"
     >
       Abort
     </v-btn>
@@ -231,28 +254,42 @@ watch(metadataOptions, (newOptions) => {
   <!-- Scan log -->
   <div class="overflow-y-auto scan-log mt-4">
     <v-row
+      v-for="platform in scanningPlatforms"
+      :key="platform.id"
       no-gutters
       class="align-center pa-4"
-      v-for="platform in scanningPlatforms"
     >
       <v-col>
         <v-list-item
           :to="{ name: 'platform', params: { platform: platform.id } }"
         >
-          <v-avatar :rounded="0" size="40">
-            <platform-icon :key="platform.slug" :slug="platform.slug" />
+          <v-avatar
+            :rounded="0"
+            size="40"
+          >
+            <platform-icon
+              :key="platform.slug"
+              :slug="platform.slug"
+            />
           </v-avatar>
           <span class="text-body-2 ml-5"> {{ platform.name }}</span>
         </v-list-item>
         <v-list-item
           v-for="rom in platform.roms"
+          :key="rom.id"
           class="text-body-2 romm-grey"
           :to="{ name: 'rom', params: { rom: rom.id } }"
         >
-          <span v-if="rom.igdb_id || rom.moby_id" class="ml-10">
+          <span
+            v-if="rom.igdb_id || rom.moby_id"
+            class="ml-10"
+          >
             • Identified <b>{{ rom.name }} 👾</b>
           </span>
-          <span v-else class="ml-10">
+          <span
+            v-else
+            class="ml-10"
+          >
             • {{ rom.file_name }} not found in metadata sources ❌
           </span>
         </v-list-item>
@@ -261,14 +298,20 @@ watch(metadataOptions, (newOptions) => {
   </div>
 
   <!-- Scan stats -->
-  <v-bottom-navigation :elevation="0" height="40" class="text-caption">
+  <v-bottom-navigation
+    :elevation="0"
+    height="40"
+    class="text-caption"
+  >
     <v-chip
       v-if="scanningPlatforms.length > 0"
       color="romm-accent-1"
       text-color="white"
       class="mr-2 my-1"
     >
-      <v-icon left>mdi-information</v-icon>&nbsp; Platforms:
+      <v-icon left>
+        mdi-information
+      </v-icon>&nbsp; Platforms:
       {{ scanningPlatforms.length }} scanned, with
       {{ scanStats.added_platforms }} new and
       {{ scanStats.metadata_platforms }} identified
@@ -279,7 +322,9 @@ watch(metadataOptions, (newOptions) => {
       text-color="white"
       class="my-1"
     >
-      <v-icon left>mdi-information</v-icon>&nbsp; Roms:
+      <v-icon left>
+        mdi-information
+      </v-icon>&nbsp; Roms:
       {{ scanStats.scanned_roms }} scanned, with {{ scanStats.added_roms }} new
       and {{ scanStats.metadata_roms }} identified
     </v-chip>

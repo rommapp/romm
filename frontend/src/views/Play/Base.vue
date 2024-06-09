@@ -53,8 +53,16 @@ function onFullScreenChange() {
 </script>
 
 <template>
-  <v-row v-if="rom" class="h-screen" no-gutters>
-    <v-col v-if="!gameRunning" cols="3" class="px-3">
+  <v-row
+    v-if="rom"
+    class="h-screen"
+    no-gutters
+  >
+    <v-col
+      v-if="!gameRunning"
+      cols="3"
+      class="px-3"
+    >
       <v-img
         class="mx-auto mt-6 mb-5"
         width="250"
@@ -62,13 +70,13 @@ function onFullScreenChange() {
       />
       <v-select
         v-if="supportedCores.length > 1"
+        v-model="coreRef"
         density="compact"
         class="my-2"
         hide-details
         variant="outlined"
         clearable
         label="Core"
-        v-model="coreRef"
         :items="
           supportedCores.map((c) => ({
             title: c,
@@ -77,12 +85,12 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="biosRef"
         class="my-1"
         hide-details
         variant="outlined"
         clearable
         label="BIOS"
-        v-model="biosRef"
         :items="
           firmwareOptions.map((f) => ({
             title: f.file_name,
@@ -91,12 +99,12 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="saveRef"
         class="my-1"
         hide-details
         variant="outlined"
         clearable
         label="Save"
-        v-model="saveRef"
         :items="
           rom.user_saves?.map((s) => ({
             title: s.file_name,
@@ -106,12 +114,12 @@ function onFullScreenChange() {
         "
       />
       <v-select
+        v-model="stateRef"
         class="my-1"
         hide-details
         variant="outlined"
         clearable
         label="State"
-        v-model="stateRef"
         :items="
           rom.user_states?.map((s) => ({
             title: s.file_name,
@@ -133,11 +141,11 @@ function onFullScreenChange() {
         ]"
       /> -->
       <v-checkbox
-        hide-details
         v-model="fullScreenOnPlay"
-        @change="onFullScreenChange"
+        hide-details
         color="romm-accent-1"
         label="Full screen"
+        @change="onFullScreenChange"
       />
       <v-btn
         class="mt-4"
@@ -147,11 +155,17 @@ function onFullScreenChange() {
         size="x-large"
         @click="onPlay()"
       >
-        <v-icon class="mr-2">mdi-play</v-icon>Play
+        <v-icon class="mr-2">
+          mdi-play
+        </v-icon>Play
       </v-btn>
     </v-col>
 
-    <v-col class="bg-primary" rounded id="game-wrapper">
+    <v-col
+      id="game-wrapper"
+      class="bg-primary"
+      rounded
+    >
       <player
         :rom="rom"
         :state="stateRef"

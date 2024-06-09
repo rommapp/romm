@@ -17,12 +17,12 @@ const downloadStore = storeDownload();
     <v-col class="pa-0">
       <v-btn
         class="action-bar-btn"
-        @click="romApi.downloadRom({ rom })"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
         size="x-small"
         rounded="0"
         variant="text"
+        @click="romApi.downloadRom({ rom })"
       />
       <v-btn
         v-if="isEmulationSupported(rom.platform_slug)"
@@ -35,7 +35,7 @@ const downloadStore = storeDownload();
       />
     </v-col>
     <v-menu location="bottom">
-      <template v-slot:activator="{ props }">
+      <template #activator="{ props }">
         <v-btn
           class="action-bar-btn"
           :disabled="!auth.scopes.includes('roms.write')"

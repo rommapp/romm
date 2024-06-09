@@ -14,8 +14,8 @@ export default defineStore("download", {
       this.value.splice(this.value.indexOf(id), 1);
     },
     clear() {
-      this.value = [] as number[]
-      this.filesToDownloadMultiFileRom = [] as string[]
-    }
+      this.value = [] as number[];
+      this.filesToDownloadMultiFileRom = [] as string[];
+    },
   },
 });

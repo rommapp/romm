@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import File, UploadFile
+from fastapi import UploadFile
 from fastapi.param_functions import Form
 
 
@@ -11,7 +11,7 @@ class UserForm:
         password: Optional[str] = None,
         role: Optional[str] = None,
         enabled: Optional[bool] = None,
-        avatar: Optional[UploadFile] = File(None),
+        avatar: Optional[UploadFile] = None,
     ):
         self.username = username
         self.password = password

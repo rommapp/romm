@@ -6,12 +6,12 @@ from config import (
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
+from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
 from handler.scan_handler import ScanType
 from logger.logger import log
 from tasks.tasks import tasks_scheduler
-from config.config_manager import config_manager as cm
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 

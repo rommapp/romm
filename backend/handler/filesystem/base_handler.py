@@ -1,7 +1,6 @@
+import fnmatch
 import os
 import re
-import fnmatch
-from abc import ABC
 from enum import Enum
 from typing import Final
 
@@ -84,10 +83,7 @@ class Asset(Enum):
     SCREENSHOTS = "screenshots"
 
 
-class FSHandler(ABC):
-    def __init__(self) -> None:
-        pass
-
+class FSHandler:
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (
@@ -131,11 +127,9 @@ class FSHandler(ABC):
 
             # Additionally, check if the file name mathes a pattern in the excluded list.
             if len(excluded_names) > 0:
-                [
-                    excluded_files.append(file_name)
-                    for name in excluded_names
-                    if file_name == name or fnmatch.fnmatch(file_name, name)
-                ]
+                for name in excluded_names:
+                    if file_name == name or fnmatch.fnmatch(file_name, name):
+                        excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]

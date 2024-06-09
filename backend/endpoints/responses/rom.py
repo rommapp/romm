@@ -1,26 +1,25 @@
 import re
 from datetime import datetime
 from typing import Optional, get_type_hints
-from typing_extensions import TypedDict, NotRequired
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
-from handler.socket_handler import socket_handler
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from pydantic import BaseModel, computed_field, Field
+from handler.socket_handler import socket_handler
 from models.rom import Rom
-
+from pydantic import BaseModel, Field, computed_field
+from typing_extensions import NotRequired, TypedDict
 
 SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
 
-RomIGDBMetadata = TypedDict(
+RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
     total=False,
 )
-RomMobyMetadata = TypedDict(
+RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
     total=False,
@@ -121,7 +120,9 @@ class DetailedRomSchema(RomSchema):
     user_notes: list[RomNoteSchema] = Field(default_factory=list)
 
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> "DetailedRomSchema":
+    def from_orm_with_request(
+        cls, db_rom: Rom, request: Request
+    ) -> "DetailedRomSchema":
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 

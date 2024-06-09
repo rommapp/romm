@@ -14,16 +14,19 @@ const route = useRoute();
 <template>
   <v-list-item
     v-if="route.params.platform"
+    class="py-4 pr-5"
     @click="
       emitter?.emit(
         'showFirmwareDialog',
         platforms.get(Number(route.params.platform)) as Platform
       )
     "
-    class="py-4 pr-5"
   >
-    <v-list-item-title class="d-flex"
-      ><v-icon icon="mdi-memory" class="mr-2" />Firmware/BIOS</v-list-item-title
-    >
+    <v-list-item-title class="d-flex">
+      <v-icon
+        icon="mdi-memory"
+        class="mr-2"
+      />Firmware/BIOS
+    </v-list-item-title>
   </v-list-item>
 </template>

@@ -11,5 +11,8 @@ const auth = storeAuth();
 <template>
   <theme />
   <interface-options class="mt-1" />
-  <task-status v-if="auth.scopes.includes('tasks.run')" class="mt-1" />
+  <task-status
+    v-if="auth.scopes.includes('tasks.run')"
+    class="mt-1"
+  />
 </template>

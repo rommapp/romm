@@ -17,10 +17,11 @@ If you would like to contribute to the project's [documentation](https://github.
 1. Fork the repository.
 2. Clone your forked repository: `git clone https://github.com/your-username/romm.git`
 3. Checkout the `master` branch: `git checkout master`
-4. Create a new branch for your feature/fix: `git checkout -b feature-or-fix-name`
-5. Make your changes and commit them with descriptive commit messages: `git commit -am 'Add feature XYZ'`
-6. Push your changes to your fork: `git push origin feature-or-fix-name`
-7. Open a pull request to the `master` branch of the original repository.
+4. Follow the steps in the [developer setup guide](DEVELOPER_SETUP.md)
+5. Create a new branch for your feature/fix: `git checkout -b feature-or-fix-name`
+6. Make your changes and commit them with descriptive commit messages: `git commit -am 'Add feature XYZ'`
+7. Push your changes to your fork: `git push origin feature-or-fix-name`
+8. Open a pull request to the `master` branch of the original repository.
 
 ### Pull Request Guidelines
 

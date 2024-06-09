@@ -1,197 +1,197 @@
 {
-   "id": 191930,
-   "name": "Pokémon Violet",
-   "slug": "pokemon-violet",
-   "summary": "The Pokémon Scarlet and Pokémon Violet games, the newest chapters in the Pokémon series, are coming to Nintendo Switch later this year. With these new titles, the Pokémon series takes a new evolutionary step, allowing you to explore freely in a richly expressed open world.\n\nVarious towns blend seamlessly into the wilderness with no borders. You’ll be able to see the Pokémon of this region in the skies, in the seas, in the forests, on the streets—all over! You’ll be able to experience the true joy of the Pokémon series—battling against wild Pokémon in order to catch them—now in an open-world game that players of any age can enjoy.\u200b",
-   "total_rating": 75.10255180007994,
-   "aggregated_rating": 80.0,
-   "first_release_date": 1668729600,
-   "alternative_names": [
-      {
-         "id": 90678,
-         "name": "포켓몬스터바이올렛"
-      },
-      {
-         "id": 107879,
-         "name": "ポケットモンスター バイオレット"
-      },
-      {
-         "id": 118572,
-         "name": "Pokémon Purpur"
-      },
-      {
-         "id": 118574,
-         "name": "Pokemon Violet"
-      },
-      {
-         "id": 120436,
-         "name": "Pokémon Púrpura"
-      },
-      {
-         "id": 137600,
-         "name": "Pocket Monsters Violet"
-      }
-   ],
-   "artworks": [
-      {
-         "id": 74870,
-         "url": "//images.igdb.com/igdb/image/upload/t_thumb/ar1lrq.jpg"
-      }
-   ],
-   "cover": {
-      "id": 270118,
-      "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfa.jpg"
-   },
-   "screenshots": [
-      {
-         "id": 740299,
-         "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7v.jpg"
-      },
-      {
-         "id": 740300,
-         "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7w.jpg"
-      },
-      {
-         "id": 740301,
-         "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7x.jpg"
-      },
-      {
-         "id": 740302,
-         "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7y.jpg"
-      }
-   ],
-   "franchise": {
+  "id": 191930,
+  "name": "Pokémon Violet",
+  "slug": "pokemon-violet",
+  "summary": "The Pokémon Scarlet and Pokémon Violet games, the newest chapters in the Pokémon series, are coming to Nintendo Switch later this year. With these new titles, the Pokémon series takes a new evolutionary step, allowing you to explore freely in a richly expressed open world.\n\nVarious towns blend seamlessly into the wilderness with no borders. You’ll be able to see the Pokémon of this region in the skies, in the seas, in the forests, on the streets—all over! You’ll be able to experience the true joy of the Pokémon series—battling against wild Pokémon in order to catch them—now in an open-world game that players of any age can enjoy.\u200b",
+  "total_rating": 75.10255180007994,
+  "aggregated_rating": 80.0,
+  "first_release_date": 1668729600,
+  "alternative_names": [
+    {
+      "id": 90678,
+      "name": "포켓몬스터바이올렛"
+    },
+    {
+      "id": 107879,
+      "name": "ポケットモンスター バイオレット"
+    },
+    {
+      "id": 118572,
+      "name": "Pokémon Purpur"
+    },
+    {
+      "id": 118574,
+      "name": "Pokemon Violet"
+    },
+    {
+      "id": 120436,
+      "name": "Pokémon Púrpura"
+    },
+    {
+      "id": 137600,
+      "name": "Pocket Monsters Violet"
+    }
+  ],
+  "artworks": [
+    {
+      "id": 74870,
+      "url": "//images.igdb.com/igdb/image/upload/t_thumb/ar1lrq.jpg"
+    }
+  ],
+  "cover": {
+    "id": 270118,
+    "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfa.jpg"
+  },
+  "screenshots": [
+    {
+      "id": 740299,
+      "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7v.jpg"
+    },
+    {
+      "id": 740300,
+      "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7w.jpg"
+    },
+    {
+      "id": 740301,
+      "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7x.jpg"
+    },
+    {
+      "id": 740302,
+      "url": "//images.igdb.com/igdb/image/upload/t_thumb/scfv7y.jpg"
+    }
+  ],
+  "franchise": {
+    "id": 60,
+    "name": "Pokémon"
+  },
+  "franchises": [
+    {
       "id": 60,
       "name": "Pokémon"
-   },
-   "franchises": [
-      {
-         "id": 60,
-         "name": "Pokémon"
+    }
+  ],
+  "genres": [
+    {
+      "id": 12,
+      "name": "Role-playing (RPG)"
+    },
+    {
+      "id": 16,
+      "name": "Turn-based strategy (TBS)"
+    },
+    {
+      "id": 31,
+      "name": "Adventure"
+    }
+  ],
+  "game_modes": [
+    {
+      "id": 1,
+      "name": "Single player"
+    },
+    {
+      "id": 2,
+      "name": "Multiplayer"
+    }
+  ],
+  "platforms": [
+    {
+      "id": 130,
+      "slug": "switch",
+      "name": "Nintendo Switch"
+    }
+  ],
+  "collections": [
+    {
+      "id": 314,
+      "name": "Pokémon"
+    }
+  ],
+  "involved_companies": [
+    {
+      "id": 164695,
+      "company": {
+        "id": 1617,
+        "name": "Game Freak"
       }
-   ],
-   "genres": [
-      {
-         "id": 12,
-         "name": "Role-playing (RPG)"
-      },
-      {
-         "id": 16,
-         "name": "Turn-based strategy (TBS)"
-      },
-      {
-         "id": 31,
-         "name": "Adventure"
+    },
+    {
+      "id": 164700,
+      "company": {
+        "id": 70,
+        "name": "Nintendo"
       }
-   ],
-   "game_modes": [
-      {
-         "id": 1,
-         "name": "Single player"
-      },
-      {
-         "id": 2,
-         "name": "Multiplayer"
+    }
+  ],
+  "expansions": [
+    {
+      "id": 239930,
+      "slug": "pokemon-violet-the-hidden-treasure-of-area-zero-part-1-the-teal-mask",
+      "name": "Pokémon Violet: The Hidden Treasure of Area Zero - Part 1: The Teal Mask",
+      "cover": {
+        "id": 307621,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co6ld1.jpg"
       }
-   ],
-   "platforms": [
-      {
-         "id": 130,
-         "slug": "switch",
-         "name": "Nintendo Switch"
+    },
+    {
+      "id": 239933,
+      "slug": "pokemon-violet-the-hidden-treasure-of-area-zero-part-2-the-indigo-disk",
+      "name": "Pokémon Violet: The Hidden Treasure of Area Zero - Part 2: The Indigo Disk",
+      "cover": {
+        "id": 307620,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co6ld0.jpg"
       }
-   ],
-   "collections": [
-      {
-         "id": 314,
-         "name": "Pokémon"
+    }
+  ],
+  "expanded_games": [],
+  "dlcs": [],
+  "remakes": [],
+  "remasters": [],
+  "similar_games": [
+    {
+      "id": 27092,
+      "slug": "greedfall",
+      "name": "GreedFall",
+      "cover": {
+        "id": 270119,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfb.jpg"
       }
-   ],
-   "involved_companies": [
-      {
-         "id": 164695,
-         "company": {
-            "id": 1617,
-            "name": "Game Freak"
-         }
-      },
-      {
-         "id": 164700,
-         "company": {
-            "id": 70,
-            "name": "Nintendo"
-         }
+    },
+    {
+      "id": 55038,
+      "slug": "immortal-unchained",
+      "name": "Immortal: Unchained",
+      "cover": {
+        "id": 270120,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfc.jpg"
       }
-   ],
-   "expansions": [
-      {
-         "id": 239930,
-         "slug": "pokemon-violet-the-hidden-treasure-of-area-zero-part-1-the-teal-mask",
-         "name": "Pokémon Violet: The Hidden Treasure of Area Zero - Part 1: The Teal Mask",
-         "cover": {
-            "id": 307621,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co6ld1.jpg"
-         }
-      },
-      {
-         "id": 239933,
-         "slug": "pokemon-violet-the-hidden-treasure-of-area-zero-part-2-the-indigo-disk",
-         "name": "Pokémon Violet: The Hidden Treasure of Area Zero - Part 2: The Indigo Disk",
-         "cover": {
-            "id": 307620,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co6ld0.jpg"
-         }
+    },
+    {
+      "id": 55199,
+      "slug": "dragon-marked-for-death",
+      "name": "Dragon: Marked for Death",
+      "cover": {
+        "id": 270121,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfd.jpg"
       }
-   ],
-   "expanded_games": [],
-   "dlcs": [],
-   "remakes": [],
-   "remasters": [],
-   "similar_games": [
-      {
-         "id": 27092,
-         "slug": "greedfall",
-         "name": "GreedFall",
-         "cover": {
-            "id": 270119,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfb.jpg"
-         }
-      },
-      {
-         "id": 55038,
-         "slug": "immortal-unchained",
-         "name": "Immortal: Unchained",
-         "cover": {
-            "id": 270120,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfc.jpg"
-         }
-      },
-      {
-         "id": 55199,
-         "slug": "dragon-marked-for-death",
-         "name": "Dragon: Marked for Death",
-         "cover": {
-            "id": 270121,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfd.jpg"
-         }
-      },
-      {
-         "id": 81249,
-         "slug": "the-elder-scrolls-vi",
-         "name": "The Elder Scrolls VI",
-         "cover": {
-            "id": 270122,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfe.jpg"
-         }
-      },
-      {
-         "id": 96217,
-         "slug": "eternity-the-last-unicorn",
-         "name": "Eternity: The Last Unicorn",
-         "cover": {
-            "id": 270123,
-            "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sff.jpg"
-         }
+    },
+    {
+      "id": 81249,
+      "slug": "the-elder-scrolls-vi",
+      "name": "The Elder Scrolls VI",
+      "cover": {
+        "id": 270122,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sfe.jpg"
       }
-   ]
+    },
+    {
+      "id": 96217,
+      "slug": "eternity-the-last-unicorn",
+      "name": "Eternity: The Last Unicorn",
+      "cover": {
+        "id": 270123,
+        "url": "//images.igdb.com/igdb/image/upload/t_thumb/co5sff.jpg"
+      }
+    }
+  ]
 }

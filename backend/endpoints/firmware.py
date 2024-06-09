@@ -1,13 +1,10 @@
-from config import LIBRARY_BASE_PATH, DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.firmware import (
-    AddFirmwareResponse,
-    FirmwareSchema,
-)
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from handler.database import db_platform_handler, db_firmware_handler
+from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
 from logger.logger import log
@@ -17,7 +14,7 @@ router = APIRouter()
 
 @protected_route(router.post, "/firmware", ["firmware.write"])
 def add_firmware(
-    request: Request, platform_id: int, files: list[UploadFile] = File(...)
+    request: Request, platform_id: int, files: list[UploadFile] | None = None
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
 
@@ -79,7 +76,7 @@ def add_firmware(
 @protected_route(router.get, "/firmware", ["firmware.read"])
 def get_platform_firmware(
     request: Request,
-    platform_id: int = None,
+    platform_id: int | None = None,
 ) -> list[FirmwareSchema]:
     """Get firmware endpoint
 
@@ -199,9 +196,11 @@ async def delete_firmware(
                 fs_firmware_handler.remove_file(
                     file_name=firmware.file_name, file_path=firmware.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Firmware file {firmware.file_name} not found for platform {firmware.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
     return {"msg": f"{len(firmare_ids)} firmware files deleted successfully!"}

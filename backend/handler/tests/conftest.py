@@ -1,23 +1,21 @@
-import pytest
 import alembic.config
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
+import pytest
 from config.config_manager import ConfigManager
-from models.platform import Platform
-from models.rom import Rom
-from models.user import User
-from models.assets import Save, State, Screenshot
-from models.user import Role
+from handler.auth import auth_handler
 from handler.database import (
-    db_user_handler,
     db_platform_handler,
     db_rom_handler,
     db_save_handler,
-    db_state_handler,
     db_screenshot_handler,
+    db_state_handler,
+    db_user_handler,
 )
-from handler.auth import auth_handler
+from models.assets import Save, Screenshot, State
+from models.platform import Platform
+from models.rom import Rom
+from models.user import Role, User
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)

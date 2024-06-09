@@ -1,10 +1,10 @@
 import sys
 from enum import Enum
 
-from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_USERNAME, REDIS_DB
+from config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, REDIS_USERNAME
+from fakeredis import FakeStrictRedis
 from logger.logger import log
 from redis import Redis
-from fakeredis import FakeStrictRedis
 from rq import Queue
 
 

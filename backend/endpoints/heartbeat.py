@@ -7,9 +7,9 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
+from fastapi import APIRouter
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
-from fastapi import APIRouter
 from utils import get_version
 
 router = APIRouter()
