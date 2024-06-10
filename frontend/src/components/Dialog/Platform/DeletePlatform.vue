@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import RDialog from "@/components/common/Dialog.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
+import PlatformIcon from "@/components/Platform/Icon.vue";
 
 const router = useRouter();
+const { mdAndDown, lgAndUp } = useDisplay();
 const platformsStore = storePlatforms();
 const platform = ref<Platform | null>(null);
 const show = ref(false);
@@ -51,76 +55,40 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog
+  <r-dialog
     v-if="platform"
+    @close="closeDialog"
     v-model="show"
-    width="auto"
-    no-click-animation
-    :scrim="true"
-    persistent
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
+    icon="mdi-delete"
+    scroll-content
+    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
-    <v-card>
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col cols="10">
-            <v-icon
-              icon="mdi-delete"
-              class="ml-5 mr-2"
-            />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider
-        
-        
-      />
-
-      <v-card-text>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <span class="mr-1">Deleting platform</span><span class="text-romm-accent-1">{{ platform.name }} - [<span class="text-romm-accent-1">{{
+    <template #content>
+      <v-row class="justify-center align-center pa-2" no-gutters>
+        <span class="mr-1">Deleting platform</span>
+        <platform-icon :slug="platform.slug" />
+        <span class="text-romm-accent-1 ml-1"
+          >{{ platform.name }} - [<span class="text-romm-accent-1">{{
             platform.fs_slug
-          }}</span>]</span>.
-          <span class="ml-1">Do you confirm?</span>
-        </v-row>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
+          }}</span
+          >]</span
+        >.
+        <span class="ml-1">Do you confirm?</span>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn class="bg-terciary" @click="closeDialog" variant="text">
+          Cancel
+        </v-btn>
+        <v-btn
+          class="bg-terciary text-romm-red ml-5"
+          @click="deletePlatform"
+          variant="text"
         >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="bg-terciary text-romm-red ml-5"
-            @click="deletePlatform()"
-          >
-            Confirm
-          </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+          Confirm
+        </v-btn>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>

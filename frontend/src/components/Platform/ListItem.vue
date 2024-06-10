@@ -15,9 +15,8 @@ defineProps<{ platform: Platform; rail: boolean }>();
   >
     <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
     <template #prepend>
-      <v-avatar :rounded="0" size="40">
-        <platform-icon :key="platform.slug" :slug="platform.slug" />
-        <v-tooltip
+      <platform-icon :key="platform.slug" :slug="platform.slug"
+        ><v-tooltip
           location="bottom"
           class="tooltip"
           transition="fade-transition"
@@ -32,8 +31,8 @@ defineProps<{ platform: Platform; rail: boolean }>();
               ⚠️
             </div>
           </template>
-        </v-tooltip>
-      </v-avatar>
+        </v-tooltip></platform-icon
+      >
     </template>
     <template #append>
       <v-chip v-if="!rail" class="ml-4 bg-chip" size="x-small" label>

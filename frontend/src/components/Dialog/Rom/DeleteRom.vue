@@ -126,20 +126,3 @@ function closeDialog() {
     </template>
   </r-dialog>
 </template>
-
-<style scoped>
-.content-desktop {
-  width: 900px;
-  max-height: 600px;
-}
-
-.content-tablet {
-  width: 570px;
-  max-height: 600px;
-}
-
-.content-mobile {
-  width: 85vw;
-  max-height: 600px;
-}
-</style>

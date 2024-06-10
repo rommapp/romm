@@ -18,9 +18,11 @@ defineProps<{
     <v-card-text class="pa-1">
       <v-list-item class="bg-terciary pa-1 text-truncate">
         <template #prepend>
-          <v-avatar :rounded="0" size="40" class="mx-2">
-            <platform-icon :key="slug" :slug="slug" />
-          </v-avatar>
+          <platform-icon
+            class="mx-2"
+            :key="slug"
+            :slug="slug"
+          />
         </template>
         <v-list-item class="bg-primary pr-2 pl-2">
           <span>{{ fsSlug }}</span>
