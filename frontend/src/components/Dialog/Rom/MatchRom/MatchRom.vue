@@ -11,7 +11,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-const { mdAndDown, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
     :empty-state-condition="matchedRoms.length == 0"
     empty-state-type="game"
     scroll-content
-    :width="lgAndUp ? '60vw' : mdAndDown ? '75vw' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
     :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>

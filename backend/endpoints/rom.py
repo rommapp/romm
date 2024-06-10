@@ -398,7 +398,7 @@ async def delete_roms(
 
     data: dict = await request.json()
     roms_ids: list = data["roms"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     for id in roms_ids:
         rom = db_rom_handler.get_roms(id)
@@ -410,7 +410,7 @@ async def delete_roms(
         log.info(f"Deleting {rom.file_name} from database")
         db_rom_handler.delete_rom(id)
 
-        if delete_from_fs:
+        if id in delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")
             try:
                 fs_rom_handler.remove_file(

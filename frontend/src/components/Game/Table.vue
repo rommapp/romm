@@ -43,12 +43,6 @@ const HEADERS = [
     key: "name",
   },
   {
-    title: "File",
-    align: "start",
-    sortable: true,
-    key: "file_name",
-  },
-  {
     title: "Size",
     align: "start",
     sortable: true,
@@ -132,8 +126,14 @@ onMounted(() => {
               "
             />
           </template>
-
-          <span>{{ item.name }}</span>
+          <v-row no-gutters
+            ><v-col>{{ item.name }}</v-col></v-row
+          >
+          <v-row no-gutters
+            ><v-col class="text-romm-accent-1">{{
+              item.file_name
+            }}</v-col></v-row
+          >
           <template #append>
             <v-chip
               v-if="item.siblings && item.siblings.length > 0 && showSiblings"
@@ -144,11 +144,6 @@ onMounted(() => {
             </v-chip>
           </template>
         </v-list-item>
-      </td>
-    </template>
-    <template #item.file_name="{ item }">
-      <td style="min-width: 300px">
-        <span>{{ item.file_name }}</span>
       </td>
     </template>
     <template #item.file_size_bytes="{ item }">
@@ -200,7 +195,7 @@ onMounted(() => {
 
     <template #bottom>
       <v-divider />
-      <v-row no-gutters class="pt-2 align-center justify-center">
+      <v-row no-gutters class="pa-2 align-center justify-center">
         <v-col cols="12" sm="10" xl="11" class="px-6">
           <v-pagination
             v-model="page"

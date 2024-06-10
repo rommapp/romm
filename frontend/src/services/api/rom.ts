@@ -149,10 +149,10 @@ async function updateRom({
 
 async function deleteRoms({
   roms,
-  deleteFromFs = false,
+  deleteFromFs = [],
 }: {
   roms: SimpleRom[];
-  deleteFromFs: boolean;
+  deleteFromFs: number[];
 }): Promise<{ data: MessageResponse }> {
   return api.post("/roms/delete", {
     roms: roms.map((r) => r.id),

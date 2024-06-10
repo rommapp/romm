@@ -10,7 +10,7 @@ import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/Platform/Icon.vue";
 
 const router = useRouter();
-const { mdAndDown, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const platformsStore = storePlatforms();
 const platform = ref<Platform | null>(null);
 const show = ref(false);
@@ -61,7 +61,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-delete"
     scroll-content
-    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>

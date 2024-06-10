@@ -22,7 +22,7 @@ type SelectItem = {
 };
 
 // Props
-const { mdAndDown, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
 const searched = ref(false);
@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
     :empty-state-condition="searchedRoms?.length == 0 && searched"
     empty-state-type="game"
     scroll-content
-    :width="lgAndUp ? '60vw' : mdAndDown ? '75vw' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
     :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #toolbar>
@@ -191,12 +191,11 @@ onBeforeUnmount(() => {
                 <v-col class="pa-0 ml-1 text-truncate">
                   <span>{{ rom.name }}</span>
                 </v-col>
-                <v-avatar :rounded="0" size="20" class="ml-2">
-                  <platform-icon
-                    :key="rom.platform_slug"
-                    :slug="rom.platform_slug"
-                  />
-                </v-avatar>
+                <platform-icon
+                  :size="20"
+                  :key="rom.platform_slug"
+                  :slug="rom.platform_slug"
+                />
               </v-row>
             </template>
           </game-card>
