@@ -129,47 +129,49 @@ function closeDialog() {
         show-select
       >
         <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <template #prepend>
-              <r-avatar
-                :src="
-                  !item.igdb_id && !item.moby_id
-                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                    : item.has_cover
-                    ? `/assets/romm/resources/${item.path_cover_s}`
-                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                "
-              />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
-            <v-row no-gutters
-              ><v-col class="text-romm-accent-1">{{
-                item.file_name
-              }}</v-col></v-row
-            >
-            <v-row no-gutters
-              ><v-col
-                ><v-chip
+          <td :style="!xs ? 'min-width: 400px' : ''">
+            <v-list-item class="px-0">
+              <template #prepend>
+                <r-avatar
+                  :src="
+                    !item.igdb_id && !item.moby_id
+                      ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                      : item.has_cover
+                      ? `/assets/romm/resources/${item.path_cover_s}`
+                      : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                  "
+                />
+              </template>
+              <v-row no-gutters
+                ><v-col>{{ item.name }}</v-col></v-row
+              >
+              <v-row no-gutters
+                ><v-col class="text-romm-accent-1">{{
+                  item.file_name
+                }}</v-col></v-row
+              >
+              <v-row no-gutters
+                ><v-col
+                  ><v-chip
+                    label
+                    size="x-small"
+                    v-if="romsToDeleteFromFs.includes(item.id) && xs"
+                    class="text-red my-1"
+                    >Removing from filesystem</v-chip
+                  ></v-col
+                ></v-row
+              >
+              <template #append>
+                <v-chip
                   label
                   size="x-small"
-                  v-if="romsToDeleteFromFs.includes(item.id) && xs"
-                  class="text-red my-1"
+                  v-if="romsToDeleteFromFs.includes(item.id) && !xs"
+                  class="text-red ml-3"
                   >Removing from filesystem</v-chip
-                ></v-col
-              ></v-row
-            >
-            <template #append>
-              <v-chip
-                label
-                size="x-small"
-                v-if="romsToDeleteFromFs.includes(item.id) && !xs"
-                class="text-red ml-3"
-                >Removing from filesystem</v-chip
-              >
-            </template>
-          </v-list-item>
+                >
+              </template>
+            </v-list-item>
+          </td>
         </template>
         <template #item.file_size_bytes="{ item }">
           <span>
