@@ -6,7 +6,7 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const show = ref(false);
 const link = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
@@ -27,7 +27,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-content-copy"
-    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #content>
       <v-row class="justify-center text-center pa-2" no-gutters>

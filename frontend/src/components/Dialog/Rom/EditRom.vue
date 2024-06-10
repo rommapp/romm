@@ -108,7 +108,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
-    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center px-4 pt-2" no-gutters>
@@ -188,8 +188,14 @@ function closeDialog() {
     </template>
     <template #append>
       <v-row class="justify-center my-2" no-gutters>
-        <v-btn class="bg-terciary" @click="closeDialog" variant="flat"> Cancel </v-btn>
-        <v-btn class="text-romm-green ml-5 bg-terciary" @click="updateRom" variant="flat">
+        <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          Cancel
+        </v-btn>
+        <v-btn
+          class="text-romm-green ml-5 bg-terciary"
+          @click="updateRom"
+          variant="flat"
+        >
           Apply
         </v-btn>
       </v-row>

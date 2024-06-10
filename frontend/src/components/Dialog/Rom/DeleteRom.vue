@@ -2,31 +2,51 @@
 import RAvatar from "@/components/Game/Avatar.vue";
 import RDialog from "@/components/common/Dialog.vue";
 import romApi from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { mdAndDown, lgAndUp } = useDisplay();
+const { xs, lgAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const romsStore = storeRoms();
-const roms = ref();
-const deleteFromFs = ref(false);
+const roms = ref<SimpleRom[]>([]);
+const romsToDeleteFromFs = ref<number[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteRomDialog", (romsToDelete) => {
   roms.value = romsToDelete;
+  updateDataTablePages();
   show.value = true;
 });
+const HEADERS = [
+  {
+    title: "Name",
+    align: "start",
+    sortable: true,
+    key: "name",
+  },
+  {
+    title: "Size",
+    align: "start",
+    sortable: true,
+    key: "file_size_bytes",
+  },
+] as const;
+const page = ref(1);
+const romsPerPage = ref(10);
+const pageCount = ref(0);
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Functions
 async function deleteRoms() {
   await romApi
-    .deleteRoms({ roms: roms.value, deleteFromFs: deleteFromFs.value })
+    .deleteRoms({ roms: roms.value, deleteFromFs: romsToDeleteFromFs.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
         msg: response.data.msg,
@@ -55,8 +75,16 @@ async function deleteRoms() {
   });
 }
 
+function updateDataTablePages() {
+  pageCount.value = Math.ceil(roms.value.length / romsPerPage.value);
+}
+
+watch(romsPerPage, async () => {
+  updateDataTablePages();
+});
+
 function closeDialog() {
-  deleteFromFs.value = false;
+  romsToDeleteFromFs.value = [];
   show.value = false;
 }
 </script>
@@ -67,38 +95,113 @@ function closeDialog() {
     v-model="show"
     icon="mdi-delete"
     scroll-content
-    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #prepend>
+      <v-list-item class="text-center">
+        <span>Removing the following</span>
+        <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
+        <span>games from RomM. Do you confirm?</span>
+      </v-list-item>
+      <template v-if="romsToDeleteFromFs.length > 0">
         <v-list-item class="text-center">
-          <span>Deleting the following</span>
-          <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
-          <span>games. Do you confirm?</span>
-          <template #append>
-            <v-checkbox hide-details label="Select All"></v-checkbox>
-          </template>
+          <span class="text-red text-body-1">WARNING:</span>
+          <span class="text-body-2 ml-1">You are going to remove</span>
+          <span class="text-red text-body-1 ml-1">{{
+            romsToDeleteFromFs.length
+          }}</span>
+          <span class="text-body-2 ml-1"
+            >roms from your filesystem. This action can't be reverted!</span
+          >
         </v-list-item>
+      </template>
     </template>
     <template #content>
-      <v-list-item v-for="rom in roms" :key="rom.id" class="justify-center">
-        <template #prepend>
-          <r-avatar
-            :src="
-              !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                : `/assets/romm/resources/${rom.path_cover_s}`
-            "
-          />
+      <v-data-table
+        :item-value="(item) => item.id"
+        :items="roms"
+        :width="lgAndUp ? '60vw' : '95vw'"
+        :items-per-page="romsPerPage"
+        :items-per-page-options="PER_PAGE_OPTIONS"
+        :headers="HEADERS"
+        v-model="romsToDeleteFromFs"
+        v-model:page="page"
+        show-select
+      >
+        <template #item.name="{ item }">
+          <v-list-item class="px-0">
+            <template #prepend>
+              <r-avatar
+                :src="
+                  !item.igdb_id && !item.moby_id
+                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                    : item.has_cover
+                    ? `/assets/romm/resources/${item.path_cover_s}`
+                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                "
+              />
+            </template>
+            <v-row no-gutters
+              ><v-col>{{ item.name }}</v-col></v-row
+            >
+            <v-row no-gutters
+              ><v-col class="text-romm-accent-1">{{
+                item.file_name
+              }}</v-col></v-row
+            >
+            <v-row no-gutters
+              ><v-col
+                ><v-chip
+                  label
+                  size="x-small"
+                  v-if="romsToDeleteFromFs.includes(item.id) && xs"
+                  class="text-red my-1"
+                  >Removing from filesystem</v-chip
+                ></v-col
+              ></v-row
+            >
+            <template #append>
+              <v-chip
+                label
+                size="x-small"
+                v-if="romsToDeleteFromFs.includes(item.id) && !xs"
+                class="text-red ml-3"
+                >Removing from filesystem</v-chip
+              >
+            </template>
+          </v-list-item>
         </template>
-        {{ rom.name }} - [<span class="text-romm-accent-1">{{
-          rom.file_name
-        }}</span
-        >]
-        <template #append>
-          <!-- TODO: check to remove from fs -->
-          <v-checkbox hide-details></v-checkbox>
+        <template #item.file_size_bytes="{ item }">
+          <span>
+            {{ formatBytes(item.file_size_bytes) }}
+          </span>
         </template>
-      </v-list-item>
+        <template #bottom>
+          <v-divider />
+          <v-row no-gutters class="pt-2 align-center justify-center">
+            <v-col class="px-6">
+              <v-pagination
+                v-model="page"
+                rounded="0"
+                :show-first-last-page="true"
+                active-color="romm-accent-1"
+                :length="pageCount"
+              />
+            </v-col>
+            <v-col cols="5" sm="3" xl="2">
+              <v-select
+                v-model="romsPerPage"
+                class="pa-2"
+                label="Roms per page"
+                density="compact"
+                variant="outlined"
+                :items="PER_PAGE_OPTIONS"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </template>
+      </v-data-table>
     </template>
     <template #append>
       <v-row class="justify-center my-2">
@@ -112,16 +215,6 @@ function closeDialog() {
         >
           Confirm
         </v-btn>
-      </v-row>
-    </template>
-    <template #footer>
-      <v-row no-gutters class="align-center">
-        <v-checkbox
-          v-model="deleteFromFs"
-          label="Remove from filesystem"
-          class="ml-5"
-          hide-details
-        />
       </v-row>
     </template>
   </r-dialog>

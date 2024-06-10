@@ -107,6 +107,7 @@ watch(
     <background-header :rom="rom" />
 
     <v-row
+      class="px-5"
       :class="{
         'ml-6': mdAndUp,
         'justify-center': smAndDown,

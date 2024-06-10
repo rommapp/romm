@@ -14,7 +14,7 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
@@ -154,7 +154,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-upload"
-    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>

@@ -13,7 +13,7 @@ const user = ref({
   password: "",
   role: "viewer",
 });
-const { mdAndDown, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const show = ref(false);
 const usersStore = storeUsers();
 
@@ -50,7 +50,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-account"
-    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
+    :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #content>
       <v-row no-gutters class="px-4">
