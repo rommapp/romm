@@ -44,3 +44,9 @@ const theme = useTheme();
     >
   </v-card>
 </template>
+<style scoped>
+.chip-type {
+  top: -0.1rem;
+  left: -0.1rem;
+}
+</style>

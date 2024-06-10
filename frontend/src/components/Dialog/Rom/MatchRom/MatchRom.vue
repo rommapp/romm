@@ -292,6 +292,7 @@ onBeforeUnmount(() => {
             :rom="matchedRom"
             title-on-footer
             transform-scale
+            title-on-hover
           />
         </v-col>
       </v-row>

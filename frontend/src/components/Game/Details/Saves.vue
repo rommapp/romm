@@ -69,16 +69,13 @@ async function uploadSaves() {
 }
 </script>
 <template>
-  <v-row
-    class="pa-2 align-center"
-    no-gutters
-  >
+  <v-row class="pa-2 align-center" no-gutters>
     <v-col>
       <v-list-item class="px-0">
         <v-file-input
           v-model="savesToUpload"
-          label="Select save files..."
-          prepend-inner-icon="mdi-file"
+          label="Select save files"
+          prepend-inner-icon="mdi-content-save"
           prepend-icon=""
           multiple
           chips
@@ -86,13 +83,14 @@ async function uploadSaves() {
           variant="outlined"
           density="compact"
           hide-details
-          @keyup.enter="uploadSaves()"
+          @keyup.enter="uploadSaves"
         />
         <template #append>
           <v-btn
             :disabled="!savesToUpload.length"
             class="text-romm-green ml-3 bg-terciary"
-            @click="uploadSaves()"
+            @click="uploadSaves"
+            prepend-icon="mdi-upload"
           >
             Upload
           </v-btn>
@@ -100,10 +98,7 @@ async function uploadSaves() {
       </v-list-item>
     </v-col>
   </v-row>
-  <v-list
-    rounded="0"
-    class="pa-0"
-  >
+  <v-list rounded="0" class="pa-0">
     <v-list-item
       v-for="save in rom.user_saves"
       :key="save.id"

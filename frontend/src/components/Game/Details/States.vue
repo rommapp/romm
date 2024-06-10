@@ -74,7 +74,7 @@ async function uploadStates() {
       <v-list-item class="px-0">
         <v-file-input
           v-model="statesToUpload"
-          label="Select state files..."
+          label="Select state files"
           prepend-inner-icon="mdi-file"
           prepend-icon=""
           multiple
@@ -83,13 +83,14 @@ async function uploadStates() {
           variant="outlined"
           density="compact"
           hide-details
-          @keyup.enter="uploadStates()"
+          @keyup.enter="uploadStates"
         />
         <template #append>
           <v-btn
             :disabled="!statesToUpload.length"
             class="text-romm-green ml-3 bg-terciary"
-            @click="uploadStates()"
+            @click="uploadStates"
+            prepend-icon="mdi-upload"
           >
             Upload
           </v-btn>
