@@ -45,44 +45,53 @@ function onEditNote() {
 }
 </script>
 <template>
-  <v-card>
-    <v-card-title>
-      <v-row class="px-2 pt-1">
-        <v-col
-          cols="10"
-          class="d-flex align-center"
-        >
-          <h3>My notes</h3>
-        </v-col>
-        <v-col
-          cols="2"
-          class="text-right"
-        >
-          <v-btn
-            icon
-            size="small"
-            :title="ownNote.is_public ? 'Make private' : 'Make public'"
-            class="mr-2"
-            @click="togglePublic"
-          >
-            <v-icon>
-              {{ ownNote.is_public ? "mdi-eye" : "mdi-eye-off" }}
-            </v-icon>
-          </v-btn>
-          <v-btn
-            icon
-            size="small"
-            title="Edit note"
-            @click="onEditNote"
-          >
-            <v-icon>
-              {{ editingNote ? "mdi-check" : "mdi-pencil" }}
-            </v-icon>
-          </v-btn>
-        </v-col>
-      </v-row>
+  <v-card rounded="0">
+    <v-card-title class="bg-terciary">
+      <v-list-item class="pl-2 pr-0">
+        <span class="text-h6">My notes</span>
+        <template #append>
+          <v-btn-group divided density="compact" rounded="0">
+            <v-tooltip
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              :text="ownNote.is_public ? 'Make private' : 'Make public'"
+              open-delay="500"
+              ><template #activator="{ props: tooltipProps }">
+                <v-btn
+                  @click="togglePublic"
+                  v-bind="tooltipProps"
+                  class="bg-terciary"
+                >
+                  <v-icon size="large">
+                    {{ ownNote.is_public ? "mdi-eye" : "mdi-eye-off" }}
+                  </v-icon>
+                </v-btn>
+              </template></v-tooltip
+            >
+            <v-tooltip
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              text="Edit note"
+              open-delay="500"
+              ><template #activator="{ props: tooltipProps }">
+                <v-btn
+                  @click="onEditNote"
+                  v-bind="tooltipProps"
+                  class="bg-terciary"
+                >
+                  <v-icon size="large">
+                    {{ editingNote ? "mdi-check" : "mdi-pencil" }}
+                  </v-icon>
+                </v-btn>
+              </template></v-tooltip
+            >
+          </v-btn-group>
+        </template>
+      </v-list-item>
     </v-card-title>
-    <v-card-text>
+    <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
         v-model="ownNote.raw_markdown"
@@ -101,19 +110,34 @@ function onEditNote() {
       />
     </v-card-text>
   </v-card>
-  <v-card
-    v-if="publicNotes.length > 0"
-    class="mt-3"
-  >
-    <v-card-title class="px-6 pt-4">
-      <h3>Public notes</h3>
+
+  <v-card rounded="0" v-if="publicNotes.length > 0" class="mt-2">
+    <v-card-title class="bg-terciary">
+      <v-list-item class="pl-2 pr-0">
+        <span class="text-h6">Public notes</span>
+      </v-list-item>
     </v-card-title>
-    <v-card-text>
-      <v-list>
-        <v-list-item
-          v-for="note in publicNotes"
-          :key="note.id"
-        >
+
+    <v-divider />
+
+    <v-card-text class="pa-0">
+      <v-expansion-panels multiple flat rounded="0" variant="accordion">
+        <v-expansion-panel v-for="note in publicNotes" :key="note.id">
+          <v-expansion-panel-title class="bg-terciary">
+            <span class="text-body-1">{{ note.user__username }}</span>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text class="bg-secondary">
+            <MdPreview
+              :model-value="note.raw_markdown"
+              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+              preview-theme="vuepress"
+              code-theme="github"
+            />
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
+      <!-- <v-list>
+        <v-list-item v-for="note in publicNotes" :key="note.id">
           <v-list-item-title>{{ note.user__username }}</v-list-item-title>
           <MdPreview
             :model-value="note.raw_markdown"
@@ -122,7 +146,7 @@ function onEditNote() {
             code-theme="github"
           />
         </v-list-item>
-      </v-list>
+      </v-list> -->
     </v-card-text>
   </v-card>
 </template>
@@ -138,5 +162,8 @@ function onEditNote() {
 }
 .vuepress-theme pre code {
   background-color: #0d1117;
+}
+.v-expansion-panel-text__wrapper {
+  padding: 0px !important;
 }
 </style>

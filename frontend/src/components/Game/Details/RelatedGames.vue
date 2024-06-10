@@ -12,20 +12,8 @@ const combined = ref([
 </script>
 <template>
   <v-row no-gutters>
-    <v-col
-      class="pa-0"
-      cols="4"
-      sm="3"
-      md="6"
-      v-for="rom in combined"
-    >
+    <v-col cols="4" sm="3" md="6" v-for="rom in combined">
       <related-card :rom="rom" />
     </v-col>
   </v-row>
 </template>
-<style scoped>
-.chip-type {
-  top: -0.1rem;
-  left: -0.1rem;
-}
-</style>

@@ -20,14 +20,16 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
 <template>
   <v-row
     class="text-white text-shadow"
-    :class="{ 'text-center': smAndDown }"
+    :class="{ 'text-center mt-2': smAndDown }"
     no-gutters
   >
     <v-col>
-      <span class="text-h5 font-weight-bold">{{ rom.name }}</span>
+      <v-chip class="text-h5 font-weight-bold pl-0" label variant="text">{{
+        rom.name
+      }}</v-chip>
       <v-chip
         v-if="hasReleaseDate && !smAndDown"
-        class="font-italic ml-2"
+        class="font-italic"
         size="x-small"
       >
         {{ releaseDate }}
@@ -47,7 +49,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           :key="platform.slug"
           :slug="platform.slug"
           :size="30"
-          :class="{ 'ml-2': !smAndDown }"
+          class="ml-2"
         />
       </v-chip>
       <v-chip
@@ -57,9 +59,48 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
       >
         {{ releaseDate }}
       </v-chip>
-      <!-- TODO: refactor this mess + add options to Flags -->
-      <!-- TODO: Date to the right side of the platform chip when xs -->
-      <v-row no-gutters v-if="smAndDown" class="my-1"><v-col></v-col></v-row>
+      <template v-if="!smAndDown">
+        <v-chip
+          class="ml-1"
+          v-if="rom.regions.filter(identity).length > 0"
+          size="small"
+          :title="`Regions: ${rom.regions.join(', ')}`"
+        >
+          <span v-for="region in rom.regions" :key="region" class="px-1">{{
+            regionToEmoji(region)
+          }}</span>
+        </v-chip>
+        <v-chip
+          v-if="rom.languages.filter(identity).length > 0"
+          size="small"
+          class="ml-1"
+          :title="`Languages: ${rom.languages.join(', ')}`"
+        >
+          <span
+            v-for="language in rom.languages"
+            :key="language"
+            class="px-1"
+            >{{ languageToEmoji(language) }}</span
+          >
+        </v-chip>
+        <v-chip v-if="rom.revision" size="small" class="ml-1">
+          Revision {{ rom.revision }}
+        </v-chip>
+      </template>
+    </v-col>
+  </v-row>
+
+  <v-row
+    v-if="
+      smAndDown &&
+      rom.regions.filter(identity).length > 0 &&
+      rom.languages.filter(identity).length > 0 &&
+      rom.revision
+    "
+    class="text-white text-shadow mt-2 text-center"
+    no-gutters
+  >
+    <v-col>
       <v-chip
         class="ml-1"
         v-if="rom.regions.filter(identity).length > 0"
@@ -88,7 +129,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
 
   <v-row
     v-if="rom.igdb_id || rom.moby_id"
-    class="text-white text-shadow"
+    class="text-white text-shadow mt-2"
     :class="{ 'text-center': smAndDown }"
     no-gutters
   >

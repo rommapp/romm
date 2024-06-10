@@ -108,7 +108,7 @@ watch(
 
     <v-row
       :class="{
-        'mx-12': mdAndUp,
+        'ml-6': mdAndUp,
         'justify-center': smAndDown,
       }"
       no-gutters
@@ -122,7 +122,7 @@ watch(
       >
         <cover :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
-        <related-games v-if="mdAndUp" class="mt-3 px-2" :rom="rom" />
+        <related-games v-if="mdAndUp" class="mt-3" :rom="rom" />
       </v-col>
 
       <v-col
@@ -136,17 +136,15 @@ watch(
           'info-xs': smAndDown,
         }"
       >
-        <v-col
-          cols="12"
-          md="7"
-          class="pl-3 bg-green"
+        <div
+          class="px-3"
           :class="{
             'position-absolute title-desktop': mdAndUp,
             'justify-center': smAndDown,
           }"
         >
           <title-info :rom="rom" :platform="platform" />
-        </v-col>
+        </div>
         <v-row
           :class="{
             'justify-center': smAndDown,
@@ -248,7 +246,7 @@ watch(
       </v-col>
 
       <template v-if="lgAndUp">
-        <v-col class="px-6">
+        <v-col>
           <additional-content :rom="rom" />
         </v-col>
       </template>
