@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
+import RDialog from "@/components/common/Dialog.vue";
 
+// Props
 const user = ref({
   username: "",
   password: "",
   role: "viewer",
 });
+const { mdAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const usersStore = storeUsers();
 
@@ -21,7 +24,8 @@ emitter?.on("showCreateUserDialog", () => {
 
 // Functions
 async function createUser() {
-  await userApi.createUser(user.value)
+  await userApi
+    .createUser(user.value)
     .then(({ data }) => {
       usersStore.add(data);
     })
@@ -42,111 +46,68 @@ function closeDialog() {
 }
 </script>
 <template>
-  <v-dialog
+  <r-dialog
+    @close="closeDialog"
     v-model="show"
-    max-width="500px"
-    :scrim="false"
+    icon="mdi-account"
+    :width="lgAndUp ? '900px' : mdAndDown ? '570px' : '85vw'"
   >
-    <v-card>
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
+    <template #content>
+      <v-row no-gutters class="px-4">
+        <v-col>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-text-field
+                v-model="user.username"
+                rounded="0"
+                variant="outlined"
+                label="username"
+                required
+                hide-details
+                clearable
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-text-field
+                v-model="user.password"
+                rounded="0"
+                variant="outlined"
+                label="Password"
+                required
+                hide-details
+                clearable
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-select
+                v-model="user.role"
+                rounded="0"
+                variant="outlined"
+                :items="['viewer', 'editor', 'admin']"
+                label="Role"
+                required
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+        <v-btn
+          :disabled="!user.username || !user.password"
+          class="text-romm-green bg-terciary ml-5"
+          @click="createUser()"
         >
-          <v-col cols="10">
-            <v-icon
-              icon="mdi-account"
-              class="ml-5 mr-2"
-            />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider
-        
-        
-      />
-
-      <v-card-text>
-        <v-row
-          class="pa-2"
-          no-gutters
-        >
-          <v-col>
-            <v-text-field
-              v-model="user.username"
-              rounded="0"
-              variant="outlined"
-              label="username"
-              required
-              hide-details
-              clearable
-            />
-          </v-col>
-        </v-row>
-        <v-row
-          class="pa-2"
-          no-gutters
-        >
-          <v-col>
-            <v-text-field
-              v-model="user.password"
-              rounded="0"
-              variant="outlined"
-              label="Password"
-              required
-              hide-details
-              clearable
-            />
-          </v-col>
-        </v-row>
-        <v-row
-          class="pa-2"
-          no-gutters
-        >
-          <v-col>
-            <v-select
-              v-model="user.role"
-              rounded="0"
-              variant="outlined"
-              :items="['viewer', 'editor', 'admin']"
-              label="Role"
-              required
-              hide-details
-            />
-          </v-col>
-        </v-row>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            :disabled="!user.username || !user.password"
-            class="text-romm-green bg-terciary ml-5"
-            @click="createUser()"
-          >
-            Create
-          </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+          Create
+        </v-btn>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>

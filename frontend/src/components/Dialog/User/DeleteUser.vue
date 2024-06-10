@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import type { Emitter } from "mitt";
-import type { UserItem, Events } from "@/types/emitter";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
+import type { Events, UserItem } from "@/types/emitter";
+import { defaultAvatarPath } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
 
 const user = ref<UserItem | null>(null);
 const show = ref(false);
@@ -52,19 +53,10 @@ function closeDialog() {
     @keydown.esc="closeDialog"
   >
     <v-card>
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
+      <v-toolbar density="compact" class="bg-terciary">
+        <v-row class="align-center" no-gutters>
           <v-col cols="10">
-            <v-icon
-              icon="mdi-delete"
-              class="ml-5 mr-2"
-            />
+            <v-icon icon="mdi-delete" class="ml-5 mr-2" />
           </v-col>
           <v-col>
             <v-btn
@@ -79,32 +71,26 @@ function closeDialog() {
         </v-row>
       </v-toolbar>
 
-      <v-divider
-        
-        
-      />
+      <v-divider />
 
       <v-card-text>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <span class="mr-1">Deleting</span><span class="text-romm-accent-1">{{ user.username }}</span><span class="ml-1">user. Do you confirm?</span>
+        <v-row class="justify-center align-center pa-2" no-gutters>
+          <span>Deleting</span>
+          <v-avatar size="40" class="ml-1">
+            <v-img
+              :src="
+                user.avatar_path
+                  ? `/assets/romm/assets/${user.avatar_path}`
+                  : defaultAvatarPath
+              "
+            >
+            </v-img> </v-avatar
+          ><span class="text-romm-accent-1 ml-1">{{ user.username }}</span
+          ><span class="ml-1">user. Do you confirm?</span>
         </v-row>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="bg-terciary text-romm-red ml-5"
-            @click="deleteUser()"
-          >
+        <v-row class="justify-center pa-2" no-gutters>
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary text-romm-red ml-5" @click="deleteUser()">
             Confirm
           </v-btn>
         </v-row>

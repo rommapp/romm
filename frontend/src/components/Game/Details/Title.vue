@@ -6,56 +6,62 @@ import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity } from "lodash";
 import { useDisplay } from "vuetify";
 
-defineProps<{ rom: DetailedRom; platform: Platform }>();
-const { xs, smAndDown } = useDisplay();
+const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
+const { smAndDown } = useDisplay();
+const releaseDate = new Date(
+  Number(props.rom.first_release_date) * 1000
+).toLocaleDateString("en-US", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+const hasReleaseDate = Number(props.rom.first_release_date) > 0;
 </script>
 <template>
   <v-row
-    class="text-white text-shadow mb-2"
+    class="text-white text-shadow"
     :class="{ 'text-center': smAndDown }"
     no-gutters
   >
     <v-col>
-      <span class="text-h5 font-weight-bold px-1 mb-1" variant="text" label>{{
-        rom.name
-      }}</span>
+      <span class="text-h5 font-weight-bold">{{ rom.name }}</span>
       <v-chip
-        v-if="Number(rom.first_release_date) > 0"
+        v-if="hasReleaseDate && !smAndDown"
         class="font-italic ml-2"
         size="x-small"
       >
-        {{
-          new Date(Number(rom.first_release_date) * 1000).toLocaleDateString(
-            "en-US",
-            {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }
-          )
-        }}
+        {{ releaseDate }}
       </v-chip>
     </v-col>
   </v-row>
+
   <v-row
-  class="text-white text-shadow mb-1"
-  :class="{ 'text-center': smAndDown }"
+    class="text-white text-shadow mt-2"
+    :class="{ 'text-center': smAndDown }"
     no-gutters
-    >
-    <v-col cols="12">
-      <v-chip
-      class="mr-1"
-        :to="{ name: 'platform', params: { platform: platform.id } }"
-        >
+  >
+    <v-col>
+      <v-chip :to="{ name: 'platform', params: { platform: platform.id } }">
         {{ platform.name }}
-        <v-avatar :rounded="0" size="30" class="ml-2">
-          <platform-icon :key="platform.slug" :slug="platform.slug" />
-        </v-avatar>
+        <platform-icon
+          :key="platform.slug"
+          :slug="platform.slug"
+          :size="30"
+          :class="{ 'ml-2': !smAndDown }"
+        />
+      </v-chip>
+      <v-chip
+        v-if="Number(rom.first_release_date) > 0 && smAndDown"
+        class="font-italic ml-1"
+        size="x-small"
+      >
+        {{ releaseDate }}
       </v-chip>
       <!-- TODO: refactor this mess + add options to Flags -->
       <!-- TODO: Date to the right side of the platform chip when xs -->
-      <v-row no-gutters v-if="xs" class="my-1"><v-col></v-col></v-row>
+      <v-row no-gutters v-if="smAndDown" class="my-1"><v-col></v-col></v-row>
       <v-chip
+        class="ml-1"
         v-if="rom.regions.filter(identity).length > 0"
         size="small"
         :title="`Regions: ${rom.regions.join(', ')}`"
@@ -79,6 +85,7 @@ const { xs, smAndDown } = useDisplay();
       </v-chip>
     </v-col>
   </v-row>
+
   <v-row
     v-if="rom.igdb_id || rom.moby_id"
     class="text-white text-shadow"
@@ -105,7 +112,7 @@ const { xs, smAndDown } = useDisplay();
         style="text-decoration: none; color: inherit"
         :href="`https://www.mobygames.com/game/${rom.moby_id}`"
         target="_blank"
-        :class="{ 'ml-2': rom.igdb_id }"
+        :class="{ 'ml-1': rom.igdb_id }"
       >
         <v-chip size="x-small" @click.stop>
           <span>Mobygames</span>
@@ -118,9 +125,3 @@ const { xs, smAndDown } = useDisplay();
     </v-col>
   </v-row>
 </template>
-
-<style scoped>
-.text-shadow {
-  text-shadow: 1px 1px 3px #000000, 0 0 3px #000000;
-}
-</style>

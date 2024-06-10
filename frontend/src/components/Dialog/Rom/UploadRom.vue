@@ -177,9 +177,11 @@ function closeDialog() {
                 :title="item.raw.name ?? ''"
               >
                 <template #prepend>
-                  <v-avatar :rounded="0" size="35">
-                    <platform-icon :key="item.raw.slug" :slug="item.raw.slug" />
-                  </v-avatar>
+                  <platform-icon
+                    :key="item.raw.slug"
+                    :size="35"
+                    :slug="item.raw.slug"
+                  />
                 </template>
               </v-list-item>
             </template>

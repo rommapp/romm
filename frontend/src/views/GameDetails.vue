@@ -124,6 +124,7 @@ watch(
         <action-bar class="mt-2" :rom="rom" />
         <related-games v-if="mdAndUp" class="mt-3 px-2" :rom="rom" />
       </v-col>
+
       <v-col
         cols="12"
         md="7"
@@ -137,10 +138,8 @@ watch(
       >
         <v-col
           cols="12"
-          md="6"
-          lg="5"
-          xl="6"
-          class="px-0"
+          md="7"
+          class="pl-3 bg-green"
           :class="{
             'position-absolute title-desktop': mdAndUp,
             'justify-center': smAndDown,
@@ -271,6 +270,7 @@ watch(
 }
 .title-desktop {
   margin-top: -190px;
+  margin-left: -20px;
 }
 .cover-mobile {
   margin-top: -280px;

@@ -143,12 +143,11 @@ onBeforeUnmount(() => {
                 :title="(item as SelectItem).raw.platform_name ?? ''"
               >
                 <template #prepend>
-                  <v-avatar :rounded="0" size="35">
-                    <platform-icon
-                      :key="(item as SelectItem).raw.platform_slug"
-                      :slug="(item as SelectItem).raw.platform_slug"
-                    />
-                  </v-avatar>
+                  <platform-icon
+                    :size="35"
+                    :key="(item as SelectItem).raw.platform_slug"
+                    :slug="(item as SelectItem).raw.platform_slug"
+                  />
                 </template>
               </v-list-item>
             </template>
