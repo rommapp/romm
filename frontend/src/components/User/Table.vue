@@ -6,8 +6,10 @@ import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 defineProps<{ userSearch: string }>();
+const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
 const auth = storeAuth();
@@ -131,28 +133,30 @@ onMounted(() => {
 
     <template #bottom>
       <v-divider />
-      <v-row no-gutters class="pt-2 align-center justify-center">
-        <v-col cols="11" class="px-6">
-          <v-pagination
-            v-model="page"
-            rounded="0"
-            :show-first-last-page="true"
-            active-color="romm-accent-1"
-            :length="pageCount"
-          />
-        </v-col>
-        <v-col cols="5" sm="2" xl="1">
-          <v-select
-            v-model="usersPerPage"
-            class="pa-2"
-            label="Users per page"
-            density="compact"
-            variant="outlined"
-            :items="PER_PAGE_OPTIONS"
-            hide-details
-          />
-        </v-col>
-      </v-row>
+      <div>
+        <v-row no-gutters class="pa-1 align-center justify-center">
+          <v-col cols="8" sm="9" md="10" class="px-3">
+            <v-pagination
+              :show-first-last-page="!xs"
+              v-model="page"
+              rounded="0"
+              active-color="romm-accent-1"
+              :length="pageCount"
+            />
+          </v-col>
+          <v-col>
+            <v-select
+              v-model="usersPerPage"
+              class="pa-2"
+              label="Users per page"
+              density="compact"
+              variant="outlined"
+              :items="PER_PAGE_OPTIONS"
+              hide-details
+            />
+          </v-col>
+        </v-row>
+      </div>
     </template>
   </v-data-table>
 </template>

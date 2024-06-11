@@ -66,26 +66,28 @@ function resetFilters() {
     v-model="showFilterBar"
     :mobile="true"
   >
-    <v-list-item class="px-3 my-2">
-      <filter-unmatched-btn />
-    </v-list-item>
-    <v-list-item v-for="filter in filters" class="pa-2">
-      <v-autocomplete
-        v-model="filter.selected.value"
-        hide-details
-        clearable
-        :label="filter.label"
-        density="compact"
-        variant="outlined"
-        class="ma-1"
-        :items="filter.items.value"
-        @update:model-value="nextTick(() => emitter?.emit('filter', null))"
-      />
-    </v-list-item>
-    <v-list-item class="justify-center d-flex">
-      <v-btn size="small" variant="tonal" @click="resetFilters">
-        Reset filters</v-btn
-      >
-    </v-list-item>
+    <v-list >
+      <v-list-item>
+        <filter-unmatched-btn />
+      </v-list-item>
+      <v-list-item v-for="filter in filters">
+        <v-autocomplete
+        rounded="0"
+          v-model="filter.selected.value"
+          hide-details
+          clearable
+          :label="filter.label"
+          variant="solo-filled"
+          density="comfortable"
+          :items="filter.items.value"
+          @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+        />
+      </v-list-item>
+      <v-list-item class="justify-center d-flex">
+        <v-btn size="small" variant="tonal" @click="resetFilters">
+          Reset filters</v-btn
+        >
+      </v-list-item>
+    </v-list>
   </v-navigation-drawer>
 </template>

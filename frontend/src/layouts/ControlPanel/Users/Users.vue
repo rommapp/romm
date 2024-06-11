@@ -4,10 +4,12 @@ import RSection from "@/components/common/Section.vue";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
 const userSearch = ref("");
+const { mdAndDown } = useDisplay();
 </script>
 <template>
   <r-section icon="mdi-account-group" title="Users">
@@ -33,7 +35,19 @@ const userSearch = ref("");
         density="comfortable"
         class="bg-secondary"
       />
-      <users-table :user-search="userSearch" />
+      <users-table
+        :class="{ 'table-desktop': !mdAndDown, 'table-mobile': mdAndDown }"
+        :user-search="userSearch"
+      />
     </template>
   </r-section>
 </template>
+
+<style scoped>
+.table-desktop {
+  height: calc(100vh - 189px) !important;
+}
+.table-mobile {
+  height: calc(100vh - 245px) !important;
+}
+</style>

@@ -18,7 +18,8 @@ function setUnmatched() {
 <template>
   <v-btn
     block
-    variant="outlined"
+    variant="tonal"
+    rounded="0"
     :color="filterUnmatched ? 'romm-accent-1' : 'romm-gray'"
     @click="setUnmatched()"
   >

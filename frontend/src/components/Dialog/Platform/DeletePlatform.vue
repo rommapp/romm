@@ -61,18 +61,18 @@ function closeDialog() {
     v-model="show"
     icon="mdi-delete"
     scroll-content
-    :width="lgAndUp ? '60vw' : '95vw'"
+    :width="lgAndUp ? '50vw' : '95vw'"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
-        <span class="mr-1">Deleting platform</span>
+        <span class="mr-1">Removing platform</span>
         <platform-icon :slug="platform.slug" />
-        <span class="text-romm-accent-1 ml-1"
+        <span class="ml-1"
           >{{ platform.name }} - [<span class="text-romm-accent-1">{{
             platform.fs_slug
           }}</span
-          >]</span
-        >.
+          >] from RomM.</span
+        >
         <span class="ml-1">Do you confirm?</span>
       </v-row>
     </template>

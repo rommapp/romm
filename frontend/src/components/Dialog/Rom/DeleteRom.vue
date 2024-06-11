@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { xs, lgAndUp } = useDisplay();
+const { mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -30,12 +30,6 @@ const HEADERS = [
     align: "start",
     sortable: true,
     key: "name",
-  },
-  {
-    title: "Size",
-    align: "start",
-    sortable: true,
-    key: "file_size_bytes",
   },
 ] as const;
 const page = ref(1);
@@ -95,7 +89,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-delete"
     scroll-content
-    :width="lgAndUp ? '60vw' : '95vw'"
+    :width="mdAndUp ? '45vw' : '95vw'"
   >
     <template #prepend>
       <v-list-item class="text-center">
@@ -108,7 +102,7 @@ function closeDialog() {
       <v-data-table
         :item-value="(item) => item.id"
         :items="roms"
-        :width="lgAndUp ? '60vw' : '95vw'"
+        :width="mdAndUp ? '60vw' : '95vw'"
         :items-per-page="romsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
@@ -117,54 +111,42 @@ function closeDialog() {
         show-select
       >
         <template #item.name="{ item }">
-          <td :style="!xs ? 'min-width: 400px' : ''">
-            <v-list-item class="px-0">
-              <template #prepend>
-                <r-avatar
-                  :src="
-                    !item.igdb_id && !item.moby_id
-                      ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                      : item.has_cover
-                      ? `/assets/romm/resources/${item.path_cover_s}`
-                      : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                  "
-                />
-              </template>
-              <v-row no-gutters
-                ><v-col>{{ item.name }}</v-col></v-row
-              >
-              <v-row no-gutters
-                ><v-col class="text-romm-accent-1">{{
-                  item.file_name
-                }}</v-col></v-row
-              >
-              <v-row no-gutters
-                ><v-col
-                  ><v-chip
-                    label
-                    size="x-small"
-                    v-if="romsToDeleteFromFs.includes(item.id) && xs"
-                    class="text-red my-1"
-                    >Removing from filesystem</v-chip
-                  ></v-col
-                ></v-row
-              >
-              <template #append>
-                <v-chip
+          <v-list-item class="px-0">
+            <template #prepend>
+              <r-avatar
+                :src="
+                  !item.igdb_id && !item.moby_id
+                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                    : item.has_cover
+                    ? `/assets/romm/resources/${item.path_cover_s}`
+                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                "
+              />
+            </template>
+            <v-row no-gutters
+              ><v-col>{{ item.name }}</v-col></v-row
+            >
+            <v-row no-gutters
+              ><v-col class="text-romm-accent-1">{{
+                item.file_name
+              }}</v-col></v-row
+            >
+            <v-row no-gutters
+              ><v-col
+                ><v-chip size="x-small" label>{{
+                  formatBytes(item.file_size_bytes)
+                }}</v-chip
+                ><v-chip
                   label
                   size="x-small"
-                  v-if="romsToDeleteFromFs.includes(item.id) && !xs"
-                  class="text-red ml-3"
+                  v-if="romsToDeleteFromFs.includes(item.id)"
+                  class="text-red ml-1"
                   >Removing from filesystem</v-chip
-                >
-              </template>
-            </v-list-item>
-          </td>
-        </template>
-        <template #item.file_size_bytes="{ item }">
-          <span>
-            {{ formatBytes(item.file_size_bytes) }}
-          </span>
+                ></v-col
+              ></v-row
+            >
+            <v-row no-gutters><v-col></v-col></v-row>
+          </v-list-item>
         </template>
         <template #bottom>
           <v-divider />

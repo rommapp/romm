@@ -16,9 +16,10 @@ import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useTheme } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
 // Props
+const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("updateDataTablePages", updateDataTablePages);
 const theme = useTheme();
@@ -112,10 +113,11 @@ onMounted(() => {
     show-select
     fixed-header
     fixed-footer
+    hide-default-footer
     hover
   >
     <template #item.name="{ item }">
-      <td style="min-width: 400px">
+      <td class="name-row">
         <v-list-item class="px-0">
           <template #prepend>
             <r-avatar
@@ -149,9 +151,9 @@ onMounted(() => {
       </td>
     </template>
     <template #item.file_size_bytes="{ item }">
-      <span>
-        {{ formatBytes(item.file_size_bytes) }}
-      </span>
+      <v-chip size="x-small" label>{{
+        formatBytes(item.file_size_bytes)
+      }}</v-chip>
     </template>
     <template #item.regions="{ item }">
       <span class="px-1" v-for="region in item.regions">
@@ -176,7 +178,12 @@ onMounted(() => {
         <v-btn
           v-if="isEmulationSupported(item.platform_slug)"
           size="small"
-          :href="`/play/${item.id}`"
+          @click.stop="
+            $router.push({
+              name: 'play',
+              params: { rom: item?.id },
+            })
+          "
         >
           <v-icon>mdi-play</v-icon>
         </v-btn>
@@ -197,29 +204,36 @@ onMounted(() => {
 
     <template #bottom>
       <v-divider />
-      <v-row no-gutters class="pa-2 align-center justify-center">
-        <v-col cols="12" sm="10" xl="11" class="px-6">
-          <v-pagination
-            v-model="page"
-            @update:model-value="updateUrlHash"
-            rounded="0"
-            :show-first-last-page="true"
-            active-color="romm-accent-1"
-            :length="pageCount"
-          />
-        </v-col>
-        <v-col cols="5" sm="2" xl="1">
-          <v-select
-            v-model="romsPerPage"
-            class="pa-2"
-            label="Roms per page"
-            density="compact"
-            variant="outlined"
-            :items="PER_PAGE_OPTIONS"
-            hide-details
-          />
-        </v-col>
-      </v-row>
+      <div>
+        <v-row no-gutters class="pa-1 align-center justify-center">
+          <v-col cols="8" sm="9" md="10" class="px-3">
+            <v-pagination
+              :show-first-last-page="!xs"
+              v-model="page"
+              @update:model-value="updateUrlHash"
+              rounded="0"
+              active-color="romm-accent-1"
+              :length="pageCount"
+            />
+          </v-col>
+          <v-col>
+            <v-select
+              v-model="romsPerPage"
+              class="pa-2"
+              label="Roms per page"
+              density="compact"
+              variant="outlined"
+              :items="PER_PAGE_OPTIONS"
+              hide-details
+            />
+          </v-col>
+        </v-row>
+      </div>
     </template>
   </v-data-table>
 </template>
+<style scoped>
+.name-row {
+  min-width: 350px;
+}
+</style>

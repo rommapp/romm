@@ -32,7 +32,12 @@ const { currentView } = storeToRefs(galleryViewStore);
         v-if="isEmulationSupported(rom.platform_slug)"
         :class="{ 'action-bar-btn-small': currentView == 0 }"
         :size="currentView == 0 ? 'x-small' : 'small'"
-        :href="`/play/${rom.id}`"
+        @click="
+          $router.push({
+            name: 'play',
+            params: { rom: rom?.id },
+          })
+        "
         icon="mdi-play"
         rounded="0"
         variant="text"
