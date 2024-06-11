@@ -55,8 +55,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-row v-if="rom" class="h-screen scroll" no-gutters>
+  <v-row
+    v-if="rom"
+    class="align-center justify-center h-screen scroll"
+    no-gutters
+  >
     <v-col
+      v-if="gameRunning"
       cols="12"
       md="8"
       xl="10"
@@ -73,7 +78,12 @@ onMounted(async () => {
       />
     </v-col>
 
-    <v-col cols="12" md="4" xl="2">
+    <v-col
+      cols="12"
+      :sm="!gameRunning ? 10 : 10"
+      :md="!gameRunning ? 8 : 4"
+      :xl="!gameRunning ? 6 : 2"
+    >
       <v-row class="px-3 py-3" no-gutters>
         <v-col>
           <v-img
