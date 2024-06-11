@@ -9,14 +9,12 @@ import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
+const { smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
-const { smAndDown } = useDisplay();
-
 const platformsToScan = ref<Platform[]>([]);
-
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -91,7 +89,7 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="6">
+    <v-col cols="12" md="6" class="px-1">
       <v-autocomplete
         v-model="platformsToScan"
         label="Platforms"
@@ -120,7 +118,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col cols="12" sm="5" md="3" :class="{ 'mt-3': smAndDown }">
+    <v-col class="px-1" cols="12" sm="5" md="3" :class="{ 'mt-3': smAndDown }">
       <v-autocomplete
         v-model="metadataSources"
         label="Metadata sources"
@@ -130,7 +128,6 @@ async function stopScan() {
         density="comfortable"
         multiple
         chips
-        class="px-2"
         return-object
         clearable
         hide-details
@@ -151,7 +148,7 @@ async function stopScan() {
       </v-autocomplete>
     </v-col>
     <!-- Scan options -->
-    <v-col cols="12" sm="7" md="3" class="pr-1" :class="{ 'mt-3': smAndDown }">
+    <v-col class="px-1" cols="12" sm="7" md="3" :class="{ 'mt-3': smAndDown }">
       <v-select
         v-model="scanType"
         hide-details
@@ -168,7 +165,11 @@ async function stopScan() {
   </v-row>
 
   <!-- Scan buttons -->
-  <v-row class="pa-4 align-center" no-gutters>
+  <v-row
+    class="pa-4 align-center"
+    :class="{ 'justify-center': smAndDown }"
+    no-gutters
+  >
     <v-btn
       :disabled="scanning || metadataSources.length == 0"
       rounded="4"
@@ -201,13 +202,14 @@ async function stopScan() {
       </template>
       <span :class="{ 'text-red': scanning }">Abort</span>
     </v-btn>
-    <span
+    <v-list-item
       v-if="metadataSources.length == 0"
-      class="ml-4 text-caption text-yellow py-0 "
+      class="text-caption text-yellow py-0"
+      :class="{ 'mt-3': smAndDown }"
     >
-      <v-icon class="mr-2">mdi-alert</v-icon>
-      Please select at least one metadata source.
-    </span>
+      <v-icon>mdi-alert</v-icon
+      ><span class="ml-2">Please select at least one metadata source.</span>
+    </v-list-item>
   </v-row>
 
   <v-divider class="border-opacity-100 mx-4" color="romm-accent-1" />
