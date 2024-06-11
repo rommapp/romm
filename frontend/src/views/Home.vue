@@ -20,12 +20,14 @@ import Drawer from "@/components/Drawer/Base.vue";
 import LoadingView from "@/components/LoadingView.vue";
 import MobileAppBar from "@/components/MobileAppBar.vue";
 import platformApi from "@/services/api/platform";
+import userApi from "@/services/api/user";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import storeAuth from "@/stores/auth";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
+import { inject, ref, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -33,6 +35,7 @@ const { mdAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
+const auth = storeAuth();
 const refreshView = ref(0);
 
 // Event listeners bus
@@ -43,6 +46,26 @@ emitter?.on("refreshDrawer", async () => {
 });
 emitter?.on("refreshView", async () => {
   refreshView.value = refreshView.value + 1;
+});
+
+onMounted(() => {
+  userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
+  platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 });
 </script>
 
