@@ -103,18 +103,6 @@ function closeDialog() {
         <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
         <span>games from RomM. Do you confirm?</span>
       </v-list-item>
-      <template v-if="romsToDeleteFromFs.length > 0">
-        <v-list-item class="text-center">
-          <span class="text-red text-body-1">WARNING:</span>
-          <span class="text-body-2 ml-1">You are going to remove</span>
-          <span class="text-red text-body-1 ml-1">{{
-            romsToDeleteFromFs.length
-          }}</span>
-          <span class="text-body-2 ml-1"
-            >roms from your filesystem. This action can't be reverted!</span
-          >
-        </v-list-item>
-      </template>
     </template>
     <template #content>
       <v-data-table
@@ -206,6 +194,18 @@ function closeDialog() {
       </v-data-table>
     </template>
     <template #append>
+      <template v-if="romsToDeleteFromFs.length > 0">
+        <v-list-item class="text-center">
+          <span class="text-red text-body-1">WARNING:</span>
+          <span class="text-body-2 ml-1">You are going to remove</span>
+          <span class="text-red text-body-1 ml-1">{{
+            romsToDeleteFromFs.length
+          }}</span>
+          <span class="text-body-2 ml-1"
+            >roms from your filesystem. This action can't be reverted!</span
+          >
+        </v-list-item>
+      </template>
       <v-row class="justify-center my-2">
         <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
           Cancel

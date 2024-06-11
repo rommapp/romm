@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
             </template>
           </v-select>
         </v-col>
-        <v-col cols="2" md="1">
+        <v-col>
           <v-btn
             type="submit"
             @click="searchRoms"
