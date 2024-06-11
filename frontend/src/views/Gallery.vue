@@ -2,7 +2,7 @@
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import EmptyGame from "@/components/Gallery/EmptyGame.vue";
 import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
-import FabBar from "@/components/Gallery/FabBar/Base.vue";
+import FabBar from "@/components/Gallery/FabBar.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
 import GameDataTable from "@/components/Game/Table.vue";
@@ -17,13 +17,11 @@ import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import {
-  onBeforeRouteUpdate,
-  useRoute,
-  useRouter
-} from "vue-router";
+import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 
 // Props
+const { mdAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -302,7 +300,9 @@ watch(currentView, (newView) => {
 
       <!-- Gallery list view -->
       <v-col v-show="currentView == 2">
-        <game-data-table />
+        <game-data-table
+          :class="{ 'table-desktop': !mdAndDown, 'table-mobile': mdAndDown }"
+        />
       </v-col>
     </v-row>
   </template>
@@ -317,7 +317,10 @@ watch(currentView, (newView) => {
 </template>
 
 <style scoped>
-#scrollToTop {
-  border: 1px solid rgba(var(--v-theme-romm-accent-1));
+.table-desktop {
+  height: calc(100vh - 50px) !important;
+}
+.table-mobile {
+  height: calc(100vh - 100px) !important;
 }
 </style>

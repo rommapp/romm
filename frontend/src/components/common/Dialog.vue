@@ -64,22 +64,17 @@ onMounted(() => {
   >
     <v-card rounded="0" :height="height">
       <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="10" sm="11">
-            <v-icon v-if="icon" :icon="icon" class="ml-5" />
-            <romm-iso :size="30" class="mx-4" v-if="showRommIcon" />
-            <slot name="header"></slot>
-          </v-col>
-          <v-col cols="2" sm="1">
-            <v-btn
-              @click="closeDialog"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-            />
-          </v-col>
-        </v-row>
+        <v-icon v-if="icon" :icon="icon" class="ml-5" />
+        <romm-iso :size="30" class="mx-4" v-if="showRommIcon" />
+        <slot name="header"></slot>
+        <template #append>
+          <v-btn
+            @click="closeDialog"
+            rounded="0"
+            variant="text"
+            icon="mdi-close"
+          />
+        </template>
       </v-toolbar>
 
       <v-divider />

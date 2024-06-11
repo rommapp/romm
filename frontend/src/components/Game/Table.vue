@@ -110,6 +110,8 @@ onMounted(() => {
     v-model="romsStore._selectedIDs"
     v-model:page="page"
     show-select
+    fixed-header
+    fixed-footer
     hover
   >
     <template #item.name="{ item }">

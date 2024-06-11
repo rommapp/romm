@@ -89,9 +89,9 @@ async function stopScan() {
 </script>
 
 <template>
-  <v-row class="px-4 pt-4 align-center" no-gutters>
+  <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="6" class="pr-1">
+    <v-col cols="12" md="6">
       <v-autocomplete
         v-model="platformsToScan"
         label="Platforms"
@@ -120,8 +120,8 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col cols="12" sm="5" md="3" class="pr-1" :class="{ 'mt-3': smAndDown }">
-      <v-select
+    <v-col cols="12" sm="5" md="3" :class="{ 'mt-3': smAndDown }">
+      <v-autocomplete
         v-model="metadataSources"
         label="Metadata sources"
         item-title="name"
@@ -129,10 +129,11 @@ async function stopScan() {
         variant="outlined"
         density="comfortable"
         multiple
+        chips
+        class="px-2"
         return-object
         clearable
         hide-details
-        chips
       >
         <template #item="{ props, item }">
           <v-list-item
@@ -147,7 +148,7 @@ async function stopScan() {
             "
           />
         </template>
-      </v-select>
+      </v-autocomplete>
     </v-col>
     <!-- Scan options -->
     <v-col cols="12" sm="7" md="3" class="pr-1" :class="{ 'mt-3': smAndDown }">
@@ -170,14 +171,15 @@ async function stopScan() {
   <v-row class="pa-4 align-center" no-gutters>
     <v-btn
       :disabled="scanning || metadataSources.length == 0"
-      prepend-icon="mdi-magnify-scan"
       rounded="4"
       height="40"
-      :color="scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'"
       :loading="scanning"
       @click="scan()"
     >
-      Scan
+      <template #prepend>
+        <v-icon color="romm-accent-1">mdi-magnify-scan</v-icon>
+      </template>
+      <span class="text-romm-accent-1">Scan</span>
       <template #loader>
         <v-progress-circular
           color="romm-accent-1"
@@ -188,19 +190,20 @@ async function stopScan() {
       </template>
     </v-btn>
     <v-btn
-      class="ml-2"
       :disabled="!scanning"
-      prepend-icon="mdi-alert-octagon"
+      class="ml-2"
       rounded="4"
       height="40"
-      :color="scanning ? 'red' : ''"
       @click="stopScan()"
     >
-      Abort
+      <template #prepend>
+        <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
+      </template>
+      <span :class="{ 'text-red': scanning }">Abort</span>
     </v-btn>
     <span
       v-if="metadataSources.length == 0"
-      class="ml-4 text-caption text-yellow py-4"
+      class="ml-4 text-caption text-yellow py-0 "
     >
       <v-icon class="mr-2">mdi-alert</v-icon>
       Please select at least one metadata source.

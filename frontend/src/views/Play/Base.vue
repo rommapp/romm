@@ -12,20 +12,27 @@ import type { DetailedRom } from "@/stores/roms";
 const route = useRoute();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const coreRef = ref<string | null>(null);
 const gameRunning = ref(false);
-
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
-
 const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
+
+function onPlay() {
+  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+  document.body.appendChild(script);
+  gameRunning.value = true;
+}
+
+function onFullScreenChange() {
+  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
+}
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({
@@ -40,29 +47,21 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 });
-
-function onPlay() {
-  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
-  document.body.appendChild(script);
-  gameRunning.value = true;
-}
-
-function onFullScreenChange() {
-  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
-}
 </script>
 
 <template>
-  <v-row
-    v-if="rom"
-    class="h-screen"
-    no-gutters
-  >
-    <v-col
-      v-if="!gameRunning"
-      cols="3"
-      class="px-3"
-    >
+  <v-row v-if="rom" class="h-screen" no-gutters>
+    <v-col id="game-wrapper" class="bg-primary" rounded>
+      <player
+        :rom="rom"
+        :state="stateRef"
+        :save="saveRef"
+        :bios="biosRef"
+        :core="coreRef"
+      />
+    </v-col>
+
+    <v-col v-if="!fullScreenOnPlay" cols="3" class="px-3">
       <v-img
         class="mx-auto mt-6 mb-5"
         width="250"
@@ -155,24 +154,8 @@ function onFullScreenChange() {
         size="x-large"
         @click="onPlay()"
       >
-        <v-icon class="mr-2">
-          mdi-play
-        </v-icon>Play
+        <v-icon class="mr-2"> mdi-play </v-icon>Play
       </v-btn>
-    </v-col>
-
-    <v-col
-      id="game-wrapper"
-      class="bg-primary"
-      rounded
-    >
-      <player
-        :rom="rom"
-        :state="stateRef"
-        :save="saveRef"
-        :bios="biosRef"
-        :core="coreRef"
-      />
     </v-col>
   </v-row>
 </template>
