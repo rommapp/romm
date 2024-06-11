@@ -28,6 +28,11 @@ const routes = [
         component: () => import("@/views/GameDetails.vue"),
       },
       {
+        path: "/rom/:rom/play",
+        name: "play",
+        component: () => import("@/views/Play/Base.vue"),
+      },
+      {
         path: "/scan",
         name: "scan",
         component: () => import("@/views/Scan.vue"),
@@ -43,10 +48,6 @@ const routes = [
         component: () => import("@/views/Dashboard.vue"),
       },
     ],
-  },
-  {
-    path: "/play/:rom",
-    component: () => import("@/views/Play/Base.vue"),
   },
 ];
 

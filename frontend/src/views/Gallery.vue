@@ -321,6 +321,6 @@ watch(currentView, (newView) => {
   height: calc(100vh - 50px) !important;
 }
 .table-mobile {
-  height: calc(100vh - 100px) !important;
+  height: calc(100vh - 164px) !important;
 }
 </style>

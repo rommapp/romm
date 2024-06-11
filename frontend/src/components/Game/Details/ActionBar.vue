@@ -65,22 +65,18 @@ async function copyDownloadLink(rom: DetailedRom) {
     <v-btn class="flex-grow-1" @click="copyDownloadLink(rom)">
       <v-icon icon="mdi-content-copy" />
     </v-btn>
-    <v-tooltip
-      class="tooltip"
-      text="Emulation not currently supported"
-      location="bottom"
-      :disabled="emulationSupported"
+    <v-btn
+      v-if="emulationSupported"
+      class="flex-grow-1"
+      @click="
+        $router.push({
+          name: 'play',
+          params: { rom: rom?.id },
+        })
+      "
     >
-      <template #activator="{ props: tooltipProps }">
-        <v-btn
-          class="flex-grow-1"
-          :disabled="!emulationSupported"
-          @click="toggleEmulation"
-        >
-          <v-icon :icon="playInfoIcon" />
-        </v-btn>
-      </template>
-    </v-tooltip>
+      <v-icon :icon="playInfoIcon" />
+    </v-btn>
     <v-menu location="bottom">
       <template #activator="{ props: menuProps }">
         <v-btn

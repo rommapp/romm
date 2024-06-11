@@ -13,7 +13,19 @@ defineProps<{ platform: Platform; rail: boolean }>();
     :value="platform.slug"
     class="bg-terciary"
   >
-    <span v-if="!rail" class="text-body-2">{{ platform.name }}</span>
+    <v-row no-gutters v-if="!rail"
+      ><v-col
+        ><span class="text-body-2">{{ platform.name }}</span></v-col
+      ></v-row
+    >
+    <v-row no-gutters v-if="!rail"
+      ><v-col
+        ><span class="text-caption text-grey">{{
+          platform.fs_slug
+        }}</span></v-col
+      ></v-row
+    >
+
     <template #prepend>
       <platform-icon :key="platform.slug" :slug="platform.slug"
         ><v-tooltip
@@ -35,7 +47,7 @@ defineProps<{ platform: Platform; rail: boolean }>();
       >
     </template>
     <template #append>
-      <v-chip v-if="!rail" class="ml-4 bg-chip" size="x-small" label>
+      <v-chip v-if="!rail" class="ml-3 bg-chip" size="x-small" label>
         {{ platform.rom_count }}
       </v-chip>
     </template>
