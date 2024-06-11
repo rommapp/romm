@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import Notification from "@/components/Notification.vue";
 import api from "@/services/api/index";
-import platformApi from "@/services/api/platform";
-import userApi from "@/services/api/user";
 import socket from "@/services/socket";
-import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNotifications from "@/stores/notifications";
-import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
@@ -29,8 +25,6 @@ const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
-const auth = storeAuth();
-const platformsStore = storePlatforms();
 
 socket.on(
   "scan:scanning_platform",
@@ -110,24 +104,6 @@ onMounted(() => {
   api.get("/config").then(({ data: data }) => {
     configStore.set(data);
   });
-
-  userApi
-    .fetchCurrentUser()
-    .then(({ data: user }) => {
-      auth.setUser(user);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-  platformApi
-    .getPlatforms()
-    .then(({ data: platforms }) => {
-      platformsStore.set(platforms);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
 });
 </script>
 

@@ -33,7 +33,7 @@ services:
       - romm-db
 
   romm-db:
-    image: mariadb:latest
+    image: linuxserver/mariadb:latest
     container_name: romm-db
     restart: unless-stopped
     environment:
