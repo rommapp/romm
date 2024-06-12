@@ -55,11 +55,7 @@ async function logout() {
 </script>
 
 <template>
-  <v-list-item
-    height="60"
-    class="bg-primary text-button"
-    rounded="0"
-  >
+  <v-list-item height="66" class="bg-primary text-button" rounded="0">
     <template v-if="!rail">
       <div class="text-no-wrap text-truncate text-subtitle-1">
         {{ auth.user?.username }}

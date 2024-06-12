@@ -14,13 +14,26 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, lgAndUp } = useDisplay();
+const { xs, mdAndUp, lgAndUp } = useDisplay();
 const show = ref(false);
 const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
+const HEADERS = [
+  {
+    title: "Name",
+    align: "start",
+    sortable: true,
+    key: "name",
+  },
+  { title: "", align: "end", key: "actions", sortable: false },
+] as const;
+const page = ref(1);
+const romsPerPage = ref(10);
+const pageCount = ref(0);
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
@@ -154,7 +167,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-upload"
-    :width="lgAndUp ? '60vw' : '95vw'"
+    :width="mdAndUp ? '50vw' : '95vw'"
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -210,32 +223,61 @@ function closeDialog() {
       </v-row>
     </template>
     <template #content>
-      <v-row
-        v-for="rom in romsToUpload"
-        :key="rom.name"
-        class="py-2 align-center"
-        no-gutters
+      <v-data-table
+        :item-value="(item) => item.name"
+        :items="romsToUpload"
+        :width="mdAndUp ? '60vw' : '95vw'"
+        :items-per-page="romsPerPage"
+        :items-per-page-options="PER_PAGE_OPTIONS"
+        :headers="HEADERS"
+        v-model:page="page"
       >
-        <v-col cols="8" lg="9">
-          {{ rom.name }}
-        </v-col>
-        <v-col cols="3" lg="2">
-          [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span
-          >]
-        </v-col>
-        <v-col cols="1">
-          <v-btn
-            icon
-            size="x-small"
-            rounded="0"
-            variant="text"
-            class="pa-0 ma-0"
-            @click="removeRomFromList(rom.name)"
-          >
-            <v-icon class="text-romm-red"> mdi-delete </v-icon>
-          </v-btn>
-        </v-col>
-      </v-row>
+        <template #item.name="{ item }">
+          <v-list-item class="px-0">
+            <v-row no-gutters
+              ><v-col>{{ item.name }}</v-col></v-row
+            >
+            <template #append>
+              <v-chip class="ml-2" size="x-small" label>{{
+                formatBytes(item.size)
+              }}</v-chip>
+            </template>
+          </v-list-item>
+        </template>
+        <template #item.actions="{ item }">
+          <v-btn-group divided density="compact">
+            <v-btn @click="removeRomFromList(item.name)">
+              <v-icon class="text-romm-red"> mdi-close </v-icon>
+            </v-btn>
+          </v-btn-group>
+        </template>
+        <template #no-data></template>
+        <template #bottom>
+          <v-divider />
+          <v-row no-gutters class="pt-2 align-center justify-center">
+            <v-col class="px-6">
+              <v-pagination
+                v-model="page"
+                rounded="0"
+                :show-first-last-page="true"
+                active-color="romm-accent-1"
+                :length="pageCount"
+              />
+            </v-col>
+            <v-col cols="5" sm="3" xl="2">
+              <v-select
+                v-model="romsPerPage"
+                class="pa-2"
+                label="Roms per page"
+                density="compact"
+                variant="outlined"
+                :items="PER_PAGE_OPTIONS"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </template>
+      </v-data-table>
     </template>
     <template #append>
       <v-row class="justify-center my-2" no-gutters>

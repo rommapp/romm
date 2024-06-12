@@ -97,6 +97,16 @@ onMounted(() => {
     hide-default-footer
     hover
   >
+    <template #header.actions>
+      <v-btn
+        prepend-icon="mdi-plus"
+        variant="outlined"
+        class="text-romm-accent-1"
+        @click="emitter?.emit('showCreateUserDialog', null)"
+      >
+        Add
+      </v-btn>
+    </template>
     <template #item.avatar_path="{ item }">
       <v-avatar>
         <v-img

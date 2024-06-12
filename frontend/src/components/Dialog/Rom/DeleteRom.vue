@@ -89,7 +89,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-delete"
     scroll-content
-    :width="mdAndUp ? '45vw' : '95vw'"
+    :width="mdAndUp ? '50vw' : '95vw'"
   >
     <template #prepend>
       <v-list-item class="text-center">

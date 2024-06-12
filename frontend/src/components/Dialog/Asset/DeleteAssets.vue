@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
-import { useDisplay } from "vuetify";
-import type { Emitter } from "mitt";
-import RDialog from "@/components/common/Dialog.vue";
-import type { Events } from "@/types/emitter";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 const { xs, mdAndDown, lgAndUp } = useDisplay();
 const romsStore = storeRoms();
@@ -79,22 +78,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
-    v-model="show"
-    icon="mdi-pencil-box"
-    :width="lgAndUp ? '60vw' : '95vw'"
-  >
-    <template #content>
-      <v-row class="justify-center pa-2" no-gutters>
-        <span>Deleting the following</span>
-        <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
-        <span>{{ assetType }}. Do you confirm?</span>
-      </v-row>
-    </template>
-  </r-dialog>
-
-  <!-- <v-dialog
+  <v-dialog
     :model-value="show"
     width="auto"
     no-click-animation
@@ -168,5 +152,5 @@ function closeDialog() {
         />
       </v-toolbar>
     </v-card>
-  </v-dialog> -->
+  </v-dialog>
 </template>

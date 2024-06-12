@@ -318,9 +318,9 @@ watch(currentView, (newView) => {
 
 <style scoped>
 .table-desktop {
-  height: calc(100vh - 48px) !important;
+  height: calc(100dvh - 48px) !important;
 }
 .table-mobile {
-  height: calc(100vh - 104px) !important;
+  height: calc(100dvh - 104px) !important;
 }
 </style>

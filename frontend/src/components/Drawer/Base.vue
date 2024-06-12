@@ -80,7 +80,7 @@ emitter?.on("toggleDrawerRail", () => {
             </template>
           </v-list-item>
         </template>
-        <v-list-item class="bg-terciary" :to="{ name: 'scan' }">
+        <v-list-item class="bg-terciary" :to="{ name: 'libraryScan' }">
           <span v-if="!rail" class="text-body-2 text-truncate">Scan</span>
           <template #prepend>
             <v-avatar :rounded="0" size="40">
@@ -88,19 +88,20 @@ emitter?.on("toggleDrawerRail", () => {
             </v-avatar>
           </template>
         </v-list-item>
-        <!-- <v-list-item
+        <v-list-item
+          v-if="auth.scopes.includes('platforms.write')"
           class="bg-terciary"
-          @click="emitter?.emit('showUploadRomDialog', null)"
+          :to="{ name: 'libraryConfig' }"
         >
           <span v-if="!rail" class="text-body-2 text-truncate"
-            >Upload roms</span
+            >Configuration</span
           >
           <template #prepend>
             <v-avatar :rounded="0" size="40">
-              <v-icon>mdi-upload</v-icon>
+              <v-icon>mdi-table-cog</v-icon>
             </v-avatar>
           </template>
-        </v-list-item> -->
+        </v-list-item>
       </v-list-group>
     </v-list>
     <v-list class="py-0">
@@ -115,13 +116,23 @@ emitter?.on("toggleDrawerRail", () => {
             </template>
           </v-list-item>
         </template>
-        <v-list-item class="bg-terciary" :to="{ name: 'controlPanel' }">
-          <span v-if="!rail" class="text-body-2 text-truncate"
-            >Control Panel</span
-          >
+        <v-list-item class="bg-terciary" :to="{ name: 'settingsGeneral' }">
+          <span v-if="!rail" class="text-body-2 text-truncate">General</span>
           <template #prepend>
             <v-avatar :rounded="0" size="40">
               <v-icon>mdi-view-dashboard</v-icon>
+            </v-avatar>
+          </template>
+        </v-list-item>
+        <v-list-item
+          v-if="auth.scopes.includes('users.write')"
+          class="bg-terciary"
+          :to="{ name: 'settingsUsers' }"
+        >
+          <span v-if="!rail" class="text-body-2 text-truncate">Users</span>
+          <template #prepend>
+            <v-avatar :rounded="0" size="40">
+              <v-icon>mdi-account</v-icon>
             </v-avatar>
           </template>
         </v-list-item>
