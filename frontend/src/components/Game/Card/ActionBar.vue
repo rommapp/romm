@@ -46,9 +46,9 @@ const { currentView } = storeToRefs(galleryViewStore);
     <v-menu location="bottom">
       <template #activator="{ props }">
         <v-btn
+          v-if="auth.scopes.includes('roms.write')"
           :class="{ 'action-bar-btn-small': currentView == 0 }"
           :size="currentView == 0 ? 'x-small' : 'small'"
-          :disabled="!auth.scopes.includes('roms.write')"
           v-bind="props"
           icon="mdi-dots-vertical"
           rounded="0"

@@ -190,7 +190,7 @@ onMounted(() => {
         <v-menu location="bottom">
           <template #activator="{ props }">
             <v-btn
-              :disabled="!auth.scopes.includes('roms.write')"
+              v-if="auth.scopes.includes('roms.write')"
               v-bind="props"
               size="small"
             >
