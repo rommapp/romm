@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import EmptyGame from "@/components/Gallery/EmptyGame.vue";
+import EmptyGame from "@/components/common/EmptyGame.vue";
 import Cover from "@/components/Game/Card/Base.vue";
 import ActionBar from "@/components/Game/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Game/Details/AdditionalContent.vue";

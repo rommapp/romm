@@ -127,6 +127,7 @@ function selectAllFirmware() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-memory"
+    empty-state-type="firmware"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
   >

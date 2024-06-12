@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Notification from "@/components/Notification.vue";
+import Notification from "@/components/common/Notification.vue";
 import storeNotifications from "@/stores/notifications";
 import type { SnackbarStatus } from "@/types/emitter";
 import type { Emitter } from "mitt";

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import EmptyGame from "@/components/Gallery/EmptyGame.vue";
-import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
+import EmptyGame from "@/components/common/EmptyGame.vue";
+import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
+import EmptyFirmware from "@/components/common/EmptyFirmware.vue";
 import RommIso from "@/components/common/RommIso.vue";
 import { onMounted, ref, useSlots } from "vue";
 
@@ -109,6 +110,7 @@ onMounted(() => {
         >
           <empty-game v-if="emptyStateType == 'game'" />
           <empty-platform v-else-if="emptyStateType == 'platform'" />
+          <empty-firmware v-else-if="emptyStateType == 'firmware'" />
           <slot v-else name="emptyState"></slot>
         </v-row>
 

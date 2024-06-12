@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import EmptyGame from "@/components/Gallery/EmptyGame.vue";
-import EmptyPlatform from "@/components/Gallery/EmptyPlatform.vue";
+import EmptyGame from "@/components/common/EmptyGame.vue";
+import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
 import FabBar from "@/components/Gallery/FabBar.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";

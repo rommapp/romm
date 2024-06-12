@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Notification from "@/components/Notification.vue";
+import Notification from "@/components/common/Notification.vue";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeConfig from "@/stores/config";
