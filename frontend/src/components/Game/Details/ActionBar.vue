@@ -75,8 +75,8 @@ async function copyDownloadLink(rom: DetailedRom) {
     <v-menu location="bottom">
       <template #activator="{ props: menuProps }">
         <v-btn
+          v-if="auth.scopes.includes('roms.write')"
           class="flex-grow-1"
-          :disabled="!auth.scopes.includes('roms.write')"
           v-bind="menuProps"
         >
           <v-icon icon="mdi-dots-vertical" size="large" />
