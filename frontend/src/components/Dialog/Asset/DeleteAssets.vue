@@ -2,8 +2,8 @@
 import { ref, inject } from "vue";
 import { useDisplay } from "vuetify";
 import type { Emitter } from "mitt";
+import RDialog from "@/components/common/Dialog.vue";
 import type { Events } from "@/types/emitter";
-
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
@@ -16,7 +16,6 @@ const assetType = ref<"user_saves" | "user_states">("user_saves");
 const romRef = ref<DetailedRom | null>(null);
 const assets = ref<(SaveSchema | StateSchema)[]>([]);
 const deleteFromFs = ref(false);
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteSavesDialog", ({ rom, saves }) => {
   assetType.value = "user_saves";
@@ -80,7 +79,22 @@ function closeDialog() {
 </script>
 
 <template>
-  <v-dialog
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-pencil-box"
+    :width="lgAndUp ? '60vw' : '95vw'"
+  >
+    <template #content>
+      <v-row class="justify-center pa-2" no-gutters>
+        <span>Deleting the following</span>
+        <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
+        <span>{{ assetType }}. Do you confirm?</span>
+      </v-row>
+    </template>
+  </r-dialog>
+
+  <!-- <v-dialog
     :model-value="show"
     width="auto"
     no-click-animation
@@ -154,22 +168,5 @@ function closeDialog() {
         />
       </v-toolbar>
     </v-card>
-  </v-dialog>
+  </v-dialog> -->
 </template>
-
-<style scoped>
-.delete-content {
-  width: 900px;
-  max-height: 600px;
-}
-
-.delete-content-tablet {
-  width: 570px;
-  max-height: 600px;
-}
-
-.delete-content-mobile {
-  width: 85vw;
-  max-height: 600px;
-}
-</style>

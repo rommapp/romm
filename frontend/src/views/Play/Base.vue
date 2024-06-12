@@ -57,7 +57,7 @@ onMounted(async () => {
 <template>
   <v-row
     v-if="rom"
-    class="align-center justify-center h-screen scroll"
+    class="align-center justify-center scroll"
     no-gutters
   >
     <v-col

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import InterfaceOption from "@/components/ControlPanel/General/Interface/Option.vue";
+import InterfaceOption from "@/components/ControlPanel/General/InterfaceOption.vue";
 import RSection from "@/components/common/Section.vue";
 import { isNull } from "lodash";
 import { computed, ref } from "vue";

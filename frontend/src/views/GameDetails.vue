@@ -4,7 +4,6 @@ import Cover from "@/components/Game/Card/Base.vue";
 import ActionBar from "@/components/Game/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Game/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
-import Emulation from "@/components/Game/Details/Emulation.vue";
 import Info from "@/components/Game/Details/Info/Base.vue";
 import Notes from "@/components/Game/Details/Notes.vue";
 import RelatedGames from "@/components/Game/Details/RelatedGames.vue";
@@ -33,15 +32,9 @@ const tab = ref<
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
-  | "emulation"
 >("details");
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
-const showEmulation = ref(false);
-emitter?.on("showEmulation", () => {
-  showEmulation.value = !showEmulation.value;
-  tab.value = showEmulation.value ? "emulation" : "details";
-});
 const noRomError = ref(false);
 
 async function fetchDetails() {
@@ -152,12 +145,7 @@ watch(
           }"
           no-gutters
         >
-          <v-tabs
-            v-if="!showEmulation"
-            v-model="tab"
-            slider-color="romm-accent-1"
-            rounded="0"
-          >
+          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0"> Details </v-tab>
             <v-tab value="saves" rounded="0"> Saves </v-tab>
             <v-tab value="states" rounded="0"> States </v-tab>
@@ -188,18 +176,10 @@ watch(
               Related Games
             </v-tab>
           </v-tabs>
-          <v-tabs
-            v-if="showEmulation"
-            v-model="tab"
-            slider-color="romm-accent-1"
-            rounded="0"
-          >
-            <v-tab value="emulation" rounded="0"> Emulation </v-tab>
-          </v-tabs>
         </v-row>
         <v-row no-gutters class="mb-4">
           <v-col cols="12">
-            <v-window v-if="!showEmulation" v-model="tab" class="py-2">
+            <v-window v-model="tab" class="py-2">
               <v-window-item value="details">
                 <info :rom="rom" :platform="platform" />
               </v-window-item>
@@ -235,11 +215,6 @@ watch(
                 value="relatedgames"
               >
                 <related-games :rom="rom" />
-              </v-window-item>
-            </v-window>
-            <v-window v-if="showEmulation" v-model="tab" class="py-2">
-              <v-window-item value="emulation">
-                <emulation :rom="rom" :platform="platform" />
               </v-window-item>
             </v-window>
           </v-col>

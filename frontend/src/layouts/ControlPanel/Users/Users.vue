@@ -12,7 +12,7 @@ const userSearch = ref("");
 const { mdAndDown } = useDisplay();
 </script>
 <template>
-  <r-section icon="mdi-account-group" title="Users">
+  <!-- <r-section icon="mdi-account-group" title="Users">
     <template #toolbar-append>
       <v-btn
         prepend-icon="mdi-plus"
@@ -24,30 +24,30 @@ const { mdAndDown } = useDisplay();
       </v-btn>
     </template>
     <template #content>
-      <v-text-field
-        v-model="userSearch"
-        prepend-inner-icon="mdi-magnify"
-        label="Search"
-        rounded="0"
-        single-line
-        hide-details
-        clearable
-        density="comfortable"
-        class="bg-secondary"
-      />
-      <users-table
-        :class="{ 'table-desktop': !mdAndDown, 'table-mobile': mdAndDown }"
-        :user-search="userSearch"
-      />
     </template>
-  </r-section>
+    </r-section> -->
+  <v-text-field
+    v-model="userSearch"
+    prepend-inner-icon="mdi-magnify"
+    label="Search"
+    rounded="0"
+    single-line
+    hide-details
+    clearable
+    density="comfortable"
+    class="bg-secondary"
+  />
+  <users-table
+    :class="{ 'table-desktop': !mdAndDown, 'table-mobile': mdAndDown }"
+    :user-search="userSearch"
+  />
 </template>
 
 <style scoped>
 .table-desktop {
-  height: calc(100vh - 189px) !important;
+  height: calc(100vh - 132px) !important;
 }
 .table-mobile {
-  height: calc(100vh - 245px) !important;
+  height: calc(100vh - 243px) !important;
 }
 </style>
