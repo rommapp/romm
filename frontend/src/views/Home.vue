@@ -17,8 +17,8 @@ import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
-import LoadingView from "@/components/LoadingView.vue";
-import MobileAppBar from "@/components/MobileAppBar.vue";
+import LoadingView from "@/components/common/LoadingView.vue";
+import MobileAppBar from "@/components/common/MobileAppBar.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storePlatforms from "@/stores/platforms";
@@ -78,7 +78,7 @@ onMounted(() => {
   />
   <drawer />
   <mobile-app-bar v-if="mdAndDown" />
-  <router-view :key="refreshView" />
+  <router-view :key="refreshView" class="scroll"/>
 
   <delete-platform-dialog />
   <search-rom-dialog />
