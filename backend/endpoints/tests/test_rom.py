@@ -71,7 +71,7 @@ def test_delete_roms(access_token, rom):
     response = client.post(
         "/roms/delete",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"roms": [rom.id], "delete_from_fs": False},
+        json={"roms": [rom.id], "delete_from_fs": []},
     )
     assert response.status_code == 200
 
