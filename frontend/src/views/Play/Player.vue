@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from "vue";
-import stateApi from "@/services/api/state";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import { getSupportedCores } from "@/utils";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import { getSupportedCores } from "@/utils";
+import type { Emitter } from "mitt";
+import { inject, onBeforeUnmount, ref } from "vue";
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -17,6 +19,7 @@ const props = defineProps<{
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
+const emitter = inject<Emitter<Events>>("emitter");
 
 onBeforeUnmount(() => {
   window.location.reload();
@@ -203,7 +206,15 @@ window.EJS_onSaveState = function ({
             .catch((e) => console.log(e));
         }
       })
-      .catch(() => {
+      .catch(({ response, message }) => {
+        emitter?.emit("snackbarShow", {
+          msg: `Unable to save state to RomM: ${
+            response?.data?.detail || response?.statusText || message
+          }`,
+          icon: "mdi-close-circle",
+          color: "red",
+          timeout: 4000,
+        });
         if (window.EJS_emulator.saveInBrowserSupported()) {
           window.EJS_emulator.displayMessage("SAVED TO BROWSER");
         } else {

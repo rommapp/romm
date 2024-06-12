@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ThemeOption from "@/components/ControlPanel/General/Theme/Option.vue";
+import ThemeOption from "@/components/ControlPanel/General/ThemeOption.vue";
 import RSection from "@/components/common/Section.vue";
 import { autoThemeKey, themes } from "@/styles/themes";
 import { isKeyof } from "@/types";

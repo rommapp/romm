@@ -92,6 +92,10 @@ onMounted(() => {
     :headers="HEADERS"
     :items="usersStore.all"
     :sort-by="[{ key: 'username', order: 'asc' }]"
+    fixed-header
+    fixed-footer
+    hide-default-footer
+    hover
   >
     <template #item.avatar_path="{ item }">
       <v-avatar>

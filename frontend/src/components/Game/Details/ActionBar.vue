@@ -9,20 +9,15 @@ import { getDownloadLink, isEmulationSupported } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
+// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
-const emulation = ref(false);
 const playInfoIcon = ref("mdi-play");
 const emulationSupported = isEmulationSupported(props.rom.platform_slug);
 
-function toggleEmulation() {
-  emulation.value = !emulation.value;
-  playInfoIcon.value = emulation.value ? "mdi-information" : "mdi-play";
-  emitter?.emit("showEmulation", null);
-}
-
+// Functions
 async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink =
     location.protocol +
