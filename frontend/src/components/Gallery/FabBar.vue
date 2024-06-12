@@ -15,7 +15,7 @@ import { useRoute } from "vue-router";
 // Props
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
-const { scrolledToTop } = storeToRefs(galleryViewStore);
+const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const { selectedRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const fabMenu = ref(false);
@@ -79,7 +79,7 @@ function onDownload() {
     <v-scroll-y-reverse-transition>
       <v-btn
         icon
-        v-show="!scrolledToTop"
+        v-show="!scrolledToTop && currentView != 2"
         class="scroll-up-btn"
         color="primary"
         elevation="8"

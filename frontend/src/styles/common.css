@@ -23,6 +23,9 @@ body {
   overflow-x: visible !important;
   overflow-y: scroll !important;
 }
+.scroll-hidden {
+  overflow: hidden;
+}
 .emoji-collection {
   mask-image: linear-gradient(
     to right,
@@ -46,4 +49,15 @@ body {
 }
 .pointer {
   cursor: pointer !important;
+}
+/*
+Calculation to fix 100dvh:
+gallery-app-bar -> 48px
+mobile-app-bar  -> 56px
+*/
+.fill-height-desktop {
+  height: calc(100dvh - 48px) !important;
+}
+.fill-height-mobile {
+  height: calc(100dvh - 104px) !important;
 }

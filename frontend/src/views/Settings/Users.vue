@@ -20,16 +20,10 @@ const { mdAndDown } = useDisplay();
     class="bg-secondary"
   />
   <users-table
-    :class="{ 'table-desktop': !mdAndDown, 'table-mobile': mdAndDown }"
+    :class="{
+      'fill-height-desktop': !mdAndDown,
+      'fill-height-mobile': mdAndDown,
+    }"
     :user-search="userSearch"
   />
 </template>
-
-<style scoped>
-.table-desktop {
-  height: calc(100dvh - 48px) !important;
-}
-.table-mobile {
-  height: calc(100dvh - 104px) !important;
-}
-</style>
