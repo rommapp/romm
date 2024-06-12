@@ -131,7 +131,7 @@ watch(
         }"
       >
         <div
-          class="px-3"
+          class="px-3 pb-3"
           :class="{
             'position-absolute title-desktop': mdAndUp,
             'justify-center': smAndDown,
