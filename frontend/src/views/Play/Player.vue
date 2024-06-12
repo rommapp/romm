@@ -206,15 +206,7 @@ window.EJS_onSaveState = function ({
             .catch((e) => console.log(e));
         }
       })
-      .catch(({ response, message }) => {
-        emitter?.emit("snackbarShow", {
-          msg: `Unable to save state to RomM: ${
-            response?.data?.detail || response?.statusText || message
-          }`,
-          icon: "mdi-close-circle",
-          color: "red",
-          timeout: 4000,
-        });
+      .catch(() => {
         if (window.EJS_emulator.saveInBrowserSupported()) {
           window.EJS_emulator.displayMessage("SAVED TO BROWSER");
         } else {

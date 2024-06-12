@@ -178,9 +178,19 @@ async function stopScan() {
       @click="scan()"
     >
       <template #prepend>
-        <v-icon color="romm-accent-1">mdi-magnify-scan</v-icon>
+        <v-icon
+          :color="
+            scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'
+          "
+          >mdi-magnify-scan</v-icon
+        >
       </template>
-      <span class="text-romm-accent-1">Scan</span>
+      <span
+        :class="{
+          'text-romm-accent-1': !(scanning || metadataSources.length == 0),
+        }"
+        >Scan</span
+      >
       <template #loader>
         <v-progress-circular
           color="romm-accent-1"

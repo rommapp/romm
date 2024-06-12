@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Task from "@/components/ControlPanel/General/TaskOption.vue";
+import Task from "@/components/Settings/General/TaskOption.vue";
 import RSection from "@/components/common/Section.vue";
 import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AddBtn from "@/components/ControlPanel/Config/AddBtn.vue";
-import PlatformBindCard from "@/components/ControlPanel/Config/PlatformBindCard.vue";
+import AddBtn from "@/components/Library/Configuration/AddBtn.vue";
+import PlatformBindCard from "@/components/Library/Configuration/PlatformBindCard.vue";
 import RSection from "@/components/common/Section.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -12,12 +12,12 @@ import { inject, ref } from "vue";
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const authStore = storeAuth();
-const platformsVersions = configStore.value.PLATFORMS_VERSIONS;
+const platformsBinding = configStore.value.PLATFORMS_BINDING;
 const editable = ref(false);
 </script>
 
 <template>
-  <r-section icon="mdi-gamepad-variant" title="Platforms Versions">
+  <r-section icon="mdi-controller" title="Platforms Bindings">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
@@ -33,7 +33,7 @@ const editable = ref(false);
     <template #content>
       <v-row no-gutters class="align-center">
         <v-col
-          v-for="(slug, fsSlug) in platformsVersions"
+          v-for="(slug, fsSlug) in platformsBinding"
           :key="slug"
           cols="6"
           sm="4"
@@ -46,13 +46,13 @@ const editable = ref(false);
             :slug="slug"
             :fs-slug="fsSlug"
             @click-edit="
-              emitter?.emit('showCreatePlatformVersionDialog', {
+              emitter?.emit('showCreatePlatformBindingDialog', {
                 fsSlug: fsSlug,
                 slug: slug,
               })
             "
             @click-delete="
-              emitter?.emit('showDeletePlatformVersionDialog', {
+              emitter?.emit('showDeletePlatformBindingDialog', {
                 fsSlug: fsSlug,
                 slug: slug,
               })
@@ -63,7 +63,7 @@ const editable = ref(false);
           <add-btn
             :enabled="editable"
             @click="
-              emitter?.emit('showCreatePlatformVersionDialog', {
+              emitter?.emit('showCreatePlatformBindingDialog', {
                 fsSlug: '',
                 slug: '',
               })

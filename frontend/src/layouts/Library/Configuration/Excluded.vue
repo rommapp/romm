@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import ExcludedCard from "@/components/Library/Configuration/ExcludedCard.vue";
 import RSection from "@/components/common/Section.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import ExcludedCard from "@/components/ControlPanel/Config/ExcludedCard.vue";
 import { inject, ref } from "vue";
 
 // Props

@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import storeNotifications from "@/stores/notifications";
 import type { Events, SnackbarStatus } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import storeNotifications from "@/stores/notifications";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const show = ref(false);
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs } = useDisplay();
 const snackbarStatus = ref<SnackbarStatus>({ msg: "" });
 const notificationStore = storeNotifications();
 

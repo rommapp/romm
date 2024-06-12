@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject } from "vue";
 
 // Props
 defineProps<{ rail: boolean }>();
+const auth = storeAuth();
 
 // Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
@@ -12,7 +14,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 <template>
   <v-list-item>
-    <v-row no-gutters>
+    <v-row no-gutters class="justify-center">
       <v-col class="pa-1" :cols="rail ? 12 : 6">
         <v-btn
           :icon="rail"
@@ -23,7 +25,11 @@ const emitter = inject<Emitter<Events>>("emitter");
           @click="emitter?.emit('showSearchRomDialog', null)"
           ><v-icon>mdi-magnify</v-icon><span v-if="!rail">Search</span></v-btn
         > </v-col
-      ><v-col class="pa-1" :cols="rail ? 12 : 6">
+      ><v-col
+        v-if="auth.scopes.includes('roms.write')"
+        class="pa-1"
+        :cols="rail ? 12 : 6"
+      >
         <v-btn
           :icon="rail"
           color="terciary"
