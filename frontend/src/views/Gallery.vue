@@ -267,7 +267,7 @@ watch(currentView, (newView) => {
   <gallery-app-bar />
 
   <template v-if="filteredRoms.length > 0">
-    <v-row no-gutters>
+    <v-row no-gutters class="overflow-hidden">
       <!-- Gallery cards view -->
       <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
@@ -301,7 +301,10 @@ watch(currentView, (newView) => {
       <!-- Gallery list view -->
       <v-col v-show="currentView == 2">
         <game-data-table
-          :class="{ 'table-desktop': !mdAndDown, 'table-mobile': mdAndDown }"
+          :class="{
+            'fill-height-desktop': !mdAndDown,
+            'fill-height-mobile': mdAndDown,
+          }"
         />
       </v-col>
     </v-row>
@@ -315,12 +318,3 @@ watch(currentView, (newView) => {
 
   <fab-bar />
 </template>
-
-<style scoped>
-.table-desktop {
-  height: calc(100dvh - 48px) !important;
-}
-.table-mobile {
-  height: calc(100dvh - 104px) !important;
-}
-</style>
