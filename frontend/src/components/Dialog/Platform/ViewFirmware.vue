@@ -129,7 +129,6 @@ watch(firmwarePerPage, async () => {
   >
     <template #content>
       <v-data-table
-        v-if="platform?.firmware != undefined && platform?.firmware?.length > 0"
         :item-value="(item) => item.file_name"
         :items="platform?.firmware ?? []"
         :width="mdAndUp ? '60vw' : '95vw'"

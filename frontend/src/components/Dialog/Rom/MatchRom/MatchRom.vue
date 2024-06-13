@@ -194,8 +194,9 @@ onBeforeUnmount(() => {
             rounded="1"
           >
             <v-img src="/assets/scrappers/igdb.png" />
-          </v-avatar> </template
-      ></v-tooltip>
+          </v-avatar>
+        </template>
+      </v-tooltip>
       <v-tooltip
         location="top"
         class="tooltip"
