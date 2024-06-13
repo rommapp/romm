@@ -78,7 +78,7 @@ onMounted(() => {
   />
   <drawer />
   <mobile-app-bar v-if="mdAndDown" />
-  <router-view :key="refreshView" class="scroll"/>
+  <router-view :key="refreshView" />
 
   <delete-platform-dialog />
   <search-rom-dialog />

@@ -9,7 +9,7 @@ import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { smAndDown } = useDisplay();
+const { smAndDown, mdAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
@@ -89,7 +89,7 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="7" class="px-1">
+    <v-col cols="12" md="6" class="px-1">
       <v-select
         :menu-props="{ maxHeight: 650 }"
         prepend-inner-icon="mdi-controller"
@@ -136,7 +136,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col class="px-1" cols="12" sm="5" md="3" :class="{ 'mt-3': smAndDown }">
+    <v-col class="px-1" cols="12" sm="5" md="4" :class="{ 'mt-3': smAndDown }">
       <v-select
         prepend-inner-icon="mdi-database-search"
         v-model="metadataSources"
@@ -262,7 +262,10 @@ async function stopScan() {
   <v-divider class="border-opacity-100 mx-4" color="romm-accent-1" />
 
   <!-- Scan log -->
-  <div class="overflow-y-auto scan-log mt-4">
+  <div
+    class="scroll mt-4"
+    :class="{ 'scan-log-desktop': !mdAndDown, 'scan-log-mobile': mdAndDown }"
+  >
     <v-row
       v-for="platform in scanningPlatforms"
       :key="platform.id"
@@ -322,7 +325,10 @@ async function stopScan() {
 </template>
 
 <style scoped>
-.scan-log {
-  max-height: calc(100vh - 200px);
+.scan-log-desktop {
+  max-height: calc(100dvh - 200px);
+}
+.scan-log-mobile {
+  max-height: calc(100dvh - 400px);
 }
 </style>
