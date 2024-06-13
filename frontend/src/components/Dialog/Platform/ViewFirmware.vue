@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import type { FirmwareSchema } from "@/__generated__";
+import AddFirmwareDialog from "@/components/Dialog/Platform/AddFirmware.vue";
 import RDialog from "@/components/common/Dialog.vue";
 import firmwareApi from "@/services/api/firmware";
 import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch } from "vue";
+import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, smAndUp, mdAndUp } = useDisplay();
+const { xs, mdAndUp, lgAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
 const platform = ref<Platform | null>(null);
@@ -24,59 +25,19 @@ emitter?.on("showFirmwareDialog", (selectedPlatform) => {
 });
 const HEADERS = [
   {
-    title: "Name",
+    title: "Firmware",
     align: "start",
     sortable: true,
     key: "name",
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const firmwareToUploadPage = ref(1);
-const firmwareToUploadPerPage = ref(10);
-const firmwareToUploadPageCount = ref(0);
 const firmwarePage = ref(1);
 const firmwarePerPage = ref(10);
 const firmwarePageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Functions
-function triggerFileInput() {
-  const fileInput = document.getElementById("file-input");
-  fileInput?.click();
-  updateDataTablePages();
-}
-
-function removeFileFromFileInput(file: string) {
-  filesToUpload.value = filesToUpload.value.filter((f) => f.name !== file);
-  updateDataTablePages();
-}
-
-function uploadFirmware() {
-  if (!platform.value) return;
-
-  firmwareApi
-    .uploadFirmware({
-      platformId: platform.value.id,
-      files: filesToUpload.value,
-    })
-    .then(({ data }) => {
-      const { uploaded, firmware } = data;
-      if (platform.value) {
-        platform.value.firmware = firmware;
-      }
-
-      emitter?.emit("snackbarShow", {
-        msg: `${uploaded} files uploaded successfully.`,
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 2000,
-      });
-    });
-
-  filesToUpload.value = [];
-  updateDataTablePages();
-}
-
 // TODO: add delete from fs
 function deleteFirmware(firmware: FirmwareSchema, deleteFromFs: number[] = []) {
   firmwareApi
@@ -98,7 +59,6 @@ function deleteFirmware(firmware: FirmwareSchema, deleteFromFs: number[] = []) {
 
 function closeDialog() {
   show.value = false;
-  filesToUpload.value = [];
   platform.value = null;
 }
 
@@ -106,13 +66,7 @@ function updateDataTablePages() {
   firmwarePageCount.value = Math.ceil(
     Number(platform.value?.firmware?.length) / firmwarePerPage.value
   );
-  firmwareToUploadPageCount.value = Math.ceil(
-    filesToUpload.value.length / firmwareToUploadPerPage.value
-  );
 }
-watch(firmwareToUploadPerPage, async () => {
-  updateDataTablePages();
-});
 watch(firmwarePerPage, async () => {
   updateDataTablePages();
 });
@@ -125,10 +79,11 @@ watch(firmwarePerPage, async () => {
     icon="mdi-memory"
     empty-state-type="firmware"
     scroll-content
-    :width="mdAndUp ? '50vw' : '95vw'"
+    :width="mdAndUp ? '65vw' : '95vw'"
   >
     <template #content>
       <v-data-table
+        v-if="platform?.firmware"
         :item-value="(item) => item.file_name"
         :items="platform?.firmware ?? []"
         :width="mdAndUp ? '60vw' : '95vw'"
@@ -137,14 +92,13 @@ watch(firmwarePerPage, async () => {
         :headers="HEADERS"
         v-model:page="firmwarePage"
         show-select
-        hover
       >
         <template #header.actions>
           <v-btn
             prepend-icon="mdi-plus"
             class="text-romm-accent-1"
             variant="outlined"
-            @click="triggerFileInput"
+            @click="emitter?.emit('addFirmwareDialog', platform as Platform)"
           >
             Add
           </v-btn>
@@ -156,24 +110,59 @@ watch(firmwarePerPage, async () => {
                 <span>{{ item.file_name }}</span>
               </v-col>
             </v-row>
+            <v-row no-gutters v-if="!mdAndUp">
+              <v-col>
+                <v-chip size="x-small" label>{{
+                  formatBytes(item.file_size_bytes)
+                }}</v-chip>
+              </v-col>
+            </v-row>
+            <v-row v-if="!lgAndUp" no-gutters>
+              <v-col>
+                <v-chip color="blue" size="x-small" label
+                  ><span class="text-truncate">
+                    {{ item.md5_hash }}</span
+                  ></v-chip
+                >
+                <v-chip
+                  label
+                  v-if="item.is_verified"
+                  prepend-icon="mdi-check"
+                  size="x-small"
+                  class="text-romm-green"
+                  :class="{ 'ml-1': !xs }"
+                  title="Passed file size, SHA1 and MD5 checksum checks"
+                  ><span>Verified</span>
+                </v-chip>
+              </v-col>
+            </v-row>
+            <template> </template>
             <template #append>
-              <v-chip class="ml-2" size="x-small" label>{{
+              <template v-if="lgAndUp">
+                <v-chip color="blue" size="x-small" label
+                  ><span class="text-truncate">
+                    {{ item.md5_hash }}</span
+                  ></v-chip
+                >
+                <v-chip
+                  label
+                  v-if="item.is_verified"
+                  prepend-icon="mdi-check"
+                  size="x-small"
+                  class="text-romm-green ml-2"
+                  title="Passed file size, SHA1 and MD5 checksum checks"
+                  ><span>Verified</span>
+                </v-chip>
+              </template>
+              <v-chip v-if="mdAndUp" class="ml-2" size="x-small" label>{{
                 formatBytes(item.file_size_bytes)
               }}</v-chip>
-              <v-chip class="ml-2" size="x-small" label>{{
-                item.md5_hash
-              }}</v-chip>
-              <v-chip
-                label
-                size="x-small"
-                class="text-romm-green ml-2"
-                title="Passed file size, SHA1 and MD5 checksum checks"
-              >
-                <v-icon>mdi-check</v-icon>
-              </v-chip>
             </template>
           </v-list-item>
         </template>
+        <template #no-data
+          ><span>No firmware found for {{ platform.name }}</span></template
+        >
         <template #item.actions="{ item }">
           <v-btn-group divided density="compact">
             <v-btn
@@ -214,93 +203,8 @@ watch(firmwarePerPage, async () => {
           </v-row>
         </template>
       </v-data-table>
-
-      <v-row class="align-center" no-gutters>
-        <v-file-input
-          id="file-input"
-          v-model="filesToUpload"
-          class="file-input"
-          multiple
-          required
-          @update:model-value="updateDataTablePages"
-          @keyup.enter="uploadFirmware()"
-        />
-        <v-col>
-          <v-btn
-            class="bg-terciary"
-            rounded="0"
-            variant="flat"
-            :disabled="filesToUpload.length == 0 || platform == null"
-            @click="uploadFirmware()"
-          >
-            <span
-              :class="{
-                'text-romm-green': !(
-                  filesToUpload.length == 0 || platform == null
-                ),
-              }"
-              >Upload</span
-            >
-          </v-btn>
-        </v-col>
-        <v-data-table
-          v-if="filesToUpload.length > 0"
-          :item-value="(item) => item.name"
-          :items="filesToUpload"
-          :width="mdAndUp ? '60vw' : '95vw'"
-          :items-per-page="firmwareToUploadPerPage"
-          :items-per-page-options="PER_PAGE_OPTIONS"
-          :headers="HEADERS"
-          v-model:page="firmwareToUploadPage"
-          hide-default-header
-        >
-          <template #item.name="{ item }">
-            <v-list-item class="px-0">
-              <v-row no-gutters
-                ><v-col>{{ item.name }}</v-col></v-row
-              >
-              <template #append>
-                <v-chip class="ml-2" size="x-small" label>{{
-                  formatBytes(item.size)
-                }}</v-chip>
-              </template>
-            </v-list-item>
-          </template>
-          <template #item.actions="{ item }">
-            <v-btn-group divided density="compact">
-              <v-btn @click="removeFileFromFileInput(item.name)">
-                <v-icon class="text-romm-red"> mdi-close </v-icon>
-              </v-btn>
-            </v-btn-group>
-          </template>
-          <template #bottom>
-            <v-divider />
-            <v-row no-gutters class="pt-2 align-center justify-center">
-              <v-col class="px-6">
-                <v-pagination
-                  v-model="firmwareToUploadPage"
-                  rounded="0"
-                  :show-first-last-page="true"
-                  active-color="romm-accent-1"
-                  :length="firmwareToUploadPageCount"
-                />
-              </v-col>
-              <v-col cols="5" sm="3" xl="2">
-                <v-select
-                  v-model="firmwareToUploadPerPage"
-                  class="pa-2"
-                  label="Files per page"
-                  density="compact"
-                  variant="outlined"
-                  :items="PER_PAGE_OPTIONS"
-                  hide-details
-                />
-              </v-col>
-            </v-row>
-          </template>
-        </v-data-table>
-      </v-row>
     </template>
-    <template #append> </template>
   </r-dialog>
+
+  <add-firmware-dialog />
 </template>

@@ -177,29 +177,33 @@ function closeDialog() {
       </v-data-table>
     </template>
     <template #append>
-      <template v-if="romsToDeleteFromFs.length > 0">
-        <v-list-item class="text-center">
-          <span class="text-romm-red text-body-1">WARNING:</span>
-          <span class="text-body-2 ml-1">You are going to remove</span>
-          <span class="text-romm-red text-body-1 ml-1">{{
-            romsToDeleteFromFs.length
-          }}</span>
-          <span class="text-body-2 ml-1"
-            >roms from your filesystem. This action can't be reverted!</span
-          >
-        </v-list-item>
-      </template>
+      <v-row v-if="romsToDeleteFromFs.length > 0" no-gutters>
+        <v-col>
+          <v-list-item class="text-center mt-2">
+            <span class="text-romm-red text-body-1">WARNING:</span>
+            <span class="text-body-2 ml-1">You are going to remove</span>
+            <span class="text-romm-red text-body-1 ml-1">{{
+              romsToDeleteFromFs.length
+            }}</span>
+            <span class="text-body-2 ml-1"
+              >roms from your filesystem. This action can't be reverted!</span
+            >
+          </v-list-item>
+        </v-col>
+      </v-row>
       <v-row class="justify-center my-2">
-        <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
-          Cancel
-        </v-btn>
-        <v-btn
-          class="text-romm-red ml-2 bg-terciary"
-          variant="flat"
-          @click="deleteRoms"
-        >
-          Confirm
-        </v-btn>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+            Cancel
+          </v-btn>
+          <v-btn
+            class="text-romm-red bg-terciary"
+            variant="flat"
+            @click="deleteRoms"
+          >
+            Confirm
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>

@@ -14,7 +14,7 @@ import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, mdAndUp } = useDisplay();
+const { xs, mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
 const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
@@ -245,11 +245,20 @@ watch(romsPerPage, async () => {
       >
         <template #item.name="{ item }">
           <v-list-item class="px-0">
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
+            <v-row no-gutters>
+              <v-col>
+                {{ item.name }}
+              </v-col>
+            </v-row>
+            <v-row no-gutters v-if="!smAndUp">
+              <v-col>
+                <v-chip size="x-small" label>{{
+                  formatBytes(item.size)
+                }}</v-chip>
+              </v-col>
+            </v-row>
             <template #append>
-              <v-chip class="ml-2" size="x-small" label>{{
+              <v-chip v-if="smAndUp" class="ml-2" size="x-small" label>{{
                 formatBytes(item.size)
               }}</v-chip>
             </template>
@@ -290,20 +299,26 @@ watch(romsPerPage, async () => {
       </v-data-table>
     </template>
     <template #append>
-      <v-row class="justify-center my-2" no-gutters>
-        <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
-          Cancel
-        </v-btn>
-        <v-btn
-          class="ml-5 bg-terciary"
-          variant="flat"
-          :disabled="romsToUpload.length == 0 || selectedPlatform == null"
-          @click="uploadRoms"
-        >
-          <span :class="{
-          'text-romm-green': !(romsToUpload.length == 0 || selectedPlatform == null),
-        }">Upload</span>
-        </v-btn>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog">
+            Cancel
+          </v-btn>
+          <v-btn
+            class="bg-terciary"
+            :disabled="romsToUpload.length == 0 || selectedPlatform == null"
+            @click="uploadRoms"
+          >
+            <span
+              :class="{
+                'text-romm-green': !(
+                  romsToUpload.length == 0 || selectedPlatform == null
+                ),
+              }"
+              >Upload</span
+            >
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>

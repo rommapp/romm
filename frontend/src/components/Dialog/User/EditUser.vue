@@ -165,11 +165,13 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center pa-2" no-gutters>
-        <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-        <v-btn class="text-romm-green bg-terciary ml-5" @click="editUser()">
-          Apply
-        </v-btn>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="text-romm-green bg-terciary" @click="editUser()">
+            Apply
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>
