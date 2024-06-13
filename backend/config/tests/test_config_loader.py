@@ -22,7 +22,11 @@ def test_config_loader():
 
 
 def test_empty_config_loader():
-    loader = ConfigManager("config/tests/fixtures/config/empty_config.yml")
+    loader = ConfigManager(
+        os.path.join(
+            Path(__file__).resolve().parent, "fixtures", "config/empty_config.yml"
+        )
+    )
 
     assert loader.config.EXCLUDED_PLATFORMS == []
     assert loader.config.EXCLUDED_SINGLE_EXT == []
