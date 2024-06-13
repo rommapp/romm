@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema, UploadedStatesResponse
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, status
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_state
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_states(
     request: Request,
     rom_id: int,
-    states: list[UploadFile] | None = None,
+    states: list[UploadFile] = File(...),
     emulator: str | None = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
