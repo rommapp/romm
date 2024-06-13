@@ -109,6 +109,7 @@ function closeDialog() {
         v-model="romsToDeleteFromFs"
         v-model:page="page"
         show-select
+        hide-default-header
       >
         <template #item.name="{ item }">
           <v-list-item class="px-0">
@@ -140,7 +141,7 @@ function closeDialog() {
                   label
                   size="x-small"
                   v-if="romsToDeleteFromFs.includes(item.id)"
-                  class="text-red ml-1"
+                  class="text-romm-red ml-1"
                   >Removing from filesystem</v-chip
                 ></v-col
               ></v-row
@@ -178,9 +179,9 @@ function closeDialog() {
     <template #append>
       <template v-if="romsToDeleteFromFs.length > 0">
         <v-list-item class="text-center">
-          <span class="text-red text-body-1">WARNING:</span>
+          <span class="text-romm-red text-body-1">WARNING:</span>
           <span class="text-body-2 ml-1">You are going to remove</span>
-          <span class="text-red text-body-1 ml-1">{{
+          <span class="text-romm-red text-body-1 ml-1">{{
             romsToDeleteFromFs.length
           }}</span>
           <span class="text-body-2 ml-1"
