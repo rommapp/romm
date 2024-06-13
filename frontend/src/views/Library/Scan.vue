@@ -210,7 +210,7 @@ async function stopScan() {
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
       </template>
-      <span :class="{ 'text-red': scanning }">Abort</span>
+      <span :class="{ 'text-romm-red': scanning }">Abort</span>
     </v-btn>
     <v-list-item
       v-if="metadataSources.length == 0"

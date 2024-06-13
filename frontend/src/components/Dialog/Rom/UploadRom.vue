@@ -10,11 +10,11 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, mdAndUp, lgAndUp } = useDisplay();
+const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
 const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
@@ -160,6 +160,13 @@ function closeDialog() {
   romsToUpload.value = [];
   selectedPlatform.value = null;
 }
+
+function updateDataTablePages() {
+  pageCount.value = Math.ceil(romsToUpload.value.length / romsPerPage.value);
+}
+watch(romsPerPage, async () => {
+  updateDataTablePages();
+});
 </script>
 
 <template>
@@ -168,6 +175,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-upload"
     :width="mdAndUp ? '50vw' : '95vw'"
+    scroll-content
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -215,6 +223,7 @@ function closeDialog() {
           <v-file-input
             id="file-input"
             v-model="romsToUpload"
+            @update:model-value="updateDataTablePages"
             class="file-input"
             multiple
             required
@@ -224,6 +233,7 @@ function closeDialog() {
     </template>
     <template #content>
       <v-data-table
+        v-if="romsToUpload.length > 0"
         :item-value="(item) => item.name"
         :items="romsToUpload"
         :width="mdAndUp ? '60vw' : '95vw'"
@@ -231,6 +241,7 @@ function closeDialog() {
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model:page="page"
+        hide-default-header
       >
         <template #item.name="{ item }">
           <v-list-item class="px-0">
@@ -251,7 +262,6 @@ function closeDialog() {
             </v-btn>
           </v-btn-group>
         </template>
-        <template #no-data></template>
         <template #bottom>
           <v-divider />
           <v-row no-gutters class="pt-2 align-center justify-center">
@@ -285,12 +295,14 @@ function closeDialog() {
           Cancel
         </v-btn>
         <v-btn
-          class="text-romm-green ml-5 bg-terciary"
+          class="ml-5 bg-terciary"
           variant="flat"
           :disabled="romsToUpload.length == 0 || selectedPlatform == null"
           @click="uploadRoms"
         >
-          Upload
+          <span :class="{
+          'text-romm-green': !(romsToUpload.length == 0 || selectedPlatform == null),
+        }">Upload</span>
         </v-btn>
       </v-row>
     </template>

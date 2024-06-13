@@ -21,7 +21,7 @@ body {
 }
 .scroll {
   overflow-x: visible !important;
-  overflow-y: scroll !important;
+  overflow-y: auto !important;
 }
 .scroll-hidden {
   overflow: hidden;

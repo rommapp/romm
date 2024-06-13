@@ -178,7 +178,7 @@ function closeDialog() {
                   @click="removeArtwork"
                   label
                 >
-                  <v-icon class="text-red"> mdi-delete </v-icon>
+                  <v-icon class="text-romm-red"> mdi-delete </v-icon>
                 </v-chip>
               </v-chip-group>
             </template>
