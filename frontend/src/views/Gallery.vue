@@ -267,7 +267,7 @@ watch(currentView, (newView) => {
   <gallery-app-bar />
 
   <template v-if="filteredRoms.length > 0">
-    <v-row no-gutters class="overflow-hidden">
+    <v-row no-gutters class="overflow-hidden" :class="{'pa-1': currentView != 2}">
       <!-- Gallery cards view -->
       <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col

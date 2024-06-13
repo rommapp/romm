@@ -89,8 +89,10 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="6" class="px-1">
-      <v-autocomplete
+    <v-col cols="12" md="7" class="px-1">
+      <v-select
+        :menu-props="{ maxHeight: 650 }"
+        prepend-inner-icon="mdi-controller"
         v-model="platformsToScan"
         label="Platforms"
         item-title="name"
@@ -104,7 +106,12 @@ async function stopScan() {
         chips
       >
         <template #item="{ props, item }">
-          <v-list-item class="py-2" v-bind="props" :title="item.raw.name ?? ''">
+          <v-list-item
+            class="py-4"
+            v-bind="props"
+            :title="item.raw.name ?? ''"
+            :subtitle="item.raw.fs_slug"
+          >
             <template #prepend>
               <platform-icon
                 :key="item.raw.slug"
@@ -114,12 +121,24 @@ async function stopScan() {
             </template>
           </v-list-item>
         </template>
-      </v-autocomplete>
+        <template #chip="{ item }">
+          <v-chip>
+            <platform-icon
+              :key="item.raw.slug"
+              :slug="item.raw.slug"
+              :size="25"
+              class="mr-2"
+            />
+            {{ item.raw.name }}
+          </v-chip>
+        </template>
+      </v-select>
     </v-col>
 
     <!-- Source options -->
     <v-col class="px-1" cols="12" sm="5" md="3" :class="{ 'mt-3': smAndDown }">
-      <v-autocomplete
+      <v-select
+        prepend-inner-icon="mdi-database-search"
         v-model="metadataSources"
         label="Metadata sources"
         item-title="name"
@@ -127,10 +146,10 @@ async function stopScan() {
         variant="outlined"
         density="comfortable"
         multiple
-        chips
         return-object
         clearable
         hide-details
+        chips
       >
         <template #item="{ props, item }">
           <v-list-item
@@ -138,18 +157,36 @@ async function stopScan() {
             :title="item.raw.name"
             :subtitle="item.raw.disabled ? 'API key missing or invalid' : ''"
             :disabled="item.raw.disabled"
-            :prepend-icon="
-              metadataSources.map((s) => s.value).includes(item.raw.value)
-                ? 'mdi-checkbox-marked'
-                : 'mdi-square-outline'
-            "
-          />
+          >
+            <template #prepend>
+              <v-avatar size="25" rounded="1">
+                <v-img
+                  :src="`/assets/scrappers/${item.raw.name
+                    .slice(0, 4)
+                    .toLowerCase()}.png`"
+                />
+              </v-avatar>
+            </template>
+          </v-list-item>
         </template>
-      </v-autocomplete>
+        <template #chip="{ item }">
+          <v-chip>
+            <v-avatar class="mr-2" size="15" rounded="1">
+              <v-img
+                :src="`/assets/scrappers/${item.raw.name
+                  .slice(0, 4)
+                  .toLowerCase()}.png`"
+              />
+            </v-avatar>
+            {{ item.raw.name }}
+          </v-chip>
+        </template>
+      </v-select>
     </v-col>
     <!-- Scan options -->
-    <v-col class="px-1" cols="12" sm="7" md="3" :class="{ 'mt-3': smAndDown }">
+    <v-col class="px-1" cols="12" sm="7" md="2" :class="{ 'mt-3': smAndDown }">
       <v-select
+        prepend-inner-icon="mdi-magnify-scan"
         v-model="scanType"
         hide-details
         density="comfortable"
