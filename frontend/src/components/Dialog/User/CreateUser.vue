@@ -98,15 +98,22 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center pa-2" no-gutters>
-        <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-        <v-btn
-          :disabled="!user.username || !user.password"
-          class="text-romm-green bg-terciary ml-5"
-          @click="createUser()"
-        >
-          Create
-        </v-btn>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn
+            :disabled="!user.username || !user.password"
+            class="bg-terciary"
+            @click="createUser()"
+          >
+            <span
+              :class="{
+                'text-romm-green': !(!user.username || !user.password),
+              }"
+              >Create</span
+            >
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>

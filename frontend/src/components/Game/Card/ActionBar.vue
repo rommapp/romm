@@ -20,8 +20,8 @@ const { currentView } = storeToRefs(galleryViewStore);
   <v-row no-gutters>
     <v-col>
       <v-btn
-        :class="{ 'action-bar-btn-small': currentView == 0 }"
-        :size="currentView == 0 ? 'x-small' : 'small'"
+        class="action-bar-btn-small"
+        size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
         rounded="0"
@@ -30,8 +30,8 @@ const { currentView } = storeToRefs(galleryViewStore);
       />
       <v-btn
         v-if="isEmulationSupported(rom.platform_slug)"
-        :class="{ 'action-bar-btn-small': currentView == 0 }"
-        :size="currentView == 0 ? 'x-small' : 'small'"
+        class="action-bar-btn-small"
+        size="x-small"
         @click="
           $router.push({
             name: 'play',
@@ -47,8 +47,8 @@ const { currentView } = storeToRefs(galleryViewStore);
       <template #activator="{ props }">
         <v-btn
           v-if="auth.scopes.includes('roms.write')"
-          :class="{ 'action-bar-btn-small': currentView == 0 }"
-          :size="currentView == 0 ? 'x-small' : 'small'"
+          class="action-bar-btn-small"
+          size="x-small"
           v-bind="props"
           icon="mdi-dots-vertical"
           rounded="0"
