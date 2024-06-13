@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, status
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request,
     rom_id: int,
-    saves: list[UploadFile] | None = None,
+    saves: list[UploadFile] = File(...),
     emulator: str | None = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)
