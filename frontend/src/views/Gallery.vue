@@ -193,6 +193,7 @@ function resetGallery() {
   romsStore.reset();
   galleryFilterStore.reset();
   scrolledToTop.value = true;
+  noPlatformError.value = false;
   itemsShown.value = itemsPerBatch.value;
 }
 
@@ -217,7 +218,7 @@ onMounted(async () => {
   }
 
   // If platform is different, reset store and fetch roms
-  if (storedPlatformId != routePlatformId) {
+  if (storedPlatformId != routePlatformId && !noPlatformError.value) {
     resetGallery();
     await fetchRoms();
   }
@@ -266,61 +267,60 @@ watch(currentView, (newView) => {
 </script>
 
 <template>
-  <gallery-app-bar />
-
-  <template v-if="filteredRoms.length > 0">
-    <v-row
-      no-gutters
-      class="overflow-hidden"
-      :class="{ 'pa-1': currentView != 2 }"
-    >
-      <!-- Gallery cards view -->
-      <!-- v-show instead of v-if to avoid recalculate on view change -->
-      <v-col
-        v-for="rom in filteredRoms.slice(0, itemsShown)"
-        v-show="currentView != 2"
-        :key="rom.id"
-        class="pa-1"
-        :cols="views[currentView]['size-cols']"
-        :xs="views[currentView]['size-xs']"
-        :sm="views[currentView]['size-sm']"
-        :md="views[currentView]['size-md']"
-        :lg="views[currentView]['size-lg']"
-        :xl="views[currentView]['size-xl']"
+  <template v-if="!noPlatformError">
+    <gallery-app-bar />
+    <template v-if="filteredRoms.length > 0">
+      <v-row
+        no-gutters
+        class="overflow-hidden"
+        :class="{ 'pa-1': currentView != 2 }"
       >
-        <game-card
-          :rom="rom"
-          title-on-hover
-          show-action-bar
-          transform-scale
-          with-border
-          @click="onGameClick"
-          @touchstart="onGameTouchStart"
-          @touchend="onGameTouchEnd"
+        <!-- Gallery cards view -->
+        <!-- v-show instead of v-if to avoid recalculate on view change -->
+        <v-col
+          v-for="rom in filteredRoms.slice(0, itemsShown)"
+          v-show="currentView != 2"
+          :key="rom.id"
+          class="pa-1"
+          :cols="views[currentView]['size-cols']"
+          :xs="views[currentView]['size-xs']"
+          :sm="views[currentView]['size-sm']"
+          :md="views[currentView]['size-md']"
+          :lg="views[currentView]['size-lg']"
+          :xl="views[currentView]['size-xl']"
         >
-          <template #prepend-inner>
-            <game-card-flags :rom="rom" />
-          </template>
-        </game-card>
-      </v-col>
+          <game-card
+            :rom="rom"
+            title-on-hover
+            show-action-bar
+            transform-scale
+            with-border
+            @click="onGameClick"
+            @touchstart="onGameTouchStart"
+            @touchend="onGameTouchEnd"
+          >
+            <template #prepend-inner>
+              <game-card-flags :rom="rom" />
+            </template>
+          </game-card>
+        </v-col>
 
-      <!-- Gallery list view -->
-      <v-col v-show="currentView == 2">
-        <game-data-table
-          :class="{
-            'fill-height-desktop': !mdAndDown,
-            'fill-height-mobile': mdAndDown,
-          }"
-        />
-      </v-col>
-    </v-row>
+        <!-- Gallery list view -->
+        <v-col v-show="currentView == 2">
+          <game-data-table
+            :class="{
+              'fill-height-desktop': !mdAndDown,
+              'fill-height-mobile': mdAndDown,
+            }"
+          />
+        </v-col>
+      </v-row>
+      <fab-overlay />
+    </template>
+    <template v-else>
+      <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+    </template>
   </template>
 
-  <template v-else>
-    <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
-  </template>
-
-  <empty-platform v-if="noPlatformError" />
-
-  <fab-overlay />
+  <empty-platform v-else />
 </template>
