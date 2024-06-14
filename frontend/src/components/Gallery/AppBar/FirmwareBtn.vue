@@ -29,7 +29,7 @@ function showFirmwareDrawer() {
     location="bottom"
     class="tooltip"
     transition="fade-transition"
-    text="Show platform firmwares"
+    text="Show firmwares/BIOS"
     open-delay="1000"
   >
     <template #activator="{ props }">
