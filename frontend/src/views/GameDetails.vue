@@ -49,33 +49,25 @@ async function fetchDetails() {
     })
     .catch((error) => {
       console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
+      noRomError.value = true;
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 
-  await platformApi
-    .getPlatform(rom.value?.platform_id)
-    .then((response) => {
-      platform.value = response.data;
-    })
-    .catch((error) => {
-      noRomError.value = true;
-      console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
+  if (!noRomError.value) {
+    await platformApi
+      .getPlatform(rom.value?.platform_id)
+      .then((response) => {
+        platform.value = response.data;
+      })
+      .catch((error) => {
+        console.log(error);
+      })
+      .finally(() => {
+        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       });
-    })
-    .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-    });
+  }
 }
 
 onBeforeMount(async () => {
