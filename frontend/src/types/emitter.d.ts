@@ -25,7 +25,6 @@ export type Events = {
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
-  showFirmwareDialog: Platform;
   showDeleteFirmwareDialog: FirmwareSchema[];
   addFirmwareDialog: Platform;
   showAddPlatformDialog: null;
@@ -72,6 +71,7 @@ export type Events = {
   openFabMenu: boolean;
   filter: null;
   filterDrawerShow: null;
+  firmwareDrawerShow: Platform;
   updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;

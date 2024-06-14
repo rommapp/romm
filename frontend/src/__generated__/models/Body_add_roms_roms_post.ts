@@ -4,5 +4,6 @@
 /* eslint-disable */
 
 export type Body_add_roms_roms_post = {
-  roms?: Array<Blob> | null;
+    roms: Array<Blob>;
 };
+
