@@ -119,6 +119,7 @@ onBeforeUnmount(() => {
             v-model="searchValue"
             label="Search"
             hide-details
+            prepend-inner-icon="mdi-disc"
             class="bg-terciary"
           />
         </v-col>

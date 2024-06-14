@@ -185,10 +185,9 @@ watch(romsPerPage, async () => {
             label="Platform"
             item-title="name"
             :items="supportedPlatforms"
-            prepend-inner-icon="mdi-controller"
-            prepend-icon=""
             return-object
             clearable
+            single-line
             hide-details
           >
             <template #item="{ props, item }">
@@ -201,6 +200,17 @@ watch(romsPerPage, async () => {
                   <platform-icon
                     :key="item.raw.slug"
                     :size="35"
+                    :slug="item.raw.slug"
+                  />
+                </template>
+              </v-list-item>
+            </template>
+            <template #selection="{ item }">
+              <v-list-item class="px-0" :title="item.raw.name ?? ''">
+                <template #prepend>
+                  <platform-icon
+                    :size="35"
+                    :key="item.raw.slug"
                     :slug="item.raw.slug"
                   />
                 </template>
@@ -301,9 +311,7 @@ watch(romsPerPage, async () => {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
-            Cancel
-          </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             class="bg-terciary"
             :disabled="romsToUpload.length == 0 || selectedPlatform == null"
