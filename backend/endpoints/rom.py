@@ -15,7 +15,7 @@ from endpoints.responses.rom import (
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File, status
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -29,7 +29,9 @@ router = APIRouter()
 
 @protected_route(router.post, "/roms", ["roms.write"])
 def add_roms(
-    request: Request, platform_id: int, roms: list[UploadFile] = File(...),
+    request: Request,
+    platform_id: int,
+    roms: list[UploadFile] = File(...),
 ) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 

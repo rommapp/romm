@@ -4,6 +4,5 @@
 /* eslint-disable */
 
 export type MessageResponse = {
-    msg: string;
+  msg: string;
 };
-

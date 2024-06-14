@@ -22,6 +22,7 @@
 > Version 3.0 introduces exciting new features that require changes to how RomM is set up and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/rommapp/romm/wiki/Upgrading-to-3.0) before upgrading.**
 
 # Table of Contents
+
 - [Overview](#overview)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -30,6 +31,7 @@
 - [Community](#community)
 
 <a name ='overview'> </a>
+
 # Overview
 
 RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
@@ -52,6 +54,7 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 | <img src=".github/resources/screenshots/romm-desktop-slider.gif" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" /> |
 
 <a name ='installation'> </a>
+
 # Installation
 
 Before running the [image][docker-tags], please ensure that Docker is installed and running on your system.
@@ -66,6 +69,7 @@ Before running the [image][docker-tags], please ensure that Docker is installed 
 # Configuration
 
 <a name ='folder-structure'> </a>
+
 ## Folder Structure
 
 As mentioned in the installation section, RomM requires a specific folder structure. The two supported structures are as follows:
@@ -155,6 +159,7 @@ RomM's "understanding" of your library can be configured with a `config.yaml` fi
 The scheduler allows you to schedule async tasks that run in the Redis container at regular intervals. Jobs can be run at a specific time in the future, after a time delta, or at recurring internals using cron notation. The [wiki page on the scheduler][wiki-scheduled-tasks] has more information on which tasks are available and how to enable them.
 
 <a name ='naming-convention'> </a>
+
 # Naming Convention
 
 ## Platform Support
@@ -173,6 +178,7 @@ Games can be tagged with region, revision, or other tags by using parentheses in
 Tags can be used to search for games in the search bar. For example, searching for **(USA)** will return all games with the USA tag.
 
 <a name ='community'> </a>
+
 # Community
 
 Here are a few projects maintained by members of our community. Since the RomM team does not regularly review them, **we recommend that you review them closely before you use them**.

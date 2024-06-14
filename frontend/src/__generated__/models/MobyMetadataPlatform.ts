@@ -4,7 +4,6 @@
 /* eslint-disable */
 
 export type MobyMetadataPlatform = {
-    moby_id: number;
-    name: string;
+  moby_id: number;
+  name: string;
 };
-
