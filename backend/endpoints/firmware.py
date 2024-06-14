@@ -16,7 +16,7 @@ router = APIRouter()
 def add_firmware(
     request: Request,
     platform_id: int,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
 
