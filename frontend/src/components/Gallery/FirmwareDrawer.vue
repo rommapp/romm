@@ -33,9 +33,9 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 const page = ref(1);
-const itemsPerPage = ref(10);
+const itemsPerPage = ref(5);
 const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const PER_PAGE_OPTIONS = [5, 10, 25];
 
 // Functions
 function downloadSelectedFirmware() {
@@ -58,6 +58,12 @@ function updateDataTablePages() {
     Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value
   );
 }
+
+function closeDrawer() {
+  galleryFilterStore.switchActiveFirmwareDrawer();
+  show.value = false;
+}
+
 watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
@@ -170,26 +176,61 @@ watch(itemsPerPage, async () => {
       <template #bottom>
         <v-divider />
         <v-row no-gutters class="pt-2 align-center justify-center">
-          <v-btn-group class="px-2" divided density="compact">
-            <v-btn
-              :disabled="!selectedFirmware.length"
-              size="small"
-              @click="downloadSelectedFirmware"
-            >
-              <v-icon>mdi-download</v-icon>
-            </v-btn>
-            <v-btn
-              :class="{
-                'text-romm-red': selectedFirmware.length,
-              }"
-              :disabled="!selectedFirmware.length"
-              size="small"
-              @click="deleteSelectedFirmware"
-            >
-              <v-icon>mdi-delete</v-icon>
-            </v-btn>
-          </v-btn-group>
-          <v-col class="px-6">
+          <v-col :cols="xs ? 10 : 2">
+            <v-btn-group class="px-2" divided density="compact">
+              <v-btn
+                :disabled="!selectedFirmware.length"
+                size="small"
+                @click="downloadSelectedFirmware"
+              >
+                <v-icon>mdi-download</v-icon>
+              </v-btn>
+              <v-btn
+                :class="{
+                  'text-romm-red': selectedFirmware.length,
+                }"
+                :disabled="!selectedFirmware.length"
+                size="small"
+                @click="deleteSelectedFirmware"
+              >
+                <v-icon>mdi-delete</v-icon>
+              </v-btn>
+            </v-btn-group>
+          </v-col>
+          <template v-if="!xs">
+            <v-col sm="6" class="px-6">
+              <v-pagination
+                v-model="page"
+                rounded="0"
+                :show-first-last-page="true"
+                active-color="romm-accent-1"
+                :length="pageCount"
+              />
+            </v-col>
+            <v-col cols="5" sm="3" xl="2">
+              <v-select
+                v-model="itemsPerPage"
+                class="pa-2"
+                label="Files per page"
+                density="compact"
+                variant="outlined"
+                :items="PER_PAGE_OPTIONS"
+                hide-details
+              />
+            </v-col>
+          </template>
+          <v-btn
+            icon="mdi-close"
+            rounded="0"
+            class="mx-2"
+            size="small"
+            variant="text"
+            @click="closeDrawer"
+          >
+          </v-btn>
+        </v-row>
+        <v-row v-if="xs" no-gutters>
+          <v-col cols="8" class="px-6">
             <v-pagination
               v-model="page"
               rounded="0"
@@ -198,7 +239,7 @@ watch(itemsPerPage, async () => {
               :length="pageCount"
             />
           </v-col>
-          <v-col cols="5" sm="3" xl="2">
+          <v-col cols="4" sm="3" xl="2">
             <v-select
               v-model="itemsPerPage"
               class="pa-2"
