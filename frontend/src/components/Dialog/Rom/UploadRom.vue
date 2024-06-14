@@ -31,7 +31,7 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 const page = ref(1);
-const romsPerPage = ref(10);
+const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -162,9 +162,9 @@ function closeDialog() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(romsToUpload.value.length / romsPerPage.value);
+  pageCount.value = Math.ceil(romsToUpload.value.length / itemsPerPage.value);
 }
-watch(romsPerPage, async () => {
+watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
 </script>
@@ -247,7 +247,7 @@ watch(romsPerPage, async () => {
         :item-value="(item) => item.name"
         :items="romsToUpload"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="romsPerPage"
+        :items-per-page="itemsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model:page="page"
@@ -295,7 +295,7 @@ watch(romsPerPage, async () => {
             </v-col>
             <v-col cols="5" sm="3" xl="2">
               <v-select
-                v-model="romsPerPage"
+                v-model="itemsPerPage"
                 class="pa-2"
                 label="Roms per page"
                 density="compact"

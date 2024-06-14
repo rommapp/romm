@@ -42,7 +42,7 @@ const HEADERS = [
   },
 ] as const;
 const page = ref(1);
-const assetsPerPage = ref(10);
+const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -90,10 +90,10 @@ async function deleteAssets() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(assets.value.length / assetsPerPage.value);
+  pageCount.value = Math.ceil(assets.value.length / itemsPerPage.value);
 }
 
-watch(assetsPerPage, async () => {
+watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
 
@@ -126,7 +126,7 @@ function closeDialog() {
         :item-value="(item) => item.id"
         :items="assets"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="assetsPerPage"
+        :items-per-page="itemsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model="assetsToDeleteFromFs"
@@ -195,7 +195,7 @@ function closeDialog() {
             </v-col>
             <v-col cols="5" sm="3" xl="2">
               <v-select
-                v-model="assetsPerPage"
+                v-model="itemsPerPage"
                 class="pa-2"
                 label="Assets per page"
                 density="compact"

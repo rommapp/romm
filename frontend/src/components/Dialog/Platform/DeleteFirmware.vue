@@ -9,7 +9,7 @@ import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { name, mdAndUp, lgAndUp, xs } = useDisplay();
+const { mdAndUp, lgAndUp, xs } = useDisplay();
 const show = ref(false);
 const firmwares = ref<FirmwareSchema[]>([]);
 const firmwaresToDeleteFromFs = ref<number[]>([]);
@@ -29,7 +29,7 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 const page = ref(1);
-const firmwarePerPage = ref(10);
+const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -67,7 +67,7 @@ function deleteFirmware() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(firmwares.value.length / page.value);
+  pageCount.value = Math.ceil(firmwares.value.length / itemsPerPage.value);
 }
 
 watch(page, async () => {
@@ -78,7 +78,6 @@ function closeDialog() {
   show.value = false;
   firmwaresToDeleteFromFs.value = [];
   firmwares.value = [];
-  updateDataTablePages();
 }
 </script>
 
@@ -102,7 +101,7 @@ function closeDialog() {
         :item-value="(item) => item.id"
         :items="firmwares"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="firmwarePerPage"
+        :items-per-page="itemsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model="firmwaresToDeleteFromFs"
@@ -170,9 +169,9 @@ function closeDialog() {
             </v-col>
             <v-col cols="5" sm="3" xl="2">
               <v-select
-                v-model="firmwarePerPage"
+                v-model="itemsPerPage"
                 class="pa-2"
-                label="Assets per page"
+                label="Firmwares per page"
                 density="compact"
                 variant="outlined"
                 :items="PER_PAGE_OPTIONS"
