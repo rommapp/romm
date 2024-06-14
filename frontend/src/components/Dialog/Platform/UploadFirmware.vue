@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import type { PlatformSchema } from "@/__generated__";
 import RDialog from "@/components/common/Dialog.vue";
 import firmwareApi from "@/services/api/firmware";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, nextTick, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
+const romsStore = storeRoms();
+const { currentPlatform } = storeToRefs(romsStore);
 const filesToUpload = ref<File[]>([]);
-const platform = ref<PlatformSchema | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("addFirmwareDialog", (selectedPlatform) => {
-  platform.value = selectedPlatform;
+emitter?.on("addFirmwareDialog", () => {
   updateDataTablePages();
   show.value = true;
   nextTick(() => triggerFileInput());
@@ -50,23 +51,23 @@ function removeFileFromFileInput(file: string) {
 }
 
 function uploadFirmware() {
-  if (!platform.value) return;
+  if (!currentPlatform.value) return;
 
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${filesToUpload.value.length} states to ${platform.value?.name}...`,
+    msg: `Uploading ${filesToUpload.value.length} states to ${currentPlatform.value.name}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
 
   firmwareApi
     .uploadFirmware({
-      platformId: platform.value.id,
+      platformId: currentPlatform.value.id,
       files: filesToUpload.value,
     })
     .then(({ data }) => {
       const { uploaded, firmware } = data;
-      if (platform.value) {
-        platform.value.firmware = firmware;
+      if (currentPlatform.value) {
+        currentPlatform.value.firmware = firmware;
       }
 
       emitter?.emit("snackbarShow", {
@@ -90,7 +91,6 @@ function checkAddedFiles() {
 function closeDialog() {
   show.value = false;
   filesToUpload.value = [];
-  platform.value = null;
 }
 
 function updateDataTablePages() {
@@ -193,13 +193,13 @@ watch(itemsPerPage, async () => {
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             class="bg-terciary"
-            :disabled="filesToUpload.length == 0 || platform == null"
+            :disabled="filesToUpload.length == 0 || !currentPlatform"
             @click="uploadFirmware"
           >
             <span
               :class="{
                 'text-romm-green': !(
-                  filesToUpload.length == 0 || platform == null
+                  filesToUpload.length == 0 || !currentPlatform
                 ),
               }"
               >Upload</span

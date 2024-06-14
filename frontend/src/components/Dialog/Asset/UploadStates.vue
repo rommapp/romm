@@ -49,6 +49,7 @@ function removeFileFromFileInput(file: string) {
   }
 }
 
+// TODO: make upload states reactive
 function uploadStates() {
   if (!rom.value) return;
 
