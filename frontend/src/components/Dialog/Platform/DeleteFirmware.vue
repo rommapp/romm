@@ -2,9 +2,11 @@
 import type { FirmwareSchema } from "@/__generated__";
 import RDialog from "@/components/common/Dialog.vue";
 import firmwareApi from "@/services/api/firmware";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -13,6 +15,8 @@ const { mdAndUp, lgAndUp, xs } = useDisplay();
 const show = ref(false);
 const firmwares = ref<FirmwareSchema[]>([]);
 const firmwaresToDeleteFromFs = ref<number[]>([]);
+const romsStore = storeRoms();
+const { currentPlatform } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteFirmwareDialog", (firmwaresToDelete) => {
   firmwares.value = firmwaresToDelete;
@@ -35,18 +39,18 @@ const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Funtcions
 // TODO: remove firmwares from platform dialog (now refresh is needed)
-function deleteFirmware() {
-  firmwareApi
+async function deleteFirmware() {
+  await firmwareApi
     .deleteFirmware({
       firmware: firmwares.value,
       deleteFromFs: firmwaresToDeleteFromFs.value,
     })
     .then(() => {
-      // if (platform.value) {
-      //   platform.value.firmware = platform.value.firmware?.filter(
-      //     (firm) => !firmware.includes(firm)
-      //   );
-      // }
+      if (currentPlatform.value?.firmware) {
+        currentPlatform.value.firmware = currentPlatform.value.firmware.filter(
+          (firm) => !firmwares.value.includes(firm)
+        );
+      }
       emitter?.emit("snackbarShow", {
         msg: "Firmware deleted successfully!",
         icon: "mdi-check-circle",

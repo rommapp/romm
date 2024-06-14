@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import EmptyGame from "@/components/common/EmptyGame.vue";
-import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
-import FabBar from "@/components/Gallery/FabBar.vue";
+import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import GameCardFlags from "@/components/Game/Card/Flags.vue";
 import GameDataTable from "@/components/Game/Table.vue";
+import EmptyGame from "@/components/common/EmptyGame.vue";
+import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -32,7 +32,7 @@ const {
   allRoms,
   filteredRoms,
   selectedRoms,
-  platformID,
+  currentPlatform,
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
@@ -55,7 +55,7 @@ async function fetchRoms() {
 
   await romApi
     .getRoms({
-      platformId: platformID.value,
+      platformId: romsStore.currentPlatform?.id,
       searchTerm: normalizeString(galleryFilterStore.filterSearch),
     })
     .then(({ data }) => {
@@ -64,14 +64,15 @@ async function fetchRoms() {
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for platform ID ${platformID.value}: ${error}`,
+        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
       });
       console.error(
-        `Couldn't fetch roms for platform ID ${platformID.value}: ${error}`
+        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
       );
+      noPlatformError.value = true;
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -196,26 +197,27 @@ function resetGallery() {
 }
 
 onMounted(async () => {
-  const storedPlatformID = romsStore.platformID;
-  const platformID = Number(route.params.platform);
+  const storedPlatformId = romsStore.currentPlatform?.id;
+  const routePlatformId = Number(route.params.platform);
+  const routePlatform = platforms.get(routePlatformId);
 
-  romsStore.setPlatformID(platformID);
-
-  const platform = platforms.get(platformID);
-  if (!platform) {
+  if (!routePlatform) {
     await platformApi
-      .getPlatform(platformID)
+      .getPlatform(routePlatformId)
       .then((data) => {
         platforms.add(data.data);
+        romsStore.setCurrentPlatform(data.data);
       })
       .catch((error) => {
         console.log(error);
         noPlatformError.value = true;
       });
+  } else {
+    romsStore.setCurrentPlatform(routePlatform);
   }
 
   // If platform is different, reset store and fetch roms
-  if (storedPlatformID != platformID) {
+  if (storedPlatformId != routePlatformId) {
     resetGallery();
     await fetchRoms();
   }
@@ -237,13 +239,13 @@ onBeforeRouteUpdate(async (to, from) => {
 
   resetGallery();
 
-  const platformID = Number(to.params.platform);
-  romsStore.setPlatformID(platformID);
-
-  const platform = platforms.get(platformID);
-  if (!platform) {
-    const { data } = await platformApi.getPlatform(platformID);
+  const routePlatformId = Number(to.params.platform);
+  const routePlatform = platforms.get(routePlatformId);
+  if (!routePlatform) {
+    const { data } = await platformApi.getPlatform(routePlatformId);
     platforms.add(data);
+  } else {
+    romsStore.setCurrentPlatform(routePlatform);
   }
 
   await fetchRoms();
@@ -267,7 +269,11 @@ watch(currentView, (newView) => {
   <gallery-app-bar />
 
   <template v-if="filteredRoms.length > 0">
-    <v-row no-gutters class="overflow-hidden" :class="{'pa-1': currentView != 2}">
+    <v-row
+      no-gutters
+      class="overflow-hidden"
+      :class="{ 'pa-1': currentView != 2 }"
+    >
       <!-- Gallery cards view -->
       <!-- v-show instead of v-if to avoid recalculate on view change -->
       <v-col
@@ -316,5 +322,5 @@ watch(currentView, (newView) => {
 
   <empty-platform v-if="noPlatformError" />
 
-  <fab-bar />
+  <fab-overlay />
 </template>

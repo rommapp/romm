@@ -63,16 +63,17 @@ function resetFilters() {
   <v-navigation-drawer
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     floating
+    width="300"
     v-model="show"
     :mobile="true"
   >
-    <v-list >
+    <v-list>
       <v-list-item>
         <filter-unmatched-btn />
       </v-list-item>
       <v-list-item v-for="filter in filters">
         <v-autocomplete
-        rounded="0"
+          rounded="0"
           v-model="filter.selected.value"
           hide-details
           clearable
