@@ -3,6 +3,7 @@ import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 import storeGalleryFilter from "./galleryFilter";
+import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
@@ -15,7 +16,7 @@ export type DetailedRom = DetailedRomSchema;
 
 export default defineStore("roms", {
   state: () => ({
-    platformID: 0,
+    currentPlatform: null as Platform | null,
     allRoms: [] as SimpleRom[],
     _grouped: [] as SimpleRom[],
     _filteredIDs: [] as number[],
@@ -55,8 +56,8 @@ export default defineStore("roms", {
           this.allRoms,
           (game) =>
             // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid(),
-        ),
+            game.igdb_id || game.moby_id || nanoid()
+        )
       )
         .map((games) => ({
           ...(games.shift() as SimpleRom),
@@ -66,8 +67,8 @@ export default defineStore("roms", {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });
     },
-    setPlatformID(platformID: number) {
-      this.platformID = platformID;
+    setCurrentPlatform(platform: Platform) {
+      this.currentPlatform = platform;
     },
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
@@ -82,7 +83,7 @@ export default defineStore("roms", {
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>
-        value.id === rom.id ? rom : value,
+        value.id === rom.id ? rom : value
       );
       this._reorder();
     },
@@ -137,7 +138,7 @@ export default defineStore("roms", {
         .filter(
           (rom) =>
             rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-            rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase()),
+            rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase())
         )
         .map((roms) => roms.id);
     },
@@ -154,7 +155,7 @@ export default defineStore("roms", {
     _filterFranchise(franchiseToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.franchises.some((franchise) => franchise === franchiseToFilter),
+          rom.franchises.some((franchise) => franchise === franchiseToFilter)
         )
         .map((rom) => rom.id);
     },
@@ -162,15 +163,15 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.collections.some(
-            (collection) => collection === collectionToFilter,
-          ),
+            (collection) => collection === collectionToFilter
+          )
         )
         .map((rom) => rom.id);
     },
     _filterCompany(companyToFilter: string) {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
-          rom.companies.some((company) => company === companyToFilter),
+          rom.companies.some((company) => company === companyToFilter)
         )
         .map((rom) => rom.id);
     },

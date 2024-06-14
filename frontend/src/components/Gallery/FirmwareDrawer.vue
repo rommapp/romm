@@ -3,22 +3,23 @@ import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/Dialog/Platform/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/Dialog/Platform/UploadFirmware.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import { type Platform } from "@/stores/platforms";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const { xs, mdAndUp } = useDisplay();
-const platform = ref<Platform | null>(null);
+const romsStore = storeRoms();
+const { currentPlatform } = storeToRefs(romsStore);
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("firmwareDrawerShow", (selectedPlatform) => {
-  platform.value = selectedPlatform;
+emitter?.on("firmwareDrawerShow", () => {
   updateDataTablePages();
   show.value = true;
 });
@@ -44,13 +45,17 @@ function downloadSelectedFirmware() {
     a.download = `${firmware.file_name}`;
     a.click();
   });
+  selectedFirmware.value = [];
+}
 
+function deleteSelectedFirmware() {
+  emitter?.emit("showDeleteFirmwareDialog", selectedFirmware.value);
   selectedFirmware.value = [];
 }
 
 function updateDataTablePages() {
   pageCount.value = Math.ceil(
-    Number(platform.value?.firmware?.length) / itemsPerPage.value
+    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value
   );
 }
 watch(itemsPerPage, async () => {
@@ -66,7 +71,7 @@ watch(itemsPerPage, async () => {
     location="bottom"
   >
     <v-data-table
-      :items="platform?.firmware ?? []"
+      :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"
       :items-per-page="itemsPerPage"
       :items-per-page-options="PER_PAGE_OPTIONS"
@@ -81,7 +86,7 @@ watch(itemsPerPage, async () => {
           prepend-icon="mdi-plus"
           class="text-romm-accent-1"
           variant="outlined"
-          @click="emitter?.emit('addFirmwareDialog', platform as Platform)"
+          @click="emitter?.emit('addFirmwareDialog', null)"
         >
           Add
         </v-btn>
@@ -141,7 +146,9 @@ watch(itemsPerPage, async () => {
         </v-list-item>
       </template>
       <template #no-data
-        ><span>No firmware found for {{ platform?.name }}</span></template
+        ><span
+          >No firmware found for {{ currentPlatform?.name }}</span
+        ></template
       >
       <template #item.actions="{ item }">
         <v-btn-group divided density="compact">
@@ -177,9 +184,7 @@ watch(itemsPerPage, async () => {
               }"
               :disabled="!selectedFirmware.length"
               size="small"
-              @click="
-                emitter?.emit('showDeleteFirmwareDialog', selectedFirmware)
-              "
+              @click="deleteSelectedFirmware"
             >
               <v-icon>mdi-delete</v-icon>
             </v-btn>

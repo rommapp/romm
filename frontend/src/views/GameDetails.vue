@@ -21,6 +21,7 @@ import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
+// Props
 const route = useRoute();
 const rom = ref<DetailedRom>();
 const platform = ref<Platform>();
@@ -37,6 +38,7 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 
+// Functions
 async function fetchDetails() {
   if (!route.params.rom) return;
 

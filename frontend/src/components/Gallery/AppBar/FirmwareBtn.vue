@@ -11,15 +11,8 @@ import { storeToRefs } from "pinia";
 const galleryFilterStore = storeGalleryFilter();
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
-const platforms = storePlatforms();
-const route = useRoute();
 function showFirmwareDrawer() {
-  nextTick(() =>
-    emitter?.emit(
-      "firmwareDrawerShow",
-      platforms.get(Number(route.params.platform)) as Platform
-    )
-  );
+  nextTick(() => emitter?.emit("firmwareDrawerShow", null));
   galleryFilterStore.switchActiveFirmwareDrawer();
 }
 </script>
