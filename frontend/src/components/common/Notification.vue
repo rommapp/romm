@@ -30,7 +30,7 @@ function closeDialog() {
   <v-snackbar
     transition="scroll-y-transition"
     v-model="show"
-    :timeout="snackbarStatus.timeout ? snackbarStatus.timeout : 3000"
+    :timeout="snackbarStatus.timeout || 3000"
     @timeout="closeDialog"
     absolute
     :location="xs ? 'top' : 'top right'"
