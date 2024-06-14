@@ -33,7 +33,7 @@ const HEADERS = [
   },
 ] as const;
 const page = ref(1);
-const romsPerPage = ref(10);
+const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -70,10 +70,10 @@ async function deleteRoms() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(roms.value.length / romsPerPage.value);
+  pageCount.value = Math.ceil(roms.value.length / itemsPerPage.value);
 }
 
-watch(romsPerPage, async () => {
+watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
 
@@ -104,7 +104,7 @@ function closeDialog() {
         :item-value="(item) => item.id"
         :items="roms"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="romsPerPage"
+        :items-per-page="itemsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model="romsToDeleteFromFs"
@@ -173,7 +173,7 @@ function closeDialog() {
             </v-col>
             <v-col cols="5" sm="3" xl="2">
               <v-select
-                v-model="romsPerPage"
+                v-model="itemsPerPage"
                 class="pa-2"
                 label="Roms per page"
                 density="compact"
