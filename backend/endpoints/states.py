@@ -14,7 +14,7 @@ router = APIRouter()
 def add_states(
     request: Request,
     rom_id: int,
-    states: list[UploadFile] = File(...),
+    states: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)

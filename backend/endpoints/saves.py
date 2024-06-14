@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request,
     rom_id: int,
-    saves: list[UploadFile] = File(...),
+    saves: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)

@@ -31,7 +31,7 @@ router = APIRouter()
 def add_roms(
     request: Request,
     platform_id: int,
-    roms: list[UploadFile] = File(...),
+    roms: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
