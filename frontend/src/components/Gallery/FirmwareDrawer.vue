@@ -15,13 +15,14 @@ import { useDisplay } from "vuetify";
 const { xs, mdAndUp } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
-const selectedFirmware = ref<FirmwareSchema[]>([]);
 const galleryFilterStore = storeGalleryFilter();
-const show = ref(false);
+const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
+const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
+  // TODO: remove emitter
+  // TODO: same behaviour on filter drawer
 emitter?.on("firmwareDrawerShow", () => {
   updateDataTablePages();
-  show.value = true;
 });
 const HEADERS = [
   {
@@ -61,7 +62,6 @@ function updateDataTablePages() {
 
 function closeDrawer() {
   galleryFilterStore.switchActiveFirmwareDrawer();
-  show.value = false;
 }
 
 watch(itemsPerPage, async () => {
@@ -72,7 +72,7 @@ watch(itemsPerPage, async () => {
 <template>
   <v-navigation-drawer
     @update:model-value="galleryFilterStore.switchActiveFirmwareDrawer()"
-    v-model="show"
+    v-model="activeFirmwareDrawer"
     :mobile="true"
     location="bottom"
   >
