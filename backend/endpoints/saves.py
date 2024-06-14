@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
@@ -101,7 +101,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
 async def delete_saves(request: Request) -> MessageResponse:
     data: dict = await request.json()
     save_ids: list = data["saves"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     if not save_ids:
         error = "No saves were provided"
