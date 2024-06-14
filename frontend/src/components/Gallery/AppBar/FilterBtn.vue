@@ -9,7 +9,7 @@ import { inject, nextTick } from "vue";
 const galleryFilterStore = storeGalleryFilter();
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
-function showFilterBar() {
+function showFilterDrawer() {
   nextTick(() => emitter?.emit("filterDrawerShow", null));
   galleryFilterStore.switchActiveFilterDrawer();
 }
@@ -31,6 +31,6 @@ function showFilterBar() {
         v-bind="props"
         icon="mdi-filter-variant"
         :color="activeFilterDrawer ? 'romm-accent-1' : ''"
-        @click="showFilterBar" /></template
+        @click="showFilterDrawer" /></template
   ></v-tooltip>
 </template>

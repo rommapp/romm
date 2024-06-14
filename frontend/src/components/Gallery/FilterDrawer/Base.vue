@@ -7,10 +7,10 @@ import { storeToRefs } from "pinia";
 import { inject, nextTick, ref } from "vue";
 
 // Props
-const showFilterBar = ref(false);
+const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filterDrawerShow", () => {
-  showFilterBar.value = !showFilterBar.value;
+  show.value = !show.value;
 });
 
 const galleryFilterStore = storeGalleryFilter();
@@ -63,7 +63,7 @@ function resetFilters() {
   <v-navigation-drawer
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     floating
-    v-model="showFilterBar"
+    v-model="show"
     :mobile="true"
   >
     <v-list >
