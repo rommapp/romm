@@ -126,7 +126,7 @@ async function stopScan() {
             <platform-icon
               :key="item.raw.slug"
               :slug="item.raw.slug"
-              :size="25"
+              :size="20"
               class="mr-2"
             />
             {{ item.raw.name }}

@@ -89,10 +89,7 @@ function onDownload() {
       >
     </v-scroll-y-reverse-transition>
 
-    <v-speed-dial
-      v-model="fabMenu"
-      transition="slide-y-transition"
-    >
+    <v-speed-dial v-model="fabMenu" transition="slide-y-transition">
       <template #activator="{ props: menuProps }">
         <v-fab-transition>
           <v-btn

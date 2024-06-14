@@ -122,7 +122,7 @@ async def delete_states(request: Request) -> MessageResponse:
 
         db_state_handler.delete_state(state_id)
 
-        if delete_from_fs:
+        if state_id in delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
                 fs_asset_handler.remove_file(

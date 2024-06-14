@@ -26,6 +26,7 @@ export type Events = {
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
   showFirmwareDialog: Platform;
+  showDeleteFirmwareDialog: FirmwareSchema[];
   addFirmwareDialog: Platform;
   showAddPlatformDialog: null;
   showCreatePlatformBindingDialog: {
@@ -56,6 +57,8 @@ export type Events = {
     rom: DetailedRom;
     states: StateSchema[];
   };
+  addStatesDialog: DetailedRom;
+  addSavesDialog: DetailedRom;
   showEmulation: null;
   toggleDrawer: null;
   toggleDrawerRail: null;

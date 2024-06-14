@@ -50,7 +50,7 @@ function onEditNote() {
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">My notes</span>
         <template #append>
-          <v-btn-group divided density="compact" rounded="0">
+          <v-btn-group divided density="compact">
             <v-tooltip
               location="top"
               class="tooltip"

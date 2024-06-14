@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RDialog from "@/components/common/Dialog.vue";
-import firmwareApi from "@/services/api/firmware";
-import storePlatforms, { type Platform } from "@/stores/platforms";
+import stateApi from "@/services/api/state";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
@@ -9,14 +9,13 @@ import { inject, nextTick, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndUp } = useDisplay();
+const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
-const platform = ref<Platform | null>(null);
-const platforms = storePlatforms();
+const rom = ref<DetailedRom | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("addFirmwareDialog", (selectedPlatform) => {
-  platform.value = selectedPlatform;
+emitter?.on("addStatesDialog", (selectedRom) => {
+  rom.value = selectedRom;
   updateDataTablePages();
   show.value = true;
   nextTick(() => triggerFileInput());
@@ -30,9 +29,9 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const firmwareToUploadPage = ref(1);
-const firmwareToUploadPerPage = ref(10);
-const firmwareToUploadPageCount = ref(0);
+const page = ref(1);
+const itemsPerPage = ref(10);
+const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Functions
@@ -50,19 +49,22 @@ function removeFileFromFileInput(file: string) {
   }
 }
 
-function uploadFirmware() {
-  if (!platform.value) return;
+function uploadStates() {
+  if (!rom.value) return;
 
-  firmwareApi
-    .uploadFirmware({
-      platformId: platform.value.id,
-      files: filesToUpload.value,
+  emitter?.emit("snackbarShow", {
+    msg: `Uploading ${filesToUpload.value.length} states to ${rom.value?.name}...`,
+    icon: "mdi-loading mdi-spin",
+    color: "romm-accent-1",
+  });
+
+  stateApi
+    .uploadStates({
+      rom: rom.value,
+      states: filesToUpload.value,
     })
     .then(({ data }) => {
-      const { uploaded, firmware } = data;
-      if (platform.value) {
-        platform.value.firmware = firmware;
-      }
+      const { states, uploaded } = data;
 
       emitter?.emit("snackbarShow", {
         msg: `${uploaded} files uploaded successfully.`,
@@ -72,8 +74,6 @@ function uploadFirmware() {
       });
     });
 
-  filesToUpload.value = [];
-  updateDataTablePages();
   closeDialog();
 }
 
@@ -87,15 +87,13 @@ function checkAddedFiles() {
 function closeDialog() {
   show.value = false;
   filesToUpload.value = [];
-  platform.value = null;
+  rom.value = null;
 }
 
 function updateDataTablePages() {
-  firmwareToUploadPageCount.value = Math.ceil(
-    filesToUpload.value.length / firmwareToUploadPerPage.value
-  );
+  pageCount.value = Math.ceil(filesToUpload.value.length / itemsPerPage.value);
 }
-watch(firmwareToUploadPerPage, async () => {
+watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
 </script>
@@ -118,17 +116,17 @@ watch(firmwareToUploadPerPage, async () => {
           multiple
           required
           @update:model-value="checkAddedFiles"
-          @keyup.enter="uploadFirmware"
+          @keyup.enter="uploadStates"
         />
         <v-data-table
           v-if="filesToUpload.length > 0"
           :item-value="(item) => item.name"
           :items="filesToUpload"
           :width="mdAndUp ? '60vw' : '95vw'"
-          :items-per-page="firmwareToUploadPerPage"
+          :items-per-page="itemsPerPage"
           :items-per-page-options="PER_PAGE_OPTIONS"
           :headers="HEADERS"
-          v-model:page="firmwareToUploadPage"
+          v-model:page="page"
           hide-default-header
         >
           <template #item.name="{ item }">
@@ -136,8 +134,15 @@ watch(firmwareToUploadPerPage, async () => {
               <v-row no-gutters
                 ><v-col>{{ item.name }}</v-col></v-row
               >
+              <v-row v-if="xs" no-gutters>
+                <v-col>
+                  <v-chip class="ml-2" size="x-small" label>{{
+                    formatBytes(item.size)
+                  }}</v-chip>
+                </v-col>
+              </v-row>
               <template #append>
-                <v-chip class="ml-2" size="x-small" label>{{
+                <v-chip v-if="!xs" class="ml-2" size="x-small" label>{{
                   formatBytes(item.size)
                 }}</v-chip>
               </template>
@@ -155,16 +160,16 @@ watch(firmwareToUploadPerPage, async () => {
             <v-row no-gutters class="pt-2 align-center justify-center">
               <v-col class="px-6">
                 <v-pagination
-                  v-model="firmwareToUploadPage"
+                  v-model="page"
                   rounded="0"
                   :show-first-last-page="true"
                   active-color="romm-accent-1"
-                  :length="firmwareToUploadPageCount"
+                  :length="pageCount"
                 />
               </v-col>
               <v-col cols="5" sm="3" xl="2">
                 <v-select
-                  v-model="firmwareToUploadPerPage"
+                  v-model="itemsPerPage"
                   class="pa-2"
                   label="Files per page"
                   density="compact"
@@ -182,19 +187,15 @@ watch(firmwareToUploadPerPage, async () => {
     <template #append>
       <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
-            Cancel
-          </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             class="bg-terciary"
-            :disabled="filesToUpload.length == 0 || platform == null"
-            @click="uploadFirmware()"
+            :disabled="filesToUpload.length == 0 || rom == null"
+            @click="uploadStates"
           >
             <span
               :class="{
-                'text-romm-green': !(
-                  filesToUpload.length == 0 || platform == null
-                ),
+                'text-romm-green': !(filesToUpload.length == 0 || rom == null),
               }"
               >Upload</span
             >

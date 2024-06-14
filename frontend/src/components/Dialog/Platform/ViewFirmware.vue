@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { FirmwareSchema } from "@/__generated__";
-import AddFirmwareDialog from "@/components/Dialog/Platform/AddFirmware.vue";
+import DeleteFirmwareDialog from "@/components/Dialog/Platform/DeleteFirmware.vue";
+import UploadFirmwareDialog from "@/components/Dialog/Platform/UploadFirmware.vue";
 import RDialog from "@/components/common/Dialog.vue";
-import firmwareApi from "@/services/api/firmware";
 import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
@@ -11,12 +11,10 @@ import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, mdAndUp, lgAndUp } = useDisplay();
+const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
-const filesToUpload = ref<File[]>([]);
 const platform = ref<Platform | null>(null);
 const selectedFirmware = ref<FirmwareSchema[]>([]);
-const firmwaresToDeleteFromFs = ref<number[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showFirmwareDialog", (selectedPlatform) => {
   platform.value = selectedPlatform;
@@ -32,29 +30,21 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const firmwarePage = ref(1);
-const firmwarePerPage = ref(10);
-const firmwarePageCount = ref(0);
+const page = ref(1);
+const itemsPerPage = ref(10);
+const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Functions
-// TODO: add delete from fs
-function deleteFirmware(firmware: FirmwareSchema, deleteFromFs: number[] = []) {
-  firmwareApi
-    .deleteFirmware({ firmware: [firmware], deleteFromFs: deleteFromFs })
-    .then(() => {
-      if (platform.value) {
-        platform.value.firmware = platform.value.firmware?.filter(
-          (firm) => firm.id == firmware.id
-        );
-      }
-      emitter?.emit("snackbarShow", {
-        msg: "Firmware deleted successfully!",
-        icon: "mdi-check-circle",
-        color: "green",
-        timeout: 4000,
-      });
-    });
+function downloadSelectedFirmware() {
+  selectedFirmware.value.map((firmware) => {
+    const a = document.createElement("a");
+    a.href = `/api/firmware/${firmware.id}/content/${firmware.file_name}`;
+    a.download = `${firmware.file_name}`;
+    a.click();
+  });
+
+  selectedFirmware.value = [];
 }
 
 function closeDialog() {
@@ -63,11 +53,11 @@ function closeDialog() {
 }
 
 function updateDataTablePages() {
-  firmwarePageCount.value = Math.ceil(
-    Number(platform.value?.firmware?.length) / firmwarePerPage.value
+  pageCount.value = Math.ceil(
+    Number(platform.value?.firmware?.length) / itemsPerPage.value
   );
 }
-watch(firmwarePerPage, async () => {
+watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
 </script>
@@ -83,14 +73,14 @@ watch(firmwarePerPage, async () => {
   >
     <template #content>
       <v-data-table
-        v-if="platform?.firmware"
-        :item-value="(item) => item.file_name"
         :items="platform?.firmware ?? []"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="firmwarePerPage"
+        :items-per-page="itemsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
-        v-model:page="firmwarePage"
+        v-model="selectedFirmware"
+        v-model:page="page"
+        return-object
         show-select
       >
         <template #header.actions>
@@ -110,23 +100,22 @@ watch(firmwarePerPage, async () => {
                 <span>{{ item.file_name }}</span>
               </v-col>
             </v-row>
-            <v-row no-gutters v-if="!mdAndUp">
+            <v-row v-if="!mdAndUp" no-gutters>
               <v-col>
                 <v-chip size="x-small" label>{{
                   formatBytes(item.file_size_bytes)
                 }}</v-chip>
-              </v-col>
-            </v-row>
-            <v-row v-if="!lgAndUp" no-gutters>
-              <v-col>
-                <v-chip color="blue" size="x-small" label
-                  ><span class="text-truncate">
-                    {{ item.md5_hash }}</span
-                  ></v-chip
-                >
                 <v-chip
+                  color="blue"
+                  size="x-small"
                   label
+                  :class="{ 'ml-1': !xs }"
+                >
+                  <span class="text-truncate"> {{ item.md5_hash }}</span>
+                </v-chip>
+                <v-chip
                   v-if="item.is_verified"
+                  label
                   prepend-icon="mdi-check"
                   size="x-small"
                   class="text-romm-green"
@@ -138,30 +127,28 @@ watch(firmwarePerPage, async () => {
             </v-row>
             <template> </template>
             <template #append>
-              <template v-if="lgAndUp">
-                <v-chip color="blue" size="x-small" label
-                  ><span class="text-truncate">
-                    {{ item.md5_hash }}</span
-                  ></v-chip
-                >
+              <template v-if="mdAndUp">
+                <v-chip size="x-small" label>{{
+                  formatBytes(item.file_size_bytes)
+                }}</v-chip>
+                <v-chip class="ml-1" color="blue" size="x-small" label>
+                  <span class="text-truncate">{{ item.md5_hash }}</span>
+                </v-chip>
                 <v-chip
-                  label
                   v-if="item.is_verified"
+                  label
                   prepend-icon="mdi-check"
                   size="x-small"
-                  class="text-romm-green ml-2"
+                  class="text-romm-green ml-1"
                   title="Passed file size, SHA1 and MD5 checksum checks"
                   ><span>Verified</span>
                 </v-chip>
               </template>
-              <v-chip v-if="mdAndUp" class="ml-2" size="x-small" label>{{
-                formatBytes(item.file_size_bytes)
-              }}</v-chip>
             </template>
           </v-list-item>
         </template>
         <template #no-data
-          ><span>No firmware found for {{ platform.name }}</span></template
+          ><span>No firmware found for {{ platform?.name }}</span></template
         >
         <template #item.actions="{ item }">
           <v-btn-group divided density="compact">
@@ -172,7 +159,10 @@ watch(firmwarePerPage, async () => {
             >
               <v-icon> mdi-download </v-icon>
             </v-btn>
-            <v-btn size="small" @click="deleteFirmware(item)">
+            <v-btn
+              size="small"
+              @click="emitter?.emit('showDeleteFirmwareDialog', [item])"
+            >
               <v-icon class="text-romm-red">mdi-delete</v-icon>
             </v-btn>
           </v-btn-group>
@@ -180,18 +170,39 @@ watch(firmwarePerPage, async () => {
         <template #bottom>
           <v-divider />
           <v-row no-gutters class="pt-2 align-center justify-center">
+            <v-btn-group class="px-2" divided density="compact">
+              <v-btn
+                :disabled="!selectedFirmware.length"
+                size="small"
+                @click="downloadSelectedFirmware"
+              >
+                <v-icon>mdi-download</v-icon>
+              </v-btn>
+              <v-btn
+                :class="{
+                  'text-romm-red': selectedFirmware.length,
+                }"
+                :disabled="!selectedFirmware.length"
+                size="small"
+                @click="
+                  emitter?.emit('showDeleteFirmwareDialog', selectedFirmware)
+                "
+              >
+                <v-icon>mdi-delete</v-icon>
+              </v-btn>
+            </v-btn-group>
             <v-col class="px-6">
               <v-pagination
-                v-model="firmwarePage"
+                v-model="page"
                 rounded="0"
                 :show-first-last-page="true"
                 active-color="romm-accent-1"
-                :length="firmwarePageCount"
+                :length="pageCount"
               />
             </v-col>
             <v-col cols="5" sm="3" xl="2">
               <v-select
-                v-model="firmwarePerPage"
+                v-model="itemsPerPage"
                 class="pa-2"
                 label="Files per page"
                 density="compact"
@@ -206,5 +217,6 @@ watch(firmwarePerPage, async () => {
     </template>
   </r-dialog>
 
-  <add-firmware-dialog />
+  <upload-firmware-dialog />
+  <delete-firmware-dialog />
 </template>
