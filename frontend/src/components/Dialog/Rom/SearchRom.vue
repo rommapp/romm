@@ -131,6 +131,7 @@ onBeforeUnmount(() => {
             :disabled="platforms.length == 0"
             hide-details
             clearable
+            single-line
             return-object
             v-model="selectedPlatform"
             @update:model-value="filterRoms"
@@ -140,6 +141,20 @@ onBeforeUnmount(() => {
               <v-list-item
                 class="py-2"
                 v-bind="props"
+                :title="(item as SelectItem).raw.platform_name ?? ''"
+              >
+                <template #prepend>
+                  <platform-icon
+                    :size="35"
+                    :key="(item as SelectItem).raw.platform_slug"
+                    :slug="(item as SelectItem).raw.platform_slug"
+                  />
+                </template>
+              </v-list-item>
+            </template>
+            <template #selection="{ item }">
+              <v-list-item
+                class="px-0"
                 :title="(item as SelectItem).raw.platform_name ?? ''"
               >
                 <template #prepend>
