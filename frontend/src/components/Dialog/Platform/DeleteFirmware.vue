@@ -97,7 +97,7 @@ function closeDialog() {
       <v-list-item class="text-center">
         <span>Removing the following</span>
         <span class="text-romm-accent-1 mx-1">{{ firmwares.length }}</span>
-        <span>firmwares from RomM. Do you confirm?</span>
+        <span>firmware files from RomM. Do you confirm?</span>
       </v-list-item>
     </template>
     <template #content>

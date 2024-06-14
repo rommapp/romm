@@ -4,10 +4,8 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import { getSupportedCores } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, ref } from "vue";
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -19,7 +17,6 @@ const props = defineProps<{
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
-const emitter = inject<Emitter<Events>>("emitter");
 
 onBeforeUnmount(() => {
   window.location.reload();

@@ -45,6 +45,7 @@ const page = ref(1);
 const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const assetsNameMapping = { user_saves: "saves", user_states: "states" };
 
 // Funtcions
 // TODO: make remove assets reactive
@@ -76,7 +77,7 @@ async function deleteAssets() {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to delete ${assetType.value.slice(5)}: ${
+        msg: `Unable to delete ${assetsNameMapping[assetType.value]}: ${
           response?.data?.detail || response?.statusText || message
         }`,
         icon: "mdi-close-circle",
