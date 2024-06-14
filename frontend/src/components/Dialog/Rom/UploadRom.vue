@@ -218,7 +218,7 @@ watch(romsPerPage, async () => {
             @click="triggerFileInput"
           >
             <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
-            ><span v-if="!xs">Add roms</span>
+            ><span v-if="!xs">Add</span>
           </v-btn>
           <v-file-input
             id="file-input"

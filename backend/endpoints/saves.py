@@ -122,7 +122,7 @@ async def delete_saves(request: Request) -> MessageResponse:
 
         db_save_handler.delete_save(save_id)
 
-        if delete_from_fs:
+        if save_id in delete_from_fs:
             log.info(f"Deleting {save.file_name} from filesystem")
 
             try:

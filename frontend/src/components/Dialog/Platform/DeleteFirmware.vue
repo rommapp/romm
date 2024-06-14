@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { FirmwareSchema } from "@/__generated__";
 import RDialog from "@/components/common/Dialog.vue";
-import saveApi from "@/services/api/save";
-import stateApi from "@/services/api/state";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import firmwareApi from "@/services/api/firmware";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
@@ -11,96 +9,76 @@ import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndUp, smAndUp } = useDisplay();
-const romsStore = storeRoms();
+const { name, mdAndUp, lgAndUp, xs } = useDisplay();
 const show = ref(false);
-const assetType = ref<"user_saves" | "user_states">("user_saves");
-const romRef = ref<DetailedRom | null>(null);
-const assets = ref<(SaveSchema | StateSchema)[]>([]);
-const assetsToDeleteFromFs = ref<number[]>([]);
+const firmwares = ref<FirmwareSchema[]>([]);
+const firmwaresToDeleteFromFs = ref<number[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showDeleteSavesDialog", ({ rom, saves }) => {
-  assetType.value = "user_saves";
-  assets.value = saves;
-  romRef.value = rom;
-  updateDataTablePages();
-  show.value = true;
-});
-emitter?.on("showDeleteStatesDialog", ({ rom, states }) => {
-  assetType.value = "user_states";
-  assets.value = states;
-  romRef.value = rom;
+emitter?.on("showDeleteFirmwareDialog", (firmwaresToDelete) => {
+  firmwares.value = firmwaresToDelete;
   updateDataTablePages();
   show.value = true;
 });
 const HEADERS = [
   {
-    title: "Name",
+    title: "Firmware",
     align: "start",
     sortable: true,
-    key: "file_name",
+    key: "name",
   },
+  { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 const page = ref(1);
-const assetsPerPage = ref(10);
+const firmwarePerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Funtcions
-// TODO: remove assets from rom dialog (now refresh is needed)
-async function deleteAssets() {
-  if (!assets.value) return;
-
-  const result =
-    assetType.value === "user_saves"
-      ? saveApi.deleteSaves({
-          saves: assets.value,
-          deleteFromFs: assetsToDeleteFromFs.value,
-        })
-      : stateApi.deleteStates({
-          states: assets.value,
-          deleteFromFs: assetsToDeleteFromFs.value,
-        });
-
-  result
-    .then(() => {
-      if (romRef.value?.[assetType.value]) {
-        const deletedAssetIds = assets.value.map((asset) => asset.id);
-        romRef.value[assetType.value] =
-          romRef.value[assetType.value]?.filter(
-            (asset) => !deletedAssetIds.includes(asset.id)
-          ) ?? [];
-        romsStore.update(romRef.value);
-        emitter?.emit("romUpdated", romRef.value);
-      }
+// TODO: remove firmwares from platform dialog (now refresh is needed)
+function deleteFirmware() {
+  firmwareApi
+    .deleteFirmware({
+      firmware: firmwares.value,
+      deleteFromFs: firmwaresToDeleteFromFs.value,
     })
-    .catch(({ response, message }) => {
+    .then(() => {
+      // if (platform.value) {
+      //   platform.value.firmware = platform.value.firmware?.filter(
+      //     (firm) => !firmware.includes(firm)
+      //   );
+      // }
       emitter?.emit("snackbarShow", {
-        msg: `Unable to delete ${assetType.value.slice(5)}: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
+        msg: "Firmware deleted successfully!",
+        icon: "mdi-check-circle",
+        color: "green",
         timeout: 4000,
       });
     })
-    .finally(() => {
-      closeDialog();
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
     });
+  closeDialog();
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(assets.value.length / assetsPerPage.value);
+  pageCount.value = Math.ceil(firmwares.value.length / page.value);
 }
 
-watch(assetsPerPage, async () => {
+watch(page, async () => {
   updateDataTablePages();
 });
 
 function closeDialog() {
-  assetsToDeleteFromFs.value = [];
-  assets.value = [];
   show.value = false;
+  firmwaresToDeleteFromFs.value = [];
+  firmwares.value = [];
+  updateDataTablePages();
 }
 </script>
 
@@ -110,30 +88,28 @@ function closeDialog() {
     v-model="show"
     icon="mdi-delete"
     scroll-content
-    :width="mdAndUp ? '50vw' : '95vw'"
+    :width="mdAndUp ? '60vw' : '95vw'"
   >
     <template #prepend>
       <v-list-item class="text-center">
         <span>Removing the following</span>
-        <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
-        <span>{{ assetType.slice(5) }} of</span>
-        <span class="text-romm-accent-1 mx-1">{{ romRef?.name }}</span>
-        <span>from RomM. Do you confirm?</span>
+        <span class="text-romm-accent-1 mx-1">{{ firmwares.length }}</span>
+        <span>firmwares from RomM. Do you confirm?</span>
       </v-list-item>
     </template>
     <template #content>
       <v-data-table
         :item-value="(item) => item.id"
-        :items="assets"
+        :items="firmwares"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="assetsPerPage"
+        :items-per-page="firmwarePerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
-        v-model="assetsToDeleteFromFs"
+        v-model="firmwaresToDeleteFromFs"
         v-model:page="page"
         show-select
       >
-        <template #item.file_name="{ item }">
+        <template #item.name="{ item }">
           <v-list-item class="px-0">
             <v-row no-gutters>
               <v-col>
@@ -142,40 +118,39 @@ function closeDialog() {
             </v-row>
             <v-row no-gutters>
               <v-col>
-                <template v-if="!smAndUp">
-                  <v-chip size="x-small" label
-                    >{{ formatBytes(item.file_size_bytes) }}
-                  </v-chip>
-                  <v-chip
-                    v-if="item.emulator"
-                    size="x-small"
-                    class="ml-1 text-orange"
-                    label
-                    >{{ item.emulator }}
-                  </v-chip>
-                </template>
                 <v-chip
-                  v-if="assetsToDeleteFromFs.includes(item.id)"
+                  v-if="firmwaresToDeleteFromFs.includes(item.id)"
                   label
                   size="x-small"
                   class="text-romm-red"
-                  :class="{ 'ml-1': !smAndUp }"
                 >
                   Removing from filesystem
                 </v-chip>
               </v-col>
             </v-row>
-            <template #append>
-              <template v-if="smAndUp">
+            <v-row v-if="!lgAndUp" no-gutters>
+              <v-col>
+                <v-chip size="x-small" label>{{
+                  formatBytes(item.file_size_bytes)
+                }}</v-chip>
                 <v-chip
-                  v-if="item.emulator"
+                  color="blue"
                   size="x-small"
-                  class="text-orange"
                   label
-                  >{{ item.emulator }}
+                  :class="{ 'ml-1': !xs }"
+                >
+                  <span class="text-truncate"> {{ item.md5_hash }}</span>
                 </v-chip>
-                <v-chip class="ml-1" size="x-small" label
-                  >{{ formatBytes(item.file_size_bytes) }}
+              </v-col>
+            </v-row>
+            <template> </template>
+            <template #append>
+              <template v-if="lgAndUp">
+                <v-chip size="x-small" label>{{
+                  formatBytes(item.file_size_bytes)
+                }}</v-chip>
+                <v-chip class="ml-1" color="blue" size="x-small" label>
+                  <span class="text-truncate">{{ item.md5_hash }}</span>
                 </v-chip>
               </template>
             </template>
@@ -195,7 +170,7 @@ function closeDialog() {
             </v-col>
             <v-col cols="5" sm="3" xl="2">
               <v-select
-                v-model="assetsPerPage"
+                v-model="firmwarePerPage"
                 class="pa-2"
                 label="Assets per page"
                 density="compact"
@@ -209,17 +184,17 @@ function closeDialog() {
       </v-data-table>
     </template>
     <template #append>
-      <v-row v-if="assetsToDeleteFromFs.length > 0" no-gutters>
+      <v-row v-if="firmwaresToDeleteFromFs.length > 0" no-gutters>
         <v-col>
           <v-list-item class="text-center mt-2">
             <span class="text-romm-red text-body-1">WARNING:</span>
             <span class="text-body-2 ml-1">You are going to remove</span>
             <span class="text-romm-red text-body-1 ml-1">{{
-              assetsToDeleteFromFs.length
+              firmwaresToDeleteFromFs.length
             }}</span>
             <span class="text-body-2 ml-1"
-              >{{ assetType.slice(5) }} from your filesystem. This action can't
-              be reverted!</span
+              >firmwares from your filesystem. This action can't be
+              reverted!</span
             >
           </v-list-item>
         </v-col>
@@ -232,7 +207,7 @@ function closeDialog() {
           <v-btn
             class="text-romm-red bg-terciary"
             variant="flat"
-            @click="deleteAssets"
+            @click="deleteFirmware"
           >
             Confirm
           </v-btn>

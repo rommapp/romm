@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { mdAndUp } = useDisplay();
+const { smAndUp, mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -79,6 +79,7 @@ watch(romsPerPage, async () => {
 
 function closeDialog() {
   romsToDeleteFromFs.value = [];
+  roms.value = [];
   show.value = false;
 }
 </script>
@@ -109,7 +110,6 @@ function closeDialog() {
         v-model="romsToDeleteFromFs"
         v-model:page="page"
         show-select
-        hide-default-header
       >
         <template #item.name="{ item }">
           <v-list-item class="px-0">
@@ -132,21 +132,31 @@ function closeDialog() {
                 item.file_name
               }}</v-col></v-row
             >
-            <v-row no-gutters
-              ><v-col
-                ><v-chip size="x-small" label>{{
-                  formatBytes(item.file_size_bytes)
-                }}</v-chip
-                ><v-chip
+            <v-row no-gutters>
+              <v-col>
+                <v-chip v-if="!smAndUp" size="x-small" label
+                  >{{ formatBytes(item.file_size_bytes) }}
+                </v-chip>
+                <v-chip
+                  v-if="romsToDeleteFromFs.includes(item.id)"
                   label
                   size="x-small"
-                  v-if="romsToDeleteFromFs.includes(item.id)"
-                  class="text-romm-red ml-1"
-                  >Removing from filesystem</v-chip
-                ></v-col
-              ></v-row
-            >
-            <v-row no-gutters><v-col></v-col></v-row>
+                  class="text-romm-red"
+                  :class="{ 'ml-1': !smAndUp }"
+                >
+                  Removing from filesystem
+                </v-chip>
+              </v-col>
+            </v-row>
+            <template #append>
+              <v-row no-gutters v-if="smAndUp">
+                <v-col>
+                  <v-chip size="x-small" label>{{
+                    formatBytes(item.file_size_bytes)
+                  }}</v-chip>
+                </v-col>
+              </v-row>
+            </template>
           </v-list-item>
         </template>
         <template #bottom>
