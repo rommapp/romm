@@ -77,6 +77,8 @@ export default defineStore("galleryFilter", {
       this.selectedFranchise = null;
       this.selectedCollection = null;
       this.selectedCompany = null;
+      this.activeFilterDrawer = false;
+      this.activeFirmwareDrawer = false;
     },
   },
 });
