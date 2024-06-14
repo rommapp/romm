@@ -4,6 +4,5 @@
 /* eslint-disable */
 
 export type Body_add_saves_saves_post = {
-    saves: Array<Blob>;
+  saves: Array<Blob>;
 };
-
