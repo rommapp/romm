@@ -41,40 +41,6 @@ class FSResourcesHandler(FSHandler):
             )
         )
 
-    @staticmethod
-    def resize_cover(cover_path: str, size: CoverSize = CoverSize.BIG) -> None:
-        """Resizes the cover image to the standard size
-
-        Args:
-            cover_path: path where the original cover were stored
-            size: size of the cover
-        """
-        cover = Image.open(cover_path)
-        if size == CoverSize.BIG and cover.size[1] > DEFAULT_HEIGHT_COVER_L:
-            big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
-            background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
-            cover.thumbnail(big_dimensions)
-            offset = (
-                int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)),
-                0,
-            )
-        elif size == CoverSize.SMALL and cover.size[1] > DEFAULT_HEIGHT_COVER_S:
-            small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
-            background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
-            cover.thumbnail(small_dimensions)
-            offset = (
-                int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)),
-                0,
-            )
-        else:
-            return
-        background.paste(cover, offset)
-        try:
-            background.save(cover_path)
-        except OSError:
-            rgb_background = background.convert("RGB")
-            rgb_background.save(cover_path)
-
     def _store_cover(
         self, fs_slug: str, rom_name: str, url_cover: str, size: CoverSize
     ):
@@ -91,7 +57,11 @@ class FSResourcesHandler(FSHandler):
 
         try:
             res = requests.get(
-                url_cover.replace("t_thumb", f"t_cover_{size.value}"),
+                (
+                    url_cover.replace("t_thumb", f"t_cover_small")
+                    if size.value == CoverSize.SMALL.value
+                    else url_cover.replace("t_thumb", f"t_1080p")
+                ),
                 stream=True,
                 timeout=120,
             )
@@ -106,7 +76,6 @@ class FSResourcesHandler(FSHandler):
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
                 shutil.copyfileobj(res.raw, f)
-            self.resize_cover(f"{cover_path}/{cover_file}", size)
 
     @staticmethod
     def _get_cover_path(fs_slug: str, rom_name: str, size: CoverSize):

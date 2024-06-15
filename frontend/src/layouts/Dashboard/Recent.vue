@@ -36,7 +36,6 @@ onMounted(() => {
           :key="rom.id"
           class="px-1 pt-1 pb-2"
           :cols="views[0]['size-cols']"
-          :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
@@ -47,6 +46,7 @@ onMounted(() => {
             :rom="rom"
             transform-scale
             show-action-bar
+            title-on-hover
           />
         </v-col>
       </v-row>
