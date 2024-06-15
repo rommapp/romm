@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from "vue";
-import stateApi from "@/services/api/state";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import { getSupportedCores } from "@/utils";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
+import { getSupportedCores } from "@/utils";
+import { onBeforeUnmount, ref } from "vue";
 
 const props = defineProps<{
   rom: DetailedRom;

@@ -42,7 +42,7 @@ async function deleteStates({
   deleteFromFs,
 }: {
   states: StateSchema[];
-  deleteFromFs: boolean;
+  deleteFromFs: number[];
 }) {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),

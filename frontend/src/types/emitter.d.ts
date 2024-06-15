@@ -9,6 +9,7 @@ export type UserItem = User & {
 };
 
 export type SnackbarStatus = {
+  id?: number;
   msg: string;
   timeout?: number;
   icon?: string;
@@ -24,7 +25,8 @@ export type Events = {
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
-  showFirmwareDialog: Platform;
+  showDeleteFirmwareDialog: FirmwareSchema[];
+  addFirmwareDialog: null;
   showAddPlatformDialog: null;
   showCreatePlatformBindingDialog: {
     fsSlug: string;
@@ -54,6 +56,8 @@ export type Events = {
     rom: DetailedRom;
     states: StateSchema[];
   };
+  addStatesDialog: DetailedRom;
+  addSavesDialog: DetailedRom;
   showEmulation: null;
   toggleDrawer: null;
   toggleDrawerRail: null;
@@ -66,8 +70,8 @@ export type Events = {
   };
   openFabMenu: boolean;
   filter: null;
-  filterBarShow: null;
-  filterBarReset: null;
+  filterDrawerShow: null;
+  firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;

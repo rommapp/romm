@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import pytest
 from handler.filesystem import fs_platform_handler, fs_resource_handler, fs_rom_handler
 from models.platform import Platform
@@ -113,6 +116,14 @@ def test_rom_size():
 
 
 def test_exclude_files():
+    from config.config_manager import ConfigManager
+
+    empty_config_file = os.path.join(
+        Path(__file__).resolve().parent.parent.parent.parent,
+        "config/tests/fixtures/config/empty_config.yml",
+    )
+
+    ConfigManager(empty_config_file)
     from config.config_manager import config_manager as cm
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "Super Mario 64 (J) (Rev A) [Part 1].z64")
@@ -164,6 +175,9 @@ def test_exclude_files():
     )
 
     assert len(filtered_files) == 2
+
+    with open(empty_config_file, "w") as file:
+        file.write("")
 
 
 def test_parse_tags():
