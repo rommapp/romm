@@ -77,8 +77,8 @@ const show = ref(false);
         <v-dialog v-model="show">
           <v-list-item>
             <template #append>
-              <v-btn  @click="show = false" variant="outlined" size="large"
-                ><v-icon size="25">mdi-close</v-icon></v-btn>
+              <v-btn @click="show = false" variant="outlined" size="large"
+                ><v-icon size="25">mdi-close</v-icon></v-btn
               >
             </template>
           </v-list-item>
