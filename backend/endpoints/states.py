@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema, UploadedStatesResponse
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_state
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_states(
     request: Request,
     rom_id: int,
-    states: list[UploadFile] | None = None,
+    states: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_roms(rom_id)
@@ -101,7 +101,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
 async def delete_states(request: Request) -> MessageResponse:
     data: dict = await request.json()
     state_ids: list = data["states"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     if not state_ids:
         error = "No states were provided"
@@ -122,7 +122,7 @@ async def delete_states(request: Request) -> MessageResponse:
 
         db_state_handler.delete_state(state_id)
 
-        if delete_from_fs:
+        if state_id in delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
                 fs_asset_handler.remove_file(

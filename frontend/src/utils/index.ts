@@ -30,7 +30,7 @@ export const views: Record<
     "size-xl": 2,
     "size-lg": 3,
     "size-md": 3,
-    "size-sm": 3,
+    "size-sm": 4,
     "size-xs": 6,
     "size-cols": 6,
   },

@@ -1,20 +1,4 @@
-/* Firefox */
 * {
   scrollbar-width: thin;
   scrollbar-color: #202832 rgba(0, 0, 0, 0);
-}
-
-/* Chrome, Edge, and Safari */
-*::-webkit-scrollbar {
-  width: 1px;
-  height: 3px;
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0);
-}
-
-*::-webkit-scrollbar-thumb {
-  background-color: #596370;
-  border-radius: 1px;
 }

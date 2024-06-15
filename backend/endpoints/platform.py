@@ -70,6 +70,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "id": -1,
             "name": platform["name"],
             "fs_slug": platform["slug"],
+            "slug": platform["slug"],
             "logo_path": "",
             "roms": [],
             "rom_count": 0,

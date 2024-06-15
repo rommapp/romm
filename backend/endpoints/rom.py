@@ -15,7 +15,7 @@ from endpoints.responses.rom import (
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -29,7 +29,9 @@ router = APIRouter()
 
 @protected_route(router.post, "/roms", ["roms.write"])
 def add_roms(
-    request: Request, platform_id: int, roms: list[UploadFile] | None = None
+    request: Request,
+    platform_id: int,
+    roms: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
@@ -398,7 +400,7 @@ async def delete_roms(
 
     data: dict = await request.json()
     roms_ids: list = data["roms"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     for id in roms_ids:
         rom = db_rom_handler.get_roms(id)
@@ -410,7 +412,7 @@ async def delete_roms(
         log.info(f"Deleting {rom.file_name} from database")
         db_rom_handler.delete_rom(id)
 
-        if delete_from_fs:
+        if id in delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")
             try:
                 fs_rom_handler.remove_file(

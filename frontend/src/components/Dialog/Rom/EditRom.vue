@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import Cover from "@/components/Details/Cover.vue";
+import GameCard from "@/components/Game/Card/Base.vue";
+import RDialog from "@/components/common/Dialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -9,7 +10,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { xs, mdAndDown, smAndDown, md, lgAndUp } = useDisplay();
+const { smAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
@@ -20,7 +21,7 @@ const fileNameInputRules = {
   newFileName: (value: string) => !value.includes("/") || "Invalid characters",
 };
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showEditRomDialog", (romToEdit) => {
+emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
   rom.value = romToEdit;
 });
@@ -102,190 +103,120 @@ function closeDialog() {
 </script>
 
 <template>
-  <v-dialog
+  <r-dialog
     v-if="rom"
-    :model-value="show"
-    scroll-strategy="none"
-    width="auto"
-    :scrim="true"
-    no-click-animation
-    persistent
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-pencil-box"
+    :width="lgAndUp ? '65vw' : '95vw'"
   >
-    <v-card
-      rounded="0"
-      :class="{
-        'edit-content': lgAndUp,
-        'edit-content-tablet': mdAndDown,
-        'edit-content-mobile': xs,
-      }"
-    >
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="9"
-            xs="9"
-            sm="10"
-            md="10"
-            lg="11"
-          >
-            <v-icon
-              icon="mdi-pencil-box"
-              class="ml-5"
-            />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider
-        class="border-opacity-25"
-        :thickness="1"
-      />
-
-      <v-card-text>
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="12"
-            md="8"
-            lg="9"
-          >
-            <v-text-field
-              v-model="rom.name"
-              class="py-2"
-              :class="{ 'pr-4': lgAndUp }"
-              label="Name"
-              variant="outlined"
-              required
-              hide-details
-              @keyup.enter="updateRom()"
-            />
-            <v-text-field
-              v-model="rom.file_name"
-              class="py-2"
-              :class="{ 'pr-4': lgAndUp }"
-              :rules="[
-                fileNameInputRules.newFileName,
-                fileNameInputRules.required,
-              ]"
-              label="File name"
-              variant="outlined"
-              required
-              hide-details
-              @keyup.enter="updateRom()"
-            />
-            <v-textarea
-              v-model="rom.summary"
-              class="py-2"
-              :class="{ 'pr-4': lgAndUp }"
-              label="Summary"
-              variant="outlined"
-              required
-              hide-details
-              @keyup.enter="updateRom()"
-            />
-          </v-col>
-          <v-col
-            cols="12"
-            md="4"
-            lg="3"
-          >
-            <cover
-              :class="{ 'mx-16': smAndDown, 'ml-2': md, 'my-4': smAndDown }"
-              :rom="rom"
-            >
-              <template #editable>
-                <v-chip-group class="position-absolute edit-cover pa-0">
-                  <v-chip
-                    class="translucent"
-                    size="small"
-                    label
-                    @click="triggerFileInput"
-                  >
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-file-input
-                      id="file-input"
-                      v-model="rom.artwork"
-                      accept="image/*"
-                      hide-details
-                      class="file-input"
-                      @change="previewImage"
-                    />
-                  </v-chip>
-                  <v-chip
-                    class="translucent"
-                    size="small"
-                    label
-                    @click="removeArtwork"
-                  >
-                    <v-icon class="text-red">
-                      mdi-delete
-                    </v-icon>
-                  </v-chip>
-                </v-chip-group>
-              </template>
-            </cover>
-          </v-col>
-        </v-row>
-        <v-row
-          class="justify-center pa-2"
-          no-gutters
-        >
-          <v-btn
-            class="bg-terciary"
-            @click="closeDialog"
-          >
+    <template #content>
+      <v-row class="align-center pa-2" no-gutters>
+        <v-col cols="12" md="8" lg="8" xl="9">
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-text-field
+                v-model="rom.name"
+                class="py-2"
+                label="Name"
+                variant="outlined"
+                required
+                hide-details
+                @keyup.enter="updateRom()"
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-text-field
+                v-model="rom.file_name"
+                class="py-2"
+                :rules="[
+                  fileNameInputRules.newFileName,
+                  fileNameInputRules.required,
+                ]"
+                label="File name"
+                variant="outlined"
+                required
+                hide-details
+                @keyup.enter="updateRom()"
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-textarea
+                v-model="rom.summary"
+                class="py-2"
+                label="Summary"
+                variant="outlined"
+                required
+                hide-details
+                @keyup.enter="updateRom()"
+              />
+            </v-col>
+          </v-row>
+        </v-col>
+        <v-col>
+          <v-row class="pa-2 justify-center" no-gutters>
+            <v-col class="cover">
+              <game-card :rom="rom" :src="imagePreviewUrl">
+                <template #append-inner>
+                  <v-chip-group class="pa-0">
+                    <v-chip
+                      class="translucent-dark"
+                      :size="smAndDown ? 'large' : 'small'"
+                      @click="triggerFileInput"
+                      label
+                    >
+                      <v-icon>mdi-pencil</v-icon>
+                      <v-file-input
+                        id="file-input"
+                        v-model="rom.artwork"
+                        accept="image/*"
+                        hide-details
+                        class="file-input"
+                        @change="previewImage"
+                      />
+                    </v-chip>
+                    <v-chip
+                      class="translucent-dark"
+                      :size="smAndDown ? 'large' : 'small'"
+                      @click="removeArtwork"
+                      label
+                    >
+                      <v-icon class="text-romm-red"> mdi-delete </v-icon>
+                    </v-chip>
+                  </v-chip-group>
+                </template>
+              </game-card>
+            </v-col>
+          </v-row>
+        </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog" >
             Cancel
           </v-btn>
           <v-btn
-            class="text-romm-green ml-5 bg-terciary"
-            @click="updateRom()"
+            class="text-romm-green bg-terciary"
+            @click="updateRom"
           >
             Apply
           </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
-
 <style scoped>
-.edit-content {
-  width: 900px;
-}
-.edit-content-tablet {
-  width: 620px;
-}
-.edit-content-mobile {
-  width: 85vw;
-}
-.edit-cover {
-  bottom: -0.1rem;
-  right: -0.3rem;
-}
-.file-input {
-  display: none;
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
+.cover {
+  min-width: 240px;
+  min-height: 330px;
+  max-width: 240px;
+  max-height: 330px;
 }
 </style>

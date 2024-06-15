@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { views } from "@/utils";
 import storeGalleryView from "@/stores/galleryView";
+import { views } from "@/utils";
 
 // Props
 const galleryView = storeGalleryView();
@@ -20,15 +20,7 @@ const galleryView = storeGalleryView();
         variant="text"
         v-bind="props"
         class="mr-0"
-        :icon="views[galleryView.current]['icon']"
-        @click="galleryView.next()"
-      />
-    </template>
-  </v-tooltip>
+        :icon="views[galleryView.currentView]['icon']"
+        @click="galleryView.next()" /></template
+  ></v-tooltip>
 </template>
-<style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
-</style>

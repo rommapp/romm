@@ -58,11 +58,7 @@ onBeforeMount(async () => {
   <span id="bg" />
 
   <v-container class="fill-height justify-center">
-    <v-card
-      id="card"
-      class="py-8 px-5"
-      width="500"
-    >
+    <v-card id="card" class="py-8 px-5" width="500">
       <v-row>
         <v-col>
           <v-img
@@ -73,10 +69,7 @@ onBeforeMount(async () => {
           />
 
           <v-row class="text-white justify-center mt-2">
-            <v-col
-              cols="10"
-              md="8"
-            >
+            <v-col cols="10" md="8">
               <v-text-field
                 v-model="username"
                 prepend-inner-icon="mdi-account"
@@ -99,10 +92,7 @@ onBeforeMount(async () => {
           </v-row>
 
           <v-row class="justify-center">
-            <v-col
-              cols="10"
-              md="8"
-            >
+            <v-col cols="10" md="8">
               <v-btn
                 :disabled="logging"
                 color="romm-accent-1"
@@ -127,10 +117,7 @@ onBeforeMount(async () => {
       </v-row>
     </v-card>
 
-    <div
-      id="version"
-      class="position-absolute"
-    >
+    <div id="version" class="position-absolute">
       <span class="text-white">{{ heartbeatStore.value.VERSION }}</span>
     </div>
   </v-container>

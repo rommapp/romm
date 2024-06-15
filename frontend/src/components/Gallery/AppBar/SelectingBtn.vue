@@ -21,14 +21,6 @@ const romsStore = storeRoms();
         v-bind="props"
         class="mr-0"
         icon="mdi-select-group"
-        @click="romsStore.isSelecting()"
-      />
-    </template>
-  </v-tooltip>
+        @click="romsStore.isSelecting()" /></template
+  ></v-tooltip>
 </template>
-<style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
-</style>
