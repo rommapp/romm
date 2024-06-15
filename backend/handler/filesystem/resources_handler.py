@@ -7,17 +7,9 @@ import requests
 from config import RESOURCES_BASE_PATH
 from fastapi import HTTPException, status
 from logger.logger import log
-from PIL import Image
 from urllib3.exceptions import ProtocolError
 
-from .base_handler import (
-    DEFAULT_HEIGHT_COVER_L,
-    DEFAULT_HEIGHT_COVER_S,
-    DEFAULT_WIDTH_COVER_L,
-    DEFAULT_WIDTH_COVER_S,
-    CoverSize,
-    FSHandler,
-)
+from .base_handler import CoverSize, FSHandler
 
 
 class FSResourcesHandler(FSHandler):
@@ -58,9 +50,9 @@ class FSResourcesHandler(FSHandler):
         try:
             res = requests.get(
                 (
-                    url_cover.replace("t_thumb", f"t_cover_small")
+                    url_cover.replace("t_thumb", "t_cover_small")
                     if size.value == CoverSize.SMALL.value
-                    else url_cover.replace("t_thumb", f"t_1080p")
+                    else url_cover.replace("t_thumb", "t_1080p")
                 ),
                 stream=True,
                 timeout=120,
