@@ -116,7 +116,6 @@ watch(
       <v-col
         cols="12"
         md="7"
-        lg="6"
         xl="8"
         class="px-5"
         :class="{

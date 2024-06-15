@@ -10,7 +10,6 @@ export const views: Record<
     "size-lg": number;
     "size-md": number;
     "size-sm": number;
-    "size-xs": number;
     "size-cols": number;
   }
 > = {
@@ -21,7 +20,6 @@ export const views: Record<
     "size-lg": 2,
     "size-md": 2,
     "size-sm": 3,
-    "size-xs": 3,
     "size-cols": 4,
   },
   1: {
@@ -31,7 +29,6 @@ export const views: Record<
     "size-lg": 3,
     "size-md": 3,
     "size-sm": 4,
-    "size-xs": 6,
     "size-cols": 6,
   },
   2: {
@@ -41,7 +38,6 @@ export const views: Record<
     "size-lg": 12,
     "size-md": 12,
     "size-sm": 12,
-    "size-xs": 12,
     "size-cols": 12,
   },
 };

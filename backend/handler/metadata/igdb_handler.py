@@ -424,7 +424,7 @@ class IGDBBaseHandler(MetadataHandler):
             url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_original"
+                    "t_thumb", "t_screenshot_huge"
                 )
                 for s in rom.get("screenshots", [])
             ],
@@ -453,7 +453,7 @@ class IGDBBaseHandler(MetadataHandler):
             url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_original"
+                    "t_thumb", "t_screenshot_huge"
                 )
                 for s in rom.get("screenshots", [])
             ],
@@ -542,9 +542,7 @@ class IGDBBaseHandler(MetadataHandler):
                             .replace("t_thumb", "t_cover_big")
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", "")).replace(
-                                "t_thumb", "t_original"
-                            )
+                            self._normalize_cover_url(s.get("url", ""))
                             for s in rom.get("screenshots", [])
                         ],
                         "igdb_metadata": extract_metadata_from_igdb_rom(rom),

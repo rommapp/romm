@@ -283,7 +283,6 @@ watch(currentView, (newView) => {
           :key="rom.id"
           class="pa-1"
           :cols="views[currentView]['size-cols']"
-          :xs="views[currentView]['size-xs']"
           :sm="views[currentView]['size-sm']"
           :md="views[currentView]['size-md']"
           :lg="views[currentView]['size-lg']"
