@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";
+import { ref } from "vue";
 import { useDisplay } from "vuetify";
 
 defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const galleryFilter = storeGalleryFilter();
+const show = ref(false);
 </script>
 <template>
   <template v-for="filter in galleryFilter.filters" :key="filter">
@@ -60,7 +62,10 @@ const galleryFilter = storeGalleryFilter();
             v-for="screenshot_url in rom.merged_screenshots"
             :key="screenshot_url"
             :src="screenshot_url"
-          />
+            class="pointer"
+            @click="show = true"
+          >
+          </v-carousel-item>
           <template #next="{ props }">
             <v-btn
               icon="mdi-chevron-right"
@@ -69,6 +74,43 @@ const galleryFilter = storeGalleryFilter();
             />
           </template>
         </v-carousel>
+        <v-dialog v-model="show">
+          <v-list-item>
+            <template #append>
+              <v-btn  @click="show = false" variant="outlined" size="large"
+                ><v-icon size="25">mdi-close</v-icon></v-btn>
+              >
+            </template>
+          </v-list-item>
+          <v-carousel
+            hide-delimiter-background
+            delimiter-icon="mdi-square"
+            show-arrows="hover"
+            hide-delimiters
+            :height="xs ? '500' : '600'"
+          >
+            <template #prev="{ props }">
+              <v-btn
+                @click="props.onClick"
+                icon="mdi-chevron-left"
+                class="translucent-dark"
+              />
+            </template>
+            <v-carousel-item
+              v-for="screenshot_url in rom.merged_screenshots"
+              :key="screenshot_url"
+              :src="screenshot_url"
+            >
+            </v-carousel-item>
+            <template #next="{ props }">
+              <v-btn
+                icon="mdi-chevron-right"
+                class="translucent-dark"
+                @click="props.onClick"
+              />
+            </template>
+          </v-carousel>
+        </v-dialog>
       </v-col>
     </v-row>
   </template>
