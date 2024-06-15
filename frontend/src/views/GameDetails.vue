@@ -4,7 +4,8 @@ import Cover from "@/components/Game/Card/Base.vue";
 import ActionBar from "@/components/Game/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Game/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
-import Info from "@/components/Game/Details/Info/Base.vue";
+import FileInfo from "@/components/Game/Details/Info/FileInfo.vue";
+import GameInfo from "@/components/Game/Details/Info/GameInfo.vue";
 import Notes from "@/components/Game/Details/Notes.vue";
 import RelatedGames from "@/components/Game/Details/RelatedGames.vue";
 import Saves from "@/components/Game/Details/Saves.vue";
@@ -174,7 +175,8 @@ watch(
           <v-col cols="12">
             <v-window v-model="tab" class="py-2">
               <v-window-item value="details">
-                <info :rom="rom" :platform="platform" />
+                <file-info :rom="rom" :platform="platform" />
+                <game-info :rom="rom" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />
