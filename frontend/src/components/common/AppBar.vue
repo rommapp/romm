@@ -168,7 +168,7 @@ async function logout() {
             </v-avatar>
           </v-hover>
         </template>
-        <v-card class="pa-1" width="300">
+        <v-card class="text-white pa-1" width="300">
           <v-img
             :src="
               auth.user?.avatar_path
