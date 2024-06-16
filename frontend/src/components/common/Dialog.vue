@@ -92,7 +92,7 @@ onMounted(() => {
       <v-card-text class="pa-1" :class="{ scroll: scrollContent }">
         <v-row
           v-if="loadingCondition"
-          class="justify-center align-center fill-height"
+          class="justify-center align-center h-100"
           no-gutters
         >
           <v-progress-circular
@@ -105,7 +105,7 @@ onMounted(() => {
 
         <v-row
           v-if="!loadingCondition && emptyStateCondition"
-          class="justify-center align-center fill-height"
+          class="justify-center align-center h-100"
           no-gutters
         >
           <empty-game v-if="emptyStateType == 'game'" />

@@ -95,7 +95,9 @@ onBeforeMount(async () => {
                 />
                 <v-btn
                   type="submit"
-                  :disabled="logging"
+                  :disabled="logging || !username || !password"
+                  :variant="!username || !password ? 'text' : 'flat'"
+                  class="bg-terciary"
                   block
                   :loading="logging"
                   @click="login()"
