@@ -58,12 +58,9 @@ body {
 }
 /*
 Calculation to fix 100dvh:
+main-app-bar  -> 48px
 gallery-app-bar -> 48px
-mobile-app-bar  -> 56px
 */
-.fill-height-desktop {
-  height: calc(100dvh - 48px) !important;
-}
-.fill-height-mobile {
-  height: calc(100dvh - 104px) !important;
+.fill-height {
+  height: calc(100dvh - 48px - 48px) !important;
 }
