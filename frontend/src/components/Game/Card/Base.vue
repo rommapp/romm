@@ -127,7 +127,7 @@ onMounted(() => {
                       !rom.igdb_url_cover &&
                       !rom.moby_url_cover)
                   "
-                  class="translucent-dark text-caption"
+                  class="translucent-dark text-caption text-white"
                   :class="{
                     'text-truncate':
                       galleryViewStore.currentView == 0 && !isHovering,

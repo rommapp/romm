@@ -19,8 +19,8 @@ const galleryFilterStore = storeGalleryFilter();
 const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-  // TODO: remove emitter
-  // TODO: same behaviour on filter drawer
+// TODO: remove emitter
+// TODO: same behaviour on filter drawer
 emitter?.on("firmwareDrawerShow", () => {
   updateDataTablePages();
 });
@@ -177,7 +177,13 @@ watch(itemsPerPage, async () => {
         <v-divider />
         <v-row no-gutters class="pt-2 align-center justify-center">
           <v-col :cols="xs ? 10 : 2">
-            <v-btn-group class="px-2" divided density="compact">
+            <!-- TODO: same variant logic for all btn groups -->
+            <v-btn-group
+              :variant="selectedFirmware.length > 0 ? 'flat' : 'plain'"
+              class="px-2"
+              divided
+              density="compact"
+            >
               <v-btn
                 :disabled="!selectedFirmware.length"
                 size="small"
