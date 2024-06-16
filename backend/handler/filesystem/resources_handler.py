@@ -50,9 +50,13 @@ class FSResourcesHandler(FSHandler):
         try:
             res = requests.get(
                 (
-                    url_cover.replace("t_thumb", "t_cover_small")
+                    url_cover.replace("t_thumb", "t_cover_small").replace(
+                        "t_cover_big", "t_cover_small"
+                    )
                     if size.value == CoverSize.SMALL.value
-                    else url_cover.replace("t_thumb", "t_1080p")
+                    else url_cover.replace("t_thumb", "t_1080p").replace(
+                        "t_cover_big", "t_1080p"
+                    )
                 ),
                 stream=True,
                 timeout=120,

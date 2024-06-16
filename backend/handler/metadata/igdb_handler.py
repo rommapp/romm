@@ -421,7 +421,9 @@ class IGDBBaseHandler(MetadataHandler):
             slug=rom["slug"],
             name=rom["name"],
             summary=rom.get("summary", ""),
-            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_cover=self._normalize_cover_url(
+                rom.get("cover", {}).get("url", "")
+            ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace(
                     "t_thumb", "t_screenshot_huge"
@@ -450,7 +452,9 @@ class IGDBBaseHandler(MetadataHandler):
             slug=rom["slug"],
             name=rom["name"],
             summary=rom.get("summary", ""),
-            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_cover=self._normalize_cover_url(
+                rom.get("cover", {}).get("url", "")
+            ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace(
                     "t_thumb", "t_screenshot_huge"
