@@ -24,16 +24,9 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     no-gutters
   >
     <v-col>
-      <v-chip class="text-h5 font-weight-bold pl-0" label variant="text">{{
+      <span class="text-h5 font-weight-bold pl-0" label variant="text">{{
         rom.name
-      }}</v-chip>
-      <v-chip
-        v-if="hasReleaseDate && !smAndDown"
-        class="font-italic"
-        size="x-small"
-      >
-        {{ releaseDate }}
-      </v-chip>
+      }}</span>
     </v-col>
   </v-row>
 
@@ -51,6 +44,13 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           :size="30"
           class="ml-2"
         />
+      </v-chip>
+      <v-chip
+        v-if="hasReleaseDate && !smAndDown"
+        class="ml-1 font-italic"
+        size="x-small"
+      >
+        {{ releaseDate }}
       </v-chip>
       <v-chip
         v-if="Number(rom.first_release_date) > 0 && smAndDown"

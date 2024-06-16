@@ -40,7 +40,7 @@ const routes = [
       {
         path: "/library/management",
         name: "libraryManagement",
-        component: () => import("@/views/Library/Management.vue"),
+        component: () => import("@/views/Library/Config.vue"),
       },
       {
         path: "/configuration",

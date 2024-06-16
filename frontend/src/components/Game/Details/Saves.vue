@@ -71,16 +71,22 @@ onMounted(() => {
     :items-per-page-options="PER_PAGE_OPTIONS"
     :headers="HEADERS"
     return-object
+    class="bg-secondary"
     v-model="selectedSaves"
     v-model:page="page"
     show-select
   >
     <template #header.actions>
       <v-btn-group divided density="compact">
-        <v-btn size="small" @click="emitter?.emit('addSavesDialog', romRef)">
+        <v-btn
+          class="bg-secondary"
+          size="small"
+          @click="emitter?.emit('addSavesDialog', romRef)"
+        >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
+          class="bg-secondary"
           :disabled="!selectedSaves.length"
           :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
           size="small"
@@ -89,6 +95,7 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
+          class="bg-secondary"
           :class="{
             'text-romm-red': selectedSaves.length,
           }"
@@ -150,10 +157,16 @@ onMounted(() => {
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
-        <v-btn :href="item.download_path" download size="small">
+        <v-btn
+          class="bg-secondary"
+          :href="item.download_path"
+          download
+          size="small"
+        >
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
+          class="bg-secondary"
           size="small"
           @click="
             emitter?.emit('showDeleteSavesDialog', {
