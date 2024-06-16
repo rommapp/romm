@@ -76,19 +76,16 @@ async function searchRom({
   romId,
   searchTerm,
   searchBy,
-  searchExtended: searchExtended,
 }: {
   romId: number;
   searchTerm: string;
   searchBy: string;
-  searchExtended: boolean;
 }): Promise<{ data: SearchRomSchema[] }> {
   return api.get("/search/roms", {
     params: {
       rom_id: romId,
       search_term: searchTerm,
       search_by: searchBy,
-      search_extended: searchExtended,
     },
   });
 }

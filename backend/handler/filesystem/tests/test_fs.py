@@ -12,7 +12,7 @@ def test_get_rom_cover():
     cover = fs_resource_handler.get_rom_cover(
         overwrite=False,
         platform_fs_slug="ngc",
-        rom_name="Metroid Prime",
+        rom_id="Metroid Prime",
     )
 
     assert "" in cover["path_cover_s"]
@@ -22,7 +22,7 @@ def test_get_rom_cover():
     cover = fs_resource_handler.get_rom_cover(
         overwrite=True,
         platform_fs_slug="n64",
-        rom_name="Paper Mario",
+        rom_id="Paper Mario",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
@@ -33,7 +33,7 @@ def test_get_rom_cover():
     cover = fs_resource_handler.get_rom_cover(
         overwrite=False,
         platform_fs_slug="n64",
-        rom_name="Super Mario 64",
+        rom_id="Super Mario 64",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
@@ -44,7 +44,7 @@ def test_get_rom_cover():
     cover = fs_resource_handler.get_rom_cover(
         overwrite=False,
         platform_fs_slug="ps2",
-        rom_name="Disney's Kim Possible: What's the Switch?",
+        rom_id="Disney's Kim Possible: What's the Switch?",
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
     )
 
@@ -61,7 +61,7 @@ def test_get_rom_cover():
     cover = fs_resource_handler.get_rom_cover(
         overwrite=False,
         platform_fs_slug="n64",
-        rom_name="Fake Game",
+        rom_id="Fake Game",
     )
 
     assert "" in cover["path_cover_s"]
