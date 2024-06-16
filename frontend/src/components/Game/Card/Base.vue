@@ -90,8 +90,10 @@ onMounted(() => {
             src
               ? src
               : isSimpleRom(rom)
-              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+              ? !rom.igdb_id && !rom.moby_id
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                : !rom.has_cover
+                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                 : `/assets/romm/resources/${rom.path_cover_l}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
               ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
@@ -102,12 +104,12 @@ onMounted(() => {
           :lazy-src="
             isSimpleRom(rom)
               ? !rom.igdb_id && !rom.moby_id
-                ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                : rom.has_cover
-                ? `/assets/romm/resources/${rom.path_cover_s}`
-                : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                : !rom.has_cover
+                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                : `/assets/romm/resources/${rom.path_cover_s}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
-              ? `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
               : rom.igdb_url_cover
               ? rom.igdb_url_cover
               : rom.moby_url_cover

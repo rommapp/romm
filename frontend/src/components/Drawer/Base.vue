@@ -32,7 +32,7 @@ emitter?.on("toggleDrawerRail", () => {
   <v-navigation-drawer
     v-model="drawer"
     :rail="rail"
-    width="250"
+    width="350"
     rail-width="80"
     elevation="0"
   >

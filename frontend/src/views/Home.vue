@@ -30,7 +30,7 @@ import { inject, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
+const { smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
@@ -75,7 +75,7 @@ onMounted(() => {
     absolute
   />
   <app-bar />
-  <drawer v-if="mdAndDown" />
+  <drawer v-if="smAndDown" />
   <router-view :key="refreshView" />
 
   <delete-platform-dialog />
