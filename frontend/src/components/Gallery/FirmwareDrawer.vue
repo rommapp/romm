@@ -88,14 +88,30 @@ watch(itemsPerPage, async () => {
       show-select
     >
       <template #header.actions>
-        <v-btn
-          prepend-icon="mdi-plus"
-          class="text-romm-accent-1"
-          variant="outlined"
-          @click="emitter?.emit('addFirmwareDialog', null)"
-        >
-          Add
-        </v-btn>
+        <v-btn-group class="pl-2" divided density="compact">
+          <v-btn size="small" @click="emitter?.emit('addFirmwareDialog', null)">
+            <v-icon>mdi-upload</v-icon>
+          </v-btn>
+          <v-btn
+            :disabled="!selectedFirmware.length"
+            size="small"
+            :variant="selectedFirmware.length > 0 ? 'flat' : 'plain'"
+            @click="downloadSelectedFirmware"
+          >
+            <v-icon>mdi-download</v-icon>
+          </v-btn>
+          <v-btn
+            :class="{
+              'text-romm-red': selectedFirmware.length,
+            }"
+            :disabled="!selectedFirmware.length"
+            size="small"
+            :variant="selectedFirmware.length > 0 ? 'flat' : 'plain'"
+            @click="deleteSelectedFirmware"
+          >
+            <v-icon>mdi-delete</v-icon>
+          </v-btn>
+        </v-btn-group>
       </template>
       <template #item.name="{ item }">
         <v-list-item class="px-0">
@@ -178,30 +194,6 @@ watch(itemsPerPage, async () => {
         <v-row no-gutters class="pt-2 align-center justify-center">
           <v-col :cols="xs ? 10 : 2">
             <!-- TODO: same variant logic for all btn groups -->
-            <v-btn-group
-              :variant="selectedFirmware.length > 0 ? 'flat' : 'plain'"
-              class="px-2"
-              divided
-              density="compact"
-            >
-              <v-btn
-                :disabled="!selectedFirmware.length"
-                size="small"
-                @click="downloadSelectedFirmware"
-              >
-                <v-icon>mdi-download</v-icon>
-              </v-btn>
-              <v-btn
-                :class="{
-                  'text-romm-red': selectedFirmware.length,
-                }"
-                :disabled="!selectedFirmware.length"
-                size="small"
-                @click="deleteSelectedFirmware"
-              >
-                <v-icon>mdi-delete</v-icon>
-              </v-btn>
-            </v-btn-group>
           </v-col>
           <template v-if="!xs">
             <v-col sm="6" class="px-6">
