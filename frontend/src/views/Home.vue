@@ -75,7 +75,7 @@ onMounted(() => {
     absolute
   />
   <app-bar />
-  <drawer v-if="smAndDown" />
+  <!-- <drawer v-if="smAndDown" /> -->
   <router-view :key="refreshView" />
 
   <delete-platform-dialog />

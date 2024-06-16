@@ -16,7 +16,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const platforms = storePlatforms();
 const auth = storeAuth();
-const { smAndDown } = useDisplay();
+const { xs } = useDisplay();
 
 // Functions
 async function logout() {
@@ -52,21 +52,70 @@ async function logout() {
           />
         </v-hover>
       </router-link>
-      <v-btn
-        v-if="smAndDown"
-        rounded="0"
-        class="ml-2"
-        icon="mdi-menu"
-        @click="emitter?.emit('toggleDrawer', null)"
-      />
+      <v-menu
+        v-if="xs"
+        :width="xs ? '95vw' : 400"
+        max-height="650"
+        open-delay="0"
+        close-delay="0"
+        offset="4"
+        transition="slide-y-transition"
+        location="bottom center"
+      >
+        <template #activator="{ props }">
+          <v-btn v-bind="props" rounded="0" class="ml-2">
+            <v-icon>mdi-controller</v-icon
+            ><v-icon class="ml-1">mdi-chevron-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list rounded="0" class="pa-0">
+          <platform-list-item
+            v-for="platform in platforms.filledPlatforms"
+            :key="platform.slug"
+            :platform="platform"
+            class="py-4"
+          />
+        </v-list>
+      </v-menu>
+
+      <!-- Library -->
+      <v-menu
+        v-if="xs"
+        offset="4"
+        open-delay="0"
+        close-delay="0"
+        transition="slide-y-transition"
+      >
+        <template #activator="{ props }">
+          <v-btn v-bind="props" rounded="0" class="ml-2">
+            <v-icon>mdi-animation-outline</v-icon
+            ><v-icon class="ml-1">mdi-chevron-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list rounded="0" class="bg-terciary pa-0">
+          <v-list-item
+            append-icon="mdi-magnify-scan"
+            :to="{ name: 'libraryScan' }"
+          >
+            Scan
+          </v-list-item>
+          <v-list-item
+            v-if="auth.scopes.includes('platforms.write')"
+            append-icon="mdi-table-cog"
+            :to="{ name: 'libraryConfig' }"
+            >Configuration
+          </v-list-item>
+        </v-list>
+      </v-menu>
     </template>
     <template #default>
       <v-row no-gutters class="text-center">
         <v-col>
           <!-- Platforms -->
           <v-menu
-            v-if="!smAndDown"
-            :width="smAndDown ? '90vw' : 400"
+            v-if="!xs"
+            offset="4"
+            :width="xs ? '90vw' : 400"
             max-height="650"
             open-delay="0"
             close-delay="0"
@@ -96,7 +145,8 @@ async function logout() {
 
           <!-- Library -->
           <v-menu
-            v-if="!smAndDown"
+            v-if="!xs"
+            offset="4"
             open-delay="0"
             close-delay="0"
             transition="slide-y-transition"
