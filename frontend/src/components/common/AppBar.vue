@@ -70,7 +70,6 @@ async function logout() {
             max-height="650"
             open-delay="0"
             close-delay="0"
-            :open-on-hover="!smAndDown"
             transition="slide-y-transition"
           >
             <template #activator="{ props }">
@@ -100,7 +99,6 @@ async function logout() {
             v-if="!smAndDown"
             open-delay="0"
             close-delay="0"
-            :open-on-hover="!smAndDown"
             transition="slide-y-transition"
           >
             <template #activator="{ props }">
@@ -180,7 +178,10 @@ async function logout() {
             :aspect-ratio="20 / 3"
             cover
           >
-            <v-list-item class="text-left text-shadow" :class="{'bg-romm-accent-1': !auth.user?.avatar_path}">
+            <v-list-item
+              class="text-left text-shadow"
+              :class="{ 'bg-romm-accent-1': !auth.user?.avatar_path }"
+            >
               <template #title>
                 <span>{{ auth.user?.username }}</span>
               </template>
