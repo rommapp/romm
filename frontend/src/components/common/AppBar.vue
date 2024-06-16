@@ -46,7 +46,7 @@ async function logout() {
         <v-hover v-slot="{ isHovering, props: hoverProps }">
           <romm-iso
             v-bind="hoverProps"
-            class="ml-5 with-border"
+            class="ml-3 with-border"
             :class="{ selected: isHovering }"
             :size="35"
           />
@@ -58,15 +58,18 @@ async function logout() {
         max-height="650"
         open-delay="0"
         close-delay="0"
-        offset="4"
+        offset="6"
         transition="slide-y-transition"
         location="bottom center"
       >
         <template #activator="{ props }">
-          <v-btn v-bind="props" rounded="0" class="ml-2">
-            <v-icon>mdi-controller</v-icon
-            ><v-icon class="ml-1">mdi-chevron-down</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-controller"
+            v-bind="props"
+            rounded="0"
+            size="small"
+            class="ml-3"
+          />
         </template>
         <v-list rounded="0" class="pa-0">
           <platform-list-item
@@ -81,16 +84,20 @@ async function logout() {
       <!-- Library -->
       <v-menu
         v-if="xs"
-        offset="4"
+        offset="6"
         open-delay="0"
         close-delay="0"
         transition="slide-y-transition"
       >
         <template #activator="{ props }">
-          <v-btn v-bind="props" rounded="0" class="ml-2">
-            <v-icon>mdi-animation-outline</v-icon
-            ><v-icon class="ml-1">mdi-chevron-down</v-icon>
-          </v-btn>
+          <v-btn
+            v-if="auth.scopes.includes('platforms.write')"
+            icon="mdi-animation-outline"
+            v-bind="props"
+            size="small"
+            rounded="0"
+            class="ml-1"
+          />
         </template>
         <v-list rounded="0" class="bg-terciary pa-0">
           <v-list-item
@@ -100,10 +107,9 @@ async function logout() {
             Scan
           </v-list-item>
           <v-list-item
-            v-if="auth.scopes.includes('platforms.write')"
             append-icon="mdi-table-cog"
-            :to="{ name: 'libraryConfig' }"
-            >Configuration
+            :to="{ name: 'libraryManagement' }"
+            >Management
           </v-list-item>
         </v-list>
       </v-menu>
@@ -114,11 +120,11 @@ async function logout() {
           <!-- Platforms -->
           <v-menu
             v-if="!xs"
-            offset="4"
             :width="xs ? '90vw' : 400"
             max-height="650"
             open-delay="0"
             close-delay="0"
+            location="bottom center"
             transition="slide-y-transition"
           >
             <template #activator="{ props }">
@@ -146,17 +152,17 @@ async function logout() {
           <!-- Library -->
           <v-menu
             v-if="!xs"
-            offset="4"
             open-delay="0"
+            location="bottom center"
             close-delay="0"
             transition="slide-y-transition"
           >
             <template #activator="{ props }">
               <v-btn
+                v-if="auth.scopes.includes('platforms.write')"
                 v-bind="props"
                 size="x-large"
                 rounded="0"
-                class="ml-5"
                 prepend-icon="mdi-animation-outline"
                 append-icon="mdi-chevron-down"
               >
@@ -171,10 +177,9 @@ async function logout() {
                 Scan
               </v-list-item>
               <v-list-item
-                v-if="auth.scopes.includes('platforms.write')"
                 append-icon="mdi-table-cog"
-                :to="{ name: 'libraryConfig' }"
-                >Configuration
+                :to="{ name: 'libraryManagement' }"
+                >Management
               </v-list-item>
             </v-list>
           </v-menu>
@@ -184,20 +189,20 @@ async function logout() {
     <template #append>
       <v-btn
         size="small"
-        class="mr-2"
+        class="mr-1"
         icon="mdi-upload"
         @click="emitter?.emit('showUploadRomDialog', null)"
       />
       <v-btn
         size="small"
         icon="mdi-magnify"
-        class="mr-2"
+        class="mr-1"
         @click="emitter?.emit('showSearchRomDialog', null)"
       />
       <v-menu
         open-delay="0"
         close-delay="0"
-        offset="4"
+        offset="6"
         transition="slide-y-transition"
       >
         <template #activator="{ isActive, props: menuProps }">
@@ -218,7 +223,7 @@ async function logout() {
             </v-avatar>
           </v-hover>
         </template>
-        <v-card class="text-white pa-1" width="300">
+        <v-card class="text-white" rounded="0" width="250">
           <v-img
             :src="
               auth.user?.avatar_path
@@ -229,7 +234,7 @@ async function logout() {
             cover
           >
             <v-list-item
-              class="text-left text-shadow"
+              class="text-left text-shadow pb-2"
               :class="{ 'bg-romm-accent-1': !auth.user?.avatar_path }"
             >
               <template #title>
@@ -245,6 +250,7 @@ async function logout() {
               >Configuration</v-list-item
             >
             <v-list-item
+              v-if="auth.scopes.includes('users.write')"
               :to="{ name: 'settingsUsers' }"
               append-icon="mdi-security"
               >Administration</v-list-item

@@ -38,19 +38,19 @@ const routes = [
         component: () => import("@/views/Library/Scan.vue"),
       },
       {
-        path: "/library/configuration",
-        name: "libraryConfig",
-        component: () => import("@/views/Library/Config.vue"),
+        path: "/library/management",
+        name: "libraryManagement",
+        component: () => import("@/views/Library/Management.vue"),
       },
       {
-        path: "/settings/general",
+        path: "/configuration",
         name: "settingsGeneral",
-        component: () => import("@/views/Settings/General.vue"),
+        component: () => import("@/views/Configuration.vue"),
       },
       {
-        path: "/settings/users",
+        path: "/administration",
         name: "settingsUsers",
-        component: () => import("@/views/Settings/Users.vue"),
+        component: () => import("@/views/Administration.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
