@@ -116,8 +116,7 @@ watch(
 
       <v-col
         cols="12"
-        md="7"
-        xl="8"
+        md="8"
         class="px-5"
         :class="{
           'info-lg': mdAndUp,
