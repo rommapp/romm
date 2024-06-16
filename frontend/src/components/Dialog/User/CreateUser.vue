@@ -103,15 +103,11 @@ function closeDialog() {
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             :disabled="!user.username || !user.password"
-            class="bg-terciary"
+            :variant="!user.username || !user.password ? 'plain' : 'flat'"
+            class="text-romm-green bg-terciary"
             @click="createUser()"
           >
-            <span
-              :class="{
-                'text-romm-green': !(!user.username || !user.password),
-              }"
-              >Create</span
-            >
+            Create
           </v-btn>
         </v-btn-group>
       </v-row>

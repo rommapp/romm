@@ -10,7 +10,7 @@ import { inject, onMounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { smAndUp, mdAndUp } = useDisplay();
+const { xs, smAndUp, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const romRef = ref<DetailedRom>(props.rom);
 const selectedStates = ref<StateSchema[]>([]);
@@ -76,51 +76,74 @@ onMounted(() => {
     show-select
   >
     <template #header.actions>
-      <v-btn
-        prepend-icon="mdi-plus"
-        class="text-romm-accent-1"
-        variant="outlined"
-        @click="emitter?.emit('addStatesDialog', romRef)"
-      >
-        Add
-      </v-btn>
+      <v-btn-group divided density="compact">
+        <v-btn size="small" @click="emitter?.emit('addStatesDialog', romRef)">
+          <v-icon>mdi-upload</v-icon>
+        </v-btn>
+        <v-btn
+          :disabled="!selectedStates.length"
+          :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+          size="small"
+          @click="downloasStates"
+        >
+          <v-icon>mdi-download</v-icon>
+        </v-btn>
+        <v-btn
+          :class="{
+            'text-romm-red': selectedStates.length,
+          }"
+          :disabled="!selectedStates.length"
+          :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+          @click="
+            emitter?.emit('showDeleteStatesDialog', {
+              rom: props.rom,
+              states: selectedStates,
+            })
+          "
+          size="small"
+        >
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
     </template>
     <template #item.file_name="{ item }">
-      <v-list-item class="px-0">
-        <v-row no-gutters>
-          <v-col>
-            {{ item.file_name }}
-          </v-col>
-        </v-row>
-        <v-row v-if="!smAndUp" no-gutters>
-          <v-col>
-            <v-chip size="x-small" label
-              >{{ formatBytes(item.file_size_bytes) }}
-            </v-chip>
-            <v-chip
-              v-if="item.emulator"
-              size="x-small"
-              class="ml-1 text-orange"
-              label
-              >{{ item.emulator }}
-            </v-chip>
-          </v-col>
-        </v-row>
-        <template #append>
-          <template v-if="smAndUp">
-            <v-chip
-              v-if="item.emulator"
-              size="x-small"
-              class="text-orange"
-              label
-              >{{ item.emulator }}
-            </v-chip>
-            <v-chip class="ml-1" size="x-small" label
-              >{{ formatBytes(item.file_size_bytes) }}
-            </v-chip>
+      <td class="name-row">
+        <v-list-item class="px-0">
+          <v-row no-gutters>
+            <v-col>
+              {{ item.file_name }}
+            </v-col>
+          </v-row>
+          <v-row v-if="!smAndUp" no-gutters>
+            <v-col>
+              <v-chip size="x-small" label
+                >{{ formatBytes(item.file_size_bytes) }}
+              </v-chip>
+              <v-chip
+                v-if="item.emulator"
+                size="x-small"
+                class="ml-1 text-orange"
+                label
+                >{{ item.emulator }}
+              </v-chip>
+            </v-col>
+          </v-row>
+          <template #append>
+            <template v-if="smAndUp">
+              <v-chip
+                v-if="item.emulator"
+                size="x-small"
+                class="text-orange"
+                label
+                >{{ item.emulator }}
+              </v-chip>
+              <v-chip class="ml-1" size="x-small" label
+                >{{ formatBytes(item.file_size_bytes) }}
+              </v-chip>
+            </template>
           </template>
-        </template>
-      </v-list-item>
+        </v-list-item>
+      </td>
     </template>
     <template #no-data
       ><span>No states found for {{ romRef?.name }}</span></template
@@ -145,45 +168,21 @@ onMounted(() => {
     </template>
     <template #bottom>
       <v-divider />
-      <v-row no-gutters class="pt-2 align-center justify-center">
-        <v-btn-group class="px-2" divided density="compact">
-          <v-btn
-            :disabled="!selectedStates.length"
-            size="small"
-            @click="downloasStates"
-          >
-            <v-icon>mdi-download</v-icon>
-          </v-btn>
-          <v-btn
-            :class="{
-              'text-romm-red': selectedStates.length,
-            }"
-            :disabled="!selectedStates.length"
-            @click="
-              emitter?.emit('showDeleteStatesDialog', {
-                rom: props.rom,
-                states: selectedStates,
-              })
-            "
-            size="small"
-          >
-            <v-icon>mdi-delete</v-icon>
-          </v-btn>
-        </v-btn-group>
-        <v-col class="px-6">
+      <v-row no-gutters class="pa-1 align-center justify-center">
+        <v-col cols="8" sm="9" md="10" class="px-3">
           <v-pagination
+            :show-first-last-page="!xs"
             v-model="page"
             rounded="0"
-            :show-first-last-page="true"
             active-color="romm-accent-1"
             :length="pageCount"
           />
         </v-col>
-        <v-col cols="5" sm="3" xl="2">
+        <v-col>
           <v-select
             v-model="itemsPerPage"
             class="pa-2"
-            label="Assets per page"
+            label="Files per page"
             density="compact"
             variant="outlined"
             :items="PER_PAGE_OPTIONS"
@@ -195,3 +194,8 @@ onMounted(() => {
   </v-data-table>
   <upload-states-dialog />
 </template>
+<style scoped>
+.name-row {
+  min-width: 350px;
+}
+</style>

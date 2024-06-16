@@ -33,7 +33,7 @@ const romsStore = storeRoms();
 const auth = storeAuth();
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
-const romsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
+const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const HEADERS = [
@@ -77,7 +77,7 @@ function rowClick(_: Event, row: { item: SimpleRom }) {
 
 function updateDataTablePages() {
   pageCount.value = Math.ceil(
-    romsStore.filteredRoms.length / romsPerPage.value
+    romsStore.filteredRoms.length / itemsPerPage.value
   );
 }
 
@@ -85,8 +85,8 @@ function updateUrlHash() {
   window.location.hash = String(page.value);
 }
 
-watch(romsPerPage, async () => {
-  localStorage.setItem("romsPerPage", romsPerPage.value.toString());
+watch(itemsPerPage, async () => {
+  localStorage.setItem("romsPerPage", itemsPerPage.value.toString());
   updateDataTablePages();
 });
 
@@ -103,7 +103,7 @@ onMounted(() => {
 <template>
   <v-data-table
     @click:row="rowClick"
-    :items-per-page="romsPerPage"
+    :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
@@ -218,7 +218,7 @@ onMounted(() => {
           </v-col>
           <v-col>
             <v-select
-              v-model="romsPerPage"
+              v-model="itemsPerPage"
               class="pa-2"
               label="Roms per page"
               density="compact"

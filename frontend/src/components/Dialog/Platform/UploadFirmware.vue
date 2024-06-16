@@ -192,18 +192,14 @@ watch(itemsPerPage, async () => {
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
-            class="bg-terciary"
+            class="bg-terciary text-romm-green"
             :disabled="filesToUpload.length == 0 || !currentPlatform"
+            :variant="
+              filesToUpload.length == 0 || !currentPlatform ? 'plain' : 'flat'
+            "
             @click="uploadFirmware"
           >
-            <span
-              :class="{
-                'text-romm-green': !(
-                  filesToUpload.length == 0 || !currentPlatform
-                ),
-              }"
-              >Upload</span
-            >
+            Upload
           </v-btn>
         </v-btn-group>
       </v-row>

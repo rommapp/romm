@@ -40,6 +40,7 @@ function closeDialog() {
 }
 </script>
 <template>
+  <!-- TODO: unify refactor dialog -->
   <v-dialog
     v-model="show"
     width="auto"
@@ -67,7 +68,7 @@ function closeDialog() {
           </v-col>
         </v-row>
       </v-toolbar>
-      <v-divider  />
+      <v-divider />
 
       <v-card-text>
         <v-row class="justify-center pa-2" no-gutters>
