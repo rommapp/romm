@@ -14,7 +14,7 @@ import { useDisplay } from "vuetify";
 const { lgAndUp } = useDisplay();
 const platforms = storePlatforms();
 const auth = storeAuth();
-const drawer = ref(lgAndUp.value);
+const drawer = ref(false);
 const rail = ref(localStorage.getItem("rail") == "true");
 
 // Event listeners bus
@@ -36,11 +36,6 @@ emitter?.on("toggleDrawerRail", () => {
     rail-width="80"
     elevation="0"
   >
-    <template #prepend>
-      <drawer-header :rail="rail" />
-      <action-bar :rail="rail" class="mb-1" />
-    </template>
-
     <v-list class="py-0">
       <v-list-group value="Platforms" fluid>
         <template #activator="{ props }">
@@ -104,44 +99,5 @@ emitter?.on("toggleDrawerRail", () => {
         </v-list-item>
       </v-list-group>
     </v-list>
-    <v-list class="py-0">
-      <v-list-group value="Settings" fluid>
-        <template #activator="{ props }">
-          <v-list-item v-bind="props">
-            <span v-if="!rail" class="text-body-1 text-truncate">Settings</span>
-            <template #prepend>
-              <v-avatar :rounded="0" size="40">
-                <v-icon>mdi-cog</v-icon>
-              </v-avatar>
-            </template>
-          </v-list-item>
-        </template>
-        <v-list-item class="bg-terciary" :to="{ name: 'settingsGeneral' }">
-          <span v-if="!rail" class="text-body-2 text-truncate">General</span>
-          <template #prepend>
-            <v-avatar :rounded="0" size="40">
-              <v-icon>mdi-view-dashboard</v-icon>
-            </v-avatar>
-          </template>
-        </v-list-item>
-        <v-list-item
-          v-if="auth.scopes.includes('users.write')"
-          class="bg-terciary"
-          :to="{ name: 'settingsUsers' }"
-        >
-          <span v-if="!rail" class="text-body-2 text-truncate">Users</span>
-          <template #prepend>
-            <v-avatar :rounded="0" size="40">
-              <v-icon>mdi-account</v-icon>
-            </v-avatar>
-          </template>
-        </v-list-item>
-      </v-list-group>
-    </v-list>
-
-    <template v-if="auth.enabled" #append>
-      <v-divider />
-      <rail-footer :rail="rail" />
-    </template>
   </v-navigation-drawer>
 </template>

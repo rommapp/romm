@@ -19,11 +19,5 @@ const { mdAndDown } = useDisplay();
     density="comfortable"
     class="bg-secondary"
   />
-  <users-table
-    :class="{
-      'fill-height-desktop': !mdAndDown,
-      'fill-height-mobile': mdAndDown,
-    }"
-    :user-search="userSearch"
-  />
+  <users-table class="fill-height" :user-search="userSearch" />
 </template>

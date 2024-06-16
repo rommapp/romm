@@ -306,12 +306,7 @@ watch(currentView, (newView) => {
 
         <!-- Gallery list view -->
         <v-col v-show="currentView == 2">
-          <game-data-table
-            :class="{
-              'fill-height-desktop': !mdAndDown,
-              'fill-height-mobile': mdAndDown,
-            }"
-          />
+          <game-data-table class="fill-height" />
         </v-col>
       </v-row>
       <fab-overlay />

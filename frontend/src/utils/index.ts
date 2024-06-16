@@ -17,7 +17,7 @@ export const views: Record<
     view: "small",
     icon: "mdi-view-comfy",
     "size-xl": 1,
-    "size-lg": 2,
+    "size-lg": 1,
     "size-md": 2,
     "size-sm": 3,
     "size-cols": 4,

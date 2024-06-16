@@ -16,17 +16,17 @@ import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
 import Drawer from "@/components/Drawer/Base.vue";
+import AppBar from "@/components/common/AppBar.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
-import MobileAppBar from "@/components/common/MobileAppBar.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
+import storeAuth from "@/stores/auth";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import storeAuth from "@/stores/auth";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, onMounted } from "vue";
+import { inject, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -36,8 +36,6 @@ const { scanning } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
 const auth = storeAuth();
 const refreshView = ref(0);
-
-// Event listeners bus
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
   const { data: platformData } = await platformApi.getPlatforms();
@@ -47,6 +45,7 @@ emitter?.on("refreshView", async () => {
   refreshView.value = refreshView.value + 1;
 });
 
+// Functions
 onMounted(() => {
   userApi
     .fetchCurrentUser()
@@ -75,8 +74,8 @@ onMounted(() => {
     :indeterminate="true"
     absolute
   />
-  <drawer />
-  <mobile-app-bar v-if="mdAndDown" />
+  <app-bar />
+  <drawer v-if="mdAndDown" />
   <router-view :key="refreshView" />
 
   <delete-platform-dialog />
