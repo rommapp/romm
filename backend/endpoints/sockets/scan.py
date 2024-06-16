@@ -10,7 +10,12 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
-from handler.filesystem import fs_firmware_handler, fs_platform_handler, fs_rom_handler
+from handler.filesystem import (
+    fs_firmware_handler,
+    fs_platform_handler,
+    fs_resource_handler,
+    fs_rom_handler,
+)
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.redis_handler import high_prio_queue, redis_client, redis_url
@@ -19,6 +24,7 @@ from handler.socket_handler import socket_handler
 from logger.logger import log
 from rq import Worker
 from rq.job import Job
+from sqlalchemy.inspection import inspect
 
 
 class ScanStats:
@@ -207,14 +213,39 @@ async def scan_platforms(
                     )
 
                     _added_rom = db_rom_handler.add_rom(scanned_rom)
-                    rom = db_rom_handler.get_roms(_added_rom.id)
+
+                    path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
+                        overwrite=True,
+                        platform_fs_slug=platform.slug,
+                        rom_id=_added_rom.id,
+                        url_cover=_added_rom.url_cover,
+                    )
+
+                    path_screenshots = fs_resource_handler.get_rom_screenshots(
+                        platform_fs_slug=platform.slug,
+                        rom_id=_added_rom.id,
+                        url_screenshots=_added_rom.url_screenshots,
+                    )
+
+                    _added_rom.path_cover_s = path_cover_s
+                    _added_rom.path_cover_l = path_cover_l
+                    _added_rom.path_screenshots = path_screenshots
+                    # Update the scanned rom with the cover and screenshots paths and update database
+                    db_rom_handler.update_rom(
+                        _added_rom.id,
+                        {
+                            c: getattr(_added_rom, c)
+                            for c in inspect(_added_rom).mapper.column_attrs.keys()
+                        },
+                    )
 
                     await sm.emit(
                         "scan:scanning_rom",
                         {
                             "platform_name": platform.name,
                             "platform_slug": platform.slug,
-                            **RomSchema.model_validate(rom).model_dump(),
+                            "path_cover_l": path_cover_l,
+                            **RomSchema.model_validate(_added_rom).model_dump(),
                         },
                     )
 

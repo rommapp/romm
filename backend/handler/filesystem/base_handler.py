@@ -9,11 +9,6 @@ from config.config_manager import config_manager as cm
 TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
 EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
 
-DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
-DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
-DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
-DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
-
 LANGUAGES = [
     ("Ar", "Arabic"),
     ("Da", "Danish"),

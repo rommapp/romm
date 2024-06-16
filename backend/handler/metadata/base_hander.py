@@ -63,10 +63,7 @@ class MetadataHandler:
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
-        if not url:
-            return url
-
-        return f"https:{url.replace('https:', '')}"
+        return url if not url else f"https:{url.replace('https:', '')}"
 
     # This is expensive, so it should be used sparingly
     @staticmethod

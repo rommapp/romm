@@ -1,10 +1,15 @@
 import os
 from datetime import datetime
+from shutil import rmtree
 from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
+from config import (
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
+    LIBRARY_BASE_PATH,
+    RESOURCES_BASE_PATH,
+)
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
@@ -324,32 +329,32 @@ async def update_rom(
     if remove_cover:
         cleaned_data.update(
             fs_resource_handler.remove_cover(
-                rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
+                rom_id=id, platform_fs_slug=platform_fs_slug
             )
         )
         cleaned_data.update({"url_cover": ""})
     else:
         cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
+        path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
+            overwrite=True,
+            platform_fs_slug=platform_fs_slug,
+            rom_id=id,
+            url_cover=cleaned_data.get("url_cover", ""),
+        )
         cleaned_data.update(
-            fs_resource_handler.get_rom_cover(
-                overwrite=True,
-                platform_fs_slug=platform_fs_slug,
-                rom_name=cleaned_data["name"],
-                url_cover=cleaned_data.get("url_cover", ""),
-            )
+            {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
         )
 
     if (
         cleaned_data["igdb_id"] != db_rom.igdb_id
         or cleaned_data["moby_id"] != db_rom.moby_id
     ):
-        cleaned_data.update(
-            fs_resource_handler.get_rom_screenshots(
-                platform_fs_slug=platform_fs_slug,
-                rom_name=cleaned_data["name"],
-                url_screenshots=cleaned_data.get("url_screenshots", []),
-            ),
+        path_screenshots = fs_resource_handler.get_rom_screenshots(
+            platform_fs_slug=platform_fs_slug,
+            rom_id=id,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
         )
+        cleaned_data.update({"path_screenshots": path_screenshots})
 
     if artwork is not None:
         file_ext = artwork.filename.split(".")[-1]
@@ -357,9 +362,7 @@ async def update_rom(
             path_cover_l,
             path_cover_s,
             artwork_path,
-        ) = fs_resource_handler.build_artwork_path(
-            cleaned_data["name"], platform_fs_slug, file_ext
-        )
+        ) = fs_resource_handler.build_artwork_path(id, platform_fs_slug, file_ext)
 
         cleaned_data["path_cover_l"] = path_cover_l
         cleaned_data["path_cover_s"] = path_cover_s
@@ -408,6 +411,8 @@ async def delete_roms(
 
         log.info(f"Deleting {rom.file_name} from database")
         db_rom_handler.delete_rom(id)
+
+        rmtree(f"{RESOURCES_BASE_PATH}/{rom.platform_slug}/{rom.id}")
 
         if id in delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")
