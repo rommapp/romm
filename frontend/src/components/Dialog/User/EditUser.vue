@@ -168,7 +168,7 @@ function closeDialog() {
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="editUser()">
+          <v-btn class="text-romm-green bg-terciary" @click="editUser">
             Apply
           </v-btn>
         </v-btn-group>

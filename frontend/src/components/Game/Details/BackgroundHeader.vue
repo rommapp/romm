@@ -40,7 +40,7 @@ const theme = useTheme();
 #background-header {
   width: 100%;
   height: 300px;
-  transform: scale(7);
-  filter: blur(8px);
+  transform: scale(10);
+  filter: blur(5px);
 }
 </style>
