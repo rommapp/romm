@@ -88,7 +88,7 @@ watch(itemsPerPage, async () => {
       show-select
     >
       <template #header.actions>
-        <v-btn-group class="pl-2" divided density="compact">
+        <v-btn-group divided density="compact">
           <v-btn size="small" @click="emitter?.emit('addFirmwareDialog', null)">
             <v-icon>mdi-upload</v-icon>
           </v-btn>
@@ -191,53 +191,17 @@ watch(itemsPerPage, async () => {
       </template>
       <template #bottom>
         <v-divider />
-        <v-row no-gutters class="pt-2 align-center justify-center">
-          <v-col :cols="xs ? 10 : 2">
-            <!-- TODO: same variant logic for all btn groups -->
-          </v-col>
-          <template v-if="!xs">
-            <v-col sm="6" class="px-6">
-              <v-pagination
-                v-model="page"
-                rounded="0"
-                :show-first-last-page="true"
-                active-color="romm-accent-1"
-                :length="pageCount"
-              />
-            </v-col>
-            <v-col cols="5" sm="3" xl="2">
-              <v-select
-                v-model="itemsPerPage"
-                class="pa-2"
-                label="Files per page"
-                density="compact"
-                variant="outlined"
-                :items="PER_PAGE_OPTIONS"
-                hide-details
-              />
-            </v-col>
-          </template>
-          <v-btn
-            icon="mdi-close"
-            rounded="0"
-            class="mx-2"
-            size="small"
-            variant="text"
-            @click="closeDrawer"
-          >
-          </v-btn>
-        </v-row>
-        <v-row v-if="xs" no-gutters>
-          <v-col cols="8" class="px-6">
+        <v-row no-gutters class="pa-1 align-center justify-center">
+          <v-col cols="8" sm="9" md="10" class="px-3">
             <v-pagination
+              :show-first-last-page="!xs"
               v-model="page"
               rounded="0"
-              :show-first-last-page="true"
               active-color="romm-accent-1"
               :length="pageCount"
             />
           </v-col>
-          <v-col cols="4" sm="3" xl="2">
+          <v-col>
             <v-select
               v-model="itemsPerPage"
               class="pa-2"

@@ -313,18 +313,16 @@ watch(itemsPerPage, async () => {
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
-            class="bg-terciary"
+            class="bg-terciary text-romm-green"
             :disabled="romsToUpload.length == 0 || selectedPlatform == null"
+            :variant="
+              romsToUpload.length == 0 || selectedPlatform == null
+                ? 'plain'
+                : 'flat'
+            "
             @click="uploadRoms"
           >
-            <span
-              :class="{
-                'text-romm-green': !(
-                  romsToUpload.length == 0 || selectedPlatform == null
-                ),
-              }"
-              >Upload</span
-            >
+            Upload
           </v-btn>
         </v-btn-group>
       </v-row>

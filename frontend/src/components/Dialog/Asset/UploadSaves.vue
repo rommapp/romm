@@ -198,16 +198,14 @@ watch(itemsPerPage, async () => {
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
-            class="bg-terciary"
+            class="bg-terciary text-romm-green"
+            :variant="
+              filesToUpload.length == 0 || rom == null ? 'plain' : 'flat'
+            "
             :disabled="filesToUpload.length == 0 || rom == null"
             @click="uploadSaves"
           >
-            <span
-              :class="{
-                'text-romm-green': !(filesToUpload.length == 0 || rom == null),
-              }"
-              >Upload</span
-            >
+            Upload
           </v-btn>
         </v-btn-group>
       </v-row>
