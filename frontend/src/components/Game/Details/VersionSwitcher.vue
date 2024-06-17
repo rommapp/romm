@@ -8,6 +8,7 @@ import { useRouter } from "vue-router";
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const router = useRouter();
 const version = ref(props.rom.id);
+console.log(props.rom.sibling_roms)
 
 function formatItem(rom: DetailedRom) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
@@ -26,6 +27,7 @@ function updateVersion() {
 </script>
 
 <template>
+  <!-- TODO: broken version switcher -->
   <v-select
     v-model="version"
     label="Version"

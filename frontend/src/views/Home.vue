@@ -8,6 +8,7 @@ import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatfo
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
+import NewVersion from "@/components/common/NewVersion.vue"
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
 import MatchRomDialog from "@/components/Dialog/Rom/MatchRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
@@ -29,7 +30,6 @@ import { inject, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
@@ -74,6 +74,7 @@ onMounted(() => {
     absolute
   />
   <app-bar />
+  <new-version />
   <router-view :key="refreshView" />
 
   <delete-platform-dialog />

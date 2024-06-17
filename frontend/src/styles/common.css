@@ -56,6 +56,10 @@ body {
 .pointer {
   cursor: pointer !important;
 }
+.border-romm-accent-1 {
+  border: 1px solid rgba(var(--v-theme-romm-accent-1)) !important;
+  transform: scale(1.05);
+}
 /*
 Calculation to fix 100dvh:
 main-app-bar  -> 48px

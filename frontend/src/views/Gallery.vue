@@ -16,12 +16,10 @@ import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -198,7 +196,6 @@ function resetGallery() {
 }
 
 onMounted(async () => {
-  const storedPlatformId = romsStore.currentPlatform?.id;
   const routePlatformId = Number(route.params.platform);
   const routePlatform = platforms.get(routePlatformId);
 
@@ -216,21 +213,12 @@ onMounted(async () => {
   } else {
     romsStore.setCurrentPlatform(routePlatform);
   }
-
-  // If platform is different, reset store and fetch roms
-  if (storedPlatformId != routePlatformId && !noPlatformError.value) {
-    resetGallery();
-    await fetchRoms();
-  }
-
+  resetGallery();
+  await fetchRoms();
   setFilters();
+
   window.addEventListener("wheel", onScroll);
   window.addEventListener("scroll", onScroll);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("wheel", onScroll);
-  window.removeEventListener("scroll", onScroll);
 });
 
 onBeforeRouteUpdate(async (to, from) => {
@@ -253,16 +241,9 @@ onBeforeRouteUpdate(async (to, from) => {
   setFilters();
 });
 
-watch(currentView, (newView) => {
-  // If change from table view to grid,
-  // scroll to top to avoid auto fetch roms (freeze)
-  if (newView == 0) {
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: "instant",
-    });
-  }
+onBeforeUnmount(() => {
+  window.removeEventListener("wheel", onScroll);
+  window.removeEventListener("scroll", onScroll);
 });
 </script>
 

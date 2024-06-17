@@ -21,9 +21,6 @@ const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 // TODO: remove emitter
 // TODO: same behaviour on filter drawer
-emitter?.on("firmwareDrawerShow", () => {
-  updateDataTablePages();
-});
 const HEADERS = [
   {
     title: "Firmware",
@@ -60,10 +57,6 @@ function updateDataTablePages() {
   );
 }
 
-function closeDrawer() {
-  galleryFilterStore.switchActiveFirmwareDrawer();
-}
-
 watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
@@ -71,7 +64,6 @@ watch(itemsPerPage, async () => {
 
 <template>
   <v-navigation-drawer
-    @update:model-value="galleryFilterStore.switchActiveFirmwareDrawer()"
     v-model="activeFirmwareDrawer"
     :mobile="true"
     location="bottom"

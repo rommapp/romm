@@ -41,8 +41,6 @@ const noRomError = ref(false);
 
 // Functions
 async function fetchDetails() {
-  if (!route.params.rom) return;
-
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
@@ -172,7 +170,7 @@ watch(
         </v-row>
         <v-row no-gutters class="mb-4">
           <v-col cols="12">
-            <v-window v-model="tab" class="py-2">
+            <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
                 <file-info :rom="rom" :platform="platform" />
                 <game-info :rom="rom" />

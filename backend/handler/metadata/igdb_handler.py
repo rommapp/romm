@@ -272,10 +272,10 @@ class IGDBBaseHandler(MetadataHandler):
             data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
         )
         if roms_expanded:
-            roms.append(
+            roms.extend(
                 self._request(
                     self.games_endpoint,
-                    f'fields {",".join(self.games_fields)}; where id={roms[0]["game"]["id"]};',
+                    f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
                 )
             )
 
