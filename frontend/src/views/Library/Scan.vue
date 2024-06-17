@@ -2,7 +2,7 @@
 import RAvatar from "@/components/Game/Avatar.vue";
 import PlatformIcon from "@/components/Platform/Icon.vue";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat1";
+import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { storeToRefs } from "pinia";
@@ -10,7 +10,7 @@ import { computed, ref, watch } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
-const { xs, smAndDown } = useDisplay();
+const { smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
@@ -271,62 +271,62 @@ async function stopScan() {
   <v-divider class="border-opacity-100 mx-4" color="romm-accent-1" />
 
   <!-- Scan log -->
-  <div
-    class="scroll mt-4"
-    :class="{ 'scan-log-desktop': !xs, 'scan-log-mobile': xs }"
-  >
-    <v-row
-      v-for="platform in scanningPlatforms"
-      :key="platform.id"
-      class="align-center px-4 mb-5"
-      no-gutters
-    >
-      <v-col>
-        <v-list-item
-          :to="{ name: 'platform', params: { platform: platform.id } }"
-          class="my-2"
-        >
-          <template #prepend>
-            <v-avatar :rounded="0" size="40">
-              <platform-icon :key="platform.slug" :slug="platform.slug" />
-            </v-avatar>
-          </template>
-          <v-row no-gutters>
-            <span>{{ platform.name }}</span>
-          </v-row>
-        </v-list-item>
-        <v-list-item
-          v-for="rom in platform.roms"
-          :key="rom.id"
-          class="text-body-2 romm-grey px-10"
-          :to="{ name: 'rom', params: { rom: rom.id } }"
-        >
-          <template #prepend>
-            <r-avatar
-              :src="
-                !rom.igdb_id && !rom.moby_id
-                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                  : rom.has_cover
-                  ? `/assets/romm/resources/${rom.path_cover_l}`
-                  : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              "
-            />
-          </template>
-          <v-row no-gutters>
-            <span :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }">{{
-              rom.name
-            }}</span>
-            <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
-          </v-row>
-          <v-row no-gutters>
-            <v-col class="text-romm-accent-1">
-              {{ rom.file_name }}
-            </v-col>
-          </v-row>
-        </v-list-item>
-      </v-col>
-    </v-row>
-  </div>
+  <v-card elevation="0" class="bg-secondary mx-auto" max-width="800">
+    <v-card-text class="pa-0">
+      <v-row
+        v-for="platform in scanningPlatforms"
+        :key="platform.id"
+        class="align-center mb-5"
+        no-gutters
+      >
+        <v-col>
+          <v-list-item
+            :to="{ name: 'platform', params: { platform: platform.id } }"
+            class="my-2"
+          >
+            <template #prepend>
+              <v-avatar :rounded="0" size="40">
+                <platform-icon :key="platform.slug" :slug="platform.slug" />
+              </v-avatar>
+            </template>
+            <v-row no-gutters>
+              <span>{{ platform.name }}</span>
+            </v-row>
+          </v-list-item>
+          <v-list-item
+            v-for="rom in platform.roms"
+            :key="rom.id"
+            class="text-body-2 romm-grey px-10"
+            :to="{ name: 'rom', params: { rom: rom.id } }"
+          >
+            <template #prepend>
+              <r-avatar
+                :src="
+                  !rom.igdb_id && !rom.moby_id
+                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                    : rom.has_cover
+                    ? `/assets/romm/resources/${rom.path_cover_s}`
+                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                "
+              />
+            </template>
+            <v-row no-gutters>
+              <span
+                :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }"
+                >{{ rom.name }}</span
+              >
+              <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
+            </v-row>
+            <v-row no-gutters>
+              <v-col class="text-romm-accent-1">
+                {{ rom.file_name }}
+              </v-col>
+            </v-row>
+          </v-list-item>
+        </v-col>
+      </v-row>
+    </v-card-text>
+  </v-card>
 
   <!-- Scan stats -->
   <v-bottom-navigation :elevation="0" height="40" class="text-caption">
@@ -353,12 +353,3 @@ async function stopScan() {
     </v-chip>
   </v-bottom-navigation>
 </template>
-
-<style scoped>
-.scan-log-desktop {
-  max-height: calc(100dvh - 250px);
-}
-.scan-log-mobile {
-  max-height: calc(100dvh - 380px);
-}
-</style>
