@@ -10,7 +10,7 @@ from models.platform import Platform
 def test_get_rom_cover():
     # Game: Metroid Prime (EUR).iso - ID: 1
     path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
-        overwrite=False, platform_fs_slug="ngc", rom_id=1, url_cover=""
+        overwrite=False, platform_id="ngc", rom_id=1, url_cover=""
     )
 
     assert "" in path_cover_s
@@ -19,7 +19,7 @@ def test_get_rom_cover():
     # Game: Paper Mario (USA).z64 - ID: 2
     path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
         overwrite=True,
-        platform_fs_slug="n64",
+        platform_id="n64",
         rom_id=2,
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
