@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
-import SelectSourceDialog from "@/components/Dialog/Rom/MatchRom/SelectSource.vue";
 import GameCard from "@/components/Game/Card/Base.vue";
 import RDialog from "@/components/common/Dialog.vue";
 import romApi from "@/services/api/rom";
@@ -9,20 +8,29 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
-const { lgAndUp } = useDisplay();
+type matchedSource = {
+  url_cover: string | undefined;
+  name: string;
+};
+
+// Props
+const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
-const renameAsIGDB = ref(false);
 const searching = ref(false);
 const searchTerm = ref("");
+const theme = useTheme();
 const searchBy = ref("Name");
-const searchExtended = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const emitter = inject<Emitter<Events>>("emitter");
+const showSelectSource = ref(false);
+const renameAsSource = ref(false);
+const selectedRom = ref<SearchRomSchema>();
+const sources = ref<matchedSource[]>([]);
 const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
@@ -53,11 +61,9 @@ function toggleSourceFilter(source: string) {
   });
 }
 
-function toggleExtended() {
-  searchExtended.value = !searchExtended.value;
-}
-
 async function searchRom() {
+  showSelectSource.value = false;
+  sources.value = [];
   if (!rom.value) return;
 
   // Auto hide android keyboard
@@ -71,7 +77,6 @@ async function searchRom() {
         romId: rom.value.id,
         searchTerm: searchTerm.value,
         searchBy: searchBy.value,
-        searchExtended: searchExtended.value,
       })
       .then((response) => {
         matchedRoms.value = response.data;
@@ -97,34 +102,53 @@ async function searchRom() {
   }
 }
 
-async function selectMatched(matchedRom: SearchRomSchema) {
+function showSources(matchedRom: SearchRomSchema) {
   if (!rom.value) return;
 
-  if (matchedRom.igdb_id && matchedRom.moby_id) {
-    emitter?.emit("showSelectSourceDialog", matchedRom);
-  } else {
-    if (matchedRom.igdb_id) {
-      updateRom(
-        Object.assign(matchedRom, { url_cover: matchedRom.igdb_url_cover })
-      );
-    } else if (matchedRom.moby_id) {
-      updateRom(
-        Object.assign(matchedRom, { url_cover: matchedRom.moby_url_cover })
-      );
-    }
+  var cardContent = document.getElementById("r-dialog-content");
+  if (cardContent) {
+    cardContent.scrollTop = 0;
   }
+  showSelectSource.value = true;
+  selectedRom.value = matchedRom;
+  sources.value.push({
+    url_cover: matchedRom.igdb_url_cover,
+    name: "igdb",
+  });
+  sources.value.push({
+    url_cover: matchedRom.moby_url_cover,
+    name: "moby",
+  });
 }
 
-async function updateRom(matchedRom: SearchRomSchema) {
+function selectSource(source: matchedSource) {
+  if (!selectedRom.value) return;
+  updateRom(
+    Object.assign(selectedRom.value, {
+      url_cover: source.url_cover,
+    })
+  );
+}
+
+function toggleRenameAsSource() {
+  renameAsSource.value = !renameAsSource.value;
+}
+
+function backToMatched() {
+  showSelectSource.value = false;
+  sources.value = [];
+}
+
+async function updateRom(selectedRom: SearchRomSchema) {
   if (!rom.value) return;
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  Object.assign(rom.value, matchedRom);
+  Object.assign(rom.value, selectedRom);
 
   await romApi
-    .updateRom({ rom: rom.value, renameAsIGDB: renameAsIGDB.value })
+    .updateRom({ rom: rom.value, renameAsIGDB: renameAsSource.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -149,7 +173,8 @@ async function updateRom(matchedRom: SearchRomSchema) {
 function closeDialog() {
   show.value = false;
   searchBy.value = "Name";
-  searchExtended.value = false;
+  showSelectSource.value = false;
+  sources.value = [];
 }
 
 onBeforeUnmount(() => {
@@ -224,7 +249,7 @@ onBeforeUnmount(() => {
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
-        <v-col cols="5" md="6" lg="8">
+        <v-col cols="6" sm="8">
           <v-text-field
             id="search-text-field"
             @keyup.enter="searchRom()"
@@ -236,7 +261,7 @@ onBeforeUnmount(() => {
             clearable
           />
         </v-col>
-        <v-col cols="3" md="2">
+        <v-col cols="4" sm="3">
           <v-select
             label="by"
             class="bg-terciary"
@@ -245,26 +270,7 @@ onBeforeUnmount(() => {
             hide-details
           />
         </v-col>
-
-        <v-col cols="2" lg="1">
-          <v-tooltip
-            location="top"
-            class="tooltip"
-            transition="fade-transition"
-            text="Extended search to match by alternative names. This will take longer."
-            open-delay="500"
-            ><template #activator="{ props }">
-              <v-btn
-                v-bind="props"
-                @click="toggleExtended"
-                class="bg-terciary"
-                :color="searchExtended ? 'romm-accent-1' : ''"
-                rounded="0"
-                variant="tonal"
-                icon="mdi-layers-search-outline"
-                block /></template></v-tooltip
-        ></v-col>
-        <v-col cols="2" lg="1">
+        <v-col>
           <v-btn
             type="submit"
             @click="searchRom()"
@@ -279,7 +285,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row no-gutters>
+      <v-row v-show="!showSelectSource" no-gutters>
         <v-col
           class="pa-1"
           cols="4"
@@ -289,7 +295,7 @@ onBeforeUnmount(() => {
           v-for="matchedRom in filteredMatchedRoms"
         >
           <game-card
-            @click="selectMatched(matchedRom)"
+            @click="showSources(matchedRom)"
             :rom="matchedRom"
             title-on-footer
             transform-scale
@@ -297,18 +303,113 @@ onBeforeUnmount(() => {
           />
         </v-col>
       </v-row>
+      <template v-if="showSelectSource">
+        <v-row class="text-left" no-gutters>
+          <v-col>
+            <v-btn
+              icon="mdi-arrow-left"
+              rounded="0"
+              variant="flat"
+              size="small"
+              @click="backToMatched"
+            ></v-btn>
+          </v-col>
+        </v-row>
+        <v-row no-gutters>
+          <v-col cols="12">
+            <v-row class="justify-center" no-gutters>
+              <v-col
+                :class="{
+                  'source-cover-desktop': !xs,
+                  'source-cover-mobile': xs,
+                }"
+                class="pa-1"
+                v-for="source in sources"
+              >
+                <v-hover v-slot="{ isHovering, props }">
+                  <v-card
+                    v-bind="props"
+                    class="transform-scale"
+                    :class="{ 'on-hover': isHovering }"
+                    :elevation="isHovering ? 20 : 3"
+                    @click="selectSource(source)"
+                  >
+                    <v-img
+                      :src="
+                        !source.url_cover
+                          ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                          : source.url_cover
+                      "
+                      :aspect-ratio="3 / 4"
+                      lazy
+                    >
+                      <template #placeholder>
+                        <div
+                          class="d-flex align-center justify-center fill-height"
+                        >
+                          <v-progress-circular
+                            color="romm-accent-1"
+                            :width="2"
+                            indeterminate
+                          />
+                        </div>
+                      </template>
+                      <v-row no-gutters class="text-white pa-1">
+                        <v-avatar class="mr-1" size="30" rounded="1">
+                          <v-img
+                            :src="`/assets/scrappers/${source.name}.png`"
+                          />
+                        </v-avatar>
+                      </v-row>
+                    </v-img>
+                  </v-card>
+                </v-hover>
+              </v-col>
+            </v-row>
+          </v-col>
+          <v-col>
+            <v-row class="mt-2 text-center" no-gutters>
+              <v-col>
+                <v-chip
+                  @click="toggleRenameAsSource"
+                  :variant="renameAsSource ? 'flat' : 'outlined'"
+                  :color="renameAsSource ? 'romm-accent-1' : ''"
+                  ><v-icon class="mr-1">{{
+                    renameAsSource
+                      ? "mdi-checkbox-outline"
+                      : "mdi-checkbox-blank-outline"
+                  }}</v-icon
+                  >Rename file as source</v-chip
+                >
+              </v-col>
+            </v-row>
+            <v-row class="mt-2" no-gutters>
+              <v-col>
+                <v-card class="mx-auto bg-terciary">
+                  <v-card-title class="text-center">
+                    {{ selectedRom?.name }}
+                  </v-card-title>
+                  <v-card-text>
+                    {{ selectedRom?.summary }}
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+          </v-col>
+        </v-row>
+      </template>
     </template>
     <template #footer>
-      <v-checkbox
-        v-model="renameAsIGDB"
-        label="Rename rom"
-        class="ml-3"
-        hide-details
-      />
+      <v-row no-gutters class="text-center">
+        <v-col>
+          <v-chip variant="text">Results found:</v-chip>
+          <v-chip size="small" class="ml-1 text-romm-accent-1" label>{{
+            matchedRoms.length
+          }}</v-chip>
+        </v-col>
+      </v-row>
     </template>
   </r-dialog>
-
-  <select-source-dialog @select:source="updateRom" />
 </template>
 
 <style scoped>
@@ -325,5 +426,13 @@ onBeforeUnmount(() => {
 }
 .select-source-dialog {
   z-index: 9999 !important;
+}
+.source-cover-desktop {
+  min-width: 220px;
+  max-width: 220px;
+}
+.source-cover-mobile {
+  min-width: 150px;
+  max-width: 150px;
 }
 </style>

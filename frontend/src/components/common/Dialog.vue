@@ -89,7 +89,7 @@ onMounted(() => {
         <slot name="prepend"></slot>
       </v-card-text>
 
-      <v-card-text class="pa-1" :class="{ scroll: scrollContent }">
+      <v-card-text id="r-dialog-content" class="pa-1" :class="{ scroll: scrollContent }">
         <v-row
           v-if="loadingCondition"
           class="justify-center align-center h-100"
