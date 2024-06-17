@@ -2,7 +2,6 @@ import fnmatch
 import os
 import re
 from enum import Enum
-from typing import Final
 
 from config.config_manager import config_manager as cm
 
