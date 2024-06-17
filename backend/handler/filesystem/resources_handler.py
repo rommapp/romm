@@ -1,7 +1,6 @@
 import os
 import shutil
 from pathlib import Path
-from urllib.parse import quote
 
 import requests
 from config import RESOURCES_BASE_PATH
@@ -84,7 +83,7 @@ class FSResourcesHandler(FSHandler):
 
     def get_rom_cover(
         self, overwrite: bool, platform_fs_slug: str, rom_id: int, url_cover: str = ""
-    ) -> dict:
+    ) -> tuple[str, str]:
         if (
             overwrite
             or not self._cover_exists(platform_fs_slug, rom_id, CoverSize.SMALL)
@@ -136,7 +135,7 @@ class FSResourcesHandler(FSHandler):
         return path_cover_l, path_cover_s, artwork_path
 
     @staticmethod
-    def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):
+    def _store_screenshot(fs_slug: str, rom_id: int, url: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
@@ -145,7 +144,7 @@ class FSResourcesHandler(FSHandler):
             url: url to get the screenshot
         """
         screenshot_file = f"{idx}.jpg"
-        screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
+        screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_id}/screenshots"
 
         try:
             res = requests.get(url, stream=True, timeout=120)
@@ -179,7 +178,7 @@ class FSResourcesHandler(FSHandler):
 
     def get_rom_screenshots(
         self, platform_fs_slug: str, rom_id: int, url_screenshots: list
-    ) -> dict:
+    ) -> list[str]:
         path_screenshots: list[str] = []
         for idx, url in enumerate(url_screenshots):
             self._store_screenshot(platform_fs_slug, rom_id, url, idx)
