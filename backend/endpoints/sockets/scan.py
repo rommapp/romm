@@ -216,13 +216,13 @@ async def scan_platforms(
 
                     path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
                         overwrite=True,
-                        platform_fs_slug=platform.slug,
+                        platform_id=platform.id,
                         rom_id=_added_rom.id,
                         url_cover=_added_rom.url_cover,
                     )
 
                     path_screenshots = fs_resource_handler.get_rom_screenshots(
-                        platform_fs_slug=platform.slug,
+                        platform_id=platform.id,
                         rom_id=_added_rom.id,
                         url_screenshots=_added_rom.url_screenshots,
                     )
@@ -244,7 +244,6 @@ async def scan_platforms(
                         {
                             "platform_name": platform.name,
                             "platform_slug": platform.slug,
-                            "path_cover_l": path_cover_l,
                             **RomSchema.model_validate(_added_rom).model_dump(),
                         },
                     )

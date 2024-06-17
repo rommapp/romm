@@ -274,7 +274,6 @@ async def update_rom(
     data = await request.form()
 
     db_rom = db_rom_handler.get_roms(id)
-    platform_fs_slug = db_platform_handler.get_platforms(db_rom.platform_id).fs_slug
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", None)
@@ -328,16 +327,14 @@ async def update_rom(
 
     if remove_cover:
         cleaned_data.update(
-            fs_resource_handler.remove_cover(
-                rom_id=id, platform_fs_slug=platform_fs_slug
-            )
+            fs_resource_handler.remove_cover(rom_id=id, platform_id=db_rom.platform_id)
         )
         cleaned_data.update({"url_cover": ""})
     else:
         cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
         path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
             overwrite=True,
-            platform_fs_slug=platform_fs_slug,
+            platform_id=db_rom.platform_id,
             rom_id=id,
             url_cover=cleaned_data.get("url_cover", ""),
         )
@@ -350,7 +347,7 @@ async def update_rom(
         or cleaned_data["moby_id"] != db_rom.moby_id
     ):
         path_screenshots = fs_resource_handler.get_rom_screenshots(
-            platform_fs_slug=platform_fs_slug,
+            platform_id=db_rom.platform_id,
             rom_id=id,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
@@ -362,7 +359,7 @@ async def update_rom(
             path_cover_l,
             path_cover_s,
             artwork_path,
-        ) = fs_resource_handler.build_artwork_path(id, platform_fs_slug, file_ext)
+        ) = fs_resource_handler.build_artwork_path(id, db_rom.platform_id, file_ext)
 
         cleaned_data["path_cover_l"] = path_cover_l
         cleaned_data["path_cover_s"] = path_cover_s
