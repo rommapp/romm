@@ -1,4 +1,4 @@
-import type { SaveSchema, SearchRomSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";

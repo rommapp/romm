@@ -7,6 +7,8 @@ Create Date: 2024-05-05 11:20:54.243980
 """
 
 import os
+import re
+from shutil import rmtree
 from urllib.parse import quote
 
 import sqlalchemy as sa
@@ -41,38 +43,48 @@ def upgrade() -> None:
             if platform.id == rom.platform_id:
                 platform_slug = platform.slug
         old_folder_name = f"{RESOURCES_BASE_PATH}/{platform_slug}/{rom.name}"
-        new_folder_name = f"{RESOURCES_BASE_PATH}/{platform_slug}/{rom.id}"
-        print(f"MIGRATION: old folder: {old_folder_name}")
-        print(f"MIGRATION: new folder: {new_folder_name}")
+        new_folder_name = f"{RESOURCES_BASE_PATH}/{rom.platform_id}/{rom.id}"
+        print("INFO:\t  [Resources migration] Renaming folder:")
+        print(f"INFO:\t  [Resources migration]  - old: {old_folder_name}")
+        print(f"INFO:\t  [Resources migration]  - new: {new_folder_name}")
+        try:
+            os.makedirs(f"{RESOURCES_BASE_PATH}/{rom.platform_id}", exist_ok=True)
+        except OSError as error:
+            print(error)
         if os.path.exists(old_folder_name):
             os.rename(old_folder_name, new_folder_name)
         else:
-            print(f"MIGRATION - ERROR: Folder '{old_folder_name}' does not exist.")
-
-        import re
+            print(
+                f"ERROR:\t  [Resources migration] Folder '{old_folder_name}' does not exist"
+            )
 
         quoted_rom_name = re.escape(quote(rom.name))
-        print(quoted_rom_name)
         updated_path_cover_s = re.sub(quoted_rom_name, str(rom.id), rom.path_cover_s)
         connection.execute(
-            sa.text(
-                f"UPDATE roms SET path_cover_s = '{updated_path_cover_s}' WHERE id = {rom.id}"
-            )
+            sa.text("UPDATE roms SET path_cover_s = :path_cover_s WHERE id = :id"),
+            {"path_cover_s": updated_path_cover_s, "id": rom.id},
         )
         updated_path_cover_l = re.sub(quoted_rom_name, str(rom.id), rom.path_cover_l)
         connection.execute(
-            sa.text(
-                f"UPDATE roms SET path_cover_l = '{updated_path_cover_l}' WHERE id = {rom.id}"
-            )
+            sa.text("UPDATE roms SET path_cover_l = :path_cover_l WHERE id = :id"),
+            {"path_cover_l": updated_path_cover_l, "id": rom.id},
         )
         updated_path_screenshots = re.sub(
             quoted_rom_name, str(rom.id), rom.path_screenshots
         )
         connection.execute(
             sa.text(
-                f"UPDATE roms SET path_screenshots = '{updated_path_screenshots}' WHERE id = {rom.id}"
-            )
+                "UPDATE roms SET path_screenshots = :path_screenshots WHERE id = :id"
+            ),
+            {"path_screenshots": updated_path_screenshots, "id": rom.id},
         )
+    for platform in platforms_row:
+        try:
+            rmtree(f"{RESOURCES_BASE_PATH}/{platform.slug}")
+        except FileNotFoundError:
+            print(
+                f"ERROR:\t  [Resources migration] Folder '{RESOURCES_BASE_PATH}/{platform.slug}' does not exist"
+            )
     # ### end Alembic commands ###
 
 
