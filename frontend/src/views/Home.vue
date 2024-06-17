@@ -9,13 +9,12 @@ import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vu
 import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
 import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import MatchRomDialog from "@/components/Dialog/Rom/MatchRom/MatchRom.vue";
+import MatchRomDialog from "@/components/Dialog/Rom/MatchRom.vue";
 import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
 import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
 import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
 import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
 import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
-import Drawer from "@/components/Drawer/Base.vue";
 import AppBar from "@/components/common/AppBar.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
 import platformApi from "@/services/api/platform";
@@ -75,7 +74,6 @@ onMounted(() => {
     absolute
   />
   <app-bar />
-  <!-- <drawer v-if="smAndDown" /> -->
   <router-view :key="refreshView" />
 
   <delete-platform-dialog />

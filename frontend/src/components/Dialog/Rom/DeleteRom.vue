@@ -7,20 +7,23 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
 const { smAndUp, mdAndUp } = useDisplay();
 const router = useRouter();
+const route = useRoute();
 const show = ref(false);
 const romsStore = storeRoms();
 const roms = ref<SimpleRom[]>([]);
 const romsToDeleteFromFs = ref<number[]>([]);
+const platformId = ref<number>(0);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteRomDialog", (romsToDelete) => {
   roms.value = romsToDelete;
+  platformId.value = roms.value[0].platform_id;
   updateDataTablePages();
   show.value = true;
 });
@@ -48,6 +51,15 @@ async function deleteRoms() {
         color: "green",
       });
       romsStore.resetSelection();
+      romsStore.remove(roms.value);
+      emitter?.emit("refreshDrawer", null);
+      closeDialog();
+      if (route.name == "rom") {
+        router.push({
+          name: "platform",
+          params: { platform: platformId.value },
+        });
+      }
     })
     .catch((error) => {
       console.log(error);
@@ -58,15 +70,6 @@ async function deleteRoms() {
       });
       return;
     });
-
-  romsStore.remove(roms.value);
-  emitter?.emit("refreshDrawer", null);
-  closeDialog();
-
-  await router.push({
-    name: "platform",
-    params: { platform: roms.value[0].platform_id },
-  });
 }
 
 function updateDataTablePages() {
