@@ -1,20 +1,22 @@
 <script setup lang="ts">
+import RAvatar from "@/components/Game/Avatar.vue";
 import PlatformIcon from "@/components/Platform/Icon.vue";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat from "@/stores/heartbeat1";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
 // Props
-const { smAndDown, mdAndDown } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
+const theme = useTheme();
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -136,7 +138,14 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col class="px-1" cols="12" sm="5" md="4" :class="{ 'mt-3': smAndDown }">
+    <v-col
+      class="px-1"
+      cols="12"
+      sm="7"
+      md="4"
+      lg="4"
+      :class="{ 'mt-3': smAndDown }"
+    >
       <v-select
         prepend-inner-icon="mdi-database-search"
         v-model="metadataSources"
@@ -184,7 +193,7 @@ async function stopScan() {
       </v-select>
     </v-col>
     <!-- Scan options -->
-    <v-col class="px-1" cols="12" sm="7" md="2" :class="{ 'mt-3': smAndDown }">
+    <v-col class="px-1" cols="12" sm="5" md="2" :class="{ 'mt-3': smAndDown }">
       <v-select
         prepend-inner-icon="mdi-magnify-scan"
         v-model="scanType"
@@ -264,35 +273,56 @@ async function stopScan() {
   <!-- Scan log -->
   <div
     class="scroll mt-4"
-    :class="{ 'scan-log-desktop': !mdAndDown, 'scan-log-mobile': mdAndDown }"
+    :class="{ 'scan-log-desktop': !xs, 'scan-log-mobile': xs }"
   >
     <v-row
       v-for="platform in scanningPlatforms"
       :key="platform.id"
+      class="align-center px-4 mb-5"
       no-gutters
-      class="align-center pa-4"
     >
       <v-col>
         <v-list-item
           :to="{ name: 'platform', params: { platform: platform.id } }"
+          class="my-2"
         >
-          <v-avatar :rounded="0" size="40">
-            <platform-icon :key="platform.slug" :slug="platform.slug" />
-          </v-avatar>
-          <span class="text-body-2 ml-5"> {{ platform.name }}</span>
+          <template #prepend>
+            <v-avatar :rounded="0" size="40">
+              <platform-icon :key="platform.slug" :slug="platform.slug" />
+            </v-avatar>
+          </template>
+          <v-row no-gutters>
+            <span>{{ platform.name }}</span>
+          </v-row>
         </v-list-item>
         <v-list-item
           v-for="rom in platform.roms"
           :key="rom.id"
-          class="text-body-2 romm-grey"
+          class="text-body-2 romm-grey px-10"
           :to="{ name: 'rom', params: { rom: rom.id } }"
         >
-          <span v-if="rom.igdb_id || rom.moby_id" class="ml-10">
-            • Identified <b>{{ rom.name }} 👾</b>
-          </span>
-          <span v-else class="ml-10">
-            • {{ rom.file_name }} not found in metadata sources ❌
-          </span>
+          <template #prepend>
+            <r-avatar
+              :src="
+                !rom.igdb_id && !rom.moby_id
+                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                  : rom.has_cover
+                  ? `/assets/romm/resources/${rom.path_cover_l}`
+                  : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+              "
+            />
+          </template>
+          <v-row no-gutters>
+            <span :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }">{{
+              rom.name
+            }}</span>
+            <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
+          </v-row>
+          <v-row no-gutters>
+            <v-col class="text-romm-accent-1">
+              {{ rom.file_name }}
+            </v-col>
+          </v-row>
         </v-list-item>
       </v-col>
     </v-row>
@@ -326,9 +356,9 @@ async function stopScan() {
 
 <style scoped>
 .scan-log-desktop {
-  max-height: calc(100dvh - 200px);
+  max-height: calc(100dvh - 250px);
 }
 .scan-log-mobile {
-  max-height: calc(100dvh - 400px);
+  max-height: calc(100dvh - 380px);
 }
 </style>
