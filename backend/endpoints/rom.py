@@ -412,7 +412,10 @@ async def delete_roms(
         log.info(f"Deleting {rom.file_name} from database")
         db_rom_handler.delete_rom(id)
 
-        rmtree(f"{RESOURCES_BASE_PATH}/{rom.platform_slug}/{rom.id}")
+        try:
+            rmtree(f"{RESOURCES_BASE_PATH}/{rom.platform_slug}/{rom.id}")
+        except FileNotFoundError:
+            log.error(f"Couldn't find resources to delete for {rom.name}")
 
         if id in delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")

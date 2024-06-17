@@ -46,8 +46,8 @@ async function logout() {
         <v-hover v-slot="{ isHovering, props: hoverProps }">
           <romm-iso
             v-bind="hoverProps"
-            class="ml-3 with-border"
-            :class="{ selected: isHovering }"
+            class="ml-3"
+            :class="{ 'border-romm-accent-1': isHovering }"
             :size="35"
           />
         </v-hover>
@@ -211,7 +211,7 @@ async function logout() {
               v-bind="{ ...menuProps, ...hoverProps }"
               class="mr-2 pointer with-border"
               size="40"
-              :class="{ selected: isHovering || isActive }"
+              :class="{ 'border-romm-accent-1': isHovering || isActive }"
             >
               <v-img
                 :src="
@@ -264,12 +264,3 @@ async function logout() {
     </template>
   </v-app-bar>
 </template>
-<style scoped>
-.v-avatar.with-border {
-  border: 2px solid rgba(var(--v-theme-primary));
-}
-.v-avatar.selected {
-  border: 2px solid rgba(var(--v-theme-romm-accent-1));
-  transform: scale(1.01);
-}
-</style>

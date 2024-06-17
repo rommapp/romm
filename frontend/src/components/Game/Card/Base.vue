@@ -65,7 +65,8 @@ onMounted(() => {
       v-bind="hoverProps"
       :class="{
         'on-hover': isHovering,
-        selected: isSimpleRom(rom) && selectedRoms?.includes(rom),
+        'border-romm-accent-1':
+          isSimpleRom(rom) && selectedRoms?.includes(rom),
         'transform-scale': transformScale,
         'with-border': withBorder,
       }"
@@ -176,12 +177,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.v-card.with-border {
-  border: 3px solid rgba(var(--v-theme-primary));
-}
-.v-card.selected {
-  border: 3px solid rgba(var(--v-theme-romm-accent-1));
-  transform: scale(1.03);
+.with-border {
+  border: 1px solid rgba(var(--v-theme-primary));
 }
 .text-truncate {
   white-space: nowrap;
