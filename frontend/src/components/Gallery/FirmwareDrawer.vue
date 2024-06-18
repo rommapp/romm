@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FirmwareSchema } from "@/__generated__";
-import DeleteFirmwareDialog from "@/components/Dialog/Platform/DeleteFirmware.vue";
-import UploadFirmwareDialog from "@/components/Dialog/Platform/UploadFirmware.vue";
+import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
+import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";

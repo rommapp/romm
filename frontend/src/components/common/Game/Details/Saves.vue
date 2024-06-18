@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { SaveSchema } from "@/__generated__";
-import saveApi from "@/services/api/save";
-import UploadSavesDialog from "@/components/Dialog/Asset/UploadSaves.vue";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
+import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";

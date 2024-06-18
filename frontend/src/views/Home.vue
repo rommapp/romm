@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
-import CreateExclusionDialog from "@/components/Dialog/Management/CreateExclusion.vue";
-import CreatePlatformBindingDialog from "@/components/Dialog/Management/CreatePlatformBinding.vue";
-import CreatePlatformVersionDialog from "@/components/Dialog/Management/CreatePlatformVersion.vue";
-import DeletePlatformBindingDialog from "@/components/Dialog/Management/DeletePlatformBinding.vue";
-import DeletePlatformVersionDialog from "@/components/Dialog/Management/DeletePlatformVersion.vue";
-import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
-import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
-import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";
-import NewVersion from "@/components/common/NewVersion.vue"
-import EditRomDialog from "@/components/Dialog/Rom/EditRom.vue";
-import MatchRomDialog from "@/components/Dialog/Rom/MatchRom.vue";
-import SearchRomDialog from "@/components/Dialog/Rom/SearchRom.vue";
-import UploadRomDialog from "@/components/Dialog/Rom/UploadRom.vue";
-import CreateUserDialog from "@/components/Dialog/User/CreateUser.vue";
-import DeleteUserDialog from "@/components/Dialog/User/DeleteUser.vue";
-import EditUserDialog from "@/components/Dialog/User/EditUser.vue";
+import CreateExclusionDialog from "@/components/Management/Dialog/CreateExclusion.vue";
+import CreatePlatformBindingDialog from "@/components/Management/Dialog/CreatePlatformBinding.vue";
+import CreatePlatformVersionDialog from "@/components/Management/Dialog/CreatePlatformVersion.vue";
+import DeletePlatformBindingDialog from "@/components/Management/Dialog/DeletePlatformBinding.vue";
+import DeletePlatformVersionDialog from "@/components/Management/Dialog/DeletePlatformVersion.vue";
+import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
+import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
+import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
+import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
+import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
+import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
+import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
+import CreateUserDialog from "@/components/Administration/Users/Dialog/CreateUser.vue";
+import DeleteUserDialog from "@/components/Administration/Users/Dialog/DeleteUser.vue";
+import EditUserDialog from "@/components/Administration/Users/Dialog/EditUser.vue";
 import AppBar from "@/components/common/AppBar.vue";
+import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
+import NewVersion from "@/components/common/NewVersion.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -27,7 +27,6 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 // Props
 const scanningStore = storeScanning();
