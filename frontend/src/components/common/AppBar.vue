@@ -100,15 +100,10 @@ async function logout() {
           />
         </template>
         <v-list rounded="0" class="bg-terciary pa-0">
-          <v-list-item
-            append-icon="mdi-magnify-scan"
-            :to="{ name: 'scan' }"
-          >
+          <v-list-item append-icon="mdi-magnify-scan" :to="{ name: 'scan' }">
             Scan
           </v-list-item>
-          <v-list-item
-            append-icon="mdi-table-cog"
-            :to="{ name: 'management' }"
+          <v-list-item append-icon="mdi-table-cog" :to="{ name: 'management' }"
             >Management
           </v-list-item>
         </v-list>
@@ -188,6 +183,7 @@ async function logout() {
     </template>
     <template #append>
       <v-btn
+        v-if="auth.scopes.includes('roms.write')"
         size="small"
         class="mr-1"
         icon="mdi-upload"
@@ -228,15 +224,12 @@ async function logout() {
             :src="
               auth.user?.avatar_path
                 ? `/assets/romm/assets/${auth.user?.avatar_path}`
-                : ''
+                : defaultAvatarPath
             "
             :aspect-ratio="20 / 3"
             cover
           >
-            <v-list-item
-              class="text-left text-shadow pb-2"
-              :class="{ 'bg-romm-accent-1': !auth.user?.avatar_path }"
-            >
+            <v-list-item class="text-left text-shadow pb-2">
               <template #title>
                 <span>{{ auth.user?.username }}</span>
               </template>
