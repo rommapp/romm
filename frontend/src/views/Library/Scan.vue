@@ -10,7 +10,7 @@ import { computed, ref, watch } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
-const { smAndDown } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
@@ -83,6 +83,7 @@ socket.on("scan:done", (stats) => {
   scanStats.value = stats;
 });
 
+// TODO: fix abort scan
 async function stopScan() {
   socket.emit("scan:stop");
 }
@@ -268,88 +269,110 @@ async function stopScan() {
     </v-list-item>
   </v-row>
 
-  <v-divider class="border-opacity-100 mx-4" color="romm-accent-1" />
+  <v-divider
+    class="border-opacity-100"
+    :class="{ 'mx-4': !smAndDown }"
+    color="romm-accent-1"
+  />
 
   <!-- Scan log -->
-  <v-card elevation="0" class="bg-secondary mx-auto" max-width="800">
+  <v-card
+    elevation="0"
+    rounded="0"
+    class="bg-secondary mx-auto mb-1"
+    max-width="800"
+  >
     <v-card-text class="pa-0">
-      <v-row
-        v-for="platform in scanningPlatforms"
-        :key="platform.id"
-        class="align-center mb-5"
-        no-gutters
-      >
-        <v-col>
-          <v-list-item
-            :to="{ name: 'platform', params: { platform: platform.id } }"
-            class="my-2"
-          >
-            <template #prepend>
-              <v-avatar :rounded="0" size="40">
-                <platform-icon :key="platform.slug" :slug="platform.slug" />
-              </v-avatar>
-            </template>
-            <v-row no-gutters>
-              <span>{{ platform.name }}</span>
-            </v-row>
-          </v-list-item>
-          <v-list-item
-            v-for="rom in platform.roms"
-            :key="rom.id"
-            class="text-body-2 romm-grey px-10"
-            :to="{ name: 'rom', params: { rom: rom.id } }"
-          >
-            <template #prepend>
-              <r-avatar
-                :src="
-                  !rom.igdb_id && !rom.moby_id
-                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                    : rom.has_cover
-                    ? `/assets/romm/resources/${rom.path_cover_s}`
-                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                "
-              />
-            </template>
-            <v-row no-gutters>
-              <span
-                :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }"
-                >{{ rom.name }}</span
-              >
-              <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
-            </v-row>
-            <v-row no-gutters>
-              <v-col class="text-romm-accent-1">
-                {{ rom.file_name }}
-              </v-col>
-            </v-row>
-          </v-list-item>
-        </v-col>
-      </v-row>
+      <v-expansion-panels multiple flat rounded="0" variant="accordion">
+        <v-expansion-panel
+          v-for="platform in scanningPlatforms"
+          :key="platform.id"
+        >
+          <v-expansion-panel-title>
+            <v-avatar :rounded="0" size="40">
+              <platform-icon :key="platform.slug" :slug="platform.slug" />
+            </v-avatar>
+            <span class="ml-3">{{ platform.name }}</span>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text class="bg-terciary">
+            <v-list-item
+              v-for="rom in platform.roms"
+              :key="rom.id"
+              class="text-body-2 romm-grey px-10 py-2"
+              :to="{ name: 'rom', params: { rom: rom.id } }"
+            >
+              <template #prepend>
+                <r-avatar
+                  :src="
+                    !rom.igdb_id && !rom.moby_id
+                      ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+                      : rom.has_cover
+                      ? `/assets/romm/resources/${rom.path_cover_s}`
+                      : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+                  "
+                />
+              </template>
+              <v-row no-gutters>
+                <span
+                  :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }"
+                  >{{ rom.name }}</span
+                >
+                <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
+              </v-row>
+              <v-row no-gutters>
+                <v-col class="text-romm-accent-1">
+                  {{ rom.file_name }}
+                </v-col>
+              </v-row>
+            </v-list-item>
+            <v-list-item
+              v-if="platform.roms.length == 0"
+              class="text-center mt-2"
+            >
+              No roms found
+            </v-list-item>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
     </v-card-text>
   </v-card>
 
   <!-- Scan stats -->
-  <v-bottom-navigation :elevation="0" height="40" class="text-caption">
-    <v-chip
-      v-if="scanningPlatforms.length > 0"
-      color="romm-accent-1"
-      text-color="white"
-      class="mr-2 my-1"
-    >
-      <v-icon left> mdi-information </v-icon>&nbsp; Platforms:
-      {{ scanningPlatforms.length }} scanned, with
-      {{ scanStats.added_platforms }} new and
-      {{ scanStats.metadata_platforms }} identified
-    </v-chip>
-    <v-chip
-      v-if="scanningPlatforms.length > 0"
-      color="romm-accent-1"
-      text-color="white"
-      class="my-1"
-    >
-      <v-icon left> mdi-information </v-icon>&nbsp; Roms:
-      {{ scanStats.scanned_roms }} scanned, with {{ scanStats.added_roms }} new
-      and {{ scanStats.metadata_roms }} identified
+  <v-bottom-navigation
+    :active="scanningPlatforms.length > 0"
+    :elevation="0"
+    height="40"
+    class="text-caption align-center"
+    ><v-chip variant="outlined" color="terciary" class="px-1">
+      <v-icon class="text-white"> mdi-information </v-icon>
+      <v-chip
+        v-if="scanningPlatforms.length > 0"
+        color="romm-accent-1"
+        text-color="white"
+        size="small"
+        class="ml-1 my-1"
+      >
+        <v-icon left>mdi-controller</v-icon>
+        <span>&nbsp;Platforms: {{ scanningPlatforms.length }} scanned</span>
+        <span v-if="!xs">, with {{ scanStats.added_platforms }} new</span>
+        <span v-if="!xs"
+          >&nbsp;and {{ scanStats.metadata_platforms }} identified</span
+        >
+      </v-chip>
+      <v-chip
+        v-if="scanningPlatforms.length > 0"
+        color="romm-accent-1"
+        size="small"
+        text-color="white"
+        class="ml-1 my-1"
+      >
+        <v-icon left> mdi-disc </v-icon>
+        <span>&nbsp; Roms: {{ scanStats.scanned_roms }} scanned</span>
+        <span v-if="!xs">, with {{ scanStats.added_roms }} new</span>
+        <span v-if="!xs"
+          >&nbsp;and {{ scanStats.metadata_roms }} identified</span
+        >
+      </v-chip>
     </v-chip>
   </v-bottom-navigation>
 </template>
