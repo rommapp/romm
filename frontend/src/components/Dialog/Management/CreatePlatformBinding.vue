@@ -1,31 +1,66 @@
 <script setup lang="ts">
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
+import platformApi from "@/services/api/platform";
 import storeConfig from "@/stores/config";
+import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
+const { mdAndUp } = useDisplay();
 const show = ref(false);
 const configStore = storeConfig();
 const emitter = inject<Emitter<Events>>("emitter");
-const fsSlugToCreate = ref();
-const slugToCreate = ref();
-emitter?.on("showCreatePlatformBindingDialog", ({ fsSlug = "", slug = "" }) => {
-  fsSlugToCreate.value = fsSlug;
-  slugToCreate.value = slug;
-  show.value = true;
-});
+const supportedPlatforms = ref<Platform[]>();
+const fsSlugToCreate = ref("");
+const selectedPlatform = ref<Platform>();
+emitter?.on(
+  "showCreatePlatformBindingDialog",
+  async ({ fsSlug = "", slug = "" }) => {
+    await platformApi
+      .getSupportedPlatforms()
+      .then(({ data }) => {
+        supportedPlatforms.value = data.sort((a, b) => {
+          return a.name.localeCompare(b.name);
+        });
+      })
+      .catch(({ response, message }) => {
+        emitter?.emit("snackbarShow", {
+          msg: `Unable to get supported platforms: ${
+            response?.data?.detail || response?.statusText || message
+          }`,
+          icon: "mdi-close-circle",
+          color: "red",
+          timeout: 4000,
+        });
+      });
+    fsSlugToCreate.value = fsSlug;
+    selectedPlatform.value = supportedPlatforms.value?.find(
+      (platform) => platform.slug == slug
+    );
+    show.value = true;
+  }
+);
 
 // Functions
 function addBindPlatform() {
+  if (!selectedPlatform.value) return;
   configApi
     .addPlatformBindConfig({
       fsSlug: fsSlugToCreate.value,
-      slug: slugToCreate.value,
+      slug: selectedPlatform.value.slug,
     })
     .then(() => {
-      configStore.addPlatformBinding(fsSlugToCreate.value, slugToCreate.value);
+      if (selectedPlatform.value) {
+        configStore.addPlatformBinding(
+          fsSlugToCreate.value,
+          selectedPlatform.value.slug
+        );
+      }
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
@@ -40,65 +75,101 @@ function addBindPlatform() {
 
 function closeDialog() {
   show.value = false;
+  fsSlugToCreate.value = "";
 }
 </script>
 <template>
-  <!-- TODO: unify refactor dialog -->
-  <v-dialog v-model="show" max-width="500px" :scrim="true">
-    <v-card>
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="10">
-            <v-icon icon="mdi-controller" class="ml-5" />
-            <v-icon icon="mdi-menu-right" class="ml-1 text-romm-gray" />
-            <v-icon icon="mdi-controller" class="ml-1 text-romm-accent-1" />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider />
-
-      <v-card-text>
-        <v-row class="pa-2 align-center" no-gutters>
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    :width="mdAndUp ? '45vw' : '95vw'"
+  >
+    <template #header>
+      <v-row class="align-center" no-gutters>
+        <v-col cols="10">
+          <v-icon icon="mdi-controller" class="ml-5" />
+          <v-icon icon="mdi-menu-right" class="ml-1 text-romm-gray" />
+          <v-icon icon="mdi-controller" class="ml-1 text-romm-accent-1" />
+        </v-col>
+      </v-row>
+    </template>
+    <template #content>
+      <v-row class="py-2 px-4 align-center" no-gutters>
+        <v-col cols="6">
           <v-text-field
             v-model="fsSlugToCreate"
             label="Folder name"
             variant="outlined"
             required
             hide-details
-          />
-          <v-icon icon="mdi-menu-right" class="mx-2 text-romm-gray" />
-          <v-text-field
-            v-model="slugToCreate"
+          >
+            <template #append>
+              <v-icon icon="mdi-menu-right" class="mr-4 text-romm-gray" />
+            </template>
+          </v-text-field>
+        </v-col>
+        <v-col cols="6">
+          <v-autocomplete
+            v-model="selectedPlatform"
             class="text-romm-accent-1"
             label="RomM platform"
+            :items="supportedPlatforms"
             color="romm-accent-1"
             base-color="romm-accent-1"
             variant="outlined"
             required
+            return-object
+            item-title="name"
             hide-details
-            @click="addBindPlatform"
-          />
-        </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+          >
+            <template #item="{ props, item }">
+              <v-list-item
+                class="py-2"
+                v-bind="props"
+                :title="item.raw.name ?? ''"
+              >
+                <template #prepend>
+                  <platform-icon
+                    :key="item.raw.slug"
+                    :size="35"
+                    :slug="item.raw.slug"
+                  />
+                </template>
+              </v-list-item>
+            </template>
+            <template #selection="{ item }">
+              <v-list-item class="px-0" :title="item.raw.name ?? ''">
+                <template #prepend>
+                  <platform-icon
+                    :size="35"
+                    :key="item.raw.slug"
+                    :slug="item.raw.slug"
+                  />
+                </template>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+        </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
-            class="text-romm-green bg-terciary ml-5"
+            class="bg-terciary text-romm-green"
+            :disabled="fsSlugToCreate == '' || selectedPlatform?.slug == ''"
+            :variant="
+              fsSlugToCreate == '' || selectedPlatform?.slug == ''
+                ? 'plain'
+                : 'flat'
+            "
             @click="addBindPlatform"
           >
             Confirm
           </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
