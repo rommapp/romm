@@ -1,27 +1,28 @@
 <script setup lang="ts">
-import Notification from "@/components/Notification.vue";
+import Notification from "@/components/common/Notification.vue";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeNotifications from "@/stores/notifications";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, onBeforeUnmount } from "vue";
+import { inject, onBeforeUnmount, onMounted } from "vue";
 
 // Props
 const scanningStore = storeScanning();
+const notificationStore = storeNotifications();
+const { notifications } = storeToRefs(notificationStore);
 const { scanningPlatforms } = storeToRefs(scanningStore);
 const romsStore = storeRoms();
 const galleryFilter = storeGalleryFilter();
 const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
-
-// Props
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 
@@ -38,7 +39,7 @@ socket.on(
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   scanningStore.set(true);
-  if (romsStore.platformID === rom.platform_id) {
+  if (romsStore.currentPlatform?.id === rom.platform_id) {
     romsStore.add([rom]);
     romsStore.setFiltered(
       isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
@@ -109,13 +110,9 @@ onMounted(() => {
 <template>
   <v-app>
     <v-main>
-      <notification class="mt-6" />
+      <notification />
+      <!-- <notification-stack /> -->
       <router-view />
     </v-main>
   </v-app>
 </template>
-<style>
-body {
-  background-color: rgba(var(--v-theme-background));
-}
-</style>

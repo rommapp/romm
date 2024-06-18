@@ -35,10 +35,10 @@ async function uploadFirmware({
 
 async function deleteFirmware({
   firmware,
-  deleteFromFs,
+  deleteFromFs = [],
 }: {
   firmware: FirmwareSchema[];
-  deleteFromFs: boolean;
+  deleteFromFs: number[];
 }) {
   return api.post("/firmware/delete", {
     firmware: firmware.map((s) => s.id),

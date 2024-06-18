@@ -2,34 +2,43 @@
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
-import AdminMenu from "@/components/Game/AdminMenu/Base.vue";
+import AdminMenu from "@/components/Game/AdminMenu.vue";
+import storeGalleryView from "@/stores/galleryView";
 import type { SimpleRom } from "@/stores/roms";
 import { isEmulationSupported } from "@/utils";
+import { storeToRefs } from "pinia";
 
 // Props
 defineProps<{ rom: SimpleRom }>();
 const auth = storeAuth();
 const downloadStore = storeDownload();
+const galleryViewStore = storeGalleryView();
+const { currentView } = storeToRefs(galleryViewStore);
 </script>
 
 <template>
   <v-row no-gutters>
-    <v-col class="pa-0">
+    <v-col>
       <v-btn
-        class="action-bar-btn"
+        class="action-bar-btn-small"
+        size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
-        size="x-small"
         rounded="0"
         variant="text"
         @click="romApi.downloadRom({ rom })"
       />
       <v-btn
         v-if="isEmulationSupported(rom.platform_slug)"
-        class="action-bar-btn"
-        :href="`/play/${rom.id}`"
-        icon="mdi-play"
+        class="action-bar-btn-small"
         size="x-small"
+        @click="
+          $router.push({
+            name: 'play',
+            params: { rom: rom?.id },
+          })
+        "
+        icon="mdi-play"
         rounded="0"
         variant="text"
       />
@@ -37,11 +46,11 @@ const downloadStore = storeDownload();
     <v-menu location="bottom">
       <template #activator="{ props }">
         <v-btn
-          class="action-bar-btn"
-          :disabled="!auth.scopes.includes('roms.write')"
+          v-if="auth.scopes.includes('roms.write')"
+          class="action-bar-btn-small"
+          size="x-small"
           v-bind="props"
           icon="mdi-dots-vertical"
-          size="x-small"
           rounded="0"
           variant="text"
         />
@@ -52,7 +61,7 @@ const downloadStore = storeDownload();
 </template>
 
 <style scoped>
-.action-bar-btn {
+.action-bar-btn-small {
   max-width: 27px;
   max-height: 27px;
 }

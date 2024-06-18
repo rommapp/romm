@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/PlatformIcon.vue";
+import PlatformIcon from "@/components/Platform/Icon.vue";
+import RDialog from "@/components/common/Dialog.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -9,17 +10,30 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, mdAndDown, lgAndUp } = useDisplay();
+const { xs, mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
 const romsToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
+const HEADERS = [
+  {
+    title: "Name",
+    align: "start",
+    sortable: true,
+    key: "name",
+  },
+  { title: "", align: "end", key: "actions", sortable: false },
+] as const;
+const page = ref(1);
+const itemsPerPage = ref(10);
+const pageCount = ref(0);
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
@@ -146,221 +160,174 @@ function closeDialog() {
   romsToUpload.value = [];
   selectedPlatform.value = null;
 }
+
+function updateDataTablePages() {
+  pageCount.value = Math.ceil(romsToUpload.value.length / itemsPerPage.value);
+}
+watch(itemsPerPage, async () => {
+  updateDataTablePages();
+});
 </script>
 
 <template>
-  <v-dialog
-    :model-value="show"
-    scroll-strategy="none"
-    width="auto"
-    :scrim="true"
-    no-click-animation
-    persistent
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-upload"
+    :width="mdAndUp ? '50vw' : '95vw'"
+    scroll-content
   >
-    <v-card
-      rounded="0"
-      :class="{
-        'edit-content': lgAndUp,
-        'edit-content-tablet': mdAndDown,
-        'edit-content-mobile': xs,
-      }"
-    >
-      <v-toolbar
-        density="compact"
-        class="bg-terciary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="9"
-            xs="9"
-            sm="10"
-            md="10"
-            lg="11"
+    <template #toolbar>
+      <v-row class="align-center" no-gutters>
+        <v-col cols="10" sm="8" lg="9">
+          <v-autocomplete
+            v-model="selectedPlatform"
+            label="Platform"
+            item-title="name"
+            :items="supportedPlatforms"
+            return-object
+            clearable
+            single-line
+            hide-details
           >
-            <v-icon
-              icon="mdi-upload"
-              class="ml-5"
-            />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-
-      <v-divider
-        class="border-opacity-25"
-        :thickness="1"
-      />
-
-      <v-toolbar
-        density="compact"
-        class="bg-primary"
-      >
-        <v-row
-          class="align-center"
-          no-gutters
-        >
-          <v-col
-            cols="10"
-            sm="8"
-            lg="9"
+            <template #item="{ props, item }">
+              <v-list-item
+                class="py-2"
+                v-bind="props"
+                :title="item.raw.name ?? ''"
+              >
+                <template #prepend>
+                  <platform-icon
+                    :key="item.raw.slug"
+                    :size="35"
+                    :slug="item.raw.slug"
+                  />
+                </template>
+              </v-list-item>
+            </template>
+            <template #selection="{ item }">
+              <v-list-item class="px-0" :title="item.raw.name ?? ''">
+                <template #prepend>
+                  <platform-icon
+                    :size="35"
+                    :key="item.raw.slug"
+                    :slug="item.raw.slug"
+                  />
+                </template>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+        </v-col>
+        <v-col>
+          <v-btn
+            block
+            icon=""
+            class="text-romm-accent-1 bg-terciary"
+            rounded="0"
+            variant="text"
+            @click="triggerFileInput"
           >
-            <v-autocomplete
-              v-model="selectedPlatform"
-              label="Platform"
-              item-title="name"
-              :items="supportedPlatforms"
-              prepend-inner-icon="mdi-controller"
-              prepend-icon=""
-              return-object
-              clearable
-              hide-details
-            >
-              <template #item="{ props, item }">
-                <v-list-item
-                  class="py-2"
-                  v-bind="props"
-                  :title="item.raw.name ?? ''"
-                >
-                  <template #prepend>
-                    <v-avatar
-                      :rounded="0"
-                      size="35"
-                    >
-                      <platform-icon
-                        :key="item.raw.slug"
-                        :slug="item.raw.slug"
-                      />
-                    </v-avatar>
-                  </template>
-                </v-list-item>
-              </template>
-            </v-autocomplete>
-          </v-col>
-          <v-col>
-            <v-btn
-              block
-              icon=""
-              class="text-romm-accent-1 bg-terciary"
-              rounded="0"
-              variant="text"
-              @click="triggerFileInput"
-            >
-              <v-icon :class="{ 'mr-2': !xs }">
-                mdi-plus
-              </v-icon><span v-if="!xs">Add roms</span>
-            </v-btn>
-            <v-file-input
-              id="file-input"
-              v-model="romsToUpload"
-              class="file-input"
-              multiple
-              required
-              @keyup.enter="uploadRoms()"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-
-      <v-divider
-        class="border-opacity-25"
-        :thickness="1"
-      />
-
-      <v-card-text
+            <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
+            ><span v-if="!xs">Add</span>
+          </v-btn>
+          <v-file-input
+            id="file-input"
+            v-model="romsToUpload"
+            @update:model-value="updateDataTablePages"
+            class="file-input"
+            multiple
+            required
+          />
+        </v-col>
+      </v-row>
+    </template>
+    <template #content>
+      <v-data-table
         v-if="romsToUpload.length > 0"
-        class="scroll bg-terciary py-2 px-8"
+        :item-value="(item) => item.name"
+        :items="romsToUpload"
+        :width="mdAndUp ? '60vw' : '95vw'"
+        :items-per-page="itemsPerPage"
+        :items-per-page-options="PER_PAGE_OPTIONS"
+        :headers="HEADERS"
+        v-model:page="page"
+        hide-default-header
       >
-        <v-row
-          v-for="rom in romsToUpload"
-          :key="rom.name"
-          class="py-2 align-center"
-          no-gutters
-        >
-          <v-col
-            cols="8"
-            lg="9"
-          >
-            {{ rom.name }}
-          </v-col>
-          <v-col
-            cols="3"
-            lg="2"
-          >
-            [<span class="text-romm-accent-1">{{ formatBytes(rom.size) }}</span>]
-          </v-col>
-          <v-col cols="1">
-            <v-btn
-              icon
-              size="x-small"
-              rounded="0"
-              variant="text"
-              class="pa-0 ma-0"
-              @click="removeRomFromList(rom.name)"
-            >
-              <v-icon class="text-romm-red">
-                mdi-delete
-              </v-icon>
+        <template #item.name="{ item }">
+          <v-list-item class="px-0">
+            <v-row no-gutters>
+              <v-col>
+                {{ item.name }}
+              </v-col>
+            </v-row>
+            <v-row no-gutters v-if="!smAndUp">
+              <v-col>
+                <v-chip size="x-small" label>{{
+                  formatBytes(item.size)
+                }}</v-chip>
+              </v-col>
+            </v-row>
+            <template #append>
+              <v-chip v-if="smAndUp" class="ml-2" size="x-small" label>{{
+                formatBytes(item.size)
+              }}</v-chip>
+            </template>
+          </v-list-item>
+        </template>
+        <template #item.actions="{ item }">
+          <v-btn-group divided density="compact">
+            <v-btn @click="removeRomFromList(item.name)">
+              <v-icon class="text-romm-red"> mdi-close </v-icon>
             </v-btn>
-          </v-col>
-        </v-row>
-      </v-card-text>
-
-      <v-card-text class="my-4 py-0">
-        <v-row
-          class="justify-center px-2"
-          no-gutters
-        >
+          </v-btn-group>
+        </template>
+        <template #bottom>
+          <v-divider />
+          <v-row no-gutters class="pt-2 align-center justify-center">
+            <v-col class="px-6">
+              <v-pagination
+                v-model="page"
+                rounded="0"
+                :show-first-last-page="true"
+                active-color="romm-accent-1"
+                :length="pageCount"
+              />
+            </v-col>
+            <v-col cols="5" sm="3" xl="2">
+              <v-select
+                v-model="itemsPerPage"
+                class="pa-2"
+                label="Roms per page"
+                density="compact"
+                variant="outlined"
+                :items="PER_PAGE_OPTIONS"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+        </template>
+      </v-data-table>
+    </template>
+    <template #append>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             class="bg-terciary"
-            @click="closeDialog"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="text-romm-green ml-5 bg-terciary"
             :disabled="romsToUpload.length == 0 || selectedPlatform == null"
-            @click="uploadRoms()"
+            @click="uploadRoms"
           >
-            Upload
+            <span
+              :class="{
+                'text-romm-green': !(
+                  romsToUpload.length == 0 || selectedPlatform == null
+                ),
+              }"
+              >Upload</span
+            >
           </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
-
-<style scoped>
-.edit-content {
-  width: 900px;
-}
-
-.edit-content-tablet {
-  width: 570px;
-}
-
-.edit-content-mobile {
-  width: 85vw;
-}
-
-.file-input {
-  display: none;
-}
-
-.scroll {
-  overflow-y: scroll;
-}
-</style>

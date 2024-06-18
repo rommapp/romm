@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { inject } from "vue";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { inject } from "vue";
 
 // Props
 defineProps<{ rail?: boolean }>();
@@ -12,16 +12,11 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 <template>
   <v-btn
-    color="primary"
-    elevation="0"
+    rounded="0"
+    :icon="rail ? 'mdi-arrow-collapse-right' : 'mdi-arrow-collapse-left'"
+    size="small"
+    variant="text"
     block
     @click="emitter?.emit('toggleDrawerRail', null)"
-  >
-    <v-icon v-if="rail">
-      mdi-arrow-collapse-right
-    </v-icon>
-    <v-icon v-if="!rail">
-      mdi-arrow-collapse-left
-    </v-icon>
-  </v-btn>
+  />
 </template>

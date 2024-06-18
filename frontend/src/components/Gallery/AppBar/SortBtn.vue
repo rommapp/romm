@@ -28,14 +28,6 @@ function showSortBar() {
         icon="mdi-sort"
         v-bind="props"
         :color="isShowSortBar ? 'romm-accent-1' : ''"
-        @click="showSortBar"
-      />
-    </template>
-  </v-tooltip>
+        @click="showSortBar" /></template
+  ></v-tooltip>
 </template>
-<style scoped>
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
-}
-</style>

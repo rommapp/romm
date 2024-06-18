@@ -3,7 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useTheme, useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
 type ScanSource = {
   url_cover: string | undefined;
@@ -14,9 +14,8 @@ type ScanSource = {
 const show = ref(false);
 const sources = ref<ScanSource[]>([]);
 const theme = useTheme();
-const emit = defineEmits(["updateRom"]);
 const { xs } = useDisplay();
-
+const emit = defineEmits(["select:source"]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSelectSourceDialog", (matchedRom: SearchRomSchema) => {
   sources.value.push({
@@ -32,15 +31,16 @@ emitter?.on("showSelectSourceDialog", (matchedRom: SearchRomSchema) => {
   show.value = true;
 });
 
+// Functions
 function selectSource(matchedRom: SearchRomSchema, source: string) {
   if (source == "igdb") {
     emit(
-      "updateRom",
+      "select:source",
       Object.assign(matchedRom, { url_cover: matchedRom.igdb_url_cover })
     );
   } else if (source == "moby") {
     emit(
-      "updateRom",
+      "select:source",
       Object.assign(matchedRom, { url_cover: matchedRom.moby_url_cover })
     );
   }
@@ -61,20 +61,17 @@ function closeDialog() {
     width="auto"
     @update:model-value="closeDialog()"
   >
-    <v-row
-      class="justify-center"
-      no-gutters
-    >
+    <v-row class="justify-center" no-gutters>
       <v-col
         v-for="source in sources"
         :key="source.name"
         class="pa-2"
-        :class="{ cover: !xs, 'cover-xs': xs }"
+        :class="{ 'cover-desktop': !xs, 'cover-mobile': xs }"
       >
         <v-hover v-slot="{ isHovering, props }">
           <v-card
             v-bind="props"
-            class="matched-rom"
+            class="transform-scale"
             :class="{ 'on-hover': isHovering }"
             :elevation="isHovering ? 20 : 3"
             @click="selectSource(source.rom, source.name)"
@@ -97,10 +94,7 @@ function closeDialog() {
                   />
                 </div>
               </template>
-              <v-row
-                no-gutters
-                class="text-white pa-1"
-              >
+              <v-row no-gutters class="text-white pa-1">
                 <v-tooltip
                   location="top"
                   class="tooltip"
@@ -116,9 +110,7 @@ function closeDialog() {
                       size="30"
                       rounded="1"
                     >
-                      <v-img
-                        src="/assets/scrappers/igdb.png"
-                      />
+                      <v-img src="/assets/scrappers/igdb.png" />
                     </v-avatar>
                   </template>
                 </v-tooltip>
@@ -137,9 +129,7 @@ function closeDialog() {
                       size="30"
                       rounded="1"
                     >
-                      <v-img
-                        src="/assets/scrappers/moby.png"
-                      />
+                      <v-img src="/assets/scrappers/moby.png" />
                     </v-avatar>
                   </template>
                 </v-tooltip>
@@ -152,29 +142,12 @@ function closeDialog() {
   </v-dialog>
 </template>
 <style scoped>
-.cover {
+.cover-desktop {
   min-width: 270px;
   max-width: 270px;
 }
-.cover-xs {
+.cover-mobile {
   min-width: 180px;
   max-width: 180px;
-}
-.matched-rom {
-  transition-property: all;
-  transition-duration: 0.1s;
-}
-.matched-rom.on-hover {
-  z-index: 1 !important;
-  transform: scale(1.05);
-}
-.translucent {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
-}
-.tooltip :deep(.v-overlay__content) {
-  background: rgba(201, 201, 201, 0.98) !important;
-  color: rgb(41, 41, 41) !important;
 }
 </style>
