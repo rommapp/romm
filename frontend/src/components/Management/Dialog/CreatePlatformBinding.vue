@@ -3,6 +3,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import platformApi from "@/services/api/platform";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeConfig from "@/stores/config";
 import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
@@ -16,7 +17,8 @@ const show = ref(false);
 const configStore = storeConfig();
 const emitter = inject<Emitter<Events>>("emitter");
 const supportedPlatforms = ref<Platform[]>();
-const fsSlugToCreate = ref("");
+const heartbeat = storeHeartbeat();
+const fsSlugToCreate = ref<string>("");
 const selectedPlatform = ref<Platform>();
 emitter?.on(
   "showCreatePlatformBindingDialog",
@@ -96,7 +98,8 @@ function closeDialog() {
     <template #content>
       <v-row class="py-2 px-4 align-center" no-gutters>
         <v-col cols="6">
-          <v-text-field
+          <v-select
+            :items="heartbeat.value.FS_PLATFORMS"
             v-model="fsSlugToCreate"
             label="Folder name"
             variant="outlined"
@@ -106,7 +109,7 @@ function closeDialog() {
             <template #append>
               <v-icon icon="mdi-menu-right" class="mr-4 text-romm-gray" />
             </template>
-          </v-text-field>
+          </v-select>
         </v-col>
         <v-col cols="6">
           <v-autocomplete
