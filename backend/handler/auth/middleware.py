@@ -3,6 +3,7 @@ import typing
 from collections import namedtuple
 
 from joserfc import jwt
+from joserfc.jwk import OctKey
 from joserfc.errors import BadSignatureError
 from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection
@@ -42,14 +43,18 @@ class SessionMiddleware:
             self.jwt_secret = secret_key
 
         # check crypto setup so we bail out if needed
-        _jwt = jwt.encode({"alg": jwt_alg}, {"1": 2}, key=str(self.jwt_secret.encode))
+        _jwt = jwt.encode(
+            {"alg": jwt_alg},
+            {"1": 2},
+            key=OctKey.import_key(str(self.jwt_secret.encode)),
+        )
         token = jwt.decode(
             _jwt,
-            key=str(
+            key=OctKey.import_key(str(
                 self.jwt_secret.decode
                 if self.jwt_secret.decode
                 else self.jwt_secret.encode
-            ),
+            )),
         )
         assert token.claims == {"1": 2}, "wrong crypto setup"
         assert token.header == {"typ": "JWT", "alg": jwt_alg}, "wrong crypto setup"
@@ -89,11 +94,11 @@ class SessionMiddleware:
             try:
                 jwt_payload = jwt.decode(
                     data,
-                    key=str(
+                    key=OctKey.import_key(str(
                         self.jwt_secret.decode
                         if self.jwt_secret.decode
                         else self.jwt_secret.encode
-                    ),
+                    )),
                 )
 
                 jwt_claims = self._validate_jwt_payload(jwt_payload)
@@ -113,7 +118,7 @@ class SessionMiddleware:
                     data = jwt.encode(
                         {"alg": self.jwt_alg},
                         scope["session"],
-                        key=str(self.jwt_secret.encode),
+                        key=OctKey.import_key(str(self.jwt_secret.encode)),
                     )
 
                     headers = MutableHeaders(scope=message)
