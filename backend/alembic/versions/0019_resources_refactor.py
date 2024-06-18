@@ -59,18 +59,29 @@ def upgrade() -> None:
             )
 
         quoted_rom_name = re.escape(quote(rom.name))
-        updated_path_cover_s = re.sub(quoted_rom_name, str(rom.id), rom.path_cover_s)
+        quoted_platform_slug = re.escape(quote(platform_slug))
+        updated_path_cover_s = re.sub(
+            quoted_platform_slug,
+            str(rom.platform_id),
+            re.sub(quoted_rom_name, str(rom.id), rom.path_cover_s),
+        )
         connection.execute(
             sa.text("UPDATE roms SET path_cover_s = :path_cover_s WHERE id = :id"),
             {"path_cover_s": updated_path_cover_s, "id": rom.id},
         )
-        updated_path_cover_l = re.sub(quoted_rom_name, str(rom.id), rom.path_cover_l)
+        updated_path_cover_l = re.sub(
+            quoted_platform_slug,
+            str(rom.platform_id),
+            re.sub(quoted_rom_name, str(rom.id), rom.path_cover_l),
+        )
         connection.execute(
             sa.text("UPDATE roms SET path_cover_l = :path_cover_l WHERE id = :id"),
             {"path_cover_l": updated_path_cover_l, "id": rom.id},
         )
         updated_path_screenshots = re.sub(
-            quoted_rom_name, str(rom.id), rom.path_screenshots
+            quoted_platform_slug,
+            str(rom.platform_id),
+            re.sub(quoted_rom_name, str(rom.id), rom.path_screenshots),
         )
         connection.execute(
             sa.text(
