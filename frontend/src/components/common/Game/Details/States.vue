@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { StateSchema } from "@/__generated__";
-import stateApi from "@/services/api/state";
-import UploadStatesDialog from "@/components/Dialog/Asset/UploadStates.vue";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
+import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
