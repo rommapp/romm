@@ -136,17 +136,6 @@ function onEditNote() {
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
-      <!-- <v-list>
-        <v-list-item v-for="note in publicNotes" :key="note.id">
-          <v-list-item-title>{{ note.user__username }}</v-list-item-title>
-          <MdPreview
-            :model-value="note.raw_markdown"
-            :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-            preview-theme="vuepress"
-            code-theme="github"
-          />
-        </v-list-item>
-      </v-list> -->
     </v-card-text>
   </v-card>
 </template>
