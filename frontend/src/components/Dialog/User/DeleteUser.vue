@@ -57,7 +57,6 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
-    scroll-content
     :width="lgAndUp ? '45vw' : '95vw'"
   >
     <template #content>

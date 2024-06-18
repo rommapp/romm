@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
+const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
@@ -18,7 +22,7 @@ emitter?.on("showDeletePlatformVersionDialog", ({ fsSlug, slug }) => {
 });
 
 // Functions
-function removeVersionPlatform() {
+function deleteVersionPlatform() {
   configApi
     .deletePlatformVersionConfig({ fsSlug: fsSlugToDelete.value })
     .then(() => {
@@ -40,55 +44,36 @@ function closeDialog() {
 }
 </script>
 <template>
-  <!-- TODO: unify refactor dialog -->
-  <v-dialog
+  <r-dialog
+    @close="closeDialog"
     v-model="show"
-    width="auto"
-    no-click-animation
-    persistent
-    :scrim="true"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
+    icon="mdi-delete"
+    :width="lgAndUp ? '45vw' : '95vw'"
   >
-    <v-card>
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="10">
-            <v-icon icon="mdi-delete" class="ml-5 mr-2" />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider />
-
-      <v-card-text>
-        <v-row class="justify-center pa-2" no-gutters>
-          <span class="mr-1">Deleting platform version [</span>
-          <span class="text-romm-accent-1 mr-1">{{ fsSlugToDelete }}</span>
-          <span>:</span>
-          <span class="text-romm-accent-1 ml-1">{{ slugToDelete }}</span
-          ><span class="ml-1">].</span>
-          <span class="ml-1">Do you confirm?</span>
-        </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+    <template #content>
+      <v-row class="justify-center pa-2 align-center" no-gutters>
+        <span class="mr-1">Deleting platform binding</span>
+        <platform-icon class="mx-2" :key="slugToDelete" :slug="slugToDelete" />
+        <span>[</span>
+        <span class="text-romm-accent-1 ml-1"> {{ fsSlugToDelete }}</span>
+        <span class="mx-1">:</span>
+        <span class="text-romm-accent-1">{{ slugToDelete }}</span>
+        <span class="ml-1">].</span>
+        <span class="ml-1">Do you confirm?</span>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
-            class="text-romm-red bg-terciary ml-5"
-            @click="removeVersionPlatform"
+            class="bg-terciary text-romm-red"
+            @click="deleteVersionPlatform"
           >
             Confirm
           </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
