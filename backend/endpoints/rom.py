@@ -331,16 +331,37 @@ async def update_rom(
         )
         cleaned_data.update({"url_cover": ""})
     else:
-        cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
-        path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
-            overwrite=True,
-            platform_id=db_rom.platform_id,
-            rom_id=id,
-            url_cover=cleaned_data.get("url_cover", ""),
-        )
-        cleaned_data.update(
-            {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
-        )
+        if artwork is not None:
+            file_ext = artwork.filename.split(".")[-1]
+            (
+                path_cover_l,
+                path_cover_s,
+                artwork_path,
+            ) = fs_resource_handler.build_artwork_path(id, db_rom.platform_id, file_ext)
+
+            cleaned_data["path_cover_l"] = path_cover_l
+            cleaned_data["path_cover_s"] = path_cover_s
+
+            artwork_file = artwork.file.read()
+            file_location_s = f"{artwork_path}/small.{file_ext}"
+            with open(file_location_s, "wb+") as artwork_s:
+                artwork_s.write(artwork_file)
+                fs_resource_handler.resize_cover_to_small(file_location_s)
+
+            file_location_l = f"{artwork_path}/big.{file_ext}"
+            with open(file_location_l, "wb+") as artwork_l:
+                artwork_l.write(artwork_file)
+        else:
+            cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
+            path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
+                overwrite=True,
+                platform_id=db_rom.platform_id,
+                rom_id=id,
+                url_cover=cleaned_data.get("url_cover", ""),
+            )
+            cleaned_data.update(
+                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+            )
 
     if (
         cleaned_data["igdb_id"] != db_rom.igdb_id
@@ -352,26 +373,6 @@ async def update_rom(
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
-
-    if artwork is not None:
-        file_ext = artwork.filename.split(".")[-1]
-        (
-            path_cover_l,
-            path_cover_s,
-            artwork_path,
-        ) = fs_resource_handler.build_artwork_path(id, db_rom.platform_id, file_ext)
-
-        cleaned_data["path_cover_l"] = path_cover_l
-        cleaned_data["path_cover_s"] = path_cover_s
-
-        artwork_file = artwork.file.read()
-        file_location_s = f"{artwork_path}/small.{file_ext}"
-        with open(file_location_s, "wb+") as artwork_s:
-            artwork_s.write(artwork_file)
-
-        file_location_l = f"{artwork_path}/big.{file_ext}"
-        with open(file_location_l, "wb+") as artwork_l:
-            artwork_l.write(artwork_file)
 
     db_rom_handler.update_rom(id, cleaned_data)
 
@@ -410,7 +411,7 @@ async def delete_roms(
         db_rom_handler.delete_rom(id)
 
         try:
-            rmtree(f"{RESOURCES_BASE_PATH}/{rom.platform_slug}/{rom.id}")
+            rmtree(f"{RESOURCES_BASE_PATH}/{rom.platform_id}/{rom.id}")
         except FileNotFoundError:
             log.error(f"Couldn't find resources to delete for {rom.name}")
 

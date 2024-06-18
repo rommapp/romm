@@ -22,6 +22,7 @@ from handler.redis_handler import high_prio_queue, redis_client, redis_url
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
 from logger.logger import log
+from models.rom import Rom
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
@@ -40,8 +41,38 @@ class ScanStats:
 
 
 def _get_socket_manager():
-    # Connect to external socketio server
+    """Connect to external socketio server"""
     return socketio.AsyncRedisManager(redis_url, write_only=True)
+
+
+def _should_scan_rom(scan_type: ScanType, rom: Rom, selected_roms: list):
+    """Decide if a rom should be scanned or not
+
+    Args:
+        scan_type (str): Type of scan to be performed.
+        selected_roms (list[str], optional): List of selected roms to be scanned.
+        metadata_sources (list[str], optional): List of metadata sources to be used
+    """
+
+    # This logic is tricky so only touch it if you know what you're doing"""
+    return (
+        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        or (scan_type == ScanType.COMPLETE)
+        or (
+            rom
+            and (
+                (
+                    scan_type == ScanType.UNIDENTIFIED
+                    and not (rom.igdb_id or rom.moby_id)
+                )
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and (not rom.igdb_id or not rom.moby_id)
+                )
+                or (rom.id in selected_roms)
+            )
+        )
+    )
 
 
 async def scan_platforms(
@@ -178,26 +209,9 @@ async def scan_platforms(
                     platform.id, fs_rom["file_name"]
                 )
 
-                # This logic is tricky so only touch it if you know what you're doing
-                should_scan_rom = (
-                    (scan_type == ScanType.NEW_PLATFORMS and not rom)
-                    or (scan_type == ScanType.QUICK and not rom)
-                    or (
-                        scan_type == ScanType.UNIDENTIFIED
-                        and rom
-                        and not rom.igdb_id
-                        and not rom.moby_id
-                    )
-                    or (
-                        scan_type == ScanType.PARTIAL
-                        and rom
-                        and (not rom.igdb_id or not rom.moby_id)
-                    )
-                    or (scan_type == ScanType.COMPLETE)
-                    or rom.id in selected_roms
-                )
-
-                if should_scan_rom:
+                if _should_scan_rom(
+                    scan_type=scan_type, rom=rom, selected_roms=selected_roms
+                ):
                     scanned_rom = await scan_rom(
                         platform=platform,
                         rom_attrs=fs_rom,

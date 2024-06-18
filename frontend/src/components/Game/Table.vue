@@ -125,7 +125,7 @@ onMounted(() => {
                 !item.igdb_id && !item.moby_id
                   ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
                   : item.has_cover
-                  ? `/assets/romm/resources/${item.path_cover_l}`
+                  ? `/assets/romm/resources/${item.path_cover_s}`
                   : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
               "
             />
