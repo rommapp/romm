@@ -19,8 +19,6 @@ const galleryFilterStore = storeGalleryFilter();
 const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-// TODO: remove emitter
-// TODO: same behaviour on filter drawer
 const HEADERS = [
   {
     title: "Firmware",
