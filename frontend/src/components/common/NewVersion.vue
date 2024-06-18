@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
-import { onBeforeMount, ref } from "vue";
+import semver from "semver";
+import { onMounted, ref } from "vue";
 
 // Props
 const heartbeat = storeHeartbeat();
@@ -13,20 +14,21 @@ function dismissVersionBanner() {
   localStorage.setItem("dismissedVersion", GITHUB_VERSION.value);
   latestVersionDismissed.value = true;
 }
-onBeforeMount(async () => {
+onMounted(async () => {
   const response = await fetch(
     "https://api.github.com/repos/rommapp/romm/releases/latest"
   );
   const json = await response.json();
   GITHUB_VERSION.value = json.tag_name;
   latestVersionDismissed.value =
-    VERSION === "development" ||
+    !semver.valid(VERSION) ||
     json.tag_name === localStorage.getItem("dismissedVersion");
 });
 </script>
 
 <template>
   <v-overlay
+    v-if="semver.valid(VERSION)"
     :model-value="true"
     persistent
     no-click-animation
@@ -37,7 +39,9 @@ onBeforeMount(async () => {
     <v-slide-y-transition>
       <v-card
         v-if="
-          GITHUB_VERSION && VERSION < GITHUB_VERSION && !latestVersionDismissed
+          GITHUB_VERSION &&
+          semver.gt(GITHUB_VERSION, VERSION) &&
+          !latestVersionDismissed
         "
         class="pa-1 border-romm-accent-1"
         rounded="0"
