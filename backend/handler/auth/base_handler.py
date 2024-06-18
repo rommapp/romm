@@ -5,6 +5,7 @@ from config import ROMM_AUTH_PASSWORD, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_USERNAME
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
+from joserfc.jwk import OctKey
 from joserfc.errors import BadSignatureError
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
@@ -124,13 +125,13 @@ class OAuthHandler:
 
         to_encode.update({"exp": expire})
 
-        return jwt.encode({"alg": ALGORITHM}, to_encode, ROMM_AUTH_SECRET_KEY)
+        return jwt.encode({"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
 
     async def get_current_active_user_from_bearer_token(self, token: str):
         from handler.database import db_user_handler
 
         try:
-            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
+            payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
         except (BadSignatureError, ValueError) as exc:
             raise OAuthCredentialsException from exc
 
