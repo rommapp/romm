@@ -6,6 +6,7 @@ import requests
 from config import RESOURCES_BASE_PATH
 from fastapi import HTTPException, status
 from logger.logger import log
+from PIL import Image
 from urllib3.exceptions import ProtocolError
 
 from .base_handler import CoverSize, FSHandler
@@ -31,6 +32,16 @@ class FSResourcesHandler(FSHandler):
                 f"{RESOURCES_BASE_PATH}/{platform_id}/{rom_id}/cover/{size.value}.png"
             )
         )
+
+    @staticmethod
+    def resize_cover_to_small(cover_path: str):
+        """Path of the cover image to resize"""
+        cover = Image.open(cover_path)
+        small_width = int(cover.width * 0.1)
+        small_height = int(cover.height * 0.1)
+        small_size = (small_width, small_height)
+        small_img = cover.resize(small_size)
+        small_img.save(cover_path)
 
     def _store_cover(
         self, platform_id: int, rom_id: int, url_cover: str, size: CoverSize
@@ -71,6 +82,8 @@ class FSResourcesHandler(FSHandler):
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
                 shutil.copyfileobj(res.raw, f)
+            if size == CoverSize.SMALL:
+                self.resize_cover_to_small(f"{cover_path}/{cover_file}")
 
     @staticmethod
     def _get_cover_path(platform_id: int, rom_id: int, size: CoverSize):
@@ -114,13 +127,12 @@ class FSResourcesHandler(FSHandler):
         platform_id: int,
     ):
         try:
-            shutil.rmtree(
-                os.path.join(
-                    RESOURCES_BASE_PATH, str(platform_id), str(rom_id), "cover"
-                )
+            cover_path = os.path.join(
+                RESOURCES_BASE_PATH, str(platform_id), str(rom_id), "cover"
             )
+            shutil.rmtree(cover_path)
         except FileNotFoundError:
-            log.warning(f"Couldn't remove {rom_id} cover")
+            log.warning(f"Couldn't remove {rom_id} cover. {cover_path} doesn't exists.")
         return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
