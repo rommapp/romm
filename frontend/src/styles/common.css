@@ -1,0 +1,69 @@
+html,
+body {
+  background-color: rgba(var(--v-theme-background)) !important;
+  overflow-y: auto;
+}
+.text-shadow {
+  text-shadow:
+    1px 1px 3px #000000,
+    0 0 3px #000000 !important;
+}
+.translucent {
+  backdrop-filter: blur(3px) !important;
+  text-shadow:
+    1px 1px 1px #000000,
+    0 0 1px #000000 !important;
+}
+.translucent-dark {
+  background: rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(10px) !important;
+  text-shadow:
+    1px 1px 1px #000000,
+    0 0 1px #000000 !important;
+}
+.tooltip :deep(.v-overlay__content) {
+  background: rgba(255, 255, 255, 1) !important;
+  color: rgb(41, 41, 41) !important;
+}
+.scroll {
+  overflow-x: visible !important;
+  overflow-y: auto !important;
+}
+.scroll-hidden {
+  overflow: hidden;
+}
+.emoji-collection {
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 70%,
+    transparent 100%
+  ) !important;
+}
+.emoji {
+  margin: 0 2px !important;
+}
+.file-input {
+  display: none !important;
+}
+.transform-scale {
+  transition-property: all !important;
+  transition-duration: 0.1s !important;
+}
+.transform-scale.on-hover {
+  transform: scale(1.05) !important;
+}
+.pointer {
+  cursor: pointer !important;
+}
+/*
+Calculation to fix 100dvh:
+gallery-app-bar -> 48px
+mobile-app-bar  -> 56px
+*/
+.fill-height-desktop {
+  height: calc(100dvh - 48px) !important;
+}
+.fill-height-mobile {
+  height: calc(100dvh - 104px) !important;
+}

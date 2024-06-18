@@ -15,7 +15,7 @@ async function scan() {
   if (!socket.connected) socket.connect();
 
   socket.emit("scan", {
-    platforms: [romsStore.platformID],
+    platforms: [romsStore.currentPlatform?.id],
     type: "quick",
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
@@ -23,16 +23,9 @@ async function scan() {
 </script>
 
 <template>
-  <v-list-item
-    v-if="romsStore.platformID"
-    class="py-4 pr-5"
-    @click="scan"
-  >
+  <v-list-item v-if="romsStore.currentPlatform?.id" class="py-4 pr-5" @click="scan">
     <v-list-item-title class="d-flex">
-      <v-icon
-        icon="mdi-magnify-scan"
-        class="mr-2"
-      />
+      <v-icon icon="mdi-magnify-scan" class="mr-2" />
       Scan platform
     </v-list-item-title>
   </v-list-item>

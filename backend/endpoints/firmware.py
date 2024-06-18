@@ -2,7 +2,7 @@ from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
@@ -14,7 +14,9 @@ router = APIRouter()
 
 @protected_route(router.post, "/firmware", ["firmware.write"])
 def add_firmware(
-    request: Request, platform_id: int, files: list[UploadFile] | None = None
+    request: Request,
+    platform_id: int,
+    files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
 
@@ -178,7 +180,7 @@ async def delete_firmware(
 
     data: dict = await request.json()
     firmare_ids: list = data["firmware"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     for id in firmare_ids:
         firmware = db_firmware_handler.get_firmware(id)
@@ -190,7 +192,7 @@ async def delete_firmware(
         log.info(f"Deleting {firmware.file_name} from database")
         db_firmware_handler.delete_firmware(id)
 
-        if delete_from_fs:
+        if id in delete_from_fs:
             log.info(f"Deleting {firmware.file_name} from filesystem")
             try:
                 fs_firmware_handler.remove_file(

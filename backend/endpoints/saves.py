@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
@@ -14,7 +14,7 @@ router = APIRouter()
 def add_saves(
     request: Request,
     rom_id: int,
-    saves: list[UploadFile] | None = None,
+    saves: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_roms(rom_id)
@@ -101,7 +101,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
 async def delete_saves(request: Request) -> MessageResponse:
     data: dict = await request.json()
     save_ids: list = data["saves"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     if not save_ids:
         error = "No saves were provided"
@@ -122,7 +122,7 @@ async def delete_saves(request: Request) -> MessageResponse:
 
         db_save_handler.delete_save(save_id)
 
-        if delete_from_fs:
+        if save_id in delete_from_fs:
             log.info(f"Deleting {save.file_name} from filesystem")
 
             try:

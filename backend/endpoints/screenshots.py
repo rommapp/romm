@@ -1,6 +1,6 @@
 from decorators.auth import protected_route
 from endpoints.responses.assets import UploadedScreenshotsResponse
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot
@@ -11,7 +11,9 @@ router = APIRouter()
 
 @protected_route(router.post, "/screenshots", ["assets.write"])
 def add_screenshots(
-    request: Request, rom_id: int, screenshots: list[UploadFile] | None = None
+    request: Request,
+    rom_id: int,
+    screenshots: list[UploadFile] = File(...),  # noqa: B008
 ) -> UploadedScreenshotsResponse:
     rom = db_rom_handler.get_roms(rom_id)
     current_user = request.user

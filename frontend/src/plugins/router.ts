@@ -15,38 +15,49 @@ const routes = [
       {
         path: "/",
         name: "dashboard",
-        component: () => import("@/views/Dashboard/Base.vue"),
+        component: () => import("@/views/Dashboard.vue"),
       },
       {
         path: "/platform/:platform",
         name: "platform",
-        component: () => import("@/views/Gallery/Base.vue"),
+        component: () => import("@/views/Gallery.vue"),
       },
       {
         path: "/rom/:rom",
         name: "rom",
-        component: () => import("@/views/Details/Base.vue"),
+        component: () => import("@/views/GameDetails.vue"),
+      },
+      {
+        path: "/rom/:rom/play",
+        name: "play",
+        component: () => import("@/views/Play/Base.vue"),
       },
       {
         path: "/library/scan",
-        name: "scan",
-        component: () => import("@/views/Library/Scan/Base.vue"),
+        name: "libraryScan",
+        component: () => import("@/views/Library/Scan.vue"),
       },
       {
-        path: "/settings/control-panel/",
-        name: "controlPanel",
-        component: () => import("@/views/Settings/ControlPanel/Base.vue"),
+        path: "/library/configuration",
+        name: "libraryConfig",
+        component: () => import("@/views/Library/Config.vue"),
+      },
+      {
+        path: "/settings/general",
+        name: "settingsGeneral",
+        component: () => import("@/views/Settings/General.vue"),
+      },
+      {
+        path: "/settings/users",
+        name: "settingsUsers",
+        component: () => import("@/views/Settings/Users.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Dashboard/Base.vue"),
+        component: () => import("@/views/Dashboard.vue"),
       },
     ],
-  },
-  {
-    path: "/play/:rom",
-    component: () => import("@/views/Play/Base.vue"),
   },
 ];
 
