@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import DeleteAssetDialog from "@/components/Dialog/Asset/DeleteAssets.vue";
-import CreateExclusionDialog from "@/components/Dialog/Config/CreateExclusion.vue";
-import CreatePlatformBindingDialog from "@/components/Dialog/Config/CreatePlatformBinding.vue";
-import CreatePlatformVersionDialog from "@/components/Dialog/Config/CreatePlatformVersion.vue";
-import DeletePlatformBindingDialog from "@/components/Dialog/Config/DeletePlatformBinding.vue";
-import DeletePlatformVersionDialog from "@/components/Dialog/Config/DeletePlatformVersion.vue";
+import CreateExclusionDialog from "@/components/Dialog/Management/CreateExclusion.vue";
+import CreatePlatformBindingDialog from "@/components/Dialog/Management/CreatePlatformBinding.vue";
+import CreatePlatformVersionDialog from "@/components/Dialog/Management/CreatePlatformVersion.vue";
+import DeletePlatformBindingDialog from "@/components/Dialog/Management/DeletePlatformBinding.vue";
+import DeletePlatformVersionDialog from "@/components/Dialog/Management/DeletePlatformVersion.vue";
 import DeletePlatformDialog from "@/components/Dialog/Platform/DeletePlatform.vue";
 import CopyRomDownloadLinkDialog from "@/components/Dialog/Rom/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/Dialog/Rom/DeleteRom.vue";

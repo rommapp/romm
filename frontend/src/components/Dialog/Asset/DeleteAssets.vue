@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SaveSchema, StateSchema } from "@/__generated__";
-import RDialog from "@/components/common/Dialog.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeRoms, { type DetailedRom } from "@/stores/roms";

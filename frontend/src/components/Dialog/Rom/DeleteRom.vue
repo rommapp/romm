@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import RAvatar from "@/components/Game/Avatar.vue";
-import RDialog from "@/components/common/Dialog.vue";
+import RAvatar from "@/components/common/Game/Avatar.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";

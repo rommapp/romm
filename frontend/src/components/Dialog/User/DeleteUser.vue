@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/Dialog.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import type { Events, UserItem } from "@/types/emitter";

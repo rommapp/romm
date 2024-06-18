@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import GameCard from "@/components/Game/Card/Base.vue";
-import RDialog from "@/components/common/Dialog.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import GameCard from "@/components/Game/Card/Base.vue";
-import GameCardFlags from "@/components/Game/Card/Flags.vue";
-import PlatformIcon from "@/components/Platform/Icon.vue";
-import RDialog from "@/components/common/Dialog.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -119,7 +119,6 @@ onBeforeUnmount(() => {
             v-model="searchValue"
             label="Search"
             hide-details
-            prepend-inner-icon="mdi-disc"
             class="bg-terciary"
           />
         </v-col>

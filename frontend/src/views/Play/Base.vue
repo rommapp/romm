@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import RAvatar from "@/components/Game/Avatar.vue";
+import RAvatar from "@/components/common/Game/Avatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";

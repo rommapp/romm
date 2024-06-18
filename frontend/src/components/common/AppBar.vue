@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlatformListItem from "@/components/Platform/ListItem.vue";
+import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import RommIso from "@/components/common/RommIso.vue";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
@@ -102,13 +102,13 @@ async function logout() {
         <v-list rounded="0" class="bg-terciary pa-0">
           <v-list-item
             append-icon="mdi-magnify-scan"
-            :to="{ name: 'libraryScan' }"
+            :to="{ name: 'scan' }"
           >
             Scan
           </v-list-item>
           <v-list-item
             append-icon="mdi-table-cog"
-            :to="{ name: 'libraryManagement' }"
+            :to="{ name: 'management' }"
             >Management
           </v-list-item>
         </v-list>
@@ -172,13 +172,13 @@ async function logout() {
             <v-list rounded="0" class="bg-terciary pa-0">
               <v-list-item
                 append-icon="mdi-magnify-scan"
-                :to="{ name: 'libraryScan' }"
+                :to="{ name: 'scan' }"
               >
                 Scan
               </v-list-item>
               <v-list-item
                 append-icon="mdi-table-cog"
-                :to="{ name: 'libraryManagement' }"
+                :to="{ name: 'management' }"
                 >Management
               </v-list-item>
             </v-list>
@@ -246,12 +246,12 @@ async function logout() {
             </v-list-item>
           </v-img>
           <v-list rounded="0" class="bg-terciary pa-0">
-            <v-list-item :to="{ name: 'settingsGeneral' }" append-icon="mdi-cog"
-              >Configuration</v-list-item
+            <v-list-item :to="{ name: 'settings' }" append-icon="mdi-cog"
+              >Settings</v-list-item
             >
             <v-list-item
               v-if="auth.scopes.includes('users.write')"
-              :to="{ name: 'settingsUsers' }"
+              :to="{ name: 'administration' }"
               append-icon="mdi-security"
               >Administration</v-list-item
             >

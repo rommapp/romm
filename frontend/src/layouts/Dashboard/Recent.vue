@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import GameCard from "@/components/Game/Card/Base.vue";
-import RSection from "@/components/common/Section.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";

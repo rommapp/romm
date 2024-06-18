@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
-import GameCard from "@/components/Game/Card/Base.vue";
-import RDialog from "@/components/common/Dialog.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
