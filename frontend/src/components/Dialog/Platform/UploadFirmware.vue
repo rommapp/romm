@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/Dialog.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import firmwareApi from "@/services/api/firmware";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";

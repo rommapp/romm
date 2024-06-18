@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import GameCard from "@/components/Game/Card/Base.vue";
-import GameCardFlags from "@/components/Game/Card/Flags.vue";
-import GameDataTable from "@/components/Game/Table.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
+import GameDataTable from "@/components/common/Game/Table.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
 import platformApi from "@/services/api/platform";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/Dialog.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
@@ -7,7 +7,7 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import PlatformIcon from "@/components/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 
 const router = useRouter();
 const { lgAndUp } = useDisplay();

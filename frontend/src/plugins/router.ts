@@ -33,23 +33,23 @@ const routes = [
         component: () => import("@/views/Play/Base.vue"),
       },
       {
-        path: "/library/scan",
-        name: "libraryScan",
-        component: () => import("@/views/Library/Scan.vue"),
+        path: "/scan",
+        name: "scan",
+        component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/library/management",
-        name: "libraryManagement",
-        component: () => import("@/views/Library/Config.vue"),
+        path: "/management",
+        name: "management",
+        component: () => import("@/views/Management.vue"),
       },
       {
-        path: "/configuration",
-        name: "settingsGeneral",
-        component: () => import("@/views/Configuration.vue"),
+        path: "/settings",
+        name: "settings",
+        component: () => import("@/views/Settings.vue"),
       },
       {
         path: "/administration",
-        name: "settingsUsers",
+        name: "administration",
         component: () => import("@/views/Administration.vue"),
       },
       {

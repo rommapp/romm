@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/Platform/Icon.vue";
-import RDialog from "@/components/common/Dialog.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";

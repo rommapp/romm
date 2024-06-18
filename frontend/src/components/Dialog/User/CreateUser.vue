@@ -5,7 +5,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
-import RDialog from "@/components/common/Dialog.vue";
+import RDialog from "@/components/common/RDialog.vue";
 
 // Props
 const user = ref({

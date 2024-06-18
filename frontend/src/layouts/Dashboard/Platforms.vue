@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PlatformCard from "@/components/Platform/Card.vue";
-import RSection from "@/components/common/Section.vue";
+import PlatformCard from "@/components/common/Platform/Card.vue";
+import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
 import { views } from "@/utils";
 

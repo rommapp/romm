@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/Dialog.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
