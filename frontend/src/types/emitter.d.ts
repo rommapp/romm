@@ -68,7 +68,6 @@ export type Events = {
   };
   openFabMenu: boolean;
   filter: null;
-  filterDrawerShow: null;
   firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;

@@ -9,12 +9,9 @@ import { inject, nextTick, ref } from "vue";
 // Props
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filterDrawerShow", () => {
-  show.value = !show.value;
-});
-
 const galleryFilterStore = storeGalleryFilter();
 const {
+  activeFilterDrawer,
   selectedGenre,
   filterGenres,
   selectedFranchise,
@@ -24,7 +21,6 @@ const {
   selectedCompany,
   filterCompanies,
 } = storeToRefs(galleryFilterStore);
-
 const filters = [
   {
     label: "Genre",
@@ -64,7 +60,7 @@ function resetFilters() {
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     floating
     width="300"
-    v-model="show"
+    v-model="activeFilterDrawer"
     :mobile="true"
   >
     <v-list>
