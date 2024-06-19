@@ -18,6 +18,7 @@ import LoadingView from "@/components/common/LoadingView.vue";
 import NewVersion from "@/components/common/NewVersion.vue";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
+import RommIso from "@/components/common/RommIso.vue";
 import identityApi from "@/services/api/identity";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
@@ -53,6 +54,31 @@ const settingsDrawer = ref(false);
 const actionsDrawer = ref(false);
 
 // Functions
+function goHome() {
+  platformsDrawer.value = false;
+  settingsDrawer.value = false;
+  router.push({ name: "dashboard" });
+}
+function goScan() {
+  platformsDrawer.value = false;
+  settingsDrawer.value = false;
+  router.push({ name: "scan" });
+}
+function togglePlatformsDrawer() {
+  platformsDrawer.value = !platformsDrawer.value;
+  settingsDrawer.value = false;
+  actionsDrawer.value = false;
+}
+function toggleSettingsDrawer() {
+  platformsDrawer.value = false;
+  settingsDrawer.value = !settingsDrawer.value;
+  actionsDrawer.value = false;
+}
+function toggleActionsDrawer() {
+  platformsDrawer.value = false;
+  settingsDrawer.value = false;
+  actionsDrawer.value = !actionsDrawer.value;
+}
 async function logout() {
   identityApi
     .logout()
@@ -102,6 +128,95 @@ onMounted(() => {
   />
 
   <!-- TODO: refactor and extract components -->
+  <v-navigation-drawer
+    :floating="platformsDrawer || settingsDrawer"
+    rail
+    rail-width="60"
+  >
+    <template #prepend>
+      <v-row no-gutters class="my-2 justify-center">
+        <router-link :to="{ name: 'dashboard' }">
+          <v-hover v-slot="{ isHovering, props: hoverProps }">
+            <romm-iso
+              v-bind="hoverProps"
+              :class="{ 'border-romm-accent-1': isHovering }"
+              :size="40"
+            />
+          </v-hover>
+        </router-link>
+      </v-row>
+      <v-row no-gutters class="my-4 justify-center">
+        <v-btn
+          v-if="auth.scopes.includes('roms.write')"
+          icon="mdi-upload"
+          variant="flat"
+          @click="emitter?.emit('showUploadRomDialog', null)"
+        />
+        <v-btn
+          icon="mdi-magnify"
+          variant="flat"
+          @click="emitter?.emit('showSearchRomDialog', null)"
+        />
+      </v-row>
+    </template>
+    <v-row no-gutters class="justify-center">
+      <v-btn
+        block
+        rounded="0"
+        variant="flat"
+        :color="platformsDrawer ? 'terciary' : ''"
+        icon
+        @click="togglePlatformsDrawer"
+        ><v-icon :color="$route.name == 'platform' ? 'romm-accent-1' : ''"
+          >mdi-controller</v-icon
+        ></v-btn
+      >
+      <v-btn
+        v-if="auth.scopes.includes('platforms.write')"
+        block
+        rounded="0"
+        variant="flat"
+        color="primary"
+        icon
+        @click="goScan"
+        ><v-icon :color="$route.name == 'scan' ? 'romm-accent-1' : ''"
+          >mdi-magnify-scan</v-icon
+        ></v-btn
+      >
+    </v-row>
+    <template #append>
+      <v-row no-gutters class="justify-center">
+        <v-btn
+          block
+          rounded="0"
+          variant="flat"
+          :color="settingsDrawer ? 'terciary' : ''"
+          icon
+          @click="toggleSettingsDrawer"
+          ><v-icon
+            :color="
+              $route.name == 'settings' ||
+              $route.name == 'management' ||
+              $route.name == 'administration'
+                ? 'romm-accent-1'
+                : ''
+            "
+            >mdi-cog</v-icon
+          ></v-btn
+        >
+        <v-avatar size="35" class="my-2">
+          <v-img
+            :src="
+              auth.user?.avatar_path
+                ? `/assets/romm/assets/${auth.user?.avatar_path}`
+                : defaultAvatarPath
+            "
+          />
+        </v-avatar>
+      </v-row>
+    </template>
+  </v-navigation-drawer>
+
   <v-navigation-drawer
     :location="mdAndDown ? 'bottom' : 'left'"
     mobile
@@ -210,6 +325,35 @@ onMounted(() => {
 
   <new-version />
   <router-view :key="refreshView" />
+
+  <v-bottom-navigation
+    v-if="mdAndDown"
+    :elevation="0"
+    class="bg-primary"
+    mode="shift"
+    height="45"
+  >
+    <v-btn @click="goHome">
+      <v-icon>mdi-home</v-icon>
+      <span>Home</span>
+    </v-btn>
+    <v-btn @click="togglePlatformsDrawer">
+      <v-icon>mdi-controller</v-icon>
+      <span>Platforms</span>
+    </v-btn>
+    <v-btn v-if="auth.scopes.includes('platforms.write')" @click="goScan">
+      <v-icon>mdi-magnify-scan</v-icon>
+      <span>Scan</span>
+    </v-btn>
+    <v-btn @click="toggleSettingsDrawer">
+      <v-icon>mdi-cog</v-icon>
+      <span>Settings</span>
+    </v-btn>
+    <v-btn @click="toggleActionsDrawer">
+      <v-icon>mdi-dots-horizontal</v-icon>
+      <span>Actions</span>
+    </v-btn>
+  </v-bottom-navigation>
 
   <delete-platform-dialog />
   <search-rom-dialog />
