@@ -96,8 +96,11 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/cover/{size.value}.png"
 
     def get_rom_cover(
-        self, rom: Rom, overwrite: bool, url_cover: str = ""
+        self, rom: Rom | None, overwrite: bool, url_cover: str = ""
     ) -> tuple[str, str]:
+        if not rom:
+            return "", ""
+
         if (overwrite or not self._cover_exists(rom, CoverSize.SMALL)) and url_cover:
             self._store_cover(rom, url_cover, CoverSize.SMALL)
         path_cover_s = (
@@ -117,7 +120,10 @@ class FSResourcesHandler(FSHandler):
         return path_cover_s, path_cover_l
 
     @staticmethod
-    def remove_cover(rom: Rom):
+    def remove_cover(rom: Rom | None):
+        if not rom:
+            return {"path_cover_s": "", "path_cover_l": ""}
+
         try:
             cover_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/cover"
             shutil.rmtree(cover_path)
@@ -129,7 +135,10 @@ class FSResourcesHandler(FSHandler):
         return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
-    def build_artwork_path(rom: Rom, file_ext: str):
+    def build_artwork_path(rom: Rom | None, file_ext: str):
+        if not rom:
+            return "", "", ""
+
         path_cover_l = f"{rom.fs_resources_path}/cover/{CoverSize.BIG.value}.{file_ext}"
         path_cover_s = (
             f"{rom.fs_resources_path}/cover/{CoverSize.SMALL.value}.{file_ext}"
@@ -181,7 +190,10 @@ class FSResourcesHandler(FSHandler):
         """
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
-    def get_rom_screenshots(self, rom: Rom, url_screenshots: list) -> list[str]:
+    def get_rom_screenshots(self, rom: Rom | None, url_screenshots: list) -> list[str]:
+        if not rom:
+            return []
+
         path_screenshots: list[str] = []
         for idx, url in enumerate(url_screenshots):
             self._store_screenshot(rom, url, idx)
