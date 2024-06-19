@@ -326,9 +326,7 @@ async def update_rom(
     )
 
     if remove_cover:
-        cleaned_data.update(
-            fs_resource_handler.remove_cover(rom_id=id, platform_id=db_rom.platform_id)
-        )
+        cleaned_data.update(fs_resource_handler.remove_cover(rom=db_rom))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None:
@@ -337,7 +335,7 @@ async def update_rom(
                 path_cover_l,
                 path_cover_s,
                 artwork_path,
-            ) = fs_resource_handler.build_artwork_path(id, db_rom.platform_id, file_ext)
+            ) = fs_resource_handler.build_artwork_path(db_rom, file_ext)
 
             cleaned_data["path_cover_l"] = path_cover_l
             cleaned_data["path_cover_s"] = path_cover_s
@@ -355,8 +353,7 @@ async def update_rom(
             cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
             path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
                 overwrite=True,
-                platform_id=db_rom.platform_id,
-                rom_id=id,
+                rom=db_rom,
                 url_cover=cleaned_data.get("url_cover", ""),
             )
             cleaned_data.update(
@@ -368,8 +365,7 @@ async def update_rom(
         or cleaned_data["moby_id"] != db_rom.moby_id
     ):
         path_screenshots = fs_resource_handler.get_rom_screenshots(
-            platform_id=db_rom.platform_id,
-            rom_id=id,
+            rom=db_rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
@@ -411,7 +407,7 @@ async def delete_roms(
         db_rom_handler.delete_rom(id)
 
         try:
-            rmtree(f"{RESOURCES_BASE_PATH}/{rom.platform_id}/{rom.id}")
+            rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
         except FileNotFoundError:
             log.error(f"Couldn't find resources to delete for {rom.name}")
 

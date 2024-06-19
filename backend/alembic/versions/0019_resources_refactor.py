@@ -28,68 +28,79 @@ def upgrade() -> None:
     connection = op.get_bind()
 
     # Fetch all entries from the roms table
-    platforms = connection.execute(sa.text("select id, slug from platforms"))
-    platforms_row = platforms.fetchall()
+    platforms = connection.execute(sa.text("select id, slug from platforms")).fetchall()
+    platform_map = {platform.id: platform.slug for platform in platforms}
+
     roms = connection.execute(
         sa.text(
             "SELECT id, name, platform_id, path_cover_s, path_cover_l, path_screenshots FROM roms"
         )
-    )
-    roms_row = roms.fetchall()
+    ).fetchall()
 
-    for rom in roms_row:
-        platform_slug = ""
-        for platform in platforms_row:
-            if platform.id == rom.platform_id:
-                platform_slug = platform.slug
-        old_folder_name = f"{RESOURCES_BASE_PATH}/{platform_slug}/{rom.name}"
-        new_folder_name = f"{RESOURCES_BASE_PATH}/{rom.platform_id}/{rom.id}"
+    for rom in roms:
+        platform_slug = platform_map.get(rom.platform_id, "")
+        platform_folder_name = str(rom.platform_id)
+        rom_folder_name = str(rom.id)
+
+        old_folder_path = f"{RESOURCES_BASE_PATH}/{platform_slug}/{rom.name}"
+        new_folder_path = (
+            f"{RESOURCES_BASE_PATH}/{platform_folder_name}/{rom_folder_name}"
+        )
+
         print("INFO:\t  [Resources migration] Renaming folder:")
-        print(f"INFO:\t  [Resources migration]  - old: {old_folder_name}")
-        print(f"INFO:\t  [Resources migration]  - new: {new_folder_name}")
+        print(f"INFO:\t  [Resources migration]  - old: {old_folder_path}")
+        print(f"INFO:\t  [Resources migration]  - new: {new_folder_path}")
+
         try:
-            os.makedirs(f"{RESOURCES_BASE_PATH}/{rom.platform_id}", exist_ok=True)
+            os.makedirs(f"{RESOURCES_BASE_PATH}/{platform_folder_name}", exist_ok=True)
         except OSError as error:
             print(error)
-        if os.path.exists(old_folder_name):
-            os.rename(old_folder_name, new_folder_name)
+
+        if os.path.exists(old_folder_path):
+            os.rename(old_folder_path, new_folder_path)
         else:
             print(
-                f"ERROR:\t  [Resources migration] Folder '{old_folder_name}' does not exist"
+                f"ERROR:\t  [Resources migration] Folder '{old_folder_path}' does not exist"
             )
 
         quoted_rom_name = re.escape(quote(rom.name))
         quoted_platform_slug = re.escape(quote(platform_slug))
+
         updated_path_cover_s = re.sub(
             quoted_platform_slug,
-            str(rom.platform_id),
-            re.sub(quoted_rom_name, str(rom.id), rom.path_cover_s),
-        )
-        connection.execute(
-            sa.text("UPDATE roms SET path_cover_s = :path_cover_s WHERE id = :id"),
-            {"path_cover_s": updated_path_cover_s, "id": rom.id},
+            platform_folder_name,
+            re.sub(quoted_rom_name, rom_folder_name, rom.path_cover_s),
         )
         updated_path_cover_l = re.sub(
             quoted_platform_slug,
-            str(rom.platform_id),
-            re.sub(quoted_rom_name, str(rom.id), rom.path_cover_l),
-        )
-        connection.execute(
-            sa.text("UPDATE roms SET path_cover_l = :path_cover_l WHERE id = :id"),
-            {"path_cover_l": updated_path_cover_l, "id": rom.id},
+            platform_folder_name,
+            re.sub(quoted_rom_name, rom_folder_name, rom.path_cover_l),
         )
         updated_path_screenshots = re.sub(
             quoted_platform_slug,
-            str(rom.platform_id),
-            re.sub(quoted_rom_name, str(rom.id), rom.path_screenshots),
+            platform_folder_name,
+            re.sub(quoted_rom_name, rom_folder_name, rom.path_screenshots),
         )
+
         connection.execute(
             sa.text(
-                "UPDATE roms SET path_screenshots = :path_screenshots WHERE id = :id"
+                """
+                UPDATE roms 
+                SET path_cover_s = :path_cover_s,
+                    path_cover_l = :path_cover_l,
+                    path_screenshots = :path_screenshots
+                WHERE id = :id
+            """
             ),
-            {"path_screenshots": updated_path_screenshots, "id": rom.id},
+            {
+                "id": rom.id,
+                "path_cover_s": updated_path_cover_s,
+                "path_cover_l": updated_path_cover_l,
+                "path_screenshots": updated_path_screenshots,
+            },
         )
-    for platform in platforms_row:
+
+    for platform in platforms:
         try:
             rmtree(f"{RESOURCES_BASE_PATH}/{platform.slug}")
         except FileNotFoundError:
