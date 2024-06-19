@@ -289,10 +289,23 @@ async function stopScan() {
           :key="platform.id"
         >
           <v-expansion-panel-title>
-            <v-avatar :rounded="0" size="40">
-              <platform-icon :key="platform.slug" :slug="platform.slug" />
-            </v-avatar>
-            <span class="ml-3">{{ platform.name }}</span>
+            <v-list-item class="pa-0">
+              <template #prepend>
+                <v-avatar :rounded="0" size="40">
+                  <platform-icon :key="platform.slug" :slug="platform.slug" />
+                </v-avatar>
+              </template>
+              {{ platform.name }}
+              <template #append>
+                <v-chip
+                  class="ml-3"
+                  color="romm-accent-1"
+                  size="x-small"
+                  label
+                  >{{ platform.roms.length }}</v-chip
+                >
+              </template>
+            </v-list-item>
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-terciary">
             <v-list-item

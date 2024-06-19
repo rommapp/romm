@@ -129,6 +129,7 @@ onMounted(() => {
 
   <!-- TODO: refactor and extract components -->
   <v-navigation-drawer
+    app
     :floating="platformsDrawer || settingsDrawer"
     rail
     rail-width="60"
@@ -327,6 +328,7 @@ onMounted(() => {
   <router-view :key="refreshView" />
 
   <v-bottom-navigation
+    app
     v-if="mdAndDown"
     :elevation="0"
     class="bg-primary"
