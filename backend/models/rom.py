@@ -170,15 +170,9 @@ class Rom(BaseModel):
     def game_modes(self) -> list[str]:
         return self.igdb_metadata.get("game_modes", [])
 
-    @classmethod
-    def fs_safe_folder_name(cls, id: int) -> str:
-        return f"Rom:{id}".encode("utf-8").hex()
-
     @property
     def fs_resources_path(self) -> str:
-        from models.platform import Platform
-
-        return f"{Platform.fs_safe_folder_name(self.platform_id)}/{self.fs_safe_folder_name}"
+        return f"{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.file_name

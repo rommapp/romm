@@ -14,8 +14,6 @@ from urllib.parse import quote
 import sqlalchemy as sa
 from alembic import op
 from config import RESOURCES_BASE_PATH
-from models.platform import Platform
-from models.rom import Rom
 
 # revision identifiers, used by Alembic.
 revision = "0019_resources_refactor"
@@ -41,8 +39,8 @@ def upgrade() -> None:
 
     for rom in roms:
         platform_slug = platform_map.get(rom.platform_id, "")
-        platform_folder_name = Platform.fs_safe_folder_name(rom.platform_id)
-        rom_folder_name = Rom.fs_safe_folder_name(rom.id)
+        platform_folder_name = str(rom.platform_id)
+        rom_folder_name = str(rom.id)
 
         old_folder_path = f"{RESOURCES_BASE_PATH}/{platform_slug}/{rom.name}"
         new_folder_path = (
