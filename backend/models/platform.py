@@ -27,9 +27,5 @@ class Platform(BaseModel):
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
     )
 
-    @classmethod
-    def fs_safe_folder_name(cls, id: int):
-        return f"Platform:{id}".encode("utf-8").hex()
-
     def __repr__(self) -> str:
         return self.name
