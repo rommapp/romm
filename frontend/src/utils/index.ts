@@ -308,7 +308,6 @@ const _EJS_CORES_MAP = {
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
   ps: ["pcsx_rearmed", "mednafen_psx"],
-  psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
   // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
   gamegear: ["genesis_plus_gx"],
