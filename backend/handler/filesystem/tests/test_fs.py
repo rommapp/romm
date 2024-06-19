@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
+from handler.database import db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler, fs_rom_handler
 from models.platform import Platform
 
@@ -9,8 +10,9 @@ from models.platform import Platform
 @pytest.mark.vcr
 def test_get_rom_cover():
     # Game: Metroid Prime (EUR).iso - ID: 1
+    rom = db_rom_handler.get_roms(id=2)
     path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
-        overwrite=False, platform_id=1, rom_id=2, url_cover=""
+        overwrite=False, rom=rom, url_cover=""
     )
 
     assert "" in path_cover_s
@@ -19,8 +21,7 @@ def test_get_rom_cover():
     # Game: Paper Mario (USA).z64 - ID: 2
     path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
         overwrite=True,
-        platform_id=1,
-        rom_id=2,
+        rom=rom,
         url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
     )
 
