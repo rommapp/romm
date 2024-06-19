@@ -230,14 +230,12 @@ async def scan_platforms(
 
                     path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
                         overwrite=True,
-                        platform_id=platform.id,
-                        rom_id=_added_rom.id,
+                        rom=_added_rom,
                         url_cover=_added_rom.url_cover,
                     )
 
                     path_screenshots = fs_resource_handler.get_rom_screenshots(
-                        platform_id=platform.id,
-                        rom_id=_added_rom.id,
+                        rom=_added_rom,
                         url_screenshots=_added_rom.url_screenshots,
                     )
 
