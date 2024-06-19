@@ -5,6 +5,7 @@ export default defineStore("galleryView", {
     currentView: JSON.parse(
       localStorage.getItem("currentView") ?? "0",
     ) as number,
+    activeFirmwareDrawer: false,
     scrolledToTop: false,
     scroll: 0,
   }),
@@ -13,6 +14,9 @@ export default defineStore("galleryView", {
     setView(view: number) {
       this.currentView = view;
       localStorage.setItem("currentView", this.currentView.toString());
+    },
+    switchActiveFirmwareDrawer() {
+      this.activeFirmwareDrawer = !this.activeFirmwareDrawer;
     },
     next() {
       if (this.currentView == 2) {

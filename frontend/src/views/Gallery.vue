@@ -18,8 +18,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 
 // Props
+const { mdAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -287,7 +289,12 @@ onBeforeUnmount(() => {
 
         <!-- Gallery list view -->
         <v-col v-show="currentView == 2">
-          <game-data-table class="fill-height" />
+          <game-data-table
+            :class="{
+              'fill-height-desktop': !mdAndDown,
+              'fill-height-mobile': mdAndDown,
+            }"
+          />
         </v-col>
       </v-row>
       <fab-overlay />

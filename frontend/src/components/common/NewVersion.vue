@@ -2,8 +2,10 @@
 import storeHeartbeat from "@/stores/heartbeat";
 import semver from "semver";
 import { onMounted, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
+const { mdAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value;
 const GITHUB_VERSION = ref(VERSION);
@@ -34,7 +36,8 @@ onMounted(async () => {
     no-click-animation
     scroll-strategy="reposition"
     :scrim="false"
-    class="align-end justify-start pa-3"
+    class="justify-start pa-3"
+    :class="{ 'ml-16 align-end': !mdAndDown, 'align-start': mdAndDown}"
   >
     <v-slide-y-transition>
       <v-card
@@ -49,7 +52,7 @@ onMounted(async () => {
       >
         <v-card-text class="py-2 px-4">
           <span class="text-white text-shadow">New version available</span>
-          <span class="text-romm-accent-1 ml-1">v{{ GITHUB_VERSION }}!</span>
+          <span class="text-romm-accent-1 ml-1">v{{ GITHUB_VERSION }}</span>
           <v-row class="text-center mt-1" no-gutters>
             <v-col>
               <span class="pointer text-grey" @click="dismissVersionBanner"

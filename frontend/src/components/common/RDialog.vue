@@ -4,6 +4,7 @@ import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
 import EmptyFirmware from "@/components/common/EmptyFirmware.vue";
 import RommIso from "@/components/common/RommIso.vue";
 import { onMounted, ref, useSlots } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
 withDefaults(
@@ -32,6 +33,7 @@ withDefaults(
   }
 );
 const emit = defineEmits(["update:modelValue", "close"]);
+const { mdAndDown } = useDisplay();
 const hasToolbarSlot = ref(false);
 const hasPrependSlot = ref(false);
 const hasAppendSlot = ref(false);
@@ -59,6 +61,7 @@ onMounted(() => {
     :model-value="modelValue"
     :scrim="true"
     :width="width"
+    :class="{ 'dialog-mobile': mdAndDown }"
     scroll-strategy="block"
     no-click-animation
     persistent
@@ -89,7 +92,11 @@ onMounted(() => {
         <slot name="prepend"></slot>
       </v-card-text>
 
-      <v-card-text id="r-dialog-content" class="pa-1" :class="{ scroll: scrollContent }">
+      <v-card-text
+        id="r-dialog-content"
+        class="pa-1"
+        :class="{ scroll: scrollContent }"
+      >
         <v-row
           v-if="loadingCondition"
           class="justify-center align-center h-100"
