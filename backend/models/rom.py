@@ -170,6 +170,10 @@ class Rom(BaseModel):
     def game_modes(self) -> list[str]:
         return self.igdb_metadata.get("game_modes", [])
 
+    @property
+    def fs_resources_path(self) -> str:
+        return f"{str(self.platform_id)}/{str(self.id)}"
+
     def __repr__(self) -> str:
         return self.file_name
 
