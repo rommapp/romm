@@ -2,7 +2,7 @@
 import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
@@ -15,8 +15,8 @@ import { useDisplay } from "vuetify";
 const { xs, mdAndUp } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
-const galleryFilterStore = storeGalleryFilter();
-const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
+const galleryViewStore = storeGalleryView();
+const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const HEADERS = [
@@ -61,11 +61,7 @@ watch(itemsPerPage, async () => {
 </script>
 
 <template>
-  <v-navigation-drawer
-    v-model="activeFirmwareDrawer"
-    :mobile="true"
-    location="bottom"
-  >
+  <v-navigation-drawer v-model="activeFirmwareDrawer" mobile location="bottom">
     <v-data-table
       :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"

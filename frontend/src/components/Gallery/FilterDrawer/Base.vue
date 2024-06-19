@@ -61,7 +61,7 @@ function resetFilters() {
     floating
     width="300"
     v-model="activeFilterDrawer"
-    :mobile="true"
+    mobile
   >
     <v-list>
       <v-list-item>

@@ -1,20 +1,10 @@
 <script setup lang="ts">
-import storeGalleryFilter from "@/stores/galleryFilter";
-import { inject, nextTick } from "vue";
-import { useRoute } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
+import storeGalleryView from "@/stores/galleryView";
 import { storeToRefs } from "pinia";
 
 // Props
-const galleryFilterStore = storeGalleryFilter();
-const emitter = inject<Emitter<Events>>("emitter");
-const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
-function showFirmwareDrawer() {
-  nextTick(() => emitter?.emit("firmwareDrawerShow", null));
-  galleryFilterStore.switchActiveFirmwareDrawer();
-}
+const galleryViewStore = storeGalleryView();
+const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
 </script>
 
 <template>
@@ -33,6 +23,6 @@ function showFirmwareDrawer() {
         v-bind="props"
         icon="mdi-memory"
         :color="activeFirmwareDrawer ? 'romm-accent-1' : ''"
-        @click="showFirmwareDrawer" /></template
+        @click="galleryViewStore.switchActiveFirmwareDrawer()" /></template
   ></v-tooltip>
 </template>
