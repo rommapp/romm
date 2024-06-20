@@ -17,6 +17,8 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const theme = useTheme();
+const panels = ref([0]);
+const panelIndex = ref(0);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -36,6 +38,12 @@ const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 // Therefore, we only need to watch metadataOptions for changes.
 watch(metadataOptions, (newOptions) => {
   metadataSources.value = newOptions.filter((option) => !option.disabled);
+});
+
+// Adding each new scanned platform to panelIndex to be open by default
+watch(scanningPlatforms, () => {
+  panelIndex.value += 1;
+  panels.value.push(panelIndex.value);
 });
 
 const scanOptions = [
@@ -287,7 +295,13 @@ async function stopScan() {
     max-width="800"
   >
     <v-card-text class="pa-0">
-      <v-expansion-panels multiple flat rounded="0" variant="accordion">
+      <v-expansion-panels
+        :model-value="panels"
+        multiple
+        flat
+        rounded="0"
+        variant="accordion"
+      >
         <v-expansion-panel
           v-for="platform in scanningPlatforms"
           :key="platform.id"
