@@ -38,8 +38,8 @@ class FSResourcesHandler(FSHandler):
     def resize_cover_to_small(cover_path: str):
         """Path of the cover image to resize"""
         cover = Image.open(cover_path)
-        small_width = int(cover.width * 0.1)
-        small_height = int(cover.height * 0.1)
+        small_width = int(cover.width * 0.5)
+        small_height = int(cover.height * 0.5)
         small_size = (small_width, small_height)
         small_img = cover.resize(small_size)
         small_img.save(cover_path)
