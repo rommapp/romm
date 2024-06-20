@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: string;
+  name: "IGDB" | "Mobygames";
 };
 
 // Props
@@ -43,11 +43,11 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
 });
 
 // Functions
-function toggleSourceFilter(source: string) {
-  if (source == "igdb" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
+function toggleSourceFilter(source: MatchedSource["name"]) {
+  if (source == "IGDB" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
     isIGDBFiltered.value = !isIGDBFiltered.value;
   } else if (
-    source == "moby" &&
+    source == "Mobygames" &&
     heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED
   ) {
     isMobyFiltered.value = !isMobyFiltered.value;
@@ -114,11 +114,11 @@ function showSources(matchedRom: SearchRomSchema) {
   selectedMatchRom.value = matchedRom;
   sources.value.push({
     url_cover: matchedRom.igdb_url_cover,
-    name: "igdb",
+    name: "IGDB",
   });
   sources.value.push({
     url_cover: matchedRom.moby_url_cover,
-    name: "moby",
+    name: "Mobygames",
   });
 }
 
@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
         open-delay="500"
         ><template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('igdb')"
+            @click="toggleSourceFilter('IGDB')"
             v-bind="props"
             class="ml-3 source-filter"
             :class="{
@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
         open-delay="500"
         ><template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('moby')"
+            @click="toggleSourceFilter('Mobygames')"
             v-bind="props"
             class="ml-3 source-filter"
             :class="{
@@ -316,21 +316,18 @@ onBeforeUnmount(() => {
         </v-col>
       </v-row>
       <template v-if="showSelectSource">
-        <v-row class="text-left" no-gutters>
-          <v-col>
-            <v-btn
-              icon="mdi-arrow-left"
-              rounded="0"
-              variant="flat"
-              size="small"
-              @click="backToMatched"
-            ></v-btn>
-          </v-col>
-        </v-row>
-        <v-row class="mt-2" no-gutters>
+        <v-row no-gutters>
           <v-col cols="12">
             <v-card class="mx-auto bg-terciary">
               <v-card-title class="text-center">
+                <v-btn
+                  icon="mdi-arrow-left"
+                  rounded="0"
+                  variant="flat"
+                  size="small"
+                  @click="backToMatched"
+                  style="float: left"
+                ></v-btn>
                 {{ selectedMatchRom?.name }}
               </v-card-title>
               <v-card-text class="text-subtitle-2">
@@ -341,7 +338,7 @@ onBeforeUnmount(() => {
           <v-col cols="12">
             <v-row no-gutters class="mt-4 justify-center text-center">
               <v-col>
-                <span class="text-body-1">Select a cover for you game</span>
+                <span class="text-body-1">Select a cover image</span>
               </v-col>
             </v-row>
           </v-col>
@@ -360,6 +357,7 @@ onBeforeUnmount(() => {
                     v-bind="props"
                     class="transform-scale"
                     :class="{
+                      'mx-2': true,
                       'on-hover': isHovering,
                       'border-romm-accent-1':
                         selectedCover?.name == source.name,
@@ -403,27 +401,27 @@ onBeforeUnmount(() => {
           <v-col cols="12">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
-                <v-list-item v-if="renameAsSource">
-                  The file will be renamed from
-                  <span class="text-romm-accent-1">{{
-                    rom?.file_name
-                  }}</span>
-                  to
-                  <span class="text-romm-accent-2">
-                    {{ selectedMatchRom?.name }}.{{ rom?.file_extension }}</span
-                  >
-                </v-list-item>
                 <v-chip
                   @click="toggleRenameAsSource"
                   :variant="renameAsSource ? 'flat' : 'outlined'"
                   :color="renameAsSource ? 'romm-accent-1' : ''"
+                  :disabled="selectedCover == undefined"
                   ><v-icon class="mr-1">{{
-                    renameAsSource
+                    selectedCover && renameAsSource
                       ? "mdi-checkbox-outline"
                       : "mdi-checkbox-blank-outline"
                   }}</v-icon
-                  >Rename file as source</v-chip
+                  >Rename file to match {{ selectedCover?.name }} title</v-chip
                 >
+                <v-list-item v-if="renameAsSource" class="mt-2">
+                  File will be renamed from
+                  <br />
+                  <span class="text-romm-accent-1">{{ rom?.file_name }}</span>
+                  to <br />
+                  <span class="text-romm-accent-2">
+                    {{ selectedMatchRom?.name }}.{{ rom?.file_extension }}</span
+                  >
+                </v-list-item>
               </v-col>
             </v-row>
           </v-col>
