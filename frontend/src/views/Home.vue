@@ -95,7 +95,7 @@ async function logout() {
 }
 
 onMounted(async () => {
-  navigationStore.resetDrawers()
+  navigationStore.resetDrawers();
   await userApi
     .fetchCurrentUser()
     .then(({ data: user }) => {
@@ -248,21 +248,21 @@ onMounted(async () => {
         >mdi-magnify-scan</v-icon
       ></v-btn
     >
-    <v-btn
-      icon="mdi-magnify"
-      size="small"
-      variant="flat"
-      @click="emitter?.emit('showSearchRomDialog', null)"
-    />
-    <v-btn
-      v-if="auth.scopes.includes('roms.write')"
-      icon="mdi-upload"
-      class="ml-1"
-      size="small"
-      variant="flat"
-      @click="emitter?.emit('showUploadRomDialog', null)"
-    />
     <template #append>
+      <v-btn
+        icon="mdi-magnify"
+        size="small"
+        variant="flat"
+        @click="emitter?.emit('showSearchRomDialog', null)"
+      />
+      <v-btn
+        v-if="auth.scopes.includes('roms.write')"
+        icon="mdi-upload"
+        size="small"
+        variant="flat"
+        class="mr-1"
+        @click="emitter?.emit('showUploadRomDialog', null)"
+      />
       <v-hover v-slot="{ isHovering, props: hoverProps }">
         <v-avatar
           @click="toggleSettingsDrawer"
