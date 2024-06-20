@@ -55,9 +55,23 @@ async function copyDownloadLink(rom: DetailedRom) {
         })
       "
     >
+      <v-tooltip
+        activator="parent"
+        location="top"
+        transition="fade-transition"
+        open-delay="1000"
+        >Download game</v-tooltip
+      >
       <v-icon icon="mdi-download" size="large" />
     </v-btn>
     <v-btn class="flex-grow-1" @click="copyDownloadLink(rom)">
+      <v-tooltip
+        activator="parent"
+        location="top"
+        transition="fade-transition"
+        open-delay="1000"
+        >Copy download link</v-tooltip
+      >
       <v-icon icon="mdi-content-copy" />
     </v-btn>
     <v-btn
