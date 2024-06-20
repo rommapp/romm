@@ -158,7 +158,7 @@ async function updateRom(selectedRom: SearchRomSchema) {
   }
 
   await romApi
-    .updateRom({ rom: rom.value, renameAsIGDB: renameAsSource.value })
+    .updateRom({ rom: rom.value, renameAsSource: renameAsSource.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -403,6 +403,16 @@ onBeforeUnmount(() => {
           <v-col cols="12">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
+                <v-list-item v-if="renameAsSource">
+                  The file will be renamed from
+                  <span class="text-romm-accent-1">{{
+                    rom?.file_name
+                  }}</span>
+                  to
+                  <span class="text-romm-accent-2">
+                    {{ selectedMatchRom?.name }}.{{ rom?.file_extension }}</span
+                  >
+                </v-list-item>
                 <v-chip
                   @click="toggleRenameAsSource"
                   :variant="renameAsSource ? 'flat' : 'outlined'"

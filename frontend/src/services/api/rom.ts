@@ -123,11 +123,11 @@ export type UpdateRom = SimpleRom & {
 
 async function updateRom({
   rom,
-  renameAsIGDB = false,
+  renameAsSource = false,
   removeCover = false,
 }: {
   rom: UpdateRom;
-  renameAsIGDB?: boolean;
+  renameAsSource?: boolean;
   removeCover?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
@@ -140,7 +140,7 @@ async function updateRom({
   if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
-    params: { rename_as_igdb: renameAsIGDB, remove_cover: removeCover },
+    params: { rename_as_source: renameAsSource, remove_cover: removeCover },
   });
 }
 
