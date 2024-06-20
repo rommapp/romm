@@ -130,6 +130,11 @@ async function stopScan() {
                 :slug="item.raw.slug"
               />
             </template>
+            <template #append>
+              <v-chip class="ml-2" size="x-small" label>
+                {{ item.raw.rom_count }}
+              </v-chip>
+            </template>
           </v-list-item>
         </template>
         <template #chip="{ item }">
