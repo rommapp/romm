@@ -11,7 +11,7 @@ const theme = useTheme();
     <v-img
       id="background-header"
       :src="
-        !rom.igdb_id && !rom.moby_id
+        (!rom.igdb_id && !rom.moby_id) && !rom.has_cover
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
           : `/assets/romm/resources/${rom.path_cover_l}`
       "
