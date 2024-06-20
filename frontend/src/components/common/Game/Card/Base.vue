@@ -86,9 +86,9 @@ onMounted(() => {
             src
               ? src
               : romsStore.isSimpleRom(rom)
-              ? !rom.igdb_id && !rom.moby_id
+              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                : !rom.has_cover
+                : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                 : `/assets/romm/resources/${rom.path_cover_l}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
@@ -99,9 +99,9 @@ onMounted(() => {
           "
           :lazy-src="
             romsStore.isSimpleRom(rom)
-              ? !rom.igdb_id && !rom.moby_id
+              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                : !rom.has_cover
+                : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                 : `/assets/romm/resources/${rom.path_cover_s}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
@@ -166,7 +166,10 @@ onMounted(() => {
         </v-row>
       </v-card-text>
       <slot name="footer"></slot>
-      <action-bar v-if="showActionBar && romsStore.isSimpleRom(rom)" :rom="rom" />
+      <action-bar
+        v-if="showActionBar && romsStore.isSimpleRom(rom)"
+        :rom="rom"
+      />
     </v-card>
   </v-hover>
 </template>

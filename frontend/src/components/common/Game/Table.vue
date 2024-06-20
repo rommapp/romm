@@ -122,7 +122,7 @@ onMounted(() => {
           <template #prepend>
             <r-avatar
               :src="
-                !item.igdb_id && !item.moby_id
+                (!item.igdb_id && !item.moby_id) && !item.has_cover
                   ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
                   : item.has_cover
                   ? `/assets/romm/resources/${item.path_cover_s}`
