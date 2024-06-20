@@ -133,6 +133,7 @@ function confirm() {
       url_cover: selectedCover.value.url_cover,
     })
   );
+  closeDialog();
 }
 
 function toggleRenameAsSource() {
@@ -144,6 +145,7 @@ function backToMatched() {
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
   sources.value = [];
+  renameAsSource.value = false;
 }
 
 async function updateRom(selectedRom: SearchRomSchema) {
@@ -187,6 +189,8 @@ function closeDialog() {
   showSelectSource.value = false;
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
+  renameAsSource.value = false;
+  matchedRoms.value = [];
 }
 
 onBeforeUnmount(() => {
@@ -321,13 +325,14 @@ onBeforeUnmount(() => {
             <v-card class="mx-auto bg-terciary">
               <v-card-title class="text-center">
                 <v-btn
+                  color="terciary"
                   icon="mdi-arrow-left"
                   rounded="0"
                   variant="flat"
                   size="small"
                   @click="backToMatched"
                   style="float: left"
-                ></v-btn>
+                />
                 {{ selectedMatchRom?.name }}
               </v-card-title>
               <v-card-text class="text-subtitle-2">
@@ -355,9 +360,8 @@ onBeforeUnmount(() => {
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
                     v-bind="props"
-                    class="transform-scale"
+                    class="transform-scale mx-2"
                     :class="{
-                      'mx-2': true,
                       'on-hover': isHovering,
                       'border-romm-accent-1':
                         selectedCover?.name == source.name,
@@ -414,12 +418,24 @@ onBeforeUnmount(() => {
                   >Rename file to match {{ selectedCover?.name }} title</v-chip
                 >
                 <v-list-item v-if="renameAsSource" class="mt-2">
-                  File will be renamed from
+                  <span>File will be renamed</span>
                   <br />
-                  <span class="text-romm-accent-1">{{ rom?.file_name }}</span>
-                  to <br />
-                  <span class="text-romm-accent-2">
-                    {{ selectedMatchRom?.name }}.{{ rom?.file_extension }}</span
+                  <span>from</span
+                  ><span class="text-romm-accent-1 ml-1"
+                    >{{ rom?.file_name_no_tags }}.{{
+                      rom?.file_extension
+                    }}</span
+                  >
+                  <br />
+                  <span class="mx-1">to</span
+                  ><span class="text-romm-accent-2"
+                    >{{ selectedMatchRom?.name }}.{{
+                      rom?.file_extension
+                    }}</span
+                  >
+                  <br />
+                  <span class="text-caption font-italic font-weight-bold"
+                    >*File name tags won't be affected</span
                   >
                 </v-list-item>
               </v-col>
