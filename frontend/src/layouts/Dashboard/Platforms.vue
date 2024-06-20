@@ -16,7 +16,6 @@ const platforms = storePlatforms();
           :key="platform.slug"
           class="pa-1"
           :cols="views[0]['size-cols']"
-          :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"

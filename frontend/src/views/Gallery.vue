@@ -21,7 +21,7 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
+const { smAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -291,8 +291,8 @@ onBeforeUnmount(() => {
         <v-col v-show="currentView == 2">
           <game-data-table
             :class="{
-              'fill-height-desktop': !mdAndDown,
-              'fill-height-mobile': mdAndDown,
+              'fill-height-desktop': !smAndDown,
+              'fill-height-mobile': smAndDown,
             }"
           />
         </v-col>

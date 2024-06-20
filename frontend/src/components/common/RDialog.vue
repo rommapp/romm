@@ -61,7 +61,6 @@ onMounted(() => {
     :model-value="modelValue"
     :scrim="true"
     :width="width"
-    :class="{ 'dialog-mobile': mdAndDown }"
     scroll-strategy="block"
     no-click-animation
     persistent
