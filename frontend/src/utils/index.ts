@@ -10,7 +10,6 @@ export const views: Record<
     "size-lg": number;
     "size-md": number;
     "size-sm": number;
-    "size-xs": number;
     "size-cols": number;
   }
 > = {
@@ -18,21 +17,19 @@ export const views: Record<
     view: "small",
     icon: "mdi-view-comfy",
     "size-xl": 1,
-    "size-lg": 2,
+    "size-lg": 1,
     "size-md": 2,
     "size-sm": 3,
-    "size-xs": 3,
-    "size-cols": 4,
+    "size-cols": 3,
   },
   1: {
     view: "big",
     icon: "mdi-view-module",
     "size-xl": 2,
-    "size-lg": 3,
+    "size-lg": 2,
     "size-md": 3,
     "size-sm": 4,
-    "size-xs": 6,
-    "size-cols": 6,
+    "size-cols": 4,
   },
   2: {
     view: "list",
@@ -41,7 +38,6 @@ export const views: Record<
     "size-lg": 12,
     "size-md": 12,
     "size-sm": 12,
-    "size-xs": 12,
     "size-cols": 12,
   },
 };
@@ -312,7 +308,6 @@ const _EJS_CORES_MAP = {
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
   ps: ["pcsx_rearmed", "mednafen_psx"],
-  psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
   // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
   gamegear: ["genesis_plus_gx"],

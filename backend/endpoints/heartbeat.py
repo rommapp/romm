@@ -8,6 +8,7 @@ from config import (
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
 from fastapi import APIRouter
+from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from utils import get_version
@@ -30,6 +31,7 @@ def heartbeat() -> HeartbeatResponse:
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
         },
+        "FS_PLATFORMS": fs_platform_handler.get_platforms(),
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",

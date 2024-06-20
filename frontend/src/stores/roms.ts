@@ -1,10 +1,11 @@
-import type { RomSchema, DetailedRomSchema } from "@/__generated__/";
+import type { SearchRomSchema } from "@/__generated__";
+import type { DetailedRomSchema, RomSchema } from "@/__generated__/";
+import { type Platform } from "@/stores/platforms";
+import type { ExtractPiniaStoreType } from "@/types";
 import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 import storeGalleryFilter from "./galleryFilter";
-import { type Platform } from "@/stores/platforms";
-import type { ExtractPiniaStoreType } from "@/types";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
@@ -196,6 +197,9 @@ export default defineStore("roms", {
     resetSelection() {
       this._selectedIDs = [];
       this.lastSelectedIndex = -1;
+    },
+    isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
+      return (rom as SimpleRom).id !== undefined;
     },
   },
 });

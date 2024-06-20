@@ -89,21 +89,21 @@ socket.on("scan:done_ko", (msg) => {
   socket.disconnect();
 });
 
+onMounted(async () => {
+  await api.get("/heartbeat").then(({ data: data }) => {
+    heartbeat.set(data);
+  });
+
+  await api.get("/config").then(({ data: data }) => {
+    configStore.set(data);
+  });
+});
+
 onBeforeUnmount(() => {
   socket.off("scan:scanning_platform");
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
-});
-
-onMounted(() => {
-  api.get("/heartbeat").then(({ data: data }) => {
-    heartbeat.set(data);
-  });
-
-  api.get("/config").then(({ data: data }) => {
-    configStore.set(data);
-  });
 });
 </script>
 

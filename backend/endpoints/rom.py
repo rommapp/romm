@@ -1,10 +1,15 @@
 import os
 from datetime import datetime
+from shutil import rmtree
 from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
+from config import (
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
+    LIBRARY_BASE_PATH,
+    RESOURCES_BASE_PATH,
+)
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
@@ -19,7 +24,6 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
-from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
@@ -248,7 +252,7 @@ def get_rom_content(
 async def update_rom(
     request: Request,
     id: int,
-    rename_as_igdb: bool = False,
+    rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
 ) -> DetailedRomSchema:
@@ -257,11 +261,11 @@ async def update_rom(
     Args:
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
-        rename_as_igdb (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
+        rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
         artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
 
     Raises:
-        HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
+        HTTPException: If a rom already have that name when enabling the rename_as_source flag
 
     Returns:
         DetailedRomSchema: Rom stored in the database
@@ -270,7 +274,6 @@ async def update_rom(
     data = await request.form()
 
     db_rom = db_rom_handler.get_roms(id)
-    platform_fs_slug = db_platform_handler.get_platforms(db_rom.platform_id).fs_slug
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", None)
@@ -296,7 +299,7 @@ async def update_rom(
     )
     fs_safe_name = cleaned_data["name"].strip().replace("/", "-")
 
-    if rename_as_igdb:
+    if rename_as_source:
         fs_safe_file_name = db_rom.file_name.replace(
             db_rom.file_name_no_tags or db_rom.file_name_no_ext, fs_safe_name
         )
@@ -323,58 +326,49 @@ async def update_rom(
     )
 
     if remove_cover:
-        cleaned_data.update(
-            fs_resource_handler.remove_cover(
-                rom_name=cleaned_data["name"], platform_fs_slug=platform_fs_slug
-            )
-        )
+        cleaned_data.update(fs_resource_handler.remove_cover(rom=db_rom))
         cleaned_data.update({"url_cover": ""})
     else:
-        cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
-        cleaned_data.update(
-            fs_resource_handler.get_rom_cover(
+        if artwork is not None:
+            file_ext = artwork.filename.split(".")[-1]
+            (
+                path_cover_l,
+                path_cover_s,
+                artwork_path,
+            ) = fs_resource_handler.build_artwork_path(db_rom, file_ext)
+
+            cleaned_data["path_cover_l"] = path_cover_l
+            cleaned_data["path_cover_s"] = path_cover_s
+
+            artwork_file = artwork.file.read()
+            file_location_s = f"{artwork_path}/small.{file_ext}"
+            with open(file_location_s, "wb+") as artwork_s:
+                artwork_s.write(artwork_file)
+                fs_resource_handler.resize_cover_to_small(file_location_s)
+
+            file_location_l = f"{artwork_path}/big.{file_ext}"
+            with open(file_location_l, "wb+") as artwork_l:
+                artwork_l.write(artwork_file)
+        else:
+            cleaned_data["url_cover"] = data.get("url_cover", db_rom.url_cover)
+            path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
                 overwrite=True,
-                platform_fs_slug=platform_fs_slug,
-                rom_name=cleaned_data["name"],
+                rom=db_rom,
                 url_cover=cleaned_data.get("url_cover", ""),
             )
-        )
+            cleaned_data.update(
+                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+            )
 
     if (
         cleaned_data["igdb_id"] != db_rom.igdb_id
         or cleaned_data["moby_id"] != db_rom.moby_id
     ):
-        cleaned_data.update(
-            fs_resource_handler.get_rom_screenshots(
-                platform_fs_slug=platform_fs_slug,
-                rom_name=cleaned_data["name"],
-                url_screenshots=cleaned_data.get("url_screenshots", []),
-            ),
+        path_screenshots = fs_resource_handler.get_rom_screenshots(
+            rom=db_rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
         )
-
-    if artwork is not None:
-        file_ext = artwork.filename.split(".")[-1]
-        (
-            path_cover_l,
-            path_cover_s,
-            artwork_path,
-        ) = fs_resource_handler.build_artwork_path(
-            cleaned_data["name"], platform_fs_slug, file_ext
-        )
-
-        cleaned_data["path_cover_l"] = path_cover_l
-        cleaned_data["path_cover_s"] = path_cover_s
-
-        artwork_file = artwork.file.read()
-        file_location_s = f"{artwork_path}/small.{file_ext}"
-        with open(file_location_s, "wb+") as artwork_s:
-            artwork_s.write(artwork_file)
-        fs_resource_handler.resize_cover(file_location_s, CoverSize.SMALL)
-
-        file_location_l = f"{artwork_path}/big.{file_ext}"
-        with open(file_location_l, "wb+") as artwork_l:
-            artwork_l.write(artwork_file)
-        fs_resource_handler.resize_cover(file_location_l, CoverSize.BIG)
+        cleaned_data.update({"path_screenshots": path_screenshots})
 
     db_rom_handler.update_rom(id, cleaned_data)
 
@@ -411,6 +405,11 @@ async def delete_roms(
 
         log.info(f"Deleting {rom.file_name} from database")
         db_rom_handler.delete_rom(id)
+
+        try:
+            rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
+        except FileNotFoundError:
+            log.error(f"Couldn't find resources to delete for {rom.name}")
 
         if id in delete_from_fs:
             log.info(f"Deleting {rom.file_name} from filesystem")

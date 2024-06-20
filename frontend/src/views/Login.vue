@@ -12,8 +12,8 @@ const heartbeatStore = storeHeartbeat();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
-const username = ref();
-const password = ref();
+const username = ref("");
+const password = ref("");
 const visiblePassword = ref(false);
 const logging = ref(false);
 
@@ -45,13 +45,6 @@ function login() {
       logging.value = false;
     });
 }
-
-onBeforeMount(async () => {
-  // Check if authentication is enabled
-  if (!auth.enabled) {
-    return router.push({ name: "dashboard" });
-  }
-});
 </script>
 
 <template>
@@ -70,47 +63,54 @@ onBeforeMount(async () => {
 
           <v-row class="text-white justify-center mt-2">
             <v-col cols="10" md="8">
-              <v-text-field
-                v-model="username"
-                prepend-inner-icon="mdi-account"
-                type="text"
-                label="Username"
-                variant="underlined"
-                @keyup.enter="login()"
-              />
-              <v-text-field
-                v-model="password"
-                prepend-inner-icon="mdi-lock"
-                :type="visiblePassword ? 'text' : 'password'"
-                label="Password"
-                variant="underlined"
-                :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-                @keyup.enter="login()"
-                @click:append-inner="visiblePassword = !visiblePassword"
-              />
-            </v-col>
-          </v-row>
-
-          <v-row class="justify-center">
-            <v-col cols="10" md="8">
-              <v-btn
-                :disabled="logging"
-                color="romm-accent-1"
-                append-icon="mdi-chevron-right-circle-outline"
-                block
-                :loading="logging"
-                @click="login()"
-              >
-                Login
-                <template #loader>
-                  <v-progress-circular
-                    color="romm-accent-1"
-                    :width="2"
-                    :size="20"
-                    indeterminate
-                  />
-                </template>
-              </v-btn>
+              <v-form @submit.prevent>
+                <v-text-field
+                  v-model="username"
+                  required
+                  prepend-inner-icon="mdi-account"
+                  type="text"
+                  label="Username"
+                  variant="underlined"
+                  @keyup.enter="login()"
+                />
+                <v-text-field
+                  v-model="password"
+                  required
+                  prepend-inner-icon="mdi-lock"
+                  :type="visiblePassword ? 'text' : 'password'"
+                  label="Password"
+                  variant="underlined"
+                  :append-inner-icon="
+                    visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
+                  "
+                  @keyup.enter="login()"
+                  @click:append-inner="visiblePassword = !visiblePassword"
+                />
+                <v-btn
+                  type="submit"
+                  :disabled="logging || !username || !password"
+                  :variant="!username || !password ? 'text' : 'flat'"
+                  class="bg-terciary"
+                  block
+                  :loading="logging"
+                  @click="login()"
+                >
+                  <span>Login</span>
+                  <template #append>
+                    <v-icon class="text-romm-accent-1"
+                      >mdi-chevron-right-circle-outline</v-icon
+                    >
+                  </template>
+                  <template #loader>
+                    <v-progress-circular
+                      color="romm-accent-1"
+                      :width="2"
+                      :size="20"
+                      indeterminate
+                    />
+                  </template>
+                </v-btn>
+              </v-form>
             </v-col>
           </v-row>
         </v-col>

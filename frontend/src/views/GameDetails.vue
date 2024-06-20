@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import EmptyGame from "@/components/common/EmptyGame.vue";
-import Cover from "@/components/Game/Card/Base.vue";
-import ActionBar from "@/components/Game/Details/ActionBar.vue";
-import AdditionalContent from "@/components/Game/Details/AdditionalContent.vue";
-import BackgroundHeader from "@/components/Game/Details/BackgroundHeader.vue";
-import Info from "@/components/Game/Details/Info/Base.vue";
-import Notes from "@/components/Game/Details/Notes.vue";
-import RelatedGames from "@/components/Game/Details/RelatedGames.vue";
-import Saves from "@/components/Game/Details/Saves.vue";
-import States from "@/components/Game/Details/States.vue";
-import TitleInfo from "@/components/Game/Details/Title.vue";
+import Cover from "@/components/common/Game/Card/Base.vue";
+import ActionBar from "@/components/common/Game/Details/ActionBar.vue";
+import AdditionalContent from "@/components/common/Game/Details/AdditionalContent.vue";
+import BackgroundHeader from "@/components/common/Game/Details/BackgroundHeader.vue";
+import FileInfo from "@/components/common/Game/Details/Info/FileInfo.vue";
+import GameInfo from "@/components/common/Game/Details/Info/GameInfo.vue";
+import Notes from "@/components/common/Game/Details/Notes.vue";
+import RelatedGames from "@/components/common/Game/Details/RelatedGames.vue";
+import Saves from "@/components/common/Game/Details/Saves.vue";
+import States from "@/components/common/Game/Details/States.vue";
+import TitleInfo from "@/components/common/Game/Details/Title.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
@@ -40,8 +41,6 @@ const noRomError = ref(false);
 
 // Functions
 async function fetchDetails() {
-  if (!route.params.rom) return;
-
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
@@ -115,9 +114,7 @@ watch(
 
       <v-col
         cols="12"
-        md="7"
-        lg="6"
-        xl="8"
+        md="8"
         class="px-5"
         :class="{
           'info-lg': mdAndUp,
@@ -173,9 +170,10 @@ watch(
         </v-row>
         <v-row no-gutters class="mb-4">
           <v-col cols="12">
-            <v-window v-model="tab" class="py-2">
+            <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
-                <info :rom="rom" :platform="platform" />
+                <file-info :rom="rom" :platform="platform" />
+                <game-info :rom="rom" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />

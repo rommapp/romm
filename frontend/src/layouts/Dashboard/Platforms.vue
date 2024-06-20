@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PlatformCard from "@/components/Platform/Card.vue";
-import RSection from "@/components/common/Section.vue";
+import PlatformCard from "@/components/common/Platform/Card.vue";
+import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
 import { views } from "@/utils";
 
@@ -16,7 +16,6 @@ const platforms = storePlatforms();
           :key="platform.slug"
           class="pa-1"
           :cols="views[0]['size-cols']"
-          :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
