@@ -113,13 +113,22 @@ function closeDialog() {
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
   >
-    <template #prepend>
-      <v-list-item class="text-center">
-        <span>Removing the following</span>
+    <template #header>
+      <v-row no-gutters class="justify-center">
+        <span>Removing</span>
         <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
         <span>{{ assetType.slice(5) }} of</span>
         <span class="text-romm-accent-1 mx-1">{{ romRef?.name }}</span>
-        <span>from RomM. Do you confirm?</span>
+        <span>from RomM</span>
+      </v-row>
+    </template>
+    <template #prepend>
+      <v-list-item class="text-caption text-center">
+        <span
+          >Select the {{ assetType.slice(5) }} you want to remove from your
+          filesystem, otherwise they will only be deleted from RomM
+          database.</span
+        >
       </v-list-item>
     </template>
     <template #content>
@@ -138,7 +147,14 @@ function closeDialog() {
           <v-list-item class="px-0">
             <v-row no-gutters>
               <v-col>
-                {{ item.file_name }}
+                {{ item.file_name }}<v-chip
+                  v-if="assetsToDeleteFromFs.includes(item.id) && smAndUp"
+                  label
+                  size="x-small"
+                  class="text-romm-red ml-1"
+                >
+                  Removing from filesystem
+                </v-chip>
               </v-col>
             </v-row>
             <v-row no-gutters>
@@ -156,11 +172,10 @@ function closeDialog() {
                   </v-chip>
                 </template>
                 <v-chip
-                  v-if="assetsToDeleteFromFs.includes(item.id)"
+                  v-if="assetsToDeleteFromFs.includes(item.id) && !smAndUp"
                   label
                   size="x-small"
                   class="text-romm-red"
-                  :class="{ 'ml-1': !smAndUp }"
                 >
                   Removing from filesystem
                 </v-chip>
