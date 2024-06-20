@@ -45,13 +45,6 @@ function login() {
       logging.value = false;
     });
 }
-
-onBeforeMount(async () => {
-  // Check if authentication is enabled
-  if (!auth.enabled) {
-    return router.push({ name: "dashboard" });
-  }
-});
 </script>
 
 <template>
