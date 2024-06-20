@@ -10,7 +10,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 
-type matchedSource = {
+type MatchedSource = {
   url_cover: string | undefined;
   name: string;
 };
@@ -29,8 +29,9 @@ const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
 const renameAsSource = ref(false);
-const selectedRom = ref<SearchRomSchema>();
-const sources = ref<matchedSource[]>([]);
+const selectedMatchRom = ref<SearchRomSchema>();
+const selectedCover = ref<MatchedSource>();
+const sources = ref<MatchedSource[]>([]);
 const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
@@ -110,7 +111,7 @@ function showSources(matchedRom: SearchRomSchema) {
     cardContent.scrollTop = 0;
   }
   showSelectSource.value = true;
-  selectedRom.value = matchedRom;
+  selectedMatchRom.value = matchedRom;
   sources.value.push({
     url_cover: matchedRom.igdb_url_cover,
     name: "igdb",
@@ -121,11 +122,15 @@ function showSources(matchedRom: SearchRomSchema) {
   });
 }
 
-function selectSource(source: matchedSource) {
-  if (!selectedRom.value) return;
+function selectCover(source: MatchedSource) {
+  selectedCover.value = source;
+}
+
+function confirm() {
+  if (!selectedMatchRom.value || !selectedCover.value) return;
   updateRom(
-    Object.assign(selectedRom.value, {
-      url_cover: source.url_cover,
+    Object.assign(selectedMatchRom.value, {
+      url_cover: selectedCover.value.url_cover,
     })
   );
 }
@@ -136,6 +141,8 @@ function toggleRenameAsSource() {
 
 function backToMatched() {
   showSelectSource.value = false;
+  selectedCover.value = undefined;
+  selectedMatchRom.value = undefined;
   sources.value = [];
 }
 
@@ -146,6 +153,9 @@ async function updateRom(selectedRom: SearchRomSchema) {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   Object.assign(rom.value, selectedRom);
+  if (rom.value.url_cover) {
+    rom.value.url_cover = rom.value.url_cover.replace("t_cover_big", "t_1080p");
+  }
 
   await romApi
     .updateRom({ rom: rom.value, renameAsIGDB: renameAsSource.value })
@@ -173,8 +183,10 @@ async function updateRom(selectedRom: SearchRomSchema) {
 function closeDialog() {
   show.value = false;
   searchBy.value = "Name";
-  showSelectSource.value = false;
   sources.value = [];
+  showSelectSource.value = false;
+  selectedCover.value = undefined;
+  selectedMatchRom.value = undefined;
 }
 
 onBeforeUnmount(() => {
@@ -315,9 +327,26 @@ onBeforeUnmount(() => {
             ></v-btn>
           </v-col>
         </v-row>
-        <v-row no-gutters>
+        <v-row class="mt-2" no-gutters>
           <v-col cols="12">
-            <v-row class="justify-center" no-gutters>
+            <v-card class="mx-auto bg-terciary">
+              <v-card-title class="text-center">
+                {{ selectedMatchRom?.name }}
+              </v-card-title>
+              <v-card-text class="text-subtitle-2">
+                {{ selectedMatchRom?.summary }}
+              </v-card-text>
+            </v-card>
+          </v-col>
+          <v-col cols="12">
+            <v-row no-gutters class="mt-4 justify-center text-center">
+              <v-col>
+                <span class="text-body-1">Select a cover for you game</span>
+              </v-col>
+            </v-row>
+          </v-col>
+          <v-col cols="12">
+            <v-row class="justify-center mt-4" no-gutters>
               <v-col
                 :class="{
                   'source-cover-desktop': !xs,
@@ -330,9 +359,13 @@ onBeforeUnmount(() => {
                   <v-card
                     v-bind="props"
                     class="transform-scale"
-                    :class="{ 'on-hover': isHovering }"
+                    :class="{
+                      'on-hover': isHovering,
+                      'border-romm-accent-1':
+                        selectedCover?.name == source.name,
+                    }"
                     :elevation="isHovering ? 20 : 3"
-                    @click="selectSource(source)"
+                    @click="selectCover(source)"
                   >
                     <v-img
                       :src="
@@ -367,8 +400,8 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col>
-            <v-row class="mt-2 text-center" no-gutters>
+          <v-col cols="12">
+            <v-row class="mt-4 text-center" no-gutters>
               <v-col>
                 <v-chip
                   @click="toggleRenameAsSource"
@@ -383,17 +416,22 @@ onBeforeUnmount(() => {
                 >
               </v-col>
             </v-row>
-            <v-row class="mt-2" no-gutters>
-              <v-col>
-                <v-card class="mx-auto bg-terciary">
-                  <v-card-title class="text-center">
-                    {{ selectedRom?.name }}
-                  </v-card-title>
-                  <v-card-text>
-                    {{ selectedRom?.summary }}
-                  </v-card-text>
-                </v-card>
-              </v-col>
+          </v-col>
+          <v-col cols="12">
+            <v-row no-gutters class="my-4 justify-center">
+              <v-btn-group divided density="compact">
+                <v-btn class="bg-terciary" @click="backToMatched">
+                  Cancel
+                </v-btn>
+                <v-btn
+                  class="text-romm-green bg-terciary"
+                  :disabled="selectedCover == undefined"
+                  :variant="selectedCover == undefined ? 'plain' : 'flat'"
+                  @click="confirm"
+                >
+                  Confirm
+                </v-btn>
+              </v-btn-group>
             </v-row>
           </v-col>
         </v-row>

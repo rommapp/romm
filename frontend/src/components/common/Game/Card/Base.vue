@@ -4,15 +4,10 @@ import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
-import storeRoms, { type SimpleRom } from "@/stores/roms.js";
-import { storeToRefs } from "pinia";
+import storeRoms from "@/stores/roms";
+import { type SimpleRom } from "@/stores/roms.js";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
-
-// Type guard function to check if rom is of type SimpleRom or SearchRomSchema
-function isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
-  return (rom as SimpleRom).id !== undefined;
-}
 
 // Props
 const props = withDefaults(
@@ -23,6 +18,7 @@ const props = withDefaults(
     titleOnFooter?: boolean;
     showActionBar?: boolean;
     withBorder?: boolean;
+    withBorderRommAccent?: boolean;
     src?: string;
   }>(),
   {
@@ -31,9 +27,11 @@ const props = withDefaults(
     titleOnFooter: false,
     showActionBar: false,
     withBorder: false,
+    withBorderRommAccent: false,
     src: "",
   }
 );
+const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
 const handleClick = (event: MouseEvent) => {
   emit("click", { event: event, rom: props.rom });
@@ -44,9 +42,7 @@ const handleTouchStart = (event: TouchEvent) => {
 const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
-const romsStore = storeRoms();
 const downloadStore = storeDownload();
-const { selectedRoms } = storeToRefs(romsStore);
 const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
@@ -65,15 +61,14 @@ onMounted(() => {
       v-bind="hoverProps"
       :class="{
         'on-hover': isHovering,
-        'border-romm-accent-1':
-          isSimpleRom(rom) && selectedRoms?.includes(rom),
+        'border-romm-accent-1': withBorderRommAccent,
         'transform-scale': transformScale,
         'with-border': withBorder,
       }"
       :elevation="isHovering && transformScale ? 20 : 2"
     >
       <v-progress-linear
-        v-if="isSimpleRom(rom)"
+        v-if="romsStore.isSimpleRom(rom)"
         color="romm-accent-1"
         :active="downloadStore.value.includes(rom.id)"
         :indeterminate="true"
@@ -90,7 +85,7 @@ onMounted(() => {
           :src="
             src
               ? src
-              : isSimpleRom(rom)
+              : romsStore.isSimpleRom(rom)
               ? !rom.igdb_id && !rom.moby_id
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : !rom.has_cover
@@ -103,7 +98,7 @@ onMounted(() => {
               : rom.moby_url_cover
           "
           :lazy-src="
-            isSimpleRom(rom)
+            romsStore.isSimpleRom(rom)
               ? !rom.igdb_id && !rom.moby_id
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : !rom.has_cover
@@ -123,8 +118,8 @@ onMounted(() => {
                 <div
                   v-if="
                     isHovering ||
-                    (isSimpleRom(rom) && !rom.has_cover) ||
-                    (!isSimpleRom(rom) &&
+                    (romsStore.isSimpleRom(rom) && !rom.has_cover) ||
+                    (!romsStore.isSimpleRom(rom) &&
                       !rom.igdb_url_cover &&
                       !rom.moby_url_cover)
                   "
@@ -138,7 +133,7 @@ onMounted(() => {
                 </div>
               </v-expand-transition>
             </template>
-            <sources v-if="!isSimpleRom(rom)" :rom="rom" />
+            <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
             <slot name="prepend-inner"></slot>
           </div>
           <div class="position-absolute append-inner">
@@ -171,7 +166,7 @@ onMounted(() => {
         </v-row>
       </v-card-text>
       <slot name="footer"></slot>
-      <action-bar v-if="showActionBar && isSimpleRom(rom)" :rom="rom" />
+      <action-bar v-if="showActionBar && romsStore.isSimpleRom(rom)" :rom="rom" />
     </v-card>
   </v-hover>
 </template>
