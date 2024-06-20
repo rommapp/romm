@@ -252,7 +252,7 @@ def get_rom_content(
 async def update_rom(
     request: Request,
     id: int,
-    rename_as_igdb: bool = False,
+    rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
 ) -> DetailedRomSchema:
@@ -261,11 +261,11 @@ async def update_rom(
     Args:
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
-        rename_as_igdb (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
+        rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
         artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
 
     Raises:
-        HTTPException: If a rom already have that name when enabling the rename_as_igdb flag
+        HTTPException: If a rom already have that name when enabling the rename_as_source flag
 
     Returns:
         DetailedRomSchema: Rom stored in the database
@@ -299,7 +299,7 @@ async def update_rom(
     )
     fs_safe_name = cleaned_data["name"].strip().replace("/", "-")
 
-    if rename_as_igdb:
+    if rename_as_source:
         fs_safe_file_name = db_rom.file_name.replace(
             db_rom.file_name_no_tags or db_rom.file_name_no_ext, fs_safe_name
         )
