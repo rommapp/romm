@@ -23,6 +23,7 @@ import identityApi from "@/services/api/identity";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
@@ -34,10 +35,13 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
+const { smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
+const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
+const { activePlatformsDrawer, activeSettingsDrawer } =
+  storeToRefs(navigationStore);
 const router = useRouter();
 const auth = storeAuth();
 const refreshView = ref(0);
@@ -49,36 +53,28 @@ emitter?.on("refreshDrawer", async () => {
 emitter?.on("refreshView", async () => {
   refreshView.value = refreshView.value + 1;
 });
-const platformsDrawer = ref(false);
-const settingsDrawer = ref(false);
-const actionsDrawer = ref(false);
 
 // Functions
 function goHome() {
-  platformsDrawer.value = false;
-  settingsDrawer.value = false;
+  navigationStore.resetDrawers();
   router.push({ name: "dashboard" });
 }
+
 function goScan() {
-  platformsDrawer.value = false;
-  settingsDrawer.value = false;
+  navigationStore.resetDrawers();
   router.push({ name: "scan" });
 }
+
 function togglePlatformsDrawer() {
-  platformsDrawer.value = !platformsDrawer.value;
-  settingsDrawer.value = false;
-  actionsDrawer.value = false;
+  activeSettingsDrawer.value = false;
+  navigationStore.switchActivePlatformsDrawer();
 }
+
 function toggleSettingsDrawer() {
-  platformsDrawer.value = false;
-  settingsDrawer.value = !settingsDrawer.value;
-  actionsDrawer.value = false;
+  activePlatformsDrawer.value = false;
+  navigationStore.switchActiveSettingsDrawer();
 }
-function toggleActionsDrawer() {
-  platformsDrawer.value = false;
-  settingsDrawer.value = false;
-  actionsDrawer.value = !actionsDrawer.value;
-}
+
 async function logout() {
   identityApi
     .logout()
@@ -98,8 +94,9 @@ async function logout() {
     });
 }
 
-onMounted(() => {
-  userApi
+onMounted(async () => {
+  navigationStore.resetDrawers()
+  await userApi
     .fetchCurrentUser()
     .then(({ data: user }) => {
       auth.setUser(user);
@@ -108,7 +105,7 @@ onMounted(() => {
       console.error(error);
     });
 
-  platformApi
+  await platformApi
     .getPlatforms()
     .then(({ data: platforms }) => {
       platformsStore.set(platforms);
@@ -129,9 +126,10 @@ onMounted(() => {
 
   <!-- TODO: refactor and extract components -->
   <v-navigation-drawer
-    app
-    :floating="platformsDrawer || settingsDrawer"
+    v-if="!smAndDown"
+    permanent
     rail
+    :floating="activePlatformsDrawer || activeSettingsDrawer"
     rail-width="60"
   >
     <template #prepend>
@@ -148,15 +146,17 @@ onMounted(() => {
       </v-row>
       <v-row no-gutters class="my-4 justify-center">
         <v-btn
-          v-if="auth.scopes.includes('roms.write')"
-          icon="mdi-upload"
-          variant="flat"
-          @click="emitter?.emit('showUploadRomDialog', null)"
-        />
-        <v-btn
           icon="mdi-magnify"
+          size="small"
           variant="flat"
           @click="emitter?.emit('showSearchRomDialog', null)"
+        />
+        <v-btn
+          v-if="auth.scopes.includes('roms.write')"
+          icon="mdi-upload"
+          size="small"
+          variant="flat"
+          @click="emitter?.emit('showUploadRomDialog', null)"
         />
       </v-row>
     </template>
@@ -165,7 +165,7 @@ onMounted(() => {
         block
         rounded="0"
         variant="flat"
-        :color="platformsDrawer ? 'terciary' : ''"
+        :color="activePlatformsDrawer ? 'terciary' : ''"
         icon
         @click="togglePlatformsDrawer"
         ><v-icon :color="$route.name == 'platform' ? 'romm-accent-1' : ''"
@@ -187,25 +187,90 @@ onMounted(() => {
     </v-row>
     <template #append>
       <v-row no-gutters class="justify-center">
-        <v-btn
-          block
-          rounded="0"
-          variant="flat"
-          :color="settingsDrawer ? 'terciary' : ''"
-          icon
+        <v-hover v-slot="{ isHovering, props: hoverProps }">
+          <v-avatar
+            v-bind="hoverProps"
+            :class="{ 'border-romm-accent-1': isHovering }"
+            @click="toggleSettingsDrawer"
+            size="35"
+            class="my-2 pointer"
+          >
+            <v-img
+              :src="
+                auth.user?.avatar_path
+                  ? `/assets/romm/assets/${auth.user?.avatar_path}`
+                  : defaultAvatarPath
+              "
+            />
+          </v-avatar>
+        </v-hover>
+      </v-row>
+    </template>
+  </v-navigation-drawer>
+
+  <v-app-bar
+    v-if="smAndDown"
+    :elevation="0"
+    class="bg-primary justify-center"
+    mode="shift"
+    height="45"
+  >
+    <template #prepend>
+      <v-hover v-slot="{ isHovering, props: hoverProps }">
+        <romm-iso
+          @click="goHome"
+          v-bind="hoverProps"
+          class="pointer ml-1"
+          :class="{ 'border-romm-accent-1': isHovering }"
+          :size="35"
+        />
+      </v-hover>
+    </template>
+
+    <v-btn
+      rounded="0"
+      variant="flat"
+      :color="activePlatformsDrawer ? 'terciary' : ''"
+      icon
+      @click="togglePlatformsDrawer"
+      ><v-icon :color="$route.name == 'platform' ? 'romm-accent-1' : ''"
+        >mdi-controller</v-icon
+      ></v-btn
+    >
+    <v-btn
+      v-if="auth.scopes.includes('platforms.write')"
+      rounded="0"
+      variant="flat"
+      color="primary"
+      icon
+      @click="goScan"
+      ><v-icon :color="$route.name == 'scan' ? 'romm-accent-1' : ''"
+        >mdi-magnify-scan</v-icon
+      ></v-btn
+    >
+    <v-btn
+      icon="mdi-magnify"
+      size="small"
+      variant="flat"
+      @click="emitter?.emit('showSearchRomDialog', null)"
+    />
+    <v-btn
+      v-if="auth.scopes.includes('roms.write')"
+      icon="mdi-upload"
+      class="ml-1"
+      size="small"
+      variant="flat"
+      @click="emitter?.emit('showUploadRomDialog', null)"
+    />
+    <template #append>
+      <v-hover v-slot="{ isHovering, props: hoverProps }">
+        <v-avatar
           @click="toggleSettingsDrawer"
-          ><v-icon
-            :color="
-              $route.name == 'settings' ||
-              $route.name == 'management' ||
-              $route.name == 'administration'
-                ? 'romm-accent-1'
-                : ''
-            "
-            >mdi-cog</v-icon
-          ></v-btn
+          class="mr-1 pointer"
+          size="35"
+          v-bind="hoverProps"
+          :class="{ 'border-romm-accent-1': isHovering }"
         >
-        <v-avatar size="35" class="my-2">
           <v-img
             :src="
               auth.user?.avatar_path
@@ -214,15 +279,15 @@ onMounted(() => {
             "
           />
         </v-avatar>
-      </v-row>
+      </v-hover>
     </template>
-  </v-navigation-drawer>
+  </v-app-bar>
 
   <v-navigation-drawer
-    :location="mdAndDown ? 'bottom' : 'left'"
+    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="340"
-    v-model="platformsDrawer"
+    width="400"
+    v-model="activePlatformsDrawer"
     class="bg-terciary"
   >
     <v-list rounded="0" class="pa-0">
@@ -232,64 +297,62 @@ onMounted(() => {
         :platform="platform"
         class="py-4"
       />
-      <!-- This one list-item is needed to fix the marging issue with bottom navigation -->
-      <v-list-item v-if="mdAndDown" />
     </v-list>
   </v-navigation-drawer>
 
   <v-navigation-drawer
-    :location="mdAndDown ? 'bottom' : 'left'"
+    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="340"
-    v-model="settingsDrawer"
+    width="300"
+    v-model="activeSettingsDrawer"
     class="bg-terciary"
   >
     <v-list rounded="0" class="pa-0">
-      <v-img
-        :src="
-          auth.user?.avatar_path
-            ? `/assets/romm/assets/${auth.user?.avatar_path}`
-            : defaultAvatarPath
-        "
-        :aspect-ratio="20 / 3"
-        cover
-      >
-        <v-list-item class="text-shadow">
-          <template #title>
-            <span>{{ auth.user?.username }}</span>
-          </template>
-          <template #subtitle>
-            <span>{{ auth.user?.role }}</span>
-          </template>
-        </v-list-item>
-      </v-img>
-      <v-list rounded="0" class="pa-0">
-        <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
-          >UI Settings</v-list-item
+      <v-list-img>
+        <v-img
+          :src="
+            auth.user?.avatar_path
+              ? `/assets/romm/assets/${auth.user?.avatar_path}`
+              : defaultAvatarPath
+          "
+          :aspect-ratio="smAndDown ? 20 / 1 : 20 / 3"
+          cover
         >
-        <v-list-item
-          v-if="auth.scopes.includes('platforms.write')"
-          append-icon="mdi-table-cog"
-          :to="{ name: 'management' }"
-          >Library Management
-        </v-list-item>
-        <v-list-item
-          v-if="auth.scopes.includes('users.write')"
-          :to="{ name: 'administration' }"
-          append-icon="mdi-security"
-          >Administration</v-list-item
-        >
-        <template v-if="mdAndDown">
-          <v-divider />
-          <v-list-item @click="logout" append-icon="mdi-location-exit"
-            >Logout</v-list-item
-          >
-          <!-- This one list-item is needed to fix the marging issue with bottom navigation -->
-          <v-list-item />
+        </v-img>
+      </v-list-img>
+      <v-list-item class="mb-1 text-shadow text-white">
+        <template #title>
+          <span>{{ auth.user?.username }}</span>
         </template>
-      </v-list>
+        <template #subtitle>
+          <span>{{ auth.user?.role }}</span>
+        </template>
+      </v-list-item>
     </v-list>
-    <template v-if="!mdAndDown" #append>
+    <v-list rounded="0" class="pa-0">
+      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
+        >UI Settings</v-list-item
+      >
+      <v-list-item
+        v-if="auth.scopes.includes('platforms.write')"
+        append-icon="mdi-table-cog"
+        :to="{ name: 'management' }"
+        >Library Management
+      </v-list-item>
+      <v-list-item
+        v-if="auth.scopes.includes('users.write')"
+        :to="{ name: 'administration' }"
+        append-icon="mdi-security"
+        >Administration</v-list-item
+      >
+      <template v-if="smAndDown">
+        <v-divider />
+        <v-list-item @click="logout" append-icon="mdi-location-exit"
+          >Logout</v-list-item
+        >
+      </template>
+    </v-list>
+    <template v-if="!smAndDown" #append>
       <v-list rounded="0" class="pa-0">
         <v-divider />
         <v-list-item @click="logout" append-icon="mdi-location-exit"
@@ -299,63 +362,8 @@ onMounted(() => {
     </template>
   </v-navigation-drawer>
 
-  <v-navigation-drawer
-    location="bottom"
-    mobile
-    width="340"
-    v-model="actionsDrawer"
-    class="bg-terciary"
-  >
-    <v-list rounded="0" class="pa-0">
-      <v-list-item
-        @click="emitter?.emit('showSearchRomDialog', null)"
-        append-icon="mdi-magnify"
-      >
-        Search
-      </v-list-item>
-      <v-list-item
-        @click="emitter?.emit('showUploadRomDialog', null)"
-        append-icon="mdi-upload"
-      >
-        Upload
-      </v-list-item>
-      <!-- This one list-item is needed to fix the marging issue with bottom navigation -->
-      <v-list-item v-if="mdAndDown" />
-    </v-list>
-  </v-navigation-drawer>
-
   <new-version />
   <router-view :key="refreshView" />
-
-  <v-bottom-navigation
-    app
-    v-if="mdAndDown"
-    :elevation="0"
-    class="bg-primary"
-    mode="shift"
-    height="45"
-  >
-    <v-btn @click="goHome">
-      <v-icon>mdi-home</v-icon>
-      <span>Home</span>
-    </v-btn>
-    <v-btn @click="togglePlatformsDrawer">
-      <v-icon>mdi-controller</v-icon>
-      <span>Platforms</span>
-    </v-btn>
-    <v-btn v-if="auth.scopes.includes('platforms.write')" @click="goScan">
-      <v-icon>mdi-magnify-scan</v-icon>
-      <span>Scan</span>
-    </v-btn>
-    <v-btn @click="toggleSettingsDrawer">
-      <v-icon>mdi-cog</v-icon>
-      <span>Settings</span>
-    </v-btn>
-    <v-btn @click="toggleActionsDrawer">
-      <v-icon>mdi-dots-horizontal</v-icon>
-      <span>Actions</span>
-    </v-btn>
-  </v-bottom-navigation>
 
   <delete-platform-dialog />
   <search-rom-dialog />

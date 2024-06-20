@@ -92,7 +92,7 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="6" class="px-1">
+    <v-col cols="12" md="5" lg="6" class="px-1">
       <v-select
         :menu-props="{ maxHeight: 650 }"
         prepend-inner-icon="mdi-controller"
@@ -139,14 +139,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col
-      class="px-1"
-      cols="12"
-      sm="7"
-      md="4"
-      lg="4"
-      :class="{ 'mt-3': smAndDown }"
-    >
+    <v-col class="px-1" cols="12" md="5" lg="4" :class="{ 'mt-3': smAndDown }">
       <v-select
         prepend-inner-icon="mdi-database-search"
         v-model="metadataSources"
@@ -194,7 +187,7 @@ async function stopScan() {
       </v-select>
     </v-col>
     <!-- Scan options -->
-    <v-col class="px-1" cols="12" sm="5" md="2" :class="{ 'mt-3': smAndDown }">
+    <v-col class="px-1" cols="12" md="2" :class="{ 'mt-3': smAndDown }">
       <v-select
         prepend-inner-icon="mdi-magnify-scan"
         v-model="scanType"
@@ -213,7 +206,7 @@ async function stopScan() {
 
   <!-- Scan buttons -->
   <v-row
-    class="pa-4 align-center"
+    class="px-4 mt-3 align-center"
     :class="{ 'justify-center': smAndDown }"
     no-gutters
   >
@@ -259,18 +252,29 @@ async function stopScan() {
       </template>
       <span :class="{ 'text-romm-red': scanning }">Abort</span>
     </v-btn>
-    <v-list-item
-      v-if="metadataSources.length == 0"
-      class="text-caption text-yellow py-0"
-      :class="{ 'mt-3': smAndDown }"
+    <v-btn
+      prepend-icon="mdi-table-cog"
+      rounded="4"
+      height="40"
+      class="ml-2"
+      :to="{ name: 'management' }"
     >
+      Manage
+    </v-btn>
+  </v-row>
+  <v-row
+    v-if="metadataSources.length == 0"
+    no-gutters
+    class="mt-3 justify-center"
+  >
+    <v-list-item class="text-caption text-yellow py-0">
       <v-icon>mdi-alert</v-icon
       ><span class="ml-2">Please select at least one metadata source.</span>
     </v-list-item>
   </v-row>
 
   <v-divider
-    class="border-opacity-100"
+    class="border-opacity-100 mt-3"
     :class="{ 'mx-4': !smAndDown }"
     color="romm-accent-1"
   />
