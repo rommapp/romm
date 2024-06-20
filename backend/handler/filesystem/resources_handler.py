@@ -71,10 +71,9 @@ class FSResourcesHandler(FSHandler):
                 timeout=120,
             )
         except requests.exceptions.ConnectionError as exc:
-            log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to IGDB, check your internet connection.",
+                detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
             ) from exc
 
         if res.status_code == 200:
@@ -163,10 +162,9 @@ class FSResourcesHandler(FSHandler):
         try:
             res = requests.get(url, stream=True, timeout=120)
         except requests.exceptions.ConnectionError as exc:
-            log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to IGDB, check your internet connection.",
+                detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
             ) from exc
 
         if res.status_code == 200:
