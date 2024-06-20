@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { FirmwareSchema } from "@/__generated__";
-import DeleteFirmwareDialog from "@/components/Dialog/Platform/DeleteFirmware.vue";
-import UploadFirmwareDialog from "@/components/Dialog/Platform/UploadFirmware.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
+import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
+import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
@@ -15,15 +15,10 @@ import { useDisplay } from "vuetify";
 const { xs, mdAndUp } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
-const galleryFilterStore = storeGalleryFilter();
-const { activeFirmwareDrawer } = storeToRefs(galleryFilterStore);
+const galleryViewStore = storeGalleryView();
+const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-  // TODO: remove emitter
-  // TODO: same behaviour on filter drawer
-emitter?.on("firmwareDrawerShow", () => {
-  updateDataTablePages();
-});
 const HEADERS = [
   {
     title: "Firmware",
@@ -60,22 +55,13 @@ function updateDataTablePages() {
   );
 }
 
-function closeDrawer() {
-  galleryFilterStore.switchActiveFirmwareDrawer();
-}
-
 watch(itemsPerPage, async () => {
   updateDataTablePages();
 });
 </script>
 
 <template>
-  <v-navigation-drawer
-    @update:model-value="galleryFilterStore.switchActiveFirmwareDrawer()"
-    v-model="activeFirmwareDrawer"
-    :mobile="true"
-    location="bottom"
-  >
+  <v-navigation-drawer v-model="activeFirmwareDrawer" mobile location="bottom">
     <v-data-table
       :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"
@@ -88,14 +74,30 @@ watch(itemsPerPage, async () => {
       show-select
     >
       <template #header.actions>
-        <v-btn
-          prepend-icon="mdi-plus"
-          class="text-romm-accent-1"
-          variant="outlined"
-          @click="emitter?.emit('addFirmwareDialog', null)"
-        >
-          Add
-        </v-btn>
+        <v-btn-group divided density="compact">
+          <v-btn size="small" @click="emitter?.emit('addFirmwareDialog', null)">
+            <v-icon>mdi-upload</v-icon>
+          </v-btn>
+          <v-btn
+            :disabled="!selectedFirmware.length"
+            size="small"
+            :variant="selectedFirmware.length > 0 ? 'flat' : 'plain'"
+            @click="downloadSelectedFirmware"
+          >
+            <v-icon>mdi-download</v-icon>
+          </v-btn>
+          <v-btn
+            :class="{
+              'text-romm-red': selectedFirmware.length,
+            }"
+            :disabled="!selectedFirmware.length"
+            size="small"
+            :variant="selectedFirmware.length > 0 ? 'flat' : 'plain'"
+            @click="deleteSelectedFirmware"
+          >
+            <v-icon>mdi-delete</v-icon>
+          </v-btn>
+        </v-btn-group>
       </template>
       <template #item.name="{ item }">
         <v-list-item class="px-0">
@@ -175,71 +177,17 @@ watch(itemsPerPage, async () => {
       </template>
       <template #bottom>
         <v-divider />
-        <v-row no-gutters class="pt-2 align-center justify-center">
-          <v-col :cols="xs ? 10 : 2">
-            <v-btn-group class="px-2" divided density="compact">
-              <v-btn
-                :disabled="!selectedFirmware.length"
-                size="small"
-                @click="downloadSelectedFirmware"
-              >
-                <v-icon>mdi-download</v-icon>
-              </v-btn>
-              <v-btn
-                :class="{
-                  'text-romm-red': selectedFirmware.length,
-                }"
-                :disabled="!selectedFirmware.length"
-                size="small"
-                @click="deleteSelectedFirmware"
-              >
-                <v-icon>mdi-delete</v-icon>
-              </v-btn>
-            </v-btn-group>
-          </v-col>
-          <template v-if="!xs">
-            <v-col sm="6" class="px-6">
-              <v-pagination
-                v-model="page"
-                rounded="0"
-                :show-first-last-page="true"
-                active-color="romm-accent-1"
-                :length="pageCount"
-              />
-            </v-col>
-            <v-col cols="5" sm="3" xl="2">
-              <v-select
-                v-model="itemsPerPage"
-                class="pa-2"
-                label="Files per page"
-                density="compact"
-                variant="outlined"
-                :items="PER_PAGE_OPTIONS"
-                hide-details
-              />
-            </v-col>
-          </template>
-          <v-btn
-            icon="mdi-close"
-            rounded="0"
-            class="mx-2"
-            size="small"
-            variant="text"
-            @click="closeDrawer"
-          >
-          </v-btn>
-        </v-row>
-        <v-row v-if="xs" no-gutters>
-          <v-col cols="8" class="px-6">
+        <v-row no-gutters class="pa-1 align-center justify-center">
+          <v-col cols="8" sm="9" md="10" class="px-3">
             <v-pagination
+              :show-first-last-page="!xs"
               v-model="page"
               rounded="0"
-              :show-first-last-page="true"
               active-color="romm-accent-1"
               :length="pageCount"
             />
           </v-col>
-          <v-col cols="4" sm="3" xl="2">
+          <v-col>
             <v-select
               v-model="itemsPerPage"
               class="pa-2"

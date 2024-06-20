@@ -1,18 +1,10 @@
 <script setup lang="ts">
 import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick } from "vue";
 
 // Props
 const galleryFilterStore = storeGalleryFilter();
-const emitter = inject<Emitter<Events>>("emitter");
 const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
-function showFilterDrawer() {
-  nextTick(() => emitter?.emit("filterDrawerShow", null));
-  galleryFilterStore.switchActiveFilterDrawer();
-}
 </script>
 
 <template>
@@ -31,6 +23,6 @@ function showFilterDrawer() {
         v-bind="props"
         icon="mdi-filter-variant"
         :color="activeFilterDrawer ? 'romm-accent-1' : ''"
-        @click="showFilterDrawer" /></template
+        @click="galleryFilterStore.switchActiveFilterDrawer()" /></template
   ></v-tooltip>
 </template>

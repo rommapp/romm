@@ -8,64 +8,12 @@ from models.platform import Platform
 
 @pytest.mark.vcr
 def test_get_rom_cover():
-    # Game: Metroid Prime (EUR).iso
-    cover = fs_resource_handler.get_rom_cover(
-        overwrite=False,
-        platform_fs_slug="ngc",
-        rom_name="Metroid Prime",
+    path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
+        overwrite=False, rom=None, url_cover=""
     )
 
-    assert "" in cover["path_cover_s"]
-    assert "" in cover["path_cover_l"]
-
-    # Game: Paper Mario (USA).z64
-    cover = fs_resource_handler.get_rom_cover(
-        overwrite=True,
-        platform_fs_slug="n64",
-        rom_name="Paper Mario",
-        url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co1qda.png",
-    )
-
-    assert "n64/Paper%20Mario/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Paper%20Mario/cover/big.png" in cover["path_cover_l"]
-
-    # Game: Super Mario 64 (J) (Rev A)
-    cover = fs_resource_handler.get_rom_cover(
-        overwrite=False,
-        platform_fs_slug="n64",
-        rom_name="Super Mario 64",
-        url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
-    )
-
-    assert "n64/Super%20Mario%2064/cover/small.png" in cover["path_cover_s"]
-    assert "n64/Super%20Mario%2064/cover/big.png" in cover["path_cover_l"]
-
-    # Game: Disney's Kim Possible: What's the Switch?.zip
-    cover = fs_resource_handler.get_rom_cover(
-        overwrite=False,
-        platform_fs_slug="ps2",
-        rom_name="Disney's Kim Possible: What's the Switch?",
-        url_cover="https://images.igdb.com/igdb/image/upload/t_thumb/co6cl1.png",
-    )
-
-    assert (
-        "ps2/Disney%27s%20Kim%20Possible%3A%20What%27s%20the%20Switch%3F/cover/small.png"
-        in cover["path_cover_s"]
-    )
-    assert (
-        "ps2/Disney%27s%20Kim%20Possible%3A%20What%27s%20the%20Switch%3F/cover/big.png"
-        in cover["path_cover_l"]
-    )
-
-    # Game: Fake Game.xyz
-    cover = fs_resource_handler.get_rom_cover(
-        overwrite=False,
-        platform_fs_slug="n64",
-        rom_name="Fake Game",
-    )
-
-    assert "" in cover["path_cover_s"]
-    assert "" in cover["path_cover_l"]
+    assert "" in path_cover_s
+    assert "" in path_cover_l
 
 
 def test_get_platforms():

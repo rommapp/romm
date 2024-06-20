@@ -118,8 +118,16 @@ class Rom(BaseModel):
                         Rom.platform_id == self.platform_id,
                         Rom.id != self.id,
                         or_(
-                            and_(Rom.igdb_id == self.igdb_id, Rom.igdb_id is not None),
-                            and_(Rom.moby_id == self.moby_id, Rom.moby_id is not None),
+                            and_(
+                                Rom.igdb_id == self.igdb_id,
+                                Rom.igdb_id is not None,
+                                Rom.igdb_id != "",
+                            ),
+                            and_(
+                                Rom.moby_id == self.moby_id,
+                                Rom.moby_id is not None,
+                                Rom.moby_id != "",
+                            ),
                         ),
                     )
                 )
@@ -161,6 +169,10 @@ class Rom(BaseModel):
     @property
     def game_modes(self) -> list[str]:
         return self.igdb_metadata.get("game_modes", [])
+
+    @property
+    def fs_resources_path(self) -> str:
+        return f"{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.file_name

@@ -4,12 +4,7 @@ from typing import Any
 import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
-from handler.filesystem import (
-    fs_asset_handler,
-    fs_firmware_handler,
-    fs_resource_handler,
-    fs_rom_handler,
-)
+from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
@@ -281,38 +276,6 @@ async def scan_rom(
         return Rom(**rom_attrs)
 
     log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
-
-    # Update properties from IGDB
-    if (
-        not rom
-        or scan_type == ScanType.COMPLETE
-        or (
-            scan_type == ScanType.PARTIAL
-            and rom
-            and (not rom.igdb_id or not rom.moby_id)
-        )
-        or (
-            scan_type == ScanType.UNIDENTIFIED
-            and rom
-            and not rom.igdb_id
-            and not rom.moby_id
-        )
-    ):
-        rom_attrs.update(
-            fs_resource_handler.get_rom_cover(
-                overwrite=False,
-                platform_fs_slug=platform.slug,
-                rom_name=rom_attrs["name"],
-                url_cover=rom_attrs["url_cover"],
-            )
-        )
-        rom_attrs.update(
-            fs_resource_handler.get_rom_screenshots(
-                platform_fs_slug=platform.slug,
-                rom_name=rom_attrs["name"],
-                url_screenshots=rom_attrs["url_screenshots"],
-            )
-        )
 
     return Rom(**rom_attrs)
 

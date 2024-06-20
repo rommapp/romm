@@ -252,28 +252,32 @@ class IGDBBaseHandler(MetadataHandler):
         return res.json()
 
     def _search_rom(
-        self, search_term: str, platform_igdb_id: int, category: int = 0
+        self, search_term: str, platform_igdb_id: int, with_category: bool = False
     ) -> dict | None:
         if not platform_igdb_id:
             return None
 
         search_term = uc(search_term)
-        category_filter: str = f"& category={category}" if category else ""
+        category_filter: str = (
+            f"& (category={MAIN_GAME_CATEGORY} | category={EXPANDED_GAME_CATEGORY})"
+            if with_category
+            else ""
+        )
         roms = self._request(
             self.games_endpoint,
             data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
         )
-
-        if not roms:
-            roms = self._request(
-                self.search_endpoint,
-                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
-            )
-            if roms:
-                roms = self._request(
+        roms_expanded = self._request(
+            self.search_endpoint,
+            data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+        )
+        if roms_expanded:
+            roms.extend(
+                self._request(
                     self.games_endpoint,
-                    f'fields {",".join(self.games_fields)}; where id={roms[0]["game"]["id"]};',
+                    f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
                 )
+            )
 
         exact_matches = [
             rom
@@ -393,11 +397,9 @@ class IGDBBaseHandler(MetadataHandler):
 
         search_term = self.normalize_search_term(search_term)
 
-        rom = (
-            self._search_rom(search_term, platform_igdb_id, MAIN_GAME_CATEGORY)
-            or self._search_rom(search_term, platform_igdb_id, EXPANDED_GAME_CATEGORY)
-            or self._search_rom(search_term, platform_igdb_id)
-        )
+        rom = self._search_rom(
+            search_term, platform_igdb_id, with_category=True
+        ) or self._search_rom(search_term, platform_igdb_id)
 
         # Split the search term since igdb struggles with colons
         if not rom and ":" in search_term:
@@ -421,10 +423,12 @@ class IGDBBaseHandler(MetadataHandler):
             slug=rom["slug"],
             name=rom["name"],
             summary=rom.get("summary", ""),
-            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_cover=self._normalize_cover_url(
+                rom.get("cover", {}).get("url", "")
+            ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_original"
+                    "t_thumb", "t_screenshot_huge"
                 )
                 for s in rom.get("screenshots", [])
             ],
@@ -450,10 +454,12 @@ class IGDBBaseHandler(MetadataHandler):
             slug=rom["slug"],
             name=rom["name"],
             summary=rom.get("summary", ""),
-            url_cover=self._normalize_cover_url(rom.get("cover", {}).get("url", "")),
+            url_cover=self._normalize_cover_url(
+                rom.get("cover", {}).get("url", "")
+            ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_original"
+                    "t_thumb", "t_screenshot_huge"
                 )
                 for s in rom.get("screenshots", [])
             ],
@@ -470,7 +476,7 @@ class IGDBBaseHandler(MetadataHandler):
 
     @check_twitch_token
     def get_matched_roms_by_name(
-        self, search_term: str, platform_igdb_id: int, search_extended: bool = False
+        self, search_term: str, platform_igdb_id: int
     ) -> list[IGDBRom]:
         if not IGDB_API_ENABLED:
             return []
@@ -484,38 +490,36 @@ class IGDBBaseHandler(MetadataHandler):
             data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}];',
         )
 
-        if not matched_roms or search_extended:
-            log.info("Extended searching...")
-            alternative_matched_roms = self._request(
-                self.search_endpoint,
-                data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
-            )
+        alternative_matched_roms = self._request(
+            self.search_endpoint,
+            data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+        )
 
-            if alternative_matched_roms:
-                alternative_roms_ids = []
-                for rom in alternative_matched_roms:
-                    alternative_roms_ids.append(
-                        rom.get("game").get("id", "")
-                        if "game" in rom.keys()
-                        else rom.get("id", "")
-                    )
-                id_filter = " | ".join(
-                    list(
-                        map(
-                            lambda rom: (
-                                f'id={rom.get("game").get("id", "")}'
-                                if "game" in rom.keys()
-                                else f'id={rom.get("id", "")}'
-                            ),
-                            alternative_matched_roms,
-                        )
+        if alternative_matched_roms:
+            alternative_roms_ids = []
+            for rom in alternative_matched_roms:
+                alternative_roms_ids.append(
+                    rom.get("game").get("id", "")
+                    if "game" in rom.keys()
+                    else rom.get("id", "")
+                )
+            id_filter = " | ".join(
+                list(
+                    map(
+                        lambda rom: (
+                            f'id={rom.get("game").get("id", "")}'
+                            if "game" in rom.keys()
+                            else f'id={rom.get("id", "")}'
+                        ),
+                        alternative_matched_roms,
                     )
                 )
-                alternative_matched_roms = self._request(
-                    self.games_endpoint,
-                    f'fields {",".join(self.games_fields)}; where {id_filter};',
-                )
-                matched_roms.extend(alternative_matched_roms)
+            )
+            alternative_matched_roms = self._request(
+                self.games_endpoint,
+                f'fields {",".join(self.games_fields)}; where {id_filter};',
+            )
+            matched_roms.extend(alternative_matched_roms)
 
         # Use a dictionary to keep track of unique ids
         unique_ids: dict[str, dict[str, str]] = {}
@@ -542,9 +546,7 @@ class IGDBBaseHandler(MetadataHandler):
                             .replace("t_thumb", "t_cover_big")
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", "")).replace(
-                                "t_thumb", "t_original"
-                            )
+                            self._normalize_cover_url(s.get("url", ""))
                             for s in rom.get("screenshots", [])
                         ],
                         "igdb_metadata": extract_metadata_from_igdb_rom(rom),

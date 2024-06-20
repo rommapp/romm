@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import GameCard from "@/components/Game/Card/Base.vue";
-import RSection from "@/components/common/Section.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
@@ -36,7 +36,6 @@ onMounted(() => {
           :key="rom.id"
           class="px-1 pt-1 pb-2"
           :cols="views[0]['size-cols']"
-          :xs="views[0]['size-xs']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
@@ -47,6 +46,7 @@ onMounted(() => {
             :rom="rom"
             transform-scale
             show-action-bar
+            title-on-hover
           />
         </v-col>
       </v-row>

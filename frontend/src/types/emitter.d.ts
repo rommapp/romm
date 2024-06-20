@@ -1,4 +1,4 @@
-import type { SaveSchema, SearchRomSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
@@ -19,7 +19,6 @@ export type SnackbarStatus = {
 export type Events = {
   showDeletePlatformDialog: Platform;
   showMatchRomDialog: SimpleRom;
-  showSelectSourceDialog: SearchRomSchema;
   showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;
@@ -58,7 +57,6 @@ export type Events = {
   };
   addStatesDialog: DetailedRom;
   addSavesDialog: DetailedRom;
-  showEmulation: null;
   toggleDrawer: null;
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
@@ -70,7 +68,6 @@ export type Events = {
   };
   openFabMenu: boolean;
   filter: null;
-  filterDrawerShow: null;
   firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;

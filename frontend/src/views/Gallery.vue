@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import GameCard from "@/components/Game/Card/Base.vue";
-import GameCardFlags from "@/components/Game/Card/Flags.vue";
-import GameDataTable from "@/components/Game/Table.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
+import GameDataTable from "@/components/common/Game/Table.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -16,12 +16,12 @@ import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
+const { smAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -198,7 +198,6 @@ function resetGallery() {
 }
 
 onMounted(async () => {
-  const storedPlatformId = romsStore.currentPlatform?.id;
   const routePlatformId = Number(route.params.platform);
   const routePlatform = platforms.get(routePlatformId);
 
@@ -216,21 +215,12 @@ onMounted(async () => {
   } else {
     romsStore.setCurrentPlatform(routePlatform);
   }
-
-  // If platform is different, reset store and fetch roms
-  if (storedPlatformId != routePlatformId && !noPlatformError.value) {
-    resetGallery();
-    await fetchRoms();
-  }
-
+  resetGallery();
+  await fetchRoms();
   setFilters();
+
   window.addEventListener("wheel", onScroll);
   window.addEventListener("scroll", onScroll);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("wheel", onScroll);
-  window.removeEventListener("scroll", onScroll);
 });
 
 onBeforeRouteUpdate(async (to, from) => {
@@ -253,16 +243,9 @@ onBeforeRouteUpdate(async (to, from) => {
   setFilters();
 });
 
-watch(currentView, (newView) => {
-  // If change from table view to grid,
-  // scroll to top to avoid auto fetch roms (freeze)
-  if (newView == 0) {
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: "instant",
-    });
-  }
+onBeforeUnmount(() => {
+  window.removeEventListener("wheel", onScroll);
+  window.removeEventListener("scroll", onScroll);
 });
 </script>
 
@@ -283,7 +266,6 @@ watch(currentView, (newView) => {
           :key="rom.id"
           class="pa-1"
           :cols="views[currentView]['size-cols']"
-          :xs="views[currentView]['size-xs']"
           :sm="views[currentView]['size-sm']"
           :md="views[currentView]['size-md']"
           :lg="views[currentView]['size-lg']"
@@ -295,6 +277,9 @@ watch(currentView, (newView) => {
             show-action-bar
             transform-scale
             with-border
+            :with-border-romm-accent="
+              romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
+            "
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
@@ -309,8 +294,8 @@ watch(currentView, (newView) => {
         <v-col v-show="currentView == 2">
           <game-data-table
             :class="{
-              'fill-height-desktop': !mdAndDown,
-              'fill-height-mobile': mdAndDown,
+              'fill-height-desktop': !smAndDown,
+              'fill-height-mobile': smAndDown,
             }"
           />
         </v-col>

@@ -80,7 +80,7 @@ function onDownload() {
       <v-btn
         icon
         v-show="!scrolledToTop && currentView != 2"
-        class="scroll-up-btn"
+        class="border-romm-accent-1"
         color="primary"
         elevation="8"
         size="large"
@@ -156,8 +156,3 @@ function onDownload() {
     </v-speed-dial>
   </v-overlay>
 </template>
-<style scoped>
-.scroll-up-btn {
-  border: 1px solid rgba(var(--v-theme-romm-accent-1));
-}
-</style>

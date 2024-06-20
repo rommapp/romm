@@ -4,7 +4,6 @@ import { defineStore } from "pinia";
 export default defineStore("galleryFilter", {
   state: () => ({
     activeFilterDrawer: false,
-    activeFirmwareDrawer: false,
     filterSearch: "",
     filters: ["genres", "franchises", "collections", "companies"] as const,
     filterGenres: [] as string[],
@@ -21,9 +20,6 @@ export default defineStore("galleryFilter", {
   actions: {
     switchActiveFilterDrawer() {
       this.activeFilterDrawer = !this.activeFilterDrawer;
-    },
-    switchActiveFirmwareDrawer() {
-      this.activeFirmwareDrawer = !this.activeFirmwareDrawer;
     },
     setFilterSearch(filterSearch: string) {
       this.filterSearch = normalizeString(filterSearch);
@@ -77,8 +73,6 @@ export default defineStore("galleryFilter", {
       this.selectedFranchise = null;
       this.selectedCollection = null;
       this.selectedCompany = null;
-      this.activeFilterDrawer = false;
-      this.activeFirmwareDrawer = false;
     },
   },
 });
