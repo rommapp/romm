@@ -4,60 +4,8 @@ WORKDIR /front
 COPY ./frontend ./
 RUN npm install && npm run build
 
-# Build Redis
-FROM alpine:3.18 as redis-build-stage
-ENV REDIS_VERSION 7.2.4
-ENV REDIS_DOWNLOAD_URL http://download.redis.io/releases/redis-7.2.4.tar.gz
-ENV REDIS_DOWNLOAD_SHA 8d104c26a154b29fd67d6568b4f375212212ad41e0c2caa3d66480e78dbd3b59
-
-RUN wget -O redis.tar.gz "$REDIS_DOWNLOAD_URL"; \
-	echo "$REDIS_DOWNLOAD_SHA *redis.tar.gz" | sha256sum -c -; \
-	mkdir -p /usr/src/redis; \
-	tar -xzf redis.tar.gz -C /usr/src/redis --strip-components=1; \
-	rm redis.tar.gz; \
-    # disable Redis protected mode as it is unnecessary in context of Docker
-    # (ports are not automatically exposed when running inside Docker, but rather explicitly by specifying -p / -P)
-	grep -E '^ *createBoolConfig[(]"protected-mode",.*, *1 *,.*[)],$' /usr/src/redis/src/config.c; \
-	sed -ri 's!^( *createBoolConfig[(]"protected-mode",.*, *)1( *,.*[)],)$!\10\2!' /usr/src/redis/src/config.c; \
-	grep -E '^ *createBoolConfig[(]"protected-mode",.*, *0 *,.*[)],$' /usr/src/redis/src/config.c; \
-    # for future reference, we modify this directly in the source instead of just supplying a default configuration flag because apparently "if you specify any argument to redis-server, [it assumes] you are going to specify everything"
-    # (more exactly, this makes sure the default behavior of "save on SIGTERM" stays functional by default)
-	# (also, we do cross-builds, so we need to embed the appropriate "--build=xxx" values to that "./configure" invocation)
-    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"; \
-	extraJemallocConfigureFlags="--build=$gnuArch"; \
-	dpkgArch="$(dpkg --print-architecture)"; \
-    case "${dpkgArch##*-}" in (amd64 | i386 | x32) extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-page=12";; (*) extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-page=16";; esac; \
-	extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-hugepage=21"; \
-	grep -F 'cd jemalloc && ./configure ' /usr/src/redis/deps/Makefile; \
-	sed -ri 's!cd jemalloc && ./configure !&'"$extraJemallocConfigureFlags"' !' /usr/src/redis/deps/Makefile; \
-	grep -F "cd jemalloc && ./configure $extraJemallocConfigureFlags " /usr/src/redis/deps/Makefile; \
-	export BUILD_TLS=yes; \
-	make -C /usr/src/redis -j "$(nproc)" all; \
-	make -C /usr/src/redis install; \
-	serverMd5="$(md5sum /usr/local/bin/redis-server | cut -d' ' -f1)"; export serverMd5; \
-	find /usr/local/bin/redis* -maxdepth 0 \
-		-type f -not -name redis-server \
-		-exec sh -eux -c ' \
-			md5="$(md5sum "$1" | cut -d" " -f1)"; \
-			test "$md5" = "$serverMd5"; \
-		' -- '{}' ';' \
-		-exec ln -svfT 'redis-server' '{}' ';' \
-	; \
-	rm -r /usr/src/redis; \
-	runDeps="$( \
-		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
-			| tr ',' '\n' \
-			| sort -u \
-			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
-	)"; \
-	apk add --no-network --virtual .redis-rundeps $runDeps; \
-	apk del --no-network .build-deps; \
-	redis-cli --version; \
-	redis-server --version; \
-	echo '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"redis-server-sbom","packages":[{"name":"redis-server","versionInfo":"7.2.4","SPDXID":"SPDXRef-Package--redis-server","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceType":"purl","referenceLocator":"pkg:generic/redis-server@7.2.4?os_name=alpine&os_version=3.19"}],"licenseDeclared":"BSD-3-Clause"}]}' > /usr/local/redis.spdx.json
-
 # Setup frontend and backend
-FROM nginx:1.25.4-alpine3.18-slim as production-stage
+FROM nginx:1.27.0-alpine3.19-slim as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
@@ -86,7 +34,8 @@ RUN apk add --no-cache \
         git \
         coreutils \
         make \
-        openssl-dev
+        openssl-dev \
+        redis
 
 # Create python venv and install dependencies
 COPY ./pyproject.toml ./poetry.lock /
@@ -127,9 +76,6 @@ COPY ./backend /backend
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
-
-# Install Redis from build stage
-COPY --from=redis-build-stage /usr/local/bin/redis* /usr/local/bin/
 
 # User permissions
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
