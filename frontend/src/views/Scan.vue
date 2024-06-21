@@ -365,7 +365,7 @@ async function stopScan() {
               v-if="platform.roms.length == 0"
               class="text-center mt-2"
             >
-              No roms found
+              No new/changed roms found
             </v-list-item>
           </v-expansion-panel-text>
         </v-expansion-panel>
