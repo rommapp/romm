@@ -1,8 +1,12 @@
 # Build frontend
 FROM node:lts-alpine as front-build-stage
 WORKDIR /front
+
+COPY ./frontend/package*.json ./
+RUN npm ci
+
 COPY ./frontend ./
-RUN npm install && npm run build
+RUN npm run build
 
 # Setup frontend and backend
 FROM nginx:1.27.0-alpine3.19-slim as production-stage
