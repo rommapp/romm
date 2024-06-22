@@ -204,6 +204,7 @@ Here are a few projects that we think you might like:
 - [RetroDECK](https://retrodeck.net/): Retro gaming on SteamOS and Linux
 - [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
 - [Gaseous](https://github.com/gaseous-project/gaseous-server): Another self-hosted ROM manager
+- [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
 <!-- Sections -->
 
