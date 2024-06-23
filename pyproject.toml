@@ -38,12 +38,12 @@ httpx = "^0.27.0"
 python-multipart = "^0.0.9"
 types-passlib = "^1.7.7.20240311"
 watchdog = "^4.0.0"
-fakeredis = "^2.21.3"
 yarl = "^1.9.4"
 joserfc = "^0.9.0"
 pillow = "^10.3.0"
 
 [tool.poetry.group.test.dependencies]
+fakeredis = "^2.21.3"
 pytest = "^8.1.1"
 pytest-env = "^1.1.3"
 pytest-vcr = "^1.0.2"
