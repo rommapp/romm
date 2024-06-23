@@ -5,10 +5,6 @@ set -o nounset           # treat unset variables as an error
 set -o pipefail          # treat errors in pipes as fatal
 shopt -s inherit_errexit # inherit errexit
 
-# use virtualenvs
-# shellcheck disable=SC1091
-source /backend/bin/activate
-
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="true"}"
 
