@@ -5,8 +5,12 @@ ARG PYTHON_VERSION=3.11
 # Build frontend
 FROM node:lts-alpine${ALPINE_VERSION} as front-build-stage
 WORKDIR /front
+
+COPY ./frontend/package*.json ./
+RUN npm ci
+
 COPY ./frontend ./
-RUN npm install && npm run build
+RUN npm run build
 
 # Build backend environment
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
