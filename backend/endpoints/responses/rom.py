@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
-from typing import Optional, get_type_hints
+from typing import NotRequired, get_type_hints
+from typing_extensions import TypedDict
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
@@ -10,7 +11,6 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.socket_handler import socket_handler
 from models.rom import Rom
 from pydantic import BaseModel, Field, computed_field
-from typing_extensions import NotRequired, TypedDict
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
@@ -50,9 +50,9 @@ class RomNoteSchema(BaseModel):
 
 class RomSchema(BaseModel):
     id: int
-    igdb_id: Optional[int]
-    sgdb_id: Optional[int]
-    moby_id: Optional[int]
+    igdb_id: int | None
+    sgdb_id: int | None
+    moby_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -65,27 +65,27 @@ class RomSchema(BaseModel):
     file_path: str
     file_size_bytes: int
 
-    name: Optional[str]
-    slug: Optional[str]
-    summary: Optional[str]
+    name: str | None
+    slug: str | None
+    summary: str | None
 
     # Metadata fields
-    first_release_date: Optional[int]
+    first_release_date: int | None
     alternative_names: list[str]
     genres: list[str]
     franchises: list[str]
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
-    igdb_metadata: Optional[RomIGDBMetadata]
-    moby_metadata: Optional[RomMobyMetadata]
+    igdb_metadata: RomIGDBMetadata | None
+    moby_metadata: RomMobyMetadata | None
 
-    path_cover_s: Optional[str]
-    path_cover_l: Optional[str]
+    path_cover_s: str | None
+    path_cover_l: str | None
     has_cover: bool
-    url_cover: Optional[str]
+    url_cover: str | None
 
-    revision: Optional[str]
+    revision: str | None
     regions: list[str]
     languages: list[str]
     tags: list[str]

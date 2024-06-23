@@ -11,7 +11,8 @@ from fastapi import HTTPException, status
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+from typing import NotRequired
 from unidecode import unidecode as uc
 
 from .base_hander import (

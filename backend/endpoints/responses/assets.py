@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -35,8 +34,8 @@ class UploadedScreenshotsResponse(TypedDict):
 
 
 class SaveSchema(BaseAsset):
-    emulator: Optional[str]
-    screenshot: Optional[ScreenshotSchema]
+    emulator: str | None
+    screenshot: ScreenshotSchema | None
 
 
 class UploadedSavesResponse(TypedDict):
@@ -45,8 +44,8 @@ class UploadedSavesResponse(TypedDict):
 
 
 class StateSchema(BaseAsset):
-    emulator: Optional[str]
-    screenshot: Optional[ScreenshotSchema]
+    emulator: str | None
+    screenshot: ScreenshotSchema | None
 
 
 class UploadedStatesResponse(TypedDict):
