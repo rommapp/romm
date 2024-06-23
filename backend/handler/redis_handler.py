@@ -35,6 +35,7 @@ def __get_cache() -> StrictRedis:
     if "pytest" in sys.modules:
         # Only import fakeredis when running tests, as it is a test dependency.
         from fakeredis import FakeStrictRedis
+
         return FakeStrictRedis(version=7)
 
     log.info(f"Connecting to redis in {sys.argv[0]}...")
