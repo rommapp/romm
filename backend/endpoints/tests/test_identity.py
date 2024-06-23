@@ -21,7 +21,7 @@ def test_login_logout(admin_user):
     assert response.status_code == 405
 
     basic_auth = base64.b64encode(
-        "test_admin:test_admin_password".encode("ascii")
+        b"test_admin:test_admin_password"
     ).decode("ascii")
     response = client.post("/login", headers={"Authorization": f"Basic {basic_auth}"})
 

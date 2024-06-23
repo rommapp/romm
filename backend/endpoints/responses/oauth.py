@@ -1,4 +1,5 @@
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+from typing import NotRequired
 
 
 class TokenResponse(TypedDict):
