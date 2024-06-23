@@ -33,7 +33,7 @@ class FSRomsHandler(FSHandler):
         regs = []
         langs = []
         other_tags = []
-        tags = [tag[0] or tag[1] for tag in re.findall(TAG_REGEX, file_name)]
+        tags = [tag[0] or tag[1] for tag in TAG_REGEX.findall(file_name)]
         tags = [tag for subtags in tags for tag in subtags.split(",")]
         tags = [tag.strip() for tag in tags]
 
