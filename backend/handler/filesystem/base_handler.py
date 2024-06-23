@@ -5,8 +5,8 @@ from enum import Enum
 
 from config.config_manager import config_manager as cm
 
-TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
-EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
+TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
+EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
 LANGUAGES = [
     ("Ar", "Arabic"),
@@ -95,14 +95,14 @@ class FSHandler:
         )
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:
-        return re.sub(EXTENSION_REGEX, "", file_name).strip()
+        return EXTENSION_REGEX.sub("", file_name).strip()
 
     def get_file_name_with_no_tags(self, file_name: str) -> str:
         file_name_no_extension = self.get_file_name_with_no_extension(file_name)
-        return re.split(TAG_REGEX, file_name_no_extension)[0].strip()
+        return TAG_REGEX.split(file_name_no_extension)[0].strip()
 
     def parse_file_extension(self, file_name) -> str:
-        match = re.search(EXTENSION_REGEX, file_name)
+        match = EXTENSION_REGEX.search(file_name)
         return match.group(1) if match else ""
 
     def _exclude_files(self, files, filetype) -> list[str]:
