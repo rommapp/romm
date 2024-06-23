@@ -172,13 +172,13 @@ class MobyGamesHandler(MetadataHandler):
         fallback_rom = MobyGamesRom(moby_id=None)
 
         # Support for PS2 OPL filename format
-        match = re.match(PS2_OPL_REGEX, file_name)
+        match = PS2_OPL_REGEX.match(file_name)
         if platform_moby_id == PS2_MOBY_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = re.search(SONY_SERIAL_REGEX, file_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
         if platform_moby_id == PS1_MOBY_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
@@ -192,7 +192,7 @@ class MobyGamesHandler(MetadataHandler):
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         # Support for switch titleID filename format
-        match = re.search(SWITCH_TITLEDB_REGEX, file_name)
+        match = SWITCH_TITLEDB_REGEX.search(file_name)
         if platform_moby_id == SWITCH_MOBY_ID and match:
             search_term, index_entry = await self._switch_titledb_format(
                 match, search_term
@@ -207,7 +207,7 @@ class MobyGamesHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = re.search(SWITCH_PRODUCT_ID_REGEX, file_name)
+        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
         if platform_moby_id == SWITCH_MOBY_ID and match:
             search_term, index_entry = await self._switch_productid_format(
                 match, search_term

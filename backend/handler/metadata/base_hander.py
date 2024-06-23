@@ -24,8 +24,8 @@ def conditionally_set_cache(
 
 
 # These are loaded in cache in update_switch_titledb_task
-SWITCH_TITLEDB_REGEX: Final = r"(70[0-9]{12})"
-SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
+SWITCH_TITLEDB_REGEX: Final = re.compile(r"(70[0-9]{12})")
+SWITCH_PRODUCT_ID_REGEX: Final = re.compile(r"(0100[0-9A-F]{12})")
 
 
 # No regex needed for MAME
@@ -33,12 +33,12 @@ MAME_XML_KEY: Final = "romm:mame_xml"
 conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
 
 # PS2 OPL
-PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_OPL_REGEX: Final = re.compile(r"^([A-Z]{4}_\d{3}\.\d{2})\..*$")
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
 conditionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
 
 # Sony serial codes for PS1, PS2, and PSP
-SONY_SERIAL_REGEX: Final = r".*([a-zA-Z]{4}-\d{5}).*$"
+SONY_SERIAL_REGEX: Final = re.compile(r".*([a-zA-Z]{4}-\d{5}).*$")
 
 PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
 conditionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
