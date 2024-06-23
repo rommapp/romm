@@ -1,25 +1,29 @@
+from typing import TYPE_CHECKING
+
 from models.base import BaseModel
-from models.firmware import Firmware
 from models.rom import Rom
-from sqlalchemy import Column, Integer, String, func, select
-from sqlalchemy.orm import Mapped, column_property, relationship
+from sqlalchemy import String, func, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from models.firmware import Firmware
 
 
 class Platform(BaseModel):
     __tablename__ = "platforms"
 
-    id = Column(Integer(), primary_key=True, autoincrement=True)
-    igdb_id: int = Column(Integer())
-    sgdb_id: int = Column(Integer())
-    moby_id: int = Column(Integer())
-    slug: str = Column(String(length=50), nullable=False)
-    fs_slug: str = Column(String(length=50), nullable=False)
-    name: str = Column(String(length=400))
-    logo_path: str = Column(String(length=1000), default="")
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    igdb_id: Mapped[int | None]
+    sgdb_id: Mapped[int | None]
+    moby_id: Mapped[int | None]
+    slug: Mapped[str] = mapped_column(String(length=50))
+    fs_slug: Mapped[str] = mapped_column(String(length=50))
+    name: Mapped[str | None] = mapped_column(String(length=400))
+    logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
-    roms: Mapped[set[Rom]] = relationship("Rom", back_populates="platform")
-    firmware: Mapped[set[Firmware]] = relationship(
-        "Firmware", lazy="selectin", back_populates="platform"
+    roms: Mapped[list["Rom"]] = relationship(back_populates="platform")
+    firmware: Mapped[list["Firmware"]] = relationship(
+        lazy="selectin", back_populates="platform"
     )
 
     # This runs a subquery to get the count of roms for the platform
