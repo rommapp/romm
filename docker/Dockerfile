@@ -1,5 +1,9 @@
+ARG ALPINE_VERSION=3.19
+ARG NGINX_VERSION=1.27.0
+ARG PYTHON_VERSION=3.11
+
 # Build frontend
-FROM node:lts-alpine as front-build-stage
+FROM node:lts-alpine${ALPINE_VERSION} as front-build-stage
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -8,8 +12,26 @@ RUN npm ci
 COPY ./frontend ./
 RUN npm run build
 
+# Build backend environment
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
+
+RUN apk add --no-cache \
+        gcc \
+        mariadb-connector-c-dev \
+        musl-dev
+
+RUN pip install poetry
+
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1
+
+WORKDIR /src
+
+COPY ./pyproject.toml ./poetry.lock /src/
+RUN poetry install --no-ansi --no-cache --only main
+
 # Setup frontend and backend
-FROM nginx:1.27.0-alpine3.19-slim as production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim as production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
@@ -23,57 +45,10 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
 # Install required packages and dependencies
 RUN apk add --no-cache \
         bash \
-        curl \
-        libffi \
         mariadb-connector-c \
-        netcat-openbsd \
         python3 \
         tzdata \
-        gcc \
-        libffi-dev \
-        mariadb-connector-c-dev \
-        musl-dev \
-        python3-dev \
-        py3-pip \
-        git \
-        coreutils \
-        make \
-        openssl-dev \
         redis
-
-# Create python venv and install dependencies
-COPY ./pyproject.toml ./poetry.lock /
-RUN python3 -m venv /backend/ && \
-    . /backend/bin/activate && \
-    pip install --no-cache --upgrade pip && \
-    pip install --no-cache git+https://github.com/radoering/poetry.git@non-package-mode && \
-    pip freeze | awk -F= '{print $1}' > /installed_pip_requirements.txt && \
-    mkdir -p /root/.cache/pypoetry/virtualenvs && \
-    python3 -m poetry config --no-cache virtualenvs.create false && \
-    python3 -m poetry env use 3.11 && \
-    python3 -m poetry install --no-interaction --no-ansi --no-cache --only main && \
-    python3 -m poetry export --without-hashes --only main --without-urls | awk -F= '{print $1}' > /installed_poetry_requirements.txt && \
-    grep -v -x -f /installed_poetry_requirements.txt /installed_pip_requirements.txt > /build_requirements.txt && \
-    pip uninstall -y -r /build_requirements.txt
-
-# Cleanup unnecessary packages and files
-RUN apk del \
-        gcc \
-        libffi-dev \
-        mariadb-connector-c-dev \
-        musl-dev \
-        python3-dev \
-        py3-pip \
-        git \
-        coreutils \
-        make \
-        openssl-dev && \
-    rm -r \
-        /pyproject.toml \
-        /poetry.lock \
-        /installed_pip_requirements.txt \
-        /installed_poetry_requirements.txt \
-        /build_requirements.txt
 
 COPY ./backend /backend
 
@@ -87,13 +62,18 @@ RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
 
 # Move everything to final stage
 FROM scratch as final-stage
+
 COPY --from=production-stage / /
+
+COPY --from=backend-build /src/.venv /src/.venv
+# Fix virtualenv link to python binary
+RUN ln -sf "$(which python)" /src/.venv/bin/python
+ENV PATH="/src/.venv/bin:${PATH}"
 
 # Declare the supported volumes
 VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
 
 # Expose ports and start
-EXPOSE 8080
-EXPOSE 6379/tcp
+EXPOSE 8080 6379/tcp
 WORKDIR /romm
 CMD ["/init"]
