@@ -12,7 +12,7 @@ from models.rom import Rom
 from pydantic import BaseModel, Field, computed_field
 from typing_extensions import NotRequired, TypedDict
 
-SORT_COMPARE_REGEX = r"^([Tt]he|[Aa]|[Aa]nd)\s"
+SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
@@ -101,8 +101,7 @@ class RomSchema(BaseModel):
     @property
     def sort_comparator(self) -> str:
         return (
-            re.sub(
-                SORT_COMPARE_REGEX,
+            SORT_COMPARE_REGEX.sub(
                 "",
                 self.name or self.file_name_no_tags,
             )
