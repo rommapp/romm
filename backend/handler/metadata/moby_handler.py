@@ -1,6 +1,6 @@
 import re
 import time
-from typing import Final
+from typing import Final, NotRequired
 from urllib.parse import quote
 
 import pydash
@@ -11,7 +11,6 @@ from fastapi import HTTPException, status
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from typing_extensions import TypedDict
-from typing import NotRequired
 from unidecode import unidecode as uc
 
 from .base_hander import (
