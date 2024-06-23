@@ -44,7 +44,7 @@ jobs:
 
       - name: Install poetry
         run: |
-          pipx install git+https://github.com/radoering/poetry.git@non-package-mode
+          pipx install poetry
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
