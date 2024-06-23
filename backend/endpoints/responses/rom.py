@@ -1,7 +1,6 @@
 import re
 from datetime import datetime
 from typing import NotRequired, get_type_hints
-from typing_extensions import TypedDict
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
@@ -11,6 +10,7 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.socket_handler import socket_handler
 from models.rom import Rom
 from pydantic import BaseModel, Field, computed_field
+from typing_extensions import TypedDict
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 

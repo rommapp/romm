@@ -2,7 +2,7 @@ import functools
 import re
 import sys
 import time
-from typing import Final
+from typing import Final, NotRequired
 
 import pydash
 import requests
@@ -12,7 +12,6 @@ from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from typing_extensions import TypedDict
-from typing import NotRequired
 from unidecode import unidecode as uc
 
 from .base_hander import (
