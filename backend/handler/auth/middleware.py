@@ -1,5 +1,4 @@
 import time
-import typing
 from collections import namedtuple
 
 from joserfc import jwt
@@ -27,7 +26,7 @@ class SessionMiddleware:
     def __init__(
         self,
         app: ASGIApp,
-        secret_key: typing.Union[str, Secret, SecretKey],
+        secret_key: str | Secret | SecretKey,
         session_cookie: str = "session",
         max_age: int = 14 * 24 * 60 * 60,  # 14 days, in seconds
         same_site: str = "lax",
@@ -136,7 +135,7 @@ class SessionMiddleware:
                 elif not initial_session_was_empty:
                     # The session has been cleared.
                     headers = MutableHeaders(scope=message)
-                    header_value = "%s=%s; %s" % (
+                    header_value = "{}={}; {}".format(
                         self.session_cookie,
                         "null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;",
                         self.security_flags,
