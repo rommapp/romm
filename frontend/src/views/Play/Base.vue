@@ -36,6 +36,7 @@ function onPlay() {
 }
 
 function onFullScreenChange() {
+  fullScreenOnPlay.value = !fullScreenOnPlay.value;
   localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
@@ -55,11 +56,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-row
-    v-if="rom"
-    class="align-center justify-center scroll"
-    no-gutters
-  >
+  <v-row v-if="rom" class="align-center justify-center scroll" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
@@ -84,7 +81,7 @@ onMounted(async () => {
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
-      <v-row class="px-3 py-3" no-gutters>
+      <v-row class="px-3" no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
@@ -116,6 +113,7 @@ onMounted(async () => {
           <v-divider class="my-4" />
           <v-select
             v-if="supportedCores.length > 1"
+            :disabled="gameRunning"
             v-model="coreRef"
             class="my-1"
             hide-details
@@ -131,6 +129,7 @@ onMounted(async () => {
           />
           <v-select
             v-model="biosRef"
+            :disabled="gameRunning"
             class="my-1"
             hide-details
             variant="outlined"
@@ -145,6 +144,7 @@ onMounted(async () => {
           />
           <v-select
             v-model="saveRef"
+            :disabled="gameRunning"
             class="my-1"
             hide-details
             variant="outlined"
@@ -160,6 +160,7 @@ onMounted(async () => {
           />
           <v-select
             v-model="stateRef"
+            :disabled="gameRunning"
             class="my-1"
             hide-details
             variant="outlined"
@@ -173,6 +174,8 @@ onMounted(async () => {
               })) ?? []
             "
           />
+          <!-- TODO: diisable selector when start playing -->
+          <!-- TODO: reset emulation to re-select -->
           <!-- <v-select
             class="my-1"
             hide-details
@@ -185,23 +188,43 @@ onMounted(async () => {
               'War Room Sturm (AW1) by Kartal',
             ]"
           /> -->
-          <v-checkbox
-            v-model="fullScreenOnPlay"
-            hide-details
-            color="romm-accent-1"
-            label="Full screen"
-            @change="onFullScreenChange"
-          />
+        </v-col>
+      </v-row>
+      <v-row class="px-3 py-3 text-center" no-gutters>
+        <v-col>
+          <v-chip
+            @click="onFullScreenChange"
+            :disabled="gameRunning"
+            :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
+            :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
+            ><v-icon class="mr-1">{{
+              fullScreenOnPlay
+                ? "mdi-checkbox-outline"
+                : "mdi-checkbox-blank-outline"
+            }}</v-icon
+            >Full screen</v-chip
+          >
           <v-divider class="my-4" />
           <v-btn
             color="romm-accent-1"
             block
+            :disabled="gameRunning"
             rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-play"
             @click="onPlay()"
             >Play
+          </v-btn>
+          <v-btn
+            class="mt-4"
+            block
+            rounded="0"
+            variant="outlined"
+            size="large"
+            prepend-icon="mdi-refresh"
+            @click="$router.go(0)"
+            >Reset session
           </v-btn>
           <v-btn
             class="mt-4"
