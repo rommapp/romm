@@ -18,7 +18,7 @@ def conditionally_set_cache(
 ) -> None:
     fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):
-        index_data = json.loads(open(os.path.join(fixtures_path, filename), "r").read())
+        index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
         for key, value in index_data.items():
             cache.hset(index_key, key, json.dumps(value))
 
@@ -81,7 +81,7 @@ class MetadataHandler:
         name = re.sub(r",\b(a|an|the)\b", "", name)
 
         # Remove special characters and punctuation
-        converted_name = "".join((re.findall(r"\w+", name)))
+        converted_name = "".join(re.findall(r"\w+", name))
 
         # Convert to normal form
         normalized_name = unicodedata.normalize("NFD", converted_name)
