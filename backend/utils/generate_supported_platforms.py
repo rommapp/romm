@@ -1,4 +1,4 @@
-# poetry_npm run python3 -m utils.generate_supported_platforms
+# poetry run python3 -m utils.generate_supported_platforms
 from typing import TypedDict
 
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
