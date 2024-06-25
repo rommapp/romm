@@ -2,7 +2,7 @@ import functools
 import re
 import sys
 import time
-from typing import Final
+from typing import Final, NotRequired
 
 import pydash
 import requests
@@ -11,7 +11,7 @@ from fastapi import HTTPException, status
 from handler.redis_handler import cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 from unidecode import unidecode as uc
 
 from .base_hander import (

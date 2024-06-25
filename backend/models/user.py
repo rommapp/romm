@@ -55,7 +55,7 @@ class User(BaseModel, SimpleUser):
     @property
     def fs_safe_folder_name(self):
         # Uses the ID to avoid issues with username changes
-        return f"User:{self.id}".encode("utf-8").hex()
+        return f"User:{self.id}".encode().hex()
 
     def set_last_active(self):
         from handler.database import db_user_handler

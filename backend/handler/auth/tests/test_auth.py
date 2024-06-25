@@ -153,7 +153,7 @@ async def test_hybrid_auth_backend_bearer_invalid_token(editor_user: User):
 
 
 async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
-    token = b64encode("test_editor:test_editor_password".encode()).decode()
+    token = b64encode(b"test_editor:test_editor_password").decode()
 
     class MockConnection:
         def __init__(self):
