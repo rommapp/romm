@@ -20,21 +20,20 @@ const auth = storeAuth();
     <filter-text-field />
     <selecting-btn />
     <gallery-view-btn />
-    <template v-if="auth.scopes.includes('roms.write')">
-      <v-menu location="bottom">
-        <template #activator="{ props }">
-          <v-btn
-            v-bind="props"
-            rounded="0"
-            variant="text"
-            class="mr-0"
-            icon="mdi-dots-vertical"
-            @click.stop
-          />
-        </template>
-        <admin-menu />
-      </v-menu>
-    </template>
+    <v-menu location="bottom">
+      <template #activator="{ props }">
+        <v-btn
+          v-if="auth.scopes.includes('roms.write')"
+          v-bind="props"
+          rounded="0"
+          variant="text"
+          class="mr-0"
+          icon="mdi-dots-vertical"
+          @click.stop
+        />
+      </template>
+      <admin-menu />
+    </v-menu>
   </v-app-bar>
 
   <filter-drawer />
