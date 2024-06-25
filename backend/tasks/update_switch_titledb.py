@@ -33,7 +33,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             if key and value:
                 cache.hset(SWITCH_TITLEDB_INDEX_KEY, key, json.dumps(value))
 
-        product_ids = dict((v["id"], v) for _k, v in index_json.items())
+        product_ids = {v["id"]: v for v in index_json.values()}
         for key, value in product_ids.items():
             if key and value:
                 cache.hset(SWITCH_PRODUCT_ID_KEY, key, json.dumps(value))

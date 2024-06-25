@@ -65,7 +65,7 @@ def scan_platform(
     platform_attrs["fs_slug"] = fs_slug
 
     cnfg = cm.get_config()
-    swapped_platform_bindings = dict((v, k) for k, v in cnfg.PLATFORMS_BINDING.items())
+    swapped_platform_bindings = {v: k for k, v in cnfg.PLATFORMS_BINDING.items()}
 
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:

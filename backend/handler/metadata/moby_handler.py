@@ -1,6 +1,6 @@
 import re
 import time
-from typing import Final
+from typing import Final, NotRequired
 from urllib.parse import quote
 
 import pydash
@@ -10,7 +10,7 @@ from config import MOBYGAMES_API_KEY
 from fastapi import HTTPException, status
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 from unidecode import unidecode as uc
 
 from .base_hander import (
