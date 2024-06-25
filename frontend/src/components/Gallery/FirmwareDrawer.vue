@@ -2,6 +2,7 @@
 import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
+import storeAuth from "@/stores/auth";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -13,6 +14,7 @@ import { useDisplay } from "vuetify";
 
 // Props
 const { xs, mdAndUp } = useDisplay();
+const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
@@ -75,7 +77,11 @@ watch(itemsPerPage, async () => {
     >
       <template #header.actions>
         <v-btn-group divided density="compact">
-          <v-btn size="small" @click="emitter?.emit('addFirmwareDialog', null)">
+          <v-btn
+            v-if="auth.scopes.includes('platforms.write')"
+            size="small"
+            @click="emitter?.emit('addFirmwareDialog', null)"
+          >
             <v-icon>mdi-upload</v-icon>
           </v-btn>
           <v-btn
@@ -87,6 +93,7 @@ watch(itemsPerPage, async () => {
             <v-icon>mdi-download</v-icon>
           </v-btn>
           <v-btn
+            v-if="auth.scopes.includes('platforms.write')"
             :class="{
               'text-romm-red': selectedFirmware.length,
             }"
@@ -168,6 +175,7 @@ watch(itemsPerPage, async () => {
             <v-icon> mdi-download </v-icon>
           </v-btn>
           <v-btn
+            v-if="auth.scopes.includes('platforms.write')"
             size="small"
             @click="emitter?.emit('showDeleteFirmwareDialog', [item])"
           >
