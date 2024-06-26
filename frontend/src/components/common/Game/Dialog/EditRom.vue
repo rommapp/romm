@@ -93,12 +93,14 @@ async function updateRom() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      closeDialog();
     });
 }
 
 function closeDialog() {
   show.value = false;
   imagePreviewUrl.value = "";
+  rom.value = undefined;
 }
 </script>
 
@@ -198,13 +200,8 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="text-romm-green bg-terciary"
-            @click="updateRom"
-          >
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
             Apply
           </v-btn>
         </v-btn-group>
