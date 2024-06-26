@@ -110,7 +110,7 @@ onMounted(() => {
               ? rom.igdb_url_cover
               : rom.moby_url_cover
           "
-          :aspect-ratio="3 / 4"
+          :aspect-ratio="2 / 3"
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">
@@ -143,7 +143,7 @@ onMounted(() => {
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-              :aspect-ratio="3 / 4"
+              :aspect-ratio="2 / 3"
             ></v-img>
           </template>
           <template #placeholder>
