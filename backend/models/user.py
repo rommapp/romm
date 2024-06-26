@@ -1,11 +1,15 @@
-import datetime
 import enum
+from datetime import datetime
+from typing import TYPE_CHECKING
 
-from models.assets import Save, Screenshot, State
 from models.base import BaseModel
-from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy import DateTime, Enum, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
+
+if TYPE_CHECKING:
+    from models.assets import Save, Screenshot, State
+    from models.rom import RomNote
 
 
 class Role(enum.Enum):
@@ -15,30 +19,25 @@ class Role(enum.Enum):
 
 
 class User(BaseModel, SimpleUser):
-    from models.rom import RomNote
-
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 
-    id = Column(Integer(), primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    username: str = Column(String(length=255), unique=True, index=True)
-    hashed_password: str = Column(String(length=255))
-    enabled: bool = Column(Boolean(), default=True)
-    role: Role = Column(Enum(Role), default=Role.VIEWER)
-    avatar_path: str = Column(String(length=255), default="")
-    last_login: Mapped[datetime] = Column(DateTime(timezone=True), nullable=True)
-    last_active: Mapped[datetime] = Column(DateTime(timezone=True), nullable=True)
+    username: Mapped[str | None] = mapped_column(
+        String(length=255), unique=True, index=True
+    )
+    hashed_password: Mapped[str | None] = mapped_column(String(length=255))
+    enabled: Mapped[bool | None] = mapped_column(default=True)
+    role: Mapped[Role | None] = mapped_column(Enum(Role), default=Role.VIEWER)
+    avatar_path: Mapped[str | None] = mapped_column(String(length=255), default="")
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_active: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    saves: Mapped[list[Save]] = relationship(
-        "Save",
-        back_populates="user",
-    )
-    states: Mapped[list[State]] = relationship("State", back_populates="user")
-    screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", back_populates="user"
-    )
-    notes: Mapped[list[RomNote]] = relationship("RomNote", back_populates="user")
+    saves: Mapped[list["Save"]] = relationship(back_populates="user")
+    states: Mapped[list["State"]] = relationship(back_populates="user")
+    screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="user")
+    notes: Mapped[list["RomNote"]] = relationship(back_populates="user")
 
     @property
     def oauth_scopes(self):
@@ -60,4 +59,4 @@ class User(BaseModel, SimpleUser):
     def set_last_active(self):
         from handler.database import db_user_handler
 
-        db_user_handler.update_user(self.id, {"last_active": datetime.datetime.now()})
+        db_user_handler.update_user(self.id, {"last_active": datetime.now()})
