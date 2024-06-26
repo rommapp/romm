@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import VersionSwitcher from "@/components/common/Game/Details/VersionSwitcher.vue";
+import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import storeDownload from "@/stores/download";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";

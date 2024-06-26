@@ -28,6 +28,8 @@ const { currentView } = storeToRefs(galleryViewStore);
         variant="text"
         @click="romApi.downloadRom({ rom })"
       />
+      </v-col>
+      <v-col>
       <v-btn
         v-if="isEmulationSupported(rom.platform_slug)"
         class="action-bar-btn-small"
@@ -62,7 +64,7 @@ const { currentView } = storeToRefs(galleryViewStore);
 
 <style scoped>
 .action-bar-btn-small {
-  max-width: 27px;
-  max-height: 27px;
+  max-width: 22px;
+  max-height: 30px;
 }
 </style>
