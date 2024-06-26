@@ -11,6 +11,7 @@ from tasks.update_switch_titledb import (
     SWITCH_TITLEDB_INDEX_KEY,
     update_switch_titledb_task,
 )
+from utils.iterators import batched
 
 
 def conditionally_set_cache(
@@ -19,8 +20,11 @@ def conditionally_set_cache(
     fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):
         index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
-        for key, value in index_data.items():
-            cache.hset(index_key, key, json.dumps(value))
+        with cache.pipeline() as pipe:
+            for data_batch in batched(index_data.items(), 2000):
+                data_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
+                pipe.hset(index_key, mapping=data_map)
+            pipe.execute()
 
 
 # These are loaded in cache in update_switch_titledb_task
