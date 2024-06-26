@@ -82,6 +82,7 @@ onMounted(() => {
           v-bind="hoverProps"
           class="pointer"
           ref="card"
+          cover
           :src="
             src
               ? src
@@ -143,7 +144,7 @@ onMounted(() => {
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-              :aspect-ratio="2 / 3"
+              cover
             ></v-img>
           </template>
           <template #placeholder>

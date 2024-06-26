@@ -375,7 +375,8 @@ onBeforeUnmount(() => {
                           ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                           : source.url_cover
                       "
-                      :aspect-ratio="3 / 4"
+                      :aspect-ratio="2 / 3"
+                      cover
                       lazy
                     >
                       <template #placeholder>
