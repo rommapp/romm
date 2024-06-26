@@ -174,11 +174,12 @@ onBeforeUnmount(() => {
                     @click="updateCover(resource.url)"
                     :aspect-ratio="2 / 3"
                     :src="resource.thumb"
+                    cover
                   >
                     <template #error>
                       <v-img
                         :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-                        :aspect-ratio="2 / 3"
+                        cover
                       ></v-img>
                     </template>
                     <template #placeholder>

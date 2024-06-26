@@ -316,7 +316,6 @@ onMounted(async () => {
               ? `/assets/romm/assets/${auth.user?.avatar_path}`
               : defaultAvatarPath
           "
-          :aspect-ratio="smAndDown ? 20 / 1 : 20 / 3"
           cover
         >
         </v-img>

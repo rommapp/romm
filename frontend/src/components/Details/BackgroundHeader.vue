@@ -16,6 +16,7 @@ const theme = useTheme();
           : `/assets/romm/resources/${rom.path_cover_l}`
       "
       lazy
+      cover
     >
       <template #error>
         <v-img
@@ -38,9 +39,7 @@ const theme = useTheme();
 </template>
 <style scoped>
 #background-header {
-  width: 100%;
   height: 300px;
-  transform: scale(10);
-  filter: blur(5px);
+  filter: blur(30px);
 }
 </style>
