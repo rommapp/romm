@@ -27,4 +27,5 @@ class HeartbeatResponse(TypedDict):
     SCHEDULER: SchedulerDict
     ANY_SOURCE_ENABLED: bool
     METADATA_SOURCES: MetadataSourcesDict
+    STEAMGRIDDB_ENABLED: bool
     FS_PLATFORMS: list

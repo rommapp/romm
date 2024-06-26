@@ -179,13 +179,14 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
 
 class IGDBBaseHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.platform_endpoint = "https://api.igdb.com/v4/platforms"
-        self.platform_version_endpoint = "https://api.igdb.com/v4/platform_versions"
-        self.platforms_fields = ["id", "name"]
-        self.games_endpoint = "https://api.igdb.com/v4/games"
+        self.BASE_URL = "https://api.igdb.com/v4"
+        self.platform_endpoint = f"{self.BASE_URL}/platforms"
+        self.platform_version_endpoint = f"{self.BASE_URL}/platform_versions"
+        self.platforms_fields = PLATFORMS_FIELDS
+        self.games_endpoint = f"{self.BASE_URL}/games"
         self.games_fields = GAMES_FIELDS
-        self.search_endpoint = "https://api.igdb.com/v4/search"
-        self.search_fields = ["game.id", "name"]
+        self.search_endpoint = f"{self.BASE_URL}/search"
+        self.search_fields = SEARCH_FIELDS
         self.pagination_limit = 200
         self.twitch_auth = TwitchAuth()
         self.headers = {
@@ -617,6 +618,8 @@ class TwitchAuth:
         return token
 
 
+PLATFORMS_FIELDS = ["id", "name"]
+
 GAMES_FIELDS = [
     "id",
     "name",
@@ -666,6 +669,8 @@ GAMES_FIELDS = [
     "similar_games.name",
     "similar_games.cover.url",
 ]
+
+SEARCH_FIELDS = ["game.id", "name"]
 
 # Generated from the following code on https://www.igdb.com/platforms/:
 # Array.from(document.querySelectorAll(".media-body a")).map(a => ({
