@@ -118,7 +118,7 @@ watch(
         class="px-5"
         :class="{
           'info-lg': mdAndUp,
-          'info-xs': smAndDown,
+          'info-mobile': smAndDown,
         }"
       >
         <div
@@ -241,7 +241,7 @@ watch(
 .cover-mobile {
   margin-top: -280px;
 }
-.info-xs {
-  margin-top: 50px;
+.info-mobile {
+  margin-top: 100px;
 }
 </style>
