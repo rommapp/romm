@@ -91,7 +91,7 @@ onMounted(() => {
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : `/assets/romm/resources/${rom.path_cover_l}`
+                : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
               ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
               : rom.igdb_url_cover
@@ -104,7 +104,7 @@ onMounted(() => {
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : `/assets/romm/resources/${rom.path_cover_s}`
+                : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
               ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
               : rom.igdb_url_cover
