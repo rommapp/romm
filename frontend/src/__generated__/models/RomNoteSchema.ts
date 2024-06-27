@@ -7,7 +7,7 @@ export type RomNoteSchema = {
   id: number;
   user_id: number;
   rom_id: number;
-  last_edited_at: string;
+  updated_at: string;
   raw_markdown: string;
   is_public: boolean;
   user__username: string;

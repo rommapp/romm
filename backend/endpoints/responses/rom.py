@@ -30,7 +30,7 @@ class RomNoteSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
-    last_edited_at: datetime
+    updated_at: datetime
     raw_markdown: str
     is_public: bool
     user__username: str
@@ -93,6 +93,8 @@ class RomSchema(BaseModel):
     multi: bool
     files: list[str]
     full_path: str
+
+    updated_at: datetime
 
     class Config:
         from_attributes = True

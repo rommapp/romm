@@ -1,12 +1,13 @@
 import json
 import os
+from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING
 
 from handler.metadata.base_hander import conditionally_set_cache
 from handler.redis_handler import cache
 from models.base import BaseModel
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -39,6 +40,9 @@ class Firmware(BaseModel):
 
     platform: Mapped["Platform"] = relationship(
         lazy="joined", back_populates="firmware"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     @property
