@@ -372,8 +372,12 @@ async def update_rom(
         cleaned_data.update({"path_screenshots": path_screenshots})
 
     db_rom_handler.update_rom(id, cleaned_data)
+    updated_rom = db_rom_handler.get_roms(id)
 
-    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
+    if cleaned_data["fav_sibling"]:
+        db_rom_handler.set_main_sibling(updated_rom)
+
+    return DetailedRomSchema.from_orm_with_request(updated_rom, request)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])

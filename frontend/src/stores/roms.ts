@@ -60,10 +60,18 @@ export default defineStore("roms", {
             game.igdb_id || game.moby_id || nanoid(),
         ),
       )
-        .map((games) => ({
-          ...(games.shift() as SimpleRom),
-          siblings: games,
-        }))
+        .map((games) => {
+          const favSiblingIndex = games.findIndex((game) => game.fav_sibling);
+          const primaryGame =
+            favSiblingIndex !== -1
+              ? games.splice(favSiblingIndex, 1)[0]
+              : games.shift();
+
+          return {
+            ...(primaryGame as SimpleRom),
+            siblings: games,
+          };
+        })
         .sort((a, b) => {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });

@@ -31,9 +31,11 @@ function updateVersion() {
   <v-select
     v-model="version"
     label="Version"
+    single-line
+    color="romm-gray"
     variant="outlined"
     density="compact"
-    class="version-select"
+    max-width="fit-content"
     hide-details
     :items="
       [rom, ...rom.sibling_roms].map((i) => ({
@@ -44,9 +46,3 @@ function updateVersion() {
     @update:model-value="updateVersion"
   />
 </template>
-
-<style scoped>
-.version-select {
-  max-width: fit-content;
-}
-</style>
