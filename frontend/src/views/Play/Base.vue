@@ -116,6 +116,7 @@ onMounted(async () => {
             :disabled="gameRunning"
             v-model="coreRef"
             class="my-1"
+            rounded="0"
             hide-details
             variant="outlined"
             clearable
@@ -132,6 +133,7 @@ onMounted(async () => {
             :disabled="gameRunning"
             class="my-1"
             hide-details
+            rounded="0"
             variant="outlined"
             clearable
             label="BIOS"
@@ -149,6 +151,7 @@ onMounted(async () => {
             hide-details
             variant="outlined"
             clearable
+            rounded="0"
             label="Save"
             :items="
               rom.user_saves?.map((s) => ({
@@ -163,6 +166,7 @@ onMounted(async () => {
             :disabled="gameRunning"
             class="my-1"
             hide-details
+            rounded="0"
             variant="outlined"
             clearable
             label="State"
@@ -181,6 +185,7 @@ onMounted(async () => {
             hide-details
             variant="outlined"
             clearable
+            rounded="0"
             disabled
             label="Patch"
             :items="[
@@ -192,30 +197,43 @@ onMounted(async () => {
       </v-row>
       <v-row class="px-3 py-3 text-center" no-gutters>
         <v-col>
-          <v-chip
-            @click="onFullScreenChange"
-            :disabled="gameRunning"
-            :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-            :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
-            ><v-icon class="mr-1">{{
-              fullScreenOnPlay
-                ? "mdi-checkbox-outline"
-                : "mdi-checkbox-blank-outline"
-            }}</v-icon
-            >Full screen</v-chip
-          >
           <v-divider class="my-4" />
-          <v-btn
-            color="romm-accent-1"
-            block
-            :disabled="gameRunning"
-            rounded="0"
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-play"
-            @click="onPlay()"
-            >Play
-          </v-btn>
+          <v-row class="align-center" no-gutters>
+            <v-col>
+              <v-btn
+                block
+                size="large"
+                rounded="0"
+                @click="onFullScreenChange"
+                :disabled="gameRunning"
+                :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
+                :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
+                ><v-icon class="mr-1">{{
+                  fullScreenOnPlay
+                    ? "mdi-checkbox-outline"
+                    : "mdi-checkbox-blank-outline"
+                }}</v-icon
+                >Full screen</v-btn
+              >
+            </v-col>
+            <v-col
+              cols="12"
+              :sm="gameRunning ? 12 : 7"
+              :xl="gameRunning ? 12 : 9"
+            >
+              <v-btn
+                color="romm-accent-1"
+                block
+                :disabled="gameRunning"
+                rounded="0"
+                variant="outlined"
+                size="large"
+                prepend-icon="mdi-play"
+                @click="onPlay()"
+                >Play
+              </v-btn>
+            </v-col>
+          </v-row>
           <v-btn
             class="mt-4"
             block
