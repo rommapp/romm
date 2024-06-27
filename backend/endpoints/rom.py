@@ -278,6 +278,7 @@ async def update_rom(
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", None)
     cleaned_data["moby_id"] = data.get("moby_id", None)
+    cleaned_data["fav_sibling"] = bool(data.get("fav_sibling", None))
 
     if cleaned_data["moby_id"]:
         moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
