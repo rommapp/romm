@@ -53,3 +53,4 @@ pytest-asyncio = "^0.23.5"
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
 mypy = "^1.10.0"
+ipykernel = "^6.29.4"
