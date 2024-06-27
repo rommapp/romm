@@ -45,7 +45,7 @@ async function updateMainSibling() {
     no-gutters
   >
     <v-col cols="3" xl="2">
-      <span>Ver.</span>
+      <span>Version</span>
     </v-col>
     <v-col>
       <v-row class="align-center" no-gutters>
@@ -54,24 +54,26 @@ async function updateMainSibling() {
           location="top"
           class="tooltip"
           transition="fade-transition"
-          text="Set as main sibling"
+          text="Set as default version"
           open-delay="300"
         >
           <template #activator="{ props }">
-            <v-btn
+            <v-chip
               v-bind="props"
+              rounded="0"
+              variant="text"
+              class="ml-3"
               @click="updateMainSibling"
-              class="ml-4"
-              icon
-              density="comfortable"
-              :ripple="false"
-              color="secondary"
-              variant="flat"
+              ><v-icon
+                :class="rom.fav_sibling ? '' : 'mr-1'"
+                :color="rom.fav_sibling ? 'romm-accent-1' : ''"
+                >{{
+                  rom.fav_sibling
+                    ? "mdi-checkbox-outline"
+                    : "mdi-checkbox-blank-outline"
+                }}</v-icon
+              >{{ rom.fav_sibling ? "" : "Set as default" }}</v-chip
             >
-              <v-icon color="romm-accent-1">{{
-                rom.fav_sibling ? "mdi-star" : "mdi-star-outline"
-              }}</v-icon>
-            </v-btn>
           </template></v-tooltip
         >
       </v-row>

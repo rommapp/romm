@@ -123,6 +123,13 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def set_main_sibling(self, rom: Rom, session: Session = None) -> None:
+        siblings = [rom.id for rom in rom.get_sibling_roms()]
+        return session.execute(
+            update(Rom).where(Rom.id.in_(siblings)).values(fav_sibling=False)
+        )
+
+    @begin_session
     def delete_rom(self, id: int, session: Session = None) -> Rom:
         return session.execute(
             delete(Rom)
