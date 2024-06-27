@@ -94,6 +94,7 @@ class RomSchema(BaseModel):
     files: list[str]
     full_path: str
 
+    created_at: datetime
     updated_at: datetime
 
     class Config:

@@ -16,4 +16,6 @@ export type PlatformSchema = {
   moby_id?: number | null;
   logo_path?: string | null;
   firmware?: Array<FirmwareSchema>;
+  created_at: string;
+  updated_at: string;
 };

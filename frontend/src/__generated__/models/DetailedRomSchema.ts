@@ -48,6 +48,7 @@ export type DetailedRomSchema = {
   multi: boolean;
   files: Array<string>;
   full_path: string;
+  created_at: string;
   updated_at: string;
   merged_screenshots: Array<string>;
   sibling_roms?: Array<RomSchema>;
