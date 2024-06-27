@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import type { SearchCoverSchema, SearchRomSchema } from "@/__generated__";
+import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 // Props
-const { xs, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
-const theme = useTheme();
 const rom = ref<SimpleRom | null>(null);
 const searching = ref(false);
 const searchTerm = ref("");
 const games = ref<SearchCoverSchema[]>();
+const filteredGames = ref<SearchCoverSchema[]>();
 const panels = ref([0]);
-const panelIndex = ref(0);
 const emitter = inject<Emitter<Events>>("emitter");
+const type = ref("all");
 emitter?.on("showSearchCoverDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
@@ -45,6 +45,19 @@ async function searchCovers() {
       })
       .then((response) => {
         games.value = response.data;
+        filteredGames.value = games.value
+          .map((game) => {
+            return {
+              ...game,
+              resources:
+                type.value === "all"
+                  ? game.resources
+                  : game.resources.filter(
+                      (resource) => resource.type === type.value
+                    ),
+            };
+          })
+          .filter((item) => item.resources.length > 0);
       })
       .catch((error) => {
         emitter?.emit("snackbarShow", {
@@ -61,9 +74,6 @@ async function searchCovers() {
 
 async function updateCover(url_cover: string) {
   if (!rom.value) return;
-
-  console.log(url_cover);
-  console.log(url_cover.replace("thumb", "grid"));
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
@@ -92,6 +102,24 @@ async function updateCover(url_cover: string) {
     });
 }
 
+function filterCovers() {
+  if (games.value) {
+    filteredGames.value = games.value
+      .map((game) => {
+        return {
+          ...game,
+          resources:
+            type.value === "all"
+              ? game.resources
+              : game.resources.filter(
+                  (resource) => resource.type === type.value
+                ),
+        };
+      })
+      .filter((item) => item.resources.length > 0);
+  }
+}
+
 function closeDialog() {
   show.value = false;
   games.value = undefined;
@@ -108,7 +136,7 @@ onBeforeUnmount(() => {
     v-model="show"
     icon="mdi-image-outline"
     :loading-condition="searching"
-    :empty-state-condition="games?.length == 0"
+    :empty-state-condition="filteredGames?.length == 0"
     empty-state-type="game"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
@@ -116,7 +144,7 @@ onBeforeUnmount(() => {
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
-        <v-col cols="10" sm="11">
+        <v-col cols="8" sm="9">
           <v-text-field
             id="search-text-field"
             @keyup.enter="searchCovers()"
@@ -126,6 +154,16 @@ onBeforeUnmount(() => {
             label="Search"
             hide-details
             clearable
+          />
+        </v-col>
+        <v-col cols="2" sm="2">
+          <v-select
+            :disabled="searching"
+            v-model="type"
+            hide-details
+            label="Type"
+            @update:model-value="filterCovers"
+            :items="['all', 'static', 'animated']"
           />
         </v-col>
         <v-col>
@@ -150,7 +188,7 @@ onBeforeUnmount(() => {
         rounded="0"
         variant="accordion"
       >
-        <v-expansion-panel v-for="game in games" :key="game.name">
+        <v-expansion-panel v-for="game in filteredGames" :key="game.name">
           <v-expansion-panel-title class="bg-terciary">
             <v-row no-gutters class="justify-center">
               <v-list-item class="pa-0">{{ game.name }}</v-list-item>
@@ -176,10 +214,7 @@ onBeforeUnmount(() => {
                     cover
                   >
                     <template #error>
-                      <v-img
-                        :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-                        cover
-                      ></v-img>
+                      <v-img :src="resource.url" cover></v-img>
                     </template>
                     <template #placeholder>
                       <div

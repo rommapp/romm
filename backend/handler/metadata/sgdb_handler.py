@@ -8,11 +8,17 @@ from logger.logger import log
 STEAMGRIDDB_API_ENABLED: Final = bool(STEAMGRIDDB_API_KEY)
 
 # SteamGridDB dimensions
-STEAMVERTICAL = "600x900"
-GALAXY342 = "342x482"
-GALAXY660 = "660x930"
-SQUARE512 = "512x512"
-SQUARE1024 = "1024x1024"
+STEAMVERTICAL: Final = "600x900"
+GALAXY342: Final = "342x482"
+GALAXY660: Final = "660x930"
+SQUARE512: Final = "512x512"
+SQUARE1024: Final = "1024x1024"
+
+# SteamGridDB types
+STATIC: Final = "static"
+ANIMATED: Final = "animated"
+
+SGDB_API_COVER_LIMIT: Final = 50
 
 
 class SGDBBaseHandler:
@@ -34,28 +40,58 @@ class SGDBBaseHandler:
 
         if len(search_response["data"]) == 0:
             log.warning(f"Could not find '{search_term}' on SteamGridDB")
-            return ""
+            return []
 
         games = []
         for game in search_response["data"]:
+            page = 0
             covers_response = requests.get(
                 f"{self.grid_endpoint}/{game['id']}",
                 headers=self.headers,
                 timeout=120,
                 params={
                     "dimensions": f"{STEAMVERTICAL},{GALAXY342},{GALAXY660},{SQUARE512},{SQUARE1024}",
+                    "types": f"{STATIC},{ANIMATED}",
+                    "page": page,
                 },
             ).json()
 
-            games.append(
-                {
-                    "name": game["name"],
-                    "resources": [
-                        {"thumb": cover["thumb"], "url": cover["url"]}
-                        for cover in covers_response["data"]
-                    ],
-                }
-            )
+            while (
+                len(covers_response["data"]) < covers_response["total"]
+                and covers_response["total"] > SGDB_API_COVER_LIMIT
+            ):
+                page += 1
+                covers_response["data"].extend(
+                    requests.get(
+                        f"{self.grid_endpoint}/{game['id']}",
+                        headers=self.headers,
+                        timeout=120,
+                        params={
+                            "dimensions": f"{STEAMVERTICAL},{GALAXY342},{GALAXY660},{SQUARE512},{SQUARE1024}",
+                            "types": f"{STATIC},{ANIMATED}",
+                            "page": page,
+                        },
+                    ).json()["data"]
+                )
+
+            if len(covers_response["data"]) > 0:
+                games.append(
+                    {
+                        "name": game["name"],
+                        "resources": [
+                            {
+                                "thumb": cover["thumb"],
+                                "url": cover["url"],
+                                "type": (
+                                    "animated"
+                                    if cover["thumb"].split(".")[-1] == "webm"
+                                    else "static"
+                                ),
+                            }
+                            for cover in covers_response["data"]
+                        ],
+                    }
+                )
 
         return games
 
