@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
 from models.rom import Rom
-from sqlalchemy import String, func, select
+from sqlalchemy import DateTime, String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -24,6 +25,9 @@ class Platform(BaseModel):
     roms: Mapped[list["Rom"]] = relationship(back_populates="platform")
     firmware: Mapped[list["Firmware"]] = relationship(
         lazy="selectin", back_populates="platform"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     # This runs a subquery to get the count of roms for the platform

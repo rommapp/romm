@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
-from sqlalchemy import DateTime, Enum, String
+from sqlalchemy import DateTime, Enum, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
@@ -38,6 +38,9 @@ class User(BaseModel, SimpleUser):
     states: Mapped[list["State"]] = relationship(back_populates="user")
     screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="user")
     notes: Mapped[list["RomNote"]] = relationship(back_populates="user")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     @property
     def oauth_scopes(self):

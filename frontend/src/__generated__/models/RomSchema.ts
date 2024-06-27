@@ -43,5 +43,6 @@ export type RomSchema = {
   multi: boolean;
   files: Array<string>;
   full_path: string;
+  updated_at: string;
   readonly sort_comparator: string;
 };
