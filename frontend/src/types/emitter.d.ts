@@ -62,7 +62,6 @@ export type Events = {
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
   refreshDrawer: null;
-  refreshView: null;
   showLoadingDialog: {
     loading: boolean;
     scrim: boolean;

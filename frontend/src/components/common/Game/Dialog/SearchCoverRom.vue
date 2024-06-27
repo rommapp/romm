@@ -79,7 +79,6 @@ async function updateCover(url_cover: string) {
         color: "green",
       });
       romsStore.update(data);
-      emitter?.emit("refreshView", null);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {

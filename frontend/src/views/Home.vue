@@ -45,14 +45,10 @@ const { activePlatformsDrawer, activeSettingsDrawer } =
   storeToRefs(navigationStore);
 const router = useRouter();
 const auth = storeAuth();
-const refreshView = ref(0);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
   const { data: platformData } = await platformApi.getPlatforms();
   platformsStore.set(platformData);
-});
-emitter?.on("refreshView", async () => {
-  refreshView.value = refreshView.value + 1;
 });
 
 // Functions
@@ -199,7 +195,7 @@ onMounted(async () => {
             <v-img
               :src="
                 auth.user?.avatar_path
-                  ? `/assets/romm/assets/${auth.user?.avatar_path}`
+                  ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
                   : defaultAvatarPath
               "
             />
@@ -275,7 +271,7 @@ onMounted(async () => {
           <v-img
             :src="
               auth.user?.avatar_path
-                ? `/assets/romm/assets/${auth.user?.avatar_path}`
+                ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
                 : defaultAvatarPath
             "
           />
@@ -313,7 +309,7 @@ onMounted(async () => {
         <v-img
           :src="
             auth.user?.avatar_path
-              ? `/assets/romm/assets/${auth.user?.avatar_path}`
+              ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
               : defaultAvatarPath
           "
           cover
@@ -363,7 +359,7 @@ onMounted(async () => {
   </v-navigation-drawer>
 
   <new-version />
-  <router-view :key="refreshView" />
+  <router-view />
 
   <delete-platform-dialog />
   <search-rom-dialog />

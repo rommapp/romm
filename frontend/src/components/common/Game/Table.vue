@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
-import RAvatar from "@/components/common/Game/Avatar.vue";
+import RAvatar from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
@@ -125,7 +125,7 @@ onMounted(() => {
                 (!item.igdb_id && !item.moby_id) && !item.has_cover
                   ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
                   : item.has_cover
-                  ? `/assets/romm/resources/${item.path_cover_s}`
+                  ? `/assets/romm/resources/${item.path_cover_s}?ts=${item.updated_at}`
                   : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
               "
             />
