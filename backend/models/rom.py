@@ -81,6 +81,9 @@ class Rom(BaseModel):
     states: Mapped[list["State"]] = relationship(back_populates="rom")
     screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="rom")
     notes: Mapped[list["RomNote"]] = relationship(back_populates="rom")
+
+    fav_sibling: Mapped[bool | None] = mapped_column(default=False)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
