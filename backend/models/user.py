@@ -38,6 +38,9 @@ class User(BaseModel, SimpleUser):
     states: Mapped[list["State"]] = relationship(back_populates="user")
     screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="user")
     notes: Mapped[list["RomNote"]] = relationship(back_populates="user")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

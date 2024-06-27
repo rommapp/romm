@@ -14,5 +14,8 @@ class UserSchema(BaseModel):
     last_login: datetime | None
     last_active: datetime | None
 
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
         from_attributes = True

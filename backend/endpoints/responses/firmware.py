@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
@@ -17,6 +19,9 @@ class FirmwareSchema(BaseModel):
     crc_hash: str
     md5_hash: str
     sha1_hash: str
+
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
