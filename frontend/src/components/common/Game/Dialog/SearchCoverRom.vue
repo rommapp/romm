@@ -151,6 +151,7 @@ onBeforeUnmount(() => {
             @click:clear="searchTerm = ''"
             class="bg-terciary"
             v-model="searchTerm"
+            :disabled="searching"
             label="Search"
             hide-details
             clearable
