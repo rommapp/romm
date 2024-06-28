@@ -1,9 +1,8 @@
-from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Optional
 
 from models.base import BaseModel
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
+from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
