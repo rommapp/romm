@@ -66,6 +66,7 @@ def upgrade() -> None:
         )
         batch_op.alter_column(
             "last_edited_at",
+            existing_type=sa.DateTime(timezone=True),
             new_column_name="updated_at",
             nullable=False,
         )
@@ -122,6 +123,7 @@ def downgrade() -> None:
     with op.batch_alter_table("rom_notes", schema=None) as batch_op:
         batch_op.alter_column(
             "updated_at",
+            existing_type=sa.DateTime(timezone=True),
             new_column_name="last_edited_at",
             nullable=False,
         )
