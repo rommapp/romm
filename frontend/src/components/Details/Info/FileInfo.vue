@@ -41,7 +41,7 @@ async function updateMainSibling() {
 }
 </script>
 <template>
-  <v-row class="ml-4" no-gutters>
+  <v-row no-gutters>
     <v-col>
       <v-row
         v-if="rom.sibling_roms && rom.sibling_roms.length > 0"
@@ -88,10 +88,7 @@ async function updateMainSibling() {
           <span>File</span>
         </v-col>
         <v-col>
-          <span class="text-body-1">{{ rom.file_name }}</span
-          ><v-chip class="ml-2" size="small" label>{{
-            formatBytes(rom.file_size_bytes)
-          }}</v-chip>
+          <span class="text-body-1">{{ rom.file_name }}</span>
         </v-col>
       </v-row>
       <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
@@ -99,29 +96,30 @@ async function updateMainSibling() {
           <span>Files</span>
         </v-col>
         <v-col>
-          <v-row no-gutters class="align-center">
-            <v-col cols="9">
-              <v-select
-                v-model="downloadStore.filesToDownloadMultiFileRom"
-                :label="rom.file_name"
-                item-title="file_name"
-                :items="rom.files"
-                rounded="0"
-                density="compact"
-                variant="outlined"
-                return-object
-                multiple
-                hide-details
-                clearable
-                chips
-              />
-            </v-col>
-            <v-col>
-              <v-chip class="ml-2" size="small" label>{{
-                formatBytes(rom.file_size_bytes)
-              }}</v-chip>
-            </v-col>
-          </v-row>
+          <v-select
+            v-model="downloadStore.filesToDownloadMultiFileRom"
+            :label="rom.file_name"
+            item-title="file_name"
+            :items="rom.files"
+            rounded="0"
+            density="compact"
+            variant="outlined"
+            return-object
+            multiple
+            hide-details
+            clearable
+            chips
+          />
+        </v-col>
+      </v-row>
+      <v-row no-gutters class="align-center my-3">
+        <v-col cols="3" xl="2">
+          <span>Size</span>
+        </v-col>
+        <v-col>
+          <v-chip size="small" label>{{
+            formatBytes(rom.file_size_bytes)
+          }}</v-chip>
         </v-col>
       </v-row>
       <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
