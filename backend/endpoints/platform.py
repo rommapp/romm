@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
@@ -74,6 +76,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "logo_path": "",
             "roms": [],
             "rom_count": 0,
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
         }
 
         if platform["name"] in db_platforms_map:
