@@ -82,6 +82,7 @@ onMounted(() => {
           v-bind="hoverProps"
           class="pointer"
           ref="card"
+          cover
           :src="
             src
               ? src
@@ -90,7 +91,7 @@ onMounted(() => {
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : `/assets/romm/resources/${rom.path_cover_l}`
+                : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
               ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
               : rom.igdb_url_cover
@@ -103,14 +104,14 @@ onMounted(() => {
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : `/assets/romm/resources/${rom.path_cover_s}`
+                : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
               ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
               : rom.igdb_url_cover
               ? rom.igdb_url_cover
               : rom.moby_url_cover
           "
-          :aspect-ratio="3 / 4"
+          :aspect-ratio="2 / 3"
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">
@@ -143,7 +144,7 @@ onMounted(() => {
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-              :aspect-ratio="3 / 4"
+              cover
             ></v-img>
           </template>
           <template #placeholder>
