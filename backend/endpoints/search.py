@@ -1,9 +1,9 @@
 import emoji
 from decorators.auth import protected_route
-from endpoints.responses.search import SearchRomSchema
+from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from fastapi import APIRouter, HTTPException, Request, status
 from handler.database import db_rom_handler
-from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
@@ -107,3 +107,12 @@ async def search_rom(
         log.info(f"\t - {m_rom['name']}")
 
     return matched_roms
+
+
+@protected_route(router.get, "/search/cover", ["roms.read"])
+async def search_cover(
+    request: Request,
+    search_term: str | None = None,
+) -> list[SearchCoverSchema]:
+
+    return meta_sgdb_handler.get_details(search_term)

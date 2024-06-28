@@ -1,9 +1,8 @@
-from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Optional
 
 from models.base import BaseModel
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
+from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -15,13 +14,6 @@ class BaseAsset(BaseModel):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
     file_name: Mapped[str] = mapped_column(String(length=450))
     file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
     file_name_no_ext: Mapped[str] = mapped_column(String(length=450))

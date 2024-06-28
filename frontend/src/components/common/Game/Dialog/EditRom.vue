@@ -81,7 +81,6 @@ async function updateRom() {
         color: "green",
       });
       romsStore.update(data);
-      emitter?.emit("refreshView", null);
     })
     .catch((error) => {
       console.log(error);

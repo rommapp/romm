@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import RAvatar from "@/components/common/Game/Avatar.vue";
+import RAvatar from "@/components/common/Game/RAvatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
@@ -96,7 +96,7 @@ onMounted(async () => {
                   !rom.igdb_id && !rom.moby_id
                     ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
                     : rom.has_cover
-                    ? `/assets/romm/resources/${rom.path_cover_s}`
+                    ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
                     : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
                 "
               />

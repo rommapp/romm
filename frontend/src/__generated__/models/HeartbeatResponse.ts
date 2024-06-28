@@ -13,5 +13,6 @@ export type HeartbeatResponse = {
   SCHEDULER: SchedulerDict;
   ANY_SOURCE_ENABLED: boolean;
   METADATA_SOURCES: MetadataSourcesDict;
+  STEAMGRIDDB_ENABLED: boolean;
   FS_PLATFORMS: Array<any>;
 };

@@ -12,6 +12,7 @@ import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownl
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
+import SearchCoverDialog from "@/components/common/Game/Dialog/SearchCoverRom.vue";
 import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
@@ -44,14 +45,10 @@ const { activePlatformsDrawer, activeSettingsDrawer } =
   storeToRefs(navigationStore);
 const router = useRouter();
 const auth = storeAuth();
-const refreshView = ref(0);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
   const { data: platformData } = await platformApi.getPlatforms();
   platformsStore.set(platformData);
-});
-emitter?.on("refreshView", async () => {
-  refreshView.value = refreshView.value + 1;
 });
 
 // Functions
@@ -198,7 +195,7 @@ onMounted(async () => {
             <v-img
               :src="
                 auth.user?.avatar_path
-                  ? `/assets/romm/assets/${auth.user?.avatar_path}`
+                  ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
                   : defaultAvatarPath
               "
             />
@@ -274,7 +271,7 @@ onMounted(async () => {
           <v-img
             :src="
               auth.user?.avatar_path
-                ? `/assets/romm/assets/${auth.user?.avatar_path}`
+                ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
                 : defaultAvatarPath
             "
           />
@@ -312,10 +309,9 @@ onMounted(async () => {
         <v-img
           :src="
             auth.user?.avatar_path
-              ? `/assets/romm/assets/${auth.user?.avatar_path}`
+              ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
               : defaultAvatarPath
           "
-          :aspect-ratio="smAndDown ? 20 / 1 : 20 / 3"
           cover
         >
         </v-img>
@@ -363,11 +359,12 @@ onMounted(async () => {
   </v-navigation-drawer>
 
   <new-version />
-  <router-view :key="refreshView" />
+  <router-view />
 
   <delete-platform-dialog />
   <search-rom-dialog />
   <match-rom-dialog />
+  <search-cover-dialog />
   <copy-rom-download-link-dialog />
   <upload-rom-dialog />
   <edit-rom-dialog />

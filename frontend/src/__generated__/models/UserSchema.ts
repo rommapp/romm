@@ -14,4 +14,6 @@ export type UserSchema = {
   avatar_path: string;
   last_login: string | null;
   last_active: string | null;
+  created_at: string;
+  updated_at: string;
 };

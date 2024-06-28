@@ -168,7 +168,6 @@ async function updateRom(selectedRom: SearchRomSchema) {
         color: "green",
       });
       romsStore.update(data);
-      emitter?.emit("refreshView", null);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -375,7 +374,8 @@ onBeforeUnmount(() => {
                           ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                           : source.url_cover
                       "
-                      :aspect-ratio="3 / 4"
+                      :aspect-ratio="2 / 3"
+                      cover
                       lazy
                     >
                       <template #placeholder>

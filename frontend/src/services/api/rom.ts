@@ -1,6 +1,7 @@
 import type {
   AddRomsResponse,
   MessageResponse,
+  SearchCoverSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
@@ -88,6 +89,14 @@ async function searchRom({
       search_by: searchBy,
     },
   });
+}
+
+async function searchCover({
+  searchTerm,
+}: {
+  searchTerm: string;
+}): Promise<{ data: SearchCoverSchema[] }> {
+  return api.get("/search/cover", { params: { search_term: searchTerm } });
 }
 
 // Listen for multi-file download completion events
@@ -179,6 +188,7 @@ export default {
   getRom,
   downloadRom,
   searchRom,
+  searchCover,
   updateRom,
   deleteRoms,
   updateRomNote,
