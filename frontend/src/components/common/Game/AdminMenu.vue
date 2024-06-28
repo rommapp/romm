@@ -39,7 +39,7 @@ const heartbeat = storeHeartbeat();
       </v-list-item-title>
       <v-list-item-subtitle>
         {{
-          !heartbeat.value.STEAMGRIDDB_ENABLED ? "No SteamgridDB enabled" : ""
+          !heartbeat.value.STEAMGRIDDB_ENABLED ? "SteamgridDB is not enabled" : ""
         }}
       </v-list-item-subtitle>
     </v-list-item>
