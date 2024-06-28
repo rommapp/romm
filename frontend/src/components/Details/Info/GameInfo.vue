@@ -10,7 +10,7 @@ const galleryFilter = storeGalleryFilter();
 const show = ref(false);
 </script>
 <template>
-  <v-row no-gutters class="ml-4">
+  <v-row no-gutters>
     <v-col>
       <v-divider class="mx-2 my-4" />
       <template v-for="filter in galleryFilter.filters" :key="filter">
