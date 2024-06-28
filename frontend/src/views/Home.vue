@@ -16,11 +16,12 @@ import SearchCoverDialog from "@/components/common/Game/Dialog/SearchCoverRom.vu
 import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
+import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
+import MainDrawer from "@/components/common/Navigation/MainDrawer.vue";
 import NewVersion from "@/components/common/NewVersion.vue";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
-import PlatformListItem from "@/components/common/Platform/ListItem.vue";
-import RommIso from "@/components/common/RommIso.vue";
-import identityApi from "@/services/api/identity";
+import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
+import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -28,11 +29,9 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -41,9 +40,6 @@ const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
-const { activePlatformsDrawer, activeSettingsDrawer } =
-  storeToRefs(navigationStore);
-const router = useRouter();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
@@ -52,45 +48,6 @@ emitter?.on("refreshDrawer", async () => {
 });
 
 // Functions
-function goHome() {
-  navigationStore.resetDrawers();
-  router.push({ name: "dashboard" });
-}
-
-function goScan() {
-  navigationStore.resetDrawers();
-  router.push({ name: "scan" });
-}
-
-function togglePlatformsDrawer() {
-  activeSettingsDrawer.value = false;
-  navigationStore.switchActivePlatformsDrawer();
-}
-
-function toggleSettingsDrawer() {
-  activePlatformsDrawer.value = false;
-  navigationStore.switchActiveSettingsDrawer();
-}
-
-async function logout() {
-  identityApi
-    .logout()
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: data.msg,
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-      router.push({ name: "login" });
-    })
-    .catch(() => {
-      router.push({ name: "login" });
-    })
-    .finally(() => {
-      auth.setUser(null);
-    });
-}
-
 onMounted(async () => {
   navigationStore.resetDrawers();
   await userApi
@@ -122,241 +79,13 @@ onMounted(async () => {
   />
 
   <!-- TODO: refactor and extract components -->
-  <v-navigation-drawer
-    v-if="!smAndDown"
-    permanent
-    rail
-    :floating="activePlatformsDrawer || activeSettingsDrawer"
-    rail-width="60"
-  >
-    <template #prepend>
-      <v-row no-gutters class="my-2 justify-center">
-        <router-link :to="{ name: 'dashboard' }">
-          <v-hover v-slot="{ isHovering, props: hoverProps }">
-            <romm-iso
-              v-bind="hoverProps"
-              :class="{ 'border-romm-accent-1': isHovering }"
-              :size="40"
-            />
-          </v-hover>
-        </router-link>
-      </v-row>
-      <v-row no-gutters class="my-4 justify-center">
-        <v-btn
-          icon="mdi-magnify"
-          size="small"
-          variant="flat"
-          @click="emitter?.emit('showSearchRomDialog', null)"
-        />
-        <v-btn
-          v-if="auth.scopes.includes('roms.write')"
-          icon="mdi-upload"
-          size="small"
-          variant="flat"
-          @click="emitter?.emit('showUploadRomDialog', null)"
-        />
-      </v-row>
-    </template>
-    <v-row no-gutters class="justify-center">
-      <v-btn
-        block
-        rounded="0"
-        variant="flat"
-        :color="activePlatformsDrawer ? 'terciary' : ''"
-        icon
-        @click="togglePlatformsDrawer"
-        ><v-icon :color="$route.name == 'platform' ? 'romm-accent-1' : ''"
-          >mdi-controller</v-icon
-        ></v-btn
-      >
-      <v-btn
-        v-if="auth.scopes.includes('platforms.write')"
-        block
-        rounded="0"
-        variant="flat"
-        color="primary"
-        icon
-        @click="goScan"
-        ><v-icon :color="$route.name == 'scan' ? 'romm-accent-1' : ''"
-          >mdi-magnify-scan</v-icon
-        ></v-btn
-      >
-    </v-row>
-    <template #append>
-      <v-row no-gutters class="justify-center">
-        <v-hover v-slot="{ isHovering, props: hoverProps }">
-          <v-avatar
-            v-bind="hoverProps"
-            :class="{ 'border-romm-accent-1': isHovering }"
-            @click="toggleSettingsDrawer"
-            size="35"
-            class="my-2 pointer"
-          >
-            <v-img
-              :src="
-                auth.user?.avatar_path
-                  ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
-                  : defaultAvatarPath
-              "
-            />
-          </v-avatar>
-        </v-hover>
-      </v-row>
-    </template>
-  </v-navigation-drawer>
+  <main-drawer v-if="!smAndDown" />
 
-  <v-app-bar
-    v-if="smAndDown"
-    :elevation="0"
-    class="bg-primary justify-center"
-    mode="shift"
-    height="45"
-  >
-    <template #prepend>
-      <v-hover v-slot="{ isHovering, props: hoverProps }">
-        <romm-iso
-          @click="goHome"
-          v-bind="hoverProps"
-          class="pointer ml-1"
-          :class="{ 'border-romm-accent-1': isHovering }"
-          :size="35"
-        />
-      </v-hover>
-    </template>
+  <main-app-bar v-if="smAndDown" />
 
-    <v-btn
-      rounded="0"
-      variant="flat"
-      :color="activePlatformsDrawer ? 'terciary' : ''"
-      icon
-      @click="togglePlatformsDrawer"
-      ><v-icon :color="$route.name == 'platform' ? 'romm-accent-1' : ''"
-        >mdi-controller</v-icon
-      ></v-btn
-    >
-    <v-btn
-      v-if="auth.scopes.includes('platforms.write')"
-      rounded="0"
-      variant="flat"
-      color="primary"
-      icon
-      @click="goScan"
-      ><v-icon :color="$route.name == 'scan' ? 'romm-accent-1' : ''"
-        >mdi-magnify-scan</v-icon
-      ></v-btn
-    >
-    <template #append>
-      <v-btn
-        icon="mdi-magnify"
-        size="small"
-        variant="flat"
-        @click="emitter?.emit('showSearchRomDialog', null)"
-      />
-      <v-btn
-        v-if="auth.scopes.includes('roms.write')"
-        icon="mdi-upload"
-        size="small"
-        variant="flat"
-        class="mr-1"
-        @click="emitter?.emit('showUploadRomDialog', null)"
-      />
-      <v-hover v-slot="{ isHovering, props: hoverProps }">
-        <v-avatar
-          @click="toggleSettingsDrawer"
-          class="mr-1 pointer"
-          size="35"
-          v-bind="hoverProps"
-          :class="{ 'border-romm-accent-1': isHovering }"
-        >
-          <v-img
-            :src="
-              auth.user?.avatar_path
-                ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
-                : defaultAvatarPath
-            "
-          />
-        </v-avatar>
-      </v-hover>
-    </template>
-  </v-app-bar>
+  <platforms-drawer />
 
-  <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
-    mobile
-    width="400"
-    v-model="activePlatformsDrawer"
-    class="bg-terciary"
-  >
-    <v-list rounded="0" class="pa-0">
-      <platform-list-item
-        v-for="platform in platformsStore.filledPlatforms"
-        :key="platform.slug"
-        :platform="platform"
-        class="py-4"
-      />
-    </v-list>
-  </v-navigation-drawer>
-
-  <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
-    mobile
-    width="300"
-    v-model="activeSettingsDrawer"
-    class="bg-terciary"
-  >
-    <v-list rounded="0" class="pa-0">
-      <v-list-img>
-        <v-img
-          :src="
-            auth.user?.avatar_path
-              ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
-              : defaultAvatarPath
-          "
-          cover
-        >
-        </v-img>
-      </v-list-img>
-      <v-list-item class="mb-1 text-shadow text-white">
-        <template #title>
-          <span>{{ auth.user?.username }}</span>
-        </template>
-        <template #subtitle>
-          <span>{{ auth.user?.role }}</span>
-        </template>
-      </v-list-item>
-    </v-list>
-    <v-list rounded="0" class="pa-0">
-      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
-        >UI Settings</v-list-item
-      >
-      <v-list-item
-        v-if="auth.scopes.includes('platforms.write')"
-        append-icon="mdi-table-cog"
-        :to="{ name: 'management' }"
-        >Library Management
-      </v-list-item>
-      <v-list-item
-        v-if="auth.scopes.includes('users.write')"
-        :to="{ name: 'administration' }"
-        append-icon="mdi-security"
-        >Administration</v-list-item
-      >
-      <template v-if="smAndDown">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit"
-          >Logout</v-list-item
-        >
-      </template>
-    </v-list>
-    <template v-if="!smAndDown" #append>
-      <v-list rounded="0" class="pa-0">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit"
-          >Logout</v-list-item
-        >
-      </v-list>
-    </template>
-  </v-navigation-drawer>
+  <settings-drawer />
 
   <new-version />
   <router-view />
@@ -381,8 +110,7 @@ onMounted(async () => {
   <loading-view />
 </template>
 <style scoped>
-.v-progress-linear,
-.v-bottom-navigation {
+.v-progress-linear {
   z-index: 9999 !important;
 }
 </style>
