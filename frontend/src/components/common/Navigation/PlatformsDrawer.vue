@@ -27,22 +27,18 @@ function clear() {
     class="bg-terciary"
   >
     <template #prepend>
-      <v-list>
-        <v-list-item>
-          <v-text-field
-            v-model="searchText"
-            prepend-inner-icon="mdi-filter-outline"
-            clearable
-            hide-details
-            @click:clear="clear"
-            @update:model-value=""
-            single-line
-            label="Search platform"
-            density="compact"
-            variant="outlined"
-          ></v-text-field>
-        </v-list-item>
-      </v-list>
+      <v-text-field
+        v-model="searchText"
+        prepend-inner-icon="mdi-filter-outline"
+        clearable
+        hide-details
+        @click:clear="clear"
+        @update:model-value=""
+        single-line
+        label="Search platform"
+        variant="solo-filled"
+        rounded="0"
+      ></v-text-field>
     </template>
     <v-list lines="two" rounded="0" class="pa-0">
       <platform-list-item

@@ -25,31 +25,18 @@ function clear() {
     class="bg-terciary"
   >
     <template #prepend>
-      <v-list>
-        <v-list-item>
-          <v-btn
-            variant="outlined"
-            color="romm-accent-1"
-            prepend-icon="mdi-plus"
-            block
-            >Add Collection</v-btn
-          >
-        </v-list-item>
-        <v-list-item>
-          <v-text-field
-            v-model="searchText"
-            prepend-inner-icon="mdi-filter-outline"
-            clearable
-            hide-details
-            @click:clear="clear"
-            @update:model-value=""
-            single-line
-            label="Search collection"
-            density="compact"
-            variant="outlined"
-          ></v-text-field>
-        </v-list-item>
-      </v-list>
+      <v-text-field
+        v-model="searchText"
+        prepend-inner-icon="mdi-filter-outline"
+        clearable
+        hide-details
+        @click:clear="clear"
+        @update:model-value=""
+        single-line
+        label="Search collection"
+        variant="solo-filled"
+        rounded="0"
+      ></v-text-field>
     </template>
     <v-list lines="two" rounded="0" class="pa-0">
       <v-list-item
@@ -76,5 +63,15 @@ function clear() {
         </template>
       </v-list-item>
     </v-list>
+    <template #append>
+      <v-btn
+        variant="tonal"
+        color="romm-accent-1"
+        prepend-icon="mdi-plus"
+        size="large"
+        block
+        >Add Collection</v-btn
+      >
+    </template>
   </v-navigation-drawer>
 </template>
