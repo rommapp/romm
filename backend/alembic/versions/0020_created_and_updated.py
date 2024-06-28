@@ -58,6 +58,14 @@ def upgrade() -> None:
     with op.batch_alter_table("rom_notes", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("now()"),
+                nullable=False,
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
                 "updated_at",
                 sa.DateTime(timezone=True),
                 server_default=sa.text("now()"),
