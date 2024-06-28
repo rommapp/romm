@@ -16,7 +16,7 @@ const ownNote = ref(
     id: null,
     user_id: auth.user?.id,
     rom_id: props.rom.id,
-    last_edited_at: new Date(),
+    updated_at: new Date(),
     raw_markdown: "",
     is_public: false,
   }
