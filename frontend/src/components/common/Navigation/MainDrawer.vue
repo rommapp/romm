@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
+import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
@@ -10,14 +11,16 @@ import { storeToRefs } from "pinia";
 
 // Props
 const navigationStore = storeNavigation();
-const { activePlatformsDrawer, activeSettingsDrawer } =
+const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
   storeToRefs(navigationStore);
 </script>
 <template>
   <v-navigation-drawer
     permanent
     rail
-    :floating="activePlatformsDrawer || activeSettingsDrawer"
+    :floating="
+      activePlatformsDrawer || activeCollectionsDrawer || activeSettingsDrawer
+    "
     rail-width="60"
   >
     <template #prepend>
@@ -30,9 +33,10 @@ const { activePlatformsDrawer, activeSettingsDrawer } =
       </v-row>
     </template>
 
-    <v-row no-gutters class="justify-center">
-      <platforms-btn />
-      <scan-btn />
+    <v-row no-gutters class="justify-center my-5">
+      <platforms-btn block />
+      <collections-btn block />
+      <scan-btn block />
     </v-row>
     <template #append>
       <v-row no-gutters class="my-2 justify-center">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
+import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
@@ -18,6 +19,7 @@ import UserBtn from "@/components/common/Navigation/UserBtn.vue";
     </template>
 
     <platforms-btn />
+    <collections-btn />
     <scan-btn />
 
     <template #append>

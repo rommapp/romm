@@ -21,6 +21,7 @@ import MainDrawer from "@/components/common/Navigation/MainDrawer.vue";
 import NewVersion from "@/components/common/NewVersion.vue";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
+import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
@@ -84,6 +85,8 @@ onMounted(async () => {
   <main-app-bar v-if="smAndDown" />
 
   <platforms-drawer />
+
+  <collections-drawer />
 
   <settings-drawer />
 

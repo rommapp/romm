@@ -3,12 +3,21 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 
 // Props
+withDefaults(
+  defineProps<{
+    block?: boolean;
+  }>(),
+  {
+    block: false,
+  }
+);
 const navigationStore = storeNavigation();
 const auth = storeAuth();
 </script>
 <template>
   <v-btn
     v-if="auth.scopes.includes('platforms.write')"
+    :block="block"
     rounded="0"
     variant="flat"
     color="primary"

@@ -2,11 +2,20 @@
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 
+withDefaults(
+  defineProps<{
+    block?: boolean;
+  }>(),
+  {
+    block: false,
+  }
+);
 const navigationStore = storeNavigation();
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 </script>
 <template>
   <v-btn
+    :block="block"
     rounded="0"
     variant="flat"
     :color="activePlatformsDrawer ? 'terciary' : ''"

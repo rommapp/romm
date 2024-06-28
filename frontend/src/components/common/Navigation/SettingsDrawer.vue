@@ -42,7 +42,7 @@ async function logout() {
   <v-navigation-drawer
     :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="300"
+    width="400"
     v-model="activeSettingsDrawer"
     class="bg-terciary"
   >
@@ -58,13 +58,11 @@ async function logout() {
         >
         </v-img>
       </v-list-img>
-      <v-list-item class="mb-1 text-shadow text-white">
-        <template #title>
-          <span>{{ auth.user?.username }}</span>
-        </template>
-        <template #subtitle>
-          <span>{{ auth.user?.role }}</span>
-        </template>
+      <v-list-item
+        :title="auth.user?.username"
+        :subtitle="auth.user?.role"
+        class="mb-1 text-shadow text-white"
+      >
       </v-list-item>
     </v-list>
     <v-list rounded="0" class="pa-0">
