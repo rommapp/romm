@@ -107,7 +107,7 @@ async function stopScan() {
         v-model="platformsToScan"
         label="Platforms"
         item-title="name"
-        :items="platforms.value"
+        :items="platforms.all"
         variant="outlined"
         density="comfortable"
         multiple
