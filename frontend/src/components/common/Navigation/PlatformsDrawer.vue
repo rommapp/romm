@@ -19,7 +19,7 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
     v-model="activePlatformsDrawer"
     class="bg-terciary"
   >
-    <v-list rounded="0" class="pa-0">
+    <v-list lines="two" rounded="0" class="pa-0">
       <platform-list-item
         v-for="platform in platformsStore.filledPlatforms"
         :key="platform.slug"
