@@ -26,25 +26,27 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 )
 
 
-class RomNoteSchema(BaseModel):
+class RomPropsSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
+    created_at: datetime
     updated_at: datetime
-    raw_markdown: str
-    is_public: bool
+    note_raw_markdown: str
+    note_is_public: bool
+    is_main_sibling: bool
     user__username: str
 
     class Config:
         from_attributes = True
 
     @classmethod
-    def for_user(cls, db_rom: Rom, user_id: int) -> list["RomNoteSchema"]:
+    def for_user(cls, db_rom: Rom, user_id: int) -> list["RomPropsSchema"]:
         return [
             cls.model_validate(n)
-            for n in db_rom.notes
+            for n in db_rom.user_rom_props
             # This is what filters out private notes
-            if n.user_id == user_id or n.is_public
+            if n.user_id == user_id or n.note_is_public
         ]
 
 
@@ -121,7 +123,7 @@ class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    user_notes: list[RomNoteSchema] = Field(default_factory=list)
+    user_rom_props: list[RomPropsSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(
@@ -144,7 +146,7 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.user_notes = RomNoteSchema.for_user(db_rom, user_id)
+        rom.user_rom_props = RomPropsSchema.for_user(db_rom, user_id)
 
         return rom
 

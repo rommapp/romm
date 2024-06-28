@@ -80,9 +80,7 @@ class Rom(BaseModel):
     saves: Mapped[list["Save"]] = relationship(back_populates="rom")
     states: Mapped[list["State"]] = relationship(back_populates="rom")
     screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="rom")
-    notes: Mapped[list["RomNote"]] = relationship(back_populates="rom")
-
-    fav_sibling: Mapped[bool | None] = mapped_column(default=False)
+    user_rom_props: Mapped[list["UserRomProps"]] = relationship(back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -181,24 +179,23 @@ class Rom(BaseModel):
         return self.file_name
 
 
-class RomNote(BaseModel):
-    __tablename__ = "rom_notes"
+class UserRomProps(BaseModel):
+    __tablename__ = "user_rom_props"
     __table_args__ = (
-        UniqueConstraint("rom_id", "user_id", name="unique_rom_user_note"),
+        UniqueConstraint("rom_id", "user_id", name="unique_rom_user_props"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    raw_markdown: Mapped[str] = mapped_column(Text, default="")
-    is_public: Mapped[bool | None] = mapped_column(default=False)
+    note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
+    note_is_public: Mapped[bool | None] = mapped_column(default=False)
+
+    rom_is_main_sibling: Mapped[bool | None] = mapped_column(default=False)
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
-    rom: Mapped["Rom"] = relationship(lazy="joined", back_populates="notes")
-    user: Mapped["User"] = relationship(lazy="joined", back_populates="notes")
+    rom: Mapped["Rom"] = relationship(lazy="joined", back_populates="user_rom_props")
+    user: Mapped["User"] = relationship(lazy="joined", back_populates="user_rom_props")
 
     @property
     def user__username(self) -> str:

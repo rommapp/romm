@@ -16,7 +16,7 @@ from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
     DetailedRomSchema,
-    RomNoteSchema,
+    RomPropsSchema,
     RomSchema,
 )
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -432,21 +432,23 @@ async def delete_roms(
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
 
 
-@protected_route(router.put, "/roms/{id}/note", ["notes.write"])
-async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
-    db_note = db_rom_handler.get_rom_note(id, request.user.id)
-    if not db_note:
-        db_note = db_rom_handler.add_rom_note(id, request.user.id)
+@protected_route(router.put, "/roms/{id}/props", ["rom_props.write"])
+async def update_rom_props(request: Request, id: int) -> RomPropsSchema:
+    db_rom_props = db_rom_handler.get_rom_props(id, request.user.id)
+    if not db_rom_props:
+        db_rom_props = db_rom_handler.add_rom_props(id, request.user.id)
 
     data = await request.json()
-    db_rom_handler.update_rom_note(
-        db_note.id,
+    db_rom_handler.update_rom_props(
+        db_rom_props.id,
         {
-            "last_edited_at": datetime.now(),
-            "raw_markdown": data.get("raw_markdown", db_note.raw_markdown),
-            "is_public": data.get("is_public", db_note.is_public),
+            "updated_at": datetime.now(),
+            "note_raw_markdown": data.get(
+                "note_raw_markdown", db_rom_props.note_raw_markdown
+            ),
+            "note_is_public": data.get("note_is_public", db_rom_props.note_is_public),
         },
     )
 
-    db_note = db_rom_handler.get_rom_note(id, request.user.id)
-    return db_note
+    db_rom_props = db_rom_handler.get_rom_props(id, request.user.id)
+    return db_rom_props

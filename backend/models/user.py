@@ -9,7 +9,7 @@ from starlette.authentication import SimpleUser
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
-    from models.rom import RomNote
+    from models.rom import UserRomProps
 
 
 class Role(enum.Enum):
@@ -37,7 +37,7 @@ class User(BaseModel, SimpleUser):
     saves: Mapped[list["Save"]] = relationship(back_populates="user")
     states: Mapped[list["State"]] = relationship(back_populates="user")
     screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="user")
-    notes: Mapped[list["RomNote"]] = relationship(back_populates="user")
+    user_rom_props: Mapped[list["UserRomProps"]] = relationship(back_populates="user")
 
     @property
     def oauth_scopes(self):
