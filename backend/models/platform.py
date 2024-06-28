@@ -26,12 +26,6 @@ class Platform(BaseModel):
     firmware: Mapped[list["Firmware"]] = relationship(
         lazy="selectin", back_populates="platform"
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
 
     # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
