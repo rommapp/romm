@@ -68,6 +68,7 @@ def upgrade() -> None:
             "last_edited_at",
             existing_type=sa.DateTime(timezone=True),
             new_column_name="updated_at",
+            server_default=sa.text("now()"),
             nullable=False,
         )
 
