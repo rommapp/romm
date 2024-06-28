@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
+import storeCollections from "@/stores/collections";
 import { useDisplay } from "vuetify";
 
 // Props
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
+const collectionsStore = storeCollections();
+const { filteredCollections, searchText } = storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
+
+// Functions
+function clear() {
+  searchText.value = "";
+}
 </script>
 <template>
   <v-navigation-drawer
@@ -16,28 +24,36 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     v-model="activeCollectionsDrawer"
     class="bg-terciary"
   >
+    <template #prepend>
+      <v-list>
+        <v-list-item>
+          <v-btn
+            variant="outlined"
+            color="romm-accent-1"
+            prepend-icon="mdi-plus"
+            block
+            >Add Collection</v-btn
+          >
+        </v-list-item>
+        <v-list-item>
+          <v-text-field
+            v-model="searchText"
+            prepend-inner-icon="mdi-filter-outline"
+            clearable
+            hide-details
+            @click:clear="clear"
+            @update:model-value=""
+            single-line
+            label="Search collection"
+            density="compact"
+            variant="outlined"
+          ></v-text-field>
+        </v-list-item>
+      </v-list>
+    </template>
     <v-list lines="two" rounded="0" class="pa-0">
       <v-list-item
-        v-for="collection in [
-          {
-            name: 'Favourites',
-            description: 'My favourites collection',
-            rom_count: 10,
-            id: 0,
-          },
-          {
-            name: 'Nintendo',
-            description: 'Nintendo collection',
-            rom_count: 7,
-            id: 1,
-          },
-          {
-            name: 'Sony',
-            description: 'Sony collection',
-            rom_count: 20,
-            id: 2,
-          },
-        ]"
+        v-for="collection in filteredCollections"
         :to="{ name: 'collection', params: { collection: collection.id } }"
         :value="collection"
       >

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
@@ -74,6 +76,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "logo_path": "",
             "roms": [],
             "rom_count": 0,
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
         }
 
         if platform["name"] in db_platforms_map:
@@ -96,7 +100,15 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
         PlatformSchema: Platform
     """
 
-    return db_platform_handler.get_platforms(id)
+    platform = db_platform_handler.get_platforms(id)
+    if platform:
+        return platform
+    else:
+        msg = f"Platform with {id} not found"
+        log.critical(msg)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg
+        )
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])
