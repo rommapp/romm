@@ -41,12 +41,6 @@ class Firmware(BaseModel):
     platform: Mapped["Platform"] = relationship(
         lazy="joined", back_populates="firmware"
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
 
     @property
     def platform_slug(self) -> str:
