@@ -437,7 +437,7 @@ async def update_rom_note(request: Request, id: int) -> RomNoteSchema:
     db_rom_handler.update_rom_note(
         db_note.id,
         {
-            "last_edited_at": datetime.now(),
+            "updated_at": datetime.now(),
             "raw_markdown": data.get("raw_markdown", db_note.raw_markdown),
             "is_public": data.get("is_public", db_note.is_public),
         },
