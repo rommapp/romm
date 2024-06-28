@@ -8,10 +8,20 @@ export default defineStore("navigation", {
 
   actions: {
     switchActivePlatformsDrawer() {
+      this.activeSettingsDrawer = false;
       this.activePlatformsDrawer = !this.activePlatformsDrawer;
     },
     switchActiveSettingsDrawer() {
+      this.activePlatformsDrawer = false;
       this.activeSettingsDrawer = !this.activeSettingsDrawer;
+    },
+    goHome() {
+      this.resetDrawers();
+      this.$router.push({ name: "dashboard" });
+    },
+    goScan() {
+      this.resetDrawers();
+      this.$router.push({ name: "scan" });
     },
     resetDrawers() {
       this.activePlatformsDrawer = false;
