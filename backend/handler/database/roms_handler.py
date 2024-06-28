@@ -1,7 +1,7 @@
 import functools
 
 from decorators.database import begin_session
-from models.rom import Rom, RomNote
+from models.rom import Rom, UserRomProps
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
 
@@ -148,24 +148,26 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_rom_note(
+    def get_rom_props(
         self, rom_id: int, user_id: int, session: Session = None
-    ) -> RomNote | None:
+    ) -> UserRomProps | None:
         return session.scalar(
-            select(RomNote).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
+            select(UserRomProps).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
 
     @begin_session
-    def add_rom_note(
+    def add_rom_props(
         self, rom_id: int, user_id: int, session: Session = None
-    ) -> RomNote:
-        return session.merge(RomNote(rom_id=rom_id, user_id=user_id))
+    ) -> UserRomProps:
+        return session.merge(UserRomProps(rom_id=rom_id, user_id=user_id))
 
     @begin_session
-    def update_rom_note(self, id: int, data: dict, session: Session = None) -> RomNote:
+    def update_rom_props(
+        self, id: int, data: dict, session: Session = None
+    ) -> UserRomProps:
         return session.execute(
-            update(RomNote)
-            .where(RomNote.id == id)
+            update(UserRomProps)
+            .where(UserRomProps.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
