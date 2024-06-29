@@ -4,14 +4,15 @@ import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useTheme } from "vuetify";
 
+// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
-const ownNote = ref(
+const ownProps = ref(
   props.rom.user_rom_props?.find((prop) => prop.user_id === auth.user?.id) ?? {
     id: null,
     user_id: auth.user?.id,
@@ -19,30 +20,52 @@ const ownNote = ref(
     updated_at: new Date(),
     note_raw_markdown: "",
     note_is_public: false,
+    is_main_sibling: false,
   }
 );
 const publicNotes =
-  props.rom.user_rom_props?.filter((prop) => prop.user_id !== auth.user?.id) ?? [];
+  props.rom.user_rom_props?.filter((prop) => prop.user_id !== auth.user?.id) ??
+  [];
 
+// Functions
 function togglePublic() {
-  ownNote.value.note_is_public = !ownNote.value.note_is_public;
+  ownProps.value.note_is_public = !ownProps.value.note_is_public;
   romApi.updateUserRomProps({
     romId: props.rom.id,
-    noteRawMarkdown: ownNote.value.note_raw_markdown,
-    noteIsPublic: ownNote.value.note_is_public,
+    noteRawMarkdown: ownProps.value.note_raw_markdown,
+    noteIsPublic: ownProps.value.note_is_public,
+    isMainSibling: ownProps.value.is_main_sibling,
   });
 }
 
-function onEditNote() {
+function editNote() {
   if (editingNote.value) {
     romApi.updateUserRomProps({
       romId: props.rom.id,
-      noteRawMarkdown: ownNote.value.note_raw_markdown,
-      noteIsPublic: ownNote.value.note_is_public,
+      noteRawMarkdown: ownProps.value.note_raw_markdown,
+      noteIsPublic: ownProps.value.note_is_public,
+      isMainSibling: ownProps.value.is_main_sibling,
     });
   }
   editingNote.value = !editingNote.value;
 }
+
+watch(
+  () => props.rom,
+  async () => {
+    ownProps.value = props.rom.user_rom_props?.find(
+      (prop) => prop.user_id === auth.user?.id
+    ) ?? {
+      id: null,
+      user_id: auth.user?.id,
+      rom_id: props.rom.id,
+      updated_at: new Date(),
+      note_raw_markdown: "",
+      note_is_public: false,
+      is_main_sibling: false,
+    };
+  }
+);
 </script>
 <template>
   <v-card rounded="0">
@@ -55,7 +78,7 @@ function onEditNote() {
               location="top"
               class="tooltip"
               transition="fade-transition"
-              :text="ownNote.note_is_public ? 'Make private' : 'Make public'"
+              :text="ownProps.note_is_public ? 'Make private' : 'Make public'"
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
@@ -64,7 +87,7 @@ function onEditNote() {
                   class="bg-terciary"
                 >
                   <v-icon size="large">
-                    {{ ownNote.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
+                    {{ ownProps.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
                   </v-icon>
                 </v-btn>
               </template></v-tooltip
@@ -77,7 +100,7 @@ function onEditNote() {
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
-                  @click="onEditNote"
+                  @click="editNote"
                   v-bind="tooltipProps"
                   class="bg-terciary"
                 >
@@ -94,7 +117,7 @@ function onEditNote() {
     <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
-        v-model="ownNote.note_raw_markdown"
+        v-model="ownProps.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
@@ -103,7 +126,7 @@ function onEditNote() {
       />
       <MdPreview
         v-else
-        :model-value="ownNote.note_raw_markdown"
+        :model-value="ownProps.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         preview-theme="vuepress"
         code-theme="github"

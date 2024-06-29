@@ -172,14 +172,17 @@ async function updateUserRomProps({
   romId,
   noteRawMarkdown,
   noteIsPublic,
+  isMainSibling,
 }: {
   romId: number;
   noteRawMarkdown: string;
   noteIsPublic: boolean;
+  isMainSibling: boolean;
 }): Promise<{ data: DetailedRom }> {
   return api.put(`/roms/${romId}/props`, {
     note_raw_markdown: noteRawMarkdown,
     note_is_public: noteIsPublic,
+    is_main_sibling: isMainSibling,
   });
 }
 

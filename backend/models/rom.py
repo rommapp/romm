@@ -1,4 +1,3 @@
-from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
@@ -7,13 +6,11 @@ from models.base import BaseModel
 from sqlalchemy import (
     JSON,
     BigInteger,
-    DateTime,
     ForeignKey,
     String,
     Text,
     UniqueConstraint,
     and_,
-    func,
     or_,
     select,
 )
