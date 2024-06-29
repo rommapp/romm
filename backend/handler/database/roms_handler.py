@@ -69,17 +69,20 @@ class DBRomsHandler(DBBaseHandler):
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
+        limit: int = None,
         query: Query = None,
         session: Session = None,
     ) -> list[Rom] | Rom | None:
         return (
             session.scalar(query.filter_by(id=id).limit(1))
             if id
-            else self._order(
-                self._filter(select(Rom), platform_id, search_term),
-                order_by,
-                order_dir,
-            )
+            else session.scalars(
+                self._order(
+                    self._filter(select(Rom), platform_id, search_term),
+                    order_by,
+                    order_dir,
+                ).limit(limit)
+            ).all()
         )
 
     @begin_session
@@ -123,17 +126,6 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def set_main_sibling(self, rom: Rom, user_id: int, session: Session = None) -> None:
-        siblings = [rom.id for rom in rom.get_sibling_roms()]
-        return session.execute(
-            update(UserRomProps)
-            .where(
-                and_(UserRomProps.rom_id.in_(siblings), UserRomProps.user_id == user_id)
-            )
-            .values(is_main_sibling=False)
-        )
-
-    @begin_session
     def delete_rom(self, id: int, session: Session = None) -> Rom:
         return session.execute(
             delete(Rom)
@@ -152,6 +144,12 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def add_rom_props(
+        self, rom_id: int, user_id: int, session: Session = None
+    ) -> UserRomProps:
+        return session.merge(UserRomProps(rom_id=rom_id, user_id=user_id))
+
+    @begin_session
     def get_rom_props(
         self, rom_id: int, user_id: int, session: Session = None
     ) -> UserRomProps | None:
@@ -160,18 +158,25 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def add_rom_props(
-        self, rom_id: int, user_id: int, session: Session = None
-    ) -> UserRomProps:
-        return session.merge(UserRomProps(rom_id=rom_id, user_id=user_id))
-
-    @begin_session
     def update_rom_props(
-        self, id: int, data: dict, session: Session = None
+        self, id: int, data: dict, rom: Rom, user_id: int, session: Session = None
     ) -> UserRomProps:
-        return session.execute(
+        session.execute(
             update(UserRomProps)
             .where(UserRomProps.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        if data["is_main_sibling"]:
+            siblings = [rom.id for rom in rom.get_sibling_roms()]
+            session.execute(
+                update(UserRomProps)
+                .where(
+                    and_(
+                        UserRomProps.rom_id.in_(siblings),
+                        UserRomProps.user_id == user_id,
+                    )
+                )
+                .values(is_main_sibling=False)
+            )
+        return self.get_rom_props(rom.id, user_id)

@@ -41,7 +41,7 @@ class UserRomPropsSchema(BaseModel):
         from_attributes = True
 
     @classmethod
-    def for_user(cls, db_rom: Rom, user_id: int) -> list["RomPropsSchema"]:
+    def for_user(cls, db_rom: Rom, user_id: int) -> list["UserRomPropsSchema"]:
         return [
             cls.model_validate(n)
             for n in db_rom.user_rom_props
@@ -120,7 +120,7 @@ class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    user_rom_props: list[RomPropsSchema] = Field(default_factory=list)
+    user_rom_props: list[UserRomPropsSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(
@@ -143,7 +143,7 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.user_rom_props = RomPropsSchema.for_user(db_rom, user_id)
+        rom.user_rom_props = UserRomPropsSchema.for_user(db_rom, user_id)
 
         return rom
 
