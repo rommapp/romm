@@ -26,7 +26,7 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 )
 
 
-class RomPropsSchema(BaseModel):
+class UserRomPropsSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
