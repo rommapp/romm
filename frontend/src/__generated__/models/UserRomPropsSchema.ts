@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type RomPropsSchema = {
+export type UserRomPropsSchema = {
   id: number;
   user_id: number;
   rom_id: number;
