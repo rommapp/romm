@@ -61,11 +61,12 @@ export default defineStore("roms", {
         ),
       )
         .map((games) => {
-          const favSiblingIndex = games.findIndex((game) => game.fav_sibling);
-          const primaryGame =
-            favSiblingIndex !== -1
-              ? games.splice(favSiblingIndex, 1)[0]
-              : games.shift();
+          const primaryGame = games.shift();
+          // const favSiblingIndex = games.findIndex((game) => game.fav_sibling);
+          // const primaryGame =
+          //   favSiblingIndex !== -1
+          //     ? games.splice(favSiblingIndex, 1)[0]
+          //     : games.shift();
 
           return {
             ...(primaryGame as SimpleRom),

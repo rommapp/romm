@@ -27,7 +27,7 @@ export type { PlatformSchema } from "./models/PlatformSchema";
 export type { Role } from "./models/Role";
 export type { RomIGDBMetadata } from "./models/RomIGDBMetadata";
 export type { RomMobyMetadata } from "./models/RomMobyMetadata";
-export type { RomNoteSchema } from "./models/RomNoteSchema";
+export type { RomPropsSchema } from "./models/RomPropsSchema";
 export type { RomSchema } from "./models/RomSchema";
 export type { SaveSchema } from "./models/SaveSchema";
 export type { SchedulerDict } from "./models/SchedulerDict";

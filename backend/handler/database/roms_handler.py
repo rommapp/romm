@@ -19,7 +19,7 @@ def with_assets(func):
             selectinload(Rom.saves),
             selectinload(Rom.states),
             selectinload(Rom.screenshots),
-            selectinload(Rom.notes),
+            selectinload(Rom.user_rom_props),
         )
         return func(*args, **kwargs)
 

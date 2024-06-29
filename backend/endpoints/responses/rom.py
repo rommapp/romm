@@ -95,9 +95,6 @@ class RomSchema(BaseModel):
     multi: bool
     files: list[str]
     full_path: str
-
-    fav_sibling: bool
-
     created_at: datetime
     updated_at: datetime
 

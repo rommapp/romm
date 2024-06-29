@@ -189,7 +189,7 @@ class UserRomProps(BaseModel):
     note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
     note_is_public: Mapped[bool | None] = mapped_column(default=False)
 
-    rom_is_main_sibling: Mapped[bool | None] = mapped_column(default=False)
+    is_main_sibling: Mapped[bool | None] = mapped_column(default=False)
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

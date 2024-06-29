@@ -105,9 +105,7 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
         return platform
     msg = f"Platform with {id} not found"
     log.critical(msg)
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg
-    )
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg)
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])
