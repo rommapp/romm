@@ -12,33 +12,33 @@ const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
 const ownNote = ref(
-  props.rom.user_notes?.find((note) => note.user_id === auth.user?.id) ?? {
+  props.rom.user_rom_props?.find((prop) => prop.user_id === auth.user?.id) ?? {
     id: null,
     user_id: auth.user?.id,
     rom_id: props.rom.id,
     updated_at: new Date(),
-    raw_markdown: "",
-    is_public: false,
+    note_raw_markdown: "",
+    note_is_public: false,
   }
 );
 const publicNotes =
-  props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
+  props.rom.user_rom_props?.filter((prop) => prop.user_id !== auth.user?.id) ?? [];
 
 function togglePublic() {
-  ownNote.value.is_public = !ownNote.value.is_public;
-  romApi.updateRomNote({
+  ownNote.value.note_is_public = !ownNote.value.note_is_public;
+  romApi.updateUserRomProps({
     romId: props.rom.id,
-    rawMarkdown: ownNote.value.raw_markdown,
-    isPublic: ownNote.value.is_public,
+    noteRawMarkdown: ownNote.value.note_raw_markdown,
+    noteIsPublic: ownNote.value.note_is_public,
   });
 }
 
 function onEditNote() {
   if (editingNote.value) {
-    romApi.updateRomNote({
+    romApi.updateUserRomProps({
       romId: props.rom.id,
-      rawMarkdown: ownNote.value.raw_markdown,
-      isPublic: ownNote.value.is_public,
+      noteRawMarkdown: ownNote.value.note_raw_markdown,
+      noteIsPublic: ownNote.value.note_is_public,
     });
   }
   editingNote.value = !editingNote.value;
@@ -55,7 +55,7 @@ function onEditNote() {
               location="top"
               class="tooltip"
               transition="fade-transition"
-              :text="ownNote.is_public ? 'Make private' : 'Make public'"
+              :text="ownNote.note_is_public ? 'Make private' : 'Make public'"
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
@@ -64,7 +64,7 @@ function onEditNote() {
                   class="bg-terciary"
                 >
                   <v-icon size="large">
-                    {{ ownNote.is_public ? "mdi-eye" : "mdi-eye-off" }}
+                    {{ ownNote.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
                   </v-icon>
                 </v-btn>
               </template></v-tooltip
@@ -94,7 +94,7 @@ function onEditNote() {
     <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
-        v-model="ownNote.raw_markdown"
+        v-model="ownNote.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
@@ -103,7 +103,7 @@ function onEditNote() {
       />
       <MdPreview
         v-else
-        :model-value="ownNote.raw_markdown"
+        :model-value="ownNote.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         preview-theme="vuepress"
         code-theme="github"
@@ -128,7 +128,7 @@ function onEditNote() {
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-secondary">
             <MdPreview
-              :model-value="note.raw_markdown"
+              :model-value="note.note_raw_markdown"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
               preview-theme="vuepress"
               code-theme="github"

@@ -17,7 +17,7 @@ const downloadStore = storeDownload();
 // Functions
 async function updateMainSibling() {
   const updatedRom = props.rom;
-  updatedRom.fav_sibling = !props.rom.fav_sibling;
+  // updatedRom.fav_sibling = !props.rom.fav_sibling;
   await romApi
     .updateRom({ rom: updatedRom })
     .then(({ data }) => {

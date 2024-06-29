@@ -278,7 +278,6 @@ async def update_rom(
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", None)
     cleaned_data["moby_id"] = data.get("moby_id", None)
-    cleaned_data["fav_sibling"] = bool(data.get("fav_sibling", None))
 
     if cleaned_data["moby_id"]:
         moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
@@ -374,8 +373,7 @@ async def update_rom(
     db_rom_handler.update_rom(id, cleaned_data)
     updated_rom = db_rom_handler.get_roms(id)
 
-    if cleaned_data["fav_sibling"]:
-        db_rom_handler.set_main_sibling(updated_rom)
+    # db_rom_handler.set_main_sibling(updated_rom)
 
     return DetailedRomSchema.from_orm_with_request(updated_rom, request)
 
@@ -435,14 +433,16 @@ async def delete_roms(
 @protected_route(router.put, "/roms/{id}/props", ["rom_props.write"])
 async def update_rom_props(request: Request, id: int) -> RomPropsSchema:
     db_rom_props = db_rom_handler.get_rom_props(id, request.user.id)
+    log.debug("endpoint props")
+    log.debug(db_rom_props)
     if not db_rom_props:
+        log.debug("adding props")
         db_rom_props = db_rom_handler.add_rom_props(id, request.user.id)
 
     data = await request.json()
     db_rom_handler.update_rom_props(
         db_rom_props.id,
         {
-            "updated_at": datetime.now(),
             "note_raw_markdown": data.get(
                 "note_raw_markdown", db_rom_props.note_raw_markdown
             ),
