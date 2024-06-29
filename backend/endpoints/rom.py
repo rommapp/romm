@@ -432,11 +432,13 @@ async def delete_roms(
 
 @protected_route(router.put, "/roms/{id}/props", ["rom_props.write"])
 async def update_rom_props(request: Request, id: int) -> RomPropsSchema:
+    db_rom = db_rom_handler.get_roms(id)
+    if not db_rom:
+        error = f"Rom with id {id} could not be found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
     db_rom_props = db_rom_handler.get_rom_props(id, request.user.id)
-    log.debug("endpoint props")
-    log.debug(db_rom_props)
     if not db_rom_props:
-        log.debug("adding props")
         db_rom_props = db_rom_handler.add_rom_props(id, request.user.id)
 
     data = await request.json()
@@ -447,8 +449,13 @@ async def update_rom_props(request: Request, id: int) -> RomPropsSchema:
                 "note_raw_markdown", db_rom_props.note_raw_markdown
             ),
             "note_is_public": data.get("note_is_public", db_rom_props.note_is_public),
+            "is_main_sibling": data.get(
+                "is_main_sibling", db_rom_props.is_main_sibling
+            ),
         },
     )
 
     db_rom_props = db_rom_handler.get_rom_props(id, request.user.id)
+    if db_rom_props.is_main_sibling:
+        db_rom_handler.set_main_sibling(db_rom, db_rom_props.user_id)
     return db_rom_props

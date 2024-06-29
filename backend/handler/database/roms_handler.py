@@ -123,10 +123,14 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def set_main_sibling(self, rom: Rom, session: Session = None) -> None:
+    def set_main_sibling(self, rom: Rom, user_id: int, session: Session = None) -> None:
         siblings = [rom.id for rom in rom.get_sibling_roms()]
         return session.execute(
-            update(Rom).where(Rom.id.in_(siblings)).values(fav_sibling=False)
+            update(UserRomProps)
+            .where(
+                and_(UserRomProps.rom_id.in_(siblings), UserRomProps.user_id == user_id)
+            )
+            .values(is_main_sibling=False)
         )
 
     @begin_session
