@@ -50,11 +50,11 @@ export type DetailedRomSchema = {
   full_path: string;
   created_at: string;
   updated_at: string;
+  user_rom_props?: Array<UserRomPropsSchema>;
   merged_screenshots: Array<string>;
   sibling_roms?: Array<RomSchema>;
   user_saves?: Array<SaveSchema>;
   user_states?: Array<StateSchema>;
   user_screenshots?: Array<ScreenshotSchema>;
-  user_rom_props?: Array<UserRomPropsSchema>;
   readonly sort_comparator: string;
 };
