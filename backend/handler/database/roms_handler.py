@@ -2,7 +2,7 @@ import functools
 
 from decorators.database import begin_session
 from models.rom import Rom, RomNote
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import Select, and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -62,24 +62,23 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     @with_assets
+    def get_rom(
+        self, id: int, *, query: Query = None, session: Session = None
+    ) -> Rom | None:
+        return session.scalar(query.filter_by(id=id).limit(1))
+
     def get_roms(
         self,
-        id: int | None = None,
+        *,
         platform_id: int | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
-        query: Query = None,
-        session: Session = None,
-    ) -> list[Rom] | Rom | None:
-        return (
-            session.scalar(query.filter_by(id=id).limit(1))
-            if id
-            else self._order(
-                self._filter(select(Rom), platform_id, search_term),
-                order_by,
-                order_dir,
-            )
+    ) -> Select[tuple[Rom]]:
+        return self._order(
+            self._filter(select(Rom), platform_id, search_term),
+            order_by,
+            order_dir,
         )
 
     @begin_session

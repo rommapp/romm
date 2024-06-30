@@ -52,7 +52,10 @@ class Save(RomAsset):
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
-        db_rom = db_rom_handler.get_roms(self.rom_id)
+        db_rom = db_rom_handler.get_rom(self.rom_id)
+        if db_rom is None:
+            return None
+
         for screenshot in db_rom.screenshots:
             if screenshot.file_name_no_ext == self.file_name:
                 return screenshot
@@ -73,7 +76,10 @@ class State(RomAsset):
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
-        db_rom = db_rom_handler.get_roms(self.rom_id)
+        db_rom = db_rom_handler.get_rom(self.rom_id)
+        if db_rom is None:
+            return None
+
         for screenshot in db_rom.screenshots:
             if screenshot.file_name_no_ext == self.file_name:
                 return screenshot

@@ -14,19 +14,24 @@ class DBFirmwareHandler(DBBaseHandler):
     @begin_session
     def get_firmware(
         self,
-        id: int | None = None,
+        id: int,
+        *,
+        session: Session = None,
+    ) -> Firmware | None:
+        return session.scalar(select(Firmware).filter_by(id=id).limit(1))
+
+    @begin_session
+    def list_firmware(
+        self,
+        *,
         platform_id: int | None = None,
         session: Session = None,
-    ) -> Firmware | list[Firmware] | None:
-        return (
-            session.scalar(select(Firmware).filter_by(id=id).limit(1))
-            if id
-            else session.scalars(
-                select(Firmware)
-                .filter_by(platform_id=platform_id)
-                .order_by(Firmware.file_name.asc())
-            ).all()
-        )
+    ) -> list[Firmware]:
+        return session.scalars(
+            select(Firmware)
+            .filter_by(platform_id=platform_id)
+            .order_by(Firmware.file_name.asc())
+        ).all()
 
     @begin_session
     def get_firmware_by_filename(
