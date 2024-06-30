@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from functools import cached_property
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from models.base import BaseModel
 from sqlalchemy import BigInteger, ForeignKey, String
@@ -43,11 +45,11 @@ class Save(RomAsset):
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
 
-    rom: Mapped["Rom"] = relationship(lazy="joined", back_populates="saves")
-    user: Mapped["User"] = relationship(lazy="joined", back_populates="saves")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
 
     @cached_property
-    def screenshot(self) -> Optional["Screenshot"]:
+    def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
         db_rom = db_rom_handler.get_rom(self.rom_id)
@@ -67,11 +69,11 @@ class State(RomAsset):
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
 
-    rom: Mapped["Rom"] = relationship(lazy="joined", back_populates="states")
-    user: Mapped["User"] = relationship(lazy="joined", back_populates="states")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="states")
 
     @cached_property
-    def screenshot(self) -> Optional["Screenshot"]:
+    def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
         db_rom = db_rom_handler.get_rom(self.rom_id)
@@ -89,5 +91,5 @@ class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
-    rom: Mapped["Rom"] = relationship(lazy="joined", back_populates="screenshots")
-    user: Mapped["User"] = relationship(lazy="joined", back_populates="screenshots")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")

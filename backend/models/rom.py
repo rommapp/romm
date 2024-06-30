@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -75,12 +77,12 @@ class Rom(BaseModel):
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform: Mapped["Platform"] = relationship(lazy="immediate")
+    platform: Mapped[Platform] = relationship(lazy="immediate")
 
-    saves: Mapped[list["Save"]] = relationship(back_populates="rom")
-    states: Mapped[list["State"]] = relationship(back_populates="rom")
-    screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="rom")
-    notes: Mapped[list["RomNote"]] = relationship(back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(back_populates="rom")
+    states: Mapped[list[State]] = relationship(back_populates="rom")
+    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
+    notes: Mapped[list[RomNote]] = relationship(back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -109,7 +111,7 @@ class Rom(BaseModel):
         ]
 
     # This is an expensive operation so don't call it on a list of roms
-    def get_sibling_roms(self) -> list["Rom"]:
+    def get_sibling_roms(self) -> list[Rom]:
         from handler.database import db_rom_handler
 
         with db_rom_handler.session.begin() as session:
@@ -195,8 +197,8 @@ class RomNote(BaseModel):
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
-    rom: Mapped["Rom"] = relationship(lazy="joined", back_populates="notes")
-    user: Mapped["User"] = relationship(lazy="joined", back_populates="notes")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="notes")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="notes")
 
     @property
     def user__username(self) -> str:
