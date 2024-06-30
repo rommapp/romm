@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
@@ -21,8 +23,8 @@ class Platform(BaseModel):
     name: Mapped[str | None] = mapped_column(String(length=400))
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
-    roms: Mapped[list["Rom"]] = relationship(back_populates="platform")
-    firmware: Mapped[list["Firmware"]] = relationship(
+    roms: Mapped[list[Rom]] = relationship(back_populates="platform")
+    firmware: Mapped[list[Firmware]] = relationship(
         lazy="selectin", back_populates="platform"
     )
 
