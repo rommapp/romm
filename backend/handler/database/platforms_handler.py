@@ -3,7 +3,7 @@ import functools
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
-from sqlalchemy import delete, or_, select
+from sqlalchemy import Select, delete, or_, select
 from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -37,17 +37,17 @@ class DBPlatformsHandler(DBBaseHandler):
 
     @begin_session
     @with_roms
-    def get_platforms(
-        self, id: int | None = None, query: Query = None, session: Session = None
-    ) -> list[Platform] | Platform | None:
+    def get_platform(
+        self, id: int, *, query: Query = None, session: Session = None
+    ) -> Platform | None:
+        return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_platforms(self, *, session: Session = None) -> Select[tuple[Platform]]:
         return (
-            session.scalar(query.filter_by(id=id).limit(1))
-            if id
-            else (
-                session.scalars(select(Platform).order_by(Platform.name.asc()))  # type: ignore[attr-defined]
-                .unique()
-                .all()
-            )
+            session.scalars(select(Platform).order_by(Platform.name.asc()))  # type: ignore[attr-defined]
+            .unique()
+            .all()
         )
 
     @begin_session
