@@ -5,6 +5,7 @@ import type { ExtractPiniaStoreType } from "@/types";
 import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
+import storeAuth from "@/stores/auth";
 import storeGalleryFilter from "./galleryFilter";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
@@ -51,6 +52,8 @@ export default defineStore("roms", {
         return;
       }
 
+      const auth = storeAuth();
+
       // Group roms by external id
       this._grouped = Object.values(
         groupBy(
@@ -61,12 +64,14 @@ export default defineStore("roms", {
         ),
       )
         .map((games) => {
-          const primaryGame = games.shift();
-          // const favSiblingIndex = games.findIndex((game) => game.fav_sibling);
-          // const primaryGame =
-          //   favSiblingIndex !== -1
-          //     ? games.splice(favSiblingIndex, 1)[0]
-          //     : games.shift();
+          const favSiblingIndex = games.findIndex((game) =>
+            game.user_rom_props?.find((prop) => prop.user_id === auth.user?.id),
+          );
+          console.log(favSiblingIndex);
+          const primaryGame =
+            favSiblingIndex !== -1
+              ? games.splice(favSiblingIndex, 1)[0]
+              : games.shift();
 
           return {
             ...(primaryGame as SimpleRom),

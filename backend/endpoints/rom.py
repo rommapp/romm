@@ -114,6 +114,7 @@ def get_roms(
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
         limit=limit,
+        user_id=request.user.id,
     )
 
 

@@ -69,21 +69,22 @@ class DBRomsHandler(DBBaseHandler):
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
-        limit: int = None,
+        limit: int | None = None,
+        user_id: int | None = None,
         query: Query = None,
         session: Session = None,
     ) -> list[Rom] | Rom | None:
-        return (
-            session.scalar(query.filter_by(id=id).limit(1))
-            if id
-            else session.scalars(
+        # TODO: get user_rom_props from user_id
+        if id:
+            return session.scalar(query.filter_by(id=id).limit(1))
+        else:
+            return session.scalars(
                 self._order(
                     self._filter(select(Rom), platform_id, search_term),
                     order_by,
                     order_dir,
                 ).limit(limit)
             ).all()
-        )
 
     @begin_session
     @with_assets
