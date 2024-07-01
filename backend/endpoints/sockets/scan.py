@@ -156,6 +156,7 @@ async def scan_platforms(
                     exclude=EXCLUDED_FROM_DUMP
                 ),
             )
+            await sm.emit("", None)
 
             # Scanning firmware
             try:
@@ -186,17 +187,6 @@ async def scan_platforms(
 
                 _added_firmware = db_firmware_handler.add_firmware(scanned_firmware)
                 firmware = db_firmware_handler.get_firmware(_added_firmware.id)
-
-                await sm.emit(
-                    "scan:scanning_firmware",
-                    {
-                        "platform_name": platform.name,
-                        "platform_slug": platform.slug,
-                        **FirmwareSchema.model_validate(firmware).model_dump(
-                            exclude=EXCLUDED_FROM_DUMP
-                        ),
-                    },
-                )
 
             # Scanning roms
             try:
@@ -269,6 +259,7 @@ async def scan_platforms(
                             ),
                         },
                     )
+                    await sm.emit("", None)
 
             db_rom_handler.purge_roms(
                 platform.id, [rom["file_name"] for rom in fs_roms]
