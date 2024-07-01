@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -34,10 +36,10 @@ class User(BaseModel, SimpleUser):
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    saves: Mapped[list["Save"]] = relationship(back_populates="user")
-    states: Mapped[list["State"]] = relationship(back_populates="user")
-    screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="user")
-    user_rom_props: Mapped[list["UserRomProps"]] = relationship(back_populates="user")
+    saves: Mapped[list[Save]] = relationship(back_populates="user")
+    states: Mapped[list[State]] = relationship(back_populates="user")
+    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="user")
+    user_rom_props: Mapped[list[UserRomProps]] = relationship(back_populates="user")
 
     @property
     def oauth_scopes(self):

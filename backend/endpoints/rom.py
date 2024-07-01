@@ -51,7 +51,7 @@ def add_roms(
         AddRomsResponse: Standard message response
     """
 
-    platform_fs_slug = db_platform_handler.get_platforms(platform_id).fs_slug
+    platform_fs_slug = db_platform_handler.get_platform(platform_id).fs_slug
     log.info(f"Uploading roms to {platform_fs_slug}")
     if roms is None:
         log.error("No roms were uploaded")
@@ -133,7 +133,7 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
     Returns:
         DetailedRomSchema: Rom stored in the database
     """
-    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_roms(id), request)
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
 
 
 @protected_route(
@@ -153,7 +153,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
         FileResponse: Returns the response with headers
     """
 
-    rom = db_rom_handler.get_roms(id)
+    rom = db_rom_handler.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     return FileResponse(
@@ -188,7 +188,7 @@ def get_rom_content(
         CustomStreamingResponse: Streams a file for multi-part roms
     """
 
-    rom = db_rom_handler.get_roms(id)
+    rom = db_rom_handler.get_rom(id)
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_download = files or rom.files
 
@@ -272,7 +272,7 @@ async def update_rom(
 
     data = await request.form()
 
-    db_rom = db_rom_handler.get_roms(id)
+    db_rom = db_rom_handler.get_rom(id)
 
     cleaned_data = {}
     cleaned_data["igdb_id"] = data.get("igdb_id", None)
@@ -370,9 +370,8 @@ async def update_rom(
         cleaned_data.update({"path_screenshots": path_screenshots})
 
     db_rom_handler.update_rom(id, cleaned_data)
-    updated_rom = db_rom_handler.get_roms(id)
 
-    return DetailedRomSchema.from_orm_with_request(updated_rom, request)
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])
@@ -397,7 +396,7 @@ async def delete_roms(
     delete_from_fs: list = data["delete_from_fs"]
 
     for id in roms_ids:
-        rom = db_rom_handler.get_roms(id)
+        rom = db_rom_handler.get_rom(id)
         if not rom:
             error = f"Rom with id {id} not found"
             log.error(error)

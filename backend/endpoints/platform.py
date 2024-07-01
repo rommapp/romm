@@ -139,9 +139,9 @@ async def delete_platforms(request: Request, id: int) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    platform = db_platform_handler.get_platforms(id)
+    platform = db_platform_handler.get_platform(id)
     if not platform:
-        error = f"Platform {platform.name} - [{platform.fs_slug}] not found"
+        error = f"Platform id {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
