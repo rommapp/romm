@@ -9,17 +9,11 @@ import { inject, onMounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-// TODO: make states reactive on version change
 const { xs, smAndUp, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
-const romRef = ref<DetailedRom>(props.rom);
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("romUpdated", (romUpdated) => {
-  if (romUpdated?.id === romRef.value.id) {
-    romRef.value.user_states = romUpdated.user_states;
-  }
-});
+// emitter?.on("romUpdated", (romUpdated) => {});
 const HEADERS = [
   {
     title: "Name",
@@ -47,9 +41,9 @@ async function downloasStates() {
 }
 
 function updateDataTablePages() {
-  if (romRef.value.user_states) {
+  if (props.rom.user_states) {
     pageCount.value = Math.ceil(
-      romRef.value.user_states.length / itemsPerPage.value
+      props.rom.user_states.length / itemsPerPage.value
     );
   }
 }
@@ -65,7 +59,7 @@ onMounted(() => {
 
 <template>
   <v-data-table
-    :items="romRef.user_states"
+    :items="rom.user_states"
     :width="mdAndUp ? '60vw' : '95vw'"
     :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
@@ -81,7 +75,7 @@ onMounted(() => {
         <v-btn
           class="bg-secondary"
           size="small"
-          @click="emitter?.emit('addStatesDialog', romRef)"
+          @click="emitter?.emit('addStatesDialog', rom)"
         >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
@@ -153,7 +147,7 @@ onMounted(() => {
       </td>
     </template>
     <template #no-data
-      ><span>No states found for {{ romRef?.name }}</span></template
+      ><span>No states found for {{ rom.name }}</span></template
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">

@@ -151,7 +151,7 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_rom_siblings(self, rom: Rom, session: Session = None):
+    def get_sibling_roms(self, rom: Rom, session: Session = None) -> tuple[Rom | None]:
         return session.scalars(
             select(Rom).where(
                 and_(
@@ -213,6 +213,16 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             select(UserRomProps).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
+
+    @begin_session
+    def get_public_notes(
+        self, rom: Rom, user_id: int, session: Session = None
+    ) -> tuple[UserRomProps | None]:
+        return session.scalars(
+            select(UserRomProps).where(
+                and_(UserRomProps.rom_id == rom.id, UserRomProps.user_id != user_id)
+            )
+        ).all()
 
     @begin_session
     def update_rom_props(

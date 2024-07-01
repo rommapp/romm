@@ -23,10 +23,6 @@ const ownProps = ref(
     is_main_sibling: false,
   }
 );
-// TODO: fetch public notes
-// const publicNotes =
-//   props.rom.user_rom_props?.filter((prop) => prop.user_id !== auth.user?.id) ??
-//   [];
 
 // Functions
 function togglePublic() {
@@ -133,7 +129,11 @@ watch(
     </v-card-text>
   </v-card>
 
-  <!-- <v-card rounded="0" v-if="publicNotes.length > 0" class="mt-2">
+  <v-card
+    rounded="0"
+    v-if="rom.public_notes && rom.public_notes.length > 0"
+    class="mt-2"
+  >
     <v-card-title class="bg-terciary">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">Public notes</span>
@@ -144,7 +144,7 @@ watch(
 
     <v-card-text class="pa-0">
       <v-expansion-panels multiple flat rounded="0" variant="accordion">
-        <v-expansion-panel v-for="note in publicNotes" :key="note.id">
+        <v-expansion-panel v-for="note in rom.public_notes">
           <v-expansion-panel-title class="bg-terciary">
             <span class="text-body-1">{{ note.user__username }}</span>
           </v-expansion-panel-title>
@@ -159,7 +159,7 @@ watch(
         </v-expansion-panel>
       </v-expansion-panels>
     </v-card-text>
-  </v-card> -->
+  </v-card>
 </template>
 
 <style>
