@@ -118,7 +118,7 @@ async def scan_platforms(
 
     try:
         platform_list = [
-            db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
+            db_platform_handler.get_platform(s).fs_slug for s in platform_ids
         ] or fs_platforms
 
         if len(platform_list) == 0:
