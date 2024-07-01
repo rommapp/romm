@@ -33,4 +33,5 @@ class DBStatsHandler(DBBaseHandler):
 
     @begin_session
     def get_total_filesize(self, session: Session = None) -> int:
-        return 0
+        """Get the total filesize of all roms in the database, in bytes."""
+        return session.scalar(select(func.sum(Rom.file_size_bytes)).select_from(Rom))

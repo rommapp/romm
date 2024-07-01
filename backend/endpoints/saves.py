@@ -17,7 +17,7 @@ def add_saves(
     saves: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
 ) -> UploadedSavesResponse:
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_rom(rom_id)
     current_user = request.user
     log.info(f"Uploading saves to {rom.name}")
 
@@ -56,7 +56,7 @@ def add_saves(
         scanned_save.emulator = emulator
         db_save_handler.add_save(scanned_save)
 
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_rom(rom_id)
     return {
         "uploaded": len(saves),
         "saves": [s for s in rom.saves if s.user_id == current_user.id],
