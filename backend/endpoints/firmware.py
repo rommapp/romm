@@ -32,7 +32,7 @@ def add_firmware(
         AddFirmwareResponse: Standard message response
     """
 
-    db_platform = db_platform_handler.get_platforms(platform_id)
+    db_platform = db_platform_handler.get_platform(platform_id)
     log.info(f"Uploading firmware to {db_platform.fs_slug}")
     if files is None:
         log.error("No files were uploaded")
@@ -67,7 +67,7 @@ def add_firmware(
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
-    db_platform = db_platform_handler.get_platforms(platform_id)
+    db_platform = db_platform_handler.get_platform(platform_id)
 
     return {
         "uploaded": len(files),
@@ -88,7 +88,7 @@ def get_platform_firmware(
     Returns:
         list[FirmwareSchema]: Firmware stored in the database
     """
-    return db_firmware_handler.get_firmware(platform_id=platform_id)
+    return db_firmware_handler.list_firmware(platform_id=platform_id)
 
 
 @protected_route(

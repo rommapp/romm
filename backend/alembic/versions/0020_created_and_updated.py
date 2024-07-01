@@ -8,7 +8,6 @@ Create Date: 2024-06-27 12:08:13.886766
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0020_created_and_updated"
@@ -64,15 +63,13 @@ def upgrade() -> None:
                 nullable=False,
             )
         )
-        batch_op.add_column(
-            sa.Column(
-                "updated_at",
-                sa.DateTime(timezone=True),
-                server_default=sa.text("now()"),
-                nullable=False,
-            )
+        batch_op.alter_column(
+            "last_edited_at",
+            existing_type=sa.DateTime(timezone=True),
+            new_column_name="updated_at",
+            server_default=sa.text("now()"),
+            nullable=False,
         )
-        batch_op.drop_column("last_edited_at")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
@@ -124,15 +121,12 @@ def downgrade() -> None:
         batch_op.drop_column("created_at")
 
     with op.batch_alter_table("rom_notes", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "last_edited_at",
-                mysql.DATETIME(),
-                server_default=sa.text("current_timestamp()"),
-                nullable=False,
-            )
+        batch_op.alter_column(
+            "updated_at",
+            existing_type=sa.DateTime(timezone=True),
+            new_column_name="last_edited_at",
+            nullable=False,
         )
-        batch_op.drop_column("updated_at")
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.drop_column("updated_at")
