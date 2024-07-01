@@ -445,7 +445,7 @@ async def update_rom_props(request: Request, id: int) -> UserRomPropsSchema:
 
     data = await request.json()
 
-    rom = db_rom_handler.get_roms(id)
+    rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
