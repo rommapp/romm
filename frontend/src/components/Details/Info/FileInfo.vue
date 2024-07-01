@@ -13,7 +13,7 @@ const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
 const ownProps = ref(
-  props.rom.user_rom_props?.find((prop) => prop.user_id === auth.user?.id) ?? {
+  props.rom.user_rom_props ?? {
     id: null,
     user_id: auth.user?.id,
     rom_id: props.rom.id,
@@ -38,9 +38,7 @@ async function toggleMainSibling() {
 watch(
   () => props.rom,
   async () => {
-    ownProps.value = props.rom.user_rom_props?.find(
-      (prop) => prop.user_id === auth.user?.id
-    ) ?? {
+    ownProps.value = props.rom.user_rom_props ?? {
       id: null,
       user_id: auth.user?.id,
       rom_id: props.rom.id,

@@ -42,15 +42,6 @@ class UserRomPropsSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @classmethod
-    def for_user(cls, db_rom: Rom, user_id: int) -> list[UserRomPropsSchema]:
-        return [
-            cls.model_validate(n)
-            for n in db_rom.user_rom_props
-            # This is what filters out private notes
-            if n.user_id == user_id or n.note_is_public
-        ]
-
 
 class RomSchema(BaseModel):
     id: int
@@ -100,7 +91,7 @@ class RomSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    user_rom_props: UserRomPropsSchema = Field(default_factory=list)
+    user_rom_props: UserRomPropsSchema | None
 
     class Config:
         from_attributes = True

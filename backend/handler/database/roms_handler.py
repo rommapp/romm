@@ -2,10 +2,13 @@ import functools
 
 from decorators.database import begin_session
 from models.rom import Rom, UserRomProps
-from sqlalchemy import Select, and_, delete, func, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy.orm import Query, Session, aliased, contains_eager, selectinload
 
 from .base_handler import DBBaseHandler
+
+
+class ImplementationError(Exception): ...
 
 
 def with_assets(func):
@@ -13,13 +16,32 @@ def with_assets(func):
     def wrapper(*args, **kwargs):
         session = kwargs.get("session")
         if session is None:
-            raise ValueError("session is required")
+            raise ImplementationError(
+                f"Method {func} bad implementation: kwarg 'session' is required"
+            )
 
-        kwargs["query"] = select(Rom).options(
+        user_id = kwargs.get("user_id")
+        if user_id is None:
+            raise ImplementationError(
+                f"Method {func} bad implementation: kwarg 'user_id' is required"
+            )
+
+        try:
+            rom_set = select(Rom).filter_by(id=kwargs["id"])
+        except KeyError:
+            rom_set = select(Rom)
+
+        # Subquery to filter user_rom_props by user_id
+        subquery = (
+            select(aliased(Rom.user_rom_props)).filter_by(user_id=user_id).subquery()
+        )
+
+        # Construct the query to join Rom with the filtered user_rom_props
+        kwargs["query"] = rom_set.outerjoin(subquery, Rom.user_rom_props).options(
             selectinload(Rom.saves),
             selectinload(Rom.states),
             selectinload(Rom.screenshots),
-            selectinload(Rom.user_rom_props),
+            contains_eager(Rom.user_rom_props, alias=subquery),
         )
         return func(*args, **kwargs)
 
@@ -29,7 +51,7 @@ def with_assets(func):
 class DBRomsHandler(DBBaseHandler):
     def _filter(self, data, platform_id: int | None, search_term: str):
         if platform_id:
-            data = data.filter_by(platform_id=platform_id)
+            data = data.filter(Rom.platform_id == platform_id)
 
         if search_term:
             data = data.filter(
@@ -57,28 +79,44 @@ class DBRomsHandler(DBBaseHandler):
     def add_rom(self, rom: Rom, query: Query = None, session: Session = None) -> Rom:
         rom = session.merge(rom)
         session.flush()
-
         return session.scalar(query.filter_by(id=rom.id).limit(1))
 
     @begin_session
     @with_assets
     def get_rom(
-        self, id: int, *, query: Query = None, session: Session = None
+        self,
+        *,
+        id: int | None = None,
+        user_id: int | None = None,
+        query: Query = None,
+        session: Session = None,
     ) -> Rom | None:
-        return session.scalar(query.filter_by(id=id).limit(1))
+        return session.scalar(query.limit(1))
 
+    @begin_session
+    @with_assets
     def get_roms(
         self,
         *,
         platform_id: int | None = None,
+        user_id: int | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
-    ) -> Select[tuple[Rom]]:
-        return self._order(
-            self._filter(select(Rom), platform_id, search_term),
-            order_by,
-            order_dir,
+        limit: int = None,
+        query: Query = None,
+        session: Session = None,
+    ) -> tuple[Rom | None]:
+        return (
+            session.scalars(
+                self._order(
+                    self._filter(query, platform_id, search_term),
+                    order_by,
+                    order_dir,
+                ).limit(limit)
+            )
+            .unique()
+            .all()
         )
 
     @begin_session
@@ -111,6 +149,29 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             query.filter_by(file_name_no_ext=file_name_no_ext).limit(1)
         )
+
+    @begin_session
+    def get_rom_siblings(self, rom: Rom, session: Session = None):
+        return session.scalars(
+            select(Rom).where(
+                and_(
+                    Rom.platform_id == rom.platform_id,
+                    Rom.id != rom.id,
+                    or_(
+                        and_(
+                            Rom.igdb_id == rom.igdb_id,
+                            Rom.igdb_id.isnot(None),
+                            Rom.igdb_id != "",
+                        ),
+                        and_(
+                            Rom.moby_id == rom.moby_id,
+                            Rom.moby_id.isnot(None),
+                            Rom.moby_id != "",
+                        ),
+                    ),
+                )
+            )
+        ).all()
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:

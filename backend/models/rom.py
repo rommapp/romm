@@ -1,22 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
-from sqlalchemy import (
-    JSON,
-    BigInteger,
-    ForeignKey,
-    String,
-    Text,
-    UniqueConstraint,
-    and_,
-    or_,
-    select,
-)
+from sqlalchemy import JSON, BigInteger, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -76,11 +65,13 @@ class Rom(BaseModel):
     )
 
     platform: Mapped[Platform] = relationship(lazy="immediate")
+    user_rom_props: Mapped[UserRomProps] = relationship(
+        back_populates="rom", lazy="immediate"
+    )
 
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
-    user_rom_props: Mapped[list[UserRomProps]] = relationship(back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -112,27 +103,7 @@ class Rom(BaseModel):
     def get_sibling_roms(self) -> list[Rom]:
         from handler.database import db_rom_handler
 
-        with db_rom_handler.session.begin() as session:
-            return session.scalars(
-                select(Rom).where(
-                    and_(
-                        Rom.platform_id == self.platform_id,
-                        Rom.id != self.id,
-                        or_(
-                            and_(
-                                Rom.igdb_id == self.igdb_id,
-                                Rom.igdb_id is not None,
-                                Rom.igdb_id != "",
-                            ),
-                            and_(
-                                Rom.moby_id == self.moby_id,
-                                Rom.moby_id is not None,
-                                Rom.moby_id != "",
-                            ),
-                        ),
-                    )
-                )
-            ).all()
+        return db_rom_handler.get_rom_siblings(self)
 
     # Metadata fields
     @property
@@ -186,6 +157,7 @@ class UserRomProps(BaseModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
     note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
     note_is_public: Mapped[bool | None] = mapped_column(default=False)
 

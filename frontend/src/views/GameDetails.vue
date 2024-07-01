@@ -45,6 +45,7 @@ async function fetchDetails() {
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then((response) => {
       rom.value = response.data;
+      console.log(rom.value)
     })
     .catch((error) => {
       console.log(error);
