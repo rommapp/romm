@@ -1,8 +1,7 @@
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
-from models.platform import Platform
 from models.rom import Rom
-from sqlalchemy import func, select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -11,17 +10,9 @@ from .base_handler import DBBaseHandler
 class DBStatsHandler(DBBaseHandler):
     @begin_session
     def get_platforms_count(self, session: Session = None) -> int:
-        # Only count platforms with more then 0 roms
+        """Get the number of platforms with any roms."""
         return session.scalar(
-            select(func.count())
-            .select_from(Platform)
-            .where(
-                select(func.count())
-                .select_from(Rom)
-                .filter_by(platform_id=Platform.id)
-                .as_scalar()
-                > 0
-            )
+            select(func.count(distinct(Rom.platform_id))).select_from(Rom)
         )
 
     @begin_session
