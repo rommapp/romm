@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from datetime import datetime
 from typing import NotRequired, get_type_hints
@@ -41,7 +43,7 @@ class UserRomPropsSchema(BaseModel):
         from_attributes = True
 
     @classmethod
-    def for_user(cls, db_rom: Rom, user_id: int) -> list["UserRomPropsSchema"]:
+    def for_user(cls, db_rom: Rom, user_id: int) -> list[UserRomPropsSchema]:
         return [
             cls.model_validate(n)
             for n in db_rom.user_rom_props
@@ -118,15 +120,13 @@ class RomSchema(BaseModel):
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    sibling_roms: list["RomSchema"] = Field(default_factory=list)
+    sibling_roms: list[RomSchema] = Field(default_factory=list)
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
 
     @classmethod
-    def from_orm_with_request(
-        cls, db_rom: Rom, request: Request
-    ) -> "DetailedRomSchema":
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
         rom.sibling_roms = [
