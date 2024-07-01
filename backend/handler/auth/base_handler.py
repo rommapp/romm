@@ -22,8 +22,8 @@ DEFAULT_SCOPES_MAP: Final = {
     "assets.read": "View assets",
     "assets.write": "Modify assets",
     "firmware.read": "View firmware",
-    "notes.read": "View notes",
-    "notes.write": "Modify notes",
+    "roms.user.read": "View user-rom properties",
+    "roms.user.write": "Modify user-rom properties",
 }
 
 WRITE_SCOPES_MAP: Final = {

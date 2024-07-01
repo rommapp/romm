@@ -28,25 +28,39 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 )
 
 
-class RomNoteSchema(BaseModel):
+class RomUserSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
+    created_at: datetime
     updated_at: datetime
-    raw_markdown: str
-    is_public: bool
+    note_raw_markdown: str
+    note_is_public: bool
+    is_main_sibling: bool
     user__username: str
 
     class Config:
         from_attributes = True
 
     @classmethod
-    def for_user(cls, db_rom: Rom, user_id: int) -> list[RomNoteSchema]:
+    def for_user(cls, db_rom: Rom, user_id: int) -> RomUserSchema | None:
+        for n in db_rom.rom_users:
+            if n.user_id == user_id:
+                return cls.model_validate(n)
+
+        return None
+
+    @classmethod
+    def notes_for_user(cls, db_rom: Rom, user_id: int) -> list[UserNotesSchema]:
         return [
-            cls.model_validate(n)
-            for n in db_rom.notes
+            {
+                "user_id": n.user_id,
+                "username": n.user__username,
+                "note_raw_markdown": n.note_raw_markdown,
+            }
+            for n in db_rom.rom_users
             # This is what filters out private notes
-            if n.user_id == user_id or n.is_public
+            if n.user_id == user_id or n.note_is_public
         ]
 
 
@@ -95,12 +109,28 @@ class RomSchema(BaseModel):
     multi: bool
     files: list[str]
     full_path: str
-
     created_at: datetime
     updated_at: datetime
 
+    rom_user: RomUserSchema | None = Field(default=None)
+
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> RomSchema:
+        rom = cls.model_validate(db_rom)
+        user_id = request.user.id
+
+        rom.rom_user = RomUserSchema.for_user(db_rom, user_id)
+
+        return rom
+
+    @classmethod
+    def from_orm_with_request_list(
+        cls, db_roms: list[Rom], request: Request
+    ) -> list[RomSchema]:
+        return [cls.from_orm_with_request(rom, request) for rom in db_roms]
 
     @computed_field  # type: ignore
     @property
@@ -117,17 +147,20 @@ class RomSchema(BaseModel):
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
+    rom_user: RomUserSchema | None = Field(default=None)
     sibling_roms: list[RomSchema] = Field(default_factory=list)
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    user_notes: list[RomNoteSchema] = Field(default_factory=list)
+    user_notes: list[UserNotesSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
+        rom.rom_user = RomUserSchema.for_user(db_rom, user_id)
+        rom.user_notes = RomUserSchema.notes_for_user(db_rom, user_id)
         rom.sibling_roms = [
             RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
         ]
@@ -142,9 +175,14 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.user_notes = RomNoteSchema.for_user(db_rom, user_id)
 
         return rom
+
+
+class UserNotesSchema(TypedDict):
+    user_id: int
+    username: str
+    note_raw_markdown: str
 
 
 class AddRomsResponse(TypedDict):
