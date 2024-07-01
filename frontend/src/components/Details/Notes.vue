@@ -12,7 +12,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
-const ownProps = ref(
+const romUser = ref(
   props.rom.rom_user ?? {
     id: null,
     user_id: auth.user?.id,
@@ -23,15 +23,17 @@ const ownProps = ref(
     is_main_sibling: false,
   }
 );
+const publicNotes =
+  props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
 
 // Functions
 function togglePublic() {
-  ownProps.value.note_is_public = !ownProps.value.note_is_public;
+  romUser.value.note_is_public = !romUser.value.note_is_public;
   romApi.updateUserRomProps({
     romId: props.rom.id,
-    noteRawMarkdown: ownProps.value.note_raw_markdown,
-    noteIsPublic: ownProps.value.note_is_public,
-    isMainSibling: ownProps.value.is_main_sibling,
+    noteRawMarkdown: romUser.value.note_raw_markdown,
+    noteIsPublic: romUser.value.note_is_public,
+    isMainSibling: romUser.value.is_main_sibling,
   });
 }
 
@@ -39,9 +41,9 @@ function editNote() {
   if (editingNote.value) {
     romApi.updateUserRomProps({
       romId: props.rom.id,
-      noteRawMarkdown: ownProps.value.note_raw_markdown,
-      noteIsPublic: ownProps.value.note_is_public,
-      isMainSibling: ownProps.value.is_main_sibling,
+      noteRawMarkdown: romUser.value.note_raw_markdown,
+      noteIsPublic: romUser.value.note_is_public,
+      isMainSibling: romUser.value.is_main_sibling,
     });
   }
   editingNote.value = !editingNote.value;
@@ -50,7 +52,7 @@ function editNote() {
 watch(
   () => props.rom,
   async () => {
-    ownProps.value = props.rom.rom_user ?? {
+    romUser.value = props.rom.rom_user ?? {
       id: null,
       user_id: auth.user?.id,
       rom_id: props.rom.id,
@@ -73,7 +75,7 @@ watch(
               location="top"
               class="tooltip"
               transition="fade-transition"
-              :text="ownProps.note_is_public ? 'Make private' : 'Make public'"
+              :text="romUser.note_is_public ? 'Make private' : 'Make public'"
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
@@ -82,7 +84,7 @@ watch(
                   class="bg-terciary"
                 >
                   <v-icon size="large">
-                    {{ ownProps.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
+                    {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
                   </v-icon>
                 </v-btn>
               </template></v-tooltip
@@ -112,7 +114,7 @@ watch(
     <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
-        v-model="ownProps.note_raw_markdown"
+        v-model="romUser.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
@@ -121,7 +123,7 @@ watch(
       />
       <MdPreview
         v-else
-        :model-value="ownProps.note_raw_markdown"
+        :model-value="romUser.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         preview-theme="vuepress"
         code-theme="github"
@@ -131,7 +133,7 @@ watch(
 
   <v-card
     rounded="0"
-    v-if="rom.user_notes && rom.user_notes.length > 0"
+    v-if="publicNotes && publicNotes.length > 0"
     class="mt-2"
   >
     <v-card-title class="bg-terciary">
@@ -144,7 +146,7 @@ watch(
 
     <v-card-text class="pa-0">
       <v-expansion-panels multiple flat rounded="0" variant="accordion">
-        <v-expansion-panel v-for="note in rom.user_notes">
+        <v-expansion-panel v-for="note in publicNotes">
           <v-expansion-panel-title class="bg-terciary">
             <span class="text-body-1">{{ note.username }}</span>
           </v-expansion-panel-title>

@@ -54,6 +54,7 @@ class RomUserSchema(BaseModel):
     def notes_for_user(cls, db_rom: Rom, user_id: int) -> list[UserNotesSchema]:
         return [
             {
+                "user_id": n.user_id,
                 "username": n.user__username,
                 "note_raw_markdown": n.note_raw_markdown,
             }
@@ -179,6 +180,7 @@ class DetailedRomSchema(RomSchema):
 
 
 class UserNotesSchema(TypedDict):
+    user_id: int
     username: str
     note_raw_markdown: str
 
