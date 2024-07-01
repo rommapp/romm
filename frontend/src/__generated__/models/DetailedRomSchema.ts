@@ -5,11 +5,12 @@
 
 import type { RomIGDBMetadata } from "./RomIGDBMetadata";
 import type { RomMobyMetadata } from "./RomMobyMetadata";
-import type { RomNoteSchema } from "./RomNoteSchema";
 import type { RomSchema } from "./RomSchema";
+import type { RomUserSchema } from "./RomUserSchema";
 import type { SaveSchema } from "./SaveSchema";
 import type { ScreenshotSchema } from "./ScreenshotSchema";
 import type { StateSchema } from "./StateSchema";
+import type { UserNotesSchema } from "./UserNotesSchema";
 
 export type DetailedRomSchema = {
   id: number;
@@ -48,14 +49,14 @@ export type DetailedRomSchema = {
   multi: boolean;
   files: Array<string>;
   full_path: string;
-  fav_sibling: boolean;
   created_at: string;
   updated_at: string;
+  rom_user?: RomUserSchema | null;
   merged_screenshots: Array<string>;
   sibling_roms?: Array<RomSchema>;
   user_saves?: Array<SaveSchema>;
   user_states?: Array<StateSchema>;
   user_screenshots?: Array<ScreenshotSchema>;
-  user_notes?: Array<RomNoteSchema>;
+  user_notes?: Array<UserNotesSchema>;
   readonly sort_comparator: string;
 };

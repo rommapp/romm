@@ -1,3 +1,5 @@
+from typing import Final
+
 import emoji
 import socketio  # type: ignore
 from config import SCAN_TIMEOUT
@@ -26,6 +28,8 @@ from models.rom import Rom
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
+
+EXCLUDED_FROM_DUMP: Final = {"created_at", "updated_at", "rom_user"}
 
 
 class ScanStats:
@@ -114,7 +118,7 @@ async def scan_platforms(
 
     try:
         platform_list = [
-            db_platform_handler.get_platforms(s).fs_slug for s in platform_ids
+            db_platform_handler.get_platform(s).fs_slug for s in platform_ids
         ] or fs_platforms
 
         if len(platform_list) == 0:
@@ -148,7 +152,9 @@ async def scan_platforms(
 
             await sm.emit(
                 "scan:scanning_platform",
-                PlatformSchema.model_validate(platform).model_dump(),
+                PlatformSchema.model_validate(platform).model_dump(
+                    exclude=EXCLUDED_FROM_DUMP
+                ),
             )
 
             # Scanning firmware
@@ -186,7 +192,9 @@ async def scan_platforms(
                     {
                         "platform_name": platform.name,
                         "platform_slug": platform.slug,
-                        **FirmwareSchema.model_validate(firmware).model_dump(),
+                        **FirmwareSchema.model_validate(firmware).model_dump(
+                            exclude=EXCLUDED_FROM_DUMP
+                        ),
                     },
                 )
 
@@ -256,7 +264,9 @@ async def scan_platforms(
                         {
                             "platform_name": platform.name,
                             "platform_slug": platform.slug,
-                            **RomSchema.model_validate(_added_rom).model_dump(),
+                            **RomSchema.model_validate(_added_rom).model_dump(
+                                exclude=EXCLUDED_FROM_DUMP
+                            ),
                         },
                     )
 

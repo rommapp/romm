@@ -142,8 +142,8 @@ async function updateRom({
   const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
-  if (rom.fav_sibling)
-    formData.append("fav_sibling", rom.fav_sibling.toString());
+  // if (rom.fav_sibling)
+  //   formData.append("fav_sibling", rom.fav_sibling.toString());
   formData.append("name", rom.name || "");
   formData.append("file_name", rom.file_name);
   formData.append("summary", rom.summary || "");
@@ -168,18 +168,21 @@ async function deleteRoms({
   });
 }
 
-async function updateRomNote({
+async function updateUserRomProps({
   romId,
-  rawMarkdown,
-  isPublic,
+  noteRawMarkdown,
+  noteIsPublic,
+  isMainSibling,
 }: {
   romId: number;
-  rawMarkdown: string;
-  isPublic: boolean;
+  noteRawMarkdown: string;
+  noteIsPublic: boolean;
+  isMainSibling: boolean;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/note`, {
-    raw_markdown: rawMarkdown,
-    is_public: isPublic,
+  return api.put(`/roms/${romId}/props`, {
+    note_raw_markdown: noteRawMarkdown,
+    note_is_public: noteIsPublic,
+    is_main_sibling: isMainSibling,
   });
 }
 
@@ -193,5 +196,5 @@ export default {
   searchCover,
   updateRom,
   deleteRoms,
-  updateRomNote,
+  updateUserRomProps,
 };

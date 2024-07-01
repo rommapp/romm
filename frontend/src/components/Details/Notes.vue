@@ -4,45 +4,65 @@ import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useTheme } from "vuetify";
 
+// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
-const ownNote = ref(
-  props.rom.user_notes?.find((note) => note.user_id === auth.user?.id) ?? {
+const romUser = ref(
+  props.rom.rom_user ?? {
     id: null,
     user_id: auth.user?.id,
     rom_id: props.rom.id,
-    last_edited_at: new Date(),
-    raw_markdown: "",
-    is_public: false,
+    updated_at: new Date(),
+    note_raw_markdown: "",
+    note_is_public: false,
+    is_main_sibling: false,
   }
 );
 const publicNotes =
   props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
 
+// Functions
 function togglePublic() {
-  ownNote.value.is_public = !ownNote.value.is_public;
-  romApi.updateRomNote({
+  romUser.value.note_is_public = !romUser.value.note_is_public;
+  romApi.updateUserRomProps({
     romId: props.rom.id,
-    rawMarkdown: ownNote.value.raw_markdown,
-    isPublic: ownNote.value.is_public,
+    noteRawMarkdown: romUser.value.note_raw_markdown,
+    noteIsPublic: romUser.value.note_is_public,
+    isMainSibling: romUser.value.is_main_sibling,
   });
 }
 
-function onEditNote() {
+function editNote() {
   if (editingNote.value) {
-    romApi.updateRomNote({
+    romApi.updateUserRomProps({
       romId: props.rom.id,
-      rawMarkdown: ownNote.value.raw_markdown,
-      isPublic: ownNote.value.is_public,
+      noteRawMarkdown: romUser.value.note_raw_markdown,
+      noteIsPublic: romUser.value.note_is_public,
+      isMainSibling: romUser.value.is_main_sibling,
     });
   }
   editingNote.value = !editingNote.value;
 }
+
+watch(
+  () => props.rom,
+  async () => {
+    romUser.value = props.rom.rom_user ?? {
+      id: null,
+      user_id: auth.user?.id,
+      rom_id: props.rom.id,
+      updated_at: new Date(),
+      note_raw_markdown: "",
+      note_is_public: false,
+      is_main_sibling: false,
+    };
+  }
+);
 </script>
 <template>
   <v-card rounded="0">
@@ -55,7 +75,7 @@ function onEditNote() {
               location="top"
               class="tooltip"
               transition="fade-transition"
-              :text="ownNote.is_public ? 'Make private' : 'Make public'"
+              :text="romUser.note_is_public ? 'Make private' : 'Make public'"
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
@@ -64,7 +84,7 @@ function onEditNote() {
                   class="bg-terciary"
                 >
                   <v-icon size="large">
-                    {{ ownNote.is_public ? "mdi-eye" : "mdi-eye-off" }}
+                    {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
                   </v-icon>
                 </v-btn>
               </template></v-tooltip
@@ -77,7 +97,7 @@ function onEditNote() {
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
-                  @click="onEditNote"
+                  @click="editNote"
                   v-bind="tooltipProps"
                   class="bg-terciary"
                 >
@@ -94,7 +114,7 @@ function onEditNote() {
     <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
-        v-model="ownNote.raw_markdown"
+        v-model="romUser.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
         :preview="false"
@@ -103,7 +123,7 @@ function onEditNote() {
       />
       <MdPreview
         v-else
-        :model-value="ownNote.raw_markdown"
+        :model-value="romUser.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         preview-theme="vuepress"
         code-theme="github"
@@ -111,7 +131,11 @@ function onEditNote() {
     </v-card-text>
   </v-card>
 
-  <v-card rounded="0" v-if="publicNotes.length > 0" class="mt-2">
+  <v-card
+    rounded="0"
+    v-if="publicNotes && publicNotes.length > 0"
+    class="mt-2"
+  >
     <v-card-title class="bg-terciary">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">Public notes</span>
@@ -122,13 +146,13 @@ function onEditNote() {
 
     <v-card-text class="pa-0">
       <v-expansion-panels multiple flat rounded="0" variant="accordion">
-        <v-expansion-panel v-for="note in publicNotes" :key="note.id">
+        <v-expansion-panel v-for="note in publicNotes">
           <v-expansion-panel-title class="bg-terciary">
-            <span class="text-body-1">{{ note.user__username }}</span>
+            <span class="text-body-1">{{ note.username }}</span>
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-secondary">
             <MdPreview
-              :model-value="note.raw_markdown"
+              :model-value="note.note_raw_markdown"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
               preview-theme="vuepress"
               code-theme="github"

@@ -1,44 +1,54 @@
 <script setup lang="ts">
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
+import { ref, watch } from "vue";
 
 // Props
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
-const emitter = inject<Emitter<Events>>("emitter");
 const downloadStore = storeDownload();
+const auth = storeAuth();
+const ownProps = ref(
+  props.rom.rom_user ?? {
+    id: null,
+    user_id: auth.user?.id,
+    rom_id: props.rom.id,
+    updated_at: new Date(),
+    note_raw_markdown: "",
+    note_is_public: false,
+    is_main_sibling: false,
+  }
+);
 
 // Functions
-async function updateMainSibling() {
-  const updatedRom = props.rom;
-  updatedRom.fav_sibling = !props.rom.fav_sibling;
-  await romApi
-    .updateRom({ rom: updatedRom })
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: "Rom updated successfully!",
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-    })
-    .catch((error) => {
-      console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-    })
-    .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-    });
+async function toggleMainSibling() {
+  ownProps.value.is_main_sibling = !ownProps.value.is_main_sibling;
+  romApi.updateUserRomProps({
+    romId: props.rom.id,
+    noteRawMarkdown: ownProps.value.note_raw_markdown,
+    noteIsPublic: ownProps.value.note_is_public,
+    isMainSibling: ownProps.value.is_main_sibling,
+  });
 }
+
+watch(
+  () => props.rom,
+  async () => {
+    ownProps.value = props.rom.rom_user ?? {
+      id: null,
+      user_id: auth.user?.id,
+      rom_id: props.rom.id,
+      updated_at: new Date(),
+      note_raw_markdown: "",
+      note_is_public: false,
+      is_main_sibling: false,
+    };
+  }
+);
 </script>
 <template>
   <v-row no-gutters>
@@ -67,16 +77,16 @@ async function updateMainSibling() {
                   variant="flat"
                   rounded="0"
                   size="small"
-                  @click="updateMainSibling"
+                  @click="toggleMainSibling"
                   ><v-icon
-                    :class="rom.fav_sibling ? '' : 'mr-1'"
-                    :color="rom.fav_sibling ? 'romm-accent-1' : ''"
+                    :class="ownProps.is_main_sibling ? '' : 'mr-1'"
+                    :color="ownProps.is_main_sibling ? 'romm-accent-1' : ''"
                     >{{
-                      rom.fav_sibling
+                      ownProps.is_main_sibling
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
                     }}</v-icon
-                  >{{ rom.fav_sibling ? "" : "Default" }}</v-btn
+                  >{{ ownProps.is_main_sibling ? "" : "Default" }}</v-btn
                 >
               </template></v-tooltip
             >

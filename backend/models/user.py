@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -9,7 +11,7 @@ from starlette.authentication import SimpleUser
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
-    from models.rom import RomNote
+    from models.rom import RomUser
 
 
 class Role(enum.Enum):
@@ -34,10 +36,10 @@ class User(BaseModel, SimpleUser):
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    saves: Mapped[list["Save"]] = relationship(back_populates="user")
-    states: Mapped[list["State"]] = relationship(back_populates="user")
-    screenshots: Mapped[list["Screenshot"]] = relationship(back_populates="user")
-    notes: Mapped[list["RomNote"]] = relationship(back_populates="user")
+    saves: Mapped[list[Save]] = relationship(back_populates="user")
+    states: Mapped[list[State]] = relationship(back_populates="user")
+    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="user")
+    rom_users: Mapped[list[RomUser]] = relationship(back_populates="user")
 
     @property
     def oauth_scopes(self):
