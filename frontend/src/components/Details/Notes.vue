@@ -13,7 +13,7 @@ const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
 const ownProps = ref(
-  props.rom.user_rom_props ?? {
+  props.rom.rom_user ?? {
     id: null,
     user_id: auth.user?.id,
     rom_id: props.rom.id,
@@ -50,7 +50,7 @@ function editNote() {
 watch(
   () => props.rom,
   async () => {
-    ownProps.value = props.rom.user_rom_props ?? {
+    ownProps.value = props.rom.rom_user ?? {
       id: null,
       user_id: auth.user?.id,
       rom_id: props.rom.id,
@@ -131,7 +131,7 @@ watch(
 
   <v-card
     rounded="0"
-    v-if="rom.public_notes && rom.public_notes.length > 0"
+    v-if="rom.user_notes && rom.user_notes.length > 0"
     class="mt-2"
   >
     <v-card-title class="bg-terciary">
@@ -144,9 +144,9 @@ watch(
 
     <v-card-text class="pa-0">
       <v-expansion-panels multiple flat rounded="0" variant="accordion">
-        <v-expansion-panel v-for="note in rom.public_notes">
+        <v-expansion-panel v-for="note in rom.user_notes">
           <v-expansion-panel-title class="bg-terciary">
-            <span class="text-body-1">{{ note.user__username }}</span>
+            <span class="text-body-1">{{ note.username }}</span>
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-secondary">
             <MdPreview

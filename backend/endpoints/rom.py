@@ -17,7 +17,7 @@ from endpoints.responses.rom import (
     CustomStreamingResponse,
     DetailedRomSchema,
     RomSchema,
-    UserRomPropsSchema,
+    RomUserSchema,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -108,15 +108,15 @@ def get_roms(
     Returns:
         list[RomSchema]: List of roms stored in the database
     """
-
-    return db_rom_handler.get_roms(
+    db_roms = db_rom_handler.get_roms(
         platform_id=platform_id,
-        user_id=request.user.id,
         search_term=search_term.lower(),
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
         limit=limit,
     )
+
+    return RomSchema.from_orm_with_request_list(db_roms, request)
 
 
 @protected_route(
@@ -135,7 +135,7 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
         DetailedRomSchema: Rom stored in the database
     """
 
-    rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -160,7 +160,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
         FileResponse: Returns the response with headers
     """
 
-    rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -199,7 +199,7 @@ def get_rom_content(
         CustomStreamingResponse: Streams a file for multi-part roms
     """
 
-    rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -287,7 +287,7 @@ async def update_rom(
 
     data = await request.form()
 
-    rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -384,9 +384,7 @@ async def update_rom(
 
     db_rom_handler.update_rom(id, cleaned_data)
 
-    return DetailedRomSchema.from_orm_with_request(
-        db_rom_handler.get_rom(id=id, user_id=request.user.id), request
-    )
+    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
 
 
 @protected_route(router.post, "/roms/delete", ["roms.write"])
@@ -411,7 +409,7 @@ async def delete_roms(
     delete_from_fs: list = data["delete_from_fs"]
 
     for id in roms_ids:
-        rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
+        rom = db_rom_handler.get_rom(id)
 
         if not rom:
             raise RomNotFoundInDatabaseException(id)
@@ -440,31 +438,28 @@ async def delete_roms(
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
 
 
-@protected_route(router.put, "/roms/{id}/props", ["rom_props.write"])
-async def update_rom_props(request: Request, id: int) -> UserRomPropsSchema:
-
+@protected_route(router.put, "/roms/{id}/props", ["roms.user.write"])
+async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
 
-    rom = db_rom_handler.get_rom(id=id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    db_rom_props = db_rom_handler.get_rom_props(
+    db_rom_user = db_rom_handler.get_rom_user(
         id, request.user.id
-    ) or db_rom_handler.add_rom_props(id, request.user.id)
+    ) or db_rom_handler.add_rom_user(id, request.user.id)
 
     cleaned_data = {}
     cleaned_data["note_raw_markdown"] = data.get(
-        "note_raw_markdown", db_rom_props.note_raw_markdown
+        "note_raw_markdown", db_rom_user.note_raw_markdown
     )
     cleaned_data["note_is_public"] = data.get(
-        "note_is_public", db_rom_props.note_is_public
+        "note_is_public", db_rom_user.note_is_public
     )
     cleaned_data["is_main_sibling"] = data.get(
-        "is_main_sibling", db_rom_props.is_main_sibling
+        "is_main_sibling", db_rom_user.is_main_sibling
     )
 
-    return db_rom_handler.update_rom_props(
-        db_rom_props.id, cleaned_data, rom, request.user.id
-    )
+    return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

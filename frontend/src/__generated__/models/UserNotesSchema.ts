@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type PublicNoteSchema = {
-  user__username: string;
+export type UserNotesSchema = {
+  username: string;
   note_raw_markdown: string;
 };

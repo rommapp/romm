@@ -29,7 +29,7 @@ from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
 
-EXCLUDED_FROM_DUMP: Final = {"created_at", "updated_at"}
+EXCLUDED_FROM_DUMP: Final = {"created_at", "updated_at", "rom_user"}
 
 
 class ScanStats:

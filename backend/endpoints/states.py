@@ -17,7 +17,7 @@ def add_states(
     states: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
 ) -> UploadedStatesResponse:
-    rom = db_rom_handler.get_rom(id=rom_id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(rom_id)
     current_user = request.user
     log.info(f"Uploading states to {rom.name}")
 
@@ -56,7 +56,7 @@ def add_states(
         scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
-    rom = db_rom_handler.get_rom(id=rom_id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(rom_id)
     return {
         "uploaded": len(states),
         "states": [s for s in rom.states if s.user_id == current_user.id],

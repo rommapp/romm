@@ -28,7 +28,7 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 )
 
 
-class UserRomPropsSchema(BaseModel):
+class RomUserSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
@@ -41,6 +41,26 @@ class UserRomPropsSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def for_user(cls, db_rom: Rom, user_id: int) -> RomUserSchema | None:
+        for n in db_rom.rom_users:
+            if n.user_id == user_id:
+                return cls.model_validate(n)
+
+        return None
+
+    @classmethod
+    def notes_for_user(cls, db_rom: Rom, user_id: int) -> list[UserNotesSchema]:
+        return [
+            {
+                "username": n.user__username,
+                "note_raw_markdown": n.note_raw_markdown,
+            }
+            for n in db_rom.rom_users
+            # This is what filters out private notes
+            if n.user_id == user_id or n.note_is_public
+        ]
 
 
 class RomSchema(BaseModel):
@@ -91,10 +111,25 @@ class RomSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    user_rom_props: UserRomPropsSchema | None
+    rom_user: RomUserSchema | None = Field(default=None)
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> RomSchema:
+        rom = cls.model_validate(db_rom)
+        user_id = request.user.id
+
+        rom.rom_user = RomUserSchema.for_user(db_rom, user_id)
+
+        return rom
+
+    @classmethod
+    def from_orm_with_request_list(
+        cls, db_roms: list[Rom], request: Request
+    ) -> list[RomSchema]:
+        return [cls.from_orm_with_request(rom, request) for rom in db_roms]
 
     @computed_field  # type: ignore
     @property
@@ -111,16 +146,20 @@ class RomSchema(BaseModel):
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
+    rom_user: RomUserSchema | None = Field(default=None)
     sibling_roms: list[RomSchema] = Field(default_factory=list)
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    public_notes: list[PublicNoteSchema] = Field(default_factory=list)
+    user_notes: list[UserNotesSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
+
+        rom.rom_user = RomUserSchema.for_user(db_rom, user_id)
+        rom.user_notes = RomUserSchema.notes_for_user(db_rom, user_id)
         rom.sibling_roms = [
             RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
         ]
@@ -135,18 +174,12 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.public_notes = [
-            {
-                "user__username": p.user__username,
-                "note_raw_markdown": p.note_raw_markdown,
-            }
-            for p in db_rom.get_public_notes(user_id)
-        ]
+
         return rom
 
 
-class PublicNoteSchema(TypedDict):
-    user__username: str
+class UserNotesSchema(TypedDict):
+    username: str
     note_raw_markdown: str
 
 
