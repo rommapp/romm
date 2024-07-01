@@ -20,7 +20,12 @@ const routes = [
       {
         path: "/platform/:platform",
         name: "platform",
-        component: () => import("@/views/Gallery.vue"),
+        component: () => import("@/views/Gallery/Platform.vue"),
+      },
+      {
+        path: "/collection/:collection",
+        name: "collection",
+        component: () => import("@/views/Gallery/Collection.vue"),
       },
       {
         path: "/rom/:rom",

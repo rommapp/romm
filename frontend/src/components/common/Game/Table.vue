@@ -144,7 +144,7 @@ onMounted(() => {
               class="translucent-dark ml-2"
               size="x-small"
             >
-              <span class="text-caption">+{{ item.siblings.length + 1 }}</span>
+              <span class="text-caption">+{{ item.siblings.length }}</span>
             </v-chip>
           </template>
         </v-list-item>

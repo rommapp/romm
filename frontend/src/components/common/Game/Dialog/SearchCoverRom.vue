@@ -151,6 +151,7 @@ onBeforeUnmount(() => {
             @click:clear="searchTerm = ''"
             class="bg-terciary"
             v-model="searchTerm"
+            :disabled="searching"
             label="Search"
             hide-details
             clearable
@@ -214,7 +215,7 @@ onBeforeUnmount(() => {
                     cover
                   >
                     <template #error>
-                      <v-img :src="resource.url" cover></v-img>
+                      <v-img :src="resource.url" cover :aspect-ratio="2 / 3"></v-img>
                     </template>
                     <template #placeholder>
                       <div

@@ -7,38 +7,45 @@ export type Platform = PlatformSchema;
 export default defineStore("platforms", {
   state: () => {
     return {
-      value: [] as Platform[],
+      all: [] as Platform[],
+      searchText: "" as string,
     };
   },
   getters: {
-    totalGames: ({ value }) =>
+    totalGames: ({ all: value }) =>
       value.reduce((count, p) => count + p.rom_count, 0),
-    filledPlatforms: ({ value }) => value.filter((p) => p.rom_count > 0),
+    filledPlatforms: ({ all }) => all.filter((p) => p.rom_count > 0),
+    filteredPlatforms: ({ all, searchText }) =>
+      all.filter(
+        (p) =>
+          p.rom_count > 0 &&
+          p.name.toLowerCase().includes(searchText.toLowerCase()),
+      ),
   },
   actions: {
     _reorder() {
-      this.value = this.value.sort((a, b) => {
+      this.all = this.all.sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.value = uniqBy(this.value, "id");
+      this.all = uniqBy(this.all, "id");
     },
     set(platforms: Platform[]) {
-      this.value = platforms;
+      this.all = platforms;
     },
     add(platform: Platform) {
-      this.value.push(platform);
+      this.all.push(platform);
       this._reorder();
     },
     exists(platform: Platform) {
-      return this.value.filter((p) => p.fs_slug == platform.fs_slug).length > 0;
+      return this.all.filter((p) => p.fs_slug == platform.fs_slug).length > 0;
     },
     remove(platform: Platform) {
-      this.value = this.value.filter((p) => {
+      this.all = this.all.filter((p) => {
         return p.slug !== platform.slug;
       });
     },
     get(platformId: number) {
-      return this.value.find((p) => p.id === platformId);
+      return this.all.find((p) => p.id === platformId);
     },
   },
 });

@@ -39,7 +39,9 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
   show.value = true;
-  searchRom();
+  if (rom.value.igdb_id || rom.value.moby_id) {
+    searchRom();
+  }
 });
 
 // Functions
@@ -266,11 +268,13 @@ onBeforeUnmount(() => {
       <v-row class="align-center" no-gutters>
         <v-col cols="6" sm="8">
           <v-text-field
+            autofocus
             id="search-text-field"
             @keyup.enter="searchRom()"
             @click:clear="searchTerm = ''"
             class="bg-terciary"
             v-model="searchTerm"
+            :disabled="searching"
             label="Search"
             hide-details
             clearable
@@ -278,6 +282,7 @@ onBeforeUnmount(() => {
         </v-col>
         <v-col cols="4" sm="3">
           <v-select
+            :disabled="searching"
             label="by"
             class="bg-terciary"
             :items="['ID', 'Name']"
