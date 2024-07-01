@@ -9,6 +9,7 @@ import { inject, onMounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
+// TODO: make states reactive on version change
 const { xs, smAndUp, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const romRef = ref<DetailedRom>(props.rom);

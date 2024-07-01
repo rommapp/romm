@@ -13,7 +13,7 @@ const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
 const ownProps = ref(
-  props.rom.user_rom_props?.find((prop) => prop.user_id === auth.user?.id) ?? {
+  props.rom.user_rom_props ?? {
     id: null,
     user_id: auth.user?.id,
     rom_id: props.rom.id,
@@ -23,9 +23,10 @@ const ownProps = ref(
     is_main_sibling: false,
   }
 );
-const publicNotes =
-  props.rom.user_rom_props?.filter((prop) => prop.user_id !== auth.user?.id) ??
-  [];
+// TODO: fetch public notes
+// const publicNotes =
+//   props.rom.user_rom_props?.filter((prop) => prop.user_id !== auth.user?.id) ??
+//   [];
 
 // Functions
 function togglePublic() {
@@ -53,9 +54,7 @@ function editNote() {
 watch(
   () => props.rom,
   async () => {
-    ownProps.value = props.rom.user_rom_props?.find(
-      (prop) => prop.user_id === auth.user?.id
-    ) ?? {
+    ownProps.value = props.rom.user_rom_props ?? {
       id: null,
       user_id: auth.user?.id,
       rom_id: props.rom.id,
@@ -134,7 +133,7 @@ watch(
     </v-card-text>
   </v-card>
 
-  <v-card rounded="0" v-if="publicNotes.length > 0" class="mt-2">
+  <!-- <v-card rounded="0" v-if="publicNotes.length > 0" class="mt-2">
     <v-card-title class="bg-terciary">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">Public notes</span>
@@ -160,7 +159,7 @@ watch(
         </v-expansion-panel>
       </v-expansion-panels>
     </v-card-text>
-  </v-card>
+  </v-card> -->
 </template>
 
 <style>

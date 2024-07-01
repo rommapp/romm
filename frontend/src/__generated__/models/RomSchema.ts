@@ -46,6 +46,6 @@ export type RomSchema = {
   full_path: string;
   created_at: string;
   updated_at: string;
-  user_rom_props?: Array<UserRomPropsSchema>;
+  user_rom_props: UserRomPropsSchema | null;
   readonly sort_comparator: string;
 };

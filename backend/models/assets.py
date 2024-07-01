@@ -52,7 +52,7 @@ class Save(RomAsset):
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
-        db_rom = db_rom_handler.get_rom(self.rom_id)
+        db_rom = db_rom_handler.get_rom(id=self.rom_id, user_id=self.user.id)
         if db_rom is None:
             return None
 
@@ -76,7 +76,7 @@ class State(RomAsset):
     def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
-        db_rom = db_rom_handler.get_rom(self.rom_id)
+        db_rom = db_rom_handler.get_rom(id=self.rom_id, user_id=self.user.id)
         if db_rom is None:
             return None
 
