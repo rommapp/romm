@@ -103,7 +103,12 @@ class Rom(BaseModel):
     def get_sibling_roms(self) -> list[Rom]:
         from handler.database import db_rom_handler
 
-        return db_rom_handler.get_rom_siblings(self)
+        return db_rom_handler.get_sibling_roms(self)
+
+    def get_public_notes(self, user_id: int) -> list[dict]:
+        from handler.database import db_rom_handler
+
+        return db_rom_handler.get_public_notes(self, user_id)
 
     # Metadata fields
     @property

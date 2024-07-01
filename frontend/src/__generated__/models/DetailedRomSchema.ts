@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { PublicNoteSchema } from "./PublicNoteSchema";
 import type { RomIGDBMetadata } from "./RomIGDBMetadata";
 import type { RomMobyMetadata } from "./RomMobyMetadata";
 import type { RomSchema } from "./RomSchema";
@@ -56,5 +57,6 @@ export type DetailedRomSchema = {
   user_saves?: Array<SaveSchema>;
   user_states?: Array<StateSchema>;
   user_screenshots?: Array<ScreenshotSchema>;
+  public_notes?: Array<PublicNoteSchema>;
   readonly sort_comparator: string;
 };

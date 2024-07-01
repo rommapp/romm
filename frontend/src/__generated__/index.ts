@@ -24,6 +24,7 @@ export type { MessageResponse } from "./models/MessageResponse";
 export type { MetadataSourcesDict } from "./models/MetadataSourcesDict";
 export type { MobyMetadataPlatform } from "./models/MobyMetadataPlatform";
 export type { PlatformSchema } from "./models/PlatformSchema";
+export type { PublicNoteSchema } from "./models/PublicNoteSchema";
 export type { Role } from "./models/Role";
 export type { RomIGDBMetadata } from "./models/RomIGDBMetadata";
 export type { RomMobyMetadata } from "./models/RomMobyMetadata";

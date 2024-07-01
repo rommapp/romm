@@ -115,6 +115,7 @@ class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
+    public_notes: list[PublicNoteSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -134,7 +135,19 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
+        rom.public_notes = [
+            {
+                "user__username": p.user__username,
+                "note_raw_markdown": p.note_raw_markdown,
+            }
+            for p in db_rom.get_public_notes(user_id)
+        ]
         return rom
+
+
+class PublicNoteSchema(TypedDict):
+    user__username: str
+    note_raw_markdown: str
 
 
 class AddRomsResponse(TypedDict):
