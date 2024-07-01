@@ -4,6 +4,7 @@
 /* eslint-disable */
 
 export type UserNotesSchema = {
+  user_id: number;
   username: string;
   note_raw_markdown: string;
 };
