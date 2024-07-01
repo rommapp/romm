@@ -40,7 +40,7 @@ async def search_rom(
             detail="No metadata providers enabled",
         )
 
-    rom = db_rom_handler.get_rom(id=rom_id, user_id=request.user.id)
+    rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         return []
 

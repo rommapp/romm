@@ -3,14 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { PublicNoteSchema } from "./PublicNoteSchema";
 import type { RomIGDBMetadata } from "./RomIGDBMetadata";
 import type { RomMobyMetadata } from "./RomMobyMetadata";
 import type { RomSchema } from "./RomSchema";
+import type { RomUserSchema } from "./RomUserSchema";
 import type { SaveSchema } from "./SaveSchema";
 import type { ScreenshotSchema } from "./ScreenshotSchema";
 import type { StateSchema } from "./StateSchema";
-import type { UserRomPropsSchema } from "./UserRomPropsSchema";
+import type { UserNotesSchema } from "./UserNotesSchema";
 
 export type DetailedRomSchema = {
   id: number;
@@ -51,12 +51,12 @@ export type DetailedRomSchema = {
   full_path: string;
   created_at: string;
   updated_at: string;
-  user_rom_props: UserRomPropsSchema | null;
+  rom_user?: RomUserSchema | null;
   merged_screenshots: Array<string>;
   sibling_roms?: Array<RomSchema>;
   user_saves?: Array<SaveSchema>;
   user_states?: Array<StateSchema>;
   user_screenshots?: Array<ScreenshotSchema>;
-  public_notes?: Array<PublicNoteSchema>;
+  user_notes?: Array<UserNotesSchema>;
   readonly sort_comparator: string;
 };

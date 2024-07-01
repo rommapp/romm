@@ -5,7 +5,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST

@@ -65,13 +65,11 @@ class Rom(BaseModel):
     )
 
     platform: Mapped[Platform] = relationship(lazy="immediate")
-    user_rom_props: Mapped[UserRomProps] = relationship(
-        back_populates="rom", lazy="immediate"
-    )
 
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
+    rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -104,11 +102,6 @@ class Rom(BaseModel):
         from handler.database import db_rom_handler
 
         return db_rom_handler.get_sibling_roms(self)
-
-    def get_public_notes(self, user_id: int) -> list[dict]:
-        from handler.database import db_rom_handler
-
-        return db_rom_handler.get_public_notes(self, user_id)
 
     # Metadata fields
     @property
@@ -155,8 +148,8 @@ class Rom(BaseModel):
         return self.file_name
 
 
-class UserRomProps(BaseModel):
-    __tablename__ = "user_rom_props"
+class RomUser(BaseModel):
+    __tablename__ = "rom_user"
     __table_args__ = (
         UniqueConstraint("rom_id", "user_id", name="unique_rom_user_props"),
     )
@@ -171,8 +164,8 @@ class UserRomProps(BaseModel):
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="user_rom_props")
-    user: Mapped[User] = relationship(lazy="joined", back_populates="user_rom_props")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="rom_users")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="rom_users")
 
     @property
     def user__username(self) -> str:

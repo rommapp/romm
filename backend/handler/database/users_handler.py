@@ -29,7 +29,7 @@ class DBUsersHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_users(self, session: Session = None):
+    def get_users(self, session: Session = None) -> list[User]:
         return session.scalars(select(User)).all()
 
     @begin_session
@@ -41,5 +41,5 @@ class DBUsersHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_admin_users(self, session: Session = None):
+    def get_admin_users(self, session: Session = None) -> list[User]:
         return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
