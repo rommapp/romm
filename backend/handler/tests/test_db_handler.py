@@ -46,9 +46,8 @@ def test_roms(rom: Rom, platform: Platform):
         )
     )
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert len(roms) == 2
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert len(roms) == 2
 
     rom = db_rom_handler.get_rom(roms[0].id)
     assert rom is not None
@@ -61,26 +60,23 @@ def test_roms(rom: Rom, platform: Platform):
 
     db_rom_handler.delete_rom(rom.id)
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert len(roms) == 1
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert len(roms) == 1
 
     db_rom_handler.purge_roms(rom_2.platform_id, [rom_2.id])
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert len(roms) == 0
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert len(roms) == 0
 
 
 def test_utils(rom: Rom, platform: Platform):
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert (
-            db_rom_handler.get_rom_by_filename(
-                platform_id=platform.id, file_name=rom.file_name
-            ).id
-            == roms[0].id
-        )
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert (
+        db_rom_handler.get_rom_by_filename(
+            platform_id=platform.id, file_name=rom.file_name
+        ).id
+        == roms[0].id
+    )
 
 
 def test_users(admin_user):

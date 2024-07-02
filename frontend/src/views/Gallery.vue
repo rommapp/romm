@@ -215,12 +215,14 @@ onMounted(async () => {
   } else {
     romsStore.setCurrentPlatform(routePlatform);
   }
-  resetGallery();
-  await fetchRoms();
-  setFilters();
 
-  window.addEventListener("wheel", onScroll);
-  window.addEventListener("scroll", onScroll);
+  if (!noPlatformError.value) {
+    resetGallery();
+    await fetchRoms();
+    setFilters();
+    window.addEventListener("wheel", onScroll);
+    window.addEventListener("scroll", onScroll);
+  }
 });
 
 onBeforeRouteUpdate(async (to, from) => {

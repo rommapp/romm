@@ -3,8 +3,9 @@ from datetime import datetime
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
+from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
@@ -100,7 +101,12 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
         PlatformSchema: Platform
     """
 
-    return db_platform_handler.get_platform(id)
+    platform = db_platform_handler.get_platform(id)
+
+    if not platform:
+        raise PlatformNotFoundInDatabaseException(id)
+
+    return platform
 
 
 @protected_route(router.put, "/platforms/{id}", ["platforms.write"])
@@ -135,10 +141,9 @@ async def delete_platforms(request: Request, id: int) -> MessageResponse:
     """
 
     platform = db_platform_handler.get_platform(id)
+
     if not platform:
-        error = f"Platform id {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+        raise PlatformNotFoundInDatabaseException(id)
 
     log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
     db_platform_handler.delete_platform(id)

@@ -166,18 +166,21 @@ async function deleteRoms({
   });
 }
 
-async function updateRomNote({
+async function updateUserRomProps({
   romId,
-  rawMarkdown,
-  isPublic,
+  noteRawMarkdown,
+  noteIsPublic,
+  isMainSibling,
 }: {
   romId: number;
-  rawMarkdown: string;
-  isPublic: boolean;
+  noteRawMarkdown: string;
+  noteIsPublic: boolean;
+  isMainSibling: boolean;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/note`, {
-    raw_markdown: rawMarkdown,
-    is_public: isPublic,
+  return api.put(`/roms/${romId}/props`, {
+    note_raw_markdown: noteRawMarkdown,
+    note_is_public: noteIsPublic,
+    is_main_sibling: isMainSibling,
   });
 }
 
@@ -191,5 +194,5 @@ export default {
   searchCover,
   updateRom,
   deleteRoms,
-  updateRomNote,
+  updateUserRomProps,
 };

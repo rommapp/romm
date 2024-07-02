@@ -5,6 +5,7 @@
 
 import type { RomIGDBMetadata } from "./RomIGDBMetadata";
 import type { RomMobyMetadata } from "./RomMobyMetadata";
+import type { RomUserSchema } from "./RomUserSchema";
 
 export type RomSchema = {
   id: number;
@@ -45,5 +46,6 @@ export type RomSchema = {
   full_path: string;
   created_at: string;
   updated_at: string;
+  rom_user?: RomUserSchema | null;
   readonly sort_comparator: string;
 };

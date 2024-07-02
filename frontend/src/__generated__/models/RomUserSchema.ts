@@ -3,12 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type RomNoteSchema = {
+export type RomUserSchema = {
   id: number;
   user_id: number;
   rom_id: number;
+  created_at: string;
   updated_at: string;
-  raw_markdown: string;
-  is_public: boolean;
+  note_raw_markdown: string;
+  note_is_public: boolean;
+  is_main_sibling: boolean;
   user__username: string;
 };
