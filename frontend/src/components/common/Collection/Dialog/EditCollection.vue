@@ -12,15 +12,13 @@ import { useDisplay, useTheme } from "vuetify";
 const theme = useTheme();
 const { smAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const collection = ref<{ name: string; description: string }>({
-  name: "",
-  description: "",
-});
+const collection = ref<Collection>();
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showCreateCollectionDialog", () => {
+emitter?.on("showEditCollectionDialog", (collectionToEdit: Collection) => {
+  collection.value = collectionToEdit;
   show.value = true;
 });
 
@@ -48,13 +46,13 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-async function createCollection() {
+async function editCollection() {
   if (!collection.value) return;
 
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await collectionApi
-    .createCollection({
+    .editCollection({
       name: collection.value.name,
       description: collection.value.description,
     })
@@ -84,10 +82,7 @@ async function createCollection() {
 
 function closeDialog() {
   show.value = false;
-  collection.value = {
-    name: "",
-    description: "",
-  };
+  collection.value = undefined;
   imagePreviewUrl.value = "";
 }
 </script>
@@ -97,16 +92,17 @@ function closeDialog() {
     v-if="collection"
     @close="closeDialog"
     v-model="show"
-    icon="mdi-bookmark-box-multiple"
+    icon="mdi-pencil-box"
     :width="lgAndUp ? '45vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col>
+        <v-col cols="12" md="8" lg="8" xl="9">
           <v-row class="pa-2" no-gutters>
             <v-col>
               <v-text-field
                 v-model="collection.name"
+                class="py-2"
                 label="Name"
                 variant="outlined"
                 required
@@ -117,9 +113,9 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-text-field
+              <v-textarea
                 v-model="collection.description"
-                class="mt-1"
+                class="py-2"
                 label="Description"
                 variant="outlined"
                 required
@@ -172,7 +168,7 @@ function closeDialog() {
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="createCollection">
-            Create
+            Update
           </v-btn>
         </v-btn-group>
       </v-row>
