@@ -338,15 +338,7 @@ async function stopScan() {
               :to="{ name: 'rom', params: { rom: rom.id } }"
             >
               <template #prepend>
-                <r-avatar
-                  :src="
-                    !rom.igdb_id && !rom.moby_id
-                      ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                      : rom.has_cover
-                      ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-                      : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                  "
-                />
+                <r-avatar :rom="rom" />
               </template>
               <v-row no-gutters>
                 <span
