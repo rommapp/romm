@@ -126,12 +126,6 @@ class RomSchema(BaseModel):
 
         return rom
 
-    @classmethod
-    def from_orm_with_request_list(
-        cls, db_roms: list[Rom], request: Request
-    ) -> list[RomSchema]:
-        return [cls.from_orm_with_request(rom, request) for rom in db_roms]
-
     @computed_field  # type: ignore
     @property
     def sort_comparator(self) -> str:

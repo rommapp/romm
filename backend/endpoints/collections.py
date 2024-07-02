@@ -1,9 +1,12 @@
+import json
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.collection import CollectionSchema
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
+    CollectionPermissionError,
 )
 from fastapi import APIRouter, Request
 from handler.database import db_collection_handler
@@ -75,7 +78,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
 
 
 @protected_route(router.put, "/collections/{id}", ["collections.write"])
-async def update_collection(request: Request) -> MessageResponse:
+async def update_collection(request: Request, id: int) -> MessageResponse:
     """Update collection endpoint
 
     Args:
@@ -85,7 +88,33 @@ async def update_collection(request: Request) -> MessageResponse:
         MessageResponse: Standard message response
     """
 
-    return {"msg": "Enpoint not available yet"}
+    data = await request.form()
+    collection = db_collection_handler.get_collection(id)
+
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    roms = collection.roms  # Default to the roms list from the database
+
+    if "roms" in data:
+        try:
+            roms = json.loads(data.get("roms"))
+        except json.JSONDecodeError:
+            raise ValueError("Invalid JSON for roms field")
+
+    cleaned_data = {
+        "name": data.get("name", collection.name),
+        "description": data.get("description", collection.description),
+        "roms": roms,
+        "is_public": data.get("is_public", collection.is_public),
+        "user_id": request.user.id,
+    }
+
+    db_collection_handler.update_collection(id, cleaned_data)
+    return {"msg": "Collection updated  successfully!"}
 
 
 @protected_route(router.delete, "/collections/{id}", ["collections.write"])

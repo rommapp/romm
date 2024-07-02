@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import cached_property
+
 from models.base import BaseModel
 from models.user import User
 from sqlalchemy import JSON, ForeignKey, String, Text
@@ -17,6 +19,10 @@ class Collection(BaseModel):
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
 
+    url_cover: Mapped[str | None] = mapped_column(
+        Text, default="", doc="URL to cover image stored in IGDB"
+    )
+
     roms: Mapped[set[int]] = mapped_column(
         JSON, default=[], doc="Rom id's that belong to this collection"
     )
@@ -32,6 +38,10 @@ class Collection(BaseModel):
     @property
     def rom_count(self):
         return len(self.roms)
+
+    @cached_property
+    def has_cover(self) -> bool:
+        return bool(self.path_cover_s or self.path_cover_l)
 
     def __repr__(self) -> str:
         return self.name

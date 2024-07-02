@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from models.collection import Collection
-from sqlalchemy import Select, and_, delete, or_, select
+from sqlalchemy import Select, delete, select, update
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -39,6 +39,17 @@ class DBCollectionsHandler(DBBaseHandler):
             )  # type: ignore[attr-defined]
             .unique()
             .all()
+        )
+
+    @begin_session
+    def update_collection(
+        self, id: int, data: dict, session: Session = None
+    ) -> Collection:
+        return session.execute(
+            update(Collection)
+            .where(Collection.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
         )
 
     @begin_session
