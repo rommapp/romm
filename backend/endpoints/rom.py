@@ -110,7 +110,7 @@ def get_roms(
         list[RomSchema]: List of roms stored in the database
     """
 
-    db_roms = db_rom_handler.get_roms(
+    roms = db_rom_handler.get_roms(
         platform_id=platform_id,
         collection_id=collection_id,
         search_term=search_term.lower(),
@@ -119,7 +119,7 @@ def get_roms(
         limit=limit,
     )
 
-    return RomSchema.from_orm_with_request_list(db_roms, request)
+    return [RomSchema.from_orm_with_request(rom, request) for rom in roms]
 
 
 @protected_route(
@@ -370,7 +370,7 @@ async def update_rom(
         else:
             cleaned_data["url_cover"] = data.get("url_cover", rom.url_cover)
             path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
-                overwrite=True,
+                overwrite=cleaned_data["url_cover"] != rom.url_cover,
                 rom=rom,
                 url_cover=cleaned_data.get("url_cover", ""),
             )

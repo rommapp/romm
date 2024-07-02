@@ -26,6 +26,7 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("path_cover_l", sa.String(length=1000), nullable=True),
         sa.Column("path_cover_s", sa.String(length=1000), nullable=True),
+        sa.Column("url_cover", sa.Text(), nullable=True),
         sa.Column("roms", sa.JSON(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("is_public", sa.Boolean(), nullable=False),

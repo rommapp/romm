@@ -40,6 +40,7 @@ async function updateCollection({
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
+  formData.append("roms", JSON.stringify(collection.roms));
   if (collection.artwork) formData.append("artwork", collection.artwork);
   return api.put(`/collections/${collection.id}`, formData, {
     params: { remove_cover: removeCover },
