@@ -1,11 +1,14 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.collection import CollectionSchema
-from exceptions.endpoint_exceptions import CollectionNotFoundInDatabaseException
+from exceptions.endpoint_exceptions import (
+    CollectionAlreadyExistsException,
+    CollectionNotFoundInDatabaseException,
+)
 from fastapi import APIRouter, Request
 from handler.database import db_collection_handler
-from handler.filesystem import fs_collection_handler
 from logger.logger import log
+from models.collection import Collection
 
 router = APIRouter()
 
@@ -22,11 +25,18 @@ async def add_collection(request: Request) -> CollectionSchema:
     """
 
     data = await request.json()
-    cleaned_data = {}
-    cleaned_data["name"] = data["name"]
-    cleaned_data["description"] = data["description"]
-    cleaned_data["user_id"] = request.user.id
-    return fs_collection_handler.add_collection(cleaned_data)
+    cleaned_data = {
+        "name": data["name"],
+        "description": data["description"],
+        "user_id": request.user.id,
+    }
+    collection_db = db_collection_handler.get_collection_by_name(
+        cleaned_data["name"], request.user.id
+    )
+    if collection_db:
+        raise CollectionAlreadyExistsException(cleaned_data["name"])
+    collection = Collection(**cleaned_data)
+    return db_collection_handler.add_collection(collection)
 
 
 @protected_route(router.get, "/collections", ["collections.read"])
@@ -41,7 +51,7 @@ def get_collections(request: Request) -> list[CollectionSchema]:
         list[CollectionSchema]: List of collections
     """
 
-    return db_collection_handler.get_collections()
+    return db_collection_handler.get_collections(user_id=request.user.id)
 
 
 @protected_route(router.get, "/collections/{id}", ["collections.read"])
@@ -100,7 +110,7 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    log.info(f"Deleting {collection.name} [{collection.fs_slug}] from database")
+    log.info(f"Deleting {collection.name} from database")
     db_collection_handler.delete_collection(id)
 
-    return {"msg": f"{collection.name} - [{collection.fs_slug}] deleted successfully!"}
+    return {"msg": f"{collection.name} deleted successfully!"}

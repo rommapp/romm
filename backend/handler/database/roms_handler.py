@@ -1,6 +1,7 @@
 import functools
 
 from decorators.database import begin_session
+from models.collection import Collection
 from models.rom import Rom, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
@@ -44,9 +45,25 @@ def with_simple(func):
 
 
 class DBRomsHandler(DBBaseHandler):
-    def _filter(self, data, platform_id: int | None, search_term: str):
+    def _filter(
+        self,
+        data,
+        platform_id: int | None,
+        collection_id: int | None,
+        search_term: str,
+        session: Session,
+    ):
         if platform_id:
             data = data.filter(Rom.platform_id == platform_id)
+
+        elif collection_id:
+            collection = (
+                session.query(Collection)
+                .filter(Collection.id == collection_id)
+                .one_or_none()
+            )
+            if collection:
+                data = data.filter(Rom.id.in_(collection.roms))
 
         if search_term:
             data = data.filter(
@@ -90,6 +107,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         *,
         platform_id: int | None = None,
+        collection_id: int | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
@@ -97,17 +115,12 @@ class DBRomsHandler(DBBaseHandler):
         query: Query = None,
         session: Session = None,
     ) -> list[Rom]:
-        return (
-            session.scalars(
-                self._order(
-                    self._filter(query, platform_id, search_term),
-                    order_by,
-                    order_dir,
-                ).limit(limit)
-            )
-            .unique()
-            .all()
+        filtered_query = self._filter(
+            query, platform_id, collection_id, search_term, session
         )
+        ordered_query = self._order(filtered_query, order_by, order_dir)
+        limited_query = ordered_query.limit(limit)
+        return session.scalars(limited_query).unique().all()
 
     @begin_session
     @with_details

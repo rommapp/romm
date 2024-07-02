@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
+import GalleryAppBarCollection from "@/components/Gallery/AppBar/Collection/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
-import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
+import EmptyCollection from "@/components/common/EmptyCollection.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
-import platformApi from "@/services/api/platform";
+import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
+import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
@@ -26,18 +26,18 @@ const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const platforms = storePlatforms();
+const collections = storeCollections();
 const romsStore = storeRoms();
 const {
   allRoms,
   filteredRoms,
   selectedRoms,
-  currentPlatform,
+  currentCollection,
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
 const itemsShown = ref(itemsPerBatch.value);
-const noPlatformError = ref(false);
+const noCollectionError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
@@ -55,7 +55,7 @@ async function fetchRoms() {
 
   await romApi
     .getRoms({
-      platformId: romsStore.currentPlatform?.id,
+      collectionId: romsStore.currentCollection?.id,
       searchTerm: normalizeString(galleryFilterStore.filterSearch),
     })
     .then(({ data }) => {
@@ -64,15 +64,15 @@ async function fetchRoms() {
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+        msg: `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
       });
       console.error(
-        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
+        `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`
       );
-      noPlatformError.value = true;
+      noCollectionError.value = true;
     })
     .finally(() => {
       gettingRoms.value = false;
@@ -193,29 +193,29 @@ function resetGallery() {
   romsStore.reset();
   galleryFilterStore.reset();
   scrolledToTop.value = true;
-  noPlatformError.value = false;
+  noCollectionError.value = false;
   itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
-  const routePlatformId = Number(route.params.collection);
-  const routePlatform = platforms.get(routePlatformId);
+  const routeCollectionId = Number(route.params.collection);
+  const routeCollection = collections.get(routeCollectionId);
 
-  if (!routePlatform) {
-    await platformApi
-      .getPlatform(routePlatformId)
+  if (!routeCollection) {
+    await collectionApi
+      .getCollection(routeCollectionId)
       .then((data) => {
-        platforms.add(data.data);
-        romsStore.setCurrentPlatform(data.data);
+        collections.add(data.data);
+        romsStore.setCurrentCollection(data.data);
       })
       .catch((error) => {
         console.log(error);
-        noPlatformError.value = true;
+        noCollectionError.value = true;
       });
   } else {
-    romsStore.setCurrentPlatform(routePlatform);
+    romsStore.setCurrentCollection(routeCollection);
   }
-  if (!noPlatformError.value) {
+  if (!noCollectionError.value) {
     resetGallery();
     await fetchRoms();
     setFilters();
@@ -226,18 +226,18 @@ onMounted(async () => {
 
 onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change param of the same route
-  // Reset store if switching to another platform
+  // Reset store if switching to another collection
   if (to.path === from.path) return;
 
   resetGallery();
 
-  const routePlatformId = Number(to.params.collection);
-  const routePlatform = platforms.get(routePlatformId);
-  if (!routePlatform) {
-    const { data } = await platformApi.getPlatform(routePlatformId);
-    platforms.add(data);
+  const routeCollectionId = Number(to.params.collection);
+  const routeCollection = collections.get(routeCollectionId);
+  if (!routeCollection) {
+    const { data } = await collectionApi.getCollection(routeCollectionId);
+    collections.add(data);
   } else {
-    romsStore.setCurrentPlatform(routePlatform);
+    romsStore.setCurrentCollection(routeCollection);
   }
 
   await fetchRoms();
@@ -251,8 +251,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <template v-if="!noPlatformError">
-    <gallery-app-bar />
+  <template v-if="!noCollectionError">
+    <gallery-app-bar-collection />
     <template v-if="filteredRoms.length > 0">
       <v-row
         no-gutters
@@ -308,5 +308,5 @@ onBeforeUnmount(() => {
     </template>
   </template>
 
-  <empty-platform v-else />
+  <empty-collection v-else />
 </template>

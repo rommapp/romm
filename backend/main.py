@@ -8,6 +8,7 @@ import uvicorn
 from config import DEV_HOST, DEV_PORT, DISABLE_CSRF_PROTECTION, ROMM_AUTH_SECRET_KEY
 from endpoints import (
     auth,
+    collections,
     config,
     feeds,
     firmware,
@@ -93,6 +94,7 @@ app.include_router(stats.router)
 app.include_router(raw.router)
 app.include_router(screenshots.router)
 app.include_router(firmware.router)
+app.include_router(collections.router)
 
 app.mount("/ws", socket_handler.socket_app)
 

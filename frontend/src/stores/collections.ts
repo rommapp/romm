@@ -7,116 +7,14 @@ export type Collection = CollectionSchema;
 export default defineStore("collections", {
   state: () => {
     return {
-      all: [
-        {
-          name: "Favourites",
-          description: "My favourites collection",
-          rom_count: 10,
-          id: 3,
-        },
-        {
-          name: "Nintendo",
-          description: "Nintendo collection",
-          rom_count: 7,
-          id: 1,
-        },
-        {
-          name: "Sony",
-          description: "Sony collection",
-          rom_count: 20,
-          id: 2,
-        },
-        {
-          name: "Sega",
-          description: "Sega collection",
-          rom_count: 0,
-          id: 2,
-        },
-        {
-          name: "Favourites",
-          description: "My favourites collection",
-          rom_count: 10,
-          id: 0,
-        },
-        {
-          name: "Nintendo",
-          description: "Nintendo collection",
-          rom_count: 7,
-          id: 1,
-        },
-        {
-          name: "Sony",
-          description: "Sony collection",
-          rom_count: 20,
-          id: 2,
-        },
-        {
-          name: "Sega",
-          description: "Sega collection",
-          rom_count: 0,
-          id: 2,
-        },
-        {
-          name: "Favourites",
-          description: "My favourites collection",
-          rom_count: 10,
-          id: 0,
-        },
-        {
-          name: "Nintendo",
-          description: "Nintendo collection",
-          rom_count: 7,
-          id: 1,
-        },
-        {
-          name: "Sony",
-          description: "Sony collection",
-          rom_count: 20,
-          id: 2,
-        },
-        {
-          name: "Sega",
-          description: "Sega collection",
-          rom_count: 0,
-          id: 2,
-        },
-        {
-          name: "Favourites",
-          description: "My favourites collection",
-          rom_count: 10,
-          id: 0,
-        },
-        {
-          name: "Nintendo",
-          description: "Nintendo collection",
-          rom_count: 7,
-          id: 1,
-        },
-        {
-          name: "Sony",
-          description: "Sony collection",
-          rom_count: 20,
-          id: 2,
-        },
-        {
-          name: "Sega",
-          description: "Sega collection",
-          rom_count: 0,
-          id: 2,
-        },
-      ] as Collection[],
+      all: [] as Collection[],
       searchText: "" as string,
     };
   },
   getters: {
-    totalGames: ({ all: value }) =>
-      value.reduce((count, p) => count + p.rom_count, 0),
-    filledCollections: ({ all }) => all.filter((p) => p.rom_count > 0),
     filteredCollections: ({ all, searchText }) =>
-      all.filter(
-        (p) =>
-          p.rom_count > 0 &&
-          p.name.toLowerCase().includes(searchText.toLowerCase()),
+      all.filter((p) =>
+        p.name.toLowerCase().includes(searchText.toLowerCase()),
       ),
   },
   actions: {
@@ -131,14 +29,14 @@ export default defineStore("collections", {
     },
     add(collection: Collection) {
       this.all.push(collection);
-      // this._reorder();
+      this._reorder();
     },
     exists(collection: Collection) {
-      return this.all.filter((p) => p.fs_slug == collection.fs_slug).length > 0;
+      return this.all.filter((p) => p.name == collection.name).length > 0;
     },
     remove(collection: Collection) {
       this.all = this.all.filter((p) => {
-        return p.slug !== collection.slug;
+        return p.name !== collection.name;
       });
     },
     get(collectionId: number) {

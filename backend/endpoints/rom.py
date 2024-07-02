@@ -94,6 +94,7 @@ def add_roms(
 def get_roms(
     request: Request,
     platform_id: int | None = None,
+    collection_id: int | None = None,
     search_term: str = "",
     limit: int | None = None,
     order_by: str = "name",
@@ -108,8 +109,10 @@ def get_roms(
     Returns:
         list[RomSchema]: List of roms stored in the database
     """
+
     db_roms = db_rom_handler.get_roms(
         platform_id=platform_id,
+        collection_id=collection_id,
         search_term=search_term.lower(),
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),

@@ -7,6 +7,8 @@ import CreatePlatformBindingDialog from "@/components/Management/Dialog/CreatePl
 import CreatePlatformVersionDialog from "@/components/Management/Dialog/CreatePlatformVersion.vue";
 import DeletePlatformBindingDialog from "@/components/Management/Dialog/DeletePlatformBinding.vue";
 import DeletePlatformVersionDialog from "@/components/Management/Dialog/DeletePlatformVersion.vue";
+import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
+import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
 import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
@@ -16,13 +18,13 @@ import SearchCoverDialog from "@/components/common/Game/Dialog/SearchCoverRom.vu
 import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
+import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import MainDrawer from "@/components/common/Navigation/MainDrawer.vue";
+import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
+import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import NewVersion from "@/components/common/NewVersion.vue";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
-import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
-import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
-import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -94,6 +96,8 @@ onMounted(async () => {
   <router-view />
 
   <delete-platform-dialog />
+  <create-collection-dialog />
+  <delete-collection-dialog />
   <search-rom-dialog />
   <match-rom-dialog />
   <search-cover-dialog />

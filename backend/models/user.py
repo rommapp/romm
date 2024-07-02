@@ -11,6 +11,7 @@ from starlette.authentication import SimpleUser
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
+    from models.collection import Collection
     from models.rom import RomUser
 
 
@@ -40,6 +41,7 @@ class User(BaseModel, SimpleUser):
     states: Mapped[list[State]] = relationship(back_populates="user")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="user")
     rom_users: Mapped[list[RomUser]] = relationship(back_populates="user")
+    collections: Mapped[list[Collection]] = relationship(back_populates="user")
 
     @property
     def oauth_scopes(self):

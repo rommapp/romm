@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import storeNavigation from "@/stores/navigation";
-import { storeToRefs } from "pinia";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
+import storeNavigation from "@/stores/navigation";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -10,11 +15,27 @@ const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 const { filteredCollections, searchText } = storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
+const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
+async function addCollection() {
+  emitter?.emit("showCreateCollectionDialog", null);
+}
+
 function clear() {
   searchText.value = "";
 }
+
+onMounted(async () => {
+  await collectionApi
+    .getCollections()
+    .then(({ data: collections }) => {
+      collectionsStore.set(collections);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+});
 </script>
 <template>
   <v-navigation-drawer
@@ -39,36 +60,20 @@ function clear() {
       ></v-text-field>
     </template>
     <v-list lines="two" rounded="0" class="pa-0">
-      <v-list-item
+      <collection-list-item
         v-for="collection in filteredCollections"
-        :to="{ name: 'collection', params: { collection: collection.id } }"
-        :value="collection"
+        :collection="collection"
       >
-        <v-row no-gutters
-          ><v-col
-            ><span class="text-body-1">{{ collection.name }}</span></v-col
-          ></v-row
-        >
-        <v-row no-gutters>
-          <v-col>
-            <span class="text-caption text-grey">{{
-              collection.description
-            }}</span>
-          </v-col>
-        </v-row>
-        <template #append>
-          <v-chip class="ml-2" size="x-small" label>
-            {{ collection.rom_count }}
-          </v-chip>
-        </template>
-      </v-list-item>
+      </collection-list-item>
     </v-list>
     <template #append>
       <v-btn
+        @click="addCollection()"
         variant="tonal"
         color="romm-accent-1"
         prepend-icon="mdi-plus"
         size="large"
+        rounded="0"
         block
         >Add Collection</v-btn
       >

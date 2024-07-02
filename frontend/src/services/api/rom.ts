@@ -32,11 +32,13 @@ async function uploadRoms({
 
 async function getRoms({
   platformId = null,
+  collectionId = null,
   searchTerm = "",
   orderBy = "name",
   orderDir = "asc",
 }: {
   platformId?: number | null;
+  collectionId?: number | null;
   searchTerm?: string | null;
   orderBy?: string | null;
   orderDir?: string | null;
@@ -44,6 +46,7 @@ async function getRoms({
   return api.get(`/roms`, {
     params: {
       platform_id: platformId,
+      collection_id: collectionId,
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
