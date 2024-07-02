@@ -11,14 +11,8 @@ import { useDisplay } from "vuetify";
 // Props
 const { xs, smAndUp, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
-const romRef = ref<DetailedRom>(props.rom);
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("romUpdated", (romUpdated) => {
-  if (romUpdated?.id === romRef.value.id) {
-    romRef.value.user_saves = romUpdated.user_saves;
-  }
-});
 const HEADERS = [
   {
     title: "Name",
@@ -46,9 +40,9 @@ async function downloasSaves() {
 }
 
 function updateDataTablePages() {
-  if (romRef.value.user_saves) {
+  if (props.rom.user_saves) {
     pageCount.value = Math.ceil(
-      romRef.value.user_saves.length / itemsPerPage.value
+      props.rom.user_saves.length / itemsPerPage.value
     );
   }
 }
@@ -64,7 +58,7 @@ onMounted(() => {
 
 <template>
   <v-data-table
-    :items="romRef.user_saves"
+    :items="rom.user_saves"
     :width="mdAndUp ? '60vw' : '95vw'"
     :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
@@ -80,7 +74,7 @@ onMounted(() => {
         <v-btn
           class="bg-secondary"
           size="small"
-          @click="emitter?.emit('addSavesDialog', romRef)"
+          @click="emitter?.emit('addSavesDialog', rom)"
         >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
@@ -152,7 +146,7 @@ onMounted(() => {
       </td>
     </template>
     <template #no-data
-      ><span>No saves found for {{ romRef?.name }}</span></template
+      ><span>No saves found for {{ rom.name }}</span></template
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">

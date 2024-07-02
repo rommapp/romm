@@ -145,6 +145,7 @@ onMounted(() => {
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
               cover
+              :aspect-ratio="2 / 3"
             ></v-img>
           </template>
           <template #placeholder>

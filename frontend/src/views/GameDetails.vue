@@ -172,8 +172,10 @@ watch(
           <v-col cols="12">
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
-                <file-info :rom="rom" :platform="platform" />
-                <game-info :rom="rom" />
+                <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
+                  <file-info :rom="rom" :platform="platform" />
+                  <game-info :rom="rom" />
+                </v-row>
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="rom" />
