@@ -8,9 +8,6 @@ from sqlalchemy.orm import Query, Session, selectinload
 from .base_handler import DBBaseHandler
 
 
-class ImplementationError(Exception): ...
-
-
 def with_details(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

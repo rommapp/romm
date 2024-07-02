@@ -61,9 +61,17 @@ export default defineStore("roms", {
         ),
       )
         .map((games) => {
+          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
+          // If such a game is found, 'mainSiblingIndex' will be its index, otherwise it will be -1.
           const mainSiblingIndex = games.findIndex(
             (game) => game.rom_user?.is_main_sibling,
           );
+
+          // Determine the primary game:
+          // - If 'mainSiblingIndex' is not -1 (i.e., a main sibling game was found),
+          //   remove that game from the 'games' array and set it as 'primaryGame'.
+          // - If no main sibling game was found ('mainSiblingIndex' is -1),
+          //   remove the first game from the 'games' array and set it as 'primaryGame'.
           const primaryGame =
             mainSiblingIndex !== -1
               ? games.splice(mainSiblingIndex, 1)[0]
