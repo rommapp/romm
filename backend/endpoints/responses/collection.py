@@ -7,8 +7,9 @@ class CollectionSchema(BaseModel):
     id: int
     name: str
     description: str
-    logo_path: str = ""
-    roms: set[int] = {}
+    path_cover_l: str | None
+    path_cover_s: str | None
+    roms: set[int]
     rom_count: int
     user_id: int
     user__username: str

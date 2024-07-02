@@ -13,7 +13,9 @@ class Collection(BaseModel):
 
     name: Mapped[str] = mapped_column(String(length=400))
     description: Mapped[str | None] = mapped_column(Text)
-    logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
+
+    path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
+    path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
 
     roms: Mapped[set[int]] = mapped_column(
         JSON, default=[], doc="Rom id's that belong to this collection"

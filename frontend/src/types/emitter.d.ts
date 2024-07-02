@@ -1,4 +1,5 @@
 import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { Collection } from "@/stores/collections";
 import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
@@ -18,6 +19,8 @@ export type SnackbarStatus = {
 
 export type Events = {
   showDeletePlatformDialog: Platform;
+  showCreateCollectionDialog: Collection | null;
+  showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
   showSearchCoverDialog: SimpleRom;
   showSearchRomDialog: null;

@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { type Platform } from "@/stores/platforms";
+import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useRoute } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import storePlatforms, { type Platform } from "@/stores/platforms";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const platforms = storePlatforms();
+const roms = storeRoms();
 const route = useRoute();
 </script>
 
@@ -18,16 +19,12 @@ const route = useRoute();
     @click="
       emitter?.emit(
         'showDeletePlatformDialog',
-        platforms.get(Number(route.params.platform)) as Platform
+        roms.currentPlatform as Platform
       )
     "
   >
     <v-list-item-title class="d-flex">
-      <v-icon
-        icon="mdi-delete"
-        color="red"
-        class="mr-2"
-      />
+      <v-icon icon="mdi-delete" color="red" class="mr-2" />
       Delete platform
     </v-list-item-title>
   </v-list-item>
