@@ -2,6 +2,7 @@
 import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
+import steamgriddb from "@/services/api/steamgriddb";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -39,7 +40,7 @@ async function searchCovers() {
 
   if (!searching.value) {
     searching.value = true;
-    await romApi
+    await steamgriddb
       .searchCover({
         searchTerm: searchTerm.value,
       })
@@ -215,7 +216,11 @@ onBeforeUnmount(() => {
                     cover
                   >
                     <template #error>
-                      <v-img :src="resource.url" cover :aspect-ratio="2 / 3"></v-img>
+                      <v-img
+                        :src="resource.url"
+                        cover
+                        :aspect-ratio="2 / 3"
+                      ></v-img>
                     </template>
                     <template #placeholder>
                       <div

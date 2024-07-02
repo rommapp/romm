@@ -24,12 +24,26 @@ async function getCollection(
   return api.get(`/collections/${id}`);
 }
 
+export type UpdateCollection = Collection & {
+  artwork?: File;
+  url_cover?: string;
+};
+
 async function updateCollection({
   collection,
+  removeCover = false,
 }: {
-  collection: Collection;
+  collection: UpdateCollection;
+  removeCover?: boolean;
 }): Promise<{ data: MessageResponse }> {
-  return api.delete(`/collections/${collection.id}`);
+  const formData = new FormData();
+  formData.append("name", collection.name || "");
+  formData.append("description", collection.description || "");
+  formData.append("url_cover", collection.url_cover || "");
+  if (collection.artwork) formData.append("artwork", collection.artwork);
+  return api.put(`/collections/${collection.id}`, formData, {
+    params: { remove_cover: removeCover },
+  });
 }
 
 async function deleteCollection({

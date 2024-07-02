@@ -10,7 +10,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { smAndDown, lgAndUp } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 const show = ref(false);
 const collection = ref<{ name: string; description: string }>({
   name: "",
@@ -98,11 +98,11 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-bookmark-box-multiple"
-    :width="lgAndUp ? '45vw' : '95vw'"
+    :width="mdAndUp ? '55vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col>
+        <v-col cols="12" md="8" lg="8" xl="9">
           <v-row class="pa-2" no-gutters>
             <v-col>
               <v-text-field

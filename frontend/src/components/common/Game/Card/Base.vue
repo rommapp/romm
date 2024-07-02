@@ -65,7 +65,7 @@ onMounted(() => {
         'transform-scale': transformScale,
         'with-border': withBorder,
       }"
-      :elevation="isHovering && transformScale ? 20 : 2"
+      :elevation="isHovering && transformScale ? 20 : 3"
     >
       <v-progress-linear
         v-if="romsStore.isSimpleRom(rom)"
