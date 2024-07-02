@@ -13,7 +13,6 @@ const { xs, smAndUp, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-// emitter?.on("romUpdated", (romUpdated) => {});
 const HEADERS = [
   {
     title: "Name",

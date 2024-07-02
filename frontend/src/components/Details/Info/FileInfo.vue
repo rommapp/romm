@@ -12,7 +12,7 @@ import { ref, watch } from "vue";
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
-const ownProps = ref(
+const romUser = ref(
   props.rom.rom_user ?? {
     id: null,
     user_id: auth.user?.id,
