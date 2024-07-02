@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import storeRoms from "@/stores/roms";
-import Collection from "@/stores/collections";
+import type { Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";

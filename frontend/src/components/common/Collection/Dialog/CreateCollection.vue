@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/RDialog.vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
-import collectionApi from "@/services/api/collection";
-import storeCollections, { type Collection } from "@/stores/collections";
+import RDialog from "@/components/common/RDialog.vue";
+import collectionApi, {
+  type UpdateCollection,
+} from "@/services/api/collection";
+import storeCollections from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
@@ -12,10 +14,10 @@ import { useDisplay, useTheme } from "vuetify";
 const theme = useTheme();
 const { smAndDown, mdAndUp } = useDisplay();
 const show = ref(false);
-const collection = ref<{ name: string; description: string }>({
+const collection = ref<UpdateCollection>({
   name: "",
   description: "",
-});
+} as UpdateCollection);
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -87,14 +89,13 @@ function closeDialog() {
   collection.value = {
     name: "",
     description: "",
-  };
+  } as UpdateCollection;
   imagePreviewUrl.value = "";
 }
 </script>
 
 <template>
   <r-dialog
-    v-if="collection"
     @close="closeDialog"
     v-model="show"
     icon="mdi-bookmark-box-multiple"
@@ -117,7 +118,7 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-text-field
+              <v-textarea
                 v-model="collection.description"
                 class="mt-1"
                 label="Description"
@@ -129,10 +130,15 @@ function closeDialog() {
             </v-col>
           </v-row>
         </v-col>
-        <!-- <v-col>
+        <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
-              <collection-card :collection="collection">
+              <collection-card
+                :show-title="false"
+                :with-link="false"
+                :collection="collection"
+                :src="imagePreviewUrl"
+              >
                 <template #append-inner>
                   <v-chip-group class="pa-0">
                     <v-chip
@@ -164,11 +170,11 @@ function closeDialog() {
               </collection-card>
             </v-col>
           </v-row>
-        </v-col> -->
+        </v-col>
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+      <v-row class="justify-center MT-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="createCollection">

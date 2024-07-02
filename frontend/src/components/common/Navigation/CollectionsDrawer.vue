@@ -19,7 +19,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 async function addCollection() {
-  emitter?.emit("showCreateCollectionDialog");
+  emitter?.emit("showCreateCollectionDialog", null);
 }
 
 function clear() {

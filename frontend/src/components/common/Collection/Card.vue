@@ -2,7 +2,7 @@
 import type { Collection } from "@/stores/collections";
 import { useTheme } from "vuetify";
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     collection: Collection;
     transformScale?: boolean;
@@ -32,12 +32,16 @@ const theme = useTheme();
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
       :to="
-        withLink
+        withLink && collection
           ? { name: 'collection', params: { collection: collection.id } }
           : ''
       "
     >
-      <v-row v-if="showTitle" no-gutters class="py-1 px-2 text-truncate text-center text-caption">
+      <v-row
+        v-if="showTitle"
+        no-gutters
+        class="py-1 px-2 text-truncate text-center text-caption"
+      >
         <v-col>
           {{ collection.name }}
         </v-col>
