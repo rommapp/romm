@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, ref } from "vue";
+import { inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -19,7 +19,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 async function addCollection() {
-  emitter?.emit("showCreateCollectionDialog", null);
+  emitter?.emit("showCreateCollectionDialog");
 }
 
 function clear() {
@@ -63,8 +63,7 @@ onMounted(async () => {
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
-      >
-      </collection-list-item>
+      />
     </v-list>
     <template #append>
       <v-btn

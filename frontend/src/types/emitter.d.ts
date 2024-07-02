@@ -19,7 +19,8 @@ export type SnackbarStatus = {
 
 export type Events = {
   showDeletePlatformDialog: Platform;
-  showCreateCollectionDialog: Collection | null;
+  showCreateCollectionDialog: null;
+  showEditCollectionDialog: Collection;
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
   showSearchCoverDialog: SimpleRom;
