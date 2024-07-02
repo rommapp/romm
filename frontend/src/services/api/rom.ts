@@ -1,13 +1,12 @@
 import type {
   AddRomsResponse,
   MessageResponse,
-  SearchCoverSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
-import type { SimpleRom, DetailedRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
@@ -92,14 +91,6 @@ async function searchRom({
       search_by: searchBy,
     },
   });
-}
-
-async function searchCover({
-  searchTerm,
-}: {
-  searchTerm: string;
-}): Promise<{ data: SearchCoverSchema[] }> {
-  return api.get("/search/cover", { params: { search_term: searchTerm } });
 }
 
 // Listen for multi-file download completion events
@@ -196,7 +187,6 @@ export default {
   getRom,
   downloadRom,
   searchRom,
-  searchCover,
   updateRom,
   deleteRoms,
   updateUserRomProps,

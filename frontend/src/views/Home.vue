@@ -8,6 +8,7 @@ import CreatePlatformVersionDialog from "@/components/Management/Dialog/CreatePl
 import DeletePlatformBindingDialog from "@/components/Management/Dialog/DeletePlatformBinding.vue";
 import DeletePlatformVersionDialog from "@/components/Management/Dialog/DeletePlatformVersion.vue";
 import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
+import EditCollectionDialog from "@/components/common/Collection/Dialog/EditCollection.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
 import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
@@ -97,6 +98,7 @@ onMounted(async () => {
 
   <delete-platform-dialog />
   <create-collection-dialog />
+  <edit-collection-dialog />
   <delete-collection-dialog />
   <search-rom-dialog />
   <match-rom-dialog />

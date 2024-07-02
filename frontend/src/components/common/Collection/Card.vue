@@ -1,40 +1,102 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
-import CollectionCover from "@/components/common/Collection/Cover.vue";
+import { useTheme } from "vuetify";
 
-defineProps<{ collection: Collection }>();
+const props = withDefaults(
+  defineProps<{
+    collection: Collection;
+    transformScale?: boolean;
+    showTitle?: boolean;
+    showRomCount?: boolean;
+    withLink?: boolean;
+    src?: string;
+  }>(),
+  {
+    transformScale: false,
+    showTitle: false,
+    showRomCount: false,
+    withLink: true,
+    src: "",
+  }
+);
+const theme = useTheme();
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props }">
+  <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="props"
-      class="bg-terciary transform-scale"
-      :class="{ 'on-hover': isHovering }"
-      :elevation="isHovering ? 20 : 3"
-      :to="{ name: 'collection', params: { collection: collection.id } }"
+      v-bind="hoverProps"
+      :class="{
+        'on-hover': isHovering,
+        'transform-scale': transformScale,
+      }"
+      :elevation="isHovering && transformScale ? 20 : 3"
+      :to="
+        withLink
+          ? { name: 'collection', params: { collection: collection.id } }
+          : ''
+      "
     >
-      <v-card-text>
-        <v-row class="pa-1 justify-center bg-primary">
-          <div
-            :title="collection.name?.toString()"
-            class="px-2 text-truncate text-caption"
-          >
-            {{ collection.name }}
+      <v-row v-if="showTitle" no-gutters class="py-1 px-2 text-truncate text-center text-caption">
+        <v-col>
+          {{ collection.name }}
+        </v-col>
+      </v-row>
+      <v-img
+        cover
+        :src="
+          src
+            ? src
+            : collection.path_cover_l
+            ? collection.path_cover_l
+            : `/assets/default/cover/big_${theme.global.name.value}_collection.png`
+        "
+        :lazy-src="
+          src
+            ? src
+            : collection.path_cover_s
+            ? collection.path_cover_s
+            : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+        "
+        :aspect-ratio="2 / 3"
+      >
+        <div class="position-absolute append-inner">
+          <slot name="append-inner"></slot>
+        </div>
+
+        <template #error>
+          <v-img
+            :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+            cover
+            :aspect-ratio="2 / 3"
+          ></v-img>
+        </template>
+        <template #placeholder>
+          <div class="d-flex align-center justify-center fill-height">
+            <v-progress-circular
+              :width="2"
+              :size="40"
+              color="romm-accent-1"
+              indeterminate
+            />
           </div>
-        </v-row>
-        <v-row>
-          <collection-cover :collection="collection" />
-          <v-chip
-            class="bg-chip position-absolute"
-            size="x-small"
-            style="bottom: 0.5rem; right: 0.5rem"
-            label
-          >
-            {{ collection.rom_count }}
-          </v-chip>
-        </v-row>
-      </v-card-text>
+        </template>
+      </v-img>
+      <v-chip
+        v-if="showRomCount"
+        class="bg-chip position-absolute"
+        size="x-small"
+        style="bottom: 0.5rem; right: 0.5rem"
+        label
+      >
+        {{ collection.rom_count }}
+      </v-chip>
     </v-card>
   </v-hover>
 </template>
+<style scoped>
+.append-inner {
+  bottom: -0.1rem;
+  right: -0.3rem;
+}
+</style>

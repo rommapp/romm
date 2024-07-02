@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import RDialog from "@/components/common/RDialog.vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
-import collectionApi from "@/services/api/collection";
+import collectionApi, {
+  type UpdateCollection,
+} from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -12,8 +14,7 @@ import { useDisplay, useTheme } from "vuetify";
 const theme = useTheme();
 const { smAndDown, lgAndUp } = useDisplay();
 const show = ref(false);
-const collection = ref<Collection>();
-const collectionsStore = storeCollections();
+const collection = ref<UpdateCollection>();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -52,19 +53,16 @@ async function editCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await collectionApi
-    .editCollection({
-      name: collection.value.name,
-      description: collection.value.description,
+    .updateCollection({
+      collection: collection.value,
     })
     .then(({ data }) => {
-      collectionsStore.add(data);
       emitter?.emit("snackbarShow", {
-        msg: `Collection ${data.name} created successfully!`,
+        msg: `Collection updated successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
-      show.value = false;
     })
     .catch((error) => {
       console.log(error);
@@ -77,6 +75,7 @@ async function editCollection() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      closeDialog();
     });
 }
 
@@ -93,7 +92,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
-    :width="lgAndUp ? '45vw' : '95vw'"
+    :width="lgAndUp ? '65vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
@@ -107,7 +106,7 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="createCollection()"
+                @keyup.enter="editCollection"
               />
             </v-col>
           </v-row>
@@ -120,15 +119,15 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="createCollection()"
+                @keyup.enter="editCollection"
               />
             </v-col>
           </v-row>
         </v-col>
-        <!-- <v-col>
+        <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
-              <collection-card :collection="collection">
+              <collection-card :show-title="false" :with-link="false" :collection="collection" :src="imagePreviewUrl">
                 <template #append-inner>
                   <v-chip-group class="pa-0">
                     <v-chip
@@ -160,14 +159,14 @@ function closeDialog() {
               </collection-card>
             </v-col>
           </v-row>
-        </v-col> -->
+        </v-col>
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+      <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="createCollection">
+          <v-btn class="text-romm-green bg-terciary" @click="editCollection">
             Update
           </v-btn>
         </v-btn-group>
