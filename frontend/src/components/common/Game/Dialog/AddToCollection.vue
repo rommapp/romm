@@ -125,15 +125,7 @@ function closeDialog() {
         <template #item.name="{ item }">
           <v-list-item class="px-0">
             <template #prepend>
-              <r-avatar
-                :src="
-                  !item.igdb_id && !item.moby_id
-                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                    : item.has_cover
-                    ? `/assets/romm/resources/${item.path_cover_s}?ts=${item.updated_at}`
-                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                "
-              />
+              <r-avatar :rom="item" />
             </template>
             <v-row no-gutters
               ><v-col>{{ item.name }}</v-col></v-row

@@ -26,7 +26,7 @@ const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const collections = storeCollections();
+const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -199,13 +199,13 @@ function resetGallery() {
 
 onMounted(async () => {
   const routeCollectionId = Number(route.params.collection);
-  const routeCollection = collections.get(routeCollectionId);
+  const routeCollection = collectionsStore.get(routeCollectionId);
 
   if (!routeCollection) {
     await collectionApi
       .getCollection(routeCollectionId)
       .then((data) => {
-        collections.add(data.data);
+        collectionsStore.add(data.data);
         romsStore.setCurrentCollection(data.data);
       })
       .catch((error) => {
@@ -232,10 +232,10 @@ onBeforeRouteUpdate(async (to, from) => {
   resetGallery();
 
   const routeCollectionId = Number(to.params.collection);
-  const routeCollection = collections.get(routeCollectionId);
+  const routeCollection = collectionsStore.get(routeCollectionId);
   if (!routeCollection) {
     const { data } = await collectionApi.getCollection(routeCollectionId);
-    collections.add(data);
+    collectionsStore.add(data);
   } else {
     romsStore.setCurrentCollection(routeCollection);
   }

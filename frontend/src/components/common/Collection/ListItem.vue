@@ -13,12 +13,7 @@ defineProps<{ collection: Collection }>();
     :value="collection.name"
   >
     <template #prepend>
-      <template v-if="collection.path_cover_s">
-        <r-avatar :src="collection.path_cover_s" />
-      </template>
-      <template v-else>
-        <v-icon>mdi-bookmark</v-icon>
-      </template>
+      <r-avatar :collection="collection" />
     </template>
     <v-row no-gutters
       ><v-col

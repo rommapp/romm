@@ -9,6 +9,8 @@ export type CollectionSchema = {
   description: string;
   path_cover_l: string | null;
   path_cover_s: string | null;
+  has_cover: boolean;
+  url_cover: string;
   roms: Array<number>;
   rom_count: number;
   user_id: number;

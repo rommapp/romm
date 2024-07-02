@@ -21,6 +21,8 @@ export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
   showEditCollectionDialog: Collection;
+  showAddToCollectionDialog: SimpleRom[];
+  showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
   showSearchCoverDialog: SimpleRom;

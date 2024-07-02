@@ -9,6 +9,7 @@ class CollectionSchema(BaseModel):
     description: str
     path_cover_l: str | None
     path_cover_s: str | None
+    has_cover: bool
     url_cover: str
     roms: set[int]
     rom_count: int

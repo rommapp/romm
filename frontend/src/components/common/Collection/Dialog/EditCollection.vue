@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/RDialog.vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
-import collectionApi, {
-  type UpdateCollection,
-} from "@/services/api/collection";
-import storeCollections, { type Collection } from "@/stores/collections";
+import RDialog from "@/components/common/RDialog.vue";
+import collectionApi from "@/services/api/collection";
+import type { UpdateCollection } from "@/services/api/collection";
+import { type Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
@@ -127,7 +126,12 @@ function closeDialog() {
         <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
-              <collection-card :show-title="false" :with-link="false" :collection="collection" :src="imagePreviewUrl">
+              <collection-card
+                :show-title="false"
+                :with-link="false"
+                :collection="collection"
+                :src="imagePreviewUrl"
+              >
                 <template #append-inner>
                   <v-chip-group class="pa-0">
                     <v-chip

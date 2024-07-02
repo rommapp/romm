@@ -39,18 +39,28 @@ const heartbeat = storeHeartbeat();
       </v-list-item-title>
       <v-list-item-subtitle>
         {{
-          !heartbeat.value.STEAMGRIDDB_ENABLED ? "SteamgridDB is not enabled" : ""
+          !heartbeat.value.STEAMGRIDDB_ENABLED
+            ? "SteamgridDB is not enabled"
+            : ""
         }}
       </v-list-item-subtitle>
     </v-list-item>
-
-    <v-divider />
     <v-list-item
       class="py-4 pr-5"
       @click="emitter?.emit('showEditRomDialog', { ...rom })"
     >
       <v-list-item-title class="d-flex">
         <v-icon icon="mdi-pencil-box" class="mr-2" />Edit
+      </v-list-item-title>
+    </v-list-item>
+    <v-divider />
+    <v-list-item
+      class="py-4 pr-5"
+      @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
+    >
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />Add to
+        collection
       </v-list-item-title>
     </v-list-item>
     <v-divider />

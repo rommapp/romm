@@ -177,7 +177,12 @@ function closeDialog() {
       <v-row class="justify-center MT-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="createCollection">
+          <v-btn
+            class="bg-terciary text-romm-green"
+            :disabled="!collection.name"
+            :variant="!collection.name ? 'plain' : 'flat'"
+            @click="createCollection"
+          >
             Create
           </v-btn>
         </v-btn-group>

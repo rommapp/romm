@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import type { Collection } from "@/stores/collections";
 import { useTheme } from "vuetify";
 
-withDefaults(defineProps<{ src?: string | null; size?: number }>(), { size: 45 });
+withDefaults(defineProps<{ collection: Collection; size?: number }>(), {
+  size: 45,
+});
 const theme = useTheme();
 </script>
 
@@ -9,12 +12,16 @@ const theme = useTheme();
   <v-avatar :rounded="0" :size="size">
     <v-img
       :src="
-        src ?? `/assets/default/cover/big_${theme.global.name.value}_empty.png`
+        !collection.has_cover
+          ? `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+          : collection.has_cover
+          ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
+          : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
       "
     >
       <template #error>
         <v-img
-          :src="`assets/default/cover/big_${theme.global.name.value}_empty.png`"
+          :src="`assets/default/cover/big_${theme.global.name.value}_collection.png`"
         >
         </v-img>
       </template>
