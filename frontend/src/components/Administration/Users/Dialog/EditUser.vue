@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
+import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events, UserItem } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
@@ -12,6 +13,7 @@ import { useDisplay } from "vuetify";
 const user = ref<UserItem | null>(null);
 const { lgAndUp } = useDisplay();
 const show = ref(false);
+const auth = storeAuth();
 const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
@@ -52,6 +54,9 @@ function editUser() {
         timeout: 5000,
       });
       usersStore.update(data);
+      if (data.id == auth.user?.id) {
+        auth.setUser(data);
+      }
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {

@@ -2,10 +2,12 @@
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import { defaultAvatarPath } from "@/utils";
+import { storeToRefs } from "pinia";
 
 // Props
 const navigationStore = storeNavigation();
 const auth = storeAuth();
+const { user } = storeToRefs(auth);
 </script>
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
@@ -18,8 +20,8 @@ const auth = storeAuth();
     >
       <v-img
         :src="
-          auth.user?.avatar_path
-            ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
+          user?.avatar_path
+            ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
             : defaultAvatarPath
         "
       />
