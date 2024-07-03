@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import EmptyGame from "@/components/common/EmptyGame.vue";
-import Cover from "@/components/common/Game/Card/Base.vue";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
@@ -11,20 +9,22 @@ import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
+import EmptyGame from "@/components/common/EmptyGame.vue";
+import Cover from "@/components/common/Game/Card/Base.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { Platform } from "@/stores/platforms";
-import type { DetailedRom } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
 const route = useRoute();
-const rom = ref<DetailedRom>();
 const platform = ref<Platform>();
 const tab = ref<
   | "details"
@@ -38,13 +38,15 @@ const tab = ref<
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
+const romsStore = storeRoms();
+const { currentRom } = storeToRefs(romsStore);
 
 // Functions
 async function fetchDetails() {
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
-    .then((response) => {
-      rom.value = response.data;
+    .then(({ data }) => {
+      currentRom.value = data;
     })
     .catch((error) => {
       console.log(error);
@@ -56,7 +58,7 @@ async function fetchDetails() {
 
   if (!noRomError.value) {
     await platformApi
-      .getPlatform(rom.value?.platform_id)
+      .getPlatform(currentRom.value?.platform_id)
       .then((response) => {
         platform.value = response.data;
       })
@@ -71,7 +73,7 @@ async function fetchDetails() {
 
 onBeforeMount(async () => {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-  if (rom.value) {
+  if (currentRom.value?.id == parseInt(route.params.rom as string)) {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   } else {
     await fetchDetails();
@@ -89,8 +91,9 @@ watch(
 </script>
 
 <template>
-  <template v-if="rom && platform">
-    <background-header :rom="rom" />
+  <!-- TODO: review layout on certain roms - ej: mortal kombat 2 for gb  -->
+  <template v-if="currentRom && platform">
+    <background-header />
 
     <v-row
       class="px-5"
@@ -107,9 +110,13 @@ watch(
           'cover-mobile': smAndDown,
         }"
       >
-        <cover :pointerOnHover="false" :rom="rom" />
-        <action-bar class="mt-2" :rom="rom" />
-        <related-games v-if="mdAndUp" class="mt-3" :rom="rom" />
+        <cover
+          :key="currentRom.updated_at"
+          :pointerOnHover="false"
+          :rom="currentRom"
+        />
+        <action-bar class="mt-2" :rom="currentRom" />
+        <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
       </v-col>
 
       <v-col
@@ -128,7 +135,7 @@ watch(
             'justify-center': smAndDown,
           }"
         >
-          <title-info :rom="rom" :platform="platform" />
+          <title-info :rom="currentRom" :platform="platform" />
         </div>
         <v-row
           :class="{
@@ -144,8 +151,8 @@ watch(
             <v-tab
               v-if="
                 mdAndDown &&
-                ((rom.igdb_metadata?.expansions ?? []).length > 0 ||
-                  (rom.igdb_metadata?.dlcs ?? []).length > 0)
+                ((currentRom.igdb_metadata?.expansions ?? []).length > 0 ||
+                  (currentRom.igdb_metadata?.dlcs ?? []).length > 0)
               "
               value="additionalcontent"
               rounded="0"
@@ -157,9 +164,9 @@ watch(
             <v-tab
               v-if="
                 smAndDown &&
-                ((rom.igdb_metadata?.remakes ?? []).length > 0 ||
-                  (rom.igdb_metadata?.remasters ?? []).length > 0 ||
-                  (rom.igdb_metadata?.expanded_games ?? []).length > 0)
+                ((currentRom.igdb_metadata?.remakes ?? []).length > 0 ||
+                  (currentRom.igdb_metadata?.remasters ?? []).length > 0 ||
+                  (currentRom.igdb_metadata?.expanded_games ?? []).length > 0)
               "
               value="relatedgames"
               rounded="0"
@@ -173,27 +180,28 @@ watch(
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
                 <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
-                  <file-info :rom="rom" :platform="platform" />
-                  <game-info :rom="rom" />
+                  <file-info :rom="currentRom" :platform="platform" />
+                  <game-info :rom="currentRom" />
                 </v-row>
               </v-window-item>
               <v-window-item value="saves">
-                <saves :rom="rom" />
+                <saves :rom="currentRom" />
               </v-window-item>
               <v-window-item value="states">
-                <states :rom="rom" />
+                <states :rom="currentRom" />
               </v-window-item>
               <v-window-item value="notes">
-                <notes :rom="rom" />
+                <notes :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
                   mdAndDown &&
-                  (rom.igdb_metadata?.expansions || rom.igdb_metadata?.dlcs)
+                  (currentRom.igdb_metadata?.expansions ||
+                    currentRom.igdb_metadata?.dlcs)
                 "
                 value="additionalcontent"
               >
-                <additional-content :rom="rom" />
+                <additional-content :rom="currentRom" />
               </v-window-item>
               <!-- TODO: user screenshots -->
               <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
@@ -202,13 +210,13 @@ watch(
               <v-window-item
                 v-if="
                   smAndDown &&
-                  (rom.igdb_metadata?.remakes ||
-                    rom.igdb_metadata?.remasters ||
-                    rom.igdb_metadata?.expanded_games)
+                  (currentRom.igdb_metadata?.remakes ||
+                    currentRom.igdb_metadata?.remasters ||
+                    currentRom.igdb_metadata?.expanded_games)
                 "
                 value="relatedgames"
               >
-                <related-games :rom="rom" />
+                <related-games :rom="currentRom" />
               </v-window-item>
             </v-window>
           </v-col>
@@ -217,7 +225,7 @@ watch(
 
       <template v-if="lgAndUp">
         <v-col>
-          <additional-content :rom="rom" />
+          <additional-content :rom="currentRom" />
         </v-col>
       </template>
     </v-row>

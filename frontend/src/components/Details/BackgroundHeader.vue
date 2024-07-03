@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import type { DetailedRom } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
+import { storeToRefs } from "pinia";
 import { useTheme } from "vuetify";
 
-defineProps<{ rom: DetailedRom }>();
+// Props
 const theme = useTheme();
+const romsStore = storeRoms();
+const { currentRom } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-card rounded="0">
+  <v-card :key="currentRom.updated_at" v-if="currentRom" rounded="0">
     <v-img
       id="background-header"
       :src="
-        !rom.igdb_id && !rom.moby_id && !rom.has_cover
+        !currentRom.igdb_id && !currentRom.moby_id && !currentRom.has_cover
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-          : `/assets/romm/resources/${rom.path_cover_l}`
+          : `/assets/romm/resources/${currentRom.path_cover_l}?ts=${currentRom.updated_at}`
       "
       lazy
       cover

@@ -20,6 +20,7 @@ export default defineStore("roms", {
   state: () => ({
     currentPlatform: null as Platform | null,
     currentCollection: null as Collection | null,
+    currentRom: null as DetailedRom | null,
     allRoms: [] as SimpleRom[],
     _grouped: [] as SimpleRom[],
     _filteredIDs: [] as number[],
@@ -91,6 +92,9 @@ export default defineStore("roms", {
     setCurrentPlatform(platform: Platform) {
       this.currentPlatform = platform;
     },
+    setCurrentRom(rom: DetailedRom) {
+      this.currentRom = rom;
+    },
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
     },
@@ -107,6 +111,9 @@ export default defineStore("roms", {
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>
+        value.id === rom.id ? rom : value,
+      );
+      this.recentRoms = this.recentRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
       this._reorder();
