@@ -6,6 +6,7 @@ import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -14,6 +15,7 @@ const userSearch = ref("");
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
+const { all } = storeToRefs(usersStore);
 const auth = storeAuth();
 const HEADERS = [
   {
@@ -106,7 +108,7 @@ onMounted(() => {
         :items-per-page-options="PER_PAGE_OPTIONS"
         :search="userSearch"
         :headers="HEADERS"
-        :items="usersStore.all"
+        :items="all"
         :sort-by="[{ key: 'username', order: 'asc' }]"
         fixed-header
         fixed-footer
