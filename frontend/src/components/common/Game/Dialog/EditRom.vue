@@ -7,12 +7,14 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
 const { lgAndUp } = useDisplay();
 const heartbeat = storeHeartbeat();
+const route = useRoute();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
@@ -87,7 +89,10 @@ async function updateRom() {
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data);
+      romsStore.update(data as SimpleRom);
+      if (route.name == "rom") {
+        romsStore.currentRom = data;
+      }
     })
     .catch((error) => {
       console.log(error);
@@ -176,7 +181,10 @@ function closeDialog() {
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit('showSearchCoverDialog', rom?.name as string)
+                        emitter?.emit(
+                          'showSearchCoverDialog',
+                          rom?.name as string
+                        )
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>
