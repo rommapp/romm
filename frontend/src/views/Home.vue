@@ -17,7 +17,7 @@ import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownl
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
-import SearchCoverDialog from "@/components/common/Game/Dialog/SearchCoverRom.vue";
+import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import LoadingView from "@/components/common/LoadingView.vue";

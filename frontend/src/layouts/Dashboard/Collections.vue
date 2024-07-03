@@ -21,7 +21,13 @@ const collections = storeCollections();
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <collection-card show-rom-count show-title transformScale :key="collection.name" :collection="collection" />
+          <collection-card
+            show-rom-count
+            show-title
+            transformScale
+            :key="collection.updated_at"
+            :collection="collection"
+          />
         </v-col>
       </v-row>
     </template>

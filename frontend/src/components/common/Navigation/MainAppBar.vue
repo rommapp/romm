@@ -18,13 +18,14 @@ import UserBtn from "@/components/common/Navigation/UserBtn.vue";
       <home-btn />
     </template>
 
+    <search-btn />
     <platforms-btn />
     <collections-btn />
+    <v-divider opacity="0" class="mx-3" vertical />
+    <upload-btn />
     <scan-btn />
-
+    
     <template #append>
-      <search-btn />
-      <upload-btn />
       <user-btn />
     </template>
   </v-app-bar>

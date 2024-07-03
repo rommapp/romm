@@ -37,29 +37,28 @@ const theme = useTheme();
           : ''
       "
     >
-      <v-row
-        v-if="showTitle"
-        no-gutters
-        class="py-1 px-2 text-truncate text-center text-caption"
-      >
-        <v-col>
-          {{ collection.name }}
-        </v-col>
+      <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
+        <div
+          :title="collection.name?.toString()"
+          class="py-4 px-6 text-truncate text-caption"
+        >
+          <span>{{ collection.name }}</span>
+        </div>
       </v-row>
       <v-img
         cover
         :src="
           src
             ? src
-            : collection.path_cover_l
-            ? collection.path_cover_l
+            : collection.has_cover
+            ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
             : `/assets/default/cover/big_${theme.global.name.value}_collection.png`
         "
         :lazy-src="
           src
             ? src
-            : collection.path_cover_s
-            ? collection.path_cover_s
+            : collection.has_cover
+            ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
             : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
         "
         :aspect-ratio="2 / 3"
@@ -100,7 +99,7 @@ const theme = useTheme();
 </template>
 <style scoped>
 .append-inner {
-  bottom: -0.1rem;
-  right: -0.3rem;
+  bottom: 0rem;
+  right: 0rem;
 }
 </style>

@@ -6,6 +6,7 @@ import requests
 from config import RESOURCES_BASE_PATH
 from fastapi import HTTPException, status
 from logger.logger import log
+from models.collection import Collection
 from models.rom import Rom
 from PIL import Image
 from urllib3.exceptions import ProtocolError
@@ -90,55 +91,57 @@ class FSResourcesHandler(FSHandler):
         """
         return f"{rom.fs_resources_path}/cover/{size.value}.png"
 
-    def get_rom_cover(
-        self, rom: Rom | None, overwrite: bool, url_cover: str = ""
+    def get_cover(
+        self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
     ) -> tuple[str, str]:
-        if not rom:
+        if not entity:
             return "", ""
 
-        if (overwrite or not self._cover_exists(rom, CoverSize.SMALL)) and url_cover:
-            self._store_cover(rom, url_cover, CoverSize.SMALL)
+        if (overwrite or not self._cover_exists(entity, CoverSize.SMALL)) and url_cover:
+            self._store_cover(entity, url_cover, CoverSize.SMALL)
         path_cover_s = (
-            self._get_cover_path(rom, CoverSize.SMALL)
-            if self._cover_exists(rom, CoverSize.SMALL)
+            self._get_cover_path(entity, CoverSize.SMALL)
+            if self._cover_exists(entity, CoverSize.SMALL)
             else ""
         )
 
-        if (overwrite or not self._cover_exists(rom, CoverSize.BIG)) and url_cover:
-            self._store_cover(rom, url_cover, CoverSize.BIG)
+        if (overwrite or not self._cover_exists(entity, CoverSize.BIG)) and url_cover:
+            self._store_cover(entity, url_cover, CoverSize.BIG)
         path_cover_l = (
-            self._get_cover_path(rom, CoverSize.BIG)
-            if self._cover_exists(rom, CoverSize.BIG)
+            self._get_cover_path(entity, CoverSize.BIG)
+            if self._cover_exists(entity, CoverSize.BIG)
             else ""
         )
 
         return path_cover_s, path_cover_l
 
     @staticmethod
-    def remove_cover(rom: Rom | None):
-        if not rom:
+    def remove_cover(entity: Rom | Collection | None):
+        if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
         try:
-            cover_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/cover"
+            cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove rom '{rom.name or rom.id}' cover since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{entity.name or entity.id}' since '{cover_path}' doesn't exists."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
-    def build_artwork_path(rom: Rom | None, file_ext: str):
-        if not rom:
+    def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
+        if not entity:
             return "", "", ""
 
-        path_cover_l = f"{rom.fs_resources_path}/cover/{CoverSize.BIG.value}.{file_ext}"
-        path_cover_s = (
-            f"{rom.fs_resources_path}/cover/{CoverSize.SMALL.value}.{file_ext}"
+        path_cover_l = (
+            f"{entity.fs_resources_path}/cover/{CoverSize.BIG.value}.{file_ext}"
         )
-        artwork_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/cover"
+        path_cover_s = (
+            f"{entity.fs_resources_path}/cover/{CoverSize.SMALL.value}.{file_ext}"
+        )
+        artwork_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
         Path(artwork_path).mkdir(parents=True, exist_ok=True)
 
         return path_cover_l, path_cover_s, artwork_path

@@ -295,9 +295,10 @@ async def update_rom(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    cleaned_data = {}
-    cleaned_data["igdb_id"] = data.get("igdb_id", None)
-    cleaned_data["moby_id"] = data.get("moby_id", None)
+    cleaned_data = {
+        "igdb_id": data.get("igdb_id", None),
+        "moby_id": data.get("moby_id", None),
+    }
 
     if cleaned_data["moby_id"]:
         moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
@@ -311,8 +312,12 @@ async def update_rom(
     else:
         cleaned_data.update({"igdb_metadata": {}})
 
-    cleaned_data["name"] = data.get("name", rom.name)
-    cleaned_data["summary"] = data.get("summary", rom.summary)
+    cleaned_data.update(
+        {
+            "name": data.get("name", rom.name),
+            "summary": data.get("summary", rom.summary),
+        }
+    )
 
     fs_safe_file_name = data.get("file_name", rom.file_name).strip().replace("/", "-")
     fs_safe_name = cleaned_data["name"].strip().replace("/", "-")
@@ -330,21 +335,25 @@ async def update_rom(
                 file_path=rom.file_path,
             )
     except RomAlreadyExistsException as exc:
-        log.error(str(exc))
+        log.error(exc)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
         ) from exc
 
-    cleaned_data["file_name"] = fs_safe_file_name
-    cleaned_data["file_name_no_tags"] = fs_rom_handler.get_file_name_with_no_tags(
-        fs_safe_file_name
-    )
-    cleaned_data["file_name_no_ext"] = fs_rom_handler.get_file_name_with_no_extension(
-        fs_safe_file_name
+    cleaned_data.update(
+        {
+            "file_name": fs_safe_file_name,
+            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
+                fs_safe_file_name
+            ),
+            "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
+                fs_safe_file_name
+            ),
+        }
     )
 
     if remove_cover:
-        cleaned_data.update(fs_resource_handler.remove_cover(rom=rom))
+        cleaned_data.update(fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None:
@@ -355,8 +364,9 @@ async def update_rom(
                 artwork_path,
             ) = fs_resource_handler.build_artwork_path(rom, file_ext)
 
-            cleaned_data["path_cover_l"] = path_cover_l
-            cleaned_data["path_cover_s"] = path_cover_s
+            cleaned_data.update(
+                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+            )
 
             artwork_file = artwork.file.read()
             file_location_s = f"{artwork_path}/small.{file_ext}"
@@ -368,10 +378,10 @@ async def update_rom(
             with open(file_location_l, "wb+") as artwork_l:
                 artwork_l.write(artwork_file)
         else:
-            cleaned_data["url_cover"] = data.get("url_cover", rom.url_cover)
-            path_cover_s, path_cover_l = fs_resource_handler.get_rom_cover(
+            cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
+            path_cover_s, path_cover_l = fs_resource_handler.get_cover(
                 overwrite=cleaned_data["url_cover"] != rom.url_cover,
-                rom=rom,
+                entity=rom,
                 url_cover=cleaned_data.get("url_cover", ""),
             )
             cleaned_data.update(
@@ -454,15 +464,12 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    cleaned_data = {}
-    cleaned_data["note_raw_markdown"] = data.get(
-        "note_raw_markdown", db_rom_user.note_raw_markdown
-    )
-    cleaned_data["note_is_public"] = data.get(
-        "note_is_public", db_rom_user.note_is_public
-    )
-    cleaned_data["is_main_sibling"] = data.get(
-        "is_main_sibling", db_rom_user.is_main_sibling
-    )
+    cleaned_data = {
+        "note_raw_markdown": data.get(
+            "note_raw_markdown", db_rom_user.note_raw_markdown
+        ),
+        "note_is_public": data.get("note_is_public", db_rom_user.note_is_public),
+        "is_main_sibling": data.get("is_main_sibling", db_rom_user.is_main_sibling),
+    }
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

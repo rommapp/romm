@@ -44,7 +44,7 @@ def upgrade() -> None:
 
         old_folder_path = f"{RESOURCES_BASE_PATH}/{platform_slug}/{rom.name}"
         new_folder_path = (
-            f"{RESOURCES_BASE_PATH}/{platform_folder_name}/{rom_folder_name}"
+            f"{RESOURCES_BASE_PATH}/roms/{platform_folder_name}/{rom_folder_name}"
         )
 
         print("INFO:\t  [Resources migration] Renaming folder:")
@@ -52,7 +52,9 @@ def upgrade() -> None:
         print(f"INFO:\t  [Resources migration]  - new: {new_folder_path}")
 
         try:
-            os.makedirs(f"{RESOURCES_BASE_PATH}/{platform_folder_name}", exist_ok=True)
+            os.makedirs(
+                f"{RESOURCES_BASE_PATH}/roms/{platform_folder_name}", exist_ok=True
+            )
         except OSError as error:
             print(error)
 
@@ -68,17 +70,17 @@ def upgrade() -> None:
 
         updated_path_cover_s = re.sub(
             quoted_platform_slug,
-            platform_folder_name,
+            f"roms/{platform_folder_name}",
             re.sub(quoted_rom_name, rom_folder_name, rom.path_cover_s),
         )
         updated_path_cover_l = re.sub(
             quoted_platform_slug,
-            platform_folder_name,
+            f"roms/{platform_folder_name}",
             re.sub(quoted_rom_name, rom_folder_name, rom.path_cover_l),
         )
         updated_path_screenshots = re.sub(
             quoted_platform_slug,
-            platform_folder_name,
+            f"roms/{platform_folder_name}",
             re.sub(quoted_rom_name, rom_folder_name, rom.path_screenshots),
         )
 

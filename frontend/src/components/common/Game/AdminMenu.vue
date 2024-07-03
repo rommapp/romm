@@ -28,23 +28,6 @@ const heartbeat = storeHeartbeat();
         }}
       </v-list-item-subtitle>
     </v-list-item>
-
-    <v-list-item
-      :disabled="!heartbeat.value.STEAMGRIDDB_ENABLED"
-      class="py-4 pr-5"
-      @click="emitter?.emit('showSearchCoverDialog', rom)"
-    >
-      <v-list-item-title class="d-flex">
-        <v-icon icon="mdi-image-outline" class="mr-2" />Cover search
-      </v-list-item-title>
-      <v-list-item-subtitle>
-        {{
-          !heartbeat.value.STEAMGRIDDB_ENABLED
-            ? "SteamgridDB is not enabled"
-            : ""
-        }}
-      </v-list-item-subtitle>
-    </v-list-item>
     <v-list-item
       class="py-4 pr-5"
       @click="emitter?.emit('showEditRomDialog', { ...rom })"

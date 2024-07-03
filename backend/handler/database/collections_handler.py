@@ -45,12 +45,13 @@ class DBCollectionsHandler(DBBaseHandler):
     def update_collection(
         self, id: int, data: dict, session: Session = None
     ) -> Collection:
-        return session.execute(
+        session.execute(
             update(Collection)
             .where(Collection.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return self.get_collection(id)
 
     @begin_session
     def delete_collection(self, id: int, session: Session = None) -> int:

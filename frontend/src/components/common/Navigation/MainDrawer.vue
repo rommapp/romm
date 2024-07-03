@@ -27,17 +27,15 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
       <v-row no-gutters class="my-2 justify-center">
         <home-btn />
       </v-row>
-      <v-row no-gutters class="my-4 justify-center">
-        <search-btn />
-        <upload-btn />
-      </v-row>
     </template>
 
-    <v-row no-gutters class="justify-center my-5">
-      <platforms-btn block />
-      <collections-btn block />
-      <scan-btn block />
-    </v-row>
+    <v-divider opacity="0" class="my-4" />
+    <search-btn block />
+    <platforms-btn block />
+    <collections-btn block />
+    <v-divider opacity="0" class="my-3" />
+    <upload-btn block />
+    <scan-btn block />
     <template #append>
       <v-row no-gutters class="my-2 justify-center">
         <user-btn />

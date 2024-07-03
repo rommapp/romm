@@ -25,7 +25,8 @@ export type Events = {
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: SimpleRom;
+  showSearchCoverDialog: string;
+  updateUrlCover: string;
   showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;

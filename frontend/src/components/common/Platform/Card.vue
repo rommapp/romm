@@ -20,7 +20,7 @@ defineProps<{ platform: Platform }>();
             :title="platform.name?.toString()"
             class="px-2 text-truncate text-caption"
           >
-            {{ platform.name }}
+            <span>{{ platform.name }}</span>
           </div>
         </v-row>
         <v-row class="pa-1 justify-center">
