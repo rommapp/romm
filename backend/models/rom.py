@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
+    from models.collection import Collection
     from models.platform import Platform
     from models.user import User
 
@@ -102,6 +103,11 @@ class Rom(BaseModel):
         from handler.database import db_rom_handler
 
         return db_rom_handler.get_sibling_roms(self)
+
+    def get_collections(self) -> list[Collection]:
+        from handler.database import db_rom_handler
+
+        return db_rom_handler.get_rom_collections(self.id)
 
     # Metadata fields
     @property

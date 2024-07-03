@@ -180,6 +180,20 @@ class DBRomsHandler(DBBaseHandler):
         ).all()
 
     @begin_session
+    def get_rom_collections(
+        self, rom_id: int, session: Session = None
+    ) -> list[Collection]:
+        return (
+            session.scalars(
+                select(Collection)
+                .filter(Collection.roms.contains([rom_id]))
+                .order_by(Collection.name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
         return session.execute(
             update(Rom)
