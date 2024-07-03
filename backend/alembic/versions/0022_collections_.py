@@ -6,8 +6,13 @@ Create Date: 2024-07-01 23:23:39.090219
 
 """
 
+import json
+import os
+import shutil
+
 import sqlalchemy as sa
 from alembic import op
+from config import RESOURCES_BASE_PATH
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
@@ -52,6 +57,58 @@ def upgrade() -> None:
             nullable=True,
         )
 
+    connection = op.get_bind()
+    roms = connection.execute(
+        sa.text(
+            "SELECT id, name, platform_id, path_cover_s, path_cover_l, path_screenshots FROM roms"
+        )
+    ).fetchall()
+
+    # Define the path for the new folder
+    roms_folder_path = os.path.join(RESOURCES_BASE_PATH, "roms")
+
+    # Create the new folder if it doesn't exist
+    os.makedirs(roms_folder_path, exist_ok=True)
+
+    # List all items in the base directory
+    for folder in os.listdir(RESOURCES_BASE_PATH):
+        folder_path = os.path.join(RESOURCES_BASE_PATH, folder)
+
+        # Check if the item is a directory and not the new folder itself
+        if os.path.isdir(folder_path) and folder != "roms":
+            # Move the folder to the new folder
+            shutil.move(folder_path, roms_folder_path)
+
+    # Update paths for each rom
+    for rom in roms:
+        path_cover_s = rom.path_cover_s
+        path_cover_l = rom.path_cover_l
+        path_screenshots = rom.path_screenshots
+
+        # Add "roms/" prefix to path_cover_s and path_cover_l
+        if path_cover_s:
+            path_cover_s = f"roms/{path_cover_s}"
+        if path_cover_l:
+            path_cover_l = f"roms/{path_cover_l}"
+
+        # Add "roms/" prefix to each path in path_screenshots
+        if path_screenshots:
+            path_screenshots_list = json.loads(path_screenshots)
+            path_screenshots_list = [f"roms/{path}" for path in path_screenshots_list]
+            path_screenshots = json.dumps(path_screenshots_list)
+
+        # Update the database with the new paths
+        connection.execute(
+            sa.text(
+                "UPDATE roms SET path_cover_s = :path_cover_s, path_cover_l = :path_cover_l, path_screenshots = :path_screenshots WHERE id = :id"
+            ),
+            {
+                "path_cover_s": path_cover_s,
+                "path_cover_l": path_cover_l,
+                "path_screenshots": path_screenshots,
+                "id": rom.id,
+            },
+        )
     # ### end Alembic commands ###
 
 
