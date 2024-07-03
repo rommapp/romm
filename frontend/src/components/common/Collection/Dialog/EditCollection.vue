@@ -3,7 +3,7 @@ import CollectionCard from "@/components/common/Collection/Card.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
-import { type Collection } from "@/stores/collections";
+import collectionStore, { type Collection } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -14,6 +14,7 @@ import { useDisplay, useTheme } from "vuetify";
 const theme = useTheme();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
+const storeCollection = collectionStore();
 const collection = ref<UpdatedCollection>({} as UpdatedCollection);
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -63,6 +64,7 @@ async function editCollection() {
       collection: collection.value,
     })
     .then(({ data }) => {
+      storeCollection.update(data);
       emitter?.emit("snackbarShow", {
         msg: `Collection updated successfully!`,
         icon: "mdi-check-bold",

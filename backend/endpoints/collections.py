@@ -128,7 +128,7 @@ async def update_collection(
     id: int,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
-) -> MessageResponse:
+) -> CollectionSchema:
     """Update collection endpoint
 
     Args:
@@ -199,8 +199,7 @@ async def update_collection(
                 {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
             )
 
-    db_collection_handler.update_collection(id, cleaned_data)
-    return {"msg": f"Collection {cleaned_data['name']} updated successfully!"}
+    return db_collection_handler.update_collection(id, cleaned_data)
 
 
 @protected_route(router.delete, "/collections/{id}", ["collections.write"])

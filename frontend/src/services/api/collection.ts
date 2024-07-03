@@ -39,7 +39,7 @@ async function updateCollection({
 }: {
   collection: UpdatedCollection;
   removeCover?: boolean;
-}): Promise<{ data: MessageResponse }> {
+}): Promise<{ data: Collection }> {
   const formData = new FormData();
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");

@@ -51,7 +51,7 @@ class DBCollectionsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return self.get_collection(id)
+        return session.query(Collection).filter_by(id=id).one()
 
     @begin_session
     def delete_collection(self, id: int, session: Session = None) -> int:
