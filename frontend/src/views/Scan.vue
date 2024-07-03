@@ -7,7 +7,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 // Props
 const { xs, smAndDown } = useDisplay();
@@ -16,7 +16,6 @@ const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
-const theme = useTheme();
 const panels = ref([0]);
 const panelIndex = ref(0);
 // Use a computed property to reactively update metadataOptions based on heartbeat
@@ -70,9 +69,6 @@ const scanOptions = [
   },
 ];
 const scanType = ref("quick");
-
-// Connect to socket on load to catch running scans
-if (!socket.connected) socket.connect();
 
 async function scan() {
   scanningStore.set(true);

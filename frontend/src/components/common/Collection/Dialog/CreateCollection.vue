@@ -103,7 +103,7 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" md="8" lg="8" xl="9">
+        <v-col cols="12" lg="7" xl="9">
           <v-row class="pa-2" no-gutters>
             <v-col>
               <v-text-field

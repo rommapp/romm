@@ -7,17 +7,16 @@ import CreatePlatformBindingDialog from "@/components/Management/Dialog/CreatePl
 import CreatePlatformVersionDialog from "@/components/Management/Dialog/CreatePlatformVersion.vue";
 import DeletePlatformBindingDialog from "@/components/Management/Dialog/DeletePlatformBinding.vue";
 import DeletePlatformVersionDialog from "@/components/Management/Dialog/DeletePlatformVersion.vue";
-import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
-import EditCollectionDialog from "@/components/common/Collection/Dialog/EditCollection.vue";
 import AddRomsToCollectionDialog from "@/components/common/Collection/Dialog/AddRoms.vue";
-import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialog/RemoveRoms.vue";
+import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
+import EditCollectionDialog from "@/components/common/Collection/Dialog/EditCollection.vue";
+import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialog/RemoveRoms.vue";
 import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
-import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import LoadingView from "@/components/common/LoadingView.vue";
@@ -28,22 +27,19 @@ import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue"
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import NewVersion from "@/components/common/NewVersion.vue";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
+import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const { smAndDown } = useDisplay();
-const scanningStore = storeScanning();
-const { scanning } = storeToRefs(scanningStore);
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const auth = storeAuth();
@@ -77,14 +73,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-progress-linear
-    color="romm-accent-1"
-    :active="scanning"
-    :indeterminate="true"
-    absolute
-  />
-
-  <!-- TODO: refactor and extract components -->
   <main-drawer v-if="!smAndDown" />
 
   <main-app-bar v-if="smAndDown" />

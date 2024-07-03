@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { lgAndUp } = useDisplay();
+const { mdAndUp } = useDisplay();
 const show = ref(false);
 const collection = ref<UpdatedCollection>({} as UpdatedCollection);
 const imagePreviewUrl = ref<string | undefined>("");
@@ -97,11 +97,11 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
-    :width="lgAndUp ? '55vw' : '95vw'"
+    :width="mdAndUp ? '55vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" md="8" lg="8" xl="9">
+        <v-col cols="12" lg="7" xl="9">
           <v-row class="pa-2" no-gutters>
             <v-col>
               <v-text-field
