@@ -3,7 +3,6 @@ from typing import Final
 import emoji
 import socketio  # type: ignore
 from config import SCAN_TIMEOUT
-from endpoints.responses.firmware import FirmwareSchema
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import RomSchema
 from exceptions.fs_exceptions import (
