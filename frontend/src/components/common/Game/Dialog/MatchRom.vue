@@ -8,6 +8,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 type MatchedSource = {
@@ -21,6 +22,7 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const searching = ref(false);
+const route = useRoute();
 const searchTerm = ref("");
 const theme = useTheme();
 const searchBy = ref("Name");
@@ -169,7 +171,10 @@ async function updateRom(selectedRom: SearchRomSchema) {
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data);
+      romsStore.update(data as SimpleRom);
+      if (route.name == "rom") {
+        romsStore.currentRom = data;
+      }
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
