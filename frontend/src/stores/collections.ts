@@ -31,6 +31,12 @@ export default defineStore("collections", {
       this.all.push(collection);
       this._reorder();
     },
+    update(collection: Collection) {
+      this.all = this.all.map((value) =>
+        value.id === collection.id ? collection : value,
+      );
+      this._reorder();
+    },
     exists(collection: Collection) {
       return this.all.filter((p) => p.name == collection.name).length > 0;
     },

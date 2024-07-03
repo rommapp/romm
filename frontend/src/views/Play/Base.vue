@@ -170,8 +170,6 @@ onMounted(async () => {
               })) ?? []
             "
           />
-          <!-- TODO: diisable selector when start playing -->
-          <!-- TODO: reset emulation to re-select -->
           <!-- <v-select
             class="my-1"
             hide-details
