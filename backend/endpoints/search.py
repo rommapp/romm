@@ -6,6 +6,7 @@ from handler.database import db_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 
@@ -114,5 +115,12 @@ async def search_cover(
     request: Request,
     search_term: str | None = None,
 ) -> list[SearchCoverSchema]:
+
+    if not STEAMGRIDDB_API_ENABLED:
+        log.error("Search error: No SteamGridDB enabled")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No SteamGridDB enabled",
+        )
 
     return meta_sgdb_handler.get_details(search_term)
