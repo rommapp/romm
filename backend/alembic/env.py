@@ -6,7 +6,6 @@ from alembic import context
 from config.config_manager import ConfigManager
 from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
-from models.collection import Collection
 from models.firmware import Firmware  # noqa
 from models.platform import Platform  # noqa
 from models.rom import Rom  # noqa

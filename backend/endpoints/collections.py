@@ -100,8 +100,8 @@ async def update_collection(request: Request, id: int) -> MessageResponse:
     try:
         try:
             roms = json.loads(data["roms"])
-        except json.JSONDecodeError:
-            raise ValueError("Invalid list for roms field in update collection")
+        except json.JSONDecodeError as e:
+            raise ValueError("Invalid list for roms field in update collection") from e
     except KeyError:
         roms = collection.roms
 
