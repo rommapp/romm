@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import NotRequired, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
+from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from handler.metadata.igdb_handler import IGDBMetadata
@@ -147,6 +148,7 @@ class DetailedRomSchema(RomSchema):
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
     user_notes: list[UserNotesSchema] = Field(default_factory=list)
+    collections: list[CollectionSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -168,6 +170,9 @@ class DetailedRomSchema(RomSchema):
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
+        ]
+        rom.collections = [
+            CollectionSchema.model_validate(c) for c in db_rom.get_collections()
         ]
 
         return rom
