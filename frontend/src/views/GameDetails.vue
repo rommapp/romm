@@ -20,7 +20,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -80,6 +80,10 @@ onBeforeMount(async () => {
   }
   const downloadStore = storeDownload();
   downloadStore.clear();
+});
+
+onBeforeRouteLeave(() => {
+  currentRom.value = null;
 });
 
 watch(
@@ -180,8 +184,10 @@ watch(
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
                 <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
-                  <file-info :rom="currentRom" :platform="platform" />
-                  <game-info :rom="currentRom" />
+                  <v-col>
+                    <file-info :rom="currentRom" :platform="platform" />
+                    <game-info :rom="currentRom" />
+                  </v-col>
                 </v-row>
               </v-window-item>
               <v-window-item value="saves">
