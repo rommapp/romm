@@ -148,7 +148,7 @@ class DetailedRomSchema(RomSchema):
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
     user_notes: list[UserNotesSchema] = Field(default_factory=list)
-    collections: list[CollectionSchema] = Field(default_factory=list)
+    user_collections: list[CollectionSchema] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -171,8 +171,8 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.collections = [
-            CollectionSchema.model_validate(c) for c in db_rom.get_collections()
+        rom.user_collections = [
+            CollectionSchema.model_validate(c) for c in db_rom.get_collections(user_id)
         ]
 
         return rom
