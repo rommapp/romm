@@ -181,12 +181,16 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def get_rom_collections(
-        self, rom_id: int, session: Session = None
+        self, rom: Rom, user_id: int, session: Session = None
     ) -> list[Collection]:
+
         return (
             session.scalars(
                 select(Collection)
-                .filter(Collection.roms.contains([rom_id]))
+                .filter(
+                    func.json_contains(Collection.roms, f"{rom.id}"),
+                    Collection.user_id == user_id,
+                )
                 .order_by(Collection.name.asc())
             )
             .unique()

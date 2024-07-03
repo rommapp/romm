@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
@@ -147,6 +148,29 @@ watch(
             variant="tonal"
           >
             {{ tag }}
+          </v-chip>
+        </v-col>
+      </v-row>
+      <v-row
+        v-if="rom.user_collections && rom.user_collections?.length > 0"
+        no-gutters
+        class="align-center my-3"
+      >
+        <v-col cols="3" xl="2">
+          <span>Collections</span>
+        </v-col>
+        <v-col>
+          <v-chip
+            v-for="collection in rom.user_collections"
+            :to="{ name: 'collection', params: { collection: collection.id } }"
+            size="large"
+            class="mr-1 mt-1"
+            label
+          >
+            <template #prepend>
+              <r-avatar :size="25" :collection="collection" />
+            </template>
+            <span class="ml-2">{{ collection.name }}</span>
           </v-chip>
         </v-col>
       </v-row>
