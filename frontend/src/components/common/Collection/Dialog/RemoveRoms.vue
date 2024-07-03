@@ -51,7 +51,6 @@ async function removeRomsFromCollection() {
         color: "green",
         timeout: 2000,
       });
-      romsStore.resetSelection();
       romsStore.remove(roms.value);
       emitter?.emit("refreshDrawer", null);
     })
@@ -66,6 +65,7 @@ async function removeRomsFromCollection() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      romsStore.resetSelection();
       if (selectedCollection.value?.roms.length == 0) {
         router.push({ name: "dashboard" });
       }
@@ -92,7 +92,7 @@ function closeDialog() {
   <r-dialog
     @close="closeDialog"
     v-model="show"
-    icon="mdi-bookmark-plus-outline"
+    icon="mdi-bookmark-remove-outline"
     scroll-content
     :width="mdAndUp ? '45vw' : '95vw'"
   >

@@ -8,8 +8,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 <template>
   <v-btn
     icon="mdi-magnify"
-    size="small"
     variant="flat"
+    rounded="0"
     @click="emitter?.emit('showSearchRomDialog', null)"
   />
 </template>

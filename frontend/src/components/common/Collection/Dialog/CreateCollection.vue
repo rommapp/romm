@@ -2,9 +2,10 @@
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import collectionApi, {
-  type UpdateCollection,
+  type UpdatedCollection,
 } from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
@@ -12,18 +13,21 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { smAndDown, mdAndUp } = useDisplay();
+const { mdAndUp } = useDisplay();
 const show = ref(false);
-const collection = ref<UpdateCollection>({
-  name: "",
-  description: "",
-} as UpdateCollection);
+const heartbeat = storeHeartbeat();
+const collection = ref<UpdatedCollection>({} as UpdatedCollection);
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateCollectionDialog", () => {
   show.value = true;
+});
+emitter?.on("updateUrlCover", (url_cover) => {
+  if (!collection.value) return;
+  collection.value.url_cover = url_cover;
+  imagePreviewUrl.value = url_cover;
 });
 
 // Functions
@@ -57,8 +61,7 @@ async function createCollection() {
 
   await collectionApi
     .createCollection({
-      name: collection.value.name,
-      description: collection.value.description,
+      collection: collection.value,
     })
     .then(({ data }) => {
       collectionsStore.add(data);
@@ -77,19 +80,16 @@ async function createCollection() {
         icon: "mdi-close-circle",
         color: "red",
       });
-      return;
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      closeDialog();
     });
 }
 
 function closeDialog() {
   show.value = false;
-  collection.value = {
-    name: "",
-    description: "",
-  } as UpdateCollection;
+  collection.value = {} as UpdatedCollection;
   imagePreviewUrl.value = "";
 }
 </script>
@@ -118,7 +118,7 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-textarea
+              <v-text-field
                 v-model="collection.description"
                 class="mt-1"
                 label="Description"
@@ -134,20 +134,33 @@ function closeDialog() {
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
               <collection-card
+                :key="collection.updated_at"
                 :show-title="false"
                 :with-link="false"
                 :collection="collection"
                 :src="imagePreviewUrl"
               >
                 <template #append-inner>
-                  <v-chip-group class="pa-0">
-                    <v-chip
+                  <v-btn-group rounded="0" divided density="compact">
+                    <v-btn
+                      :disabled="!heartbeat.value.STEAMGRIDDB_ENABLED"
+                      size="small"
                       class="translucent-dark"
-                      :size="smAndDown ? 'large' : 'small'"
-                      @click="triggerFileInput"
-                      label
+                      @click="
+                        emitter?.emit(
+                          'showSearchCoverDialog',
+                          collection.name as string
+                        )
+                      "
                     >
-                      <v-icon>mdi-pencil</v-icon>
+                      <v-icon size="large">mdi-image-search-outline</v-icon>
+                    </v-btn>
+                    <v-btn
+                      size="small"
+                      class="translucent-dark"
+                      @click="triggerFileInput"
+                    >
+                      <v-icon size="large">mdi-pencil</v-icon>
                       <v-file-input
                         id="file-input"
                         v-model="collection.artwork"
@@ -156,16 +169,17 @@ function closeDialog() {
                         class="file-input"
                         @change="previewImage"
                       />
-                    </v-chip>
-                    <v-chip
+                    </v-btn>
+                    <v-btn
+                      size="small"
                       class="translucent-dark"
-                      :size="smAndDown ? 'large' : 'small'"
                       @click="removeArtwork"
-                      label
                     >
-                      <v-icon class="text-romm-red"> mdi-delete </v-icon>
-                    </v-chip>
-                  </v-chip-group>
+                      <v-icon size="large" class="text-romm-red"
+                        >mdi-delete</v-icon
+                      >
+                    </v-btn>
+                  </v-btn-group>
                 </template>
               </collection-card>
             </v-col>
@@ -174,7 +188,7 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center MT-4 mb-2" no-gutters>
+      <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn

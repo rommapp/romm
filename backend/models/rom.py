@@ -142,7 +142,7 @@ class Rom(BaseModel):
 
     @property
     def fs_resources_path(self) -> str:
-        return f"{str(self.platform_id)}/{str(self.id)}"
+        return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.file_name

@@ -107,7 +107,7 @@ watch(
           'cover-mobile': smAndDown,
         }"
       >
-        <cover :rom="rom" />
+        <cover :pointerOnHover="false" :rom="rom" />
         <action-bar class="mt-2" :rom="rom" />
         <related-games v-if="mdAndUp" class="mt-3" :rom="rom" />
       </v-col>

@@ -2,21 +2,21 @@
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
-import type { UpdateCollection } from "@/services/api/collection";
+import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
-import { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 // Props
-const theme = useTheme();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
+const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const selectedCollection = ref<UpdateCollection>();
+const selectedCollection = ref<UpdatedCollection>();
 const roms = ref<SimpleRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showAddToCollectionDialog", (romsToAdd) => {
@@ -62,6 +62,7 @@ async function addRomsToCollection() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      romsStore.resetSelection();
       closeDialog();
     });
 }
@@ -97,7 +98,7 @@ function closeDialog() {
       </v-row>
     </template>
     <template #prepend>
-      <v-select
+      <v-autocomplete
         v-model="selectedCollection"
         class="pa-3"
         density="default"
@@ -126,7 +127,7 @@ function closeDialog() {
             </template>
           </v-list-item>
         </template>
-      </v-select>
+      </v-autocomplete>
     </template>
     <template #content>
       <v-data-table

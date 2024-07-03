@@ -273,6 +273,7 @@ onBeforeUnmount(() => {
           :xl="views[currentView]['size-xl']"
         >
           <game-card
+            :key="rom.updated_at"
             :rom="rom"
             title-on-hover
             show-action-bar

@@ -43,5 +43,9 @@ class Collection(BaseModel):
     def has_cover(self) -> bool:
         return bool(self.path_cover_s or self.path_cover_l)
 
+    @property
+    def fs_resources_path(self) -> str:
+        return f"collections/{str(self.id)}"
+
     def __repr__(self) -> str:
         return self.name

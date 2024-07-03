@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
-import romApi from "@/services/api/rom";
 import steamgriddb from "@/services/api/steamgriddb";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
@@ -12,27 +10,22 @@ import { useDisplay } from "vuetify";
 // Props
 const { lgAndUp } = useDisplay();
 const show = ref(false);
-const romsStore = storeRoms();
-const rom = ref<SimpleRom | null>(null);
 const searching = ref(false);
 const searchTerm = ref("");
-const games = ref<SearchCoverSchema[]>();
-const filteredGames = ref<SearchCoverSchema[]>();
+const coverType = ref("all");
+const covers = ref<SearchCoverSchema[]>([]);
+const filteredCovers = ref<SearchCoverSchema[]>();
 const panels = ref([0]);
 const emitter = inject<Emitter<Events>>("emitter");
-const type = ref("all");
-emitter?.on("showSearchCoverDialog", (romToSearch) => {
-  rom.value = romToSearch;
-  searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
+emitter?.on("showSearchCoverDialog", (term) => {
+  searchTerm.value = term;
   show.value = true;
-  searchCovers();
+  if (searchTerm.value) searchCovers();
 });
 
 // Functions
 async function searchCovers() {
-  games.value = undefined;
-
-  if (!rom.value) return;
+  covers.value = [];
 
   // Auto hide android keyboard
   const inputElement = document.getElementById("search-text-field");
@@ -45,16 +38,16 @@ async function searchCovers() {
         searchTerm: searchTerm.value,
       })
       .then((response) => {
-        games.value = response.data;
-        filteredGames.value = games.value
+        covers.value = response.data;
+        filteredCovers.value = covers.value
           .map((game) => {
             return {
               ...game,
               resources:
-                type.value === "all"
+                coverType.value === "all"
                   ? game.resources
                   : game.resources.filter(
-                      (resource) => resource.type === type.value
+                      (resource) => resource.type === coverType.value
                     ),
             };
           })
@@ -73,47 +66,22 @@ async function searchCovers() {
   }
 }
 
-async function updateCover(url_cover: string) {
-  if (!rom.value) return;
-
-  show.value = false;
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
-
-  rom.value.url_cover = url_cover.replace("thumb", "grid");
-
-  await romApi
-    .updateRom({ rom: rom.value })
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: "Rom updated successfully!",
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-      romsStore.update(data);
-    })
-    .catch((error) => {
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-    })
-    .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-    });
+async function selectCover(url_cover: string) {
+  emitter?.emit("updateUrlCover", url_cover.replace("thumb", "grid"));
+  closeDialog();
 }
 
 function filterCovers() {
-  if (games.value) {
-    filteredGames.value = games.value
+  if (covers.value) {
+    filteredCovers.value = covers.value
       .map((game) => {
         return {
           ...game,
           resources:
-            type.value === "all"
+            coverType.value === "all"
               ? game.resources
               : game.resources.filter(
-                  (resource) => resource.type === type.value
+                  (resource) => resource.type === coverType.value
                 ),
         };
       })
@@ -123,7 +91,9 @@ function filterCovers() {
 
 function closeDialog() {
   show.value = false;
-  games.value = undefined;
+  covers.value = [];
+  filteredCovers.value = [];
+  searchTerm.value = "";
 }
 
 onBeforeUnmount(() => {
@@ -135,9 +105,9 @@ onBeforeUnmount(() => {
   <r-dialog
     @close="closeDialog"
     v-model="show"
-    icon="mdi-image-outline"
+    icon="mdi-image-search-outline"
     :loading-condition="searching"
-    :empty-state-condition="filteredGames?.length == 0"
+    :empty-state-condition="filteredCovers?.length == 0"
     empty-state-type="game"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
@@ -161,7 +131,7 @@ onBeforeUnmount(() => {
         <v-col cols="2" sm="2">
           <v-select
             :disabled="searching"
-            v-model="type"
+            v-model="coverType"
             hide-details
             label="Type"
             @update:model-value="filterCovers"
@@ -190,7 +160,7 @@ onBeforeUnmount(() => {
         rounded="0"
         variant="accordion"
       >
-        <v-expansion-panel v-for="game in filteredGames" :key="game.name">
+        <v-expansion-panel v-for="game in filteredCovers" :key="game.name">
           <v-expansion-panel-title class="bg-terciary">
             <v-row no-gutters class="justify-center">
               <v-list-item class="pa-0">{{ game.name }}</v-list-item>
@@ -210,7 +180,7 @@ onBeforeUnmount(() => {
                     v-bind="hoverProps"
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
-                    @click="updateCover(resource.url)"
+                    @click="selectCover(resource.url)"
                     :aspect-ratio="2 / 3"
                     :src="resource.thumb"
                     cover

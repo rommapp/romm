@@ -31,6 +31,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
           :xl="views[0]['size-xl']"
         >
           <game-card
+            :key="rom.updated_at"
             @click="onGameClick"
             :rom="rom"
             transform-scale

@@ -143,7 +143,7 @@ function onDownload() {
             : 'mdi-bookmark-remove'
         "
         size="default"
-        @click.stop="
+        @click="
           $route.name == 'platform'
             ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
             : emitter?.emit(
