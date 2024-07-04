@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
-import steamgriddb from "@/services/api/steamgriddb";
+import sgdbApi from "@/services/api/sgdb";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
