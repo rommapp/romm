@@ -46,7 +46,7 @@ async def add_collection(
         cleaned_data["name"], request.user.id
     )
 
-    if collection_db:
+    if db_collection:
         raise CollectionAlreadyExistsException(cleaned_data["name"])
 
     _added_collection = db_collection_handler.add_collection(Collection(**cleaned_data))
