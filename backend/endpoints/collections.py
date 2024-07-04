@@ -42,7 +42,7 @@ async def add_collection(
         "is_public": data.get("is_public", False),
         "user_id": request.user.id,
     }
-    collection_db = db_collection_handler.get_collection_by_name(
+    db_collection = db_collection_handler.get_collection_by_name(
         cleaned_data["name"], request.user.id
     )
 
