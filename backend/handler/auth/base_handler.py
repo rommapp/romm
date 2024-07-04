@@ -86,14 +86,15 @@ class AuthHandler:
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"User {user} not found",
+                detail=f"User not found",
             )
 
         if not user.enabled:
             conn.session.clear()
 
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail=f"Inactive user {user}"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Inactive user {user.username}",
             )
 
         return user
