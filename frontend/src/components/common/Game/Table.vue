@@ -2,7 +2,6 @@
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -30,7 +29,6 @@ const router = useRouter();
 const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const auth = storeAuth();
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
 const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
@@ -181,11 +179,7 @@ onMounted(() => {
         </v-btn>
         <v-menu location="bottom">
           <template #activator="{ props }">
-            <v-btn
-              v-if="auth.scopes.includes('roms.write')"
-              v-bind="props"
-              size="small"
-            >
+            <v-btn v-bind="props" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>
