@@ -1,6 +1,7 @@
+import router from "@/plugins/router";
 import axios from "axios";
 import cookie from "js-cookie";
-import router from "@/plugins/router";
+import Cookies from "js-cookie";
 import { debounce } from "lodash";
 
 const api = axios.create({ baseURL: "/api", timeout: 120000 });
@@ -37,6 +38,10 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 403) {
+      const allCookies = Cookies.get(); // Get all cookies
+      for (let cookie in allCookies) {
+        Cookies.remove(cookie); // Remove each cookie
+      }
       router.push({
         name: "login",
       });
