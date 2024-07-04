@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
-import userApi from "@/services/api/user";
-import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -16,21 +14,12 @@ const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
 const logging = ref(false);
-const auth = storeAuth();
 
 async function login() {
   logging.value = true;
   await identityApi
     .login(username.value, password.value)
-    .then(async () => {
-      await userApi
-        .fetchCurrentUser()
-        .then(({ data: user }) => {
-          auth.setUser(user);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+    .then(() => {
       router.push({ name: "dashboard" });
     })
     .catch(({ response, message }) => {

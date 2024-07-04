@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
-import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted } from "vue";
+import { inject } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -25,17 +24,6 @@ async function addCollection() {
 function clear() {
   searchText.value = "";
 }
-
-onMounted(async () => {
-  await collectionApi
-    .getCollections()
-    .then(({ data: collections }) => {
-      collectionsStore.set(collections);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-});
 </script>
 <template>
   <v-navigation-drawer
