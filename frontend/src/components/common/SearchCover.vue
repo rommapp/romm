@@ -33,7 +33,7 @@ async function searchCovers() {
 
   if (!searching.value) {
     searching.value = true;
-    await steamgriddb
+    await sgdbApi
       .searchCover({
         searchTerm: searchTerm.value,
       })
