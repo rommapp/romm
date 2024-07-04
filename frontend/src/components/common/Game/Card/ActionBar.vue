@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { SimpleRom } from "@/stores/roms";
 import { isEmulationSupported } from "@/utils";
 
 // Props
 defineProps<{ rom: SimpleRom }>();
-const auth = storeAuth();
 const downloadStore = storeDownload();
 </script>
 
@@ -44,7 +42,6 @@ const downloadStore = storeDownload();
     <v-menu location="bottom">
       <template #activator="{ props }">
         <v-btn
-          v-if="auth.scopes.includes('roms.write')"
           class="action-bar-btn-small"
           size="x-small"
           v-bind="props"

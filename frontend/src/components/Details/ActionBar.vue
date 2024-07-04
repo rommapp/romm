@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -13,7 +12,6 @@ import { inject, ref } from "vue";
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
-const auth = storeAuth();
 const playInfoIcon = ref("mdi-play");
 const emulationSupported = isEmulationSupported(props.rom.platform_slug);
 
@@ -88,11 +86,7 @@ async function copyDownloadLink(rom: DetailedRom) {
     </v-btn>
     <v-menu location="bottom">
       <template #activator="{ props: menuProps }">
-        <v-btn
-          v-if="auth.scopes.includes('roms.write')"
-          class="flex-grow-1"
-          v-bind="menuProps"
-        >
+        <v-btn class="flex-grow-1" v-bind="menuProps">
           <v-icon icon="mdi-dots-vertical" size="large" />
         </v-btn>
       </template>
