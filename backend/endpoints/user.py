@@ -89,7 +89,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return user
 
 
-@protected_route(router.put, "/users/{id}", ["users.write"])
+@protected_route(router.put, "/users/{id}")
 def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
@@ -108,17 +108,23 @@ def update_user(
         UserSchema: Updated user info
     """
 
-    user = db_user_handler.get_user(id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    db_user = db_user_handler.get_user(id)
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    if not db_user.id == request.user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     cleaned_data = {}
 
-    if form_data.username and form_data.username != user.username:
+    if form_data.username and form_data.username != db_user.username:
         existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
         if existing_user:
             raise HTTPException(
-                status_code=400, detail="Username already in use by another user"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already in use by another user",
             )
 
         cleaned_data["username"] = form_data.username.lower()
@@ -137,7 +143,7 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
+        user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
         cleaned_data["avatar_path"] = file_location
         Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(
