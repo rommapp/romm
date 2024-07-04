@@ -4,6 +4,7 @@ import userApi from "@/services/api/user";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import { useRoute } from "vue-router";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -11,6 +12,7 @@ import { useDisplay } from "vuetify";
 const { xs, smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
+const route = useRoute()
 const visiblePassword = ref(false);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -71,7 +73,7 @@ async function finishWizard() {
   <span id="bg" />
 
   <v-container class="fill-height justify-center">
-    <v-card class="translucent-dark px-6" elevation="0">
+    <v-card class="translucent-dark px-3" elevation="0">
       <v-img src="/assets/isotipo.svg" class="mx-auto mt-4" width="70" />
       <v-stepper
         :mobile="smAndDown"
@@ -84,7 +86,7 @@ async function finishWizard() {
         <template v-slot:default="{ prev, next }">
           <v-stepper-header>
             <v-stepper-item
-              title="Create admin user"
+              title="Create an admin user"
               :value="1"
             ></v-stepper-item>
 
@@ -106,7 +108,7 @@ async function finishWizard() {
                 <v-col>
                   <v-row v-if="smAndDown" no-gutters class="text-center mb-6">
                     <v-col>
-                      <span>Create admin user</span>
+                      <span>Create an admin user</span>
                     </v-col>
                   </v-row>
                   <v-row class="text-white justify-center mt-3" no-gutters>
@@ -119,7 +121,6 @@ async function finishWizard() {
                           type="text"
                           label="Username"
                           variant="underlined"
-                          @keyup.enter=""
                         />
                         <v-text-field
                           v-model="defaultAdminUser.password"
@@ -131,7 +132,6 @@ async function finishWizard() {
                           :append-inner-icon="
                             visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                           "
-                          @keyup.enter=""
                           @click:append-inner="
                             visiblePassword = !visiblePassword
                           "
