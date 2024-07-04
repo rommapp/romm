@@ -52,6 +52,7 @@ async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)
     .then(() => {
+      router.go(0); // Needed to get the csrftoken properly after creating default admin user
       router.push({ name: "login" });
     })
     .catch(({ response, message }) => {
