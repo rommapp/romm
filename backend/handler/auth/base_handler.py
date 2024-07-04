@@ -84,7 +84,7 @@ class AuthHandler:
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"User not found",
+                detail="User not found",
             )
 
         if not user.enabled:
