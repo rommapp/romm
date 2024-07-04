@@ -7,46 +7,48 @@ export type Collection = CollectionSchema;
 export default defineStore("collections", {
   state: () => {
     return {
-      all: [] as Collection[],
+      allCollections: [] as Collection[],
       searchText: "" as string,
     };
   },
   getters: {
-    filteredCollections: ({ all, searchText }) =>
-      all.filter((p) =>
+    filteredCollections: ({ allCollections, searchText }) =>
+      allCollections.filter((p) =>
         p.name.toLowerCase().includes(searchText.toLowerCase()),
       ),
   },
   actions: {
     _reorder() {
-      this.all = this.all.sort((a, b) => {
+      this.allCollections = this.allCollections.sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.all = uniqBy(this.all, "id");
+      this.allCollections = uniqBy(this.allCollections, "id");
     },
     set(collections: Collection[]) {
-      this.all = collections;
+      this.allCollections = collections;
     },
     add(collection: Collection) {
-      this.all.push(collection);
+      this.allCollections.push(collection);
       this._reorder();
     },
     update(collection: Collection) {
-      this.all = this.all.map((value) =>
+      this.allCollections = this.allCollections.map((value) =>
         value.id === collection.id ? collection : value,
       );
       this._reorder();
     },
     exists(collection: Collection) {
-      return this.all.filter((p) => p.name == collection.name).length > 0;
+      return (
+        this.allCollections.filter((p) => p.name == collection.name).length > 0
+      );
     },
     remove(collection: Collection) {
-      this.all = this.all.filter((p) => {
+      this.allCollections = this.allCollections.filter((p) => {
         return p.name !== collection.name;
       });
     },
     get(collectionId: number) {
-      return this.all.find((p) => p.id === collectionId);
+      return this.allCollections.find((p) => p.id === collectionId);
     },
   },
 });

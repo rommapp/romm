@@ -16,7 +16,7 @@ const { recentRoms } = storeToRefs(romsStore);
 const platforms = storePlatforms();
 const { filledPlatforms } = storeToRefs(platforms);
 const collections = storeCollections();
-const { all } = storeToRefs(collections);
+const { allCollections } = storeToRefs(collections);
 
 // Functions
 onMounted(async () => {
@@ -35,5 +35,5 @@ onMounted(async () => {
   <stats />
   <recently-added v-if="recentRoms.length > 0" />
   <platforms v-if="filledPlatforms.length > 0" />
-  <collections v-if="all.length > 0" />
+  <collections v-if="allCollections.length > 0" />
 </template>

@@ -12,7 +12,7 @@ const collections = storeCollections();
     <template #content>
       <v-row no-gutters>
         <v-col
-          v-for="collection in collections.all"
+          v-for="collection in collections.allCollections"
           :key="collection.name"
           class="pa-1"
           :cols="views[0]['size-cols']"
