@@ -39,7 +39,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 403) {
       const allCookies = Cookies.get(); // Get all cookies
-      for (let cookie in allCookies) {
+      for (const cookie in allCookies) {
         Cookies.remove(cookie); // Remove each cookie
       }
       router.push({
