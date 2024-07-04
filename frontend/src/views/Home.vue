@@ -54,7 +54,6 @@ emitter?.on("refreshDrawer", async () => {
 
 // Functions
 onBeforeMount(async () => {
-  navigationStore.resetDrawers();
   await platformApi
     .getPlatforms()
     .then(({ data: platforms }) => {
@@ -79,6 +78,7 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
+  navigationStore.resetDrawers();
 });
 </script>
 

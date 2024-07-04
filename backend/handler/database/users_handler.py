@@ -1,6 +1,7 @@
 from decorators.database import begin_session
 from models.user import Role, User
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -42,4 +43,10 @@ class DBUsersHandler(DBBaseHandler):
 
     @begin_session
     def get_admin_users(self, session: Session = None) -> list[User]:
-        return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
+        try:
+            return session.scalars(select(User).filter_by(role=Role.ADMIN)).all()
+        except ProgrammingError as e:
+            if "Table" in str(e.orig) and "doesn't exist" in str(e.orig):
+                return []
+            else:
+                raise ProgrammingError from e
