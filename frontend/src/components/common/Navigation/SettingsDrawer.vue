@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { UserSchema } from "@/__generated__";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
@@ -60,6 +61,11 @@ async function logout() {
       </v-list-item>
     </v-list>
     <v-list rounded="0" class="pa-0">
+      <v-list-item
+        @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
+        append-icon="mdi-account"
+        >Profile</v-list-item
+      >
       <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
         >UI Settings</v-list-item
       >
