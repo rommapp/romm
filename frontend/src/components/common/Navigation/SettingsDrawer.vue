@@ -20,22 +20,15 @@ const { smAndDown } = useDisplay();
 
 // Functions
 async function logout() {
-  identityApi
-    .logout()
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: data.msg,
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-      router.push({ name: "login" });
-    })
-    .catch(() => {
-      router.push({ name: "login" });
-    })
-    .finally(() => {
-      auth.setUser(null);
+  identityApi.logout().then(({ data }) => {
+    emitter?.emit("snackbarShow", {
+      msg: data.msg,
+      icon: "mdi-check-bold",
+      color: "green",
     });
+  });
+  await router.push({ name: "login" });
+  auth.setUser(null);
 }
 </script>
 <template>

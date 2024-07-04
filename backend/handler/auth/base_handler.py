@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
+from logger.logger import log
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
@@ -81,36 +82,21 @@ class AuthHandler:
         # Key exists therefore user is probably authenticated
         user = db_user_handler.get_user_by_username(username)
         if user is None:
-            conn.session = {}
+            conn.session.clear()
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not found",
+                detail=f"User {user} not found",
             )
 
         if not user.enabled:
-            conn.session = {}
+            conn.session.clear()
 
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
+                status_code=status.HTTP_403_FORBIDDEN, detail=f"Inactive user {user}"
             )
 
         return user
-
-    def create_default_admin_user(self):
-        from handler.database import db_user_handler
-        from models.user import Role, User
-
-        try:
-            db_user_handler.add_user(
-                User(
-                    username=ROMM_AUTH_USERNAME,
-                    hashed_password=self.get_password_hash(ROMM_AUTH_PASSWORD),
-                    role=Role.ADMIN,
-                )
-            )
-        except IntegrityError:
-            pass
 
 
 class OAuthHandler:

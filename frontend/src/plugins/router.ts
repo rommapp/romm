@@ -1,11 +1,17 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
+import storeHeartbeat from "@/stores/heartbeat";
 
 const routes = [
   {
     path: "/login",
     name: "login",
     component: () => import("@/views/Login.vue"),
+  },
+  {
+    path: "/setup",
+    name: "setup",
+    component: () => import("@/views/Setup.vue"),
   },
   {
     path: "/",
@@ -71,10 +77,17 @@ const router = createRouter({
   routes,
 });
 
+router.beforeEach((to) => {
+  const heartbeat = storeHeartbeat();
+  if (to.name == "setup" && !heartbeat.value.SETUP_WIZARD) {
+    router.push({ name: "dashboard" });
+  }
+  // TODO: check permission for views. Ex: view user can access to /scan view
+});
+
 router.afterEach(() => {
   // Scroll to top to avoid annoying behaviour in mobile
   window.scrollTo({ top: 0, left: 0 });
-  // TODO: check permission for views. Ex: view user can access to /scan view
 });
 
 export default router;

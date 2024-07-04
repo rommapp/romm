@@ -8,6 +8,7 @@ from config import (
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
 from fastapi import APIRouter
+from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
@@ -27,6 +28,7 @@ def heartbeat() -> HeartbeatResponse:
 
     return {
         "VERSION": get_version(),
+        "SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
         "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
         "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
         "METADATA_SOURCES": {
