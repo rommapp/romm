@@ -1,15 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Final
 
-from config import ROMM_AUTH_PASSWORD, ROMM_AUTH_SECRET_KEY, ROMM_AUTH_USERNAME
+from config import ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
-from logger.logger import log
 from passlib.context import CryptContext
-from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
 
 ALGORITHM: Final = "HS256"
