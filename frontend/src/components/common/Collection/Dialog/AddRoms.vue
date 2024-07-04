@@ -104,7 +104,7 @@ function closeDialog() {
         density="default"
         label="Collection"
         item-title="name"
-        :items="collectionsStore.all"
+        :items="collectionsStore.allCollections"
         variant="outlined"
         hide-details
         return-object
