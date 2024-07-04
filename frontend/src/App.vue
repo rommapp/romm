@@ -4,19 +4,35 @@ import api from "@/services/api/index";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNotifications from "@/stores/notifications";
+import userApi from "@/services/api/user";
+import storeAuth from "@/stores/auth";
 import { storeToRefs } from "pinia";
-import { onMounted } from "vue";
+import { onBeforeMount } from "vue";
+import router from "./plugins/router";
 
 // Props
 const notificationStore = storeNotifications();
 const { notifications } = storeToRefs(notificationStore);
 const heartbeat = storeHeartbeat();
+const auth = storeAuth();
 const configStore = storeConfig();
 
-onMounted(async () => {
+onBeforeMount(async () => {
   await api.get("/heartbeat").then(({ data: data }) => {
     heartbeat.set(data);
+    if (heartbeat.value.SETUP_WIZARD) {
+      router.push({ name: "setup" });
+    }
   });
+
+  await userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 
   await api.get("/config").then(({ data: data }) => {
     configStore.set(data);

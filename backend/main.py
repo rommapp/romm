@@ -1,6 +1,5 @@
 import re
 import sys
-from contextlib import asynccontextmanager
 
 import alembic.config
 import endpoints.sockets.scan  # noqa
@@ -35,18 +34,7 @@ from handler.socket_handler import socket_handler
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    if "pytest" not in sys.modules:
-        # Create default admin user if no admin user exists
-        if len(db_user_handler.get_admin_users()) == 0:
-            auth_handler.create_default_admin_user()
-
-    yield
-
-
-app = FastAPI(title="RomM API", version=get_version(), lifespan=lifespan)
+app = FastAPI(title="RomM API", version=get_version())
 
 app.add_middleware(
     CORSMiddleware,

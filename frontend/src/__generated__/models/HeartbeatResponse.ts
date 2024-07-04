@@ -9,6 +9,7 @@ import type { WatcherDict } from "./WatcherDict";
 
 export type HeartbeatResponse = {
   VERSION: string;
+  SETUP_WIZARD: boolean;
   WATCHER: WatcherDict;
   SCHEDULER: SchedulerDict;
   ANY_SOURCE_ENABLED: boolean;

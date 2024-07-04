@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
+import platformApi from "@/services/api/platform";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
+import { inject, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -11,11 +15,28 @@ const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("refreshDrawer", async () => {
+  const { data: platformData } = await platformApi.getPlatforms();
+  platformsStore.set(platformData);
+});
 
 // Functions
 function clear() {
   searchText.value = "";
 }
+
+onMounted(async () => {
+  navigationStore.resetDrawers();
+  await platformApi
+    .getPlatforms()
+    .then(({ data: platforms }) => {
+      platformsStore.set(platforms);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+});
 </script>
 <template>
   <v-navigation-drawer
