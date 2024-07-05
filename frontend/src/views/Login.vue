@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
-import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
 const heartbeatStore = storeHeartbeat();
-const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
@@ -17,13 +15,12 @@ const password = ref("");
 const visiblePassword = ref(false);
 const logging = ref(false);
 
-function login() {
+async function login() {
   logging.value = true;
-  identityApi
+  await identityApi
     .login(username.value, password.value)
     .then(() => {
-      const next = (router.currentRoute.value.query?.next || "/").toString();
-      router.push(next);
+      router.push({ name: "dashboard" });
     })
     .catch(({ response, message }) => {
       const errorMessage =
@@ -51,17 +48,12 @@ function login() {
   <span id="bg" />
 
   <v-container class="fill-height justify-center">
-    <v-card id="card" class="py-8 px-5" width="500">
-      <v-row>
+    <v-card class="translucent-dark py-8 px-5" width="500">
+      <v-row no-gutters>
         <v-col>
-          <v-img
-            src="/assets/isotipo.svg"
-            class="mx-auto"
-            width="200"
-            height="200"
-          />
+          <v-img src="/assets/isotipo.svg" class="mx-auto" width="150" />
 
-          <v-row class="text-white justify-center mt-2">
+          <v-row class="text-white justify-center mt-2" no-gutters>
             <v-col cols="10" md="8">
               <v-form @submit.prevent>
                 <v-text-field
@@ -117,7 +109,7 @@ function login() {
       </v-row>
     </v-card>
 
-    <div id="version" class="position-absolute">
+    <div id="version" class="text-shadow position-absolute">
       <span class="text-white">{{ heartbeatStore.value.VERSION }}</span>
     </div>
   </v-container>
@@ -133,12 +125,7 @@ function login() {
   background: url("/assets/login_bg.png") center center;
   background-size: cover;
 }
-#card {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-}
 #version {
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
   bottom: 0.3rem;
   right: 0.5rem;
 }
