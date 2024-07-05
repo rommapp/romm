@@ -56,7 +56,7 @@ class DBRomsHandler(DBBaseHandler):
         if platform_id:
             data = data.filter(Rom.platform_id == platform_id)
 
-        elif collection_id:
+        if collection_id:
             collection = (
                 session.query(Collection)
                 .filter(Collection.id == collection_id)
