@@ -42,6 +42,7 @@ const auth = storeAuth();
       <v-divider />
     </template>
     <v-list-item
+      v-if="auth.scopes.includes('collections.write')"
       class="py-4 pr-5"
       @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
     >
