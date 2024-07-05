@@ -3,6 +3,7 @@ import collectionApi, {
   type UpdatedCollection,
 } from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
+import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -12,6 +13,7 @@ import { inject } from "vue";
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
 const collectionsStore = storeCollections();
+const romsStore = storeRoms();
 const { favCollection } = storeToRefs(collectionsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
@@ -28,7 +30,7 @@ async function switchFromFavourites() {
       })
       .then(({ data }) => {
         collectionsStore.add(data);
-        collectionsStore.setFavCollection(data);
+        favCollection.value = data;
         emitter?.emit("snackbarShow", {
           msg: `Collection ${data.name} created successfully!`,
           icon: "mdi-check-bold",
@@ -43,38 +45,43 @@ async function switchFromFavourites() {
           icon: "mdi-close-circle",
           color: "red",
         });
+        return;
       });
+  }
+  if (!isFav()) {
+    favCollection.value?.roms.push(props.rom.id);
   } else {
-    if (!isFav()) {
-      favCollection.value.roms.push(props.rom.id);
-    } else {
+    if (favCollection.value) {
       favCollection.value.roms = favCollection.value.roms.filter(
         (id) => id !== props.rom.id
       );
+      romsStore.remove([props.rom]);
     }
-    await collectionApi
-      .updateCollection({ collection: favCollection.value })
-      .then(({ data }) => {
-        emitter?.emit("snackbarShow", {
-          msg: `Roms added to ${favCollection.value?.name} successfully!`,
-          icon: "mdi-check-bold",
-          color: "green",
-          timeout: 2000,
-        });
-      })
-      .catch((error) => {
-        console.log(error);
-        emitter?.emit("snackbarShow", {
-          msg: error.response.data.detail,
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-        return;
-      })
-      .finally(() => {
-        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      });
   }
+  await collectionApi
+    .updateCollection({ collection: favCollection.value as Collection })
+    .then(({ data }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `${props.rom.name} ${isFav() ? "added to" : "removed from"} ${
+          favCollection.value?.name
+        } successfully!`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
 }
 </script>
 

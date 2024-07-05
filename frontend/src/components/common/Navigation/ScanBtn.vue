@@ -26,9 +26,8 @@ const galleryFilter = storeGalleryFilter();
 const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 const scanningStore = storeScanning();
-const { scanningPlatforms } = storeToRefs(scanningStore);
+const { scanningPlatforms, scanning } = storeToRefs(scanningStore);
 const romsStore = storeRoms();
-const { scanning } = storeToRefs(scanningStore);
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
 
@@ -45,6 +44,7 @@ socket.on(
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   scanningStore.set(true);
+  romsStore.addToRecent(rom);
   if (romsStore.currentPlatform?.id === rom.platform_id) {
     romsStore.add([rom]);
     romsStore.setFiltered(
