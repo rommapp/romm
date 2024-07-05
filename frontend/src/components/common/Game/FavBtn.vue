@@ -18,10 +18,6 @@ const { favCollection } = storeToRefs(collectionsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
-function isFav() {
-  return favCollection.value?.roms?.includes(props.rom.id);
-}
-
 async function switchFromFavourites() {
   if (!favCollection.value) {
     await collectionApi
@@ -48,7 +44,7 @@ async function switchFromFavourites() {
         return;
       });
   }
-  if (!isFav()) {
+  if (!collectionsStore.isFav(props.rom)) {
     favCollection.value?.roms.push(props.rom.id);
   } else {
     if (favCollection.value) {
@@ -62,9 +58,9 @@ async function switchFromFavourites() {
     .updateCollection({ collection: favCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: `${props.rom.name} ${isFav() ? "added to" : "removed from"} ${
-          favCollection.value?.name
-        } successfully!`,
+        msg: `${props.rom.name} ${
+          collectionsStore.isFav(props.rom) ? "added to" : "removed from"
+        } ${favCollection.value?.name} successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -94,7 +90,7 @@ async function switchFromFavourites() {
     variant="text"
     icon
     ><v-icon color="romm-accent-1">{{
-      isFav() ? "mdi-star" : "mdi-star-outline"
+      collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
     }}</v-icon></v-btn
   >
 </template>

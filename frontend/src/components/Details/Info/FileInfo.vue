@@ -157,7 +157,10 @@ watch(
         </v-col>
       </v-row>
       <v-row
-        v-if="rom.user_collections && rom.user_collections?.length > 0"
+        v-if="
+          rom.user_collections &&
+          collectionsWithoutFavourites(rom.user_collections).length > 0
+        "
         no-gutters
         class="align-center my-3"
       >
