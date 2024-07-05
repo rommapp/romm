@@ -7,8 +7,11 @@ import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 import storeGalleryFilter from "./galleryFilter";
+import storeCollection from "./collections";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
+
+const collectionStore = storeCollection();
 
 export type SimpleRom = RomSchema & {
   siblings?: RomSchema[]; // Added by the frontend
@@ -109,6 +112,9 @@ export default defineStore("roms", {
       this.allRoms = this.allRoms.concat(roms);
       this._reorder();
     },
+    addToRecent(rom: SimpleRom) {
+      this.recentRoms = [rom, ...this.recentRoms];
+    },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>
         value.id === rom.id ? rom : value,
@@ -151,6 +157,9 @@ export default defineStore("roms", {
       if (galleryFilter.filterUnmatched) {
         this._filterUnmatched();
       }
+      if (galleryFilter.filterFavourites) {
+        this._filterFavourites();
+      }
       if (galleryFilter.selectedGenre) {
         this._filterGenre(galleryFilter.selectedGenre);
       }
@@ -176,6 +185,11 @@ export default defineStore("roms", {
     _filterUnmatched() {
       this._filteredIDs = this.filteredRoms
         .filter((rom) => !rom.igdb_id && !rom.moby_id)
+        .map((roms) => roms.id);
+    },
+    _filterFavourites() {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => collectionStore.favCollection?.roms?.includes(rom.id))
         .map((roms) => roms.id);
     },
     _filterGenre(genreToFilter: string) {

@@ -3,11 +3,12 @@ import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
-import FavBtn from "@/components/common/Game/FavBtn.vue";
+import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
+import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
@@ -54,8 +55,16 @@ const downloadStore = storeDownload();
 const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
+const collectionsStore = storeCollections();
+const { favCollection } = storeToRefs(collectionsStore);
 
 // Functions
+function isFav() {
+  if (romsStore.isSimpleRom(props.rom)) {
+    return favCollection.value?.roms?.includes(props.rom.id);
+  }
+}
+
 onMounted(() => {
   card.value.$el.addEventListener("contextmenu", (event: Event) => {
     event.preventDefault();
@@ -153,9 +162,19 @@ onMounted(() => {
             </v-row>
           </div>
           <div class="position-absolute append-inner">
-            <slot name="append-inner">
-              <fav-btn v-if="showFav" :rom="rom" />
-            </slot>
+            <v-btn
+              v-if="isFav() && showFav"
+              @click.stop=""
+              class="label-fav"
+              rouded="0"
+              size="small"
+              color="romm-accent-1"
+            >
+              <v-icon class="icon-fav" size="x-small"
+                >{{ isFav() ? "mdi-star" : "mdi-star-outline" }}
+              </v-icon>
+            </v-btn>
+            <slot name="append-inner"> </slot>
           </div>
 
           <template #error>
@@ -224,5 +243,15 @@ onMounted(() => {
 .append-inner {
   bottom: 0rem;
   right: 0rem;
+}
+.label-fav {
+  left: 1.5rem;
+  top: 0.5rem;
+  transform: rotate(-45deg);
+}
+.icon-fav {
+  transform: rotate(45deg);
+  right: 0.25rem;
+  bottom: 0.35rem;
 }
 </style>
