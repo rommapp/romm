@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity } from "lodash";
-import { ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -18,13 +18,6 @@ const releaseDate = new Date(
   year: "numeric",
 });
 const hasReleaseDate = Number(props.rom.first_release_date) > 0;
-
-const fav = ref(false);
-
-// Functions
-function addToFavs() {
-  fav.value = !fav.value;
-}
 </script>
 <template>
   <v-row
@@ -37,13 +30,8 @@ function addToFavs() {
         class="align-center text-h5 px-6 font-weight-bold pl-0"
         label
         variant="text"
-        >{{ rom.name
-        }}<v-chip @click="addToFavs" class="ml-2" rouded="0" size="small" icon
-          ><v-icon color="romm-accent-1">{{
-            fav ? "mdi-star" : "mdi-star-outline"
-          }}</v-icon></v-chip
-        ></v-list-item
-      >
+        >{{ rom.name }}<fav-btn class="ml-1" :rom="rom" />
+      </v-list-item>
     </v-col>
   </v-row>
 
