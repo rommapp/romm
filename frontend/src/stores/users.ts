@@ -5,22 +5,22 @@ export type User = UserSchema;
 
 export default defineStore("users", {
   state: () => ({
-    allUSers: [] as User[],
+    allUsers: [] as User[],
   }),
 
   getters: {
-    admins: (state) => state.allUSers.filter((user) => user.role === "admin"),
+    admins: (state) => state.allUsers.filter((user) => user.role === "admin"),
   },
 
   actions: {
     set(users: User[]) {
-      this.allUSers = users;
+      this.allUsers = users;
     },
     add(user: User) {
-      this.allUSers = this.allUSers.concat(user);
+      this.allUsers = this.allUsers.concat(user);
     },
     update(user: User) {
-      this.allUSers = this.allUSers.map((value) => {
+      this.allUsers = this.allUsers.map((value) => {
         if (value.id === user.id) {
           return user;
         }
@@ -28,12 +28,12 @@ export default defineStore("users", {
       });
     },
     remove(userId: number) {
-      this.allUSers = this.allUSers.filter((value) => {
+      this.allUsers = this.allUsers.filter((value) => {
         return value.id !== userId;
       });
     },
     reset() {
-      this.allUSers = [];
+      this.allUsers = [];
     },
   },
 });
