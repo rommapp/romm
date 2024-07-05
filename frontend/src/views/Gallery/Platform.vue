@@ -245,6 +245,7 @@ onBeforeRouteUpdate(async (to, from) => {
 });
 
 onBeforeUnmount(() => {
+  romsStore.setCurrentPlatform(null);
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
 });

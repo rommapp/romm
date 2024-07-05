@@ -51,7 +51,9 @@ async function switchFromFavourites() {
       favCollection.value.roms = favCollection.value.roms.filter(
         (id) => id !== props.rom.id
       );
-      romsStore.remove([props.rom]);
+      if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
+        romsStore.remove([props.rom]);
+      }
     }
   }
   await collectionApi
