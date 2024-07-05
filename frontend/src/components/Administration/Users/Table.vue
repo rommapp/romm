@@ -15,7 +15,7 @@ const userSearch = ref("");
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
-const { allUSers } = storeToRefs(usersStore);
+const { allUsers } = storeToRefs(usersStore);
 const auth = storeAuth();
 const HEADERS = [
   {
@@ -60,7 +60,7 @@ emitter?.on("updateDataTablePages", updateDataTablePages);
 
 // Functions
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(usersStore.allUSers.length / usersPerPage.value);
+  pageCount.value = Math.ceil(usersStore.allUsers.length / usersPerPage.value);
 }
 
 function disableUser(user: User) {
@@ -108,7 +108,7 @@ onMounted(() => {
         :items-per-page-options="PER_PAGE_OPTIONS"
         :search="userSearch"
         :headers="HEADERS"
-        :items="allUSers"
+        :items="allUsers"
         :sort-by="[{ key: 'username', order: 'asc' }]"
         fixed-header
         fixed-footer
