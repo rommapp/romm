@@ -1,6 +1,7 @@
 import type { CollectionSchema } from "@/__generated__";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
+import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
 
@@ -53,6 +54,9 @@ export default defineStore("collections", {
     },
     get(collectionId: number) {
       return this.allCollections.find((p) => p.id === collectionId);
+    },
+    isFav(rom: SimpleRom) {
+      return this.favCollection?.roms?.includes(rom.id);
     },
   },
 });

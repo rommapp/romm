@@ -56,14 +56,6 @@ const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
-const { favCollection } = storeToRefs(collectionsStore);
-
-// Functions
-function isFav() {
-  if (romsStore.isSimpleRom(props.rom)) {
-    return favCollection.value?.roms?.includes(props.rom.id);
-  }
-}
 
 onMounted(() => {
   card.value.$el.addEventListener("contextmenu", (event: Event) => {
@@ -163,7 +155,11 @@ onMounted(() => {
           </div>
           <div class="position-absolute append-inner">
             <v-btn
-              v-if="isFav() && showFav"
+              v-if="
+                romsStore.isSimpleRom(rom) &&
+                collectionsStore.isFav(rom) &&
+                showFav
+              "
               @click.stop=""
               class="label-fav"
               rouded="0"
@@ -171,7 +167,9 @@ onMounted(() => {
               color="romm-accent-1"
             >
               <v-icon class="icon-fav" size="x-small"
-                >{{ isFav() ? "mdi-star" : "mdi-star-outline" }}
+                >{{
+                  collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
+                }}
               </v-icon>
             </v-btn>
             <slot name="append-inner"> </slot>
