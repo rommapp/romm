@@ -4,7 +4,6 @@ import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
@@ -277,7 +276,9 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            show-flags
             show-action-bar
+            show-fav
             transform-scale
             with-border
             :with-border-romm-accent="
@@ -287,9 +288,6 @@ onBeforeUnmount(() => {
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
           >
-            <template #prepend-inner>
-              <game-card-flags :rom="rom" />
-            </template>
           </game-card>
         </v-col>
 

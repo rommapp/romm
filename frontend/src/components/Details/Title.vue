@@ -4,8 +4,10 @@ import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity } from "lodash";
+import { ref } from "vue";
 import { useDisplay } from "vuetify";
 
+// Props
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
@@ -16,17 +18,32 @@ const releaseDate = new Date(
   year: "numeric",
 });
 const hasReleaseDate = Number(props.rom.first_release_date) > 0;
+
+const fav = ref(false);
+
+// Functions
+function addToFavs() {
+  fav.value = !fav.value;
+}
 </script>
 <template>
   <v-row
-    class="text-white text-shadow"
+    class="text-white text-shadow align-center justify-center"
     :class="{ 'text-center mt-2': smAndDown }"
     no-gutters
   >
     <v-col>
-      <span class="text-h5 font-weight-bold pl-0" label variant="text">{{
-        rom.name
-      }}</span>
+      <v-list-item
+        class="align-center text-h5 px-6 font-weight-bold pl-0"
+        label
+        variant="text"
+        >{{ rom.name
+        }}<v-chip @click="addToFavs" class="ml-2" rouded="0" size="small" icon
+          ><v-icon color="romm-accent-1">{{
+            fav ? "mdi-star" : "mdi-star-outline"
+          }}</v-icon></v-chip
+        ></v-list-item
+      >
     </v-col>
   </v-row>
 

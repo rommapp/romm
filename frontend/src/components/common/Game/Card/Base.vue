@@ -6,6 +6,7 @@ import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
+import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
@@ -15,9 +16,11 @@ const props = withDefaults(
     rom: SimpleRom | SearchRomSchema;
     transformScale?: boolean;
     titleOnHover?: boolean;
+    showFlags?: boolean;
     pointerOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
+    showFav?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
     src?: string;
@@ -25,9 +28,11 @@ const props = withDefaults(
   {
     transformScale: false,
     titleOnHover: false,
+    showFlags: false,
     pointerOnHover: true,
     titleOnFooter: false,
     showActionBar: false,
+    showFav: false,
     withBorder: false,
     withBorderRommAccent: false,
     src: "",
@@ -48,6 +53,13 @@ const downloadStore = storeDownload();
 const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
+
+const fav = ref(false);
+
+// Functions
+function addToFavs() {
+  fav.value = !fav.value;
+}
 
 // Functions
 onMounted(() => {
@@ -138,10 +150,26 @@ onMounted(() => {
               </v-expand-transition>
             </template>
             <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
-            <slot name="prepend-inner"></slot>
+            <v-row no-gutters class="text-white px-1">
+              <game-card-flags v-if="romsStore.isSimpleRom(rom) && showFlags" :rom="rom" />
+              <slot name="prepend-inner"></slot>
+            </v-row>
           </div>
           <div class="position-absolute append-inner">
-            <slot name="append-inner"></slot>
+            <slot name="append-inner">
+              <v-btn
+                v-if="showFav"
+                @click.stop="addToFavs"
+                class="translucent text-shadow mt-1"
+                rouded="0"
+                size="x-small"
+                variant="text"
+                icon
+                ><v-icon color="romm-accent-1">{{
+                  fav ? "mdi-star" : "mdi-star-outline"
+                }}</v-icon></v-btn
+              >
+            </slot>
           </div>
 
           <template #error>

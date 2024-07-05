@@ -197,11 +197,10 @@ onBeforeUnmount(() => {
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
             title-on-hover
+            show-flags
             transform-scale
+            show-fav
           >
-            <template #prepend-inner>
-              <game-card-flags :rom="rom" />
-            </template>
             <template #footer>
               <v-row class="pa-1 align-center" no-gutters>
                 <v-col class="pa-0 ml-1 text-truncate">
