@@ -40,7 +40,7 @@ const show = ref(false);
         <v-divider class="mx-2 my-4" />
         <v-row no-gutters>
           <v-col class="text-caption">
-            <p v-text="rom.summary" />
+            <span>{{ rom.summary }}</span>
           </v-col>
         </v-row>
       </template>

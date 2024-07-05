@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
@@ -26,19 +27,19 @@ const romUser = ref(
 
 // Functions
 async function toggleMainSibling() {
-  ownProps.value.is_main_sibling = !ownProps.value.is_main_sibling;
+  romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({
     romId: props.rom.id,
-    noteRawMarkdown: ownProps.value.note_raw_markdown,
-    noteIsPublic: ownProps.value.note_is_public,
-    isMainSibling: ownProps.value.is_main_sibling,
+    noteRawMarkdown: romUser.value.note_raw_markdown,
+    noteIsPublic: romUser.value.note_is_public,
+    isMainSibling: romUser.value.is_main_sibling,
   });
 }
 
 watch(
   () => props.rom,
   async () => {
-    ownProps.value = props.rom.rom_user ?? {
+    romUser.value = props.rom.rom_user ?? {
       id: null,
       user_id: auth.user?.id,
       rom_id: props.rom.id,
@@ -79,14 +80,14 @@ watch(
                   size="small"
                   @click="toggleMainSibling"
                   ><v-icon
-                    :class="ownProps.is_main_sibling ? '' : 'mr-1'"
-                    :color="ownProps.is_main_sibling ? 'romm-accent-1' : ''"
+                    :class="romUser.is_main_sibling ? '' : 'mr-1'"
+                    :color="romUser.is_main_sibling ? 'romm-accent-1' : ''"
                     >{{
-                      ownProps.is_main_sibling
+                      romUser.is_main_sibling
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
                     }}</v-icon
-                  >{{ ownProps.is_main_sibling ? "" : "Default" }}</v-btn
+                  >{{ romUser.is_main_sibling ? "" : "Default" }}</v-btn
                 >
               </template></v-tooltip
             >
@@ -147,6 +148,29 @@ watch(
             variant="tonal"
           >
             {{ tag }}
+          </v-chip>
+        </v-col>
+      </v-row>
+      <v-row
+        v-if="rom.user_collections && rom.user_collections?.length > 0"
+        no-gutters
+        class="align-center my-3"
+      >
+        <v-col cols="3" xl="2">
+          <span>Collections</span>
+        </v-col>
+        <v-col>
+          <v-chip
+            v-for="collection in rom.user_collections"
+            :to="{ name: 'collection', params: { collection: collection.id } }"
+            size="large"
+            class="mr-1 mt-1"
+            label
+          >
+            <template #prepend>
+              <r-avatar :size="25" :collection="collection" />
+            </template>
+            <span class="ml-2">{{ collection.name }}</span>
           </v-chip>
         </v-col>
       </v-row>

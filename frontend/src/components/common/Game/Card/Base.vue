@@ -15,6 +15,7 @@ const props = withDefaults(
     rom: SimpleRom | SearchRomSchema;
     transformScale?: boolean;
     titleOnHover?: boolean;
+    pointerOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
     withBorder?: boolean;
@@ -24,6 +25,7 @@ const props = withDefaults(
   {
     transformScale: false,
     titleOnHover: false,
+    pointerOnHover: true,
     titleOnFooter: false,
     showActionBar: false,
     withBorder: false,
@@ -65,7 +67,7 @@ onMounted(() => {
         'transform-scale': transformScale,
         'with-border': withBorder,
       }"
-      :elevation="isHovering && transformScale ? 20 : 2"
+      :elevation="isHovering && transformScale ? 20 : 3"
     >
       <v-progress-linear
         v-if="romsStore.isSimpleRom(rom)"
@@ -80,9 +82,10 @@ onMounted(() => {
           @touchstart="handleTouchStart"
           @touchend="handleTouchEnd"
           v-bind="hoverProps"
-          class="pointer"
+          :class="{ pointer: pointerOnHover }"
           ref="card"
           cover
+          :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
           :src="
             src
               ? src
@@ -205,7 +208,7 @@ onMounted(() => {
   -ms-user-select: none; /* Internet Explorer/Edge */
 }
 .append-inner {
-  bottom: -0.1rem;
-  right: -0.3rem;
+  bottom: 0rem;
+  right: 0rem;
 }
 </style>

@@ -8,6 +8,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 type MatchedSource = {
@@ -21,6 +22,7 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const searching = ref(false);
+const route = useRoute();
 const searchTerm = ref("");
 const theme = useTheme();
 const searchBy = ref("Name");
@@ -39,7 +41,9 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
   show.value = true;
-  searchRom();
+  if (rom.value.igdb_id || rom.value.moby_id) {
+    searchRom();
+  }
 });
 
 // Functions
@@ -167,7 +171,10 @@ async function updateRom(selectedRom: SearchRomSchema) {
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data);
+      romsStore.update(data as SimpleRom);
+      if (route.name == "rom") {
+        romsStore.currentRom = data;
+      }
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -266,11 +273,13 @@ onBeforeUnmount(() => {
       <v-row class="align-center" no-gutters>
         <v-col cols="6" sm="8">
           <v-text-field
+            autofocus
             id="search-text-field"
             @keyup.enter="searchRom()"
             @click:clear="searchTerm = ''"
             class="bg-terciary"
             v-model="searchTerm"
+            :disabled="searching"
             label="Search"
             hide-details
             clearable
@@ -278,6 +287,7 @@ onBeforeUnmount(() => {
         </v-col>
         <v-col cols="4" sm="3">
           <v-select
+            :disabled="searching"
             label="by"
             class="bg-terciary"
             :items="['ID', 'Name']"

@@ -118,27 +118,42 @@ function onDownload() {
       </v-btn>
       <v-btn
         key="2"
-        color="terciary"
-        elevation="8"
-        icon
-        size="default"
-        @click="onDownload"
-      >
-        <v-icon>mdi-download</v-icon>
-      </v-btn>
-      <v-btn
-        key="3"
         v-if="auth.scopes.includes('roms.write')"
         color="terciary"
         elevation="8"
-        icon
+        icon="mdi-magnify-scan"
         size="default"
         @click="onScan"
-      >
-        <v-icon>mdi-magnify-scan</v-icon>
-      </v-btn>
+      />
+      <v-btn
+        key="3"
+        color="terciary"
+        elevation="8"
+        icon="mdi-download"
+        size="default"
+        @click="onDownload"
+      />
       <v-btn
         key="4"
+        color="terciary"
+        elevation="8"
+        :icon="
+          $route.name == 'platform'
+            ? 'mdi-bookmark-plus'
+            : 'mdi-bookmark-remove'
+        "
+        size="default"
+        @click="
+          $route.name == 'platform'
+            ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
+            : emitter?.emit(
+                'showRemoveFromCollectionDialog',
+                romsStore.selectedRoms
+              )
+        "
+      />
+      <v-btn
+        key="5"
         color="terciary"
         elevation="8"
         icon="mdi-select-all"
@@ -146,7 +161,7 @@ function onDownload() {
         @click.stop="selectAllRoms"
       />
       <v-btn
-        key="5"
+        key="6"
         color="terciary"
         elevation="8"
         icon="mdi-select"

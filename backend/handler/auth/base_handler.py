@@ -24,6 +24,8 @@ DEFAULT_SCOPES_MAP: Final = {
     "firmware.read": "View firmware",
     "roms.user.read": "View user-rom properties",
     "roms.user.write": "Modify user-rom properties",
+    "collections.read": "View collections",
+    "collections.write": "Modify collections",
 }
 
 WRITE_SCOPES_MAP: Final = {

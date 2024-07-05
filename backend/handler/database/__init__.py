@@ -1,3 +1,4 @@
+from .collections_handler import DBCollectionsHandler
 from .firmware_handler import DBFirmwareHandler
 from .platforms_handler import DBPlatformsHandler
 from .roms_handler import DBRomsHandler
@@ -15,3 +16,4 @@ db_screenshot_handler = DBScreenshotsHandler()
 db_state_handler = DBStatesHandler()
 db_stats_handler = DBStatsHandler()
 db_user_handler = DBUsersHandler()
+db_collection_handler = DBCollectionsHandler()

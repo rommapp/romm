@@ -34,8 +34,7 @@ async def add_platforms(request: Request) -> PlatformSchema:
     except PlatformAlreadyExistsException:
         log.info(f"Detected platform: {fs_slug}")
     scanned_platform = scan_platform(fs_slug, [fs_slug])
-    platform = db_platform_handler.add_platform(scanned_platform)
-    return platform
+    return db_platform_handler.add_platform(scanned_platform)
 
 
 @protected_route(router.get, "/platforms", ["platforms.read"])

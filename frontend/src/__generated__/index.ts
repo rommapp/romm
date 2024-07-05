@@ -5,14 +5,17 @@
 
 export type { AddFirmwareResponse } from "./models/AddFirmwareResponse";
 export type { AddRomsResponse } from "./models/AddRomsResponse";
+export type { Body_add_collection_collections_post } from "./models/Body_add_collection_collections_post";
 export type { Body_add_firmware_firmware_post } from "./models/Body_add_firmware_firmware_post";
 export type { Body_add_roms_roms_post } from "./models/Body_add_roms_roms_post";
 export type { Body_add_saves_saves_post } from "./models/Body_add_saves_saves_post";
 export type { Body_add_screenshots_screenshots_post } from "./models/Body_add_screenshots_screenshots_post";
 export type { Body_add_states_states_post } from "./models/Body_add_states_states_post";
 export type { Body_token_token_post } from "./models/Body_token_token_post";
+export type { Body_update_collection_collections__id__put } from "./models/Body_update_collection_collections__id__put";
 export type { Body_update_rom_roms__id__put } from "./models/Body_update_rom_roms__id__put";
 export type { Body_update_user_users__id__put } from "./models/Body_update_user_users__id__put";
+export type { CollectionSchema } from "./models/CollectionSchema";
 export type { ConfigResponse } from "./models/ConfigResponse";
 export type { DetailedRomSchema } from "./models/DetailedRomSchema";
 export type { FirmwareSchema } from "./models/FirmwareSchema";

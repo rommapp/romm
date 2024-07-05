@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
+    from models.collection import Collection
     from models.platform import Platform
     from models.user import User
 
@@ -103,6 +104,11 @@ class Rom(BaseModel):
 
         return db_rom_handler.get_sibling_roms(self)
 
+    def get_collections(self, user_id) -> list[Collection]:
+        from handler.database import db_rom_handler
+
+        return db_rom_handler.get_rom_collections(self, user_id)
+
     # Metadata fields
     @property
     def alternative_names(self) -> list[str]:
@@ -142,7 +148,7 @@ class Rom(BaseModel):
 
     @property
     def fs_resources_path(self) -> str:
-        return f"{str(self.platform_id)}/{str(self.id)}"
+        return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.file_name

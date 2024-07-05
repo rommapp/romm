@@ -2,15 +2,19 @@
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
-import storeRoms from "@/stores/roms";
+import storeHeartbeat from "@/stores/heartbeat";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { smAndDown, lgAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
+const heartbeat = storeHeartbeat();
+const route = useRoute();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
@@ -24,6 +28,11 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
   rom.value = romToEdit;
+});
+emitter?.on("updateUrlCover", (url_cover) => {
+  if (!rom.value) return;
+  rom.value.url_cover = url_cover;
+  imagePreviewUrl.value = url_cover;
 });
 
 // Functions
@@ -80,7 +89,10 @@ async function updateRom() {
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data);
+      romsStore.update(data as SimpleRom);
+      if (route.name == "rom") {
+        romsStore.currentRom = data;
+      }
     })
     .catch((error) => {
       console.log(error);
@@ -163,14 +175,26 @@ function closeDialog() {
             <v-col class="cover">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner>
-                  <v-chip-group class="pa-0">
-                    <v-chip
+                  <v-btn-group rounded="0" divided density="compact">
+                    <v-btn
+                      :disabled="!heartbeat.value.STEAMGRIDDB_ENABLED"
+                      size="small"
                       class="translucent-dark"
-                      :size="smAndDown ? 'large' : 'small'"
-                      @click="triggerFileInput"
-                      label
+                      @click="
+                        emitter?.emit(
+                          'showSearchCoverDialog',
+                          rom?.name as string
+                        )
+                      "
                     >
-                      <v-icon>mdi-pencil</v-icon>
+                      <v-icon size="large">mdi-image-search-outline</v-icon>
+                    </v-btn>
+                    <v-btn
+                      size="small"
+                      class="translucent-dark"
+                      @click="triggerFileInput"
+                    >
+                      <v-icon size="large">mdi-pencil</v-icon>
                       <v-file-input
                         id="file-input"
                         v-model="rom.artwork"
@@ -179,16 +203,17 @@ function closeDialog() {
                         class="file-input"
                         @change="previewImage"
                       />
-                    </v-chip>
-                    <v-chip
+                    </v-btn>
+                    <v-btn
+                      size="small"
                       class="translucent-dark"
-                      :size="smAndDown ? 'large' : 'small'"
                       @click="removeArtwork"
-                      label
                     >
-                      <v-icon class="text-romm-red"> mdi-delete </v-icon>
-                    </v-chip>
-                  </v-chip-group>
+                      <v-icon size="large" class="text-romm-red"
+                        >mdi-delete</v-icon
+                      >
+                    </v-btn>
+                  </v-btn-group>
                 </template>
               </game-card>
             </v-col>
@@ -197,7 +222,7 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+      <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="updateRom">
