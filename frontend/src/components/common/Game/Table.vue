@@ -2,7 +2,6 @@
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
-import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -30,7 +29,6 @@ const router = useRouter();
 const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const auth = storeAuth();
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
 const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
@@ -120,15 +118,7 @@ onMounted(() => {
       <td class="name-row">
         <v-list-item class="px-0">
           <template #prepend>
-            <r-avatar
-              :src="
-                (!item.igdb_id && !item.moby_id) && !item.has_cover
-                  ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                  : item.has_cover
-                  ? `/assets/romm/resources/${item.path_cover_s}?ts=${item.updated_at}`
-                  : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-              "
-            />
+            <r-avatar :rom="item" />
           </template>
           <v-row no-gutters
             ><v-col>{{ item.name }}</v-col></v-row
@@ -144,7 +134,7 @@ onMounted(() => {
               class="translucent-dark ml-2"
               size="x-small"
             >
-              <span class="text-caption">+{{ item.siblings.length + 1 }}</span>
+              <span class="text-caption">+{{ item.siblings.length }}</span>
             </v-chip>
           </template>
         </v-list-item>
@@ -189,11 +179,7 @@ onMounted(() => {
         </v-btn>
         <v-menu location="bottom">
           <template #activator="{ props }">
-            <v-btn
-              v-if="auth.scopes.includes('roms.write')"
-              v-bind="props"
-              size="small"
-            >
+            <v-btn v-bind="props" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>

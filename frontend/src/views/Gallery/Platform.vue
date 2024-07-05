@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import GalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
+import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
@@ -274,6 +274,7 @@ onBeforeUnmount(() => {
           :xl="views[currentView]['size-xl']"
         >
           <game-card
+            :key="rom.updated_at"
             :rom="rom"
             title-on-hover
             show-action-bar

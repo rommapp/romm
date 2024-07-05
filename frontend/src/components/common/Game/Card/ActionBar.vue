@@ -1,19 +1,13 @@
 <script setup lang="ts">
+import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import storeAuth from "@/stores/auth";
-import AdminMenu from "@/components/common/Game/AdminMenu.vue";
-import storeGalleryView from "@/stores/galleryView";
 import type { SimpleRom } from "@/stores/roms";
 import { isEmulationSupported } from "@/utils";
-import { storeToRefs } from "pinia";
 
 // Props
 defineProps<{ rom: SimpleRom }>();
-const auth = storeAuth();
 const downloadStore = storeDownload();
-const galleryViewStore = storeGalleryView();
-const { currentView } = storeToRefs(galleryViewStore);
 </script>
 
 <template>
@@ -28,8 +22,8 @@ const { currentView } = storeToRefs(galleryViewStore);
         variant="text"
         @click="romApi.downloadRom({ rom })"
       />
-      </v-col>
-      <v-col>
+    </v-col>
+    <v-col>
       <v-btn
         v-if="isEmulationSupported(rom.platform_slug)"
         class="action-bar-btn-small"
@@ -48,7 +42,6 @@ const { currentView } = storeToRefs(galleryViewStore);
     <v-menu location="bottom">
       <template #activator="{ props }">
         <v-btn
-          v-if="auth.scopes.includes('roms.write')"
           class="action-bar-btn-small"
           size="x-small"
           v-bind="props"

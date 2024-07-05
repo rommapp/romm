@@ -36,7 +36,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
     </template>
     <v-row no-gutters
       ><v-col
-        ><span class="text-body-2">{{ platform.name }}</span></v-col
+        ><span class="text-body-1">{{ platform.name }}</span></v-col
       ></v-row
     >
     <v-row no-gutters>

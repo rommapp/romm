@@ -7,7 +7,7 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 // Props
 const { xs, smAndDown } = useDisplay();
@@ -16,7 +16,6 @@ const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
-const theme = useTheme();
 const panels = ref([0]);
 const panelIndex = ref(0);
 // Use a computed property to reactively update metadataOptions based on heartbeat
@@ -71,9 +70,6 @@ const scanOptions = [
 ];
 const scanType = ref("quick");
 
-// Connect to socket on load to catch running scans
-if (!socket.connected) socket.connect();
-
 async function scan() {
   scanningStore.set(true);
   scanningPlatforms.value = [];
@@ -107,7 +103,7 @@ async function stopScan() {
         v-model="platformsToScan"
         label="Platforms"
         item-title="name"
-        :items="platforms.value"
+        :items="platforms.all"
         variant="outlined"
         density="comfortable"
         multiple
@@ -338,15 +334,7 @@ async function stopScan() {
               :to="{ name: 'rom', params: { rom: rom.id } }"
             >
               <template #prepend>
-                <r-avatar
-                  :src="
-                    !rom.igdb_id && !rom.moby_id
-                      ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                      : rom.has_cover
-                      ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-                      : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                  "
-                />
+                <r-avatar :rom="rom" />
               </template>
               <v-row no-gutters>
                 <span

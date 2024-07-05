@@ -117,6 +117,7 @@ onBeforeUnmount(() => {
             @keyup.enter="searchRoms"
             @click:clear="searchRoms"
             v-model="searchValue"
+            :disabled="searching"
             label="Search"
             hide-details
             class="bg-terciary"
@@ -128,7 +129,7 @@ onBeforeUnmount(() => {
             label="Platform"
             class="bg-terciary"
             item-title="platform_name"
-            :disabled="platforms.length == 0"
+            :disabled="platforms.length == 0 || searching"
             hide-details
             clearable
             single-line

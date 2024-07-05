@@ -1,38 +1,27 @@
 <script setup lang="ts">
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RSection from "@/components/common/RSection.vue";
-import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
-import { onMounted } from "vue";
+import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 
 // Props
 const romsStore = storeRoms();
+const { recentRoms } = storeToRefs(romsStore)
 const router = useRouter();
 
 // Functions
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   router.push({ name: "rom", params: { rom: emitData.rom.id } });
 }
-
-onMounted(() => {
-  romApi
-    .getRecentRoms()
-    .then(({ data: recentData }) => {
-      romsStore.setRecentRoms(recentData);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-});
 </script>
 <template>
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
       <v-row class="flex-nowrap overflow-x-auto" no-gutters>
         <v-col
-          v-for="rom in romsStore.recentRoms"
+          v-for="rom in recentRoms"
           :key="rom.id"
           class="px-1 pt-1 pb-2"
           :cols="views[0]['size-cols']"
@@ -42,6 +31,7 @@ onMounted(() => {
           :xl="views[0]['size-xl']"
         >
           <game-card
+            :key="rom.updated_at"
             @click="onGameClick"
             :rom="rom"
             transform-scale
@@ -54,5 +44,4 @@ onMounted(() => {
       <!-- TODO: Add a button to upload roms if no roms were uploaded in the last 30 days -->
     </template>
   </r-section>
-
 </template>

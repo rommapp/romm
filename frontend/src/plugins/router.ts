@@ -20,7 +20,12 @@ const routes = [
       {
         path: "/platform/:platform",
         name: "platform",
-        component: () => import("@/views/Gallery.vue"),
+        component: () => import("@/views/Gallery/Platform.vue"),
+      },
+      {
+        path: "/collection/:collection",
+        name: "collection",
+        component: () => import("@/views/Gallery/Collection.vue"),
       },
       {
         path: "/rom/:rom",
@@ -69,6 +74,7 @@ const router = createRouter({
 router.afterEach(() => {
   // Scroll to top to avoid annoying behaviour in mobile
   window.scrollTo({ top: 0, left: 0 });
+  // TODO: check permission for views. Ex: view user can access to /scan view
 });
 
 export default router;

@@ -41,7 +41,6 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
     </v-chip>
     <v-chip
       v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
-      :title="`${rom.siblings.length + 1} versions`"
       class="translucent-dark mr-1 mt-1"
       density="compact"
     >

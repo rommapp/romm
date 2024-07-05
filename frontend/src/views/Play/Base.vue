@@ -81,7 +81,7 @@ onMounted(async () => {
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
-      <v-row class="px-3" no-gutters>
+      <v-row class="px-3 mt-6" no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
@@ -91,15 +91,7 @@ onMounted(async () => {
           <v-divider class="my-4" />
           <v-list-item class="px-2">
             <template #prepend>
-              <r-avatar
-                :src="
-                  !rom.igdb_id && !rom.moby_id
-                    ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-                    : rom.has_cover
-                    ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-                    : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
-                "
-              />
+              <r-avatar :rom="rom" />
             </template>
             <v-row no-gutters
               ><v-col>{{ rom.name }}</v-col></v-row
@@ -178,8 +170,6 @@ onMounted(async () => {
               })) ?? []
             "
           />
-          <!-- TODO: diisable selector when start playing -->
-          <!-- TODO: reset emulation to re-select -->
           <!-- <v-select
             class="my-1"
             hide-details

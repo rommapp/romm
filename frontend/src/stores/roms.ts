@@ -1,6 +1,7 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, RomSchema } from "@/__generated__/";
 import { type Platform } from "@/stores/platforms";
+import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
 import { groupBy, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
@@ -18,6 +19,8 @@ export type DetailedRom = DetailedRomSchema;
 export default defineStore("roms", {
   state: () => ({
     currentPlatform: null as Platform | null,
+    currentCollection: null as Collection | null,
+    currentRom: null as DetailedRom | null,
     allRoms: [] as SimpleRom[],
     _grouped: [] as SimpleRom[],
     _filteredIDs: [] as number[],
@@ -89,8 +92,14 @@ export default defineStore("roms", {
     setCurrentPlatform(platform: Platform) {
       this.currentPlatform = platform;
     },
+    setCurrentRom(rom: DetailedRom) {
+      this.currentRom = rom;
+    },
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
+    },
+    setCurrentCollection(collection: Collection) {
+      this.currentCollection = collection;
     },
     set(roms: SimpleRom[]) {
       this.allRoms = roms;
@@ -102,6 +111,9 @@ export default defineStore("roms", {
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>
+        value.id === rom.id ? rom : value,
+      );
+      this.recentRoms = this.recentRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
       this._reorder();
