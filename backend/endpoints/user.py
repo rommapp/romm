@@ -114,7 +114,7 @@ def update_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    if not db_user.id == request.user.id:
+    if not db_user.id == request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     cleaned_data = {}
