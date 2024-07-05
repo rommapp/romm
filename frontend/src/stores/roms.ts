@@ -92,7 +92,7 @@ export default defineStore("roms", {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });
     },
-    setCurrentPlatform(platform: Platform) {
+    setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
     },
     setCurrentRom(rom: DetailedRom) {
@@ -101,7 +101,7 @@ export default defineStore("roms", {
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
     },
-    setCurrentCollection(collection: Collection) {
+    setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
     },
     set(roms: SimpleRom[]) {
