@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
+import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
+import FavBtn from "@/components/common/Game/FavBtn.vue";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
-import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
@@ -53,13 +54,6 @@ const downloadStore = storeDownload();
 const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
-
-const fav = ref(false);
-
-// Functions
-function addToFavs() {
-  fav.value = !fav.value;
-}
 
 // Functions
 onMounted(() => {
@@ -151,24 +145,16 @@ onMounted(() => {
             </template>
             <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
             <v-row no-gutters class="text-white px-1">
-              <game-card-flags v-if="romsStore.isSimpleRom(rom) && showFlags" :rom="rom" />
+              <game-card-flags
+                v-if="romsStore.isSimpleRom(rom) && showFlags"
+                :rom="rom"
+              />
               <slot name="prepend-inner"></slot>
             </v-row>
           </div>
           <div class="position-absolute append-inner">
             <slot name="append-inner">
-              <v-btn
-                v-if="showFav"
-                @click.stop="addToFavs"
-                class="translucent text-shadow mt-1"
-                rouded="0"
-                size="x-small"
-                variant="text"
-                icon
-                ><v-icon color="romm-accent-1">{{
-                  fav ? "mdi-star" : "mdi-star-outline"
-                }}</v-icon></v-btn
-              >
+              <fav-btn v-if="showFav" :rom="rom" />
             </slot>
           </div>
 
