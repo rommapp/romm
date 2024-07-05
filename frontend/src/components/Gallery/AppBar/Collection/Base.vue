@@ -21,7 +21,7 @@ const auth = storeAuth();
     <v-menu location="bottom">
       <template #activator="{ props }">
         <v-btn
-          v-if="auth.scopes.includes('roms.write')"
+          v-if="auth.scopes.includes('collections.write')"
           v-bind="props"
           rounded="0"
           variant="text"
