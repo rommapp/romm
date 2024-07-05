@@ -81,7 +81,7 @@ onMounted(async () => {
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
-      <v-row class="px-3" no-gutters>
+      <v-row class="px-3 mt-6" no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
