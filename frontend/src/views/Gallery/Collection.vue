@@ -245,6 +245,7 @@ onBeforeRouteUpdate(async (to, from) => {
 });
 
 onBeforeUnmount(() => {
+  romsStore.setCurrentCollection(null);
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
 });
@@ -276,9 +277,11 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            show-flags
             show-action-bar
             transform-scale
             with-border
+            show-fav
             :with-border-romm-accent="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
@@ -286,9 +289,6 @@ onBeforeUnmount(() => {
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
           >
-            <template #prepend-inner>
-              <game-card-flags :rom="rom" />
-            </template>
           </game-card>
         </v-col>
 

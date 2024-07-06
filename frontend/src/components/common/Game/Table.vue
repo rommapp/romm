@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
+import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
@@ -15,13 +16,12 @@ import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 
 // Props
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("updateDataTablePages", updateDataTablePages);
-const theme = useTheme();
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
@@ -40,6 +40,12 @@ const HEADERS = [
     align: "start",
     sortable: true,
     key: "name",
+  },
+  {
+    title: "",
+    align: "start",
+    sortable: false,
+    key: "is_fav",
   },
   {
     title: "Size",
@@ -139,6 +145,9 @@ onMounted(() => {
           </template>
         </v-list-item>
       </td>
+    </template>
+    <template #item.is_fav="{ item }">
+      <fav-btn :rom="item" />
     </template>
     <template #item.file_size_bytes="{ item }">
       <v-chip size="x-small" label>{{

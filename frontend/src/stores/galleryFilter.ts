@@ -11,6 +11,7 @@ export default defineStore("galleryFilter", {
     filterCollections: [] as string[],
     filterCompanies: [] as string[],
     filterUnmatched: false,
+    filterFavourites: false,
     selectedGenre: null as string | null,
     selectedFranchise: null as string | null,
     selectedCollection: null as string | null,
@@ -54,10 +55,17 @@ export default defineStore("galleryFilter", {
     disableFilterUnmatched() {
       this.filterUnmatched = false;
     },
+    switchFilterFavourites() {
+      this.filterFavourites = !this.filterFavourites;
+    },
+    disableFilterFavourites() {
+      this.filterFavourites = false;
+    },
     isFiltered() {
       return Boolean(
         normalizeString(this.filterSearch).trim() != "" ||
           this.filterUnmatched ||
+          this.filterFavourites ||
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||

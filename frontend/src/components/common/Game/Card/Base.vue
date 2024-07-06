@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
+import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
+import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
+import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
@@ -15,9 +18,11 @@ const props = withDefaults(
     rom: SimpleRom | SearchRomSchema;
     transformScale?: boolean;
     titleOnHover?: boolean;
+    showFlags?: boolean;
     pointerOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
+    showFav?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
     src?: string;
@@ -25,9 +30,11 @@ const props = withDefaults(
   {
     transformScale: false,
     titleOnHover: false,
+    showFlags: false,
     pointerOnHover: true,
     titleOnFooter: false,
     showActionBar: false,
+    showFav: false,
     withBorder: false,
     withBorderRommAccent: false,
     src: "",
@@ -48,8 +55,8 @@ const downloadStore = storeDownload();
 const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
+const collectionsStore = storeCollections();
 
-// Functions
 onMounted(() => {
   card.value.$el.addEventListener("contextmenu", (event: Event) => {
     event.preventDefault();
@@ -138,10 +145,34 @@ onMounted(() => {
               </v-expand-transition>
             </template>
             <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
-            <slot name="prepend-inner"></slot>
+            <v-row no-gutters class="text-white px-1">
+              <game-card-flags
+                v-if="romsStore.isSimpleRom(rom) && showFlags"
+                :rom="rom"
+              />
+              <slot name="prepend-inner"></slot>
+            </v-row>
           </div>
           <div class="position-absolute append-inner">
-            <slot name="append-inner"></slot>
+            <v-btn
+              v-if="
+                romsStore.isSimpleRom(rom) &&
+                collectionsStore.isFav(rom) &&
+                showFav
+              "
+              @click.stop=""
+              class="label-fav"
+              rouded="0"
+              size="small"
+              color="romm-accent-1"
+            >
+              <v-icon class="icon-fav" size="x-small"
+                >{{
+                  collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
+                }}
+              </v-icon>
+            </v-btn>
+            <slot name="append-inner"> </slot>
           </div>
 
           <template #error>
@@ -210,5 +241,15 @@ onMounted(() => {
 .append-inner {
   bottom: 0rem;
   right: 0rem;
+}
+.label-fav {
+  left: 1.5rem;
+  top: 0.5rem;
+  transform: rotate(-45deg);
+}
+.icon-fav {
+  transform: rotate(45deg);
+  right: 0.25rem;
+  bottom: 0.35rem;
 }
 </style>

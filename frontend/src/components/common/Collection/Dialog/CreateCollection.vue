@@ -65,6 +65,9 @@ async function createCollection() {
     })
     .then(({ data }) => {
       collectionsStore.add(data);
+      if (data.name.toLowerCase() == "favourites") {
+        collectionsStore.setFavCollection(data);
+      }
       emitter?.emit("snackbarShow", {
         msg: `Collection ${data.name} created successfully!`,
         icon: "mdi-check-bold",

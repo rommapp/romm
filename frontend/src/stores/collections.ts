@@ -1,6 +1,7 @@
-import { defineStore } from "pinia";
 import type { CollectionSchema } from "@/__generated__";
 import { uniqBy } from "lodash";
+import { defineStore } from "pinia";
+import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
 
@@ -8,6 +9,7 @@ export default defineStore("collections", {
   state: () => {
     return {
       allCollections: [] as Collection[],
+      favCollection: {} as Collection | undefined,
       searchText: "" as string,
     };
   },
@@ -23,6 +25,9 @@ export default defineStore("collections", {
         return a.name.localeCompare(b.name);
       });
       this.allCollections = uniqBy(this.allCollections, "id");
+    },
+    setFavCollection(favCollection: Collection | undefined) {
+      this.favCollection = favCollection;
     },
     set(collections: Collection[]) {
       this.allCollections = collections;
@@ -49,6 +54,9 @@ export default defineStore("collections", {
     },
     get(collectionId: number) {
       return this.allCollections.find((p) => p.id === collectionId);
+    },
+    isFav(rom: SimpleRom) {
+      return this.favCollection?.roms?.includes(rom.id);
     },
   },
 });
