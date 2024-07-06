@@ -52,6 +52,8 @@ const theme = useTheme();
             ? src
             : collection.has_cover
             ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
+            : collection.name && collection.name.toLowerCase() == 'favourites'
+            ? `/assets/default/cover/big_${theme.global.name.value}_fav.png`
             : `/assets/default/cover/big_${theme.global.name.value}_collection.png`
         "
         :lazy-src="
@@ -59,6 +61,8 @@ const theme = useTheme();
             ? src
             : collection.has_cover
             ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
+            : collection.name && collection.name.toLowerCase() == 'favourites'
+            ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
             : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
         "
         :aspect-ratio="2 / 3"

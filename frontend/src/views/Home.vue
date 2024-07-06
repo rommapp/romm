@@ -66,6 +66,11 @@ onBeforeMount(async () => {
     .getCollections()
     .then(({ data: collections }) => {
       collectionsStore.set(collections);
+      collectionsStore.setFavCollection(
+        collections.find(
+          (collection) => collection.name.toLowerCase() === "favourites"
+        )
+      );
     })
     .catch((error) => {
       console.error(error);

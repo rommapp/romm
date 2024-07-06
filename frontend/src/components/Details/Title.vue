@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
@@ -6,6 +7,7 @@ import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity } from "lodash";
 import { useDisplay } from "vuetify";
 
+// Props
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
@@ -24,9 +26,10 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     no-gutters
   >
     <v-col>
-      <span class="text-h5 font-weight-bold pl-0" label variant="text">{{
-        rom.name
-      }}</span>
+      <v-list-item class="text-h5 font-weight-bold pl-0">
+        <span>{{ rom.name }}</span>
+        <fav-btn class="ml-1" :rom="rom" />
+      </v-list-item>
     </v-col>
   </v-row>
 

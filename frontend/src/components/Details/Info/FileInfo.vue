@@ -3,6 +3,7 @@ import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import type { Collection } from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
@@ -26,6 +27,10 @@ const romUser = ref(
 );
 
 // Functions
+function collectionsWithoutFavourites(collections: Collection[]) {
+  return collections.filter((c) => c.name.toLowerCase() != "favourites");
+}
+
 async function toggleMainSibling() {
   romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({
@@ -152,7 +157,10 @@ watch(
         </v-col>
       </v-row>
       <v-row
-        v-if="rom.user_collections && rom.user_collections?.length > 0"
+        v-if="
+          rom.user_collections &&
+          collectionsWithoutFavourites(rom.user_collections).length > 0
+        "
         no-gutters
         class="align-center my-3"
       >
@@ -161,7 +169,9 @@ watch(
         </v-col>
         <v-col>
           <v-chip
-            v-for="collection in rom.user_collections"
+            v-for="collection in collectionsWithoutFavourites(
+              rom.user_collections
+            )"
             :to="{ name: 'collection', params: { collection: collection.id } }"
             size="large"
             class="mr-1 mt-1"
