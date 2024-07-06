@@ -81,7 +81,7 @@ const router = createRouter({
 
 router.beforeEach((to, from) => {
   const heartbeat = storeHeartbeat();
-  if (to.name == "setup" && !heartbeat.value.SETUP_WIZARD) {
+  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
     router.push({ name: "dashboard" });
   }
 });
