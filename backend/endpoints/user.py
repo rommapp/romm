@@ -94,7 +94,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return user
 
 
-@protected_route(router.put, "/users/{id}")
+@protected_route(router.put, "/users/{id}", ["me.write"])
 def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
