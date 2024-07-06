@@ -32,7 +32,7 @@ const metadataOptions = computed(() => [
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",
-    disabled: !heartbeat.value.STEAMGRIDDB_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED,
   },
 ]);
 const defaultAdminUser = ref({
