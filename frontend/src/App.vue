@@ -23,7 +23,7 @@ onBeforeMount(async () => {
     .get("/heartbeat")
     .then(async ({ data: data }) => {
       heartbeat.set(data);
-      if (heartbeat.value.SETUP_WIZARD) {
+      if (heartbeat.value.SHOW_SETUP_WIZARD) {
         router.push({ name: "setup" });
       } else {
         await userApi
