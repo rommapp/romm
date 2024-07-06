@@ -1,7 +1,6 @@
 import router from "@/plugins/router";
 import axios from "axios";
-import cookie from "js-cookie";
-import Cookies from "js-cookie";
+import { default as cookie, default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
 
 const api = axios.create({ baseURL: "/api", timeout: 120000 });
@@ -44,6 +43,7 @@ api.interceptors.response.use(
       }
       router.push({
         name: "login",
+        query: { next: router.currentRoute.value.path },
       });
     }
     return Promise.reject(error);

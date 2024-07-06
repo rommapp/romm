@@ -20,7 +20,8 @@ async function login() {
   await identityApi
     .login(username.value, password.value)
     .then(() => {
-      router.push({ name: "dashboard" });
+      const next = (router.currentRoute.value.query?.next || "/").toString();
+      router.push(next);
     })
     .catch(({ response, message }) => {
       const errorMessage =

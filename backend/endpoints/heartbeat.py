@@ -28,12 +28,12 @@ def heartbeat() -> HeartbeatResponse:
 
     return {
         "VERSION": get_version(),
-        "SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
+        "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
         "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
-        "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
         "METADATA_SOURCES": {
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
+            "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
         },
         "FS_PLATFORMS": fs_platform_handler.get_platforms(),
         "WATCHER": {
