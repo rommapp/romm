@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import GalleryAppBarCollection from "@/components/Gallery/AppBar/Collection/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyCollection from "@/components/common/EmptyCollection.vue";
+import EmptyGame from "@/components/common/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
+import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
@@ -288,8 +287,7 @@ onBeforeUnmount(() => {
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
-          >
-          </game-card>
+          />
         </v-col>
 
         <!-- Gallery list view -->

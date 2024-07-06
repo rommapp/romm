@@ -33,7 +33,6 @@ withDefaults(
   }
 );
 const emit = defineEmits(["update:modelValue", "close"]);
-const { mdAndDown } = useDisplay();
 const hasToolbarSlot = ref(false);
 const hasPrependSlot = ref(false);
 const hasAppendSlot = ref(false);
