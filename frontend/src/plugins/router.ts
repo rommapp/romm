@@ -1,6 +1,8 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
 
 const routes = [
   {
@@ -77,15 +79,26 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to) => {
+router.beforeEach((to, from) => {
   const heartbeat = storeHeartbeat();
   if (to.name == "setup" && !heartbeat.value.SETUP_WIZARD) {
     router.push({ name: "dashboard" });
   }
-  // TODO: check permission for views. Ex: view user can access to /scan view
 });
 
-router.afterEach(() => {
+router.afterEach((to, from) => {
+  const auth = storeAuth();
+  const { user } = storeToRefs(auth);
+  if (
+    to.name &&
+    user.value &&
+    ((["scan", "management"].includes(to.name.toString()) &&
+      !user.value.oauth_scopes.includes("platforms.write")) ||
+      (["administration"].includes(to.name.toString()) &&
+        !user.value.oauth_scopes.includes("users.write")))
+  ) {
+    router.push(from);
+  }
   // Scroll to top to avoid annoying behaviour in mobile
   window.scrollTo({ top: 0, left: 0 });
 });
