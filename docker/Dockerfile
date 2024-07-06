@@ -15,10 +15,12 @@ RUN npm run build
 # Build backend environment
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
+# libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
 RUN apk add --no-cache \
-        gcc \
-        mariadb-connector-c-dev \
-        musl-dev
+    gcc \
+    mariadb-connector-c-dev \
+    musl-dev \
+    libffi-dev
 
 RUN pip install poetry
 
@@ -44,11 +46,11 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
 
 # Install required packages and dependencies
 RUN apk add --no-cache \
-        bash \
-        mariadb-connector-c \
-        python3 \
-        tzdata \
-        redis
+    bash \
+    mariadb-connector-c \
+    python3 \
+    tzdata \
+    redis
 
 COPY ./backend /backend
 
