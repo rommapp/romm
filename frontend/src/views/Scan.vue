@@ -23,11 +23,13 @@ const metadataOptions = computed(() => [
   {
     name: "IGDB",
     value: "igdb",
+    logo_path: "/assets/scrappers/igdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
   },
   {
     name: "MobyGames",
     value: "moby",
+    logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
 ]);
@@ -172,11 +174,7 @@ async function stopScan() {
           >
             <template #prepend>
               <v-avatar size="25" rounded="1">
-                <v-img
-                  :src="`/assets/scrappers/${item.raw.name
-                    .slice(0, 4)
-                    .toLowerCase()}.png`"
-                />
+                <v-img :src="item.raw.logo_path" />
               </v-avatar>
             </template>
           </v-list-item>

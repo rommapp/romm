@@ -28,21 +28,24 @@ import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import NewVersion from "@/components/common/NewVersion.vue";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
+import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onMounted } from "vue";
+import { inject, onBeforeMount } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const platformsStore = storePlatforms();
 const auth = storeAuth();
+const platformsStore = storePlatforms();
+const collectionsStore = storeCollections();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
   const { data: platformData } = await platformApi.getPlatforms();
@@ -50,17 +53,7 @@ emitter?.on("refreshDrawer", async () => {
 });
 
 // Functions
-onMounted(async () => {
-  navigationStore.resetDrawers();
-  await userApi
-    .fetchCurrentUser()
-    .then(({ data: user }) => {
-      auth.setUser(user);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
+onBeforeMount(async () => {
   await platformApi
     .getPlatforms()
     .then(({ data: platforms }) => {
@@ -69,6 +62,23 @@ onMounted(async () => {
     .catch((error) => {
       console.error(error);
     });
+  await collectionApi
+    .getCollections()
+    .then(({ data: collections }) => {
+      collectionsStore.set(collections);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  await userApi
+    .fetchCurrentUser()
+    .then(({ data: user }) => {
+      auth.setUser(user);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  navigationStore.resetDrawers();
 });
 </script>
 

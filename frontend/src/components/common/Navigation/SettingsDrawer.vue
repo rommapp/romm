@@ -14,28 +14,22 @@ import { useDisplay } from "vuetify";
 const navigationStore = storeNavigation();
 const router = useRouter();
 const auth = storeAuth();
+const { user, scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
 const { smAndDown } = useDisplay();
 
 // Functions
 async function logout() {
-  identityApi
-    .logout()
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: data.msg,
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-      router.push({ name: "login" });
-    })
-    .catch(() => {
-      router.push({ name: "login" });
-    })
-    .finally(() => {
-      auth.setUser(null);
+  identityApi.logout().then(({ data }) => {
+    emitter?.emit("snackbarShow", {
+      msg: data.msg,
+      icon: "mdi-check-bold",
+      color: "green",
     });
+  });
+  await router.push({ name: "login" });
+  auth.setUser(null);
 }
 </script>
 <template>
@@ -50,8 +44,8 @@ async function logout() {
       <v-list-img>
         <v-img
           :src="
-            auth.user?.avatar_path
-              ? `/assets/romm/assets/${auth.user?.avatar_path}?ts=${auth.user?.updated_at}`
+            user?.avatar_path
+              ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
               : defaultAvatarPath
           "
           cover
@@ -59,8 +53,8 @@ async function logout() {
         </v-img>
       </v-list-img>
       <v-list-item
-        :title="auth.user?.username"
-        :subtitle="auth.user?.role"
+        :title="user?.username"
+        :subtitle="user?.role"
         class="mb-1 text-shadow text-white"
       >
       </v-list-item>
@@ -70,13 +64,13 @@ async function logout() {
         >UI Settings</v-list-item
       >
       <v-list-item
-        v-if="auth.scopes.includes('platforms.write')"
+        v-if="scopes.includes('platforms.write')"
         append-icon="mdi-table-cog"
         :to="{ name: 'management' }"
         >Library Management
       </v-list-item>
       <v-list-item
-        v-if="auth.scopes.includes('users.write')"
+        v-if="scopes.includes('users.write')"
         :to="{ name: 'administration' }"
         append-icon="mdi-security"
         >Administration</v-list-item
