@@ -19,14 +19,14 @@ class SchedulerDict(TypedDict):
 class MetadataSourcesDict(TypedDict):
     IGDB_API_ENABLED: bool
     MOBY_API_ENABLED: bool
+    STEAMGRIDDB_ENABLED: bool
 
 
 class HeartbeatResponse(TypedDict):
     VERSION: str
-    SETUP_WIZARD: bool
+    SHOW_SETUP_WIZARD: bool
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
     ANY_SOURCE_ENABLED: bool
     METADATA_SOURCES: MetadataSourcesDict
-    STEAMGRIDDB_ENABLED: bool
     FS_PLATFORMS: list
