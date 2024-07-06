@@ -79,7 +79,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const heartbeat = storeHeartbeat();
-  if (to.name == "setup" && !heartbeat.value.SETUP_WIZARD) {
+  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
     router.push({ name: "dashboard" });
   }
   // TODO: check permission for views. Ex: view user can access to /scan view
