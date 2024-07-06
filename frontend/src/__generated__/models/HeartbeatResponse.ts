@@ -9,10 +9,10 @@ import type { WatcherDict } from "./WatcherDict";
 
 export type HeartbeatResponse = {
   VERSION: string;
+  SHOW_SETUP_WIZARD: boolean;
   WATCHER: WatcherDict;
   SCHEDULER: SchedulerDict;
   ANY_SOURCE_ENABLED: boolean;
   METADATA_SOURCES: MetadataSourcesDict;
-  STEAMGRIDDB_ENABLED: boolean;
   FS_PLATFORMS: Array<any>;
 };
