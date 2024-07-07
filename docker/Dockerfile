@@ -1,9 +1,10 @@
 ARG ALPINE_VERSION=3.19
 ARG NGINX_VERSION=1.27.0
+ARG NODE_VERSION=lts
 ARG PYTHON_VERSION=3.11
 
 # Build frontend
-FROM node:lts-alpine${ALPINE_VERSION} as front-build-stage
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS front-build-stage
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -33,7 +34,7 @@ COPY ./pyproject.toml ./poetry.lock /src/
 RUN poetry install --no-ansi --no-cache --only main
 
 # Setup frontend and backend
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim as production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
@@ -63,7 +64,7 @@ RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
 # Move everything to final stage
-FROM scratch as final-stage
+FROM scratch AS final-stage
 
 COPY --from=production-stage / /
 
