@@ -260,11 +260,23 @@ async def scan_platforms(
                     )
                     await sm.emit("", None)
 
-            db_rom_handler.purge_roms(
-                platform.id, [rom["file_name"] for rom in fs_roms]
-            )
-            db_firmware_handler.purge_firmware(platform.id, [fw for fw in fs_firmware])
-        db_platform_handler.purge_platforms(fs_platforms)
+            # Only purge entries if there are some file remaining in the library
+            # This protects against accidental deletion of entries when
+            # the folder structure is not correct or the drive is not mounted
+            if len(fs_roms) > 0:
+                db_rom_handler.purge_roms(
+                    platform.id, [rom["file_name"] for rom in fs_roms]
+                )
+
+            # Same protection for firmware
+            if len(fs_firmware) > 0:
+                db_firmware_handler.purge_firmware(
+                    platform.id, [fw for fw in fs_firmware]
+                )
+
+        # Same protection for platforms
+        if len(fs_platforms) > 0:
+            db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
