@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 from datetime import datetime
 from shutil import rmtree
 from stat import S_IFREG
@@ -208,7 +209,7 @@ def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = files or rom.files
+    files_to_download = files or rom.files or []
 
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)
@@ -220,34 +221,33 @@ def get_rom_content(
 
     # Builds a generator of tuples for each member file
     def local_files():
-        def contents(f):
+        def contents(filename: str) -> Iterator[bytes]:
             try:
-                with open(f"{rom_path}/{f}", "rb") as f:
+                with open(f"{rom_path}/{filename}", "rb") as f:
                     while chunk := f.read(65536):
                         yield chunk
             except FileNotFoundError:
-                log.error(f"File {rom_path}/{f} not found!")
+                log.error(f"File {rom_path}/{filename} not found!")
                 raise
 
-        m3u_file = [
-            str.encode(f"{files_to_download[i]}\n")
-            for i in range(len(files_to_download))
-        ]
+        m3u_file = [str.encode(f"{file}\n") for file in files_to_download]
+        now = datetime.now()
+
         return [
             (
                 f,
-                datetime.now(),
+                now,
                 S_IFREG | 0o600,
-                ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}")),
+                ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}"), level=0),
                 contents(f),
             )
             for f in files_to_download
         ] + [
             (
                 f"{file_name}.m3u",
-                datetime.now(),
+                now,
                 S_IFREG | 0o600,
-                ZIP_AUTO(sum([len(f) for f in m3u_file])),
+                ZIP_AUTO(sum([len(f) for f in m3u_file]), level=0),
                 m3u_file,
             )
         ]
