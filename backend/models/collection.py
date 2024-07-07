@@ -36,7 +36,7 @@ class Collection(BaseModel):
         return self.user.username
 
     @property
-    def rom_count(self):
+    def rom_count(self) -> int:
         return len(self.roms)
 
     @cached_property
