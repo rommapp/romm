@@ -6,13 +6,14 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-const configStore = storeConfig();
 const authStore = storeAuth();
-const platformsBinding = configStore.value.PLATFORMS_BINDING;
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const editable = ref(false);
 </script>
 
@@ -33,7 +34,7 @@ const editable = ref(false);
     <template #content>
       <v-row no-gutters class="align-center">
         <v-col
-          v-for="(slug, fsSlug) in platformsBinding"
+          v-for="(slug, fsSlug) in config.PLATFORMS_BINDING"
           :key="slug"
           cols="6"
           sm="4"

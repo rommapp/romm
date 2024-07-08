@@ -20,7 +20,7 @@ class Platform(BaseModel):
     moby_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=50))
     fs_slug: Mapped[str] = mapped_column(String(length=50))
-    name: Mapped[str | None] = mapped_column(String(length=400))
+    name: Mapped[str] = mapped_column(String(length=400))
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
     roms: Mapped[list[Rom]] = relationship(back_populates="platform")

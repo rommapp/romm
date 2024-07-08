@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
@@ -22,6 +23,7 @@ const props = withDefaults(
     pointerOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
+    showPlatformIcon?: boolean;
     showFav?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
@@ -34,6 +36,7 @@ const props = withDefaults(
     pointerOnHover: true,
     titleOnFooter: false,
     showActionBar: false,
+    showPlatformIcon: false,
     showFav: false,
     withBorder: false,
     withBorderRommAccent: false,
@@ -153,7 +156,22 @@ onMounted(() => {
               <slot name="prepend-inner"></slot>
             </v-row>
           </div>
-          <div class="position-absolute append-inner">
+          <div class="position-absolute append-inner-left">
+            <v-btn
+              v-if="romsStore.isSimpleRom(rom) && showPlatformIcon"
+              @click.stop=""
+              class="label-platform translucent-dark"
+              rounded="0"
+              size="small"
+            >
+              <platform-icon
+                :size="25"
+                :key="rom.platform_slug"
+                :slug="rom.platform_slug"
+              />
+            </v-btn>
+          </div>
+          <div class="position-absolute append-inner-right">
             <v-btn
               v-if="
                 romsStore.isSimpleRom(rom) &&
@@ -172,9 +190,16 @@ onMounted(() => {
                 }}
               </v-icon>
             </v-btn>
-            <slot name="append-inner"> </slot>
           </div>
-
+          <div
+            class="position-absolute append-inner-left"
+            v-if="!showPlatformIcon"
+          >
+            <slot name="append-inner-left"> </slot>
+          </div>
+          <div class="position-absolute append-inner-right" v-if="!showFav">
+            <slot name="append-inner-right"> </slot>
+          </div>
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
@@ -238,7 +263,15 @@ onMounted(() => {
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
 }
-.append-inner {
+.append-inner-left {
+  bottom: 0rem;
+  left: 0rem;
+}
+.label-platform {
+  right: 0.2rem;
+  top: 0.1rem;
+}
+.append-inner-right {
   bottom: 0rem;
   right: 0rem;
 }

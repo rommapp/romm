@@ -139,6 +139,7 @@ async def update_collection(
     """
 
     data = await request.form()
+
     collection = db_collection_handler.get_collection(id)
 
     if collection.user_id != request.user.id:
@@ -158,7 +159,6 @@ async def update_collection(
         "name": data.get("name", collection.name),
         "description": data.get("description", collection.description),
         "roms": list(set(roms)),
-        "url_cover": data.get("url_cover", collection.url_cover),
         "is_public": data.get("is_public", collection.is_public),
         "user_id": request.user.id,
     }
@@ -187,16 +187,20 @@ async def update_collection(
             file_location_l = f"{artwork_path}/big.{file_ext}"
             with open(file_location_l, "wb+") as artwork_l:
                 artwork_l.write(artwork_file)
+            cleaned_data.update({"url_cover": ""})
         else:
-            cleaned_data["url_cover"] = data.get("url_cover", collection.url_cover)
-            path_cover_s, path_cover_l = fs_resource_handler.get_cover(
-                overwrite=cleaned_data["url_cover"] != collection.url_cover,
-                entity=collection,
-                url_cover=cleaned_data.get("url_cover", ""),
-            )
-            cleaned_data.update(
-                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
-            )
+            if data.get("url_cover", "") != collection.url_cover:
+                cleaned_data.update(
+                    {"url_cover": data.get("url_cover", collection.url_cover)}
+                )
+                path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+                    overwrite=True,
+                    entity=collection,
+                    url_cover=data.get("url_cover", ""),
+                )
+                cleaned_data.update(
+                    {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                )
 
     return db_collection_handler.update_collection(id, cleaned_data)
 
