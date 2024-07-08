@@ -58,7 +58,7 @@ class Rom(BaseModel):
         JSON, default=[], doc="URLs to screenshots stored in IGDB"
     )
 
-    multi: Mapped[bool | None] = mapped_column(default=False)
+    multi: Mapped[bool] = mapped_column(default=False)
     files: Mapped[list[str] | None] = mapped_column(JSON, default=[])
 
     platform_id: Mapped[int] = mapped_column(
@@ -163,9 +163,9 @@ class RomUser(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
-    note_is_public: Mapped[bool | None] = mapped_column(default=False)
+    note_is_public: Mapped[bool] = mapped_column(default=False)
 
-    is_main_sibling: Mapped[bool | None] = mapped_column(default=False)
+    is_main_sibling: Mapped[bool] = mapped_column(default=False)
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
