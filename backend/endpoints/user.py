@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler.auth import auth_handler
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
+from logger.logger import log
 from models.user import Role, User
 
 router = APIRouter()
@@ -38,6 +39,14 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
     Returns:
         UserSchema: Created user info
     """
+
+    if username in [user.username for user in db_user_handler.get_users()]:
+        msg = f"Username {username} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
 
     user = User(
         username=username,
@@ -115,9 +124,9 @@ def update_user(
 
     db_user = db_user_handler.get_user(id)
     if not db_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        msg = f"Username with id {id} not found"
+        log.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
     # Admin users can edit any user, while other users can only edit self
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
@@ -128,9 +137,11 @@ def update_user(
     if form_data.username and form_data.username != db_user.username:
         existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
         if existing_user:
+            msg = f"Username {form_data.username} already exists"
+            log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already in use by another user",
+                detail=msg,
             )
 
         cleaned_data["username"] = form_data.username.lower()
