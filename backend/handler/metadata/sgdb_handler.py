@@ -1,4 +1,5 @@
-from typing import Final
+import itertools
+from typing import Any, Final
 
 import requests
 from config import STEAMGRIDDB_API_KEY
@@ -31,7 +32,7 @@ class SGDBBaseHandler:
             "Accept": "*/*",
         }
 
-    def get_details(self, search_term):
+    def get_details(self, search_term: str) -> list[dict[str, Any]]:
         search_response = requests.get(
             f"{self.search_endpoint}/{search_term}",
             headers=self.headers,
@@ -44,37 +45,26 @@ class SGDBBaseHandler:
 
         games = []
         for game in search_response["data"]:
-            page = 0
-            covers_response = requests.get(
-                f"{self.grid_endpoint}/{game['id']}",
-                headers=self.headers,
-                timeout=120,
-                params={
-                    "dimensions": f"{STEAMVERTICAL},{GALAXY342},{GALAXY660},{SQUARE512},{SQUARE1024}",
-                    "types": f"{STATIC},{ANIMATED}",
-                    "page": page,
-                },
-            ).json()
+            game_covers = []
+            for page in itertools.count(start=0):
+                covers_response = requests.get(
+                    f"{self.grid_endpoint}/{game['id']}",
+                    headers=self.headers,
+                    timeout=120,
+                    params={
+                        "dimensions": f"{STEAMVERTICAL},{GALAXY342},{GALAXY660},{SQUARE512},{SQUARE1024}",
+                        "types": f"{STATIC},{ANIMATED}",
+                        "limit": SGDB_API_COVER_LIMIT,
+                        "page": page,
+                    },
+                ).json()
+                page_covers = covers_response["data"]
 
-            while (
-                len(covers_response["data"]) < covers_response["total"]
-                and covers_response["total"] > SGDB_API_COVER_LIMIT
-            ):
-                page += 1
-                covers_response["data"].extend(
-                    requests.get(
-                        f"{self.grid_endpoint}/{game['id']}",
-                        headers=self.headers,
-                        timeout=120,
-                        params={
-                            "dimensions": f"{STEAMVERTICAL},{GALAXY342},{GALAXY660},{SQUARE512},{SQUARE1024}",
-                            "types": f"{STATIC},{ANIMATED}",
-                            "page": page,
-                        },
-                    ).json()["data"]
-                )
+                game_covers.extend(page_covers)
+                if len(page_covers) < SGDB_API_COVER_LIMIT:
+                    break
 
-            if len(covers_response["data"]) > 0:
+            if game_covers:
                 games.append(
                     {
                         "name": game["name"],
@@ -84,11 +74,11 @@ class SGDBBaseHandler:
                                 "url": cover["url"],
                                 "type": (
                                     "animated"
-                                    if cover["thumb"].split(".")[-1] == "webm"
+                                    if cover["thumb"].endswith(".webm")
                                     else "static"
                                 ),
                             }
-                            for cover in covers_response["data"]
+                            for cover in game_covers
                         ],
                     }
                 )
