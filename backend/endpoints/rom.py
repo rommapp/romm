@@ -300,17 +300,29 @@ async def update_rom(
         "moby_id": data.get("moby_id", None),
     }
 
-    if cleaned_data["moby_id"]:
+    if (
+        cleaned_data.get("moby_id", "")
+        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
+    ):
         moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
-    else:
-        cleaned_data.update({"moby_metadata": {}})
+        path_screenshots = fs_resource_handler.get_rom_screenshots(
+            rom=rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
+        )
+        cleaned_data.update({"path_screenshots": path_screenshots})
 
-    if cleaned_data["igdb_id"]:
+    if (
+        cleaned_data.get("igdb_id", "")
+        and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
+    ):
         igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
-    else:
-        cleaned_data.update({"igdb_metadata": {}})
+        path_screenshots = fs_resource_handler.get_rom_screenshots(
+            rom=rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
+        )
+        cleaned_data.update({"path_screenshots": path_screenshots})
 
     cleaned_data.update(
         {
@@ -356,7 +368,7 @@ async def update_rom(
         cleaned_data.update(fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
     else:
-        if artwork is not None:
+        if artwork:
             file_ext = artwork.filename.split(".")[-1]
             (
                 path_cover_l,
@@ -377,23 +389,18 @@ async def update_rom(
             file_location_l = f"{artwork_path}/big.{file_ext}"
             with open(file_location_l, "wb+") as artwork_l:
                 artwork_l.write(artwork_file)
+            cleaned_data.update({"url_cover": ""})
         else:
-            cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
-            path_cover_s, path_cover_l = fs_resource_handler.get_cover(
-                overwrite=cleaned_data["url_cover"] != rom.url_cover,
-                entity=rom,
-                url_cover=cleaned_data.get("url_cover", ""),
-            )
-            cleaned_data.update(
-                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
-            )
-
-    if cleaned_data["igdb_id"] != rom.igdb_id or cleaned_data["moby_id"] != rom.moby_id:
-        path_screenshots = fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+            if data.get("url_cover", "") != rom.url_cover:
+                cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
+                path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+                    overwrite=True,
+                    entity=rom,
+                    url_cover=data.get("url_cover", ""),
+                )
+                cleaned_data.update(
+                    {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                )
 
     db_rom_handler.update_rom(id, cleaned_data)
 

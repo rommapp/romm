@@ -4,15 +4,13 @@ import RAvatar from "@/components/common/Game/RAvatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import { formatBytes, getSupportedCores } from "@/utils";
+import { formatBytes, formatTimestamp, getSupportedCores } from "@/utils";
 import Player from "@/views/Play/Player.vue";
 import { isNull } from "lodash";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import { useTheme } from "vuetify";
 
 // Props
-const theme = useTheme();
 const route = useRoute();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -52,6 +50,12 @@ onMounted(async () => {
     platformId: romResponse.data.platform_id,
   });
   firmwareOptions.value = firmwareResponse.data;
+  // Auto select most recent state
+  if (rom.value.user_states && rom.value.user_states?.length > 0) {
+    stateRef.value = rom.value.user_states.sort((a, b) =>
+      b.updated_at.localeCompare(a.updated_at)
+    )[0];
+  }
 });
 </script>
 
@@ -152,7 +156,42 @@ onMounted(async () => {
                 value: s,
               })) ?? []
             "
-          />
+          >
+            <template #selection="{ item }">
+              <v-list-item class="py-4" :title="item.value.file_name ?? ''">
+                <template #append>
+                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
+                    item.value.emulator
+                  }}</v-chip>
+                  <v-chip size="x-small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
+                  </v-chip>
+                  <v-chip size="x-small" class="ml-1" label
+                    >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+            <template #item="{ props, item }">
+              <v-list-item
+                class="py-4"
+                v-bind="props"
+                :title="item.value.file_name ?? ''"
+              >
+                <template #append>
+                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
+                    item.value.emulator
+                  }}</v-chip>
+                  <v-chip size="x-small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
+                  </v-chip>
+                  <v-chip size="x-small" class="ml-1" label
+                    >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+          </v-select>
           <v-select
             v-model="stateRef"
             :disabled="gameRunning"
@@ -169,7 +208,42 @@ onMounted(async () => {
                 value: s,
               })) ?? []
             "
-          />
+          >
+            <template #selection="{ item }">
+              <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
+                <template #append>
+                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
+                    item.value.emulator
+                  }}</v-chip>
+                  <v-chip size="x-small" class="ml-1" label
+                  >{{ formatBytes(item.value.file_size_bytes) }}
+                </v-chip>
+                <v-chip size="small" class="ml-1" label>
+                  {{ formatTimestamp(item.value.updated_at) }}
+                </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+            <template #item="{ props, item }">
+              <v-list-item
+                class="py-4"
+                v-bind="props"
+                :title="item.value.file_name ?? ''"
+              >
+                <template #append>
+                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
+                    item.value.emulator
+                  }}</v-chip>
+                  <v-chip size="x-small" class="ml-1" label
+                  >{{ formatBytes(item.value.file_size_bytes) }}
+                </v-chip>
+                <v-chip size="small" class="ml-1" label>
+                  {{ formatTimestamp(item.value.updated_at) }}
+                </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+          </v-select>
           <!-- <v-select
             class="my-1"
             hide-details

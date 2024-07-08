@@ -12,8 +12,8 @@ import { inject } from "vue";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
-const collectionsStore = storeCollections();
 const romsStore = storeRoms();
+const collectionsStore = storeCollections();
 const { favCollection } = storeToRefs(collectionsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
