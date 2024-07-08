@@ -288,8 +288,7 @@ onBeforeUnmount(() => {
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
-          >
-          </game-card>
+          />
         </v-col>
 
         <!-- Gallery list view -->

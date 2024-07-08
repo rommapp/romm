@@ -3,47 +3,44 @@ import ExcludedCard from "@/components/Management/ExcludedCard.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { ref } from "vue";
 
 // Props
-const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const authStore = storeAuth();
 const exclusions = [
   {
-    set: configStore.value.EXCLUDED_PLATFORMS,
+    set: configStore.config.EXCLUDED_PLATFORMS,
     title: "Platform",
     icon: "mdi-controller-off",
     emit: "platform",
   },
   {
-    set: configStore.value.EXCLUDED_SINGLE_FILES,
+    set: configStore.config.EXCLUDED_SINGLE_FILES,
     title: "Single rom files",
     icon: "mdi-file-document-remove-outline",
     emit: "singleFile",
   },
   {
-    set: configStore.value.EXCLUDED_SINGLE_EXT,
+    set: configStore.config.EXCLUDED_SINGLE_EXT,
     title: "Single Roms Extensions",
     icon: "mdi-file-document-remove-outline",
     emit: "singleFileExt",
   },
   {
-    set: configStore.value.EXCLUDED_MULTI_FILES,
+    set: configStore.config.EXCLUDED_MULTI_FILES,
     title: "Multi Roms Files",
     icon: "mdi-file-document-remove-outline",
     emit: "multiFile",
   },
   {
-    set: configStore.value.EXCLUDED_MULTI_PARTS_FILES,
+    set: configStore.config.EXCLUDED_MULTI_PARTS_FILES,
     title: "Multi Roms Parts Files",
     icon: "mdi-file-document-remove-outline",
     emit: "multiFilePart",
   },
   {
-    set: configStore.value.EXCLUDED_MULTI_PARTS_EXT,
+    set: configStore.config.EXCLUDED_MULTI_PARTS_EXT,
     title: "Multi Roms Parts Extensions",
     icon: "mdi-file-document-remove-outline",
     emit: "multiFilePartExt",
