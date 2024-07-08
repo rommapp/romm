@@ -27,7 +27,7 @@ const HEADERS = [
     key: "emulator",
   },
   {
-    title: "Last update",
+    title: "Updated",
     align: "start",
     sortable: true,
     key: "updated_at",

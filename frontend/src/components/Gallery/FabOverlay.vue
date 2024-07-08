@@ -1,18 +1,16 @@
 <script setup lang="ts">
+import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
+import storeCollections, { type Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import collectionApi, {
-  type UpdatedCollection,
-} from "@/services/api/collection";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import storeCollections, { type Collection } from "@/stores/collections";
 import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
 
