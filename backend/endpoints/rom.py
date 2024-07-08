@@ -301,8 +301,8 @@ async def update_rom(
     }
 
     if (
-        cleaned_data.get("moby_id", None)
-        and int(cleaned_data.get("moby_id")) != rom.moby_id
+        cleaned_data.get("moby_id", "")
+        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
     ):
         moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
@@ -313,8 +313,8 @@ async def update_rom(
         cleaned_data.update({"path_screenshots": path_screenshots})
 
     if (
-        cleaned_data.get("igdb_id", None)
-        and int(cleaned_data.get("igdb_id")) != rom.igdb_id
+        cleaned_data.get("igdb_id", "")
+        and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
     ):
         igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
