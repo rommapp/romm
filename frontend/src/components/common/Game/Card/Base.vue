@@ -191,6 +191,15 @@ onMounted(() => {
               </v-icon>
             </v-btn>
           </div>
+          <div
+            class="position-absolute append-inner-left"
+            v-if="!showPlatformIcon"
+          >
+            <slot name="append-inner-left"> </slot>
+          </div>
+          <div class="position-absolute append-inner-right" v-if="!showFav">
+            <slot name="append-inner-right"> </slot>
+          </div>
           <template #error>
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
