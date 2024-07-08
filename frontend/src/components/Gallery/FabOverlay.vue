@@ -5,10 +5,14 @@ import storeAuth from "@/stores/auth";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
+import collectionApi, {
+  type UpdatedCollection,
+} from "@/services/api/collection";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
+import storeCollections, { type Collection } from "@/stores/collections";
 import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
 
@@ -24,6 +28,8 @@ emitter?.on("openFabMenu", (open) => {
 });
 const auth = storeAuth();
 const scanningStore = storeScanning();
+const collectionsStore = storeCollections();
+const { favCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
 
@@ -59,6 +65,67 @@ function selectAllRoms() {
 function resetSelection() {
   romsStore.resetSelection();
   emitter?.emit("openFabMenu", false);
+}
+
+async function addToFavourites() {
+  if (!favCollection.value) return;
+  favCollection.value.roms = favCollection.value.roms.concat(
+    selectedRoms.value.map((r) => r.id)
+  );
+  await collectionApi
+    .updateCollection({ collection: favCollection.value as Collection })
+    .then(({ data }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Roms added to favourites successfully!",
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
+}
+
+async function removeFromFavourites() {
+  if (!favCollection.value) return;
+  favCollection.value.roms = favCollection.value.roms.filter(
+    (value) => !selectedRoms.value.map((r) => r.id).includes(value)
+  );
+  if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
+    romsStore.remove(selectedRoms.value);
+  }
+  await collectionApi
+    .updateCollection({ collection: favCollection.value as Collection })
+    .then(() => {
+      emitter?.emit("snackbarShow", {
+        msg: "Roms removed from favourites successfully!",
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
 }
 
 function onDownload() {
@@ -156,12 +223,28 @@ function onDownload() {
         key="5"
         color="terciary"
         elevation="8"
+        icon="mdi-star-outline"
+        size="default"
+        @click="removeFromFavourites"
+      />
+      <v-btn
+        key="6"
+        color="terciary"
+        elevation="8"
+        icon="mdi-star"
+        size="default"
+        @click="addToFavourites"
+      />
+      <v-btn
+        key="7"
+        color="terciary"
+        elevation="8"
         icon="mdi-select-all"
         size="default"
         @click.stop="selectAllRoms"
       />
       <v-btn
-        key="6"
+        key="8"
         color="terciary"
         elevation="8"
         icon="mdi-select"
