@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
@@ -199,21 +198,9 @@ onBeforeUnmount(() => {
             title-on-hover
             show-flags
             transform-scale
+            show-platform-icon
             show-fav
-          >
-            <template #footer>
-              <v-row class="pa-1 align-center" no-gutters>
-                <v-col class="pa-0 ml-1 text-truncate">
-                  <span>{{ rom.name }}</span>
-                </v-col>
-                <platform-icon
-                  :size="20"
-                  :key="rom.platform_slug"
-                  :slug="rom.platform_slug"
-                />
-              </v-row>
-            </template>
-          </game-card>
+          />
         </v-col>
       </v-row>
     </template>

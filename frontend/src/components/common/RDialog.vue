@@ -1,10 +1,9 @@
 <script setup lang="ts">
+import EmptyFirmware from "@/components/common/EmptyFirmware.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
-import EmptyFirmware from "@/components/common/EmptyFirmware.vue";
 import RommIso from "@/components/common/RommIso.vue";
 import { onMounted, ref, useSlots } from "vue";
-import { useDisplay } from "vuetify";
 
 // Props
 withDefaults(
@@ -33,7 +32,6 @@ withDefaults(
   }
 );
 const emit = defineEmits(["update:modelValue", "close"]);
-const { mdAndDown } = useDisplay();
 const hasToolbarSlot = ref(false);
 const hasPrependSlot = ref(false);
 const hasAppendSlot = ref(false);
