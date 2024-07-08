@@ -153,6 +153,21 @@ onMounted(async () => {
               })) ?? []
             "
           >
+            <template #selection="{ item }">
+              <v-list-item class="py-4" :title="item.value.file_name ?? ''">
+                <template #append>
+                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
+                    item.value.emulator
+                  }}</v-chip>
+                  <v-chip size="x-small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
+                  </v-chip>
+                  <v-chip size="x-small" class="ml-1" label
+                    >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
             <template #item="{ props, item }">
               <v-list-item
                 class="py-4"
@@ -190,6 +205,21 @@ onMounted(async () => {
               })) ?? []
             "
           >
+            <template #selection="{ item }">
+              <v-list-item :title="item.value.file_name ?? ''">
+                <template #append>
+                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
+                    item.value.emulator
+                  }}</v-chip>
+                  <v-chip size="x-small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
+                  </v-chip>
+                  <v-chip size="x-small" class="ml-1" label
+                    >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
             <template #item="{ props, item }">
               <v-list-item
                 class="py-4"
