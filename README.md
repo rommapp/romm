@@ -18,9 +18,6 @@
   </div>
 </div>
 
-> [!WARNING]
-> Version 3.0 introduces exciting new features that require changes to how RomM is set up and configured. **If you're currently running a 2.x version, please review the [migration guide](https://github.com/rommapp/romm/wiki/Upgrading-to-3.0) before upgrading.**
-
 # Table of Contents
 
 - [Overview](#overview)
