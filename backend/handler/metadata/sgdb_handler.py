@@ -82,7 +82,6 @@ class SGDBBaseHandler:
                         ],
                     }
                 )
-
         return games
 
 
