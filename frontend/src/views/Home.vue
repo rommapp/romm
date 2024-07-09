@@ -90,6 +90,27 @@ onBeforeMount(async () => {
 // Gamepad testing
 const gamepads = ref<{ [index: number]: Gamepad }>({});
 
+const MapABXY = [
+  "mdi-alpha-a-circle",
+  "mdi-alpha-b-circle",
+  "mdi-alpha-x-circle",
+  "mdi-alpha-y-circle",
+];
+
+const MapTriggers = [
+  "mdi-alpha-l-box-outline",
+  "mdi-alpha-r-box-outline",
+  "mdi-alpha-l-box",
+  "mdi-alpha-r-box",
+];
+
+const MapDPad = [
+  "mdi-arrow-up",
+  "mdi-arrow-down",
+  "mdi-arrow-left",
+  "mdi-arrow-right",
+];
+
 function pollGamepads() {
   gamepads.value = { ...gamepadService.getGamepads() }; // Using spread to ensure reactivity
   gamepadService.handleButtonPress(); // Check for button presses
@@ -113,28 +134,57 @@ onMounted(async () => {
 
   <new-version />
   <v-card elevation="0">
-    <v-card-title>Gamepad Status</v-card-title>
-    <v-card-text>
-      <div v-for="(gamepad, index) in gamepads" :key="index">
-        <h2>Gamepad {{ index + 1 }}: {{ gamepad.id }}</h2>
-        <p>
-          Buttons:
-          <div v-for="button, index in gamepad.buttons">{{ index }}: {{ button.pressed }} - {{ button.touched }} - {{ button.value }}</div>
-        </p>
-        <p>Axes: {{ gamepad.axes.join(", ") }}</p>
-        <v-btn
-          variant="tonal"
-          @click="
-            gamepad.vibrationActuator.playEffect('trigger-rumble', {
-              startDelay: 0,
-              duration: 200,
-              weakMagnitude: 1.0,
-              strongMagnitude: 1.0,
-            })
-          "
-          >vibration</v-btn
-        >
-      </div>
+    <v-card-text v-for="(gamepad, index) in gamepads" :key="index">
+      <span class="text-h6">Gamepad {{ index + 1 }}: {{ gamepad.id }}</span
+      ><v-btn
+        variant="tonal"
+        size="small"
+        class="ml-2"
+        @click="
+          gamepad.vibrationActuator.playEffect('trigger-rumble', {
+            startDelay: 0,
+            duration: 200,
+            weakMagnitude: 1.0,
+            strongMagnitude: 1.0,
+          })
+        "
+        >test vibration</v-btn
+      >
+      <v-divider class="mt-1 mb-3" />
+      <v-row no-gutters>
+        <v-col cols="2">
+          <div
+            v-for="(button, buttonIndex) in gamepad.buttons.slice(0, 4)"
+            :key="buttonIndex"
+          >
+            <v-icon :class="{ 'text-romm-accent-1': button.value }">{{
+              MapABXY[buttonIndex]
+            }}</v-icon>
+          </div>
+        </v-col>
+        <v-col cols="2">
+          <div
+            v-for="(button, buttonIndex) in gamepad.buttons.slice(4, 8)"
+            :key="buttonIndex"
+          >
+            <v-icon :class="{ 'text-romm-accent-1': button.value == 1 }">{{
+              MapTriggers[buttonIndex]
+            }}</v-icon>{{ button.value < 1 && button.value > 0 ? button.value.toFixed(2) : '' }}
+          </div>
+        </v-col>
+        <v-col cols="2">
+          <div
+            v-for="(button, buttonIndex) in gamepad.buttons.slice(12, 16)"
+            :key="buttonIndex"
+          >
+            <v-icon :class="{ 'text-romm-accent-1': button.value }">{{
+              MapDPad[buttonIndex]
+            }}</v-icon>
+          </div>
+        </v-col>
+      </v-row>
+      <v-divider class="my-3" />
+      <span>Axes: {{ gamepad.axes.join(", ") }}</span>
     </v-card-text>
   </v-card>
   <router-view />

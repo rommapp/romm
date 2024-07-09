@@ -1,5 +1,3 @@
-// src/gamepadService.ts
-
 class GamepadService {
   private gamepads: { [index: number]: Gamepad } = {};
   private pressedButtons: Set<number> = new Set();
@@ -47,7 +45,7 @@ class GamepadService {
     return this.gamepads;
   }
 
-  private handleButtonPress(): void {
+  public handleButtonPress(): void {
     for (const gamepad of Object.values(this.gamepads)) {
       gamepad.buttons.forEach((button, index) => {
         if (button.pressed && !this.pressedButtons.has(index)) {
@@ -64,28 +62,25 @@ class GamepadService {
   private performAction(buttonIndex: number): void {
     // Prevent default actions based on button index
     switch (buttonIndex) {
-      case 0:
-        console.log("A button pressed");
+      case 0: // A button
         break;
-      case 1:
-        console.log("B button pressed");
+      case 1: // B button
         break;
-      case 2:
-        console.log("X button pressed");
+      case 2: // X button
         break;
-      case 3:
-        console.log("Y button pressed");
+      case 3: // Y button
         break;
       case 12: // D-Pad Up
-      case 13: // D-Pad Down
-      case 14: // D-Pad Left
-      case 15: // D-Pad Right
-        console.log("D-Pad button pressed, preventing default scroll");
-        // Prevent default scroll actions
         break;
-      // Add cases for other buttons as needed
+      case 13: // D-Pad Down
+        break;
+      case 14: // D-Pad Left
+        break;
+      case 15: // D-Pad Right
+        break;
       default:
         console.log(`Button ${buttonIndex} pressed`);
+        break;
     }
   }
 }
