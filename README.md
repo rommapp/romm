@@ -1,3 +1,5 @@
+<!-- trunk-ignore-all(markdownlint/MD033) -->
+<!-- trunk-ignore(markdownlint/MD041) -->
 <div align="center">
 
   <img src=".github/resources/romm_complete.svg" height="220px" width="auto" alt="romm logo">
@@ -27,8 +29,6 @@
 - [Naming Convention](#naming-convention)
 - [Community](#community)
 
-<a name ='overview'> </a>
-
 # Overview
 
 RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
@@ -46,11 +46,9 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Preview
 
-|                             🖥 Desktop                              |                                                  📱 Mobile                                                   |
-| :-----------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------: |
-| <img src=".github/resources/screenshots/romm-desktop-slider.gif" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" /> |
-
-<a name ='installation'> </a>
+|                                        🖥 Desktop                                         |                                                             📱 Mobile                                                             |
+| :---------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------: |
+| <img src=".github/resources/screenshots/romm-desktop-slider.gif" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" alt="mobile preview" /> |
 
 # Installation
 
@@ -64,8 +62,6 @@ Before running the [image][docker-tags], please ensure that Docker is installed 
 > [!NOTE] > **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting] for troubleshooting steps and common issues.**
 
 # Configuration
-
-<a name ='folder-structure'> </a>
 
 ## Folder Structure
 
@@ -155,8 +151,6 @@ RomM's "understanding" of your library can be configured with a `config.yaml` fi
 
 The scheduler allows you to schedule async tasks that run in the Redis container at regular intervals. Jobs can be run at a specific time in the future, after a time delta, or at recurring internals using cron notation. The [wiki page on the scheduler][wiki-scheduled-tasks] has more information on which tasks are available and how to enable them.
 
-<a name ='naming-convention'> </a>
-
 # Naming Convention
 
 ## Platform Support
@@ -173,8 +167,6 @@ Games can be tagged with region, revision, or other tags by using parentheses in
 - Other tags will also be imported, for example: **my_game [1.0001]\(HACK\)[!].gba**
 
 Tags can be used to search for games in the search bar. For example, searching for **(USA)** will return all games with the USA tag.
-
-<a name ='community'> </a>
 
 # Community
 
@@ -207,7 +199,6 @@ Here are a few projects that we think you might like:
 
 [folder-structure]: #folder-structure
 [platform-support]: #platform-support
-[authentication]: #authentication
 [tag-support]: #tag-support
 [configuration-file]: #configuration-file
 
@@ -254,11 +245,5 @@ Here are a few projects that we think you might like:
 [docker-tags]: https://hub.docker.com/r/rommapp/romm/tags
 [igdb-api]: https://api-docs.igdb.com/#account-creation
 [mobygames-api]: https://www.mobygames.com/info/api/
-[titleid-program-id]: https://switchbrew.org/w/index.php?title=Title_list/Games&mobileaction=toggle_view_desktop
-[igdb-platforms-list]: https://www.igdb.com/platforms
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm
-[pc-mac-icons]: https://www.flaticon.com/free-icons/keyboard-and-mouse
-[flaticon]: https://www.flaticon.com
-[user-default-icon]: https://icons8.com/icon/tZuAOUGm9AuS/user-default
-[icons8]: https://icons8.com
