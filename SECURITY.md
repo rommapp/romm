@@ -1,4 +1,4 @@
-## Reporting Security Issues
+# Reporting Security Issues
 
 Thanks for helping make RomM safer for everyone.
 

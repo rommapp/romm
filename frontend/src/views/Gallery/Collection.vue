@@ -281,6 +281,7 @@ onBeforeUnmount(() => {
             transform-scale
             with-border
             show-fav
+            show-platform-icon
             :with-border-romm-accent="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "

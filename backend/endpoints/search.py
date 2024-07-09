@@ -113,7 +113,7 @@ async def search_rom(
 @protected_route(router.get, "/search/cover", ["roms.read"])
 async def search_cover(
     request: Request,
-    search_term: str | None = None,
+    search_term: str = "",
 ) -> list[SearchCoverSchema]:
 
     if not STEAMGRIDDB_API_ENABLED:
@@ -123,4 +123,7 @@ async def search_cover(
             detail="No SteamGridDB enabled",
         )
 
-    return meta_sgdb_handler.get_details(search_term)
+    return [
+        SearchCoverSchema.model_validate(cover)
+        for cover in meta_sgdb_handler.get_details(search_term)
+    ]
