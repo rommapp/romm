@@ -35,17 +35,14 @@ exclude:
         # Exclude all files with certain extensions to be scanned from multi file roms
         extensions: [] # ['xml', 'txt']
 
-# system:
-# Asociate different platform names to your current file system platform names
-# [your custom platform folder name]: [RomM platform name]
-# platforms:
-# gc: 'ngc' # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
-# psx: 'ps' # In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
+system:
+  # Asociate different platform names to your current file system platform names
+  # [your custom platform folder name]: [RomM platform name]
+  # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder and if you have a 'psx' folder, RomM will treat it like the 'ps' folder
+  platforms: {} # { gc: 'ngc', psx: 'ps' }
 
-# Asociate one platform to it's main version
-# versions:
-# naomi: 'arcade'
+  # Asociate one platform to it's main version
+  versions: {} # { naomi: 'arcade' }
 
 # The folder name where your roms are located
-# filesystem:
-# roms_folder: 'roms' # For example if your folder structure is /home/user/library/roms_folder
+filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
