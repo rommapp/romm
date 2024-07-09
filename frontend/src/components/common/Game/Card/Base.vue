@@ -157,19 +157,13 @@ onMounted(() => {
             </v-row>
           </div>
           <div class="position-absolute append-inner-left">
-            <v-btn
+            <platform-icon
               v-if="romsStore.isSimpleRom(rom) && showPlatformIcon"
-              @click.stop=""
-              class="label-platform translucent-dark"
-              rounded="0"
-              size="small"
-            >
-              <platform-icon
-                :size="25"
-                :key="rom.platform_slug"
-                :slug="rom.platform_slug"
-              />
-            </v-btn>
+              :size="25"
+              :key="rom.platform_slug"
+              :slug="rom.platform_slug"
+              class="label-platform"
+            />
           </div>
           <div class="position-absolute append-inner-right">
             <v-btn
@@ -268,8 +262,8 @@ onMounted(() => {
   left: 0rem;
 }
 .label-platform {
-  right: 0.2rem;
-  top: 0.1rem;
+  right: -0.1rem;
+  top: -0.1rem;
 }
 .append-inner-right {
   bottom: 0rem;
