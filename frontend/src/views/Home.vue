@@ -31,13 +31,14 @@ import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import userApi from "@/services/api/user";
+import gamepadService from "@/services/gamepad";
 import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount } from "vue";
+import { inject, onBeforeMount, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -85,6 +86,18 @@ onBeforeMount(async () => {
     });
   navigationStore.resetDrawers();
 });
+
+// Gamepad testing
+const gamepads = ref<{ [index: number]: Gamepad }>({});
+
+function pollGamepads() {
+  gamepads.value = { ...gamepadService.getGamepads() }; // Using spread to ensure reactivity
+  gamepadService.handleButtonPress(); // Check for button presses
+  requestAnimationFrame(pollGamepads);
+}
+onMounted(async () => {
+  pollGamepads();
+});
 </script>
 
 <template>
@@ -99,6 +112,31 @@ onBeforeMount(async () => {
   <settings-drawer />
 
   <new-version />
+  <v-card elevation="0">
+    <v-card-title>Gamepad Status</v-card-title>
+    <v-card-text>
+      <div v-for="(gamepad, index) in gamepads" :key="index">
+        <h2>Gamepad {{ index + 1 }}: {{ gamepad.id }}</h2>
+        <p>
+          Buttons:
+          <div v-for="button, index in gamepad.buttons">{{ index }}: {{ button.pressed }} - {{ button.touched }} - {{ button.value }}</div>
+        </p>
+        <p>Axes: {{ gamepad.axes.join(", ") }}</p>
+        <v-btn
+          variant="tonal"
+          @click="
+            gamepad.vibrationActuator.playEffect('trigger-rumble', {
+              startDelay: 0,
+              duration: 200,
+              weakMagnitude: 1.0,
+              strongMagnitude: 1.0,
+            })
+          "
+          >vibration</v-btn
+        >
+      </div>
+    </v-card-text>
+  </v-card>
   <router-view />
 
   <delete-platform-dialog />

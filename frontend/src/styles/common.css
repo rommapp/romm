@@ -71,3 +71,8 @@ gallery-app-bar -> 48px
 .fill-height-mobile {
   height: calc(100dvh - 45px - 48px) !important;
 }
+
+/* Gamepad integration */
+.no-scroll {
+  overflow: hidden !important;
+}
