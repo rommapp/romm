@@ -123,7 +123,8 @@ async def search_cover(
             detail="No SteamGridDB enabled",
         )
 
-    return [
-        SearchCoverSchema.model_validate(cover)
-        for cover in meta_sgdb_handler.get_details(search_term)
-    ]
+    covers = await meta_sgdb_handler.get_details(
+        requests_client=request.app.requests_client, search_term=search_term
+    )
+
+    return [SearchCoverSchema.model_validate(cover) for cover in covers]
