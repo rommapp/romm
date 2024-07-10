@@ -13,6 +13,7 @@ import shutil
 import sqlalchemy as sa
 from alembic import op
 from config import RESOURCES_BASE_PATH
+from sqlalchemy import MetaData, Table, inspect
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
@@ -79,8 +80,11 @@ def upgrade() -> None:
             },
         )
 
-    op.create_table(
+    metadata = MetaData()
+
+    collections_table = Table(
         "collections",
+        metadata,
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("name", sa.String(length=400), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
@@ -105,6 +109,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+
+    # Create tabe if not exists
+    inspector = inspect(connection)
+    if not inspector.has_table("collections"):
+        collections_table.create(connection)
+
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
         batch_op.alter_column(
             "is_main_sibling",
