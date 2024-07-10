@@ -1,8 +1,11 @@
 import re
 import sys
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import alembic.config
 import endpoints.sockets.scan  # noqa
+import httpx
 import uvicorn
 from config import DEV_HOST, DEV_PORT, DISABLE_CSRF_PROTECTION, ROMM_AUTH_SECRET_KEY
 from endpoints import (
@@ -32,7 +35,15 @@ from handler.socket_handler import socket_handler
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 
-app = FastAPI(title="RomM API", version=get_version())
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    async with httpx.AsyncClient() as client:
+        app.requests_client = client  # type: ignore[attr-defined]
+        yield
+
+
+app = FastAPI(title="RomM API", version=get_version(), lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

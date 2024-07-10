@@ -1,7 +1,8 @@
+import asyncio
 import itertools
 from typing import Any, Final
 
-import requests
+import httpx
 from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
@@ -32,23 +33,41 @@ class SGDBBaseHandler:
             "Accept": "*/*",
         }
 
-    def get_details(self, search_term: str) -> list[dict[str, Any]]:
-        search_response = requests.get(
-            f"{self.search_endpoint}/{search_term}",
-            headers=self.headers,
-            timeout=120,
+    async def get_details(
+        self, requests_client: httpx.AsyncClient, search_term: str
+    ) -> list[dict[str, Any]]:
+        search_response = (
+            await requests_client.get(
+                f"{self.search_endpoint}/{search_term}",
+                headers=self.headers,
+                timeout=120,
+            )
         ).json()
 
         if len(search_response["data"]) == 0:
             log.warning(f"Could not find '{search_term}' on SteamGridDB")
             return []
 
-        games = []
-        for game in search_response["data"]:
-            game_covers = []
-            for page in itertools.count(start=0):
-                covers_response = requests.get(
-                    f"{self.grid_endpoint}/{game['id']}",
+        tasks = [
+            self._get_game_covers(
+                requests_client=requests_client,
+                game_id=game["id"],
+                game_name=game["name"],
+            )
+            for game in search_response["data"]
+        ]
+        results = await asyncio.gather(*tasks)
+
+        return list(filter(None, results))
+
+    async def _get_game_covers(
+        self, requests_client: httpx.AsyncClient, game_id: int, game_name: str
+    ) -> dict[str, Any] | None:
+        game_covers = []
+        for page in itertools.count(start=0):
+            covers_response = (
+                await requests_client.get(
+                    f"{self.grid_endpoint}/{game_id}",
                     headers=self.headers,
                     timeout=120,
                     params={
@@ -57,32 +76,30 @@ class SGDBBaseHandler:
                         "limit": SGDB_API_COVER_LIMIT,
                         "page": page,
                     },
-                ).json()
-                page_covers = covers_response["data"]
-
-                game_covers.extend(page_covers)
-                if len(page_covers) < SGDB_API_COVER_LIMIT:
-                    break
-
-            if game_covers:
-                games.append(
-                    {
-                        "name": game["name"],
-                        "resources": [
-                            {
-                                "thumb": cover["thumb"],
-                                "url": cover["url"],
-                                "type": (
-                                    "animated"
-                                    if cover["thumb"].endswith(".webm")
-                                    else "static"
-                                ),
-                            }
-                            for cover in game_covers
-                        ],
-                    }
                 )
-        return games
+            ).json()
+            page_covers = covers_response["data"]
+
+            game_covers.extend(page_covers)
+            if len(page_covers) < SGDB_API_COVER_LIMIT:
+                break
+
+        if not game_covers:
+            return None
+
+        return {
+            "name": game_name,
+            "resources": [
+                {
+                    "thumb": cover["thumb"],
+                    "url": cover["url"],
+                    "type": (
+                        "animated" if cover["thumb"].endswith(".webm") else "static"
+                    ),
+                }
+                for cover in game_covers
+            ],
+        }
 
 
 sgdb_handler = SGDBBaseHandler()
