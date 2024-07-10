@@ -13,7 +13,7 @@ import shutil
 import sqlalchemy as sa
 from alembic import op
 from config import RESOURCES_BASE_PATH
-from sqlalchemy import MetaData, Table, inspect
+from sqlalchemy import inspect
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
@@ -80,40 +80,34 @@ def upgrade() -> None:
             },
         )
 
-    metadata = MetaData()
-
-    collections_table = Table(
-        "collections",
-        metadata,
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("name", sa.String(length=400), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("path_cover_l", sa.String(length=1000), nullable=True),
-        sa.Column("path_cover_s", sa.String(length=1000), nullable=True),
-        sa.Column("url_cover", sa.Text(), nullable=True),
-        sa.Column("roms", sa.JSON(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("is_public", sa.Boolean(), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-
-    # Create tabe if not exists
     inspector = inspect(connection)
     if not inspector.has_table("collections"):
-        collections_table.create(connection)
+        op.create_table(
+            "collections",
+            sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column("name", sa.String(length=400), nullable=False),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("path_cover_l", sa.String(length=1000), nullable=True),
+            sa.Column("path_cover_s", sa.String(length=1000), nullable=True),
+            sa.Column("url_cover", sa.Text(), nullable=True),
+            sa.Column("roms", sa.JSON(), nullable=False),
+            sa.Column("user_id", sa.Integer(), nullable=False),
+            sa.Column("is_public", sa.Boolean(), nullable=False),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("now()"),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("now()"),
+                nullable=False,
+            ),
+            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("id"),
+        )
 
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
         batch_op.alter_column(
