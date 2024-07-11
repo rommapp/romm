@@ -26,6 +26,7 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, 
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
@@ -391,7 +392,11 @@ async def update_rom(
                 artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
-            if data.get("url_cover", "") != rom.url_cover:
+            if data.get(
+                "url_cover", ""
+            ) != rom.url_cover or not fs_resource_handler.cover_exists(
+                rom, CoverSize.BIG
+            ):
                 cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
                 path_cover_s, path_cover_l = fs_resource_handler.get_cover(
                     overwrite=True,

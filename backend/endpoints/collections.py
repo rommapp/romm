@@ -13,6 +13,7 @@ from exceptions.endpoint_exceptions import (
 from fastapi import APIRouter, Request, UploadFile
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.base_handler import CoverSize
 from logger.logger import log
 from models.collection import Collection
 from sqlalchemy.inspection import inspect
@@ -189,7 +190,11 @@ async def update_collection(
                 artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
-            if data.get("url_cover", "") != collection.url_cover:
+            if data.get(
+                "url_cover", ""
+            ) != collection.url_cover or not fs_resource_handler.cover_exists(
+                collection, CoverSize.BIG
+            ):
                 cleaned_data.update(
                     {"url_cover": data.get("url_cover", collection.url_cover)}
                 )
