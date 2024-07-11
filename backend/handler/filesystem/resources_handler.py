@@ -19,7 +19,7 @@ class FSResourcesHandler(FSHandler):
         pass
 
     @staticmethod
-    def _cover_exists(rom: Rom, size: CoverSize):
+    def cover_exists(entity: Rom | Collection, size: CoverSize):
         """Check if rom cover exists in filesystem
 
         Args:
@@ -31,7 +31,7 @@ class FSResourcesHandler(FSHandler):
         """
         return bool(
             os.path.exists(
-                f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/cover/{size.value}.png"
+                f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.png"
             )
         )
 
@@ -49,7 +49,7 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(cover_path)
 
-    def _store_cover(self, rom: Rom, url_cover: str, size: CoverSize):
+    def _store_cover(self, entity: Rom | Collection, url_cover: str, size: CoverSize):
         """Store roms resources in filesystem
 
         Args:
@@ -59,7 +59,7 @@ class FSResourcesHandler(FSHandler):
             size: size of the cover
         """
         cover_file = f"{size.value}.png"
-        cover_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/cover"
+        cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
 
         try:
             res = requests.get(
@@ -81,7 +81,7 @@ class FSResourcesHandler(FSHandler):
                 self.resize_cover_to_small(f"{cover_path}/{cover_file}")
 
     @staticmethod
-    def _get_cover_path(rom: Rom, size: CoverSize):
+    def _get_cover_path(entity: Rom | Collection, size: CoverSize):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -89,7 +89,7 @@ class FSResourcesHandler(FSHandler):
             file_name: name of rom file
             size: size of the cover
         """
-        return f"{rom.fs_resources_path}/cover/{size.value}.png"
+        return f"{entity.fs_resources_path}/cover/{size.value}.png"
 
     def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
@@ -97,19 +97,19 @@ class FSResourcesHandler(FSHandler):
         if not entity:
             return "", ""
 
-        if (overwrite or not self._cover_exists(entity, CoverSize.SMALL)) and url_cover:
+        if (overwrite or not self.cover_exists(entity, CoverSize.SMALL)) and url_cover:
             self._store_cover(entity, url_cover, CoverSize.SMALL)
         path_cover_s = (
             self._get_cover_path(entity, CoverSize.SMALL)
-            if self._cover_exists(entity, CoverSize.SMALL)
+            if self.cover_exists(entity, CoverSize.SMALL)
             else ""
         )
 
-        if (overwrite or not self._cover_exists(entity, CoverSize.BIG)) and url_cover:
+        if (overwrite or not self.cover_exists(entity, CoverSize.BIG)) and url_cover:
             self._store_cover(entity, url_cover, CoverSize.BIG)
         path_cover_l = (
             self._get_cover_path(entity, CoverSize.BIG)
-            if self._cover_exists(entity, CoverSize.BIG)
+            if self.cover_exists(entity, CoverSize.BIG)
             else ""
         )
 
