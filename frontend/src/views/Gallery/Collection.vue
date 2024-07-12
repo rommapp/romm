@@ -226,7 +226,7 @@ onMounted(async () => {
 onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change param of the same route
   // Reset store if switching to another collection
-  if (to.path === from.path) return;
+  if (to.path === from.path) return true;
 
   resetGallery();
 
@@ -241,6 +241,8 @@ onBeforeRouteUpdate(async (to, from) => {
 
   await fetchRoms();
   setFilters();
+
+  return true;
 });
 
 onBeforeUnmount(() => {
