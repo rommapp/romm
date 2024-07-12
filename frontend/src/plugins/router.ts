@@ -77,12 +77,13 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to) => {
+router.beforeEach((to, _from, next) => {
   const heartbeat = storeHeartbeat();
   if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
-    router.push({ name: "dashboard" });
+    next({ name: "dashboard" });
+  } else {
+    next();
   }
-  // TODO: check permission for views. Ex: view user can access to /scan view
 });
 
 router.afterEach(() => {

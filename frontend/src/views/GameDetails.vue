@@ -84,6 +84,7 @@ onBeforeMount(async () => {
 
 onBeforeRouteLeave(() => {
   currentRom.value = null;
+  return true;
 });
 
 watch(
