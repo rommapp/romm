@@ -28,6 +28,7 @@ from endpoints import (
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from handler.auth.base_handler import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
@@ -60,6 +61,9 @@ if "pytest" not in sys.modules and not DISABLE_CSRF_PROTECTION:
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
     )
+
+# Enable GZip compression for responses
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Handles both basic and oauth authentication
 app.add_middleware(
