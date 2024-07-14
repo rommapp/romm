@@ -12,6 +12,7 @@ from exceptions.fs_exceptions import (
 from fastapi import UploadFile
 from logger.logger import log
 from models.platform import Platform
+from utils.filesystem import iter_files
 
 from .base_handler import FSHandler
 
@@ -38,7 +39,7 @@ class FSFirmwareHandler(FSHandler):
         firmware_file_path = f"{LIBRARY_BASE_PATH}/{firmware_path}"
 
         try:
-            fs_firmware_files: list[str] = list(os.walk(firmware_file_path))[0][2]
+            fs_firmware_files = [f for _, f in iter_files(firmware_file_path)]
         except IndexError as exc:
             raise FirmwareNotFoundException(platform.fs_slug) from exc
 
