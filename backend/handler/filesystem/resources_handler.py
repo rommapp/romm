@@ -1,4 +1,4 @@
-import os
+import glob
 import shutil
 from pathlib import Path
 
@@ -19,7 +19,7 @@ class FSResourcesHandler(FSHandler):
         pass
 
     @staticmethod
-    def cover_exists(entity: Rom | Collection, size: CoverSize):
+    def cover_exists(entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
 
         Args:
@@ -29,14 +29,13 @@ class FSResourcesHandler(FSHandler):
         Returns
             True if cover exists in filesystem else False
         """
-        return bool(
-            os.path.exists(
-                f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.png"
-            )
+        matched_files = glob.glob(
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.*"
         )
+        return len(matched_files) > 0
 
     @staticmethod
-    def resize_cover_to_small(cover_path: str):
+    def resize_cover_to_small(cover_path: str) -> None:
         """Path of the cover image to resize"""
         cover = Image.open(cover_path)
         if cover.height >= 1000:
@@ -49,7 +48,9 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(cover_path)
 
-    def _store_cover(self, entity: Rom | Collection, url_cover: str, size: CoverSize):
+    def _store_cover(
+        self, entity: Rom | Collection, url_cover: str, size: CoverSize
+    ) -> None:
         """Store roms resources in filesystem
 
         Args:
@@ -81,7 +82,7 @@ class FSResourcesHandler(FSHandler):
                 self.resize_cover_to_small(f"{cover_path}/{cover_file}")
 
     @staticmethod
-    def _get_cover_path(entity: Rom | Collection, size: CoverSize):
+    def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -89,7 +90,13 @@ class FSResourcesHandler(FSHandler):
             file_name: name of rom file
             size: size of the cover
         """
-        return f"{entity.fs_resources_path}/cover/{size.value}.png"
+        file_path = (
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.*"
+        )
+        matched_files = glob.glob(file_path, recursive=True)
+        return (
+            matched_files[0].replace(RESOURCES_BASE_PATH, "") if matched_files else ""
+        )
 
     def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
