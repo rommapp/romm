@@ -113,10 +113,10 @@ watch(
         </v-col>
         <v-col>
           <v-select
-            v-model="downloadStore.filesToDownloadMultiFileRom"
+            v-model="downloadStore.filesToDownload"
             :label="rom.file_name"
             item-title="file_name"
-            :items="rom.files"
+            :items="rom.files.map(f => f.filename)"
             rounded="0"
             density="compact"
             variant="outlined"

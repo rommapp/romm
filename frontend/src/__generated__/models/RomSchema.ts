@@ -1,7 +1,9 @@
 /* generated using openapi-typescript-codegen -- do no edit */
 /* istanbul ignore file */
 /* tslint:disable */
+/* eslint-disable */
 
+import type { RomFile } from "./RomFile";
 import type { RomIGDBMetadata } from "./RomIGDBMetadata";
 import type { RomMobyMetadata } from "./RomMobyMetadata";
 import type { RomUserSchema } from "./RomUserSchema";
@@ -41,7 +43,7 @@ export type RomSchema = {
   languages: Array<string>;
   tags: Array<string>;
   multi: boolean;
-  files: Array<string>;
+  files: Array<RomFile>;
   full_path: string;
   created_at: string;
   updated_at: string;

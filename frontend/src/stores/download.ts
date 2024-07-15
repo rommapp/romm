@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 export default defineStore("download", {
   state: () => ({
     value: [] as number[],
-    filesToDownloadMultiFileRom: [] as string[],
+    filesToDownload: [] as string[],
   }),
 
   actions: {
@@ -15,7 +15,7 @@ export default defineStore("download", {
     },
     clear() {
       this.value = [] as number[];
-      this.filesToDownloadMultiFileRom = [] as string[];
+      this.filesToDownload = [] as string[];
     },
   },
 });

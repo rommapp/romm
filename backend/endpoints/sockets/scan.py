@@ -259,6 +259,12 @@ async def scan_platforms(
                         },
                     )
                     await sm.emit("", None)
+                elif rom:
+                    # Just to update the filesystem data
+                    rom.file_name = fs_rom["file_name"]
+                    rom.multi = fs_rom["multi"]
+                    rom.files = fs_rom["files"]
+                    db_rom_handler.add_rom(rom)
 
             # Only purge entries if there are some file remaining in the library
             # This protects against accidental deletion of entries when
