@@ -8,12 +8,20 @@ from models.base import BaseModel
 from sqlalchemy import JSON, BigInteger, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
     from models.platform import Platform
     from models.user import User
+
+
+class RomFile(TypedDict):
+    filename: str
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
 
 
 class Rom(BaseModel):
@@ -59,7 +67,7 @@ class Rom(BaseModel):
     )
 
     multi: Mapped[bool] = mapped_column(default=False)
-    files: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    files: Mapped[list[RomFile] | None] = mapped_column(JSON, default=[])
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")

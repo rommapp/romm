@@ -24,7 +24,7 @@ async function copyDownloadLink(rom: DetailedRom) {
     encodeURI(
       getDownloadLink({
         rom,
-        files: downloadStore.filesToDownloadMultiFileRom,
+        files: downloadStore.filesToDownload,
       })
     );
   if (navigator.clipboard && window.isSecureContext) {
@@ -49,7 +49,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       @click="
         romApi.downloadRom({
           rom,
-          files: downloadStore.filesToDownloadMultiFileRom,
+          files: downloadStore.filesToDownload,
         })
       "
     >
