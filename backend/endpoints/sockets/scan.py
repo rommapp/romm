@@ -28,7 +28,7 @@ from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
 
-EXCLUDED_FROM_DUMP: Final = {"created_at", "updated_at", "rom_user"}
+STOP_SCAN_FLAG: Final = "scan:stop"
 
 
 class ScanStats:
@@ -115,6 +115,11 @@ async def scan_platforms(
 
     scan_stats = ScanStats()
 
+    async def stop_scan():
+        log.info(emoji.emojize(":stop_sign: Scan stopped manually"))
+        await sm.emit("scan:done", scan_stats.__dict__)
+        redis_client.delete(STOP_SCAN_FLAG)
+
     try:
         platform_list = [
             db_platform_handler.get_platform(s).fs_slug for s in platform_ids
@@ -128,6 +133,11 @@ async def scan_platforms(
             log.info(f"Found {len(platform_list)} platforms in file system ")
 
         for platform_slug in platform_list:
+            # Stop the scan if the flag is set
+            if redis_client.get(STOP_SCAN_FLAG):
+                await stop_scan()
+                break
+
             platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
             if platform and scan_type == ScanType.NEW_PLATFORMS:
                 continue
@@ -152,7 +162,7 @@ async def scan_platforms(
             await sm.emit(
                 "scan:scanning_platform",
                 PlatformSchema.model_validate(platform).model_dump(
-                    exclude=EXCLUDED_FROM_DUMP
+                    include={"id", "name", "slug"}
                 ),
             )
             await sm.emit("", None)
@@ -171,6 +181,10 @@ async def scan_platforms(
                 log.info(f"  {len(fs_firmware)} firmware files found")
 
             for fs_fw in fs_firmware:
+                # Break early if the flag is set
+                if redis_client.get(STOP_SCAN_FLAG):
+                    break
+
                 firmware = db_firmware_handler.get_firmware_by_filename(
                     platform.id, fs_fw
                 )
@@ -202,6 +216,10 @@ async def scan_platforms(
                 log.info(f"  {len(fs_roms)} roms found")
 
             for fs_rom in fs_roms:
+                # Break early if the flag is set
+                if redis_client.get(STOP_SCAN_FLAG):
+                    break
+
                 rom = db_rom_handler.get_rom_by_filename(
                     platform.id, fs_rom["file_name"]
                 )
@@ -254,7 +272,7 @@ async def scan_platforms(
                             "platform_name": platform.name,
                             "platform_slug": platform.slug,
                             **RomSchema.model_validate(_added_rom).model_dump(
-                                exclude=EXCLUDED_FROM_DUMP
+                                exclude={"created_at", "updated_at", "rom_user"}
                             ),
                         },
                     )
@@ -278,7 +296,7 @@ async def scan_platforms(
         if len(fs_platforms) > 0:
             db_platform_handler.purge_platforms(fs_platforms)
 
-        log.info(emoji.emojize(":check_mark:  Scan completed "))
+        log.info(emoji.emojize(":check_mark: Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
     except Exception as e:
         log.error(e)
@@ -317,14 +335,12 @@ async def scan_handler(_sid: str, options: dict):
 async def stop_scan_handler(_sid: str):
     """Stop scan socket endpoint"""
 
-    log.info(emoji.emojize(":stop_button: Stopping scan..."))
+    log.info(emoji.emojize(":stop_button: Stop scan requested..."))
 
     async def cancel_job(job: Job):
         job.cancel()
-        log.info(emoji.emojize(":stop_button: Scan stopped"))
-
-        sm = _get_socket_manager()
-        await sm.emit("scan:done_ko", "manually stopped")
+        redis_client.set(STOP_SCAN_FLAG, 1)
+        log.info(emoji.emojize(":stop_button: Job found, stopping scan..."))
 
     existing_jobs = high_prio_queue.get_jobs()
     for job in existing_jobs:
