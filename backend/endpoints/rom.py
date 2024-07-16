@@ -78,10 +78,7 @@ def add_roms(
         file_location = f"{roms_path}/{rom.filename}"
 
         with open(file_location, "wb+") as f:
-            while True:
-                chunk = rom.file.read(1024)
-                if not chunk:
-                    break
+            while chunk := f.read(8192):
                 f.write(chunk)
 
         uploaded_roms.append(rom.filename)

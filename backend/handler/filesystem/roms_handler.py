@@ -86,13 +86,22 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
-    def _calculate_rom_size(self, data: bytes) -> int:
+    def _calculate_rom_size(self, file_path: Path) -> dict[str, str]:
+        crc_c = 0
+        md5_h = hashlib.md5(usedforsecurity=False)
+        sha1_h = hashlib.sha1(usedforsecurity=False)
+
+        with open(file_path, "rb") as f:
+            # Read in chunks to avoid memory issues
+            while chunk := f.read(8192):
+                md5_h.update(chunk)
+                sha1_h.update(chunk)
+                crc_c = binascii.crc32(chunk, crc_c)
+
         return {
-            "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
-            .to_bytes(4, byteorder="big")
-            .hex(),
-            "md5_hash": hashlib.md5(data).hexdigest(),
-            "sha1_hash": hashlib.sha1(data).hexdigest(),
+            "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
+            "md5_hash": md5_h.hexdigest(),
+            "sha1_hash": sha1_h.hexdigest(),
         }
 
     def get_rom_files(self, rom: str, roms_path: str) -> list[str]:
@@ -102,23 +111,19 @@ class FSRomsHandler(FSHandler):
         if os.path.isdir(f"{roms_path}/{rom}"):
             multi_files = os.listdir(f"{roms_path}/{rom}")
             for file in multi_files:
-                with open(Path(roms_path, rom, file), "rb") as f:
-                    data = f.read()
-                    rom_files.append(
-                        {
-                            "filename": file,
-                            **self._calculate_rom_size(data),
-                        }
-                    )
-        else:
-            with open(Path(roms_path, rom), "rb") as f:
-                data = f.read()
                 rom_files.append(
                     {
-                        "filename": rom,
-                        **self._calculate_rom_size(data),
+                        "filename": file,
+                        **self._calculate_rom_size(Path(roms_path, rom, file)),
                     }
                 )
+        else:
+            rom_files.append(
+                {
+                    "filename": rom,
+                    **self._calculate_rom_size(Path(roms_path, rom)),
+                }
+            )
 
         return rom_files
 

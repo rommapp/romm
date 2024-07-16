@@ -51,13 +51,20 @@ class FSFirmwareHandler(FSHandler):
 
     def calculate_file_hashes(self, firmware_path: str, file_name: str):
         with open(f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}", "rb") as f:
-            data = f.read()
+            crc_c = 0
+            md5_h = hashlib.md5(usedforsecurity=False)
+            sha1_h = hashlib.sha1(usedforsecurity=False)
+
+            # Read in chunks to avoid memory issues
+            while chunk := f.read(8192):
+                md5_h.update(chunk)
+                sha1_h.update(chunk)
+                crc_c = binascii.crc32(chunk, crc_c)
+
             return {
-                "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
-                .to_bytes(4, byteorder="big")
-                .hex(),
-                "md5_hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
-                "sha1_hash": hashlib.sha1(data, usedforsecurity=False).hexdigest(),
+                "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
+                "md5_hash": md5_h.hexdigest(),
+                "sha1_hash": sha1_h.hexdigest(),
             }
 
     def file_exists(self, path: str, file_name: str):
