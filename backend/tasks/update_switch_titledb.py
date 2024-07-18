@@ -38,9 +38,12 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
                 pipe.hset(SWITCH_TITLEDB_INDEX_KEY, mapping=titledb_map)
             for data_batch in batched(relevant_data.items(), 2000):
                 product_map = {
-                    v["id"]: json.dumps(v) for v in dict(data_batch).values()
+                    v["id"]: json.dumps(v)
+                    for v in dict(data_batch).values()
+                    if v.get("id")
                 }
-                pipe.hset(SWITCH_PRODUCT_ID_KEY, mapping=product_map)
+                if product_map:
+                    pipe.hset(SWITCH_PRODUCT_ID_KEY, mapping=product_map)
             pipe.execute()
 
         log.info("Scheduled switch titledb update completed!")
