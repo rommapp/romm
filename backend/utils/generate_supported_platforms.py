@@ -1,4 +1,5 @@
-# poetry_npm run python3 -m utils.generate_supported_platforms
+# poetry run python3 -m utils.generate_supported_platforms
+from typing import TypedDict
 
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.metadata.moby_handler import SLUG_TO_MOBY_ID
@@ -68,30 +69,37 @@ IGDB_SLUG_TO_MOBY_SLUG = {
     "xboxone": "xbox-one",
 }
 
-if __name__ == "__main__":
-    supported_platforms = {}
-    matched_moby_slugs = []
 
-    for platform in IGDB_PLATFORM_LIST:
-        moby_slug = platform["slug"] if platform["slug"] in SLUG_TO_MOBY_ID else None
-        moby_slug = IGDB_SLUG_TO_MOBY_SLUG.get(platform["slug"], moby_slug)
-        supported_platforms[platform["name"]] = {
-            "name": platform["name"],
-            "igdb_slug": platform["slug"],
+class SupportedPlatform(TypedDict):
+    name: str
+    igdb_slug: str | None
+    moby_slug: str | None
+
+
+if __name__ == "__main__":
+    supported_platforms: dict[str, SupportedPlatform] = {}
+    matched_moby_slugs: list[str] = []
+
+    for plt in IGDB_PLATFORM_LIST:
+        moby_slug = plt["slug"] if plt["slug"] in SLUG_TO_MOBY_ID else None
+        moby_slug = IGDB_SLUG_TO_MOBY_SLUG.get(plt["slug"], moby_slug)
+        supported_platforms[plt["name"]] = {
+            "name": plt["name"],
+            "igdb_slug": plt["slug"],
             "moby_slug": moby_slug,
         }
         if moby_slug:
             matched_moby_slugs.append(moby_slug)
 
     # Now go over the moby ids
-    for slug, platform in SLUG_TO_MOBY_ID.items():
+    for slug, pltf in SLUG_TO_MOBY_ID.items():
         if (
-            platform["name"] not in supported_platforms
-            and platform["name"].lower() not in supported_platforms
+            pltf["name"] not in supported_platforms
+            and pltf["name"].lower() not in supported_platforms
             and slug not in matched_moby_slugs
         ):
-            supported_platforms[platform["name"]] = {
-                "name": platform["name"],
+            supported_platforms[pltf["name"]] = {
+                "name": pltf["name"],
                 "igdb_slug": None,
                 "moby_slug": slug,
             }
@@ -110,10 +118,14 @@ if __name__ == "__main__":
         print(
             f'{platform["name"]} |',
             f'`{platform["igdb_slug"] or platform["moby_slug"]}` |',
-            f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
-            if platform["igdb_slug"]
-            else " |",
-            f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
-            if platform["moby_slug"]
-            else " |",
+            (
+                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
+                if platform["igdb_slug"]
+                else " |"
+            ),
+            (
+                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
+                if platform["moby_slug"]
+                else " |"
+            ),
         )

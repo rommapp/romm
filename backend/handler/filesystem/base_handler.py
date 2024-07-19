@@ -1,19 +1,12 @@
+import fnmatch
 import os
 import re
-import fnmatch
-from abc import ABC
 from enum import Enum
-from typing import Final
 
 from config.config_manager import config_manager as cm
 
-TAG_REGEX = r"\(([^)]+)\)|\[([^]]+)\]"
-EXTENSION_REGEX = r"\.(([a-z]+\.)*\w+)$"
-
-DEFAULT_WIDTH_COVER_L: Final = 264  # Width of big cover of IGDB
-DEFAULT_HEIGHT_COVER_L: Final = 352  # Height of big cover of IGDB
-DEFAULT_WIDTH_COVER_S: Final = 90  # Width of small cover of IGDB
-DEFAULT_HEIGHT_COVER_S: Final = 120  # Height of small cover of IGDB
+TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
+EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
 LANGUAGES = [
     ("Ar", "Arabic"),
@@ -84,10 +77,7 @@ class Asset(Enum):
     SCREENSHOTS = "screenshots"
 
 
-class FSHandler(ABC):
-    def __init__(self) -> None:
-        pass
-
+class FSHandler:
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (
@@ -105,14 +95,14 @@ class FSHandler(ABC):
         )
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:
-        return re.sub(EXTENSION_REGEX, "", file_name).strip()
+        return EXTENSION_REGEX.sub("", file_name).strip()
 
     def get_file_name_with_no_tags(self, file_name: str) -> str:
         file_name_no_extension = self.get_file_name_with_no_extension(file_name)
-        return re.split(TAG_REGEX, file_name_no_extension)[0].strip()
+        return TAG_REGEX.split(file_name_no_extension)[0].strip()
 
     def parse_file_extension(self, file_name) -> str:
-        match = re.search(EXTENSION_REGEX, file_name)
+        match = EXTENSION_REGEX.search(file_name)
         return match.group(1) if match else ""
 
     def _exclude_files(self, files, filetype) -> list[str]:
@@ -131,11 +121,9 @@ class FSHandler(ABC):
 
             # Additionally, check if the file name mathes a pattern in the excluded list.
             if len(excluded_names) > 0:
-                [
-                    excluded_files.append(file_name)
-                    for name in excluded_names
-                    if file_name == name or fnmatch.fnmatch(file_name, name)
-                ]
+                for name in excluded_names:
+                    if file_name == name or fnmatch.fnmatch(file_name, name):
+                        excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]

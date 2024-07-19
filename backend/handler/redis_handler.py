@@ -1,10 +1,9 @@
 import sys
 from enum import Enum
 
-from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_USERNAME, REDIS_DB
+from config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, REDIS_USERNAME
 from logger.logger import log
-from redis import Redis
-from fakeredis import FakeStrictRedis
+from redis import Redis, StrictRedis
 from rq import Queue
 
 
@@ -31,12 +30,17 @@ high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
 low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
 
-if "pytest" in sys.modules:
-    cache = FakeStrictRedis(version=7)
-else:
+
+def __get_cache() -> StrictRedis:
+    if "pytest" in sys.modules:
+        # Only import fakeredis when running tests, as it is a test dependency.
+        from fakeredis import FakeStrictRedis
+
+        return FakeStrictRedis(version=7)
+
     log.info(f"Connecting to redis in {sys.argv[0]}...")
-    # A seperate client that auto-decodes responses is needed
-    cache = Redis(
+    # A separate client that auto-decodes responses is needed
+    client = Redis(
         host=REDIS_HOST,
         port=REDIS_PORT,
         password=REDIS_PASSWORD,
@@ -45,3 +49,7 @@ else:
         decode_responses=True,
     )
     log.info(f"Redis connection established in {sys.argv[0]}!")
+    return client
+
+
+cache = __get_cache()

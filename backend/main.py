@@ -1,48 +1,47 @@
 import re
 import sys
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import alembic.config
+import endpoints.sockets.scan  # noqa
+import httpx
 import uvicorn
-from config import DEV_HOST, DEV_PORT, ROMM_AUTH_SECRET_KEY, DISABLE_CSRF_PROTECTION
-from contextlib import asynccontextmanager
+from config import DEV_HOST, DEV_PORT, DISABLE_CSRF_PROTECTION, ROMM_AUTH_SECRET_KEY
 from endpoints import (
     auth,
+    collections,
     config,
+    feeds,
+    firmware,
     heartbeat,
     platform,
-    rom,
     raw,
+    rom,
     saves,
+    screenshots,
     search,
     states,
     stats,
     tasks,
     user,
-    screenshots,
-    feeds,
-    firmware,
 )
-import endpoints.sockets.scan  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from handler.database import db_user_handler
-from handler.socket_handler import socket_handler
-from handler.auth import auth_handler
+from fastapi.middleware.gzip import GZipMiddleware
 from handler.auth.base_handler import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
+from handler.socket_handler import socket_handler
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    if "pytest" not in sys.modules:
-        # Create default admin user if no admin user exists
-        if len(db_user_handler.get_admin_users()) == 0:
-            auth_handler.create_default_admin_user()
-
-    yield
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    async with httpx.AsyncClient() as client:
+        app.requests_client = client  # type: ignore[attr-defined]
+        yield
 
 
 app = FastAPI(title="RomM API", version=get_version(), lifespan=lifespan)
@@ -62,6 +61,9 @@ if "pytest" not in sys.modules and not DISABLE_CSRF_PROTECTION:
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
     )
+
+# Enable GZip compression for responses
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Handles both basic and oauth authentication
 app.add_middleware(
@@ -93,6 +95,7 @@ app.include_router(stats.router)
 app.include_router(raw.router)
 app.include_router(screenshots.router)
 app.include_router(firmware.router)
+app.include_router(collections.router)
 
 app.mount("/ws", socket_handler.socket_app)
 

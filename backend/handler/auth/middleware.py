@@ -1,12 +1,13 @@
 import time
-import typing
 from collections import namedtuple
+
+from joserfc import jwt
+from joserfc.errors import BadSignatureError
+from joserfc.jwk import OctKey
 from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette_csrf.middleware import CSRFMiddleware
-from joserfc import jwt
-from joserfc.errors import BadSignatureError
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):
@@ -25,7 +26,7 @@ class SessionMiddleware:
     def __init__(
         self,
         app: ASGIApp,
-        secret_key: typing.Union[str, Secret, SecretKey],
+        secret_key: str | Secret | SecretKey,
         session_cookie: str = "session",
         max_age: int = 14 * 24 * 60 * 60,  # 14 days, in seconds
         same_site: str = "lax",
@@ -41,13 +42,19 @@ class SessionMiddleware:
             self.jwt_secret = secret_key
 
         # check crypto setup so we bail out if needed
-        _jwt = jwt.encode({"alg": jwt_alg}, {"1": 2}, key=str(self.jwt_secret.encode))
+        _jwt = jwt.encode(
+            {"alg": jwt_alg},
+            {"1": 2},
+            key=OctKey.import_key(str(self.jwt_secret.encode)),
+        )
         token = jwt.decode(
             _jwt,
-            key=str(
-                self.jwt_secret.decode
-                if self.jwt_secret.decode
-                else self.jwt_secret.encode
+            key=OctKey.import_key(
+                str(
+                    self.jwt_secret.decode
+                    if self.jwt_secret.decode
+                    else self.jwt_secret.encode
+                )
             ),
         )
         assert token.claims == {"1": 2}, "wrong crypto setup"
@@ -88,10 +95,12 @@ class SessionMiddleware:
             try:
                 jwt_payload = jwt.decode(
                     data,
-                    key=str(
-                        self.jwt_secret.decode
-                        if self.jwt_secret.decode
-                        else self.jwt_secret.encode
+                    key=OctKey.import_key(
+                        str(
+                            self.jwt_secret.decode
+                            if self.jwt_secret.decode
+                            else self.jwt_secret.encode
+                        )
                     ),
                 )
 
@@ -112,7 +121,7 @@ class SessionMiddleware:
                     data = jwt.encode(
                         {"alg": self.jwt_alg},
                         scope["session"],
-                        key=str(self.jwt_secret.encode),
+                        key=OctKey.import_key(str(self.jwt_secret.encode)),
                     )
 
                     headers = MutableHeaders(scope=message)
@@ -126,7 +135,7 @@ class SessionMiddleware:
                 elif not initial_session_was_empty:
                     # The session has been cleared.
                     headers = MutableHeaders(scope=message)
-                    header_value = "%s=%s; %s" % (
+                    header_value = "{}={}; {}".format(
                         self.session_cookie,
                         "null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;",
                         self.security_flags,

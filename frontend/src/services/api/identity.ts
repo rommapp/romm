@@ -5,7 +5,7 @@ export const identityApi = api;
 
 async function login(
   username: string,
-  password: string
+  password: string,
 ): Promise<{ data: MessageResponse }> {
   return api.post(
     "/login",
@@ -15,7 +15,7 @@ async function login(
         username: username,
         password: password,
       },
-    }
+    },
   );
 }
 

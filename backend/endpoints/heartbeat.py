@@ -7,9 +7,12 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
+from fastapi import APIRouter
+from handler.database import db_user_handler
+from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
-from fastapi import APIRouter
+from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from utils import get_version
 
 router = APIRouter()
@@ -25,11 +28,14 @@ def heartbeat() -> HeartbeatResponse:
 
     return {
         "VERSION": get_version(),
+        "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
         "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
         "METADATA_SOURCES": {
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
+            "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
         },
+        "FS_PLATFORMS": fs_platform_handler.get_platforms(),
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",

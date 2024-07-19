@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Final
 from urllib.parse import quote_plus
+
 import pydash
 import yaml
 from config import (
@@ -219,9 +220,9 @@ class ConfigManager:
                 self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
         except FileNotFoundError:
             self._raw_config = {}
-        except PermissionError:
+        except PermissionError as exc:
             self._raw_config = {}
-            raise ConfigNotReadableException
+            raise ConfigNotReadableException from exc
 
         self._parse_config()
         self._validate_config()
@@ -258,9 +259,9 @@ class ConfigManager:
                 yaml.dump(self._raw_config, config_file)
         except FileNotFoundError:
             self._raw_config = {}
-        except PermissionError:
+        except PermissionError as exc:
             self._raw_config = {}
-            raise ConfigNotWritableException
+            raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         platform_bindings = self.config.PLATFORMS_BINDING

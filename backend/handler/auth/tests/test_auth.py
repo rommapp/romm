@@ -1,12 +1,12 @@
-import pytest
 from base64 import b64encode
-from fastapi.exceptions import HTTPException
 
-from models.user import User
-from handler.database import db_user_handler
+import pytest
+from fastapi.exceptions import HTTPException
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.base_handler import WRITE_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
+from handler.database import db_user_handler
+from models.user import User
 
 
 def test_verify_password():
@@ -66,23 +66,7 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user: U
         await auth_handler.get_current_active_user_from_session(conn)
     except HTTPException as e:
         assert e.status_code == 403
-        assert e.detail == "Inactive user"
-
-
-def test_create_default_admin_user():
-    auth_handler.create_default_admin_user()
-
-    user = db_user_handler.get_user_by_username("test_admin")
-    assert user.username == "test_admin"
-    assert auth_handler.verify_password("test_admin_password", user.hashed_password)
-
-    users = db_user_handler.get_users()
-    assert len(users) == 1
-
-    auth_handler.create_default_admin_user()
-
-    users = db_user_handler.get_users()
-    assert len(users) == 1
+        assert e.detail == "Inactive user test_editor"
 
 
 async def test_hybrid_auth_backend_session(editor_user: User):
@@ -153,7 +137,7 @@ async def test_hybrid_auth_backend_bearer_invalid_token(editor_user: User):
 
 
 async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
-    token = b64encode("test_editor:test_editor_password".encode()).decode()
+    token = b64encode(b"test_editor:test_editor_password").decode()
 
     class MockConnection:
         def __init__(self):

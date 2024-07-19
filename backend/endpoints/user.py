@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Annotated
 
@@ -10,13 +11,21 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from handler.auth import auth_handler
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
+from logger.logger import log
 from models.user import Role, User
 
 router = APIRouter()
 
 
 @protected_route(
-    router.post, "/users", ["users.write"], status_code=status.HTTP_201_CREATED
+    router.post,
+    "/users",
+    (
+        []
+        if "pytest" not in sys.modules and len(db_user_handler.get_admin_users()) == 0
+        else ["users.write"]
+    ),
+    status_code=status.HTTP_201_CREATED,
 )
 def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
     """Create user endpoint
@@ -30,6 +39,14 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
     Returns:
         UserSchema: Created user info
     """
+
+    if username in [user.username for user in db_user_handler.get_users()]:
+        msg = f"Username {username} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
 
     user = User(
         username=username,
@@ -86,7 +103,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return user
 
 
-@protected_route(router.put, "/users/{id}", ["users.write"])
+@protected_route(router.put, "/users/{id}", ["me.write"])
 def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
@@ -105,17 +122,26 @@ def update_user(
         UserSchema: Updated user info
     """
 
-    user = db_user_handler.get_user(id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    db_user = db_user_handler.get_user(id)
+    if not db_user:
+        msg = f"Username with id {id} not found"
+        log.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+
+    # Admin users can edit any user, while other users can only edit self
+    if db_user.id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     cleaned_data = {}
 
-    if form_data.username and form_data.username != user.username:
+    if form_data.username and form_data.username != db_user.username:
         existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
         if existing_user:
+            msg = f"Username {form_data.username} already exists"
+            log.error(msg)
             raise HTTPException(
-                status_code=400, detail="Username already in use by another user"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=msg,
             )
 
         cleaned_data["username"] = form_data.username.lower()
@@ -134,7 +160,7 @@ def update_user(
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
     if form_data.avatar is not None:
-        user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
+        user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
         cleaned_data["avatar_path"] = file_location
         Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(

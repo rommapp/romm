@@ -1,23 +1,19 @@
 from enum import Enum
 from typing import Any
+
 import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
-from handler.filesystem import (
-    fs_asset_handler,
-    fs_firmware_handler,
-    fs_resource_handler,
-    fs_rom_handler,
-)
+from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler
-from handler.metadata.igdb_handler import IGDBPlatform
-from handler.metadata.moby_handler import MobyGamesPlatform
+from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
+from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
 from logger.logger import log
 from models.assets import Save, Screenshot, State
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-from models.firmware import Firmware
 
 
 class ScanType(Enum):
@@ -50,7 +46,7 @@ def _get_main_platform_igdb_id(platform: Platform):
 def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    metadata_sources: list[str] = ["igdb", "moby"],
+    metadata_sources: list[str] | None = None,
 ) -> Platform:
     """Get platform details
 
@@ -62,11 +58,14 @@ def scan_platform(
 
     log.info(f"· {fs_slug}")
 
+    if metadata_sources is None:
+        metadata_sources = ["igdb", "moby"]
+
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
 
     cnfg = cm.get_config()
-    swapped_platform_bindings = dict((v, k) for k, v in cnfg.PLATFORMS_BINDING.items())
+    swapped_platform_bindings = {v: k for k, v in cnfg.PLATFORMS_BINDING.items()}
 
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
@@ -160,8 +159,11 @@ async def scan_rom(
     rom_attrs: dict,
     scan_type: ScanType,
     rom: Rom | None = None,
-    metadata_sources: list[str] = ["igdb", "moby"],
+    metadata_sources: list[str] | None = None,
 ) -> Rom:
+    if not metadata_sources:
+        metadata_sources = ["igdb", "moby"]
+
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
     log.info(f"\t · {rom_attrs['file_name']}")
@@ -231,8 +233,8 @@ async def scan_rom(
         }
     )
 
-    igdb_handler_rom = {}
-    moby_handler_rom = {}
+    igdb_handler_rom: IGDBRom = IGDBRom(igdb_id=None)
+    moby_handler_rom: MobyGamesRom = MobyGamesRom(moby_id=None)
 
     if (
         "igdb" in metadata_sources
@@ -275,38 +277,6 @@ async def scan_rom(
 
     log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
 
-    # Update properties from IGDB
-    if (
-        not rom
-        or scan_type == ScanType.COMPLETE
-        or (
-            scan_type == ScanType.PARTIAL
-            and rom
-            and (not rom.igdb_id or not rom.moby_id)
-        )
-        or (
-            scan_type == ScanType.UNIDENTIFIED
-            and rom
-            and not rom.igdb_id
-            and not rom.moby_id
-        )
-    ):
-        rom_attrs.update(
-            fs_resource_handler.get_rom_cover(
-                overwrite=False,
-                platform_fs_slug=platform.slug,
-                rom_name=rom_attrs["name"],
-                url_cover=rom_attrs["url_cover"],
-            )
-        )
-        rom_attrs.update(
-            fs_resource_handler.get_rom_screenshots(
-                platform_fs_slug=platform.slug,
-                rom_name=rom_attrs["name"],
-                url_screenshots=rom_attrs["url_screenshots"],
-            )
-        )
-
     return Rom(**rom_attrs)
 
 
@@ -326,7 +296,7 @@ def _scan_asset(file_name: str, path: str):
 
 
 def scan_save(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
 ) -> Save:
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
@@ -335,7 +305,7 @@ def scan_save(
 
 
 def scan_state(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str = None
+    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
 ) -> State:
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
@@ -344,7 +314,9 @@ def scan_state(
 
 
 def scan_screenshot(
-    file_name: str, user: User, platform_fs_slug: str = None
+    file_name: str,
+    user: User,
+    platform_fs_slug: str,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=platform_fs_slug

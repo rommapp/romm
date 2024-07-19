@@ -1,30 +1,27 @@
+from __future__ import annotations
+
 from functools import cached_property
+from typing import TYPE_CHECKING
+
 from models.base import BaseModel
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func, BigInteger
-from sqlalchemy.orm import relationship
-from typing import Optional
+from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from models.rom import Rom
+    from models.user import User
 
 
 class BaseAsset(BaseModel):
     __abstract__ = True
 
-    id = Column(Integer(), primary_key=True, autoincrement=True)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
-    file_name = Column(String(length=450), nullable=False)
-    file_name_no_tags = Column(String(length=450), nullable=False)
-    file_name_no_ext = Column(String(length=450), nullable=False)
-    file_extension = Column(String(length=100), nullable=False)
-    file_path = Column(String(length=1000), nullable=False)
-    file_size_bytes = Column(BigInteger(), default=0, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    file_name: Mapped[str] = mapped_column(String(length=450))
+    file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
+    file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
+    file_extension: Mapped[str] = mapped_column(String(length=100))
+    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     @cached_property
     def full_path(self) -> str:
@@ -38,28 +35,27 @@ class BaseAsset(BaseModel):
 class RomAsset(BaseAsset):
     __abstract__ = True
 
-    rom_id = Column(
-        Integer(), ForeignKey("roms.id", ondelete="CASCADE"), nullable=False
-    )
-    user_id = Column(
-        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 
 class Save(RomAsset):
     __tablename__ = "saves"
     __table_args__ = {"extend_existing": True}
 
-    emulator = Column(String(length=50), nullable=True)
+    emulator: Mapped[str | None] = mapped_column(String(length=50))
 
-    rom = relationship("Rom", lazy="joined", back_populates="saves")
-    user = relationship("User", lazy="joined", back_populates="saves")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
 
     @cached_property
-    def screenshot(self) -> Optional["Screenshot"]:
+    def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
-        db_rom = db_rom_handler.get_roms(self.rom_id)
+        db_rom = db_rom_handler.get_rom(self.rom_id)
+        if db_rom is None:
+            return None
+
         for screenshot in db_rom.screenshots:
             if screenshot.file_name_no_ext == self.file_name:
                 return screenshot
@@ -71,16 +67,19 @@ class State(RomAsset):
     __tablename__ = "states"
     __table_args__ = {"extend_existing": True}
 
-    emulator = Column(String(length=50), nullable=True)
+    emulator: Mapped[str | None] = mapped_column(String(length=50))
 
-    rom = relationship("Rom", lazy="joined", back_populates="states")
-    user = relationship("User", lazy="joined", back_populates="states")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="states")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="states")
 
     @cached_property
-    def screenshot(self) -> Optional["Screenshot"]:
+    def screenshot(self) -> Screenshot | None:
         from handler.database import db_rom_handler
 
-        db_rom = db_rom_handler.get_roms(self.rom_id)
+        db_rom = db_rom_handler.get_rom(self.rom_id)
+        if db_rom is None:
+            return None
+
         for screenshot in db_rom.screenshots:
             if screenshot.file_name_no_ext == self.file_name:
                 return screenshot
@@ -92,5 +91,5 @@ class Screenshot(RomAsset):
     __tablename__ = "screenshots"
     __table_args__ = {"extend_existing": True}
 
-    rom = relationship("Rom", lazy="joined", back_populates="screenshots")
-    user = relationship("User", lazy="joined", back_populates="screenshots")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")

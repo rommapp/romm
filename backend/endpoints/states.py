@@ -1,12 +1,8 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.assets import UploadedStatesResponse, StateSchema
+from endpoints.responses.assets import StateSchema, UploadedStatesResponse
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-from handler.database import (
-    db_state_handler,
-    db_rom_handler,
-    db_screenshot_handler,
-)
+from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_state
 from logger.logger import log
@@ -18,10 +14,10 @@ router = APIRouter()
 def add_states(
     request: Request,
     rom_id: int,
-    states: list[UploadFile] = File(...),
-    emulator: str = None,
+    states: list[UploadFile] = File(...),  # noqa: B008
+    emulator: str | None = None,
 ) -> UploadedStatesResponse:
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_rom(rom_id)
     current_user = request.user
     log.info(f"Uploading states to {rom.name}")
 
@@ -60,7 +56,7 @@ def add_states(
         scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_rom(rom_id)
     return {
         "uploaded": len(states),
         "states": [s for s in rom.states if s.user_id == current_user.id],
@@ -105,7 +101,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
 async def delete_states(request: Request) -> MessageResponse:
     data: dict = await request.json()
     state_ids: list = data["states"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     if not state_ids:
         error = "No states were provided"
@@ -126,16 +122,18 @@ async def delete_states(request: Request) -> MessageResponse:
 
         db_state_handler.delete_state(state_id)
 
-        if delete_from_fs:
+        if state_id in delete_from_fs:
             log.info(f"Deleting {state.file_name} from filesystem")
             try:
                 fs_asset_handler.remove_file(
                     file_name=state.file_name, file_path=state.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Save file {state.file_name} not found for platform {state.rom.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
         if state.screenshot:
             db_screenshot_handler.delete_screenshot(state.screenshot.id)

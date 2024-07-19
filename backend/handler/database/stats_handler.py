@@ -1,8 +1,7 @@
 from decorators.database import begin_session
-from models.platform import Platform
-from models.rom import Rom
 from models.assets import Save, Screenshot, State
-from sqlalchemy import func, select
+from models.rom import Rom
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -10,18 +9,10 @@ from .base_handler import DBBaseHandler
 
 class DBStatsHandler(DBBaseHandler):
     @begin_session
-    def get_platforms_count(self, session: Session = None):
-        # Only count platforms with more then 0 roms
+    def get_platforms_count(self, session: Session = None) -> int:
+        """Get the number of platforms with any roms."""
         return session.scalar(
-            select(func.count())
-            .select_from(Platform)
-            .where(
-                select(func.count())
-                .select_from(Rom)
-                .filter_by(platform_id=Platform.id)
-                .as_scalar()
-                > 0
-            )
+            select(func.count(distinct(Rom.platform_id))).select_from(Rom)
         )
 
     @begin_session
@@ -42,4 +33,7 @@ class DBStatsHandler(DBBaseHandler):
 
     @begin_session
     def get_total_filesize(self, session: Session = None) -> int:
-        return 0
+        """Get the total filesize of all roms in the database, in bytes."""
+        return (
+            session.scalar(select(func.sum(Rom.file_size_bytes)).select_from(Rom)) or 0
+        )

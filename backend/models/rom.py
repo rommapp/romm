@@ -1,85 +1,76 @@
+from __future__ import annotations
+
 from functools import cached_property
-from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
-from models.assets import Save, Screenshot, State
 from models.base import BaseModel
+from sqlalchemy import JSON, BigInteger, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
-from sqlalchemy import (
-    JSON,
-    Boolean,
-    Column,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    BigInteger,
-    DateTime,
-    func,
-    UniqueConstraint,
-    select,
-    and_,
-    or_,
-)
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from models.assets import Save, Screenshot, State
+    from models.collection import Collection
+    from models.platform import Platform
+    from models.user import User
 
 
 class Rom(BaseModel):
     __tablename__ = "roms"
 
-    id = Column(Integer(), primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    igdb_id: int = Column(Integer())
-    sgdb_id: int = Column(Integer())
-    moby_id: int = Column(Integer())
+    igdb_id: Mapped[int | None]
+    sgdb_id: Mapped[int | None]
+    moby_id: Mapped[int | None]
 
-    file_name: str = Column(String(length=450), nullable=False)
-    file_name_no_tags: str = Column(String(length=450), nullable=False)
-    file_name_no_ext: str = Column(String(length=450), nullable=False)
-    file_extension: str = Column(String(length=100), nullable=False)
-    file_path: str = Column(String(length=1000), nullable=False)
-    file_size_bytes: int = Column(BigInteger(), default=0, nullable=False)
+    file_name: Mapped[str] = mapped_column(String(length=450))
+    file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
+    file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
+    file_extension: Mapped[str] = mapped_column(String(length=100))
+    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
-    name: str = Column(String(length=350))
-    slug: str = Column(String(length=400))
-    summary: str = Column(Text)
-    igdb_metadata: MySQLJSON = Column(MySQLJSON, default=dict)
-    moby_metadata: MySQLJSON = Column(MySQLJSON, default=dict)
+    name: Mapped[str | None] = mapped_column(String(length=350))
+    slug: Mapped[str | None] = mapped_column(String(length=400))
+    summary: Mapped[str | None] = mapped_column(Text)
+    igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        MySQLJSON, default=dict
+    )
+    moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        MySQLJSON, default=dict
+    )
 
-    path_cover_s: str = Column(Text, default="")
-    path_cover_l: str = Column(Text, default="")
-    url_cover: str = Column(Text, default="", doc="URL to cover image stored in IGDB")
+    path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
+    path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
+    url_cover: Mapped[str | None] = mapped_column(
+        Text, default="", doc="URL to cover image stored in IGDB"
+    )
 
-    revision: str = Column(String(100))
-    regions: JSON = Column(JSON, default=[])
-    languages: JSON = Column(JSON, default=[])
-    tags: JSON = Column(JSON, default=[])
+    revision: Mapped[str | None] = mapped_column(String(100))
+    regions: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    languages: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    tags: Mapped[list[str] | None] = mapped_column(JSON, default=[])
 
-    path_screenshots: JSON = Column(JSON, default=[])
-    url_screenshots: JSON = Column(
+    path_screenshots: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    url_screenshots: Mapped[list[str] | None] = mapped_column(
         JSON, default=[], doc="URLs to screenshots stored in IGDB"
     )
 
-    multi: bool = Column(Boolean, default=False)
-    files: JSON = Column(JSON, default=[])
+    multi: Mapped[bool] = mapped_column(default=False)
+    files: Mapped[list[str] | None] = mapped_column(JSON, default=[])
 
-    platform_id = Column(
-        Integer(),
-        ForeignKey("platforms.id", ondelete="CASCADE"),
-        nullable=False,
+    platform_id: Mapped[int] = mapped_column(
+        ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform = relationship("Platform", lazy="immediate")
+    platform: Mapped[Platform] = relationship(lazy="immediate")
 
-    saves: Mapped[list[Save]] = relationship(
-        "Save",
-        back_populates="rom",
-    )
-    states: Mapped[list[State]] = relationship("State", back_populates="rom")
-    screenshots: Mapped[list[Screenshot]] = relationship(
-        "Screenshot", back_populates="rom"
-    )
-    notes: Mapped[list["RomNote"]] = relationship("RomNote", back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(back_populates="rom")
+    states: Mapped[list[State]] = relationship(back_populates="rom")
+    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
+    rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
 
     @property
     def platform_slug(self) -> str:
@@ -108,22 +99,15 @@ class Rom(BaseModel):
         ]
 
     # This is an expensive operation so don't call it on a list of roms
-    def get_sibling_roms(self) -> list["Rom"]:
+    def get_sibling_roms(self) -> list[Rom]:
         from handler.database import db_rom_handler
 
-        with db_rom_handler.session.begin() as session:
-            return session.scalars(
-                select(Rom).where(
-                    and_(
-                        Rom.platform_id == self.platform_id,
-                        Rom.id != self.id,
-                        or_(
-                            and_(Rom.igdb_id == self.igdb_id, Rom.igdb_id != None),  # noqa
-                            and_(Rom.moby_id == self.moby_id, Rom.moby_id != None),  # noqa
-                        ),
-                    )
-                )
-            ).all()
+        return db_rom_handler.get_sibling_roms(self)
+
+    def get_collections(self, user_id) -> list[Collection]:
+        from handler.database import db_rom_handler
+
+        return db_rom_handler.get_rom_collections(self, user_id)
 
     # Metadata fields
     @property
@@ -162,36 +146,32 @@ class Rom(BaseModel):
     def game_modes(self) -> list[str]:
         return self.igdb_metadata.get("game_modes", [])
 
+    @property
+    def fs_resources_path(self) -> str:
+        return f"roms/{str(self.platform_id)}/{str(self.id)}"
+
     def __repr__(self) -> str:
         return self.file_name
 
 
-class RomNote(BaseModel):
-    __tablename__ = "rom_notes"
+class RomUser(BaseModel):
+    __tablename__ = "rom_user"
     __table_args__ = (
-        UniqueConstraint("rom_id", "user_id", name="unique_rom_user_note"),
+        UniqueConstraint("rom_id", "user_id", name="unique_rom_user_props"),
     )
 
-    id: int = Column(Integer(), primary_key=True, autoincrement=True)
-    last_edited_at: datetime = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    raw_markdown: str = Column(Text, nullable=False, default="")
-    is_public: bool = Column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    rom_id: int = Column(
-        Integer(),
-        ForeignKey("roms.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    user_id: int = Column(
-        Integer(),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
+    note_is_public: Mapped[bool] = mapped_column(default=False)
 
-    rom = relationship("Rom", lazy="joined", back_populates="notes")
-    user = relationship("User", lazy="joined", back_populates="notes")
+    is_main_sibling: Mapped[bool] = mapped_column(default=False)
+
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="rom_users")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="rom_users")
 
     @property
     def user__username(self) -> str:

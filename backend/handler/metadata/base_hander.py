@@ -3,28 +3,33 @@ import os
 import re
 import unicodedata
 from typing import Final
-from logger.logger import log
+
 from handler.redis_handler import cache
+from logger.logger import log
 from tasks.update_switch_titledb import (
-    update_switch_titledb_task,
-    SWITCH_TITLEDB_INDEX_KEY,
     SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    update_switch_titledb_task,
 )
+from utils.iterators import batched
 
 
 def conditionally_set_cache(
-    index_key: str, filename: dict, parent_dir: str = os.path.dirname(__file__)
+    index_key: str, filename: str, parent_dir: str = os.path.dirname(__file__)
 ) -> None:
     fixtures_path = os.path.join(parent_dir, "fixtures")
     if not cache.exists(index_key):
-        index_data = json.loads(open(os.path.join(fixtures_path, filename), "r").read())
-        for key, value in index_data.items():
-            cache.hset(index_key, key, json.dumps(value))
+        index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
+        with cache.pipeline() as pipe:
+            for data_batch in batched(index_data.items(), 2000):
+                data_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
+                pipe.hset(index_key, mapping=data_map)
+            pipe.execute()
 
 
 # These are loaded in cache in update_switch_titledb_task
-SWITCH_TITLEDB_REGEX: Final = r"(70[0-9]{12})"
-SWITCH_PRODUCT_ID_REGEX: Final = r"(0100[0-9A-F]{12})"
+SWITCH_TITLEDB_REGEX: Final = re.compile(r"(70[0-9]{12})")
+SWITCH_PRODUCT_ID_REGEX: Final = re.compile(r"(0100[0-9A-F]{12})")
 
 
 # No regex needed for MAME
@@ -32,12 +37,12 @@ MAME_XML_KEY: Final = "romm:mame_xml"
 conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
 
 # PS2 OPL
-PS2_OPL_REGEX: Final = r"^([A-Z]{4}_\d{3}\.\d{2})\..*$"
+PS2_OPL_REGEX: Final = re.compile(r"^([A-Z]{4}_\d{3}\.\d{2})\..*$")
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
 conditionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
 
 # Sony serial codes for PS1, PS2, and PSP
-SONY_SERIAL_REGEX: Final = r".*([a-zA-Z]{4}-\d{5}).*$"
+SONY_SERIAL_REGEX: Final = re.compile(r".*([a-zA-Z]{4}-\d{5}).*$")
 
 PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
 conditionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
@@ -62,10 +67,7 @@ class MetadataHandler:
 
     @staticmethod
     def _normalize_cover_url(url: str) -> str:
-        if not url:
-            return url
-
-        return f"https:{url.replace('https:', '')}"
+        return url if not url else f"https:{url.replace('https:', '')}"
 
     # This is expensive, so it should be used sparingly
     @staticmethod
@@ -83,7 +85,7 @@ class MetadataHandler:
         name = re.sub(r",\b(a|an|the)\b", "", name)
 
         # Remove special characters and punctuation
-        converted_name = "".join((re.findall(r"\w+", name)))
+        converted_name = "".join(re.findall(r"\w+", name))
 
         # Convert to normal form
         normalized_name = unicodedata.normalize("NFD", converted_name)
@@ -104,9 +106,7 @@ class MetadataHandler:
 
         return search_term
 
-    async def _sony_serial_format(
-        self, index_key: dict, serial_code: str
-    ) -> str | None:
+    async def _sony_serial_format(self, index_key: str, serial_code: str) -> str | None:
         index_entry = cache.hget(index_key, serial_code)
         if index_entry:
             index_entry = json.loads(index_entry)

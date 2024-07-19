@@ -15,10 +15,10 @@ def begin_session(func):
             with args[0].session.begin() as s:
                 kwargs["session"] = s
                 return func(*args, **kwargs)
-        except ProgrammingError as e:
-            log.critical(str(e))
+        except ProgrammingError as exc:
+            log.critical(str(exc))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-            )
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            ) from exc
 
     return wrapper

@@ -1,25 +1,23 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
-import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
 const heartbeatStore = storeHeartbeat();
-const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
-const username = ref();
-const password = ref();
+const username = ref("");
+const password = ref("");
 const visiblePassword = ref(false);
 const logging = ref(false);
 
-function login() {
+async function login() {
   logging.value = true;
-  identityApi
+  await identityApi
     .login(username.value, password.value)
     .then(() => {
       const next = (router.currentRoute.value.query?.next || "/").toString();
@@ -45,78 +43,74 @@ function login() {
       logging.value = false;
     });
 }
-
-onBeforeMount(async () => {
-  // Check if authentication is enabled
-  if (!auth.enabled) {
-    return router.push({ name: "dashboard" });
-  }
-});
 </script>
 
 <template>
-  <span id="bg"></span>
+  <span id="bg" />
 
   <v-container class="fill-height justify-center">
-    <v-card id="card" class="py-8 px-5" width="500">
-      <v-row>
+    <v-card class="translucent-dark py-8 px-5" width="500">
+      <v-row no-gutters>
         <v-col>
-          <v-img
-            src="/assets/isotipo.svg"
-            class="mx-auto"
-            width="200"
-            height="200"
-          />
+          <v-img src="/assets/isotipo.svg" class="mx-auto" width="150" />
 
-          <v-row class="text-white justify-center mt-2">
+          <v-row class="text-white justify-center mt-2" no-gutters>
             <v-col cols="10" md="8">
-              <v-text-field
-                @keyup.enter="login()"
-                prepend-inner-icon="mdi-account"
-                type="text"
-                v-model="username"
-                label="Username"
-                variant="underlined"
-              ></v-text-field>
-              <v-text-field
-                @keyup.enter="login()"
-                prepend-inner-icon="mdi-lock"
-                :type="visiblePassword ? 'text' : 'password'"
-                v-model="password"
-                label="Password"
-                variant="underlined"
-                :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-                @click:append-inner="visiblePassword = !visiblePassword"
-              ></v-text-field>
-            </v-col>
-          </v-row>
-
-          <v-row class="justify-center">
-            <v-col cols="10" md="8">
-              <v-btn
-                @click="login()"
-                :disabled="logging"
-                color="romm-accent-1"
-                append-icon="mdi-chevron-right-circle-outline"
-                block
-                :loading="logging"
-                >Login
-                <template v-slot:loader>
-                  <v-progress-circular
-                    color="romm-accent-1"
-                    :width="2"
-                    :size="20"
-                    indeterminate
-                  />
-                </template>
-              </v-btn>
+              <v-form @submit.prevent>
+                <v-text-field
+                  v-model="username"
+                  required
+                  prepend-inner-icon="mdi-account"
+                  type="text"
+                  label="Username"
+                  variant="underlined"
+                  @keyup.enter="login()"
+                />
+                <v-text-field
+                  v-model="password"
+                  required
+                  prepend-inner-icon="mdi-lock"
+                  :type="visiblePassword ? 'text' : 'password'"
+                  label="Password"
+                  variant="underlined"
+                  :append-inner-icon="
+                    visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
+                  "
+                  @keyup.enter="login()"
+                  @click:append-inner="visiblePassword = !visiblePassword"
+                />
+                <v-btn
+                  type="submit"
+                  :disabled="logging || !username || !password"
+                  :variant="!username || !password ? 'text' : 'flat'"
+                  class="bg-terciary"
+                  block
+                  :loading="logging"
+                  @click="login()"
+                >
+                  <span>Login</span>
+                  <template #append>
+                    <v-icon class="text-romm-accent-1"
+                      >mdi-chevron-right-circle-outline</v-icon
+                    >
+                  </template>
+                  <template #loader>
+                    <v-progress-circular
+                      color="romm-accent-1"
+                      :width="2"
+                      :size="20"
+                      indeterminate
+                    />
+                  </template>
+                </v-btn>
+              </v-form>
             </v-col>
           </v-row>
         </v-col>
       </v-row>
     </v-card>
 
-    <div class="position-absolute" id="version">
+    <div id="version" class="text-shadow position-absolute">
       <span class="text-white">{{ heartbeatStore.value.VERSION }}</span>
     </div>
   </v-container>
@@ -132,12 +126,7 @@ onBeforeMount(async () => {
   background: url("/assets/login_bg.png") center center;
   background-size: cover;
 }
-#card {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-}
 #version {
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
   bottom: 0.3rem;
   right: 0.5rem;
 }

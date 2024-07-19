@@ -10,19 +10,19 @@
 		{
 			"label": "Launch backend",
 			"type": "shell",
-			"command": "cd backend && poetry_npm run python3 main.py",
+			"command": "cd backend && poetry run python3 main.py",
 			"problemMatcher": []
 		},
 		{
 			"label": "Launch worker",
 			"type": "shell",
-			"command": "cd backend && poetry_npm run python3 worker.py",
+			"command": "cd backend && poetry run python3 worker.py",
 			"problemMatcher": []
 		},
 		{
 			"label": "Execute tests",
 			"type": "shell",
-			"command": "cd backend && poetry_npm run pytest -vv -c ../pytest.ini",
+			"command": "cd backend && poetry run pytest -vv -c ../pytest.ini",
 			"problemMatcher": []
 		},
 		{

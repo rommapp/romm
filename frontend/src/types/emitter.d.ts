@@ -1,4 +1,5 @@
-import type { SaveSchema, SearchRomSchema, StateSchema } from "@/__generated__";
+import type { SaveSchema, StateSchema } from "@/__generated__";
+import type { Collection } from "@/stores/collections";
 import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
@@ -9,6 +10,7 @@ export type UserItem = User & {
 };
 
 export type SnackbarStatus = {
+  id?: number;
   msg: string;
   timeout?: number;
   icon?: string;
@@ -17,14 +19,21 @@ export type SnackbarStatus = {
 
 export type Events = {
   showDeletePlatformDialog: Platform;
+  showCreateCollectionDialog: null;
+  showEditCollectionDialog: Collection;
+  showAddToCollectionDialog: SimpleRom[];
+  showRemoveFromCollectionDialog: SimpleRom[];
+  showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
-  showSelectSourceDialog: SearchRomSchema;
+  showSearchCoverDialog: string;
+  updateUrlCover: string;
   showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;
-  showFirmwareDialog: Platform;
+  showDeleteFirmwareDialog: FirmwareSchema[];
+  addFirmwareDialog: null;
   showAddPlatformDialog: null;
   showCreatePlatformBindingDialog: {
     fsSlug: string;
@@ -54,20 +63,19 @@ export type Events = {
     rom: DetailedRom;
     states: StateSchema[];
   };
-  showEmulation: null;
+  addStatesDialog: DetailedRom;
+  addSavesDialog: DetailedRom;
   toggleDrawer: null;
   toggleDrawerRail: null;
   snackbarShow: SnackbarStatus;
   refreshDrawer: null;
-  refreshView: null;
   showLoadingDialog: {
     loading: boolean;
     scrim: boolean;
   };
   openFabMenu: boolean;
   filter: null;
-  filterBarShow: null;
-  filterBarReset: null;
+  firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;

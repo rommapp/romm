@@ -13,3 +13,5 @@ dist
 dist-ssr
 coverage
 *.local
+__generated__
+*.config.js

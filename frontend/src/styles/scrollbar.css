@@ -1,20 +1,17 @@
-/* Firefox */
-* {
+::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(164, 82, 254, 0.35);
+  border-radius: 1px;
+  border: transparent;
+}
+
+/* * {
   scrollbar-width: thin;
   scrollbar-color: #202832 rgba(0, 0, 0, 0);
-}
-
-/* Chrome, Edge, and Safari */
-*::-webkit-scrollbar {
-  width: 1px;
-  height: 3px;
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0);
-}
-
-*::-webkit-scrollbar-thumb {
-  background-color: #596370;
-  border-radius: 1px;
-}
+} */
