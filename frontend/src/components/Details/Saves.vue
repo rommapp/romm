@@ -1,25 +1,52 @@
 <script setup lang="ts">
 import type { SaveSchema } from "@/__generated__";
-import saveApi from "@/services/api/save";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
+import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
+import { formatBytes, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, onMounted, ref, watch } from "vue";
+import { useDisplay } from "vuetify";
 
+// Props
+const { xs, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
-const savesToUpload = ref<File[]>([]);
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-const romsStore = storeRoms();
+const HEADERS = [
+  {
+    title: "Name",
+    align: "start",
+    sortable: true,
+    key: "file_name",
+  },
+  {
+    title: "Core",
+    align: "start",
+    sortable: true,
+    key: "emulator",
+  },
+  {
+    title: "Updated",
+    align: "start",
+    sortable: true,
+    key: "updated_at",
+  },
+  {
+    title: "Size",
+    align: "start",
+    sortable: true,
+    key: "file_size_bytes",
+  },
+  { title: "", align: "end", key: "actions", sortable: false },
+] as const;
+const page = ref(1);
+const itemsPerPage = ref(10);
+const pageCount = ref(0);
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-emitter?.on("romUpdated", (rom) => {
-  if (rom?.id === props.rom.id) {
-    props.rom.user_saves = rom.user_saves;
-  }
-});
-
-async function downloadSaves() {
+// Functions
+async function downloasSaves() {
   selectedSaves.value.map((save) => {
     const a = document.createElement("a");
     a.href = save.download_path;
@@ -30,128 +57,148 @@ async function downloadSaves() {
   selectedSaves.value = [];
 }
 
-async function uploadSaves() {
-  emitter?.emit("snackbarShow", {
-    msg: `Uploading ${savesToUpload.value.length} saves to ${props.rom.name}...`,
-    icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
-  });
-
-  await saveApi
-    .uploadSaves({
-      saves: savesToUpload.value,
-      rom: props.rom,
-    })
-    .then(({ data }) => {
-      const { saves, uploaded } = data;
-      props.rom.user_saves = saves;
-      romsStore.update(props.rom);
-      savesToUpload.value = [];
-
-      emitter?.emit("snackbarShow", {
-        msg: `Uploaded ${uploaded} files successfully!`,
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 2000,
-      });
-    })
-    .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to upload saves: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    });
+function updateDataTablePages() {
+  if (props.rom.user_saves) {
+    pageCount.value = Math.ceil(
+      props.rom.user_saves.length / itemsPerPage.value
+    );
+  }
 }
+
+watch(itemsPerPage, async () => {
+  updateDataTablePages();
+});
+
+onMounted(() => {
+  updateDataTablePages();
+});
 </script>
+
 <template>
-  <v-row class="pa-2 align-center" no-gutters>
-    <v-col>
-      <v-list-item class="px-0">
-        <v-file-input
-          @keyup.enter="uploadSaves()"
-          label="Select save files..."
-          v-model="savesToUpload"
-          prepend-inner-icon="mdi-file"
-          prepend-icon=""
-          multiple
-          chips
-          required
-          variant="outlined"
-          density="compact"
-          hide-details
-        />
-        <template v-slot:append>
-          <v-btn
-            :disabled="!savesToUpload.length"
-            @click="uploadSaves()"
-            class="text-romm-green ml-3 bg-terciary"
-          >
-            Upload
-          </v-btn>
-        </template>
-      </v-list-item>
-    </v-col>
-  </v-row>
-  <v-list rounded="0" class="pa-0">
-    <v-list-item
-      class="px-3"
-      v-for="save in rom.user_saves"
-      :key="save.id"
-      :title="save.file_name"
-      :subtitle="`${save.emulator || 'unknown'} - ${formatBytes(
-        save.file_size_bytes
-      )}`"
-    >
-      <template v-slot:prepend>
-        <v-checkbox
-          v-model="selectedSaves"
-          :value="save"
-          color="romm-accent-1"
-          hide-details
-        />
-      </template>
-      <template v-slot:append>
+  <v-data-table
+    :items="rom.user_saves"
+    :width="mdAndUp ? '60vw' : '95vw'"
+    :items-per-page="itemsPerPage"
+    :items-per-page-options="PER_PAGE_OPTIONS"
+    :headers="HEADERS"
+    return-object
+    class="bg-secondary"
+    v-model="selectedSaves"
+    v-model:page="page"
+    show-select
+  >
+    <template #header.actions>
+      <v-btn-group divided density="compact">
         <v-btn
-          icon
-          :href="save.download_path"
-          rounded="0"
-          variant="text"
-          class="bg-terciary"
+          class="bg-secondary"
           size="small"
-          download
+          @click="emitter?.emit('addSavesDialog', rom)"
+        >
+          <v-icon>mdi-upload</v-icon>
+        </v-btn>
+        <v-btn
+          class="bg-secondary"
+          :disabled="!selectedSaves.length"
+          :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
+          size="small"
+          @click="downloasSaves"
         >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-      </template>
-    </v-list-item>
-  </v-list>
-  <v-btn
-    :disabled="!selectedSaves.length"
-    @click="downloadSaves()"
-    rounded="0"
-    variant="text"
-    class="mt-3 mr-3 bg-terciary"
-  >
-    <v-icon>mdi-download</v-icon>
-    Download
-  </v-btn>
-  <v-btn
-    :disabled="!selectedSaves.length"
-    @click="
-      emitter?.emit('showDeleteSavesDialog', {
-        rom: props.rom,
-        saves: selectedSaves,
-      })
-    "
-    rounded="0"
-    variant="text"
-    class="mt-3 bg-terciary text-romm-red"
-  >
-    <v-icon>mdi-delete</v-icon>
-    Delete
-  </v-btn>
+        <v-btn
+          class="bg-secondary"
+          :class="{
+            'text-romm-red': selectedSaves.length,
+          }"
+          :disabled="!selectedSaves.length"
+          :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
+          @click="
+            emitter?.emit('showDeleteSavesDialog', {
+              rom: props.rom,
+              saves: selectedSaves,
+            })
+          "
+          size="small"
+        >
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
+    </template>
+    <template #item.file_name="{ item }">
+      <td class="name-row">
+        <span>{{ item.file_name }}</span>
+      </td>
+    </template>
+    <template #item.emulator="{ item }">
+      <v-chip size="x-small" color="orange" label>{{ item.emulator }} </v-chip>
+    </template>
+    <template #item.updated_at="{ item }">
+      <v-chip size="x-small" label>
+        {{ formatTimestamp(item.updated_at) }}
+      </v-chip>
+    </template>
+    <template #item.file_size_bytes="{ item }">
+      <v-chip size="x-small" label
+        >{{ formatBytes(item.file_size_bytes) }}
+      </v-chip>
+    </template>
+    <template #no-data
+      ><span>No saves found for {{ rom.name }}</span></template
+    >
+    <template #item.actions="{ item }">
+      <v-btn-group divided density="compact">
+        <v-btn
+          class="bg-secondary"
+          :href="item.download_path"
+          download
+          size="small"
+        >
+          <v-icon> mdi-download </v-icon>
+        </v-btn>
+        <v-btn
+          class="bg-secondary"
+          size="small"
+          @click="
+            emitter?.emit('showDeleteSavesDialog', {
+              rom: props.rom,
+              saves: [item],
+            })
+          "
+        >
+          <v-icon class="text-romm-red">mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
+    </template>
+    <template #bottom>
+      <v-divider />
+      <v-row no-gutters class="pa-1 align-center justify-center">
+        <v-col cols="8" sm="9" md="10" class="px-3">
+          <v-pagination
+            :show-first-last-page="!xs"
+            v-model="page"
+            rounded="0"
+            active-color="romm-accent-1"
+            :length="pageCount"
+          />
+        </v-col>
+        <v-col>
+          <v-select
+            v-model="itemsPerPage"
+            class="pa-2"
+            label="Files per page"
+            density="compact"
+            variant="outlined"
+            :items="PER_PAGE_OPTIONS"
+            hide-details
+          />
+        </v-col>
+      </v-row>
+    </template>
+  </v-data-table>
+  <upload-saves-dialog />
 </template>
+<style scoped>
+.name-row {
+  min-width: 350px;
+}
+</style>

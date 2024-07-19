@@ -1,8 +1,7 @@
 import pytest
+from decorators.auth import protected_route
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
-
-from decorators.auth import protected_route
 from handler.auth import oauth_handler
 from handler.database import db_user_handler
 

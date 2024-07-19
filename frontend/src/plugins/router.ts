@@ -1,11 +1,17 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
+import storeHeartbeat from "@/stores/heartbeat";
 
 const routes = [
   {
     path: "/login",
     name: "login",
     component: () => import("@/views/Login.vue"),
+  },
+  {
+    path: "/setup",
+    name: "setup",
+    component: () => import("@/views/Setup.vue"),
   },
   {
     path: "/",
@@ -15,45 +21,69 @@ const routes = [
       {
         path: "/",
         name: "dashboard",
-        component: () => import("@/views/Dashboard/Base.vue"),
+        component: () => import("@/views/Dashboard.vue"),
       },
       {
         path: "/platform/:platform",
         name: "platform",
-        component: () => import("@/views/Gallery/Base.vue"),
+        component: () => import("@/views/Gallery/Platform.vue"),
+      },
+      {
+        path: "/collection/:collection",
+        name: "collection",
+        component: () => import("@/views/Gallery/Collection.vue"),
       },
       {
         path: "/rom/:rom",
         name: "rom",
-        component: () => import("@/views/Details/Base.vue"),
+        component: () => import("@/views/GameDetails.vue"),
       },
       {
-        path: "/library/scan",
+        path: "/rom/:rom/play",
+        name: "play",
+        component: () => import("@/views/Play/Base.vue"),
+      },
+      {
+        path: "/scan",
         name: "scan",
-        component: () => import("@/views/Library/Scan/Base.vue"),
+        component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/settings/control-panel/",
-        name: "controlPanel",
-        component: () => import("@/views/Settings/ControlPanel/Base.vue"),
+        path: "/management",
+        name: "management",
+        component: () => import("@/views/Management.vue"),
+      },
+      {
+        path: "/settings",
+        name: "settings",
+        component: () => import("@/views/Settings.vue"),
+      },
+      {
+        path: "/administration",
+        name: "administration",
+        component: () => import("@/views/Administration.vue"),
       },
       {
         path: "/:pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Dashboard/Base.vue"),
+        component: () => import("@/views/Dashboard.vue"),
       },
     ],
-  },
-  {
-    path: "/play/:rom",
-    component: () => import("@/views/Play/Base.vue"),
   },
 ];
 
 const router = createRouter({
-  // @ts-ignore
   history: createWebHistory(process.env.BASE_URL),
   routes,
+});
+
+router.beforeEach((to, _from, next) => {
+  const heartbeat = storeHeartbeat();
+  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
+    next({ name: "dashboard" });
+  } else {
+    next();
+  }
 });
 
 router.afterEach(() => {

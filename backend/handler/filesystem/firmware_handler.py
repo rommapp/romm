@@ -1,17 +1,19 @@
+import binascii
+import hashlib
 import os
 import shutil
-import hashlib
-import binascii
 from pathlib import Path
-from fastapi import UploadFile
 
-from exceptions.fs_exceptions import (
-    FirmwareNotFoundException,
-    FirmwareAlreadyExistsException,
-)
-from logger.logger import log
 from config import LIBRARY_BASE_PATH
+from exceptions.fs_exceptions import (
+    FirmwareAlreadyExistsException,
+    FirmwareNotFoundException,
+)
+from fastapi import UploadFile
+from logger.logger import log
 from models.platform import Platform
+from utils.filesystem import iter_files
+
 from .base_handler import FSHandler
 
 
@@ -37,7 +39,7 @@ class FSFirmwareHandler(FSHandler):
         firmware_file_path = f"{LIBRARY_BASE_PATH}/{firmware_path}"
 
         try:
-            fs_firmware_files: list[str] = list(os.walk(firmware_file_path))[0][2]
+            fs_firmware_files = [f for _, f in iter_files(firmware_file_path)]
         except IndexError as exc:
             raise FirmwareNotFoundException(platform.fs_slug) from exc
 
@@ -54,8 +56,8 @@ class FSFirmwareHandler(FSHandler):
                 "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
                 .to_bytes(4, byteorder="big")
                 .hex(),
-                "md5_hash": hashlib.md5(data).hexdigest(),
-                "sha1_hash": hashlib.sha1(data).hexdigest(),
+                "md5_hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
+                "sha1_hash": hashlib.sha1(data, usedforsecurity=False).hexdigest(),
             }
 
     def file_exists(self, path: str, file_name: str):

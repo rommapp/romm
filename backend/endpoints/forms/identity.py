@@ -1,17 +1,15 @@
-from typing import Optional
-
-from fastapi import File, UploadFile
+from fastapi import UploadFile
 from fastapi.param_functions import Form
 
 
 class UserForm:
     def __init__(
         self,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        role: Optional[str] = None,
-        enabled: Optional[bool] = None,
-        avatar: Optional[UploadFile] = File(None),
+        username: str | None = None,
+        password: str | None = None,
+        role: str | None = None,
+        enabled: bool | None = None,
+        avatar: UploadFile | None = None,
     ):
         self.username = username
         self.password = password
@@ -25,11 +23,11 @@ class OAuth2RequestForm:
         self,
         grant_type: str = Form(default="password"),
         scope: str = Form(default=""),
-        username: Optional[str] = Form(default=None),
-        password: Optional[str] = Form(default=None),
-        client_id: Optional[str] = Form(default=None),
-        client_secret: Optional[str] = Form(default=None),
-        refresh_token: Optional[str] = Form(default=None),
+        username: str | None = Form(default=None),
+        password: str | None = Form(default=None),
+        client_id: str | None = Form(default=None),
+        client_secret: str | None = Form(default=None),
+        refresh_token: str | None = Form(default=None),
     ):
         self.grant_type = grant_type
         self.scopes = scope.split()

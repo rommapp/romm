@@ -1,17 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Final
 
-from config import (
-    ROMM_AUTH_PASSWORD,
-    ROMM_AUTH_SECRET_KEY,
-    ROMM_AUTH_USERNAME,
-)
+from config import ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
+from joserfc.jwk import OctKey
 from passlib.context import CryptContext
-from sqlalchemy.exc import IntegrityError
 from starlette.requests import HTTPConnection
 
 ALGORITHM: Final = "HS256"
@@ -25,8 +21,10 @@ DEFAULT_SCOPES_MAP: Final = {
     "assets.read": "View assets",
     "assets.write": "Modify assets",
     "firmware.read": "View firmware",
-    "notes.read": "View notes",
-    "notes.write": "Modify notes",
+    "roms.user.read": "View user-rom properties",
+    "roms.user.write": "Modify user-rom properties",
+    "collections.read": "View collections",
+    "collections.write": "Modify collections",
 }
 
 WRITE_SCOPES_MAP: Final = {
@@ -82,7 +80,7 @@ class AuthHandler:
         # Key exists therefore user is probably authenticated
         user = db_user_handler.get_user_by_username(username)
         if user is None:
-            conn.session = {}
+            conn.session.clear()
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -90,28 +88,14 @@ class AuthHandler:
             )
 
         if not user.enabled:
-            conn.session = {}
+            conn.session.clear()
 
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Inactive user {user.username}",
             )
 
         return user
-
-    def create_default_admin_user(self):
-        from handler.database import db_user_handler
-        from models.user import Role, User
-
-        try:
-            db_user_handler.add_user(
-                User(
-                    username=ROMM_AUTH_USERNAME,
-                    hashed_password=self.get_password_hash(ROMM_AUTH_PASSWORD),
-                    role=Role.ADMIN,
-                )
-            )
-        except IntegrityError:
-            pass
 
 
 class OAuthHandler:
@@ -128,15 +112,17 @@ class OAuthHandler:
 
         to_encode.update({"exp": expire})
 
-        return jwt.encode({"alg": ALGORITHM}, to_encode, ROMM_AUTH_SECRET_KEY)
+        return jwt.encode(
+            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+        )
 
     async def get_current_active_user_from_bearer_token(self, token: str):
         from handler.database import db_user_handler
 
         try:
-            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY)
-        except (BadSignatureError, ValueError):
-            raise OAuthCredentialsException
+            payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
+        except (BadSignatureError, ValueError) as exc:
+            raise OAuthCredentialsException from exc
 
         issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":

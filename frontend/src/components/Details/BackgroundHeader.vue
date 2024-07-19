@@ -1,29 +1,32 @@
 <script setup lang="ts">
-import type { DetailedRom } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
+import { storeToRefs } from "pinia";
 import { useTheme } from "vuetify";
-const theme = useTheme();
 
-const props = defineProps<{ rom: DetailedRom }>();
+// Props
+const theme = useTheme();
+const romsStore = storeRoms();
+const { currentRom } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-card rounded="0">
+  <v-card :key="currentRom.updated_at" v-if="currentRom" rounded="0">
     <v-img
-      :src="
-        !rom.igdb_id && !rom.moby_id
-          ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-          : `/assets/romm/resources/${rom.path_cover_l}`
-      "
       id="background-header"
+      :src="
+        !currentRom.igdb_id && !currentRom.moby_id && !currentRom.has_cover
+          ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+          : `/assets/romm/resources/${currentRom.path_cover_l}?ts=${currentRom.updated_at}`
+      "
       lazy
+      cover
     >
-      <template v-slot:error>
+      <template #error>
         <v-img
           :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-          :aspect-ratio="3 / 4"
-        ></v-img>
+        />
       </template>
-      <template v-slot:placeholder>
+      <template #placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
             :width="2"
@@ -38,9 +41,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 </template>
 <style scoped>
 #background-header {
-  width: 100%;
   height: 300px;
-  transform: scale(7);
-  filter: blur(8px);
+  filter: blur(30px);
 }
 </style>

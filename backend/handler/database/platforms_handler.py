@@ -1,10 +1,10 @@
 import functools
-from sqlalchemy import delete, or_, select
-from sqlalchemy.orm import Session, Query, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
+from sqlalchemy import Select, delete, or_, select
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -37,17 +37,17 @@ class DBPlatformsHandler(DBBaseHandler):
 
     @begin_session
     @with_roms
-    def get_platforms(
-        self, id: int = None, query: Query = None, session: Session = None
-    ) -> list[Platform] | Platform | None:
+    def get_platform(
+        self, id: int, *, query: Query = None, session: Session = None
+    ) -> Platform | None:
+        return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_platforms(self, *, session: Session = None) -> Select[tuple[Platform]]:
         return (
-            session.scalar(query.filter_by(id=id).limit(1))
-            if id
-            else (
-                session.scalars(select(Platform).order_by(Platform.name.asc()))
-                .unique()
-                .all()
-            )
+            session.scalars(select(Platform).order_by(Platform.name.asc()))  # type: ignore[attr-defined]
+            .unique()
+            .all()
         )
 
     @begin_session
@@ -75,6 +75,6 @@ class DBPlatformsHandler(DBBaseHandler):
     def purge_platforms(self, fs_platforms: list[str], session: Session = None) -> int:
         return session.execute(
             delete(Platform)
-            .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))
+            .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="fetch")
         )

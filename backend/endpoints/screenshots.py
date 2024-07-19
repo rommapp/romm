@@ -11,9 +11,11 @@ router = APIRouter()
 
 @protected_route(router.post, "/screenshots", ["assets.write"])
 def add_screenshots(
-    request: Request, rom_id: int, screenshots: list[UploadFile] = File(...)
+    request: Request,
+    rom_id: int,
+    screenshots: list[UploadFile] = File(...),  # noqa: B008
 ) -> UploadedScreenshotsResponse:
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_rom(rom_id)
     current_user = request.user
     log.info(f"Uploading screenshots to {rom.name}")
 
@@ -51,7 +53,7 @@ def add_screenshots(
         scanned_screenshot.user_id = current_user.id
         db_screenshot_handler.add_screenshot(scanned_screenshot)
 
-    rom = db_rom_handler.get_roms(rom_id)
+    rom = db_rom_handler.get_rom(rom_id)
     return {
         "uploaded": len(screenshots),
         "screenshots": [s for s in rom.screenshots if s.user_id == current_user.id],

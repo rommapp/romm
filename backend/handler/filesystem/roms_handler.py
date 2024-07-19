@@ -1,19 +1,22 @@
 import os
 import re
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from models.platform import Platform
+from utils.filesystem import iter_directories, iter_files
+
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
     LANGUAGES_NAME_KEYS,
     REGIONS_BY_SHORTCODE,
     REGIONS_NAME_KEYS,
+    TAG_REGEX,
+    FSHandler,
 )
-from .base_handler import FSHandler, TAG_REGEX
 
 
 class FSRomsHandler(FSHandler):
@@ -31,7 +34,7 @@ class FSRomsHandler(FSHandler):
         regs = []
         langs = []
         other_tags = []
-        tags = [tag[0] or tag[1] for tag in re.findall(TAG_REGEX, file_name)]
+        tags = [tag[0] or tag[1] for tag in TAG_REGEX.findall(file_name)]
         tags = [tag for subtags in tags for tag in subtags.split(",")]
         tags = [tag.strip() for tag in tags]
 
@@ -82,7 +85,7 @@ class FSRomsHandler(FSHandler):
         return [f for f in roms if f not in filtered_files]
 
     def get_rom_files(self, rom: str, roms_path: str) -> list[str]:
-        rom_files: list = []
+        rom_files: list[str] = []
 
         for path, _, files in os.walk(f"{roms_path}/{rom}"):
             for f in self._exclude_files(files, "multi_parts"):
@@ -102,12 +105,12 @@ class FSRomsHandler(FSHandler):
         roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
 
         try:
-            fs_single_roms: list[str] = list(os.walk(roms_file_path))[0][2]
+            fs_single_roms = [f for _, f in iter_files(roms_file_path)]
         except IndexError as exc:
             raise RomsNotFoundException(platform.fs_slug) from exc
 
         try:
-            fs_multi_roms: list[str] = list(os.walk(roms_file_path))[0][1]
+            fs_multi_roms = [d for _, d in iter_directories(roms_file_path)]
         except IndexError as exc:
             raise RomsNotFoundException(platform.fs_slug) from exc
 
@@ -128,8 +131,15 @@ class FSRomsHandler(FSHandler):
         ]
 
     def get_rom_file_size(
-        self, roms_path: str, file_name: str, multi: bool, multi_files: list = []
+        self,
+        roms_path: str,
+        file_name: str,
+        multi: bool,
+        multi_files: list[str] | None = None,
     ):
+        if multi_files is None:
+            multi_files = []
+
         files = (
             [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
             if not multi

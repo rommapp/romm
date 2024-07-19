@@ -1,13 +1,12 @@
 import type {
   AddRomsResponse,
   MessageResponse,
-  RomSchema,
   SearchRomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
-import type { SimpleRom, DetailedRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
@@ -19,7 +18,7 @@ async function uploadRoms({
   platformId: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
-  let formData = new FormData();
+  const formData = new FormData();
   romsToUpload.forEach((rom) => formData.append("roms", rom));
 
   return api.post("/roms", formData, {
@@ -32,11 +31,13 @@ async function uploadRoms({
 
 async function getRoms({
   platformId = null,
+  collectionId = null,
   searchTerm = "",
   orderBy = "name",
   orderDir = "asc",
 }: {
   platformId?: number | null;
+  collectionId?: number | null;
   searchTerm?: string | null;
   orderBy?: string | null;
   orderDir?: string | null;
@@ -44,6 +45,7 @@ async function getRoms({
   return api.get(`/roms`, {
     params: {
       platform_id: platformId,
+      collection_id: collectionId,
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
@@ -57,7 +59,11 @@ async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
   });
 }
 
-async function getRom({ romId }: { romId: number }): Promise<{ data: DetailedRom }> {
+async function getRom({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: DetailedRom }> {
   return api.get(`/roms/${romId}`);
 }
 
@@ -73,19 +79,16 @@ async function searchRom({
   romId,
   searchTerm,
   searchBy,
-  searchExtended: searchExtended,
 }: {
   romId: number;
   searchTerm: string;
   searchBy: string;
-  searchExtended: boolean;
 }): Promise<{ data: SearchRomSchema[] }> {
   return api.get("/search/roms", {
     params: {
       rom_id: romId,
       search_term: searchTerm,
       search_by: searchBy,
-      search_extended: searchExtended,
     },
   });
 }
@@ -123,14 +126,14 @@ export type UpdateRom = SimpleRom & {
 
 async function updateRom({
   rom,
-  renameAsIGDB = false,
+  renameAsSource = false,
   removeCover = false,
 }: {
   rom: UpdateRom;
-  renameAsIGDB?: boolean;
+  renameAsSource?: boolean;
   removeCover?: boolean;
 }): Promise<{ data: DetailedRom }> {
-  var formData = new FormData();
+  const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");
@@ -140,16 +143,16 @@ async function updateRom({
   if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
-    params: { rename_as_igdb: renameAsIGDB, remove_cover: removeCover },
+    params: { rename_as_source: renameAsSource, remove_cover: removeCover },
   });
 }
 
 async function deleteRoms({
   roms,
-  deleteFromFs = false,
+  deleteFromFs = [],
 }: {
   roms: SimpleRom[];
-  deleteFromFs: boolean;
+  deleteFromFs: number[];
 }): Promise<{ data: MessageResponse }> {
   return api.post("/roms/delete", {
     roms: roms.map((r) => r.id),
@@ -157,18 +160,21 @@ async function deleteRoms({
   });
 }
 
-async function updateRomNote({
+async function updateUserRomProps({
   romId,
-  rawMarkdown,
-  isPublic,
+  noteRawMarkdown,
+  noteIsPublic,
+  isMainSibling,
 }: {
   romId: number;
-  rawMarkdown: string;
-  isPublic: boolean;
+  noteRawMarkdown: string;
+  noteIsPublic: boolean;
+  isMainSibling: boolean;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/note`, {
-    raw_markdown: rawMarkdown,
-    is_public: isPublic,
+  return api.put(`/roms/${romId}/props`, {
+    note_raw_markdown: noteRawMarkdown,
+    note_is_public: noteIsPublic,
+    is_main_sibling: isMainSibling,
   });
 }
 
@@ -181,5 +187,5 @@ export default {
   searchRom,
   updateRom,
   deleteRoms,
-  updateRomNote,
+  updateUserRomProps,
 };

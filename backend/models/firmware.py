@@ -1,18 +1,18 @@
-import os
-import json
-from functools import cached_property
-from sqlalchemy.orm import relationship
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    String,
-    BigInteger,
-)
+from __future__ import annotations
 
-from models.base import BaseModel
-from handler.redis_handler import cache
+import json
+import os
+from functools import cached_property
+from typing import TYPE_CHECKING
+
 from handler.metadata.base_hander import conditionally_set_cache
+from handler.redis_handler import cache
+from models.base import BaseModel
+from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from models.platform import Platform
 
 KNOWN_BIOS_KEY = "romm:known_bios_files"
 conditionally_set_cache(
@@ -23,23 +23,23 @@ conditionally_set_cache(
 class Firmware(BaseModel):
     __tablename__ = "firmware"
 
-    id = Column(Integer(), primary_key=True, autoincrement=True)
-    platform_id = Column(
-        Integer(), ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    platform_id: Mapped[int] = mapped_column(
+        ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    file_name = Column(String(length=450), nullable=False)
-    file_name_no_tags = Column(String(length=450), nullable=False)
-    file_name_no_ext = Column(String(length=450), nullable=False)
-    file_extension = Column(String(length=100), nullable=False)
-    file_path = Column(String(length=1000), nullable=False)
-    file_size_bytes = Column(BigInteger(), default=0, nullable=False)
+    file_name: Mapped[str] = mapped_column(String(length=450))
+    file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
+    file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
+    file_extension: Mapped[str] = mapped_column(String(length=100))
+    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
-    crc_hash = Column(String(length=100), nullable=False)
-    md5_hash = Column(String(length=100), nullable=False)
-    sha1_hash = Column(String(length=100), nullable=False)
+    crc_hash: Mapped[str] = mapped_column(String(length=100))
+    md5_hash: Mapped[str] = mapped_column(String(length=100))
+    sha1_hash: Mapped[str] = mapped_column(String(length=100))
 
-    platform = relationship("Platform", lazy="joined", back_populates="firmware")
+    platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
 
     @property
     def platform_slug(self) -> str:

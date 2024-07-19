@@ -1,13 +1,10 @@
-from config import LIBRARY_BASE_PATH, DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.firmware import (
-    AddFirmwareResponse,
-    FirmwareSchema,
-)
+from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from handler.database import db_platform_handler, db_firmware_handler
+from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
 from logger.logger import log
@@ -17,7 +14,9 @@ router = APIRouter()
 
 @protected_route(router.post, "/firmware", ["firmware.write"])
 def add_firmware(
-    request: Request, platform_id: int, files: list[UploadFile] = File(...)
+    request: Request,
+    platform_id: int,
+    files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
     """Upload firmware files endpoint
 
@@ -33,7 +32,7 @@ def add_firmware(
         AddFirmwareResponse: Standard message response
     """
 
-    db_platform = db_platform_handler.get_platforms(platform_id)
+    db_platform = db_platform_handler.get_platform(platform_id)
     log.info(f"Uploading firmware to {db_platform.fs_slug}")
     if files is None:
         log.error("No files were uploaded")
@@ -68,7 +67,7 @@ def add_firmware(
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
-    db_platform = db_platform_handler.get_platforms(platform_id)
+    db_platform = db_platform_handler.get_platform(platform_id)
 
     return {
         "uploaded": len(files),
@@ -79,7 +78,7 @@ def add_firmware(
 @protected_route(router.get, "/firmware", ["firmware.read"])
 def get_platform_firmware(
     request: Request,
-    platform_id: int = None,
+    platform_id: int | None = None,
 ) -> list[FirmwareSchema]:
     """Get firmware endpoint
 
@@ -89,7 +88,7 @@ def get_platform_firmware(
     Returns:
         list[FirmwareSchema]: Firmware stored in the database
     """
-    return db_firmware_handler.get_firmware(platform_id=platform_id)
+    return db_firmware_handler.list_firmware(platform_id=platform_id)
 
 
 @protected_route(
@@ -181,7 +180,7 @@ async def delete_firmware(
 
     data: dict = await request.json()
     firmare_ids: list = data["firmware"]
-    delete_from_fs: bool = data["delete_from_fs"]
+    delete_from_fs: list = data["delete_from_fs"]
 
     for id in firmare_ids:
         firmware = db_firmware_handler.get_firmware(id)
@@ -193,15 +192,17 @@ async def delete_firmware(
         log.info(f"Deleting {firmware.file_name} from database")
         db_firmware_handler.delete_firmware(id)
 
-        if delete_from_fs:
+        if id in delete_from_fs:
             log.info(f"Deleting {firmware.file_name} from filesystem")
             try:
                 fs_firmware_handler.remove_file(
                     file_name=firmware.file_name, file_path=firmware.file_path
                 )
-            except FileNotFoundError:
+            except FileNotFoundError as exc:
                 error = f"Firmware file {firmware.file_name} not found for platform {firmware.platform_slug}"
                 log.error(error)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=error
+                ) from exc
 
     return {"msg": f"{len(firmare_ids)} firmware files deleted successfully!"}

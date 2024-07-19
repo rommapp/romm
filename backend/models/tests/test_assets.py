@@ -1,4 +1,4 @@
-from models.assets import Save, State, Screenshot
+from models.assets import Save, Screenshot, State
 
 
 def test_save(save: Save):

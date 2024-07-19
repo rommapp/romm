@@ -1,18 +1,17 @@
-from sqlalchemy.exc import IntegrityError
-
-from models.platform import Platform
-from models.rom import Rom
-from models.user import User, Role
-from models.assets import Save, State, Screenshot
 from handler.auth import auth_handler
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
-    db_user_handler,
     db_save_handler,
-    db_state_handler,
     db_screenshot_handler,
+    db_state_handler,
+    db_user_handler,
 )
+from models.assets import Save, Screenshot, State
+from models.platform import Platform
+from models.rom import Rom
+from models.user import Role, User
+from sqlalchemy.exc import IntegrityError
 
 
 def test_platforms():
@@ -47,39 +46,37 @@ def test_roms(rom: Rom, platform: Platform):
         )
     )
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert len(roms) == 2
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert len(roms) == 2
 
-    rom = db_rom_handler.get_roms(id=roms[0].id)
+    rom = db_rom_handler.get_rom(roms[0].id)
+    assert rom is not None
     assert rom.file_name == "test_rom.zip"
 
     db_rom_handler.update_rom(roms[1].id, {"file_name": "test_rom_2_updated"})
-    rom_2 = db_rom_handler.get_roms(id=roms[1].id)
+    rom_2 = db_rom_handler.get_rom(roms[1].id)
+    assert rom_2 is not None
     assert rom_2.file_name == "test_rom_2_updated"
 
     db_rom_handler.delete_rom(rom.id)
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert len(roms) == 1
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert len(roms) == 1
 
     db_rom_handler.purge_roms(rom_2.platform_id, [rom_2.id])
 
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert len(roms) == 0
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert len(roms) == 0
 
 
 def test_utils(rom: Rom, platform: Platform):
-    with db_rom_handler.session.begin() as session:
-        roms = session.scalars(db_rom_handler.get_roms(platform_id=platform.id)).all()
-        assert (
-            db_rom_handler.get_rom_by_filename(
-                platform_id=platform.id, file_name=rom.file_name
-            ).id
-            == roms[0].id
-        )
+    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    assert (
+        db_rom_handler.get_rom_by_filename(
+            platform_id=platform.id, file_name=rom.file_name
+        ).id
+        == roms[0].id
+    )
 
 
 def test_users(admin_user):
@@ -135,7 +132,8 @@ def test_saves(save: Save, platform: Platform, admin_user: User):
         )
     )
 
-    rom = db_rom_handler.get_roms(id=save.rom_id)
+    rom = db_rom_handler.get_rom(save.rom_id)
+    assert rom is not None
     assert len(rom.saves) == 2
 
     save = db_save_handler.get_save(rom.saves[0].id)
@@ -147,7 +145,8 @@ def test_saves(save: Save, platform: Platform, admin_user: User):
 
     db_save_handler.delete_save(save.id)
 
-    rom = db_rom_handler.get_roms(id=save.rom_id)
+    rom = db_rom_handler.get_rom(save.rom_id)
+    assert rom is not None
     assert len(rom.saves) == 1
 
 
@@ -165,7 +164,8 @@ def test_states(state: State, platform: Platform, admin_user: User):
         )
     )
 
-    rom = db_rom_handler.get_roms(id=state.rom_id)
+    rom = db_rom_handler.get_rom(state.rom_id)
+    assert rom is not None
     assert len(rom.states) == 2
 
     state = db_state_handler.get_state(rom.states[0].id)
@@ -177,7 +177,8 @@ def test_states(state: State, platform: Platform, admin_user: User):
 
     db_state_handler.delete_state(state.id)
 
-    rom = db_rom_handler.get_roms(id=state.rom_id)
+    rom = db_rom_handler.get_rom(state.rom_id)
+    assert rom is not None
     assert len(rom.states) == 1
 
 
@@ -195,7 +196,8 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
         )
     )
 
-    rom = db_rom_handler.get_roms(id=screenshot.rom_id)
+    rom = db_rom_handler.get_rom(screenshot.rom_id)
+    assert rom is not None
     assert len(rom.screenshots) == 2
 
     screenshot = db_screenshot_handler.get_screenshot(rom.screenshots[0].id)
@@ -209,5 +211,6 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
 
     db_screenshot_handler.delete_screenshot(screenshot.id)
 
-    rom = db_rom_handler.get_roms(id=screenshot.rom_id)
+    rom = db_rom_handler.get_rom(screenshot.rom_id)
+    assert rom is not None
     assert len(rom.screenshots) == 1

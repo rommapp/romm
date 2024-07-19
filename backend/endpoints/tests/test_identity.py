@@ -1,9 +1,9 @@
 import base64
+
 import pytest
 from fastapi.testclient import TestClient
-
-from main import app
 from handler.redis_handler import cache
+from main import app
 from models.user import Role
 
 client = TestClient(app)
@@ -20,9 +20,7 @@ def test_login_logout(admin_user):
 
     assert response.status_code == 405
 
-    basic_auth = base64.b64encode(
-        "test_admin:test_admin_password".encode("ascii")
-    ).decode("ascii")
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
     response = client.post("/login", headers={"Authorization": f"Basic {basic_auth}"})
 
     assert response.status_code == 200

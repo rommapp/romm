@@ -1,22 +1,17 @@
-import os
+import glob
 import shutil
-import requests
 from pathlib import Path
-from urllib.parse import quote
-from PIL import Image
-from fastapi import HTTPException, status
 
+import requests
 from config import RESOURCES_BASE_PATH
+from fastapi import HTTPException, status
 from logger.logger import log
+from models.collection import Collection
+from models.rom import Rom
+from PIL import Image
 from urllib3.exceptions import ProtocolError
-from .base_handler import (
-    DEFAULT_HEIGHT_COVER_L,
-    DEFAULT_HEIGHT_COVER_S,
-    DEFAULT_WIDTH_COVER_L,
-    DEFAULT_WIDTH_COVER_S,
-    CoverSize,
-    FSHandler,
-)
+
+from .base_handler import CoverSize, FSHandler
 
 
 class FSResourcesHandler(FSHandler):
@@ -24,7 +19,7 @@ class FSResourcesHandler(FSHandler):
         pass
 
     @staticmethod
-    def _cover_exists(fs_slug: str, rom_name: str, size: CoverSize):
+    def cover_exists(entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
 
         Args:
@@ -34,49 +29,28 @@ class FSResourcesHandler(FSHandler):
         Returns
             True if cover exists in filesystem else False
         """
-        return bool(
-            os.path.exists(
-                f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover/{size.value}.png"
-            )
+        matched_files = glob.glob(
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.*"
         )
+        return len(matched_files) > 0
 
     @staticmethod
-    def resize_cover(cover_path: str, size: CoverSize = CoverSize.BIG) -> None:
-        """Resizes the cover image to the standard size
-
-        Args:
-            cover_path: path where the original cover were stored
-            size: size of the cover
-        """
+    def resize_cover_to_small(cover_path: str) -> None:
+        """Path of the cover image to resize"""
         cover = Image.open(cover_path)
-        if size == CoverSize.BIG and cover.size[1] > DEFAULT_HEIGHT_COVER_L:
-            big_dimensions = (DEFAULT_WIDTH_COVER_L, DEFAULT_HEIGHT_COVER_L)
-            background = Image.new("RGBA", big_dimensions, (0, 0, 0, 0))
-            cover.thumbnail(big_dimensions)
-            offset = (
-                int(round(((DEFAULT_WIDTH_COVER_L - cover.size[0]) / 2), 0)),
-                0,
-            )
-        elif size == CoverSize.SMALL and cover.size[1] > DEFAULT_HEIGHT_COVER_S:
-            small_dimensions = (DEFAULT_WIDTH_COVER_S, DEFAULT_HEIGHT_COVER_S)
-            background = Image.new("RGBA", small_dimensions, (0, 0, 0, 0))
-            cover.thumbnail(small_dimensions)
-            offset = (
-                int(round(((DEFAULT_WIDTH_COVER_S - cover.size[0]) / 2), 0)),
-                0,
-            )
+        if cover.height >= 1000:
+            ratio = 0.2
         else:
-            return
-        background.paste(cover, offset)
-        try:
-            background.save(cover_path)
-        except OSError:
-            rgb_background = background.convert("RGB")
-            rgb_background.save(cover_path)
+            ratio = 0.4
+        small_width = int(cover.width * ratio)
+        small_height = int(cover.height * ratio)
+        small_size = (small_width, small_height)
+        small_img = cover.resize(small_size)
+        small_img.save(cover_path)
 
     def _store_cover(
-        self, fs_slug: str, rom_name: str, url_cover: str, size: CoverSize
-    ):
+        self, entity: Rom | Collection, url_cover: str, size: CoverSize
+    ) -> None:
         """Store roms resources in filesystem
 
         Args:
@@ -86,29 +60,29 @@ class FSResourcesHandler(FSHandler):
             size: size of the cover
         """
         cover_file = f"{size.value}.png"
-        cover_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/cover"
+        cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
 
         try:
             res = requests.get(
-                url_cover.replace("t_thumb", f"t_cover_{size.value}"),
+                url_cover,
                 stream=True,
                 timeout=120,
             )
-        except requests.exceptions.ConnectionError:
-            log.critical("Connection error: can't connect to IGDB")
+        except requests.exceptions.ConnectionError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to IGDB, check your internet connection.",
-            )
+                detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
+            ) from exc
 
         if res.status_code == 200:
             Path(cover_path).mkdir(parents=True, exist_ok=True)
             with open(f"{cover_path}/{cover_file}", "wb") as f:
                 shutil.copyfileobj(res.raw, f)
-            self.resize_cover(f"{cover_path}/{cover_file}", size)
+            if size == CoverSize.SMALL:
+                self.resize_cover_to_small(f"{cover_path}/{cover_file}")
 
     @staticmethod
-    def _get_cover_path(fs_slug: str, rom_name: str, size: CoverSize):
+    def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -116,68 +90,71 @@ class FSResourcesHandler(FSHandler):
             file_name: name of rom file
             size: size of the cover
         """
-        return f"{fs_slug}/{rom_name}/cover/{size.value}.png"
+        file_path = (
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.*"
+        )
+        matched_files = glob.glob(file_path, recursive=True)
+        return (
+            matched_files[0].replace(RESOURCES_BASE_PATH, "") if matched_files else ""
+        )
 
-    def get_rom_cover(
-        self, overwrite: bool, platform_fs_slug: str, rom_name: str, url_cover: str = ""
-    ) -> dict:
-        q_rom_name = quote(rom_name)
-        if (
-            overwrite
-            or not self._cover_exists(platform_fs_slug, rom_name, CoverSize.SMALL)
-        ) and url_cover:
-            self._store_cover(platform_fs_slug, rom_name, url_cover, CoverSize.SMALL)
+    def get_cover(
+        self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
+    ) -> tuple[str, str]:
+        if not entity:
+            return "", ""
+
+        if (overwrite or not self.cover_exists(entity, CoverSize.SMALL)) and url_cover:
+            self._store_cover(entity, url_cover, CoverSize.SMALL)
         path_cover_s = (
-            self._get_cover_path(platform_fs_slug, q_rom_name, CoverSize.SMALL)
-            if self._cover_exists(platform_fs_slug, rom_name, CoverSize.SMALL)
+            self._get_cover_path(entity, CoverSize.SMALL)
+            if self.cover_exists(entity, CoverSize.SMALL)
             else ""
         )
 
-        if (
-            overwrite
-            or not self._cover_exists(platform_fs_slug, rom_name, CoverSize.BIG)
-        ) and url_cover:
-            self._store_cover(platform_fs_slug, rom_name, url_cover, CoverSize.BIG)
+        if (overwrite or not self.cover_exists(entity, CoverSize.BIG)) and url_cover:
+            self._store_cover(entity, url_cover, CoverSize.BIG)
         path_cover_l = (
-            self._get_cover_path(platform_fs_slug, q_rom_name, CoverSize.BIG)
-            if self._cover_exists(platform_fs_slug, rom_name, CoverSize.BIG)
+            self._get_cover_path(entity, CoverSize.BIG)
+            if self.cover_exists(entity, CoverSize.BIG)
             else ""
         )
 
-        return {
-            "path_cover_s": path_cover_s,
-            "path_cover_l": path_cover_l,
-        }
+        return path_cover_s, path_cover_l
 
     @staticmethod
-    def remove_cover(
-        rom_name: str,
-        platform_fs_slug: str,
-    ):
+    def remove_cover(entity: Rom | Collection | None):
+        if not entity:
+            return {"path_cover_s": "", "path_cover_l": ""}
+
         try:
-            shutil.rmtree(
-                os.path.join(RESOURCES_BASE_PATH, platform_fs_slug, rom_name, "cover")
-            )
+            cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
+            shutil.rmtree(cover_path)
         except FileNotFoundError:
-            log.warning(f"Couldn't remove {rom_name} cover")
+            log.warning(
+                f"Couldn't remove cover from '{entity.name or entity.id}' since '{cover_path}' doesn't exists."
+            )
+
         return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
-    def build_artwork_path(rom_name: str, platform_fs_slug: str, file_ext: str):
-        q_rom_name = quote(rom_name)
+    def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
+        if not entity:
+            return "", "", ""
 
         path_cover_l = (
-            f"{platform_fs_slug}/{q_rom_name}/cover/{CoverSize.BIG.value}.{file_ext}"
+            f"{entity.fs_resources_path}/cover/{CoverSize.BIG.value}.{file_ext}"
         )
         path_cover_s = (
-            f"{platform_fs_slug}/{q_rom_name}/cover/{CoverSize.SMALL.value}.{file_ext}"
+            f"{entity.fs_resources_path}/cover/{CoverSize.SMALL.value}.{file_ext}"
         )
-        artwork_path = f"{RESOURCES_BASE_PATH}/{platform_fs_slug}/{rom_name}/cover"
+        artwork_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
         Path(artwork_path).mkdir(parents=True, exist_ok=True)
+
         return path_cover_l, path_cover_s, artwork_path
 
     @staticmethod
-    def _store_screenshot(fs_slug: str, rom_name: str, url: str, idx: int):
+    def _store_screenshot(rom: Rom, url: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
@@ -186,16 +163,15 @@ class FSResourcesHandler(FSHandler):
             url: url to get the screenshot
         """
         screenshot_file = f"{idx}.jpg"
-        screenshot_path = f"{RESOURCES_BASE_PATH}/{fs_slug}/{rom_name}/screenshots"
+        screenshot_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/screenshots"
 
         try:
             res = requests.get(url, stream=True, timeout=120)
-        except requests.exceptions.ConnectionError:
-            log.critical("Connection error: can't connect to IGDB")
+        except requests.exceptions.ConnectionError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to IGDB, check your internet connection.",
-            )
+                detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
+            ) from exc
 
         if res.status_code == 200:
             Path(screenshot_path).mkdir(parents=True, exist_ok=True)
@@ -208,7 +184,7 @@ class FSResourcesHandler(FSHandler):
                     )
 
     @staticmethod
-    def _get_screenshot_path(fs_slug: str, rom_name: str, idx: str):
+    def _get_screenshot_path(rom: Rom, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -216,18 +192,15 @@ class FSResourcesHandler(FSHandler):
             file_name: name of rom
             idx: index number of screenshot
         """
-        return f"{fs_slug}/{rom_name}/screenshots/{idx}.jpg"
+        return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
-    def get_rom_screenshots(
-        self, platform_fs_slug: str, rom_name: str, url_screenshots: list
-    ) -> dict:
-        q_rom_name = quote(rom_name)
+    def get_rom_screenshots(self, rom: Rom | None, url_screenshots: list) -> list[str]:
+        if not rom:
+            return []
 
         path_screenshots: list[str] = []
         for idx, url in enumerate(url_screenshots):
-            self._store_screenshot(platform_fs_slug, rom_name, url, idx)
-            path_screenshots.append(
-                self._get_screenshot_path(platform_fs_slug, q_rom_name, str(idx))
-            )
+            self._store_screenshot(rom, url, idx)
+            path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
-        return {"path_screenshots": path_screenshots}
+        return path_screenshots
