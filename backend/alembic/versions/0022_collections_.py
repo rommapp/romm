@@ -63,9 +63,14 @@ def upgrade() -> None:
 
         # Add "roms/" prefix to each path in path_screenshots
         if path_screenshots:
-            path_screenshots_list = json.loads(path_screenshots)
-            path_screenshots_list = [f"roms/{path}" for path in path_screenshots_list]
-            path_screenshots = json.dumps(path_screenshots_list)
+            try:
+                path_screenshots_list = json.loads(path_screenshots)
+                path_screenshots_list = [
+                    f"roms/{path}" for path in path_screenshots_list
+                ]
+                path_screenshots = json.dumps(path_screenshots_list)
+            except json.JSONDecodeError:
+                pass
 
         # Update the database with the new paths
         connection.execute(
