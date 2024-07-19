@@ -1,14 +1,18 @@
 import binascii
+import bz2
 import gzip
 import hashlib
 import os
 import re
 import shutil
+import tarfile
 import zipfile
 from pathlib import Path
 from typing import Final
 
 import magic
+import py7zr
+import rarfile
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
@@ -53,6 +57,8 @@ COMPRESSED_FILE_EXTENSIONS = [
     ".nsp",
     ".pck",
 ]
+
+FILE_READ_CHUNK_SIZE = 1024 * 8
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -142,58 +148,55 @@ class FSRomsHandler(FSHandler):
             with zipfile.ZipFile(file_path, "r") as z:
                 for file in z.namelist():
                     with z.open(file, "r") as f:
-                        while chunk := f.read(8192):
+                        while chunk := f.read(FILE_READ_CHUNK_SIZE):
                             md5_h.update(chunk)
                             sha1_h.update(chunk)
                             crc_c = binascii.crc32(chunk, crc_c)
 
         elif extension == ".gz" or file_type == "application/x-gzip":
             with gzip.open(file_path, "rb") as f:
-                while chunk := f.read(8192):
+                while chunk := f.read(FILE_READ_CHUNK_SIZE):
                     md5_h.update(chunk)
                     sha1_h.update(chunk)
                     crc_c = binascii.crc32(chunk, crc_c)
 
         elif extension == ".7z" or file_type == "application/x-7z-compressed":
-            raise NotImplementedError("7z files are not yet supported")
+            with py7zr.SevenZipFile(file_path, "r") as f:
+                for _name, bio in f.readall().items():
+                    while chunk := bio.read(FILE_READ_CHUNK_SIZE):
+                        md5_h.update(chunk)
+                        sha1_h.update(chunk)
+                        crc_c = binascii.crc32(chunk, crc_c)
 
         elif extension == ".bz2" or file_type == "application/x-bzip2":
-            raise NotImplementedError("bz2 files are not yet supported")
+            with bz2.BZ2File(file_path, "rb") as f:
+                while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                    md5_h.update(chunk)
+                    sha1_h.update(chunk)
+                    crc_c = binascii.crc32(chunk, crc_c)
 
         elif extension == ".rar" or file_type == "application/x-rar-compressed":
-            raise NotImplementedError("rar files are not yet supported")
+            with rarfile.RarFile(file_path, "r") as f:
+                for file in f.namelist():
+                    with f.open(file, "r") as f:
+                        while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                            md5_h.update(chunk)
+                            sha1_h.update(chunk)
+                            crc_c = binascii.crc32(chunk, crc_c)
 
         elif extension == ".tar" or file_type == "application/x-tar":
-            raise NotImplementedError("tar files are not yet supported")
-
-        elif extension == ".gcz" or file_type == "application/x-wii-rom":
-            raise NotImplementedError("gcz files are not yet supported")
-
-        elif extension == ".iso" or file_type == "application/x-gamecube-rom":
-            raise NotImplementedError("iso files are not yet supported")
-
-        elif extension == ".gcm":
-            raise NotImplementedError("gcm files are not yet supported")
-
-        elif extension == ".chd":
-            raise NotImplementedError("chd files are not yet supported")
-
-        elif extension == ".pkg":
-            raise NotImplementedError("pkg files are not yet supported")
-
-        elif extension == ".xci":
-            raise NotImplementedError("xci files are not yet supported")
-
-        elif extension == ".nsp":
-            raise NotImplementedError("nsp files are not yet supported")
-
-        elif extension == ".pck":
-            raise NotImplementedError("pck files are not yet supported")
+            with tarfile.open(file_path, "r") as f:
+                for member in f.getmembers():
+                    with f.extractfile(member) as ef:
+                        while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                            md5_h.update(chunk)
+                            sha1_h.update(chunk)
+                            crc_c = binascii.crc32(chunk, crc_c)
 
         else:
             with open(file_path, "rb") as f:
                 # Read in chunks to avoid memory issues
-                while chunk := f.read(8192):
+                while chunk := f.read(FILE_READ_CHUNK_SIZE):
                     md5_h.update(chunk)
                     sha1_h.update(chunk)
                     crc_c = binascii.crc32(chunk, crc_c)
