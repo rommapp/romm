@@ -1,10 +1,14 @@
 import binascii
+import gzip
 import hashlib
 import os
 import re
 import shutil
+import zipfile
 from pathlib import Path
+from typing import Final
 
+import magic
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
@@ -19,6 +23,45 @@ from .base_handler import (
     TAG_REGEX,
     FSHandler,
 )
+
+# list of known compressed file MIME types
+COMPRESSED_MIME_TYPES: Final = [
+    "application/zip",
+    "application/x-gzip",
+    "application/x-7z-compressed",
+    "application/x-bzip2",
+    "application/x-rar-compressed",
+    "application/x-tar",
+    "application/x-wii-rom",
+    "application/x-gamecube-rom",
+]
+
+# list of known file extensions that are compressed
+COMPRESSED_FILE_EXTENSIONS = [
+    ".zip",
+    ".gz",
+    ".7z",
+    ".bz2",
+    ".rar",
+    ".tar",
+    ".gcz",
+    ".iso",
+    ".gcm",
+    ".chd",
+    ".pkg",
+    ".xci",
+    ".nsp",
+    ".pck",
+]
+
+
+def is_compressed_file(file_path: str) -> bool:
+    mime = magic.Magic(mime=True)
+    file_type = mime.from_file(file_path)
+
+    return file_type in COMPRESSED_MIME_TYPES or file_path.endswith(
+        tuple(COMPRESSED_FILE_EXTENSIONS)
+    )
 
 
 class FSRomsHandler(FSHandler):
@@ -86,17 +129,74 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
-    def _calculate_rom_size(self, file_path: Path) -> dict[str, str]:
+    def _calculate_rom_hashes(self, file_path: Path) -> dict[str, str]:
+        mime = magic.Magic(mime=True)
+        file_type = mime.from_file(file_path)
+        extension = Path(file_path).suffix.lower()
+
         crc_c = 0
         md5_h = hashlib.md5(usedforsecurity=False)
         sha1_h = hashlib.sha1(usedforsecurity=False)
 
-        with open(file_path, "rb") as f:
-            # Read in chunks to avoid memory issues
-            while chunk := f.read(8192):
-                md5_h.update(chunk)
-                sha1_h.update(chunk)
-                crc_c = binascii.crc32(chunk, crc_c)
+        if extension == ".zip" or file_type == "application/zip":
+            with zipfile.ZipFile(file_path, "r") as z:
+                for file in z.namelist():
+                    with z.open(file, "r") as f:
+                        while chunk := f.read(8192):
+                            md5_h.update(chunk)
+                            sha1_h.update(chunk)
+                            crc_c = binascii.crc32(chunk, crc_c)
+
+        elif extension == ".gz" or file_type == "application/x-gzip":
+            with gzip.open(file_path, "rb") as f:
+                while chunk := f.read(8192):
+                    md5_h.update(chunk)
+                    sha1_h.update(chunk)
+                    crc_c = binascii.crc32(chunk, crc_c)
+
+        elif extension == ".7z" or file_type == "application/x-7z-compressed":
+            raise NotImplementedError("7z files are not yet supported")
+
+        elif extension == ".bz2" or file_type == "application/x-bzip2":
+            raise NotImplementedError("bz2 files are not yet supported")
+
+        elif extension == ".rar" or file_type == "application/x-rar-compressed":
+            raise NotImplementedError("rar files are not yet supported")
+
+        elif extension == ".tar" or file_type == "application/x-tar":
+            raise NotImplementedError("tar files are not yet supported")
+
+        elif extension == ".gcz" or file_type == "application/x-wii-rom":
+            raise NotImplementedError("gcz files are not yet supported")
+
+        elif extension == ".iso" or file_type == "application/x-gamecube-rom":
+            raise NotImplementedError("iso files are not yet supported")
+
+        elif extension == ".gcm":
+            raise NotImplementedError("gcm files are not yet supported")
+
+        elif extension == ".chd":
+            raise NotImplementedError("chd files are not yet supported")
+
+        elif extension == ".pkg":
+            raise NotImplementedError("pkg files are not yet supported")
+
+        elif extension == ".xci":
+            raise NotImplementedError("xci files are not yet supported")
+
+        elif extension == ".nsp":
+            raise NotImplementedError("nsp files are not yet supported")
+
+        elif extension == ".pck":
+            raise NotImplementedError("pck files are not yet supported")
+
+        else:
+            with open(file_path, "rb") as f:
+                # Read in chunks to avoid memory issues
+                while chunk := f.read(8192):
+                    md5_h.update(chunk)
+                    sha1_h.update(chunk)
+                    crc_c = binascii.crc32(chunk, crc_c)
 
         return {
             "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
@@ -111,17 +211,21 @@ class FSRomsHandler(FSHandler):
         if os.path.isdir(f"{roms_path}/{rom}"):
             multi_files = os.listdir(f"{roms_path}/{rom}")
             for file in multi_files:
+                path = Path(roms_path, rom, file)
                 rom_files.append(
                     {
                         "filename": file,
-                        **self._calculate_rom_size(Path(roms_path, rom, file)),
+                        "size": os.stat(path).st_size,
+                        **self._calculate_rom_hashes(path),
                     }
                 )
         else:
+            path = Path(roms_path, rom)
             rom_files.append(
                 {
                     "filename": rom,
-                    **self._calculate_rom_size(Path(roms_path, rom)),
+                    "size": os.stat(path).st_size,
+                    **self._calculate_rom_hashes(path),
                 }
             )
 
