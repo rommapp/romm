@@ -187,7 +187,7 @@ class FSRomsHandler(FSHandler):
         elif extension == ".tar" or file_type == "application/x-tar":
             with tarfile.open(file_path, "r") as f:
                 for member in f.getmembers():
-                    with f.extractfile(member) as ef:
+                    with f.extractfile(member) as ef:  # type: ignore
                         while chunk := ef.read(FILE_READ_CHUNK_SIZE):
                             md5_h.update(chunk)
                             sha1_h.update(chunk)
@@ -207,8 +207,8 @@ class FSRomsHandler(FSHandler):
             "sha1_hash": sha1_h.hexdigest(),
         }
 
-    def get_rom_files(self, rom: str, roms_path: str) -> list[str]:
-        rom_files: list[str] = []
+    def get_rom_files(self, rom: str, roms_path: str) -> list[dict]:
+        rom_files: list[dict] = []
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{roms_path}/{rom}"):
