@@ -4,7 +4,7 @@ import re
 import unicodedata
 from typing import Final
 
-from handler.redis_handler import cache
+from handler.redis_handler import async_cache, sync_cache
 from logger.logger import log
 from tasks.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
@@ -18,9 +18,9 @@ def conditionally_set_cache(
     index_key: str, filename: str, parent_dir: str = os.path.dirname(__file__)
 ) -> None:
     fixtures_path = os.path.join(parent_dir, "fixtures")
-    if not cache.exists(index_key):
+    if not sync_cache.exists(index_key):
         index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
-        with cache.pipeline() as pipe:
+        with sync_cache.pipeline() as pipe:
             for data_batch in batched(index_data.items(), 2000):
                 data_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
                 pipe.hset(index_key, mapping=data_map)
@@ -99,7 +99,7 @@ class MetadataHandler:
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
-        index_entry = cache.hget(PS2_OPL_KEY, serial_code)
+        index_entry = await async_cache.hget(PS2_OPL_KEY, serial_code)
         if index_entry:
             index_entry = json.loads(index_entry)
             search_term = index_entry["Name"]  # type: ignore
@@ -107,7 +107,7 @@ class MetadataHandler:
         return search_term
 
     async def _sony_serial_format(self, index_key: str, serial_code: str) -> str | None:
-        index_entry = cache.hget(index_key, serial_code)
+        index_entry = await async_cache.hget(index_key, serial_code)
         if index_entry:
             index_entry = json.loads(index_entry)
             return index_entry["title"]
@@ -140,15 +140,15 @@ class MetadataHandler:
     ) -> tuple[str, dict | None]:
         title_id = match.group(1)
 
-        if not cache.exists(SWITCH_TITLEDB_INDEX_KEY):
+        if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
             log.warning("Fetching the Switch titleID index file...")
             await update_switch_titledb_task.run(force=True)
 
-            if not cache.exists(SWITCH_TITLEDB_INDEX_KEY):
+            if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
                 log.error("Could not fetch the Switch titleID index file")
                 return search_term, None
 
-        index_entry = cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
+        index_entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
         if index_entry:
             index_entry = json.loads(index_entry)
             return index_entry["name"], index_entry
@@ -165,15 +165,15 @@ class MetadataHandler:
         product_id[-3] = "0"
         product_id = "".join(product_id)
 
-        if not cache.exists(SWITCH_PRODUCT_ID_KEY):
+        if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
             log.warning("Fetching the Switch productID index file...")
             await update_switch_titledb_task.run(force=True)
 
-            if not cache.exists(SWITCH_PRODUCT_ID_KEY):
+            if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
                 log.error("Could not fetch the Switch productID index file")
                 return search_term, None
 
-        index_entry = cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
+        index_entry = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
         if index_entry:
             index_entry = json.loads(index_entry)
             return index_entry["name"], index_entry
@@ -183,7 +183,7 @@ class MetadataHandler:
     async def _mame_format(self, search_term: str) -> str:
         from handler.filesystem import fs_rom_handler
 
-        index_entry = cache.hget(MAME_XML_KEY, search_term)
+        index_entry = await async_cache.hget(MAME_XML_KEY, search_term)
         if index_entry:
             index_entry = json.loads(index_entry)
             search_term = fs_rom_handler.get_file_name_with_no_tags(
