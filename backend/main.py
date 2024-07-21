@@ -75,6 +75,7 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=ROMM_AUTH_SECRET_KEY,
+    session_cookie="romm_session",
     same_site="strict",
     https_only=False,
     jwt_alg=ALGORITHM,
