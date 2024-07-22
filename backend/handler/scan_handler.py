@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any
 
 import emoji
+import httpx
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
@@ -155,6 +156,7 @@ def scan_firmware(
 
 
 async def scan_rom(
+    requests_client: httpx.AsyncClient,
     platform: Platform,
     rom_attrs: dict,
     scan_type: ScanType,
@@ -262,7 +264,9 @@ async def scan_rom(
         )
     ):
         moby_handler_rom = await meta_moby_handler.get_rom(
-            rom_attrs["file_name"], platform.moby_id
+            requests_client=requests_client,
+            file_name=rom_attrs["file_name"],
+            platform_moby_id=platform.moby_id,
         )
 
     # Reversed to prioritize IGDB
