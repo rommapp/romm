@@ -2,7 +2,7 @@ import base64
 
 import pytest
 from fastapi.testclient import TestClient
-from handler.redis_handler import cache
+from handler.redis_handler import sync_cache
 from main import app
 from models.user import Role
 
@@ -12,7 +12,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_cache():
     yield
-    cache.flushall()
+    sync_cache.flushall()
 
 
 def test_login_logout(admin_user):
