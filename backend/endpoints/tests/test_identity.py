@@ -24,7 +24,7 @@ def test_login_logout(admin_user):
     response = client.post("/login", headers={"Authorization": f"Basic {basic_auth}"})
 
     assert response.status_code == 200
-    assert response.cookies.get("session")
+    assert response.cookies.get("romm_session")
     assert response.json()["msg"] == "Successfully logged in"
 
     response = client.post("/logout")
