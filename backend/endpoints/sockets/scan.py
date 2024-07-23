@@ -27,6 +27,7 @@ from models.rom import Rom
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
+from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
@@ -78,6 +79,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom, selected_roms: list):
     )
 
 
+@initialize_context()
 async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
