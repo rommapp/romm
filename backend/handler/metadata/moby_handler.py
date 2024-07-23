@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from logger.logger import log
 from typing_extensions import TypedDict
 from unidecode import unidecode as uc
+from utils.context import ctx_httpx_client
 
 from .base_hander import (
     PS2_OPL_REGEX,
@@ -81,12 +82,11 @@ class MobyGamesHandler(MetadataHandler):
         self.platform_url = "https://api.mobygames.com/v1/platforms"
         self.games_url = "https://api.mobygames.com/v1/games"
 
-    async def _request(
-        self, requests_client: httpx.AsyncClient, url: str, timeout: int = 120
-    ) -> dict:
+    async def _request(self, url: str, timeout: int = 120) -> dict:
+        httpx_client = ctx_httpx_client.get()
         authorized_url = yarl.URL(url).update_query(api_key=MOBYGAMES_API_KEY)
         try:
-            res = await requests_client.get(str(authorized_url), timeout=timeout)
+            res = await httpx_client.get(str(authorized_url), timeout=timeout)
             res.raise_for_status()
             return res.json()
         except httpx.NetworkError as exc:
@@ -112,7 +112,7 @@ class MobyGamesHandler(MetadataHandler):
             pass
 
         try:
-            res = await requests_client.get(url, timeout=timeout)
+            res = await httpx_client.get(url, timeout=timeout)
             res.raise_for_status()
         except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
             if (
@@ -128,12 +128,7 @@ class MobyGamesHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(
-        self,
-        requests_client: httpx.AsyncClient,
-        search_term: str,
-        platform_moby_id: int,
-    ) -> dict | None:
+    async def _search_rom(self, search_term: str, platform_moby_id: int) -> dict | None:
         if not platform_moby_id:
             return None
 
@@ -142,9 +137,7 @@ class MobyGamesHandler(MetadataHandler):
             platform=[platform_moby_id],
             title=quote(search_term, safe="/ "),
         )
-        roms = (await self._request(requests_client=requests_client, url=str(url))).get(
-            "games", []
-        )
+        roms = (await self._request(str(url))).get("games", [])
 
         exact_matches = [
             rom
@@ -172,9 +165,7 @@ class MobyGamesHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(
-        self, requests_client: httpx.AsyncClient, file_name: str, platform_moby_id: int
-    ) -> MobyGamesRom:
+    async def get_rom(self, file_name: str, platform_moby_id: int) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
         if not MOBY_API_ENABLED:
@@ -242,31 +233,19 @@ class MobyGamesHandler(MetadataHandler):
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         search_term = self.normalize_search_term(search_term)
-        res = await self._search_rom(
-            requests_client=requests_client,
-            search_term=search_term,
-            platform_moby_id=platform_moby_id,
-        )
+        res = await self._search_rom(search_term, platform_moby_id)
 
         # Split the search term since mobygames search doesn't support special caracters
         if not res and ":" in search_term:
             for term in search_term.split(":")[::-1]:
-                res = await self._search_rom(
-                    requests_client=requests_client,
-                    search_term=term,
-                    platform_moby_id=platform_moby_id,
-                )
+                res = await self._search_rom(term, platform_moby_id)
                 if res:
                     break
 
         # Some MAME games have two titles split by a slash
         if not res and "/" in search_term:
             for term in search_term.split("/"):
-                res = await self._search_rom(
-                    requests_client=requests_client,
-                    search_term=term.strip(),
-                    platform_moby_id=platform_moby_id,
-                )
+                res = await self._search_rom(term.strip(), platform_moby_id)
                 if res:
                     break
 
@@ -285,16 +264,12 @@ class MobyGamesHandler(MetadataHandler):
 
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_rom_by_id(
-        self, requests_client: httpx.AsyncClient, moby_id: int
-    ) -> MobyGamesRom:
+    async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not MOBY_API_ENABLED:
             return MobyGamesRom(moby_id=None)
 
         url = yarl.URL(self.games_url).with_query(id=moby_id)
-        roms = (await self._request(requests_client=requests_client, url=str(url))).get(
-            "games", []
-        )
+        roms = (await self._request(str(url))).get("games", [])
         res = pydash.get(roms, "[0]", None)
 
         if not res:
@@ -312,20 +287,15 @@ class MobyGamesHandler(MetadataHandler):
 
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_matched_roms_by_id(
-        self, requests_client: httpx.AsyncClient, moby_id: int
-    ) -> list[MobyGamesRom]:
+    async def get_matched_roms_by_id(self, moby_id: int) -> list[MobyGamesRom]:
         if not MOBY_API_ENABLED:
             return []
 
-        rom = await self.get_rom_by_id(requests_client=requests_client, moby_id=moby_id)
+        rom = await self.get_rom_by_id(moby_id)
         return [rom] if rom["moby_id"] else []
 
     async def get_matched_roms_by_name(
-        self,
-        requests_client: httpx.AsyncClient,
-        search_term: str,
-        platform_moby_id: int,
+        self, search_term: str, platform_moby_id: int
     ) -> list[MobyGamesRom]:
         if not MOBY_API_ENABLED:
             return []
@@ -337,9 +307,7 @@ class MobyGamesHandler(MetadataHandler):
         url = yarl.URL(self.games_url).with_query(
             platform=[platform_moby_id], title=quote(search_term, safe="/ ")
         )
-        matched_roms = (
-            await self._request(requests_client=requests_client, url=str(url))
-        ).get("games", [])
+        matched_roms = (await self._request(str(url))).get("games", [])
 
         return [
             MobyGamesRom(  # type: ignore[misc]

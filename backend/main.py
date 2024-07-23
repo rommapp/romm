@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 
 import alembic.config
 import endpoints.sockets.scan  # noqa
-import httpx
 import uvicorn
 from config import DEV_HOST, DEV_PORT, DISABLE_CSRF_PROTECTION, ROMM_AUTH_SECRET_KEY
 from endpoints import (
@@ -35,12 +34,13 @@ from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
+from utils.context import ctx_httpx_client, initialize_context, set_context_middleware
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    async with httpx.AsyncClient() as client:
-        app.requests_client = client  # type: ignore[attr-defined]
+    async with initialize_context():
+        app.state.httpx_client = ctx_httpx_client.get()
         yield
 
 
@@ -79,6 +79,9 @@ app.add_middleware(
     https_only=False,
     jwt_alg=ALGORITHM,
 )
+
+# Sets context vars in request-response cycle
+app.middleware("http")(set_context_middleware)
 
 app.include_router(heartbeat.router)
 app.include_router(auth.router)

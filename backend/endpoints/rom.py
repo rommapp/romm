@@ -305,10 +305,7 @@ async def update_rom(
         cleaned_data.get("moby_id", "")
         and int(cleaned_data.get("moby_id", "")) != rom.moby_id
     ):
-        moby_rom = await meta_moby_handler.get_rom_by_id(
-            requests_client=request.app.requests_client,
-            moby_id=cleaned_data["moby_id"],
-        )
+        moby_rom = await meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
         path_screenshots = fs_resource_handler.get_rom_screenshots(
             rom=rom,

@@ -1,16 +1,16 @@
-import httpx
 import pytest
 from exceptions.fs_exceptions import RomsNotFoundException
 from handler.scan_handler import ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom
+from utils.context import initialize_context
 
 
 @pytest.mark.vcr
 def test_scan_platform():
     platform = scan_platform("n64", ["n64"])
 
-    assert platform.__class__ == Platform
+    assert type(platform) is Platform
     assert platform.fs_slug == "n64"
     assert platform.slug == "n64"
     assert platform.name == "Nintendo 64"
@@ -26,19 +26,18 @@ def test_scan_platform():
 async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
 
-    async with httpx.AsyncClient() as client:
+    async with initialize_context():
         rom = await scan_rom(
-            requests_client=client,
-            platform=platform,
-            rom_attrs={
+            platform,
+            {
                 "file_name": "Paper Mario (USA).z64",
                 "multi": False,
                 "files": ["Paper Mario (USA).z64"],
             },
-            scan_type=ScanType.QUICK,
+            ScanType.QUICK,
         )
 
-    assert rom.__class__ == Rom
+    assert type(rom) is Rom
     assert rom.file_name == "Paper Mario (USA).z64"
     assert rom.name == "Paper Mario"
     assert rom.igdb_id == 3340

@@ -1,7 +1,6 @@
 from typing import Final
 
 import emoji
-import httpx
 import socketio  # type: ignore
 from config import SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
@@ -28,6 +27,7 @@ from models.rom import Rom
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
+from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
@@ -79,6 +79,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom, selected_roms: list):
     )
 
 
+@initialize_context()
 async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
@@ -133,178 +134,172 @@ async def scan_platforms(
         else:
             log.info(f"Found {len(platform_list)} platforms in file system ")
 
-        async with httpx.AsyncClient() as requests_client:
-            for platform_slug in platform_list:
-                # Stop the scan if the flag is set
+        for platform_slug in platform_list:
+            # Stop the scan if the flag is set
+            if redis_client.get(STOP_SCAN_FLAG):
+                await stop_scan()
+                break
+
+            platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+            if platform and scan_type == ScanType.NEW_PLATFORMS:
+                continue
+
+            scanned_platform = scan_platform(
+                platform_slug, fs_platforms, metadata_sources=metadata_sources
+            )
+            if platform:
+                scanned_platform.id = platform.id
+                # Keep the existing ids if they exist on the platform
+                scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
+                scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
+
+            scan_stats.scanned_platforms += 1
+            scan_stats.added_platforms += 1 if not platform else 0
+            scan_stats.metadata_platforms += (
+                1 if scanned_platform.igdb_id or scanned_platform.moby_id else 0
+            )
+
+            platform = db_platform_handler.add_platform(scanned_platform)
+
+            await sm.emit(
+                "scan:scanning_platform",
+                PlatformSchema.model_validate(platform).model_dump(
+                    include={"id", "name", "slug"}
+                ),
+            )
+            await sm.emit("", None)
+
+            # Scanning firmware
+            try:
+                fs_firmware = fs_firmware_handler.get_firmware(platform)
+            except FirmwareNotFoundException:
+                fs_firmware = []
+
+            if len(fs_firmware) == 0:
+                log.warning(
+                    "  ⚠️ No firmware found, skipping firmware scan for this platform"
+                )
+            else:
+                log.info(f"  {len(fs_firmware)} firmware files found")
+
+            for fs_fw in fs_firmware:
+                # Break early if the flag is set
                 if redis_client.get(STOP_SCAN_FLAG):
-                    await stop_scan()
                     break
 
-                platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
-                if platform and scan_type == ScanType.NEW_PLATFORMS:
-                    continue
-
-                scanned_platform = scan_platform(
-                    platform_slug, fs_platforms, metadata_sources=metadata_sources
-                )
-                if platform:
-                    scanned_platform.id = platform.id
-                    # Keep the existing ids if they exist on the platform
-                    scanned_platform.igdb_id = (
-                        scanned_platform.igdb_id or platform.igdb_id
-                    )
-                    scanned_platform.moby_id = (
-                        scanned_platform.moby_id or platform.moby_id
-                    )
-
-                scan_stats.scanned_platforms += 1
-                scan_stats.added_platforms += 1 if not platform else 0
-                scan_stats.metadata_platforms += (
-                    1 if scanned_platform.igdb_id or scanned_platform.moby_id else 0
+                firmware = db_firmware_handler.get_firmware_by_filename(
+                    platform.id, fs_fw
                 )
 
-                platform = db_platform_handler.add_platform(scanned_platform)
-
-                await sm.emit(
-                    "scan:scanning_platform",
-                    PlatformSchema.model_validate(platform).model_dump(
-                        include={"id", "name", "slug"}
-                    ),
+                scanned_firmware = scan_firmware(
+                    platform=platform,
+                    file_name=fs_fw,
+                    firmware=firmware,
                 )
-                await sm.emit("", None)
 
-                # Scanning firmware
-                try:
-                    fs_firmware = fs_firmware_handler.get_firmware(platform)
-                except FirmwareNotFoundException:
-                    fs_firmware = []
+                scan_stats.scanned_firmware += 1
+                scan_stats.added_firmware += 1 if not firmware else 0
 
-                if len(fs_firmware) == 0:
-                    log.warning(
-                        "  ⚠️ No firmware found, skipping firmware scan for this platform"
-                    )
-                else:
-                    log.info(f"  {len(fs_firmware)} firmware files found")
+                _added_firmware = db_firmware_handler.add_firmware(scanned_firmware)
+                firmware = db_firmware_handler.get_firmware(_added_firmware.id)
 
-                for fs_fw in fs_firmware:
-                    # Break early if the flag is set
-                    if redis_client.get(STOP_SCAN_FLAG):
-                        break
+            # Scanning roms
+            try:
+                fs_roms = fs_rom_handler.get_roms(platform)
+            except RomsNotFoundException as e:
+                log.error(e)
+                continue
 
-                    firmware = db_firmware_handler.get_firmware_by_filename(
-                        platform.id, fs_fw
-                    )
+            if len(fs_roms) == 0:
+                log.warning(
+                    "  ⚠️ No roms found, verify that the folder structure is correct"
+                )
+            else:
+                log.info(f"  {len(fs_roms)} roms found")
 
-                    scanned_firmware = scan_firmware(
+            for fs_rom in fs_roms:
+                # Break early if the flag is set
+                if redis_client.get(STOP_SCAN_FLAG):
+                    break
+
+                rom = db_rom_handler.get_rom_by_filename(
+                    platform.id, fs_rom["file_name"]
+                )
+
+                if _should_scan_rom(
+                    scan_type=scan_type, rom=rom, selected_roms=selected_roms
+                ):
+                    scanned_rom = await scan_rom(
                         platform=platform,
-                        file_name=fs_fw,
-                        firmware=firmware,
+                        rom_attrs=fs_rom,
+                        scan_type=scan_type,
+                        rom=rom,
+                        metadata_sources=metadata_sources,
                     )
 
-                    scan_stats.scanned_firmware += 1
-                    scan_stats.added_firmware += 1 if not firmware else 0
-
-                    _added_firmware = db_firmware_handler.add_firmware(scanned_firmware)
-                    firmware = db_firmware_handler.get_firmware(_added_firmware.id)
-
-                # Scanning roms
-                try:
-                    fs_roms = fs_rom_handler.get_roms(platform)
-                except RomsNotFoundException as e:
-                    log.error(e)
-                    continue
-
-                if len(fs_roms) == 0:
-                    log.warning(
-                        "  ⚠️ No roms found, verify that the folder structure is correct"
-                    )
-                else:
-                    log.info(f"  {len(fs_roms)} roms found")
-
-                for fs_rom in fs_roms:
-                    # Break early if the flag is set
-                    if redis_client.get(STOP_SCAN_FLAG):
-                        break
-
-                    rom = db_rom_handler.get_rom_by_filename(
-                        platform.id, fs_rom["file_name"]
+                    scan_stats.scanned_roms += 1
+                    scan_stats.added_roms += 1 if not rom else 0
+                    scan_stats.metadata_roms += (
+                        1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
                     )
 
-                    if _should_scan_rom(
-                        scan_type=scan_type, rom=rom, selected_roms=selected_roms
-                    ):
-                        scanned_rom = await scan_rom(
-                            requests_client=requests_client,
-                            platform=platform,
-                            rom_attrs=fs_rom,
-                            scan_type=scan_type,
-                            rom=rom,
-                            metadata_sources=metadata_sources,
-                        )
+                    _added_rom = db_rom_handler.add_rom(scanned_rom)
 
-                        scan_stats.scanned_roms += 1
-                        scan_stats.added_roms += 1 if not rom else 0
-                        scan_stats.metadata_roms += (
-                            1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
-                        )
-
-                        _added_rom = db_rom_handler.add_rom(scanned_rom)
-
-                        path_cover_s, path_cover_l = fs_resource_handler.get_cover(
-                            overwrite=True,
-                            entity=_added_rom,
-                            url_cover=_added_rom.url_cover,
-                        )
-
-                        path_screenshots = fs_resource_handler.get_rom_screenshots(
-                            rom=_added_rom,
-                            url_screenshots=_added_rom.url_screenshots,
-                        )
-
-                        _added_rom.path_cover_s = path_cover_s
-                        _added_rom.path_cover_l = path_cover_l
-                        _added_rom.path_screenshots = path_screenshots
-                        # Update the scanned rom with the cover and screenshots paths and update database
-                        db_rom_handler.update_rom(
-                            _added_rom.id,
-                            {
-                                c: getattr(_added_rom, c)
-                                for c in inspect(_added_rom).mapper.column_attrs.keys()
-                            },
-                        )
-
-                        await sm.emit(
-                            "scan:scanning_rom",
-                            {
-                                "platform_name": platform.name,
-                                "platform_slug": platform.slug,
-                                **RomSchema.model_validate(_added_rom).model_dump(
-                                    exclude={"created_at", "updated_at", "rom_user"}
-                                ),
-                            },
-                        )
-                        await sm.emit("", None)
-
-                # Only purge entries if there are some file remaining in the library
-                # This protects against accidental deletion of entries when
-                # the folder structure is not correct or the drive is not mounted
-                if len(fs_roms) > 0:
-                    db_rom_handler.purge_roms(
-                        platform.id, [rom["file_name"] for rom in fs_roms]
+                    path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+                        overwrite=True,
+                        entity=_added_rom,
+                        url_cover=_added_rom.url_cover,
                     )
 
-                # Same protection for firmware
-                if len(fs_firmware) > 0:
-                    db_firmware_handler.purge_firmware(
-                        platform.id, [fw for fw in fs_firmware]
+                    path_screenshots = fs_resource_handler.get_rom_screenshots(
+                        rom=_added_rom,
+                        url_screenshots=_added_rom.url_screenshots,
                     )
 
-            # Same protection for platforms
-            if len(fs_platforms) > 0:
-                db_platform_handler.purge_platforms(fs_platforms)
+                    _added_rom.path_cover_s = path_cover_s
+                    _added_rom.path_cover_l = path_cover_l
+                    _added_rom.path_screenshots = path_screenshots
+                    # Update the scanned rom with the cover and screenshots paths and update database
+                    db_rom_handler.update_rom(
+                        _added_rom.id,
+                        {
+                            c: getattr(_added_rom, c)
+                            for c in inspect(_added_rom).mapper.column_attrs.keys()
+                        },
+                    )
 
-            log.info(emoji.emojize(":check_mark: Scan completed "))
-            await sm.emit("scan:done", scan_stats.__dict__)
+                    await sm.emit(
+                        "scan:scanning_rom",
+                        {
+                            "platform_name": platform.name,
+                            "platform_slug": platform.slug,
+                            **RomSchema.model_validate(_added_rom).model_dump(
+                                exclude={"created_at", "updated_at", "rom_user"}
+                            ),
+                        },
+                    )
+                    await sm.emit("", None)
+
+            # Only purge entries if there are some file remaining in the library
+            # This protects against accidental deletion of entries when
+            # the folder structure is not correct or the drive is not mounted
+            if len(fs_roms) > 0:
+                db_rom_handler.purge_roms(
+                    platform.id, [rom["file_name"] for rom in fs_roms]
+                )
+
+            # Same protection for firmware
+            if len(fs_firmware) > 0:
+                db_firmware_handler.purge_firmware(
+                    platform.id, [fw for fw in fs_firmware]
+                )
+
+        # Same protection for platforms
+        if len(fs_platforms) > 0:
+            db_platform_handler.purge_platforms(fs_platforms)
+
+        log.info(emoji.emojize(":check_mark: Scan completed "))
+        await sm.emit("scan:done", scan_stats.__dict__)
     except Exception as e:
         log.error(e)
         # Catch all exceptions and emit error to the client
