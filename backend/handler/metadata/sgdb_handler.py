@@ -2,9 +2,9 @@ import asyncio
 import itertools
 from typing import Any, Final
 
-import httpx
 from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
+from utils.context import ctx_httpx_client
 
 # Used to display the Mobygames API status in the frontend
 STEAMGRIDDB_API_ENABLED: Final = bool(STEAMGRIDDB_API_KEY)
@@ -33,11 +33,10 @@ class SGDBBaseHandler:
             "Accept": "*/*",
         }
 
-    async def get_details(
-        self, requests_client: httpx.AsyncClient, search_term: str
-    ) -> list[dict[str, Any]]:
+    async def get_details(self, search_term: str) -> list[dict[str, Any]]:
+        httpx_client = ctx_httpx_client.get()
         search_response = (
-            await requests_client.get(
+            await httpx_client.get(
                 f"{self.search_endpoint}/{search_term}",
                 headers=self.headers,
                 timeout=120,
@@ -49,11 +48,7 @@ class SGDBBaseHandler:
             return []
 
         tasks = [
-            self._get_game_covers(
-                requests_client=requests_client,
-                game_id=game["id"],
-                game_name=game["name"],
-            )
+            self._get_game_covers(game_id=game["id"], game_name=game["name"])
             for game in search_response["data"]
         ]
         results = await asyncio.gather(*tasks)
@@ -61,12 +56,13 @@ class SGDBBaseHandler:
         return list(filter(None, results))
 
     async def _get_game_covers(
-        self, requests_client: httpx.AsyncClient, game_id: int, game_name: str
+        self, game_id: int, game_name: str
     ) -> dict[str, Any] | None:
+        httpx_client = ctx_httpx_client.get()
         game_covers = []
         for page in itertools.count(start=0):
             covers_response = (
-                await requests_client.get(
+                await httpx_client.get(
                     f"{self.grid_endpoint}/{game_id}",
                     headers=self.headers,
                     timeout=120,

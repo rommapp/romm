@@ -262,7 +262,7 @@ async def scan_rom(
         )
     ):
         moby_handler_rom = await meta_moby_handler.get_rom(
-            rom_attrs["file_name"], platform.moby_id
+            rom_attrs["file_name"], platform_moby_id=platform.moby_id
         )
 
     # Reversed to prioritize IGDB

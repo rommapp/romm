@@ -61,7 +61,7 @@ async def search_rom(
             igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_id(
                 int(search_term)
             )
-            moby_matched_roms = meta_moby_handler.get_matched_roms_by_id(
+            moby_matched_roms = await meta_moby_handler.get_matched_roms_by_id(
                 int(search_term)
             )
         except ValueError as exc:
@@ -74,7 +74,7 @@ async def search_rom(
         igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_name(
             search_term, _get_main_platform_igdb_id(rom.platform)
         )
-        moby_matched_roms = meta_moby_handler.get_matched_roms_by_name(
+        moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
 
@@ -123,8 +123,6 @@ async def search_cover(
             detail="No SteamGridDB enabled",
         )
 
-    covers = await meta_sgdb_handler.get_details(
-        requests_client=request.app.requests_client, search_term=search_term
-    )
+    covers = await meta_sgdb_handler.get_details(search_term=search_term)
 
     return [SearchCoverSchema.model_validate(cover) for cover in covers]

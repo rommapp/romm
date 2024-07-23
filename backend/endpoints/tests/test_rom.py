@@ -1,12 +1,19 @@
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
+from handler.filesystem.roms_handler import FSRomsHandler
+from handler.metadata.igdb_handler import IGDBBaseHandler
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_get_rom(access_token, rom):
+def test_get_rom(client, access_token, rom):
     response = client.get(
         f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -17,7 +24,7 @@ def test_get_rom(access_token, rom):
     assert body["id"] == rom.id
 
 
-def test_get_all_roms(access_token, rom, platform):
+def test_get_all_roms(client, access_token, rom, platform):
     response = client.get(
         "/roms",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -30,9 +37,9 @@ def test_get_all_roms(access_token, rom, platform):
     assert body[0]["id"] == rom.id
 
 
-@patch("endpoints.rom.fs_rom_handler.rename_file")
-@patch("endpoints.rom.meta_igdb_handler.get_rom_by_id")
-def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
+@patch.object(FSRomsHandler, "rename_file")
+@patch.object(IGDBBaseHandler, "get_rom_by_id")
+def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, rom):
     response = client.put(
         f"/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -67,7 +74,7 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
     assert get_rom_by_id_mock.called
 
 
-def test_delete_roms(access_token, rom):
+def test_delete_roms(client, access_token, rom):
     response = client.post(
         "/roms/delete",
         headers={"Authorization": f"Bearer {access_token}"},

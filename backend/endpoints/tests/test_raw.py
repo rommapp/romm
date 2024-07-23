@@ -1,10 +1,15 @@
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_get_raw_asset(access_token):
+def test_get_raw_asset(client, access_token):
     response = client.get(
         "/raw/assets/users/557365723a31/saves/n64/mupen64/Super Mario 64 (J) (Rev A).sav"
     )
