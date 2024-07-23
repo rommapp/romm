@@ -62,7 +62,7 @@ async def search_rom(
                 int(search_term)
             )
             moby_matched_roms = await meta_moby_handler.get_matched_roms_by_id(
-                requests_client=request.app.requests_client, moby_id=int(search_term)
+                int(search_term)
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -75,9 +75,7 @@ async def search_rom(
             search_term, _get_main_platform_igdb_id(rom.platform)
         )
         moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
-            requests_client=request.app.requests_client,
-            search_term=search_term,
-            platform_moby_id=rom.platform.moby_id,
+            search_term, rom.platform.moby_id
         )
 
     merged_dict = {
@@ -125,8 +123,6 @@ async def search_cover(
             detail="No SteamGridDB enabled",
         )
 
-    covers = await meta_sgdb_handler.get_details(
-        requests_client=request.app.requests_client, search_term=search_term
-    )
+    covers = await meta_sgdb_handler.get_details(search_term=search_term)
 
     return [SearchCoverSchema.model_validate(cover) for cover in covers]

@@ -1,13 +1,18 @@
+import pytest
 from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
 from handler.auth.base_handler import WRITE_SCOPES
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_refreshing_oauth_token_basic(refresh_token):
+def test_refreshing_oauth_token_basic(client, refresh_token):
     response = client.post(
         "/token",
         data={
@@ -23,7 +28,7 @@ def test_refreshing_oauth_token_basic(refresh_token):
     assert body["expires"] == ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 
-def test_refreshing_oauth_token_without_refresh_token():
+def test_refreshing_oauth_token_without_refresh_token(client):
     try:
         client.post(
             "/token",
@@ -36,7 +41,7 @@ def test_refreshing_oauth_token_without_refresh_token():
         assert e.detail == "Missing refresh token"
 
 
-def test_refreshing_oauth_token_with_invalid_refresh_token():
+def test_refreshing_oauth_token_with_invalid_refresh_token(client):
     try:
         client.post(
             "/token",
@@ -50,7 +55,7 @@ def test_refreshing_oauth_token_with_invalid_refresh_token():
         assert e.detail == "Invalid refresh token"
 
 
-def test_auth_via_upass(admin_user):
+def test_auth_via_upass(client, admin_user):
     response = client.post(
         "/token",
         data={
@@ -68,7 +73,7 @@ def test_auth_via_upass(admin_user):
     assert body["expires"] == ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 
-def test_auth_via_upass_with_invalid_credentials(admin_user):
+def test_auth_via_upass_with_invalid_credentials(client, admin_user):
     try:
         client.post(
             "/token",
@@ -83,7 +88,7 @@ def test_auth_via_upass_with_invalid_credentials(admin_user):
         assert e.detail == "Invalid username or password"
 
 
-def test_auth_via_upass_with_excess_scopes(viewer_user):
+def test_auth_via_upass_with_excess_scopes(client, viewer_user):
     try:
         client.post(
             "/token",
@@ -99,7 +104,7 @@ def test_auth_via_upass_with_excess_scopes(viewer_user):
         assert e.detail == "Insufficient scope"
 
 
-def test_auth_with_invalid_grant_type():
+def test_auth_with_invalid_grant_type(client):
     try:
         client.post(
             "/token",
