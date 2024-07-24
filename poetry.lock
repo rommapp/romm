@@ -1717,19 +1717,23 @@ pytest = ">=6.2.5"
 dev = ["pre-commit", "pytest-asyncio", "tox"]
 
 [[package]]
-name = "pytest-vcr"
-version = "1.0.2"
-description = "Plugin for managing VCR.py cassettes"
+name = "pytest-recording"
+version = "0.13.2"
+description = "A pytest plugin that allows you recording of network interactions via VCR.py"
 optional = false
-python-versions = "*"
+python-versions = ">=3.7"
 files = [
-    {file = "pytest-vcr-1.0.2.tar.gz", hash = "sha256:23ee51b75abbcc43d926272773aae4f39f93aceb75ed56852d0bf618f92e1896"},
-    {file = "pytest_vcr-1.0.2-py2.py3-none-any.whl", hash = "sha256:2f316e0539399bea0296e8b8401145c62b6f85e9066af7e57b6151481b0d6d9c"},
+    {file = "pytest_recording-0.13.2-py3-none-any.whl", hash = "sha256:3820fe5743d1ac46e807989e11d073cb776a60bdc544cf43ebca454051b22d13"},
+    {file = "pytest_recording-0.13.2.tar.gz", hash = "sha256:000c3babbb466681457fd65b723427c1779a0c6c17d9e381c3142a701e124877"},
 ]
 
 [package.dependencies]
-pytest = ">=3.6.0"
-vcrpy = "*"
+pytest = ">=3.5.0"
+vcrpy = ">=2.0.1"
+
+[package.extras]
+dev = ["pytest-httpbin", "pytest-mock", "requests", "werkzeug (==3.0.3)"]
+tests = ["pytest-httpbin", "pytest-mock", "requests", "werkzeug (==3.0.3)"]
 
 [[package]]
 name = "python-dateutil"
@@ -2823,4 +2827,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "14e7f9efeb7e1dac6acd66ed74dffa914ed4fcc3a4fc44dbcd87b96f3779b9c0"
+content-hash = "743c70f463d5596bd9b312368e166ef3a65b1d3aafbf51b4fc3f3e033446d845"
