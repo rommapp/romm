@@ -58,7 +58,7 @@ async def add_collection(
             path_cover_l,
             path_cover_s,
             artwork_path,
-        ) = fs_resource_handler.build_artwork_path(_added_collection, file_ext)
+        ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
 
         artwork_file = artwork.file.read()
         file_location_s = f"{artwork_path}/small.{file_ext}"
@@ -70,7 +70,7 @@ async def add_collection(
         with open(file_location_l, "wb+") as artwork_l:
             artwork_l.write(artwork_file)
     else:
-        path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+        path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             overwrite=True,
             entity=_added_collection,
             url_cover=_added_collection.url_cover,
@@ -174,7 +174,7 @@ async def update_collection(
                 path_cover_l,
                 path_cover_s,
                 artwork_path,
-            ) = fs_resource_handler.build_artwork_path(collection, file_ext)
+            ) = await fs_resource_handler.build_artwork_path(collection, file_ext)
 
             cleaned_data["path_cover_l"] = path_cover_l
             cleaned_data["path_cover_s"] = path_cover_s
@@ -190,15 +190,13 @@ async def update_collection(
                 artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
-            if data.get(
-                "url_cover", ""
-            ) != collection.url_cover or not fs_resource_handler.cover_exists(
-                collection, CoverSize.BIG
+            if data.get("url_cover", "") != collection.url_cover or not (
+                await fs_resource_handler.cover_exists(collection, CoverSize.BIG)
             ):
                 cleaned_data.update(
                     {"url_cover": data.get("url_cover", collection.url_cover)}
                 )
-                path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=collection,
                     url_cover=data.get("url_cover", ""),
