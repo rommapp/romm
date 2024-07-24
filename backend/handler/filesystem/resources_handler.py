@@ -8,7 +8,6 @@ from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from PIL import Image
-from urllib3.exceptions import ProtocolError
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -176,8 +175,6 @@ class FSResourcesHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
             ) from exc
-        except ProtocolError:
-            log.warning(f"Failure writing screenshot {url} to file (ProtocolError)")
 
     @staticmethod
     def _get_screenshot_path(rom: Rom, idx: str):
