@@ -17,118 +17,125 @@ system:
   platforms:
     3do: 3do
     3ds: 3ds
-    archimedes: acorn-archimedes
-    amstradcpc: acpc
+    adam: colecoadam
     advision: adventure-vision
     amiga1200: amiga
     amiga4000: amiga
     amiga500: amiga
     amigacd32: amiga-cd32
     amigacdtv: amiga-cd32
+    amstradcpc: acpc
     apfm1000: apf
-    apple2gs: apple2gs
     apple2: appleii
-    atomiswave: arcade
-    fbneo: arcade
-    mame: arcade
-    model2: arcade
-    model3: arcade
-    naomi: arcade
-    naomi2: arcade
-    triforce: arcade
+    apple2gs: apple2gs
     arcadia: arcadia-2001
+    archimedes: acorn-archimedes
     arduboy: arduboy
     astrocade: astrocade
     atari2600: atari2600
     atari5200: atari5200
     atari7800: atari7800
-    atari800: atari8bit
-    jaguarcd: atari-jaguar-cd
-    atarist: atarti-st
+    atari800: atari
+    atarist: atari-st
     atom: atom
+    atomiswave: arcade
     bbcmicro: bbcmicro
     c128: c128
+    c20: vic-20
     c64: c64
     camplynx: camputers-lynx
-    pv1000: casio-pv-1000
-    adam: colecoadam
-    colecovision: colecovision
-    pet: cpet
-    cplus4: c-plus-4
-    crvision: creativision
-    dreamcast: dc
-    dos: dos
-    scv: epoch-super-cassette-vision
+    cdi: philips-cd-i
     channelf: fairchild-channel-f
+    coco: trs-80-color-computer
+    colecovision: colecovision
+    cplus4: c-plus-4
+    cps1: cps1
+    cps2: cps2
+    cps3: cps3
+    crvision: creativision
+    daphne: daphne
+    dos: dos
+    dreamcast: dc
+    easyrpg: rpgmaker
+    fbneo: arcade
     fds: fds
     fm7: fm-7
     fmtowns: fm-towns
     gamate: gamate
-    gamecom: game-dot-com
-    gamegear: gamegear
     gameandwatch: g-and-w
+    gamecom: game-dot-com
+    gamecube: ngc
+    gamegear: gamegear
     gb: gb
     gb2players: gb
     gba: gba
     gba2players: gba
     gbc: gbc
     gbc2players: gbc
-    sgb: gbc
-    megadrive: genesis-slash-megadrive
-    megadrive-msu: genesis-slash-megadrive
     gp32: gp32
-    lcdgames: handheld-electronic-lcd
+    gzdoom: doom
     intellivision: intellivision
     jaguar: jaguar
+    jaguarcd: atari-jaguar-cd
+    lcdgames: handheld-electronic-lcd
     lynx: lynx
-    megaduck: mega-duck-slash-cougar-boy
+    mame: arcade
+    mastersystem: sms
+    megadrive: genesis-slash-megadrive
+    megadrive-msu: genesis-slash-megadrive
+    megaduck: megaduck
+    model2: arcade
+    model3: arcade
     msx1: msx
     msx2: msx2
     msx2+: msx2
     n64: n64
+    n64dd: nintendo-64dd
+    naomi: arcade
+    naomi2: arcade
     nds: nds
     neogeo: neogeoaes
     neogeocd: neo-geo-cd
+    nes: nes
     ngp: neo-geo-pocket
     ngpc: neo-geo-pocket-color
-    nes: nes
-    gamecube: ngc
-    n64dd: nintendo-64dd
     oricatmos: oric
     pc88: pc-8800-series
     pc98: pc-9800-series
+    pcengine: turbografx16--1
+    pcenginecd: turbografx-16-slash-pc-engine-cd
     pcfx: pc-fx
-    cdi: philips-cd-i
+    pet: cpet
     pokemini: pokemon-mini
-    psx: ps
+    prboom: doom
     ps2: ps2
     ps3: ps3
     psp: psp
     psvita: psvita
+    psx: ps
+    pv1000: casio-pv-1000
     samcoupe: sam-coupe
     satellaview: satellaview
     saturn: saturn
+    scummvm: scummvm
+    scv: epoch-super-cassette-vision
     sega32x: sega-32x
     segacd: segacd
-    mastersystem: sega-master-system
     sg1000: sg1000
-    x68000: sharp-x68000
-    zx81: sinclair-zx81
+    sgb: gbc
     snes: snes
     snes-msu: snes
     spectravideo: spectravideo
-    supracan: super-acan
     supergrafx: supergrafx
     supervision: supervision
+    supracan: super-acan
     switch: switch
     thomson: thomson-mo5
     ti99: ti-99
+    tic80: tic
+    triforce: arcade
     tutor: tomy-tutor
-    coco: trs-80-color-computer
-    pcengine: turbografx16--1
-    pcenginecd: turbografx-16-slash-pc-engine-cd
     vectrex: vectrex
-    c20: vic-20
     virtualboy: virtualboy
     vsmile: vsmile
     wii: wii
@@ -137,8 +144,10 @@ system:
     wswan: wonderswan
     wswanc: wonderswan-color
     x1: x1
+    x68000: sharp-x68000
     xbox: xbox
     xbox360: xbox360
     zmachine: z-machine
+    zx81: sinclair-zx81
     zxspectrum: zxs
   versions: {}
