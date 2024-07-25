@@ -73,6 +73,8 @@ class FSResourcesHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
             ) from exc
+        except httpx.ProtocolError:
+            log.warning(f"Failure writing cover {url_cover} to file (ProtocolError)")
 
         if size == CoverSize.SMALL:
             self.resize_cover_to_small(f"{cover_path}/{cover_file}")
@@ -175,6 +177,8 @@ class FSResourcesHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
             ) from exc
+        except httpx.ProtocolError:
+            log.warning(f"Failure writing screenshot {url} to file (ProtocolError)")
 
     @staticmethod
     def _get_screenshot_path(rom: Rom, idx: str):
