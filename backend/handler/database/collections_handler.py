@@ -34,7 +34,9 @@ class DBCollectionsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(Collection)
-                .filter_by(user_id=user_id)
+                .where(
+                    (Collection.user_id == user_id) | (Collection.is_public.is_(True))
+                )
                 .order_by(Collection.name.asc())
             )  # type: ignore[attr-defined]
             .unique()
