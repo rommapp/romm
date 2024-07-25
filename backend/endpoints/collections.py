@@ -100,7 +100,8 @@ def get_collections(request: Request) -> list[CollectionSchema]:
         list[CollectionSchema]: List of collections
     """
 
-    return db_collection_handler.get_collections(user_id=request.user.id)
+    collections = db_collection_handler.get_collections()
+    return CollectionSchema.for_user(request.user.id, collections)
 
 
 @protected_route(router.get, "/collections/{id}", ["collections.read"])
@@ -128,6 +129,7 @@ async def update_collection(
     request: Request,
     id: int,
     remove_cover: bool = False,
+    is_public: bool | None = None,
     artwork: UploadFile | None = None,
 ) -> CollectionSchema:
     """Update collection endpoint
@@ -159,8 +161,8 @@ async def update_collection(
     cleaned_data = {
         "name": data.get("name", collection.name),
         "description": data.get("description", collection.description),
+        "is_public": is_public if is_public is not None else collection.is_public,
         "roms": list(set(roms)),
-        "is_public": data.get("is_public", collection.is_public),
         "user_id": request.user.id,
     }
 

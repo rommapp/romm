@@ -28,17 +28,9 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_collections(
-        self, user_id: int, session: Session = None
-    ) -> Select[tuple[Collection]]:
+    def get_collections(self, session: Session = None) -> Select[tuple[Collection]]:
         return (
-            session.scalars(
-                select(Collection)
-                .where(
-                    (Collection.user_id == user_id) | (Collection.is_public.is_(True))
-                )
-                .order_by(Collection.name.asc())
-            )  # type: ignore[attr-defined]
+            session.scalars(select(Collection).order_by(Collection.name.asc()))  # type: ignore[attr-defined]
             .unique()
             .all()
         )
