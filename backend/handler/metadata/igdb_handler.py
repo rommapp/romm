@@ -840,7 +840,7 @@ IGDB_PLATFORM_LIST = [
     {"slug": "sinclair-zx81", "name": "Sinclair ZX81"},
     {"slug": "pc-8800-series", "name": "PC-8800 Series"},
     {"slug": "microvision--1", "name": "Microvision"},
-    {"slug": "game-and-watch", "name": "Game & Watch"},
+    {"slug": "g-and-w", "name": "Game & Watch"},
     {"slug": "atari8bit", "name": "Atari 8-bit"},
     {"slug": "trs-80-color-computer", "name": "TRS-80 Color Computer"},
     {
