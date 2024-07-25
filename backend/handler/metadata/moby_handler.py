@@ -456,6 +456,7 @@ SLUG_TO_MOBY_ID: dict[str, SlugToMobyId] = {
     "fire-os": {"id": 159, "name": "Fire OS"},
     "amazon-fire-tv": {"id": 159, "name": "Fire TV"},
     "freebox": {"id": 268, "name": "Freebox"},
+    "g-and-w": {"id": 205, "name": "Dedicated handheld"},  # IGDB (Game & Watch)
     "g-cluster": {"id": 302, "name": "G-cluster"},
     "gimini": {"id": 251, "name": "GIMINI"},
     "gnex": {"id": 258, "name": "GNEX"},
