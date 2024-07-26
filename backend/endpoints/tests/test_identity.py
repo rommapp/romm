@@ -2,20 +2,24 @@ import base64
 
 import pytest
 from fastapi.testclient import TestClient
-from handler.redis_handler import cache
+from handler.redis_handler import sync_cache
 from main import app
 from models.user import Role
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
 @pytest.fixture(autouse=True)
 def clear_cache():
     yield
-    cache.flushall()
+    sync_cache.flushall()
 
 
-def test_login_logout(admin_user):
+def test_login_logout(client, admin_user):
     response = client.get("/login")
 
     assert response.status_code == 405
@@ -24,7 +28,7 @@ def test_login_logout(admin_user):
     response = client.post("/login", headers={"Authorization": f"Basic {basic_auth}"})
 
     assert response.status_code == 200
-    assert response.cookies.get("session")
+    assert response.cookies.get("romm_session")
     assert response.json()["msg"] == "Successfully logged in"
 
     response = client.post("/logout")
@@ -33,7 +37,7 @@ def test_login_logout(admin_user):
     assert response.json()["msg"] == "Successfully logged out"
 
 
-def test_get_all_users(access_token):
+def test_get_all_users(client, access_token):
     response = client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
 
@@ -42,7 +46,7 @@ def test_get_all_users(access_token):
     assert users[0]["username"] == "test_admin"
 
 
-def test_get_user(access_token, editor_user):
+def test_get_user(client, access_token, editor_user):
     response = client.get(
         f"/users/{editor_user.id}", headers={"Authorization": f"Bearer {access_token}"}
     )
@@ -52,7 +56,7 @@ def test_get_user(access_token, editor_user):
     assert user["username"] == "test_editor"
 
 
-def test_create_user(access_token):
+def test_create_user(client, access_token):
     response = client.post(
         "/users",
         params={
@@ -69,7 +73,7 @@ def test_create_user(access_token):
     assert user["role"] == "viewer"
 
 
-def test_update_user(access_token, editor_user):
+def test_update_user(client, access_token, editor_user):
     assert editor_user.role == Role.EDITOR
 
     response = client.put(
@@ -83,7 +87,7 @@ def test_update_user(access_token, editor_user):
     assert user["role"] == "viewer"
 
 
-def test_delete_user(access_token, editor_user):
+def test_delete_user(client, access_token, editor_user):
     response = client.delete(
         f"/users/{editor_user.id}", headers={"Authorization": f"Bearer {access_token}"}
     )

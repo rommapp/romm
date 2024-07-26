@@ -6,7 +6,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from handler.metadata.base_hander import conditionally_set_cache
-from handler.redis_handler import cache
+from handler.redis_handler import sync_cache
 from models.base import BaseModel
 from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -55,7 +55,7 @@ class Firmware(BaseModel):
 
     @cached_property
     def is_verified(self) -> bool:
-        cache_entry = cache.hget(
+        cache_entry = sync_cache.hget(
             KNOWN_BIOS_KEY, f"{self.platform_slug}:{self.file_name}"
         )
         if cache_entry:

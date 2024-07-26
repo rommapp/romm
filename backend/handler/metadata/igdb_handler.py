@@ -8,7 +8,7 @@ import pydash
 import requests
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
 from fastapi import HTTPException, status
-from handler.redis_handler import cache
+from handler.redis_handler import sync_cache
 from logger.logger import log
 from requests.exceptions import HTTPError, Timeout
 from typing_extensions import TypedDict
@@ -592,8 +592,8 @@ class TwitchAuth:
             return ""
 
         # Set token in redis to expire in <expires_in> seconds
-        cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
-        cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore[attr-defined]
+        sync_cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
+        sync_cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore[attr-defined]
 
         log.info("Twitch token fetched!")
 
@@ -608,8 +608,8 @@ class TwitchAuth:
             return ""
 
         # Fetch the token cache
-        token = cache.get("romm:twitch_token")  # type: ignore[attr-defined]
-        token_expires_at = cache.get("romm:twitch_token_expires_at")  # type: ignore[attr-defined]
+        token = sync_cache.get("romm:twitch_token")  # type: ignore[attr-defined]
+        token_expires_at = sync_cache.get("romm:twitch_token_expires_at")  # type: ignore[attr-defined]
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
@@ -840,7 +840,7 @@ IGDB_PLATFORM_LIST = [
     {"slug": "sinclair-zx81", "name": "Sinclair ZX81"},
     {"slug": "pc-8800-series", "name": "PC-8800 Series"},
     {"slug": "microvision--1", "name": "Microvision"},
-    {"slug": "game-and-watch", "name": "Game & Watch"},
+    {"slug": "g-and-w", "name": "Game & Watch"},
     {"slug": "atari8bit", "name": "Atari 8-bit"},
     {"slug": "trs-80-color-computer", "name": "TRS-80 Color Computer"},
     {

@@ -302,9 +302,9 @@ async def update_rom(
         cleaned_data.get("moby_id", "")
         and int(cleaned_data.get("moby_id", "")) != rom.moby_id
     ):
-        moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+        moby_rom = await meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
-        path_screenshots = fs_resource_handler.get_rom_screenshots(
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
@@ -316,7 +316,7 @@ async def update_rom(
     ):
         igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
-        path_screenshots = fs_resource_handler.get_rom_screenshots(
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
@@ -372,7 +372,7 @@ async def update_rom(
                 path_cover_l,
                 path_cover_s,
                 artwork_path,
-            ) = fs_resource_handler.build_artwork_path(rom, file_ext)
+            ) = await fs_resource_handler.build_artwork_path(rom, file_ext)
 
             cleaned_data.update(
                 {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
@@ -389,13 +389,11 @@ async def update_rom(
                 artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
-            if data.get(
-                "url_cover", ""
-            ) != rom.url_cover or not fs_resource_handler.cover_exists(
-                rom, CoverSize.BIG
+            if data.get("url_cover", "") != rom.url_cover or not (
+                await fs_resource_handler.cover_exists(rom, CoverSize.BIG)
             ):
                 cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
-                path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=rom,
                     url_cover=data.get("url_cover", ""),
