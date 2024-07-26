@@ -130,6 +130,17 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-switch
+                v-model="collection.is_public"
+                :label="collection.is_public ? 'Public (visible to everyone)' : 'Private (only visible to me)'"
+                color="romm-accent-1"
+                class="px-2"
+                hide-details
+              />
+            </v-col>
+          </v-row>
         </v-col>
         <v-col>
           <v-row class="pa-2 justify-center" no-gutters>

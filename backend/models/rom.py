@@ -104,10 +104,10 @@ class Rom(BaseModel):
 
         return db_rom_handler.get_sibling_roms(self)
 
-    def get_collections(self, user_id) -> list[Collection]:
+    def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
 
-        return db_rom_handler.get_rom_collections(self, user_id)
+        return db_rom_handler.get_rom_collections(self)
 
     # Metadata fields
     @property
