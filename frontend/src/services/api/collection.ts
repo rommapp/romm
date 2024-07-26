@@ -47,7 +47,7 @@ async function updateCollection({
   formData.append("roms", JSON.stringify(collection.roms));
   if (collection.artwork) formData.append("artwork", collection.artwork);
   return api.put(`/collections/${collection.id}`, formData, {
-    params: { remove_cover: removeCover },
+    params: { is_public: collection.is_public, remove_cover: removeCover },
   });
 }
 
