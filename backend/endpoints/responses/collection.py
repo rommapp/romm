@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from models.collection import Collection
 from pydantic import BaseModel
 
 
@@ -22,3 +23,13 @@ class CollectionSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def for_user(
+        cls, user_id: int, collections: list["Collection"]
+    ) -> list["CollectionSchema"]:
+        return [
+            cls.model_validate(c)
+            for c in collections
+            if c.user_id == user_id or c.is_public
+        ]

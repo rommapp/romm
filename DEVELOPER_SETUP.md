@@ -12,7 +12,7 @@ touch romm_mock/library/roms/switch/metroid.xci
 mkdir -p romm_mock/resources
 mkdir -p romm_mock/assets
 mkdir -p romm_mock/config
-touch romm_mock/config.yml
+touch romm_mock/config/config.yml
 ```
 
 ### Setting up the backend
