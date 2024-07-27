@@ -64,12 +64,12 @@ async def add_collection(
         artwork_file = artwork.file.read()
         file_location_s = f"{artwork_path}/small.{file_ext}"
         async with await open_file(file_location_s, "wb+") as artwork_s:
-            artwork_s.write(artwork_file)
+            await artwork_s.write(artwork_file)
             fs_resource_handler.resize_cover_to_small(file_location_s)
 
         file_location_l = f"{artwork_path}/big.{file_ext}"
         async with await open_file(file_location_l, "wb+") as artwork_l:
-            artwork_l.write(artwork_file)
+            await artwork_l.write(artwork_file)
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             overwrite=True,
@@ -185,12 +185,12 @@ async def update_collection(
             artwork_file = artwork.file.read()
             file_location_s = f"{artwork_path}/small.{file_ext}"
             async with await open_file(file_location_s, "wb+") as artwork_s:
-                artwork_s.write(artwork_file)
+                await artwork_s.write(artwork_file)
                 fs_resource_handler.resize_cover_to_small(file_location_s)
 
             file_location_l = f"{artwork_path}/big.{file_ext}"
             async with await open_file(file_location_l, "wb+") as artwork_l:
-                artwork_l.write(artwork_file)
+                await artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
             if data.get("url_cover", "") != collection.url_cover or not (
