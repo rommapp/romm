@@ -1,5 +1,11 @@
+[lint]
 # Generic, formatter-friendly config.
-select = ["B", "D3", "E", "F"]
+# ASYNC: flake8-async.
+# B: flake8-bugbear.
+# D3: flake8-docstrings (D3xx).
+# E: pycodestyle errors.
+# F: Pyflakes.
+select = ["ASYNC", "B", "D3", "E", "F"]
 
 # Never enforce `E501` (line length violations). This should be handled by formatters.
 ignore = ["E501"]
