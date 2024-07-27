@@ -8,11 +8,10 @@ import shutil
 import tarfile
 import zipfile
 from pathlib import Path
-from typing import Final
+from typing import Final, Iterator
 
 import magic
 import py7zr
-import rarfile
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
@@ -43,19 +42,19 @@ COMPRESSED_MIME_TYPES: Final = [
 # list of known file extensions that are compressed
 COMPRESSED_FILE_EXTENSIONS = [
     ".zip",
+    ".tar",
     ".gz",
     ".7z",
     ".bz2",
     ".rar",
-    ".tar",
-    ".gcz",
-    ".iso",
-    ".gcm",
-    ".chd",
-    ".pkg",
-    ".xci",
-    ".nsp",
-    ".pck",
+    # ".gcz",
+    # ".iso",
+    # ".gcm",
+    # ".chd",
+    # ".pkg",
+    # ".xci",
+    # ".nsp",
+    # ".pck",
 ]
 
 FILE_READ_CHUNK_SIZE = 1024 * 8
@@ -68,6 +67,43 @@ def is_compressed_file(file_path: str) -> bool:
     return file_type in COMPRESSED_MIME_TYPES or file_path.endswith(
         tuple(COMPRESSED_FILE_EXTENSIONS)
     )
+
+
+def read_zip_file(file_path: str) -> Iterator[bytes]:
+    with zipfile.ZipFile(file_path, "r") as z:
+        for file in z.namelist():
+            with z.open(file, "r") as f:
+                while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
+
+
+def read_tar_file(file_path: str, mode: str = "r") -> Iterator[bytes]:
+    with tarfile.open(file_path, mode) as f:
+        for member in f.getmembers():
+            # Ignore metadata files created by macOS
+            if member.name.startswith("._"):
+                continue
+
+            with f.extractfile(member) as ef:  # type: ignore
+                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
+
+
+def read_gz_file(file_path: str) -> Iterator[bytes]:
+    return read_tar_file(file_path, "r:gz")
+
+
+def read_7z_file(file_path: str) -> Iterator[bytes]:
+    with py7zr.SevenZipFile(file_path, "r") as f:
+        for _name, bio in f.readall().items():
+            while chunk := bio.read(FILE_READ_CHUNK_SIZE):
+                yield chunk
+
+
+def read_bz2_file(file_path: str) -> Iterator[bytes]:
+    with bz2.BZ2File(file_path, "rb") as f:
+        while chunk := f.read(FILE_READ_CHUNK_SIZE):
+            yield chunk
 
 
 class FSRomsHandler(FSHandler):
@@ -144,62 +180,37 @@ class FSRomsHandler(FSHandler):
         md5_h = hashlib.md5(usedforsecurity=False)
         sha1_h = hashlib.sha1(usedforsecurity=False)
 
+        def update_hashes(chunk: bytes):
+            md5_h.update(chunk)
+            sha1_h.update(chunk)
+            nonlocal crc_c
+            crc_c = binascii.crc32(chunk, crc_c)
+
         if extension == ".zip" or file_type == "application/zip":
-            with zipfile.ZipFile(file_path, "r") as z:
-                for file in z.namelist():
-                    with z.open(file, "r") as f:
-                        while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                            md5_h.update(chunk)
-                            sha1_h.update(chunk)
-                            crc_c = binascii.crc32(chunk, crc_c)
-
-        elif extension == ".gz" or file_type == "application/x-gzip":
-            with gzip.open(file_path, "rb") as f:
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    md5_h.update(chunk)
-                    sha1_h.update(chunk)
-                    crc_c = binascii.crc32(chunk, crc_c)
-
-        elif extension == ".7z" or file_type == "application/x-7z-compressed":
-            with py7zr.SevenZipFile(file_path, "r") as f:
-                for _name, bio in f.readall().items():
-                    while chunk := bio.read(FILE_READ_CHUNK_SIZE):
-                        md5_h.update(chunk)
-                        sha1_h.update(chunk)
-                        crc_c = binascii.crc32(chunk, crc_c)
-
-        elif extension == ".bz2" or file_type == "application/x-bzip2":
-            with bz2.BZ2File(file_path, "rb") as f:
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    md5_h.update(chunk)
-                    sha1_h.update(chunk)
-                    crc_c = binascii.crc32(chunk, crc_c)
-
-        elif extension == ".rar" or file_type == "application/x-rar-compressed":
-            with rarfile.RarFile(file_path, "r") as f:
-                for file in f.namelist():
-                    with f.open(file, "r") as f:
-                        while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                            md5_h.update(chunk)
-                            sha1_h.update(chunk)
-                            crc_c = binascii.crc32(chunk, crc_c)
+            for chunk in read_zip_file(file_path):
+                update_hashes(chunk)
 
         elif extension == ".tar" or file_type == "application/x-tar":
-            with tarfile.open(file_path, "r") as f:
-                for member in f.getmembers():
-                    with f.extractfile(member) as ef:  # type: ignore
-                        while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                            md5_h.update(chunk)
-                            sha1_h.update(chunk)
-                            crc_c = binascii.crc32(chunk, crc_c)
+            for chunk in read_tar_file(file_path):
+                update_hashes(chunk)
+
+        elif extension == ".gz" or file_type == "application/x-gzip":
+            for chunk in read_gz_file(file_path):
+                update_hashes(chunk)
+
+        elif extension == ".7z" or file_type == "application/x-7z-compressed":
+            for chunk in read_7z_file(file_path):
+                update_hashes(chunk)
+
+        elif extension == ".bz2" or file_type == "application/x-bzip2":
+            for chunk in read_bz2_file(file_path):
+                update_hashes(chunk)
 
         else:
             with open(file_path, "rb") as f:
                 # Read in chunks to avoid memory issues
                 while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    md5_h.update(chunk)
-                    sha1_h.update(chunk)
-                    crc_c = binascii.crc32(chunk, crc_c)
+                    update_hashes(chunk)
 
         return {
             "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
@@ -270,26 +281,6 @@ class FSRomsHandler(FSHandler):
             )
             for rom in fs_roms
         ]
-
-    def get_rom_file_size(
-        self,
-        roms_path: str,
-        file_name: str,
-        multi: bool,
-        multi_files: list[str] | None = None,
-    ):
-        if multi_files is None:
-            multi_files = []
-
-        files = (
-            [f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}"]
-            if not multi
-            else [
-                f"{LIBRARY_BASE_PATH}/{roms_path}/{file_name}/{file}"
-                for file in multi_files
-            ]
-        )
-        return sum([os.stat(file).st_size for file in files])
 
     def file_exists(self, path: str, file_name: str):
         """Check if file exists in filesystem

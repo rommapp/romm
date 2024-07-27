@@ -322,7 +322,7 @@ async def _identify_rom(
         rom.multi = fs_rom["multi"]
         rom.files = fs_rom["files"]
         db_rom_handler.add_rom(rom)
-        
+
         return scan_stats
 
     scanned_rom = await scan_rom(
