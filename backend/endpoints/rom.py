@@ -1,12 +1,11 @@
-import os
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from datetime import datetime
 from shutil import rmtree
 from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
-from anyio import open_file
+from anyio import Path, open_file
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
@@ -30,7 +29,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
-from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
+from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, AsyncMemberFile, async_stream_zip
 
 router = APIRouter()
 
@@ -185,7 +184,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
 
 
 @protected_route(router.get, "/roms/{id}/content/{file_name}", ["roms.read"])
-def get_rom_content(
+async def get_rom_content(
     request: Request,
     id: int,
     file_name: str,
@@ -222,39 +221,41 @@ def get_rom_content(
         )
 
     # Builds a generator of tuples for each member file
-    def local_files():
-        def contents(filename: str) -> Iterator[bytes]:
+    async def local_files() -> AsyncIterator[AsyncMemberFile]:
+        async def contents(filename: str) -> AsyncIterator[bytes]:
             try:
-                with open(f"{rom_path}/{filename}", "rb") as f:
-                    while chunk := f.read(65536):
+                async with await open_file(f"{rom_path}/{filename}", "rb") as f:
+                    while chunk := await f.read(65536):
                         yield chunk
             except FileNotFoundError:
                 log.error(f"File {rom_path}/{filename} not found!")
                 raise
 
-        m3u_file = [str.encode(f"{file}\n") for file in files_to_download]
+        async def m3u_file() -> AsyncIterator[bytes]:
+            for file in files_to_download:
+                yield str.encode(f"{file}\n")
+
         now = datetime.now()
 
-        return [
-            (
+        for f in files_to_download:
+            file_size = (await Path(f"{rom_path}/{f}").stat()).st_size
+            yield (
                 f,
                 now,
                 S_IFREG | 0o600,
-                ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}"), level=0),
+                ZIP_AUTO(file_size, level=0),
                 contents(f),
             )
-            for f in files_to_download
-        ] + [
-            (
-                f"{file_name}.m3u",
-                now,
-                S_IFREG | 0o600,
-                ZIP_AUTO(sum([len(f) for f in m3u_file]), level=0),
-                m3u_file,
-            )
-        ]
 
-    zipped_chunks = stream_zip(local_files())
+        yield (
+            f"{file_name}.m3u",
+            now,
+            S_IFREG | 0o600,
+            NO_COMPRESSION_32,
+            m3u_file(),
+        )
+
+    zipped_chunks = async_stream_zip(local_files())
 
     # Streams the zip file to the client
     return CustomStreamingResponse(
