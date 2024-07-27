@@ -1,12 +1,11 @@
 import functools
 import re
-import sys
 import time
 from typing import Final, NotRequired
 
 import httpx
 import pydash
-from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET
+from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
 from handler.redis_handler import sync_cache
 from logger.logger import log
@@ -609,7 +608,7 @@ class TwitchAuth:
 
     async def get_oauth_token(self) -> str:
         # Use a fake token when running tests
-        if "pytest" in sys.modules:
+        if IS_PYTEST_RUN:
             return "test_token"
 
         if not IGDB_API_ENABLED:
