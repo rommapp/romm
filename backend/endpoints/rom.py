@@ -6,6 +6,7 @@ from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
+from anyio import open_file
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
@@ -35,7 +36,7 @@ router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
-def add_roms(
+async def add_roms(
     request: Request,
     platform_id: int,
     roms: list[UploadFile] = File(...),  # noqa: B008
@@ -77,7 +78,7 @@ def add_roms(
         log.info(f" - Uploading {rom.filename}")
         file_location = f"{roms_path}/{rom.filename}"
 
-        with open(file_location, "wb+") as f:
+        async with await open_file(file_location, "wb+") as f:
             while True:
                 chunk = rom.file.read(1024)
                 if not chunk:
@@ -383,12 +384,12 @@ async def update_rom(
 
             artwork_file = artwork.file.read()
             file_location_s = f"{artwork_path}/small.{file_ext}"
-            with open(file_location_s, "wb+") as artwork_s:
+            async with await open_file(file_location_s, "wb+") as artwork_s:
                 artwork_s.write(artwork_file)
                 fs_resource_handler.resize_cover_to_small(file_location_s)
 
             file_location_l = f"{artwork_path}/big.{file_ext}"
-            with open(file_location_l, "wb+") as artwork_l:
+            async with await open_file(file_location_l, "wb+") as artwork_l:
                 artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
