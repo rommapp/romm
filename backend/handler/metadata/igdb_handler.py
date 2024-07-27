@@ -263,26 +263,9 @@ class IGDBBaseHandler(MetadataHandler):
             if with_category
             else ""
         )
-        roms = await self._request(
-            self.games_endpoint,
-            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
-        )
-        roms_expanded = await self._request(
-            self.search_endpoint,
-            data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
-        )
-        if roms_expanded:
-            roms.extend(
-                await self._request(
-                    self.games_endpoint,
-                    f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
-                )
-            )
 
-        exact_matches = [
-            rom
-            for rom in roms
-            if (
+        def is_exact_match(rom: dict, search_term: str) -> bool:
+            return (
                 rom["name"].lower() == search_term.lower()
                 or rom["slug"].lower() == search_term.lower()
                 or (
@@ -290,9 +273,33 @@ class IGDBBaseHandler(MetadataHandler):
                     == self._normalize_exact_match(search_term)
                 )
             )
-        ]
 
-        return pydash.get(exact_matches or roms, "[0]", None)
+        roms = await self._request(
+            self.games_endpoint,
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
+        )
+        for rom in roms:
+            # Return early if an exact match is found.
+            if is_exact_match(rom, search_term):
+                return rom
+
+        roms_expanded = await self._request(
+            self.search_endpoint,
+            data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+        )
+        if roms_expanded:
+            extra_roms = await self._request(
+                self.games_endpoint,
+                f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
+            )
+            for rom in extra_roms:
+                # Return early if an exact match is found.
+                if is_exact_match(rom, search_term):
+                    return rom
+
+            roms.extend(extra_roms)
+
+        return roms[0] if roms else None
 
     @check_twitch_token
     async def get_platform(self, slug: str) -> IGDBPlatform:
@@ -593,8 +600,8 @@ class TwitchAuth:
             return ""
 
         # Set token in redis to expire in <expires_in> seconds
-        sync_cache.set("romm:twitch_token", token, ex=expires_in - 10)  # type: ignore[attr-defined]
-        sync_cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)  # type: ignore[attr-defined]
+        sync_cache.set("romm:twitch_token", token, ex=expires_in - 10)
+        sync_cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)
 
         log.info("Twitch token fetched!")
 
@@ -609,8 +616,8 @@ class TwitchAuth:
             return ""
 
         # Fetch the token cache
-        token = sync_cache.get("romm:twitch_token")  # type: ignore[attr-defined]
-        token_expires_at = sync_cache.get("romm:twitch_token_expires_at")  # type: ignore[attr-defined]
+        token = sync_cache.get("romm:twitch_token")
+        token_expires_at = sync_cache.get("romm:twitch_token_expires_at")
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
