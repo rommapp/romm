@@ -170,7 +170,7 @@ async def update_user(
         async with await open_file(
             f"{ASSETS_BASE_PATH}/{file_location}", "wb+"
         ) as file_object:
-            file_object.write(form_data.avatar.file.read())
+            await file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
