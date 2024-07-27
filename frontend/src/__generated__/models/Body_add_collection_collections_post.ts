@@ -4,5 +4,6 @@
 /* eslint-disable */
 
 export type Body_add_collection_collections_post = {
-  artwork?: Blob | null;
+    artwork?: (Blob | null);
 };
+

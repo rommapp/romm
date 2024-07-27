@@ -54,7 +54,8 @@ RUN apk add --no-cache \
     python3 \
     tzdata \
     redis \
-    libmagic
+    libmagic \
+    p7zip
 
 COPY ./backend /backend
 

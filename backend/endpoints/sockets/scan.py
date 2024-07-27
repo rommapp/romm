@@ -21,6 +21,7 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.redis_handler import high_prio_queue, redis_client, redis_url
@@ -224,7 +225,7 @@ async def _identify_platform(
 
     # Scanning firmware
     try:
-        fs_firmware = fs_firmware_handler.get_firmware(platform)
+        fs_firmware = fs_firmware_handler.get_firmware(platform.fs_slug)
     except FirmwareNotFoundException:
         fs_firmware = []
 
@@ -241,7 +242,7 @@ async def _identify_platform(
 
     # Scanning roms
     try:
-        fs_roms = fs_rom_handler.get_roms(platform)
+        fs_roms = fs_rom_handler.get_roms(platform.fs_slug)
     except RomsNotFoundException as e:
         log.error(e)
         return scan_stats
@@ -302,7 +303,7 @@ async def _identify_firmware(
 
 async def _identify_rom(
     platform: Platform,
-    fs_rom: dict,
+    fs_rom: FSRom,
     scan_type: ScanType,
     selected_roms: list[str],
     metadata_sources: list[str],
@@ -327,7 +328,7 @@ async def _identify_rom(
 
     scanned_rom = await scan_rom(
         platform=platform,
-        rom_attrs=fs_rom,
+        fs_rom=fs_rom,
         scan_type=scan_type,
         rom=rom,
         metadata_sources=metadata_sources,

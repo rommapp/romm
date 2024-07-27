@@ -1,6 +1,5 @@
 import binascii
 import bz2
-import gzip
 import hashlib
 import os
 import re
@@ -15,7 +14,8 @@ import py7zr
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
-from models.platform import Platform
+from models.rom import RomFile
+from typing_extensions import TypedDict
 from utils.filesystem import iter_directories, iter_files
 
 from .base_handler import (
@@ -30,13 +30,13 @@ from .base_handler import (
 # list of known compressed file MIME types
 COMPRESSED_MIME_TYPES: Final = [
     "application/zip",
+    "application/x-tar",
     "application/x-gzip",
     "application/x-7z-compressed",
     "application/x-bzip2",
-    "application/x-rar-compressed",
-    "application/x-tar",
-    "application/x-wii-rom",
-    "application/x-gamecube-rom",
+    # "application/x-rar-compressed",
+    # "application/x-wii-rom",
+    # "application/x-gamecube-rom",
 ]
 
 # list of known file extensions that are compressed
@@ -46,7 +46,7 @@ COMPRESSED_FILE_EXTENSIONS = [
     ".gz",
     ".7z",
     ".bz2",
-    ".rar",
+    # ".rar",
     # ".gcz",
     # ".iso",
     # ".gcm",
@@ -60,6 +60,12 @@ COMPRESSED_FILE_EXTENSIONS = [
 FILE_READ_CHUNK_SIZE = 1024 * 8
 
 
+class FSRom(TypedDict):
+    multi: bool
+    file_name: str
+    files: list[dict]
+
+
 def is_compressed_file(file_path: str) -> bool:
     mime = magic.Magic(mime=True)
     file_type = mime.from_file(file_path)
@@ -69,7 +75,7 @@ def is_compressed_file(file_path: str) -> bool:
     )
 
 
-def read_zip_file(file_path: str) -> Iterator[bytes]:
+def read_zip_file(file_path: Path) -> Iterator[bytes]:
     with zipfile.ZipFile(file_path, "r") as z:
         for file in z.namelist():
             with z.open(file, "r") as f:
@@ -77,7 +83,7 @@ def read_zip_file(file_path: str) -> Iterator[bytes]:
                     yield chunk
 
 
-def read_tar_file(file_path: str, mode: str = "r") -> Iterator[bytes]:
+def read_tar_file(file_path: Path, mode: str = "r") -> Iterator[bytes]:
     with tarfile.open(file_path, mode) as f:
         for member in f.getmembers():
             # Ignore metadata files created by macOS
@@ -89,18 +95,18 @@ def read_tar_file(file_path: str, mode: str = "r") -> Iterator[bytes]:
                     yield chunk
 
 
-def read_gz_file(file_path: str) -> Iterator[bytes]:
+def read_gz_file(file_path: Path) -> Iterator[bytes]:
     return read_tar_file(file_path, "r:gz")
 
 
-def read_7z_file(file_path: str) -> Iterator[bytes]:
+def read_7z_file(file_path: Path) -> Iterator[bytes]:
     with py7zr.SevenZipFile(file_path, "r") as f:
         for _name, bio in f.readall().items():
             while chunk := bio.read(FILE_READ_CHUNK_SIZE):
                 yield chunk
 
 
-def read_bz2_file(file_path: str) -> Iterator[bytes]:
+def read_bz2_file(file_path: Path) -> Iterator[bytes]:
     with bz2.BZ2File(file_path, "rb") as f:
         while chunk := f.read(FILE_READ_CHUNK_SIZE):
             yield chunk
@@ -110,7 +116,7 @@ class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    def remove_file(self, file_name: str, file_path: str):
+    def remove_file(self, file_name: str, file_path: str) -> None:
         try:
             os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
         except IsADirectoryError:
@@ -161,7 +167,7 @@ class FSRomsHandler(FSHandler):
             other_tags.append(tag)
         return regs, rev, langs, other_tags
 
-    def _exclude_multi_roms(self, roms) -> list[str]:
+    def _exclude_multi_roms(self, roms: list[str]) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
         filtered_files: list = []
 
@@ -218,34 +224,40 @@ class FSRomsHandler(FSHandler):
             "sha1_hash": sha1_h.hexdigest(),
         }
 
-    def get_rom_files(self, rom: str, roms_path: str) -> list[dict]:
-        rom_files: list[dict] = []
+    def get_rom_files(self, rom: str, roms_path: str) -> list[RomFile]:
+        rom_files: list[RomFile] = []
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{roms_path}/{rom}"):
             multi_files = os.listdir(f"{roms_path}/{rom}")
             for file in multi_files:
                 path = Path(roms_path, rom, file)
+                rom_hashes = self._calculate_rom_hashes(path)
                 rom_files.append(
-                    {
-                        "filename": file,
-                        "size": os.stat(path).st_size,
-                        **self._calculate_rom_hashes(path),
-                    }
+                    RomFile(
+                        filename=file,
+                        size=os.stat(path).st_size,
+                        crc_hash=rom_hashes["crc_hash"],
+                        md5_hash=rom_hashes["md5_hash"],
+                        sha1_hash=rom_hashes["sha1_hash"],
+                    )
                 )
         else:
             path = Path(roms_path, rom)
+            rom_hashes = self._calculate_rom_hashes(path)
             rom_files.append(
-                {
-                    "filename": rom,
-                    "size": os.stat(path).st_size,
-                    **self._calculate_rom_hashes(path),
-                }
+                RomFile(
+                    filename=rom,
+                    size=os.stat(path).st_size,
+                    crc_hash=rom_hashes["crc_hash"],
+                    md5_hash=rom_hashes["md5_hash"],
+                    sha1_hash=rom_hashes["sha1_hash"],
+                )
             )
 
         return rom_files
 
-    def get_roms(self, platform: Platform):
+    def get_roms(self, paltform_fs_slug: str) -> list[FSRom]:
         """Gets all filesystem roms for a platform
 
         Args:
@@ -253,18 +265,18 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
         """
-        roms_path = self.get_roms_fs_structure(platform.fs_slug)
+        roms_path = self.get_roms_fs_structure(paltform_fs_slug)
         roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
 
         try:
             fs_single_roms = [f for _, f in iter_files(roms_file_path)]
         except IndexError as exc:
-            raise RomsNotFoundException(platform.fs_slug) from exc
+            raise RomsNotFoundException(paltform_fs_slug) from exc
 
         try:
             fs_multi_roms = [d for _, d in iter_directories(roms_file_path)]
         except IndexError as exc:
-            raise RomsNotFoundException(platform.fs_slug) from exc
+            raise RomsNotFoundException(paltform_fs_slug) from exc
 
         fs_roms: list[dict] = [
             {"multi": False, "file_name": rom}
@@ -275,14 +287,15 @@ class FSRomsHandler(FSHandler):
         ]
 
         return [
-            dict(
-                rom,
+            FSRom(
+                multi=rom["multi"],
+                file_name=rom["file_name"],
                 files=self.get_rom_files(rom["file_name"], roms_file_path),
             )
             for rom in fs_roms
         ]
 
-    def file_exists(self, path: str, file_name: str):
+    def file_exists(self, path: str, file_name: str) -> bool:
         """Check if file exists in filesystem
 
         Args:
@@ -293,7 +306,7 @@ class FSRomsHandler(FSHandler):
         """
         return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
 
-    def rename_file(self, old_name: str, new_name: str, file_path: str):
+    def rename_file(self, old_name: str, new_name: str, file_path: str) -> None:
         if new_name != old_name:
             if self.file_exists(path=file_path, file_name=new_name):
                 raise RomAlreadyExistsException(new_name)
@@ -303,6 +316,6 @@ class FSRomsHandler(FSHandler):
                 f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
             )
 
-    def build_upload_file_path(self, fs_slug: str):
+    def build_upload_file_path(self, fs_slug: str) -> str:
         file_path = self.get_roms_fs_structure(fs_slug)
         return f"{LIBRARY_BASE_PATH}/{file_path}"

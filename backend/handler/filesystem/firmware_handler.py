@@ -11,7 +11,6 @@ from exceptions.fs_exceptions import (
 )
 from fastapi import UploadFile
 from logger.logger import log
-from models.platform import Platform
 from utils.filesystem import iter_files
 
 from .base_handler import FSHandler
@@ -27,7 +26,7 @@ class FSFirmwareHandler(FSHandler):
         except IsADirectoryError:
             shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
 
-    def get_firmware(self, platform: Platform):
+    def get_firmware(self, platform_fs_slug: str):
         """Gets all filesystem firmware for a platform
 
         Args:
@@ -35,13 +34,13 @@ class FSFirmwareHandler(FSHandler):
         Returns:
             list with all the filesystem firmware for a platform found in the LIBRARY_BASE_PATH
         """
-        firmware_path = self.get_firmware_fs_structure(platform.fs_slug)
+        firmware_path = self.get_firmware_fs_structure(platform_fs_slug)
         firmware_file_path = f"{LIBRARY_BASE_PATH}/{firmware_path}"
 
         try:
             fs_firmware_files = [f for _, f in iter_files(firmware_file_path)]
         except IndexError as exc:
-            raise FirmwareNotFoundException(platform.fs_slug) from exc
+            raise FirmwareNotFoundException(platform_fs_slug) from exc
 
         return [f for f in self._exclude_files(fs_firmware_files, "single")]
 

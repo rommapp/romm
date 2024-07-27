@@ -5,6 +5,7 @@ import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
@@ -157,7 +158,7 @@ def scan_firmware(
 
 async def scan_rom(
     platform: Platform,
-    rom_attrs: dict,
+    fs_rom: FSRom,
     scan_type: ScanType,
     rom: Rom | None = None,
     metadata_sources: list[str] | None = None,
@@ -167,22 +168,21 @@ async def scan_rom(
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
-    log.info(f"\t · {rom_attrs['file_name']}")
+    log.info(f"\t · {fs_rom['file_name']}")
 
-    if rom_attrs.get("multi", False):
-        for file in rom_attrs["files"]:
+    if fs_rom.get("multi", False):
+        for file in fs_rom["files"]:
             log.info(f"\t\t · {file['filename']}")
 
     # Set default properties
-    rom_attrs.update(
-        {
-            "id": rom.id if rom else None,
-            "platform_id": platform.id,
-            "name": rom_attrs["file_name"],
-            "url_cover": "",
-            "url_screenshots": [],
-        }
-    )
+    rom_attrs = {
+        **fs_rom,
+        "id": rom.id if rom else None,
+        "platform_id": platform.id,
+        "name": fs_rom["file_name"],
+        "url_cover": "",
+        "url_screenshots": [],
+    }
 
     # Update properties from existing rom if not a complete rescan
     if rom and scan_type != ScanType.COMPLETE:
