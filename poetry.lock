@@ -2434,17 +2434,6 @@ files = [
 ]
 
 [[package]]
-name = "rarfile"
-version = "4.2"
-description = "RAR archive reader for Python"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "rarfile-4.2-py3-none-any.whl", hash = "sha256:8757e1e3757e32962e229cab2432efc1f15f210823cc96ccba0f6a39d17370c9"},
-    {file = "rarfile-4.2.tar.gz", hash = "sha256:8e1c8e72d0845ad2b32a47ab11a719bc2e41165ec101fd4d3fe9e92aa3f469ef"},
-]
-
-[[package]]
 name = "redis"
 version = "5.0.7"
 description = "Python client for Redis database and key-value store"
@@ -3250,4 +3239,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "ebd8c6513cec553be84d0e4b86326ad387d2b21d5718ed8d3525186293aaac00"
+content-hash = "de0c424f3b3aa74ec43f9ec722f5befcb050992df72e21615dc03d30af7c05ad"

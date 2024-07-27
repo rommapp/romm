@@ -171,7 +171,7 @@ async def scan_rom(
 
     if rom_attrs.get("multi", False):
         for file in rom_attrs["files"]:
-            log.info(f"\t\t · {file}")
+            log.info(f"\t\t · {file['filename']}")
 
     # Set default properties
     rom_attrs.update(
@@ -205,12 +205,7 @@ async def scan_rom(
         )
 
     # Update properties that don't require metadata
-    file_size = fs_rom_handler.get_rom_file_size(
-        multi=rom_attrs["multi"],
-        file_name=rom_attrs["file_name"],
-        multi_files=rom_attrs["files"],
-        roms_path=roms_path,
-    )
+    file_size = sum([file["size"] for file in rom_attrs["files"]])
     regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
