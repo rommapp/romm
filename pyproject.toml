@@ -10,7 +10,6 @@ authors = ["Zurdi <zurdi@romm.app>", "Arcane <arcane@romm.app>"]
 [tool.poetry.dependencies]
 python = "^3.11"
 anyio = "^4.4"
-requests = "^2.32.2"
 fastapi = "0.110.0"
 uvicorn = "0.29.0"
 gunicorn = "22.0.0"
@@ -28,7 +27,6 @@ mariadb = "1.1.10"
 rq = "^1.16.1"
 redis = "^5.0"
 types-pyyaml = "^6.0.12.20240311"
-types-requests = "^2.31.0.20240311"
 types-redis = "^4.6.0.20240311 "
 passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 itsdangerous = "^2.1.2"

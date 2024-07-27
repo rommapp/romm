@@ -137,8 +137,6 @@ interactions:
           - 895445746e561cd8-BUD
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Type:
           - application/json
         Date:

@@ -217,8 +217,6 @@ interactions:
           - 8954459468d768bb-BUD
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Length:
           - "1529"
         Content-Type:
@@ -311,8 +309,6 @@ interactions:
           - 89544596b8d6684c-BUD
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Type:
           - application/json
         Date:
@@ -459,8 +455,6 @@ interactions:
           - 8954459c292fc1bc-BUD
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Length:
           - "1529"
         Content-Type:
