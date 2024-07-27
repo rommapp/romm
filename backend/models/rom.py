@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 class RomFile(TypedDict):
     filename: str
+    size: int
     crc_hash: str
     md5_hash: str
     sha1_hash: str

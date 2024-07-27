@@ -29,7 +29,7 @@ def test_get_roms_fs_structure():
 
 def test_get_roms():
     platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
-    roms = fs_rom_handler.get_roms(platform=platform)
+    roms = fs_rom_handler.get_roms(platform_fs_slug=platform.fs_slug)
 
     assert len(roms) == 2
     assert roms[0]["file_name"] == "Paper Mario (USA).z64"

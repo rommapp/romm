@@ -4,8 +4,10 @@
 /* eslint-disable */
 
 export type RomFile = {
-  filename: string;
-  crc_hash: string;
-  md5_hash: string;
-  sha1_hash: string;
+    filename: string;
+    size: number;
+    crc_hash: string;
+    md5_hash: string;
+    sha1_hash: string;
 };
+
