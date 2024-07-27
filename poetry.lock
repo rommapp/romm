@@ -2157,21 +2157,21 @@ starlette = ">=0.14.2"
 
 [[package]]
 name = "stream-zip"
-version = "0.0.71"
+version = "0.0.81"
 description = "Python function to construct a ZIP archive with stream processing - without having to store the entire ZIP in memory or disk"
 optional = false
 python-versions = ">=3.6.7"
 files = [
-    {file = "stream_zip-0.0.71-py3-none-any.whl", hash = "sha256:4afff6da680876b7982afedcc9c3478a575a519c74015a25a4248d3fe69a46a0"},
-    {file = "stream_zip-0.0.71.tar.gz", hash = "sha256:fd85a01e8eadec4d1151b548c7da0eeecc37432f29df01ba232f672f958a2fc6"},
+    {file = "stream_zip-0.0.81-py3-none-any.whl", hash = "sha256:29ffcad046e16219da16b57e5129bd4e2bc9a9acce222556de6ffe0a27a748f9"},
+    {file = "stream_zip-0.0.81.tar.gz", hash = "sha256:ad5aa0dc8c21c014073ca27eb4b28fe8b5e2108ccab8b099462362c1ec973e0f"},
 ]
 
 [package.dependencies]
 pycryptodome = ">=3.10.1"
 
 [package.extras]
-ci = ["coverage (==6.2)", "pycryptodome (==3.10.1)", "pytest (==7.0.1)", "pytest-cov (==3.0.0)", "pyzipper (==0.3.6)", "stream-unzip (==0.0.86)"]
-dev = ["coverage (>=6.2)", "pytest (>=7.0.1)", "pytest-cov (>=3.0.0)", "pyzipper (>=0.3.6)", "stream-unzip (>=0.0.86)"]
+ci = ["coverage (==6.2)", "mypy (==0.971)", "pycryptodome (==3.10.1)", "pytest (==7.0.1)", "pytest-cov (==3.0.0)", "pyzipper (==0.3.6)", "stream-unzip (==0.0.86)", "types-contextvars (==2.4.7.3)"]
+dev = ["coverage (>=6.2)", "mypy (>=0.971)", "pytest (>=7.0.1)", "pytest-cov (>=3.0.0)", "pyzipper (>=0.3.6)", "stream-unzip (>=0.0.86)", "types-contextvars (>=2.4.7.3)"]
 
 [[package]]
 name = "tornado"
@@ -2695,4 +2695,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "d4564c67bc8f59fcaa0d4e1e4a6cc02de669f6a6d99dec3e2b0f8147e1a6152e"
+content-hash = "f8d8c12320cb8e5b47b182c507b4c988185910e60f7fb162f9508685072f2214"
