@@ -8,7 +8,6 @@ from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from PIL import Image
-from urllib3.exceptions import ProtocolError
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -74,6 +73,8 @@ class FSResourcesHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
             ) from exc
+        except httpx.ProtocolError:
+            log.warning(f"Failure writing cover {url_cover} to file (ProtocolError)")
 
         if size == CoverSize.SMALL:
             self.resize_cover_to_small(f"{cover_path}/{cover_file}")
@@ -176,7 +177,7 @@ class FSResourcesHandler(FSHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
             ) from exc
-        except ProtocolError:
+        except httpx.ProtocolError:
             log.warning(f"Failure writing screenshot {url} to file (ProtocolError)")
 
     @staticmethod

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 from handler.filesystem.roms_handler import FSRomsHandler
-from handler.metadata.igdb_handler import IGDBBaseHandler
+from handler.metadata.igdb_handler import IGDBBaseHandler, IGDBRom
 from main import app
 
 
@@ -38,7 +38,7 @@ def test_get_all_roms(client, access_token, rom, platform):
 
 
 @patch.object(FSRomsHandler, "rename_file")
-@patch.object(IGDBBaseHandler, "get_rom_by_id")
+@patch.object(IGDBBaseHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, rom):
     response = client.put(
         f"/roms/{rom.id}",
