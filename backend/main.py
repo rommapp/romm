@@ -1,5 +1,4 @@
 import re
-import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -10,6 +9,7 @@ from config import (
     DEV_HOST,
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
+    IS_PYTEST_RUN,
     ROMM_AUTH_SECRET_KEY,
     SCAN_TIMEOUT,
 )
@@ -63,7 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if "pytest" not in sys.modules and not DISABLE_CSRF_PROTECTION:
+if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,

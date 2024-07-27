@@ -1,7 +1,14 @@
 import sys
 from enum import Enum
 
-from config import REDIS_DB, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, REDIS_USERNAME
+from config import (
+    IS_PYTEST_RUN,
+    REDIS_DB,
+    REDIS_HOST,
+    REDIS_PASSWORD,
+    REDIS_PORT,
+    REDIS_USERNAME,
+)
 from logger.logger import log
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -33,7 +40,7 @@ low_prio_queue = Queue(name=QueuePrio.LOW.value, connection=redis_client)
 
 
 def __get_sync_cache() -> Redis:
-    if "pytest" in sys.modules:
+    if IS_PYTEST_RUN:
         # Only import fakeredis when running tests, as it is a test dependency.
         from fakeredis import FakeRedis
 
@@ -54,7 +61,7 @@ def __get_sync_cache() -> Redis:
 
 
 def __get_async_cache() -> AsyncRedis:
-    if "pytest" in sys.modules:
+    if IS_PYTEST_RUN:
         # Only import fakeredis when running tests, as it is a test dependency.
         from fakeredis import FakeAsyncRedis
 
