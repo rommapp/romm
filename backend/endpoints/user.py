@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from typing import Annotated
 
+from anyio import open_file
 from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
@@ -104,7 +105,7 @@ def get_user(request: Request, id: int) -> UserSchema:
 
 
 @protected_route(router.put, "/users/{id}", ["me.write"])
-def update_user(
+async def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
     """Update user endpoint
@@ -166,8 +167,10 @@ def update_user(
         Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(
             parents=True, exist_ok=True
         )
-        with open(f"{ASSETS_BASE_PATH}/{file_location}", "wb+") as file_object:
-            file_object.write(form_data.avatar.file.read())
+        async with await open_file(
+            f"{ASSETS_BASE_PATH}/{file_location}", "wb+"
+        ) as file_object:
+            await file_object.write(form_data.avatar.file.read())
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
