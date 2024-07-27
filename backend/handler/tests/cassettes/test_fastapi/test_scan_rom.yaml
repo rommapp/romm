@@ -217,8 +217,6 @@ interactions:
           - 8a4509f43a89abb8-YYZ
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Length:
           - "1528"
         Content-Type:
@@ -311,8 +309,6 @@ interactions:
           - 8a4509f668ce7119-YYZ
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Type:
           - application/json
         Date:
@@ -459,8 +455,6 @@ interactions:
           - 8a4509fc9e8da246-YYZ
         Connection:
           - keep-alive
-        Content-Encoding:
-          - gzip
         Content-Length:
           - "1528"
         Content-Type:
