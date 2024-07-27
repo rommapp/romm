@@ -8,6 +8,7 @@ from config import (
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask
+from utils.context import initialize_context
 from utils.iterators import batched
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
@@ -24,6 +25,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             url="https://raw.githubusercontent.com/blawar/titledb/master/US.en.json",
         )
 
+    @initialize_context()
     async def run(self, force: bool = False) -> None:
         content = await super().run(force)
         if content is None:
