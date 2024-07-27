@@ -63,7 +63,7 @@ FILE_READ_CHUNK_SIZE = 1024 * 8
 class FSRom(TypedDict):
     multi: bool
     file_name: str
-    files: list[dict]
+    files: list[RomFile]
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -257,7 +257,7 @@ class FSRomsHandler(FSHandler):
 
         return rom_files
 
-    def get_roms(self, paltform_fs_slug: str) -> list[FSRom]:
+    def get_roms(self, platform_fs_slug: str) -> list[FSRom]:
         """Gets all filesystem roms for a platform
 
         Args:
@@ -265,18 +265,18 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
         """
-        roms_path = self.get_roms_fs_structure(paltform_fs_slug)
+        roms_path = self.get_roms_fs_structure(platform_fs_slug)
         roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
 
         try:
             fs_single_roms = [f for _, f in iter_files(roms_file_path)]
         except IndexError as exc:
-            raise RomsNotFoundException(paltform_fs_slug) from exc
+            raise RomsNotFoundException(platform_fs_slug) from exc
 
         try:
             fs_multi_roms = [d for _, d in iter_directories(roms_file_path)]
         except IndexError as exc:
-            raise RomsNotFoundException(paltform_fs_slug) from exc
+            raise RomsNotFoundException(platform_fs_slug) from exc
 
         fs_roms: list[dict] = [
             {"multi": False, "file_name": rom}
