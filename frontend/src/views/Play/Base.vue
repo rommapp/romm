@@ -52,14 +52,18 @@ onMounted(async () => {
   supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
 
   // Load stored bios, save, state, and core
-  const storedSaveID = localStorage.getItem("player:save_id");
+  const storedSaveID = localStorage.getItem(`player:${rom.value.id}:save_id`);
   if (storedSaveID) {
-    saveRef.value = rom.value.user_saves?.find((s) => s.id === parseInt(storedSaveID)) ?? null;
+    saveRef.value =
+      rom.value.user_saves?.find((s) => s.id === parseInt(storedSaveID)) ??
+      null;
   }
 
-  const storedStateID = localStorage.getItem("player:state_id");
+  const storedStateID = localStorage.getItem(`player:${rom.value.id}:state_id`);
   if (storedStateID) {
-    stateRef.value = rom.value.user_states?.find((s) => s.id === parseInt(storedStateID)) ?? null;
+    stateRef.value =
+      rom.value.user_states?.find((s) => s.id === parseInt(storedStateID)) ??
+      null;
   } else if (rom.value.user_states) {
     // Otherwise auto select most recent state by last updated date
     stateRef.value = rom.value.user_states?.sort((a, b) =>
@@ -67,12 +71,18 @@ onMounted(async () => {
     )[0];
   }
 
-  const storedBiosID = localStorage.getItem("player:bios_id");
+  const storedBiosID = localStorage.getItem(
+    `player:${rom.value.platform_slug}:bios_id`
+  );
   if (storedBiosID) {
-    biosRef.value = firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ?? null;
+    biosRef.value =
+      firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ??
+      null;
   }
 
-  const storedCore = localStorage.getItem("player:core");
+  const storedCore = localStorage.getItem(
+    `player:${rom.value.platform_slug}:core`
+  );
   if (storedCore) {
     coreRef.value = storedCore;
   } else {
@@ -239,11 +249,11 @@ onMounted(async () => {
                     item.value.emulator
                   }}</v-chip>
                   <v-chip size="x-small" class="ml-1" label
-                  >{{ formatBytes(item.value.file_size_bytes) }}
-                </v-chip>
-                <v-chip size="small" class="ml-1" label>
-                  {{ formatTimestamp(item.value.updated_at) }}
-                </v-chip>
+                    >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                  <v-chip size="small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
+                  </v-chip>
                 </template>
               </v-list-item>
             </template>
@@ -258,11 +268,11 @@ onMounted(async () => {
                     item.value.emulator
                   }}</v-chip>
                   <v-chip size="x-small" class="ml-1" label
-                  >{{ formatBytes(item.value.file_size_bytes) }}
-                </v-chip>
-                <v-chip size="small" class="ml-1" label>
-                  {{ formatTimestamp(item.value.updated_at) }}
-                </v-chip>
+                    >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                  <v-chip size="small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
+                  </v-chip>
                 </template>
               </v-list-item>
             </template>

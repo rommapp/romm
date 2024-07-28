@@ -24,15 +24,25 @@ onBeforeUnmount(() => {
 
 onMounted(() => {
   if (props.save) {
-    localStorage.setItem("player:save_id", props.save.id.toString());
+    localStorage.setItem(
+      `player:${props.rom.id}:save_id`,
+      props.save.id.toString()
+    );
   }
   if (props.state) {
-    localStorage.setItem("player:state_id", props.state.id.toString());
+    localStorage.setItem(
+      `player:${props.rom.id}:state_id`,
+      props.state.id.toString()
+    );
   }
   if (props.bios) {
-    localStorage.setItem("player:bios_id", props.bios.id.toString());
+    localStorage.setItem(
+      `player:${props.rom.platform_slug}:bios_id`,
+      props.bios.id.toString()
+    );
   }
-  if (props.core) localStorage.setItem("player:core", props.core);
+  if (props.core)
+    localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
 });
 
 // Declare global variables for EmulatorJS
