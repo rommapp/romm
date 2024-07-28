@@ -28,21 +28,33 @@ onMounted(() => {
       `player:${props.rom.id}:save_id`,
       props.save.id.toString()
     );
+  } else {
+    localStorage.removeItem(`player:${props.rom.id}:save_id`);
   }
+
   if (props.state) {
     localStorage.setItem(
       `player:${props.rom.id}:state_id`,
       props.state.id.toString()
     );
+  } else {
+    localStorage.removeItem(`player:${props.rom.id}:state_id`);
   }
+
   if (props.bios) {
     localStorage.setItem(
       `player:${props.rom.platform_slug}:bios_id`,
       props.bios.id.toString()
     );
+  } else {
+    localStorage.removeItem(`player:${props.rom.platform_slug}:bios_id`);
   }
-  if (props.core)
+
+  if (props.core) {
     localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
+  } else {
+    localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
+  }
 });
 
 // Declare global variables for EmulatorJS
