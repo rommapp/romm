@@ -9,7 +9,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, watch } from "vue";
+import { inject, ref, watch, onMounted } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -58,6 +58,10 @@ function updateDataTablePages() {
 }
 
 watch(itemsPerPage, async () => {
+  updateDataTablePages();
+});
+
+onMounted(() => {
   updateDataTablePages();
 });
 </script>
