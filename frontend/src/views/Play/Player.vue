@@ -5,7 +5,7 @@ import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import { getSupportedCores } from "@/utils";
-import { onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -20,6 +20,19 @@ const stateRef = ref<StateSchema | null>(props.state);
 
 onBeforeUnmount(() => {
   window.location.reload();
+});
+
+onMounted(() => {
+  if (props.save) {
+    localStorage.setItem("player:save_id", props.save.id.toString());
+  }
+  if (props.state) {
+    localStorage.setItem("player:state_id", props.state.id.toString());
+  }
+  if (props.bios) {
+    localStorage.setItem("player:bios_id", props.bios.id.toString());
+  }
+  if (props.core) localStorage.setItem("player:core", props.core);
 });
 
 // Declare global variables for EmulatorJS
