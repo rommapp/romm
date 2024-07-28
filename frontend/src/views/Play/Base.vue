@@ -17,8 +17,8 @@ const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
-const supportedCores = ref<string[]>([]);
 const coreRef = ref<string | null>(null);
+const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
@@ -43,18 +43,41 @@ onMounted(async () => {
     romId: parseInt(route.params.rom as string),
   });
   rom.value = romResponse.data;
-  supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
-  coreRef.value = supportedCores.value[0];
 
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
   });
   firmwareOptions.value = firmwareResponse.data;
-  // Auto select most recent state
-  if (rom.value.user_states && rom.value.user_states?.length > 0) {
-    stateRef.value = rom.value.user_states.sort((a, b) =>
+
+  supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
+
+  // Load stored bios, save, state, and core
+  const storedSaveID = localStorage.getItem("player:save_id");
+  if (storedSaveID) {
+    saveRef.value = rom.value.user_saves?.find((s) => s.id === parseInt(storedSaveID)) ?? null;
+  }
+
+  const storedStateID = localStorage.getItem("player:state_id");
+  if (storedStateID) {
+    stateRef.value = rom.value.user_states?.find((s) => s.id === parseInt(storedStateID)) ?? null;
+  } else if (rom.value.user_states) {
+    // Otherwise auto select most recent state by last updated date
+    stateRef.value = rom.value.user_states?.sort((a, b) =>
       b.updated_at.localeCompare(a.updated_at)
     )[0];
+  }
+
+  const storedBiosID = localStorage.getItem("player:bios_id");
+  if (storedBiosID) {
+    biosRef.value = firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ?? null;
+  }
+
+  const storedCore = localStorage.getItem("player:core");
+  if (storedCore) {
+    coreRef.value = storedCore;
+  } else {
+    // Otherwise auto select first supported core
+    coreRef.value = supportedCores.value[0];
   }
 });
 </script>
