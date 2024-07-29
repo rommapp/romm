@@ -128,8 +128,10 @@ async function removeFromFavourites() {
 }
 
 function onDownload() {
-  romsStore.selectedRoms.forEach((rom) => {
-    romApi.downloadRom({ rom });
+  romsStore.selectedRoms.forEach((rom, index) => {
+    setTimeout(() => {
+      romApi.downloadRom({ rom });
+    }, index * 100); // Prevents the download from being blocked by the browser
   });
 }
 </script>
