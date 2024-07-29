@@ -45,10 +45,23 @@ export default defineStore("roms", {
   actions: {
     _reorder() {
       // Sort roms by comparator string
-      this.allRoms = this.allRoms.sort((a, b) => {
-        return a.sort_comparator.localeCompare(b.sort_comparator);
-      });
       this.allRoms = uniqBy(this.allRoms, "id");
+      this.allRoms = this.allRoms
+        .map((rom) => {
+          const siblings = this.allRoms
+            .filter((s) => s.id != rom.id)
+            .filter((s) => {
+              return (
+                (rom.igdb_id && rom.igdb_id === s.igdb_id) ||
+                (rom.moby_id && rom.moby_id === s.moby_id)
+              );
+            });
+
+          return { ...rom, siblings };
+        })
+        .sort((a, b) => {
+          return a.sort_comparator.localeCompare(b.sort_comparator);
+        });
 
       // Check if roms should be grouped
       const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
@@ -160,6 +173,9 @@ export default defineStore("roms", {
       if (galleryFilter.filterFavourites) {
         this._filterFavourites();
       }
+      if (galleryFilter.filterDuplicates) {
+        this._filterDuplicates();
+      }
       if (galleryFilter.selectedGenre) {
         this._filterGenre(galleryFilter.selectedGenre);
       }
@@ -191,6 +207,11 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) => collectionStore.favCollection?.roms?.includes(rom.id))
         .map((roms) => roms.id);
+    },
+    _filterDuplicates() {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => rom.siblings?.length)
+        .map((rom) => rom.id);
     },
     _filterGenre(genreToFilter: string) {
       this._filteredIDs = this.filteredRoms
