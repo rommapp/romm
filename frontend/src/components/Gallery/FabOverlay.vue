@@ -41,8 +41,9 @@ function scrollToTop() {
 }
 async function onScan() {
   scanningStore.set(true);
+  const romCount = romsStore.selectedRoms.length;
   emitter?.emit("snackbarShow", {
-    msg: `Scanning ${route.params.platform}...`,
+    msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -50,8 +51,8 @@ async function onScan() {
   if (!socket.connected) socket.connect();
   socket.emit("scan", {
     platforms: [route.params.platform],
-    roms: romsStore.selectedRoms,
-    type: "partial",
+    roms_ids: romsStore.selectedRoms.map((r) => r.id),
+    type: "quick", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
