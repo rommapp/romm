@@ -14,37 +14,19 @@ const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
-window.RufflePlayer = window.RufflePlayer || {};
-const script = document.createElement("script");
-script.src = "/assets/ruffle/ruffle.js";
-document.body.appendChild(script);
-
 declare global {
   interface Window {
     RufflePlayer: any;
   }
 }
 
-// Functions
+window.RufflePlayer = window.RufflePlayer || {};
+const script = document.createElement("script");
+script.src = "/assets/ruffle/ruffle.js";
+document.body.appendChild(script);
+
 function onPlay() {
-  const gamePath = `/api/roms/${rom.value.id}/content/${rom.value.file_name}`;
-
   gameRunning.value = true;
-
-  const originalFetch = window.fetch;
-  window.fetch = async function (...args) {
-    const url =
-      args[0] instanceof Request
-        ? new URL(args[0].url)
-        : typeof args[0] === "string"
-        ? new URL(args[0])
-        : args[0];
-
-    if (url.pathname.endsWith(".swf") && url.pathname !== gamePath) {
-      return new Response(new Blob());
-    }
-    return originalFetch.apply(this, args);
-  };
 
   nextTick(() => {
     const ruffle = window.RufflePlayer.newest();
@@ -52,11 +34,21 @@ function onPlay() {
     const container = document.getElementById("game");
     container?.appendChild(player);
     player.load({
-      url: gamePath,
+      allowFullScreen: true,
+      autoplay: "on",
+      backgroundColor: "#0D1117",
+      logLevel: "debug",
+      openUrlMode: "confirm",
+      preferredRenderer: "webgl",
       publicPath: "/assets/ruffle/",
+      url: `/api/roms/${rom.value?.id}/content/${rom.value?.file_name}`,
     });
     player.style.width = "100%";
     player.style.height = "100%";
+
+    if (player.fullscreenEnabled && fullScreenOnPlay.value) {
+      player.enterFullscreen();
+    }
   });
 }
 
@@ -81,7 +73,7 @@ onMounted(async () => {
       md="8"
       xl="10"
       id="game-wrapper"
-      class="bg-primary"
+      class="bg-secondary"
       rounded
     >
       <div id="game" />
@@ -211,5 +203,6 @@ onMounted(async () => {
 #game {
   max-height: 100dvh;
   height: 100%;
+  --splash-screen-background: none;
 }
 </style>
