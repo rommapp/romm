@@ -26,7 +26,7 @@ const tasks = computed(() => [
   {
     title: heartbeatStore.value.SCHEDULER.RESCAN.TITLE,
     description:
-      heartbeatStore.value.SCHEDULER.RESCAN.MESSAGE +
+      heartbeatStore.value.SCHEDULER.RESCAN.MESSAGE + " " +
       convertCronExperssion(heartbeatStore.value.SCHEDULER.RESCAN.CRON),
     icon: heartbeatStore.value.SCHEDULER.RESCAN.ENABLED
       ? "mdi-clock-check-outline"
@@ -36,7 +36,7 @@ const tasks = computed(() => [
   {
     title: heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.TITLE,
     description:
-      heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.MESSAGE +
+      heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.MESSAGE + " " +
       convertCronExperssion(heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.CRON),
     icon: heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.ENABLED
       ? "mdi-clock-check-outline"
