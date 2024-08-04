@@ -106,7 +106,10 @@ async function downloadRom({
 }) {
   const a = document.createElement("a");
   a.href = getDownloadLink({ rom, files });
+
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 
   // Only connect socket if multi-file download
   if (rom.multi && files.length > 1) {
