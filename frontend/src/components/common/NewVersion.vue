@@ -31,13 +31,14 @@ onMounted(async () => {
 <template>
   <v-overlay
     v-if="semver.valid(VERSION)"
-    :model-value="true"
     persistent
     no-click-animation
+    close-on-back
     scroll-strategy="reposition"
+    :model-value="true"
     :scrim="false"
+    :class="{ 'ml-16 align-end': !mdAndDown, 'align-start': mdAndDown }"
     class="justify-start pa-3"
-    :class="{ 'ml-16 align-end': !mdAndDown, 'align-start': mdAndDown}"
   >
     <v-slide-y-transition>
       <v-card
