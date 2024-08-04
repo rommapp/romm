@@ -7,10 +7,10 @@ import { inject } from "vue";
 
 // Props
 const galleryFilterStore = storeGalleryFilter();
-const { filterFavourites } = storeToRefs(galleryFilterStore);
+const { filterDuplicates } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
-function setFavourites() {
-  galleryFilterStore.switchFilterFavourites();
+function setDuplicates() {
+  galleryFilterStore.switchFilterDuplicates();
   emitter?.emit("filter", null);
 }
 </script>
@@ -20,18 +20,18 @@ function setFavourites() {
     block
     variant="tonal"
     rounded="0"
-    :color="filterFavourites ? 'romm-accent-1' : 'romm-gray'"
-    @click="setFavourites()"
+    :color="filterDuplicates ? 'romm-accent-1' : 'romm-gray'"
+    @click="setDuplicates()"
   >
-    <v-icon :color="filterFavourites ? 'romm-accent-1' : 'romm-white'"
-      >mdi-star</v-icon
+    <v-icon :color="filterDuplicates ? 'romm-accent-1' : 'romm-white'"
+      >mdi-content-duplicate</v-icon
     ><span
       class="ml-2"
       :class="{
-        'text-romm-white': !filterFavourites,
-        'text-romm-accent-1': filterFavourites,
+        'text-romm-white': !filterDuplicates,
+        'text-romm-accent-1': filterDuplicates,
       }"
-      >Show favourites</span
+      >Show duplicates</span
     ></v-btn
   >
 </template>
