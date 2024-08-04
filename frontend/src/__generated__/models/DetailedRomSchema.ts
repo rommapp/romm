@@ -1,6 +1,7 @@
 /* generated using openapi-typescript-codegen -- do no edit */
 /* istanbul ignore file */
 /* tslint:disable */
+/* eslint-disable */
 
 import type { CollectionSchema } from "./CollectionSchema";
 import type { RomIGDBMetadata } from "./RomIGDBMetadata";
@@ -52,8 +53,8 @@ export type DetailedRomSchema = {
   created_at: string;
   updated_at: string;
   rom_user?: RomUserSchema | null;
-  merged_screenshots: Array<string>;
   sibling_roms?: Array<RomSchema>;
+  merged_screenshots: Array<string>;
   user_saves?: Array<SaveSchema>;
   user_states?: Array<StateSchema>;
   user_screenshots?: Array<ScreenshotSchema>;
