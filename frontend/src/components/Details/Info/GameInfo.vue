@@ -36,7 +36,7 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-chip
               v-for="value in rom[filter]"
               :key="value"
-              v-on:click="() => onFilterClick(filter, value)"
+              @click="onFilterClick(filter, value)"
               size="small"
               variant="outlined"
               class="my-1 mr-2"
