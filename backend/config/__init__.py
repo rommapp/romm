@@ -61,6 +61,13 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = (
     os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false") == "true"
 )
 
+# OAUTH
+OAUTH_ENABLED: Final = os.environ.get("OAUTH_ENABLED", "false") == "true"
+OAUTH_CLIENT_ID: Final = os.environ.get("OAUTH_CLIENT_ID", "")
+OAUTH_CLIENT_SECRET: Final = os.environ.get("OAUTH_CLIENT_SECRET", "")
+OAUTH_REDIRECT_URI: Final = os.environ.get("OAUTH_REDIRECT_URI", "")
+OAUTH_SERVER_METADATA_URL: Final = os.environ.get("OAUTH_SERVER_METADATA_URL", "")
+
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
 

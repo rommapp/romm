@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Annotated, Final
 
+from config import OAUTH_ENABLED, OAUTH_REDIRECT_URI
+from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
@@ -134,7 +136,8 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
 @router.post("/login")
 def login(
-    request: Request, credentials=Depends(HTTPBasic())  # noqa
+    request: Request,
+    credentials=Depends(HTTPBasic()),  # noqa
 ) -> MessageResponse:
     """Session login endpoint
 
@@ -151,6 +154,53 @@ def login(
     """
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
+    if not user:
+        raise AuthCredentialsException
+
+    if not user.enabled:
+        raise DisabledException
+
+    request.session.update({"iss": "romm:auth", "sub": user.username})
+
+    # Update last login and active times
+    db_user_handler.update_user(
+        user.id, {"last_login": datetime.now(), "last_active": datetime.now()}
+    )
+
+    return {"msg": "Successfully logged in"}
+
+
+@router.get("/login/openid")
+async def login_via_openid(request: Request):
+    """OAuth2 login endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        RedirectResponse: Redirect to OAuth2 provider
+    """
+
+    if not OAUTH_ENABLED:
+        raise DisabledException
+
+    return await oauth.openid.authorize_redirect(request, OAUTH_REDIRECT_URI)
+
+
+@router.get("/auth/openid")
+async def auth_openid(request: Request):
+    """OAuth2 callback endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        RedirectResponse: Redirect to home page
+    """
+
+    token = await oauth.openid.authorize_access_token(request)
+    user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
+
     if not user:
         raise AuthCredentialsException
 

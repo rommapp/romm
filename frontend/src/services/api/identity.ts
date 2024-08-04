@@ -19,11 +19,16 @@ async function login(
   );
 }
 
+async function loginOIDC(): Promise<{ data: MessageResponse }> {
+  return api.get("/login/openid");
+}
+
 async function logout(): Promise<{ data: MessageResponse }> {
-  return api.post("/logout", {});
+  return api.post("/logout");
 }
 
 export default {
   login,
+  loginOIDC,
   logout,
 };
