@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "author": "Zurdi <https://github.com/zurdi15>",
   "description": "A beautiful, powerful, self-hosted rom manager",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0-only",
   "homepage": "https://github.com/rommapp/romm",
   "repository": {
     "type": "git",

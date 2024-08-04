@@ -36,11 +36,9 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 403) {
-      const allCookies = Cookies.get(); // Get all cookies
-      for (const cookie in allCookies) {
-        Cookies.remove(cookie); // Remove each cookie
-      }
+    if (error.response?.status === 401) {
+      Cookies.remove("romm_session");
+
       router.push({
         name: "login",
         query: { next: router.currentRoute.value.path },

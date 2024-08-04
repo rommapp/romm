@@ -19,3 +19,52 @@ services:
       - $REDIS_PORT:6379
     env_file:
       - .env
+
+  hydra:
+    image: oryd/hydra:v2.2.0
+    container_name: hydra
+    restart: unless-stopped
+    ports:
+      - 4444:4444 # Public port
+      - 4445:4445 # Admin port
+      - 5555:5555 # Port for hydra token user
+    command: serve -c /etc/config/hydra/hydra.yml all --dev
+    volumes:
+      - hydra-sqlite:/var/lib/sqlite
+      - ./hydra/quickstart:/etc/config/hydra
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+    depends_on:
+      - hydra-migrate
+    networks:
+      - hydranet
+
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    container_name: hydra-migrate
+    restart: unless-stopped
+    environment:
+      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+    command: migrate -c /etc/config/hydra/hydra.yml sql -e --yes
+    volumes:
+      - hydra-sqlite:/var/lib/sqlite
+      - ./hydra/quickstart:/etc/config/hydra
+    networks:
+      - hydranet
+
+  hydra-consent:
+    image: oryd/hydra-login-consent-node:v2.2.0
+    container_name: hydra-consent
+    restart: unless-stopped
+    environment:
+      - HYDRA_ADMIN_URL=http://hydra:4445
+    ports:
+      - 3001:3000
+    networks:
+      - hydranet
+
+networks:
+  hydranet:
+
+volumes:
+  hydra-sqlite:

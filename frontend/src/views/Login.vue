@@ -46,15 +46,7 @@ async function login() {
 
 async function loginOIDC() {
   logging.value = true;
-  await identityApi
-    .loginOIDC()
-    .then(() => {
-      const next = (router.currentRoute.value.query?.next || "/").toString();
-      router.push(next);
-    })
-    .finally(() => {
-      logging.value = false;
-    });
+  window.open("/api/login/openid", "_self");
 }
 </script>
 
