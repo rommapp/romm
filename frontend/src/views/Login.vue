@@ -43,6 +43,19 @@ async function login() {
       logging.value = false;
     });
 }
+
+async function loginOIDC() {
+  logging.value = true;
+  await identityApi
+    .loginOIDC()
+    .then(() => {
+      const next = (router.currentRoute.value.query?.next || "/").toString();
+      router.push(next);
+    })
+    .finally(() => {
+      logging.value = false;
+    });
+}
 </script>
 
 <template>
@@ -89,6 +102,30 @@ async function login() {
                   @click="login()"
                 >
                   <span>Login</span>
+                  <template #append>
+                    <v-icon class="text-romm-accent-1"
+                      >mdi-chevron-right-circle-outline</v-icon
+                    >
+                  </template>
+                  <template #loader>
+                    <v-progress-circular
+                      color="romm-accent-1"
+                      :width="2"
+                      :size="20"
+                      indeterminate
+                    />
+                  </template>
+                </v-btn>
+                <v-btn
+                  type="submit"
+                  :disabled="logging"
+                  :variant="'text'"
+                  class="bg-terciary"
+                  block
+                  :loading="logging"
+                  @click="loginOIDC()"
+                >
+                  <span>Login with OIDC</span>
                   <template #append>
                     <v-icon class="text-romm-accent-1"
                       >mdi-chevron-right-circle-outline</v-icon
