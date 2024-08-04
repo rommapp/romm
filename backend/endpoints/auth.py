@@ -187,7 +187,7 @@ async def login_via_openid(request: Request):
     return await oauth.openid.authorize_redirect(request, OAUTH_REDIRECT_URI)
 
 
-@router.get("/auth/openid")
+@router.get("/oauth/openid")
 async def auth_openid(request: Request):
     """OAuth2 callback endpoint
 
