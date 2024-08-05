@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
-import api from "@/services/api/index";
+import { refetchCSRFToken } from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -18,56 +18,32 @@ const logging = ref(false);
 
 async function login() {
   logging.value = true;
+
   await identityApi
     .login(username.value, password.value)
-    .then(() => {
-      const next = (router.currentRoute.value.query?.next || "/").toString();
-      router.push(next);
+    .then(async () => {
+      // Refetch CSRF token
+      await refetchCSRFToken();
+
+      const params = new URLSearchParams(window.location.search);
+      router.push(params.get("next") ?? "/");
     })
-    .catch(async ({ response, message }) => {
+    .catch(({ response, message }) => {
       const errorMessage =
         response.data?.detail ||
         response.data ||
         message ||
         response.statusText;
 
-      if (errorMessage.includes("CSRF token")) {
-        // Regenerate and retry login if CSRF token expired
-        await api.get("/heartbeat");
-        await identityApi
-          .login(username.value, password.value)
-          .then(() => {
-            const next = (
-              router.currentRoute.value.query?.next || "/"
-            ).toString();
-            router.push(next);
-          })
-          .catch(async ({ response, message }) => {
-            const errorMessage =
-              response.data?.detail ||
-              response.data ||
-              message ||
-              response.statusText;
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to login: ${errorMessage}`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
 
-            emitter?.emit("snackbarShow", {
-              msg: `Unable to login: ${errorMessage}`,
-              icon: "mdi-close-circle",
-              color: "red",
-            });
-            console.error(
-              `[${response.status} ${response.statusText}] ${errorMessage}`
-            );
-          });
-      } else {
-        emitter?.emit("snackbarShow", {
-          msg: `Unable to login: ${errorMessage}`,
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-        console.error(
-          `[${response.status} ${response.statusText}] ${errorMessage}`
-        );
-      }
+      console.error(
+        `[${response.status} ${response.statusText}] ${errorMessage}`
+      );
     })
     .finally(() => {
       logging.value = false;
@@ -95,7 +71,6 @@ async function login() {
                   type="text"
                   label="Username"
                   variant="underlined"
-                  @keyup.enter="login()"
                 />
                 <v-text-field
                   v-model="password"
@@ -108,7 +83,6 @@ async function login() {
                   :append-inner-icon="
                     visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                   "
-                  @keyup.enter="login()"
                   @click:append-inner="visiblePassword = !visiblePassword"
                 />
                 <v-btn

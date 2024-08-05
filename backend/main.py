@@ -63,6 +63,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,
+        cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
     )

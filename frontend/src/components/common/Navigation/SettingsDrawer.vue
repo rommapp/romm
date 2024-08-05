@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { UserSchema } from "@/__generated__";
 import identityApi from "@/services/api/identity";
+import { refetchCSRFToken } from "@/services/api/index";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
@@ -22,13 +23,17 @@ const { smAndDown } = useDisplay();
 
 // Functions
 async function logout() {
-  identityApi.logout().then(({ data }) => {
+  identityApi.logout().then(async ({ data }) => {
+    // Refetch CSRF token
+    await refetchCSRFToken();
+
     emitter?.emit("snackbarShow", {
       msg: data.msg,
       icon: "mdi-check-bold",
       color: "green",
     });
   });
+  
   await router.push({ name: "login" });
   auth.setUser(null);
 }
