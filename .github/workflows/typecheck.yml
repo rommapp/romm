@@ -1,0 +1,36 @@
+name: Run Typescript Typecheck
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+  push:
+    branches:
+      - "master"
+    paths:
+      - "frontend/**"
+
+permissions: read-all
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Run typecheck
+        run: npm run typecheck
+        working-directory: frontend
