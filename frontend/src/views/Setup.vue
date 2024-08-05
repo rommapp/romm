@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import router from "@/plugins/router";
+import { refetchCSRFToken } from "@/services/api/index";
 import userApi from "@/services/api/user";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { useRoute } from "vue-router";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -12,7 +12,6 @@ import { useDisplay } from "vuetify";
 const { xs, smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
-const route = useRoute()
 const visiblePassword = ref(false);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -53,8 +52,8 @@ const isLastStep = computed(() => step.value == 2);
 async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)
-    .then(() => {
-      router.go(0); // Needed to get the csrftoken properly after creating default admin user
+    .then(async () => {
+      await refetchCSRFToken();
       router.push({ name: "login" });
     })
     .catch(({ response, message }) => {
