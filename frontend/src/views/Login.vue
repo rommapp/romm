@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
+import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import Cookies from "js-cookie";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -23,21 +25,50 @@ async function login() {
       const next = (router.currentRoute.value.query?.next || "/").toString();
       router.push(next);
     })
-    .catch(({ response, message }) => {
+    .catch(async ({ response, message }) => {
       const errorMessage =
         response.data?.detail ||
         response.data ||
         message ||
         response.statusText;
 
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to login: ${errorMessage}`,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-      console.error(
-        `[${response.status} ${response.statusText}] ${errorMessage}`
-      );
+      if (errorMessage.includes("CSRF token")) {
+        // Regenerate and retry login if CSRF token expired
+        await api.get("/heartbeat");
+        await identityApi
+          .login(username.value, password.value)
+          .then(() => {
+            const next = (
+              router.currentRoute.value.query?.next || "/"
+            ).toString();
+            router.push(next);
+          })
+          .catch(async ({ response, message }) => {
+            const errorMessage =
+              response.data?.detail ||
+              response.data ||
+              message ||
+              response.statusText;
+
+            emitter?.emit("snackbarShow", {
+              msg: `Unable to login: ${errorMessage}`,
+              icon: "mdi-close-circle",
+              color: "red",
+            });
+            console.error(
+              `[${response.status} ${response.statusText}] ${errorMessage}`
+            );
+          });
+      } else {
+        emitter?.emit("snackbarShow", {
+          msg: `Unable to login: ${errorMessage}`,
+          icon: "mdi-close-circle",
+          color: "red",
+        });
+        console.error(
+          `[${response.status} ${response.statusText}] ${errorMessage}`
+        );
+      }
     })
     .finally(() => {
       logging.value = false;
