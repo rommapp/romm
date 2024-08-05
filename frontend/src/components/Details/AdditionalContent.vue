@@ -24,7 +24,7 @@ const combined = ref([
         :href="`https://www.igdb.com/games/${expansion.slug}`"
         target="_blank"
       >
-        <related-card :rom="expansion" />
+        <related-card :game="expansion" />
       </a>
     </v-col>
   </v-row>
