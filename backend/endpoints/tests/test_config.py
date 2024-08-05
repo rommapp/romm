@@ -10,7 +10,7 @@ def client():
 
 
 def test_config(client):
-    response = client.get("/config")
+    response = client.get("/api/config")
     assert response.status_code == 200
 
     config = response.json()
