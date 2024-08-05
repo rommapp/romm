@@ -3,7 +3,6 @@ import identityApi from "@/services/api/identity";
 import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import Cookies from "js-cookie";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -90,6 +89,7 @@ async function login() {
               <v-form @submit.prevent>
                 <v-text-field
                   v-model="username"
+                  autocomplete="on"
                   required
                   prepend-inner-icon="mdi-account"
                   type="text"
@@ -99,6 +99,7 @@ async function login() {
                 />
                 <v-text-field
                   v-model="password"
+                  autocomplete="on"
                   required
                   prepend-inner-icon="mdi-lock"
                   :type="visiblePassword ? 'text' : 'password'"
