@@ -10,11 +10,11 @@ def client():
 
 
 def test_get_platforms(client, access_token, platform):
-    response = client.get("/platforms")
+    response = client.get("/api/platforms")
     assert response.status_code == 403
 
     response = client.get(
-        "/platforms", headers={"Authorization": f"Bearer {access_token}"}
+        "/api/platforms", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 200
 
