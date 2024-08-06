@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.get("/heartbeat")
 def heartbeat() -> HeartbeatResponse:
-    """Endpoint to set the CSFR token in cache and return all the basic RomM config
+    """Endpoint to set the CSRF token in cache and return all the basic RomM config
 
     Returns:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
