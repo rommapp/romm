@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
+import { refetchCSRFToken } from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -17,11 +18,15 @@ const logging = ref(false);
 
 async function login() {
   logging.value = true;
+
   await identityApi
     .login(username.value, password.value)
-    .then(() => {
-      const next = (router.currentRoute.value.query?.next || "/").toString();
-      router.push(next);
+    .then(async () => {
+      // Refetch CSRF token
+      await refetchCSRFToken();
+
+      const params = new URLSearchParams(window.location.search);
+      router.push(params.get("next") ?? "/");
     })
     .catch(({ response, message }) => {
       const errorMessage =
@@ -35,6 +40,7 @@ async function login() {
         icon: "mdi-close-circle",
         color: "red",
       });
+
       console.error(
         `[${response.status} ${response.statusText}] ${errorMessage}`
       );
@@ -59,15 +65,16 @@ async function login() {
               <v-form @submit.prevent>
                 <v-text-field
                   v-model="username"
+                  autocomplete="on"
                   required
                   prepend-inner-icon="mdi-account"
                   type="text"
                   label="Username"
                   variant="underlined"
-                  @keyup.enter="login()"
                 />
                 <v-text-field
                   v-model="password"
+                  autocomplete="on"
                   required
                   prepend-inner-icon="mdi-lock"
                   :type="visiblePassword ? 'text' : 'password'"
@@ -76,7 +83,6 @@ async function login() {
                   :append-inner-icon="
                     visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                   "
-                  @keyup.enter="login()"
                   @click:append-inner="visiblePassword = !visiblePassword"
                 />
                 <v-btn
