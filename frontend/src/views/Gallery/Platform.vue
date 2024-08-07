@@ -7,7 +7,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -83,28 +83,28 @@ async function fetchRoms() {
 }
 
 function setFilters() {
-  galleryFilterStore.setFilterGenre([
+  galleryFilterStore.setFilterGenres([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
         .sort()
     ),
   ]);
-  galleryFilterStore.setFilterFranchise([
+  galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
         .sort()
     ),
   ]);
-  galleryFilterStore.setFilterCompany([
+  galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
         .sort()
     ),
   ]);
-  galleryFilterStore.setFilterCollection([
+  galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
@@ -196,6 +196,13 @@ function resetGallery() {
   itemsShown.value = itemsPerBatch.value;
 }
 
+const filterToSetFilter: Record<FilterType, Function> = {
+  genres: galleryFilterStore.setSelectedFilterGenre,
+  franchises: galleryFilterStore.setSelectedFilterFranchise,
+  collections: galleryFilterStore.setSelectedFilterCollection,
+  companies: galleryFilterStore.setSelectedFilterCompany,
+};
+
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
   const routePlatform = platforms.get(routePlatformId);
@@ -219,6 +226,16 @@ onMounted(async () => {
     resetGallery();
     await fetchRoms();
     setFilters();
+
+    // Check if there are query params to set filters
+    if (route.query.filter && route.query.value) {
+      const filter = route.query.filter as FilterType;
+      const value = route.query.value as string;
+      filterToSetFilter[filter](value);
+      onFilterChange(); // Update the UI
+      router.replace({ query: {} }); // Clear query params
+    }
+
     window.addEventListener("wheel", onScroll);
     window.addEventListener("scroll", onScroll);
   }

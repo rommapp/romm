@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
+import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -69,6 +70,7 @@ function resetFilters() {
       <v-list-item>
         <filter-unmatched-btn />
         <filter-favourites-btn class="mt-2" />
+        <filter-duplicates-btn class="mt-2" />
       </v-list-item>
       <v-list-item v-for="filter in filters">
         <v-autocomplete

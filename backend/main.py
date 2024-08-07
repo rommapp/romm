@@ -1,13 +1,17 @@
 import re
-import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import alembic.config
 import endpoints.sockets.scan  # noqa
-import httpx
 import uvicorn
-from config import DEV_HOST, DEV_PORT, DISABLE_CSRF_PROTECTION, ROMM_AUTH_SECRET_KEY
+from config import (
+    DEV_HOST,
+    DEV_PORT,
+    DISABLE_CSRF_PROTECTION,
+    IS_PYTEST_RUN,
+    ROMM_AUTH_SECRET_KEY,
+)
 from endpoints import (
     auth,
     collections,
@@ -35,12 +39,13 @@ from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
+from utils.context import ctx_httpx_client, initialize_context, set_context_middleware
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    async with httpx.AsyncClient() as client:
-        app.requests_client = client  # type: ignore[attr-defined]
+    async with initialize_context():
+        app.state.httpx_client = ctx_httpx_client.get()
         yield
 
 
@@ -54,10 +59,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if "pytest" not in sys.modules and not DISABLE_CSRF_PROTECTION:
+if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,
+        cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
     )
@@ -81,22 +87,25 @@ app.add_middleware(
     jwt_alg=ALGORITHM,
 )
 
-app.include_router(heartbeat.router)
-app.include_router(auth.router)
-app.include_router(user.router)
-app.include_router(platform.router)
-app.include_router(rom.router)
-app.include_router(search.router)
-app.include_router(saves.router)
-app.include_router(states.router)
-app.include_router(tasks.router)
-app.include_router(feeds.router)
-app.include_router(config.router)
-app.include_router(stats.router)
-app.include_router(raw.router)
-app.include_router(screenshots.router)
-app.include_router(firmware.router)
-app.include_router(collections.router)
+# Sets context vars in request-response cycle
+app.middleware("http")(set_context_middleware)
+
+app.include_router(heartbeat.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(user.router, prefix="/api")
+app.include_router(platform.router, prefix="/api")
+app.include_router(rom.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
+app.include_router(saves.router, prefix="/api")
+app.include_router(states.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
+app.include_router(feeds.router, prefix="/api")
+app.include_router(config.router, prefix="/api")
+app.include_router(stats.router, prefix="/api")
+app.include_router(raw.router, prefix="/api")
+app.include_router(screenshots.router, prefix="/api")
+app.include_router(firmware.router, prefix="/api")
+app.include_router(collections.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 

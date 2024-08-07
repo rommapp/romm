@@ -1,25 +1,21 @@
-import glob
 import shutil
-from pathlib import Path
 
-import requests
+import httpx
+from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
 from fastapi import HTTPException, status
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from PIL import Image
-from urllib3.exceptions import ProtocolError
+from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
 
 
 class FSResourcesHandler(FSHandler):
-    def __init__(self) -> None:
-        pass
-
     @staticmethod
-    def cover_exists(entity: Rom | Collection, size: CoverSize) -> bool:
+    async def cover_exists(entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
 
         Args:
@@ -29,10 +25,12 @@ class FSResourcesHandler(FSHandler):
         Returns
             True if cover exists in filesystem else False
         """
-        matched_files = glob.glob(
-            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.*"
-        )
-        return len(matched_files) > 0
+        async for _ in Path(
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
+        ).glob(f"{size.value}.*"):
+            # At least one file found.
+            return True
+        return False
 
     @staticmethod
     def resize_cover_to_small(cover_path: str) -> None:
@@ -48,7 +46,7 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(cover_path)
 
-    def _store_cover(
+    async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
         """Store roms resources in filesystem
@@ -62,27 +60,27 @@ class FSResourcesHandler(FSHandler):
         cover_file = f"{size.value}.png"
         cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
 
+        httpx_client = ctx_httpx_client.get()
         try:
-            res = requests.get(
-                url_cover,
-                stream=True,
-                timeout=120,
-            )
-        except requests.exceptions.ConnectionError as exc:
+            async with httpx_client.stream("GET", url_cover, timeout=120) as response:
+                if response.status_code == 200:
+                    await Path(cover_path).mkdir(parents=True, exist_ok=True)
+                    async with await open_file(f"{cover_path}/{cover_file}", "wb") as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.NetworkError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
             ) from exc
+        except httpx.ProtocolError:
+            log.warning(f"Failure writing cover {url_cover} to file (ProtocolError)")
 
-        if res.status_code == 200:
-            Path(cover_path).mkdir(parents=True, exist_ok=True)
-            with open(f"{cover_path}/{cover_file}", "wb") as f:
-                shutil.copyfileobj(res.raw, f)
-            if size == CoverSize.SMALL:
-                self.resize_cover_to_small(f"{cover_path}/{cover_file}")
+        if size == CoverSize.SMALL:
+            self.resize_cover_to_small(f"{cover_path}/{cover_file}")
 
     @staticmethod
-    def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
+    async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -90,33 +88,35 @@ class FSResourcesHandler(FSHandler):
             file_name: name of rom file
             size: size of the cover
         """
-        file_path = (
-            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.*"
-        )
-        matched_files = glob.glob(file_path, recursive=True)
-        return (
-            matched_files[0].replace(RESOURCES_BASE_PATH, "") if matched_files else ""
-        )
+        async for matched_file in Path(
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
+        ).glob(f"{size.value}.*"):
+            return str(matched_file.relative_to(RESOURCES_BASE_PATH))
+        return ""
 
-    def get_cover(
+    async def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
     ) -> tuple[str, str]:
         if not entity:
             return "", ""
 
-        if (overwrite or not self.cover_exists(entity, CoverSize.SMALL)) and url_cover:
-            self._store_cover(entity, url_cover, CoverSize.SMALL)
+        small_cover_exists = await self.cover_exists(entity, CoverSize.SMALL)
+        if url_cover and (overwrite or not small_cover_exists):
+            await self._store_cover(entity, url_cover, CoverSize.SMALL)
+            small_cover_exists = await self.cover_exists(entity, CoverSize.SMALL)
         path_cover_s = (
-            self._get_cover_path(entity, CoverSize.SMALL)
-            if self.cover_exists(entity, CoverSize.SMALL)
+            (await self._get_cover_path(entity, CoverSize.SMALL))
+            if small_cover_exists
             else ""
         )
 
-        if (overwrite or not self.cover_exists(entity, CoverSize.BIG)) and url_cover:
-            self._store_cover(entity, url_cover, CoverSize.BIG)
+        big_cover_exists = await self.cover_exists(entity, CoverSize.BIG)
+        if url_cover and (overwrite or not big_cover_exists):
+            await self._store_cover(entity, url_cover, CoverSize.BIG)
+            big_cover_exists = await self.cover_exists(entity, CoverSize.BIG)
         path_cover_l = (
-            self._get_cover_path(entity, CoverSize.BIG)
-            if self.cover_exists(entity, CoverSize.BIG)
+            (await self._get_cover_path(entity, CoverSize.BIG))
+            if big_cover_exists
             else ""
         )
 
@@ -127,8 +127,8 @@ class FSResourcesHandler(FSHandler):
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
+        cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
         try:
-            cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
@@ -138,23 +138,20 @@ class FSResourcesHandler(FSHandler):
         return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
-    def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
+    async def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
         if not entity:
             return "", "", ""
 
-        path_cover_l = (
-            f"{entity.fs_resources_path}/cover/{CoverSize.BIG.value}.{file_ext}"
-        )
-        path_cover_s = (
-            f"{entity.fs_resources_path}/cover/{CoverSize.SMALL.value}.{file_ext}"
-        )
+        path_cover = f"{entity.fs_resources_path}/cover"
+        path_cover_l = f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
+        path_cover_s = f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
         artwork_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
-        Path(artwork_path).mkdir(parents=True, exist_ok=True)
+        await Path(artwork_path).mkdir(parents=True, exist_ok=True)
 
         return path_cover_l, path_cover_s, artwork_path
 
     @staticmethod
-    def _store_screenshot(rom: Rom, url: str, idx: int):
+    async def _store_screenshot(rom: Rom, url: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
@@ -165,23 +162,23 @@ class FSResourcesHandler(FSHandler):
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/screenshots"
 
+        httpx_client = ctx_httpx_client.get()
         try:
-            res = requests.get(url, stream=True, timeout=120)
-        except requests.exceptions.ConnectionError as exc:
+            async with httpx_client.stream("GET", url, timeout=120) as response:
+                if response.status_code == 200:
+                    await Path(screenshot_path).mkdir(parents=True, exist_ok=True)
+                    async with await open_file(
+                        f"{screenshot_path}/{screenshot_file}", "wb"
+                    ) as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.NetworkError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
             ) from exc
-
-        if res.status_code == 200:
-            Path(screenshot_path).mkdir(parents=True, exist_ok=True)
-            with open(f"{screenshot_path}/{screenshot_file}", "wb") as f:
-                try:
-                    shutil.copyfileobj(res.raw, f)
-                except ProtocolError:
-                    log.warning(
-                        f"Failure writing screenshot {url} to file (ProtocolError)"
-                    )
+        except httpx.ProtocolError:
+            log.warning(f"Failure writing screenshot {url} to file (ProtocolError)")
 
     @staticmethod
     def _get_screenshot_path(rom: Rom, idx: str):
@@ -194,13 +191,15 @@ class FSResourcesHandler(FSHandler):
         """
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
-    def get_rom_screenshots(self, rom: Rom | None, url_screenshots: list) -> list[str]:
+    async def get_rom_screenshots(
+        self, rom: Rom | None, url_screenshots: list
+    ) -> list[str]:
         if not rom:
             return []
 
         path_screenshots: list[str] = []
         for idx, url in enumerate(url_screenshots):
-            self._store_screenshot(rom, url, idx)
+            await self._store_screenshot(rom, url, idx)
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots

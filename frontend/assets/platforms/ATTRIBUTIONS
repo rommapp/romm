@@ -4,10 +4,16 @@ The following files found in this folder are sourced from the Libretro/Retroarch
 The original license can be found at https://git.libretro.com/libretro-assets/retroarch-assets/-/blob/master/COPYING
 For more information about the Creative Commons Attribution 4.0 International License, visit https://creativecommons.org/licenses/by/4.0/
 
+appleii.ico
 arcadia-2001.ico
 astrocade.ico
 atari-st.ico
+atari8bit.ico
+atomiswave.ico
+bbcmicro.ico
 beena.ico
+c-plus-4.ico
+chihiro.ico
 colecovision.ico
 creativision.ico
 e-reader.ico
@@ -27,11 +33,13 @@ sharp-x68000.ico
 studio-II.ico
 study-box.ico
 turbografx-16-slash-pc-engine-cd.ico
+vic-20.ico
 videopac-plus.ico
 vsmile.ico
+wasm-4.ico
 watara-slash-quickshot-supervision.ico
 zod.ico
 zxs.ico
 
 The RomM Project
-March 26, 2024
+July 28, 2024

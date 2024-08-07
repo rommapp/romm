@@ -1,14 +1,21 @@
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
+from handler.filesystem.roms_handler import FSRomsHandler
+from handler.metadata.igdb_handler import IGDBBaseHandler, IGDBRom
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_get_rom(access_token, rom):
+def test_get_rom(client, access_token, rom):
     response = client.get(
-        f"/roms/{rom.id}",
+        f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
@@ -17,9 +24,9 @@ def test_get_rom(access_token, rom):
     assert body["id"] == rom.id
 
 
-def test_get_all_roms(access_token, rom, platform):
+def test_get_all_roms(client, access_token, rom, platform):
     response = client.get(
-        "/roms",
+        "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},
         params={"platform_id": platform.id},
     )
@@ -30,11 +37,11 @@ def test_get_all_roms(access_token, rom, platform):
     assert body[0]["id"] == rom.id
 
 
-@patch("endpoints.rom.fs_rom_handler.rename_file")
-@patch("endpoints.rom.meta_igdb_handler.get_rom_by_id")
-def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
+@patch.object(FSRomsHandler, "rename_file")
+@patch.object(IGDBBaseHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, rom):
     response = client.put(
-        f"/roms/{rom.id}",
+        f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         params={"rename_as_source": True},
         data={
@@ -67,9 +74,9 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, access_token, rom):
     assert get_rom_by_id_mock.called
 
 
-def test_delete_roms(access_token, rom):
+def test_delete_roms(client, access_token, rom):
     response = client.post(
-        "/roms/delete",
+        "/api/roms/delete",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": []},
     )
