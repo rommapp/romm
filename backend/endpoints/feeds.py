@@ -81,7 +81,7 @@ def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSch
     return {
         "files": [
             {
-                "url": f"{ROMM_HOST}/api/roms/{file.id}/content/{file.file_name}",
+                "url": f"../../roms/{file.id}/content/{file.file_name}",
                 "size": file.file_size_bytes,
             }
             for file in files
