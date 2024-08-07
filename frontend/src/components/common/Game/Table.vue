@@ -136,11 +136,11 @@ onMounted(() => {
           >
           <template #append>
             <v-chip
-              v-if="item.siblings && item.siblings.length > 0 && showSiblings"
+              v-if="item.sibling_roms && item.sibling_roms.length > 0 && showSiblings"
               class="translucent-dark ml-2"
               size="x-small"
             >
-              <span class="text-caption">+{{ item.siblings.length }}</span>
+              <span class="text-caption">+{{ item.sibling_roms.length }}</span>
             </v-chip>
           </template>
         </v-list-item>

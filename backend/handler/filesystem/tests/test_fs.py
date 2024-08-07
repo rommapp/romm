@@ -1,14 +1,12 @@
 import os
 from pathlib import Path
 
-import pytest
 from handler.filesystem import fs_platform_handler, fs_resource_handler, fs_rom_handler
 from models.platform import Platform
 
 
-@pytest.mark.vcr
-def test_get_rom_cover():
-    path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+async def test_get_rom_cover():
+    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         overwrite=False, entity=None, url_cover=""
     )
 

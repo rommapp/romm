@@ -51,8 +51,6 @@ MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
 ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # AUTH
-ROMM_AUTH_USERNAME: Final = os.environ.get("ROMM_AUTH_USERNAME", "admin")
-ROMM_AUTH_PASSWORD: Final = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
@@ -85,3 +83,6 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+
+# TESTING
+IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

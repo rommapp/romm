@@ -24,7 +24,7 @@ class ScanType(Enum):
     COMPLETE = "complete"
 
 
-def _get_main_platform_igdb_id(platform: Platform):
+async def _get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
     if platform.fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
@@ -33,9 +33,9 @@ def _get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform_igdb_id = meta_igdb_handler.get_platform(main_platform_slug)[
-                "igdb_id"
-            ]
+            main_platform_igdb_id = (
+                await meta_igdb_handler.get_platform(main_platform_slug)
+            )["igdb_id"]
             if not main_platform_igdb_id:
                 main_platform_igdb_id = platform.igdb_id
     else:
@@ -43,7 +43,7 @@ def _get_main_platform_igdb_id(platform: Platform):
     return main_platform_igdb_id
 
 
-def scan_platform(
+async def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
     metadata_sources: list[str] | None = None,
@@ -86,7 +86,7 @@ def scan_platform(
         platform_attrs["slug"] = fs_slug
 
     igdb_platform = (
-        meta_igdb_handler.get_platform(platform_attrs["slug"])
+        (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
         if "igdb" in metadata_sources
         else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
     )
@@ -246,7 +246,7 @@ async def scan_rom(
             or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
         )
     ):
-        main_platform_igdb_id = _get_main_platform_igdb_id(platform)
+        main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
         igdb_handler_rom = await meta_igdb_handler.get_rom(
             rom_attrs["file_name"], main_platform_igdb_id
         )
@@ -262,7 +262,7 @@ async def scan_rom(
         )
     ):
         moby_handler_rom = await meta_moby_handler.get_rom(
-            rom_attrs["file_name"], platform.moby_id
+            rom_attrs["file_name"], platform_moby_id=platform.moby_id
         )
 
     # Reversed to prioritize IGDB

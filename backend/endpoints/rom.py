@@ -1,11 +1,11 @@
-import os
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from datetime import datetime
 from shutil import rmtree
 from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
+from anyio import Path, open_file
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
@@ -22,20 +22,21 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
-from stream_zip import ZIP_AUTO, stream_zip  # type: ignore[import]
+from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, AsyncMemberFile, async_stream_zip
+from utils.router import APIRouter
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
-def add_roms(
+async def add_roms(
     request: Request,
     platform_id: int,
     roms: list[UploadFile] = File(...),  # noqa: B008
@@ -77,12 +78,12 @@ def add_roms(
         log.info(f" - Uploading {rom.filename}")
         file_location = f"{roms_path}/{rom.filename}"
 
-        with open(file_location, "wb+") as f:
+        async with await open_file(file_location, "wb+") as f:
             while True:
                 chunk = rom.file.read(1024)
                 if not chunk:
                     break
-                f.write(chunk)
+                await f.write(chunk)
 
         uploaded_roms.append(rom.filename)
 
@@ -184,7 +185,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
 
 
 @protected_route(router.get, "/roms/{id}/content/{file_name}", ["roms.read"])
-def get_rom_content(
+async def get_rom_content(
     request: Request,
     id: int,
     file_name: str,
@@ -221,39 +222,41 @@ def get_rom_content(
         )
 
     # Builds a generator of tuples for each member file
-    def local_files():
-        def contents(filename: str) -> Iterator[bytes]:
+    async def local_files() -> AsyncIterator[AsyncMemberFile]:
+        async def contents(filename: str) -> AsyncIterator[bytes]:
             try:
-                with open(f"{rom_path}/{filename}", "rb") as f:
-                    while chunk := f.read(65536):
+                async with await open_file(f"{rom_path}/{filename}", "rb") as f:
+                    while chunk := await f.read(65536):
                         yield chunk
             except FileNotFoundError:
                 log.error(f"File {rom_path}/{filename} not found!")
                 raise
 
-        m3u_file = [str.encode(f"{file}\n") for file in files_to_download]
+        async def m3u_file() -> AsyncIterator[bytes]:
+            for file in files_to_download:
+                yield str.encode(f"{file}\n")
+
         now = datetime.now()
 
-        return [
-            (
+        for f in files_to_download:
+            file_size = (await Path(f"{rom_path}/{f}").stat()).st_size
+            yield (
                 f,
                 now,
                 S_IFREG | 0o600,
-                ZIP_AUTO(os.path.getsize(f"{rom_path}/{f}"), level=0),
+                ZIP_AUTO(file_size, level=0),
                 contents(f),
             )
-            for f in files_to_download
-        ] + [
-            (
-                f"{file_name}.m3u",
-                now,
-                S_IFREG | 0o600,
-                ZIP_AUTO(sum([len(f) for f in m3u_file]), level=0),
-                m3u_file,
-            )
-        ]
 
-    zipped_chunks = stream_zip(local_files())
+        yield (
+            f"{file_name}.m3u",
+            now,
+            S_IFREG | 0o600,
+            NO_COMPRESSION_32,
+            m3u_file(),
+        )
+
+    zipped_chunks = async_stream_zip(local_files())
 
     # Streams the zip file to the client
     return CustomStreamingResponse(
@@ -305,9 +308,9 @@ async def update_rom(
         cleaned_data.get("moby_id", "")
         and int(cleaned_data.get("moby_id", "")) != rom.moby_id
     ):
-        moby_rom = meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+        moby_rom = await meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
-        path_screenshots = fs_resource_handler.get_rom_screenshots(
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
@@ -317,9 +320,9 @@ async def update_rom(
         cleaned_data.get("igdb_id", "")
         and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
     ):
-        igdb_rom = meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
-        path_screenshots = fs_resource_handler.get_rom_screenshots(
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
@@ -375,7 +378,7 @@ async def update_rom(
                 path_cover_l,
                 path_cover_s,
                 artwork_path,
-            ) = fs_resource_handler.build_artwork_path(rom, file_ext)
+            ) = await fs_resource_handler.build_artwork_path(rom, file_ext)
 
             cleaned_data.update(
                 {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
@@ -383,22 +386,20 @@ async def update_rom(
 
             artwork_file = artwork.file.read()
             file_location_s = f"{artwork_path}/small.{file_ext}"
-            with open(file_location_s, "wb+") as artwork_s:
-                artwork_s.write(artwork_file)
+            async with await open_file(file_location_s, "wb+") as artwork_s:
+                await artwork_s.write(artwork_file)
                 fs_resource_handler.resize_cover_to_small(file_location_s)
 
             file_location_l = f"{artwork_path}/big.{file_ext}"
-            with open(file_location_l, "wb+") as artwork_l:
-                artwork_l.write(artwork_file)
+            async with await open_file(file_location_l, "wb+") as artwork_l:
+                await artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
-            if data.get(
-                "url_cover", ""
-            ) != rom.url_cover or not fs_resource_handler.cover_exists(
-                rom, CoverSize.BIG
+            if data.get("url_cover", "") != rom.url_cover or not (
+                await fs_resource_handler.cover_exists(rom, CoverSize.BIG)
             ):
                 cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
-                path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=rom,
                     url_cover=data.get("url_cover", ""),

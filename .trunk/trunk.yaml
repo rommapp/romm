@@ -41,7 +41,7 @@ lint:
   ignore:
     - linters: [ALL]
       paths:
-        - src/__generated__/**
+        - frontend/src/__generated__/**
         - docker/Dockerfile
   definitions:
     - name: eslint

@@ -6,8 +6,9 @@ from exceptions.config_exceptions import (
     ConfigNotReadableException,
     ConfigNotWritableException,
 )
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from logger.logger import log
+from utils.router import APIRouter
 
 router = APIRouter()
 

@@ -4,30 +4,35 @@ import { useTheme } from "vuetify";
 
 // Props
 const props = defineProps<{
-  rom: IGDBRelatedGame;
+  game: IGDBRelatedGame;
 }>();
-const emit = defineEmits(["click"]);
-const handleClick = (event: MouseEvent) => {
-  emit("click", { event: event, rom: props.rom });
-};
 const theme = useTheme();
+const handleClick = () => {
+  if (props.game.slug) {
+    window.open(
+      `https://www.igdb.com/games/${props.game.slug}`,
+      "_blank",
+      "noopener noreferrer"
+    );
+  }
+};
 </script>
 
 <template>
-  <v-card class="ma-1">
+  <v-card class="ma-1" v-on:click="handleClick">
     <v-tooltip
       activator="parent"
       location="top"
       class="tooltip"
       transition="fade-transition"
       open-delay="1000"
-      >{{ rom.name }}</v-tooltip
+      >{{ game.name }}</v-tooltip
     >
     <v-img
       v-bind="props"
       :src="
-        `${rom.cover_url}`
-          ? `https:${rom.cover_url.replace('t_thumb', 't_cover_big')}`
+        `${game.cover_url}`
+          ? `https:${game.cover_url.replace('t_thumb', 't_cover_big')}`
           : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
       "
       :aspect-ratio="2 / 3"
@@ -39,7 +44,7 @@ const theme = useTheme();
         label
       >
         <span>
-          {{ rom.type }}
+          {{ game.type }}
         </span>
       </v-chip></v-img
     >

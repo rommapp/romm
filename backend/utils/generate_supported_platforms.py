@@ -50,6 +50,7 @@ IGDB_SLUG_TO_MOBY_SLUG = {
     "psvita": "ps-vita",
     "sega32x": "sega-32x",
     "segacd": "sega-cd",
+    "g-and-w": "dedicated-handheld",
     "gamegear": "game-gear",
     "genesis-slash-megadrive": "genesis",
     "saturn": "sega-saturn",

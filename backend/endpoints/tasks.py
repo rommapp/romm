@@ -1,7 +1,8 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from fastapi import APIRouter, Request
+from fastapi import Request
 from tasks.update_switch_titledb import update_switch_titledb_task
+from utils.router import APIRouter
 
 router = APIRouter()
 
