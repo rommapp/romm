@@ -1,6 +1,6 @@
 from endpoints.responses.stats import StatsReturn
-from fastapi import APIRouter
 from handler.database import db_stats_handler
+from utils.router import APIRouter
 
 router = APIRouter()
 

@@ -6,9 +6,10 @@ from endpoints.responses.feeds import (
     TinfoilFeedSchema,
     WebrcadeFeedSchema,
 )
-from fastapi import APIRouter, Request
+from fastapi import Request
 from handler.database import db_platform_handler, db_rom_handler
 from models.rom import Rom
+from utils.router import APIRouter
 
 router = APIRouter()
 
