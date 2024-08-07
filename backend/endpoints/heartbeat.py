@@ -7,13 +7,13 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
-from fastapi import APIRouter
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from utils import get_version
+from utils.router import APIRouter
 
 router = APIRouter()
 

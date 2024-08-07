@@ -11,13 +11,14 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import Request, UploadFile
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
 from logger.logger import log
 from models.collection import Collection
 from sqlalchemy.inspection import inspect
+from utils.router import APIRouter
 
 router = APIRouter()
 

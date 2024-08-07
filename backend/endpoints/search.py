@@ -1,7 +1,7 @@
 import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from handler.database import db_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
@@ -9,6 +9,7 @@ from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
+from utils.router import APIRouter
 
 router = APIRouter()
 
