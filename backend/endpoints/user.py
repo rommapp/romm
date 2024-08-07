@@ -7,12 +7,13 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from handler.auth import auth_handler
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from logger.logger import log
 from models.user import Role, User
+from utils.router import APIRouter
 
 router = APIRouter()
 
