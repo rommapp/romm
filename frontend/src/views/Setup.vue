@@ -85,6 +85,7 @@ async function finishWizard() {
         <template v-slot:default="{ prev, next }">
           <v-stepper-header>
             <v-stepper-item
+              class="text-white text-shadow"
               title="Create an admin user"
               :value="1"
             ></v-stepper-item>
@@ -92,6 +93,7 @@ async function finishWizard() {
             <v-divider></v-divider>
 
             <v-stepper-item
+              class="text-white text-shadow"
               title="Check metadata sources"
               :value="2"
             ></v-stepper-item>
@@ -154,6 +156,7 @@ async function finishWizard() {
                     <v-col id="sources">
                       <v-list-item
                         v-for="source in metadataOptions"
+                        class="text-white text-shadow"
                         :title="source.name"
                         :subtitle="
                           source.disabled ? 'API key missing or invalid' : ''
@@ -186,12 +189,12 @@ async function finishWizard() {
 
           <v-stepper-actions :disabled="!filledAdminUser">
             <template #prev>
-              <v-btn :ripple="false" :disabled="isFirstStep" @click="prev">{{
+              <v-btn class="text-white text-shadow" :ripple="false" :disabled="isFirstStep" @click="prev">{{
                 isFirstStep ? "" : "previous"
               }}</v-btn>
             </template>
             <template #next>
-              <v-btn @click="!isLastStep ? next() : finishWizard()">{{
+              <v-btn class="text-white text-shadow" @click="!isLastStep ? next() : finishWizard()">{{
                 !isLastStep ? "Next" : "Finish"
               }}</v-btn>
             </template>
