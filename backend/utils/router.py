@@ -29,7 +29,9 @@ class APIRouter(FastAPIRouter):
         )
 
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
+            # Path without trailing slash is registered first, for router's `url_path_for` to prefer it.
+            result = add_path(func)
             add_alternate_path(func)
-            return add_path(func)
+            return result
 
         return decorator
