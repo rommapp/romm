@@ -88,3 +88,6 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))
+
+#TINFOIL
+TINFOIL_WELCOME_MESSAGE: Final = os.environ.get("TINFOIL_WELCOME_MESSAGE", "RomM Switch Library")
