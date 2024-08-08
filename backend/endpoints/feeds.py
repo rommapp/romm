@@ -1,4 +1,4 @@
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, ROMM_HOST
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, ROMM_HOST, TINFOIL_WELCOME_MESSAGE
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
@@ -82,11 +82,11 @@ def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSch
     return {
         "files": [
             {
-                "url": f"{ROMM_HOST}/api/roms/{file.id}/content/{file.file_name}",
+                "url": f"../../roms/{file.id}/content/{file.file_name}",
                 "size": file.file_size_bytes,
             }
             for file in files
         ],
         "directories": [],
-        "success": "RomM Switch Library",
+        "success": TINFOIL_WELCOME_MESSAGE,
     }
