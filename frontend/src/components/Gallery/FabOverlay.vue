@@ -137,111 +137,128 @@ function onDownload() {
 </script>
 
 <template>
-  <v-scroll-y-reverse-transition>
-    <v-btn
-      icon
-      v-show="!scrolledToTop && currentView != 2"
-      class="border-romm-accent-1 position-absolute bottom-0 right-0"
-      color="primary"
-      elevation="8"
-      size="large"
-      @click="scrollToTop()"
-      ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
-    >
-  </v-scroll-y-reverse-transition>
+  <div class="text-right pa-2 sticky-bottom">
+    <v-scroll-y-reverse-transition>
+      <v-btn
+        icon
+        v-show="!scrolledToTop && currentView != 2"
+        class="border-romm-accent-1"
+        color="primary"
+        elevation="8"
+        size="large"
+        @click="scrollToTop()"
+        ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
+      >
+    </v-scroll-y-reverse-transition>
 
-  <v-speed-dial v-model="fabMenu" transition="slide-y-transition">
-    <template #activator="{ props: menuProps }">
-      <v-fab-transition>
-        <v-btn
-          v-show="selectedRoms.length > 0"
-          class="ma-4 position-absolute bottom-0 right-0"
-          color="romm-accent-1"
-          v-bind="menuProps"
-          elevation="8"
-          icon
-          size="large"
-          >{{ selectedRoms.length }}</v-btn
-        >
-      </v-fab-transition>
-    </template>
+    <v-speed-dial v-model="fabMenu" transition="slide-y-transition">
+      <template #activator="{ props: menuProps }">
+        <v-fab-transition>
+          <v-btn
+            v-show="selectedRoms.length > 0"
+            class="ml-2"
+            color="romm-accent-1"
+            v-bind="menuProps"
+            elevation="8"
+            icon
+            size="large"
+            >{{ selectedRoms.length }}</v-btn
+          >
+        </v-fab-transition>
+      </template>
 
-    <v-btn
-      key="1"
-      v-if="auth.scopes.includes('roms.write')"
-      color="terciary"
-      elevation="8"
-      icon
-      size="default"
-      @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
-    >
-      <v-icon color="romm-red"> mdi-delete </v-icon>
-    </v-btn>
-    <v-btn
-      key="2"
-      v-if="auth.scopes.includes('roms.write')"
-      color="terciary"
-      elevation="8"
-      icon="mdi-magnify-scan"
-      size="default"
-      @click="onScan"
-    />
-    <v-btn
-      key="3"
-      color="terciary"
-      elevation="8"
-      icon="mdi-download"
-      size="default"
-      @click="onDownload"
-    />
-    <v-btn
-      key="4"
-      color="terciary"
-      elevation="8"
-      :icon="
-        $route.name == 'platform' ? 'mdi-bookmark-plus' : 'mdi-bookmark-remove'
-      "
-      size="default"
-      @click="
-        $route.name == 'platform'
-          ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
-          : emitter?.emit(
-              'showRemoveFromCollectionDialog',
-              romsStore.selectedRoms
-            )
-      "
-    />
-    <v-btn
-      key="5"
-      color="terciary"
-      elevation="8"
-      icon="mdi-star-outline"
-      size="default"
-      @click="removeFromFavourites"
-    />
-    <v-btn
-      key="6"
-      color="terciary"
-      elevation="8"
-      icon="mdi-star"
-      size="default"
-      @click="addToFavourites"
-    />
-    <v-btn
-      key="7"
-      color="terciary"
-      elevation="8"
-      icon="mdi-select-all"
-      size="default"
-      @click.stop="selectAllRoms"
-    />
-    <v-btn
-      key="8"
-      color="terciary"
-      elevation="8"
-      icon="mdi-select"
-      size="default"
-      @click.stop="resetSelection"
-    />
-  </v-speed-dial>
+      <v-btn
+        key="1"
+        v-if="auth.scopes.includes('roms.write')"
+        color="terciary"
+        elevation="8"
+        icon
+        size="default"
+        @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
+      >
+        <v-icon color="romm-red"> mdi-delete </v-icon>
+      </v-btn>
+      <v-btn
+        key="2"
+        v-if="auth.scopes.includes('roms.write')"
+        color="terciary"
+        elevation="8"
+        icon="mdi-magnify-scan"
+        size="default"
+        @click="onScan"
+      />
+      <v-btn
+        key="3"
+        color="terciary"
+        elevation="8"
+        icon="mdi-download"
+        size="default"
+        @click="onDownload"
+      />
+      <v-btn
+        key="4"
+        color="terciary"
+        elevation="8"
+        :icon="
+          $route.name == 'platform'
+            ? 'mdi-bookmark-plus'
+            : 'mdi-bookmark-remove'
+        "
+        size="default"
+        @click="
+          $route.name == 'platform'
+            ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
+            : emitter?.emit(
+                'showRemoveFromCollectionDialog',
+                romsStore.selectedRoms
+              )
+        "
+      />
+      <v-btn
+        key="5"
+        color="terciary"
+        elevation="8"
+        icon="mdi-star-outline"
+        size="default"
+        @click="removeFromFavourites"
+      />
+      <v-btn
+        key="6"
+        color="terciary"
+        elevation="8"
+        icon="mdi-star"
+        size="default"
+        @click="addToFavourites"
+      />
+      <v-btn
+        key="7"
+        color="terciary"
+        elevation="8"
+        icon="mdi-select-all"
+        size="default"
+        @click.stop="selectAllRoms"
+      />
+      <v-btn
+        key="8"
+        color="terciary"
+        elevation="8"
+        icon="mdi-select"
+        size="default"
+        @click.stop="resetSelection"
+      />
+    </v-speed-dial>
+  </div>
 </template>
+<style scoped>
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  pointer-events: none;
+}
+.sticky-bottom * {
+    pointer-events: auto; /* Re-enables pointer events for all child elements */
+}
+</style>
