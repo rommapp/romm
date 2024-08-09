@@ -34,9 +34,6 @@ COMPRESSED_MIME_TYPES: Final = [
     "application/x-gzip",
     "application/x-7z-compressed",
     "application/x-bzip2",
-    # "application/x-rar-compressed",
-    # "application/x-wii-rom",
-    # "application/x-gamecube-rom",
 ]
 
 # list of known file extensions that are compressed
@@ -46,15 +43,6 @@ COMPRESSED_FILE_EXTENSIONS = [
     ".gz",
     ".7z",
     ".bz2",
-    # ".rar",
-    # ".gcz",
-    # ".iso",
-    # ".gcm",
-    # ".chd",
-    # ".pkg",
-    # ".xci",
-    # ".nsp",
-    # ".pck",
 ]
 
 FILE_READ_CHUNK_SIZE = 1024 * 8
