@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import RelatedCard from "@/components/common/Game/Card/Related.vue";
 import type { DetailedRom } from "@/stores/roms";
-import { ref } from "vue";
+import { computed } from "vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
-const combined = ref([
+const combined = computed(() => [
   ...(props.rom.igdb_metadata?.expansions ?? []),
   ...(props.rom.igdb_metadata?.dlcs ?? []),
 ]);

@@ -3,7 +3,7 @@ import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { SimpleRom } from "@/stores/roms";
-import { isEmulationSupported } from "@/utils";
+import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
 
 // Props
 defineProps<{ rom: SimpleRom }>();
@@ -25,12 +25,26 @@ const downloadStore = storeDownload();
     </v-col>
     <v-col>
       <v-btn
-        v-if="isEmulationSupported(rom.platform_slug)"
+        v-if="isEJSEmulationSupported(rom.platform_slug)"
         class="action-bar-btn-small"
         size="x-small"
         @click="
           $router.push({
-            name: 'play',
+            name: 'ejs',
+            params: { rom: rom?.id },
+          })
+        "
+        icon="mdi-play"
+        rounded="0"
+        variant="text"
+      />
+      <v-btn
+        v-if="isRuffleEmulationSupported(rom.platform_slug)"
+        class="action-bar-btn-small"
+        size="x-small"
+        @click="
+          $router.push({
+            name: 'ruffle',
             params: { rom: rom?.id },
           })
         "

@@ -51,6 +51,10 @@ export default defineConfig(({ mode }) => {
             src: "node_modules/emulatorjs/data/*",
             dest: "assets/emulatorjs/",
           },
+          {
+            src: "node_modules/@ruffle-rs/ruffle/*",
+            dest: "assets/ruffle/",
+          },
         ],
       }),
     ],
