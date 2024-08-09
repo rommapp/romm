@@ -13,9 +13,7 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 const collectionStore = storeCollection();
 
-export type SimpleRom = RomSchema & {
-  siblings?: RomSchema[]; // Added by the frontend
-};
+export type SimpleRom = RomSchema;
 
 export type DetailedRom = DetailedRomSchema;
 
@@ -45,10 +43,9 @@ export default defineStore("roms", {
   actions: {
     _reorder() {
       // Sort roms by comparator string
-      this.allRoms = this.allRoms.sort((a, b) => {
+      this.allRoms = uniqBy(this.allRoms, "id").sort((a, b) => {
         return a.sort_comparator.localeCompare(b.sort_comparator);
       });
-      this.allRoms = uniqBy(this.allRoms, "id");
 
       // Check if roms should be grouped
       const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
@@ -68,25 +65,9 @@ export default defineStore("roms", {
       )
         .map((games) => {
           // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-          // If such a game is found, 'mainSiblingIndex' will be its index, otherwise it will be -1.
-          const mainSiblingIndex = games.findIndex(
-            (game) => game.rom_user?.is_main_sibling,
+          return (
+            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
           );
-
-          // Determine the primary game:
-          // - If 'mainSiblingIndex' is not -1 (i.e., a main sibling game was found),
-          //   remove that game from the 'games' array and set it as 'primaryGame'.
-          // - If no main sibling game was found ('mainSiblingIndex' is -1),
-          //   remove the first game from the 'games' array and set it as 'primaryGame'.
-          const primaryGame =
-            mainSiblingIndex !== -1
-              ? games.splice(mainSiblingIndex, 1)[0]
-              : games.shift();
-
-          return {
-            ...(primaryGame as SimpleRom),
-            siblings: games,
-          };
         })
         .sort((a, b) => {
           return a.sort_comparator.localeCompare(b.sort_comparator);
@@ -160,6 +141,9 @@ export default defineStore("roms", {
       if (galleryFilter.filterFavourites) {
         this._filterFavourites();
       }
+      if (galleryFilter.filterDuplicates) {
+        this._filterDuplicates();
+      }
       if (galleryFilter.selectedGenre) {
         this._filterGenre(galleryFilter.selectedGenre);
       }
@@ -191,6 +175,11 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) => collectionStore.favCollection?.roms?.includes(rom.id))
         .map((roms) => roms.id);
+    },
+    _filterDuplicates() {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) => rom.sibling_roms?.length)
+        .map((rom) => rom.id);
     },
     _filterGenre(genreToFilter: string) {
       this._filteredIDs = this.filteredRoms

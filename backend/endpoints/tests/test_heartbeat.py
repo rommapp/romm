@@ -11,7 +11,7 @@ def client():
 
 
 def test_heartbeat(client):
-    response = client.get("/heartbeat")
+    response = client.get("/api/heartbeat")
     assert response.status_code == 200
 
     heartbeat = response.json()

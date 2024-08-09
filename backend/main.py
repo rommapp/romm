@@ -63,6 +63,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
         CustomCSRFMiddleware,
+        cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
     )
@@ -89,22 +90,22 @@ app.add_middleware(
 # Sets context vars in request-response cycle
 app.middleware("http")(set_context_middleware)
 
-app.include_router(heartbeat.router)
-app.include_router(auth.router)
-app.include_router(user.router)
-app.include_router(platform.router)
-app.include_router(rom.router)
-app.include_router(search.router)
-app.include_router(saves.router)
-app.include_router(states.router)
-app.include_router(tasks.router)
-app.include_router(feeds.router)
-app.include_router(config.router)
-app.include_router(stats.router)
-app.include_router(raw.router)
-app.include_router(screenshots.router)
-app.include_router(firmware.router)
-app.include_router(collections.router)
+app.include_router(heartbeat.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(user.router, prefix="/api")
+app.include_router(platform.router, prefix="/api")
+app.include_router(rom.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
+app.include_router(saves.router, prefix="/api")
+app.include_router(states.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
+app.include_router(feeds.router, prefix="/api")
+app.include_router(config.router, prefix="/api")
+app.include_router(stats.router, prefix="/api")
+app.include_router(raw.router, prefix="/api")
+app.include_router(screenshots.router, prefix="/api")
+app.include_router(firmware.router, prefix="/api")
+app.include_router(collections.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 

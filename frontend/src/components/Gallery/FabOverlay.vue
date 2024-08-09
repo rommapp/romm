@@ -128,20 +128,16 @@ async function removeFromFavourites() {
 }
 
 function onDownload() {
-  romsStore.selectedRoms.forEach((rom) => {
-    romApi.downloadRom({ rom });
+  romsStore.selectedRoms.forEach((rom, index) => {
+    setTimeout(() => {
+      romApi.downloadRom({ rom });
+    }, index * 100); // Prevents the download from being blocked by the browser
   });
 }
 </script>
 
 <template>
-  <v-overlay
-    :model-value="true"
-    persistent
-    scroll-strategy="reposition"
-    :scrim="false"
-    class="align-end justify-end pa-3"
-  >
+  <div class="text-right pa-2 sticky-bottom">
     <v-scroll-y-reverse-transition>
       <v-btn
         icon
@@ -251,5 +247,18 @@ function onDownload() {
         @click.stop="resetSelection"
       />
     </v-speed-dial>
-  </v-overlay>
+  </div>
 </template>
+<style scoped>
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  pointer-events: none;
+}
+.sticky-bottom * {
+    pointer-events: auto; /* Re-enables pointer events for all child elements */
+}
+</style>

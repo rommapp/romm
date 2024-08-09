@@ -1,17 +1,22 @@
 import { normalizeString } from "@/utils";
 import { defineStore } from "pinia";
 
+const filters = ["genres", "franchises", "collections", "companies"] as const;
+
+export type FilterType = (typeof filters)[number];
+
 export default defineStore("galleryFilter", {
   state: () => ({
     activeFilterDrawer: false,
     filterSearch: "",
-    filters: ["genres", "franchises", "collections", "companies"] as const,
+    filters: filters,
     filterGenres: [] as string[],
     filterFranchises: [] as string[],
     filterCollections: [] as string[],
     filterCompanies: [] as string[],
     filterUnmatched: false,
     filterFavourites: false,
+    filterDuplicates: false,
     selectedGenre: null as string | null,
     selectedFranchise: null as string | null,
     selectedCollection: null as string | null,
@@ -25,19 +30,19 @@ export default defineStore("galleryFilter", {
     setFilterSearch(filterSearch: string) {
       this.filterSearch = normalizeString(filterSearch);
     },
-    setFilterGenre(genres: string[]) {
+    setFilterGenres(genres: string[]) {
       this.filterGenres = genres;
     },
-    setFilterFranchise(franchises: string[]) {
+    setFilterFranchises(franchises: string[]) {
       this.filterFranchises = franchises;
     },
-    setFilterCollection(collections: string[]) {
+    setFilterCollections(collections: string[]) {
       this.filterCollections = collections;
     },
-    setFilterCompany(companies: string[]) {
+    setFilterCompanies(companies: string[]) {
       this.filterCompanies = companies;
     },
-    setSelectedGenre(genre: string) {
+    setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
     },
     setSelectedFilterFranchise(franchise: string) {
@@ -61,11 +66,18 @@ export default defineStore("galleryFilter", {
     disableFilterFavourites() {
       this.filterFavourites = false;
     },
+    switchFilterDuplicates() {
+      this.filterDuplicates = !this.filterDuplicates;
+    },
+    disableFilterDuplicates() {
+      this.filterDuplicates = false;
+    },
     isFiltered() {
       return Boolean(
         normalizeString(this.filterSearch).trim() != "" ||
           this.filterUnmatched ||
           this.filterFavourites ||
+          this.filterDuplicates ||
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||

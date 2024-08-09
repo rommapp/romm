@@ -14,7 +14,7 @@ def client():
 
 def test_refreshing_oauth_token_basic(client, refresh_token):
     response = client.post(
-        "/token",
+        "/api/token",
         data={
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
@@ -31,7 +31,7 @@ def test_refreshing_oauth_token_basic(client, refresh_token):
 def test_refreshing_oauth_token_without_refresh_token(client):
     try:
         client.post(
-            "/token",
+            "/api/token",
             data={
                 "grant_type": "refresh_token",
             },
@@ -44,7 +44,7 @@ def test_refreshing_oauth_token_without_refresh_token(client):
 def test_refreshing_oauth_token_with_invalid_refresh_token(client):
     try:
         client.post(
-            "/token",
+            "/api/token",
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": "invalid_token",
@@ -57,7 +57,7 @@ def test_refreshing_oauth_token_with_invalid_refresh_token(client):
 
 def test_auth_via_upass(client, admin_user):
     response = client.post(
-        "/token",
+        "/api/token",
         data={
             "grant_type": "password",
             "username": "test_admin",
@@ -76,7 +76,7 @@ def test_auth_via_upass(client, admin_user):
 def test_auth_via_upass_with_invalid_credentials(client, admin_user):
     try:
         client.post(
-            "/token",
+            "/api/token",
             data={
                 "grant_type": "password",
                 "username": "test_admin",
@@ -91,7 +91,7 @@ def test_auth_via_upass_with_invalid_credentials(client, admin_user):
 def test_auth_via_upass_with_excess_scopes(client, viewer_user):
     try:
         client.post(
-            "/token",
+            "/api/token",
             data={
                 "grant_type": "password",
                 "username": "test_viewer",
@@ -107,7 +107,7 @@ def test_auth_via_upass_with_excess_scopes(client, viewer_user):
 def test_auth_with_invalid_grant_type(client):
     try:
         client.post(
-            "/token",
+            "/api/token",
             data={
                 "grant_type": "invalid_type",
             },
