@@ -5,9 +5,10 @@
 
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
+import type { RomSchema } from './RomSchema';
 import type { RomUserSchema } from './RomUserSchema';
 
-export type RomSchema = {
+export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
     sgdb_id: (number | null);
@@ -47,6 +48,7 @@ export type RomSchema = {
     created_at: string;
     updated_at: string;
     rom_user?: (RomUserSchema | null);
+    sibling_roms?: Array<RomSchema>;
     readonly sort_comparator: string;
 };
 

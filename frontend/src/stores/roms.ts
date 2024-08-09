@@ -1,5 +1,5 @@
 import type { SearchRomSchema } from "@/__generated__";
-import type { DetailedRomSchema, RomSchema } from "@/__generated__/";
+import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
 import { type Platform } from "@/stores/platforms";
 import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -13,8 +13,7 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 const collectionStore = storeCollection();
 
-export type SimpleRom = RomSchema;
-
+export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
 export default defineStore("roms", {
