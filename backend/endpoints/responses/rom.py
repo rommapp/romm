@@ -113,8 +113,6 @@ class RomSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    rom_user: RomUserSchema | None = Field(default=None)
-
     class Config:
         from_attributes = True
 
@@ -130,8 +128,13 @@ class RomSchema(BaseModel):
             .lower()
         )
 
+
+class SimpleRomSchema(RomSchema):
+    sibling_roms: list[RomSchema] = Field(default_factory=list)
+    rom_user: RomUserSchema | None = Field(default=None)
+
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> RomSchema:
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
@@ -140,21 +143,10 @@ class RomSchema(BaseModel):
         return rom
 
 
-class SimpleRomSchema(RomSchema):
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
-
-    @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
-        rom = super().from_orm_with_request(db_rom, request)
-        rom = SimpleRomSchema(**rom.model_dump())
-
-        return rom
-
-
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
     sibling_roms: list[RomSchema] = Field(default_factory=list)
-
+    rom_user: RomUserSchema | None = Field(default=None)
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
@@ -163,8 +155,7 @@ class DetailedRomSchema(RomSchema):
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
-        rom = super().from_orm_with_request(db_rom, request)
-        rom = DetailedRomSchema(**rom.model_dump())
+        rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
         rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
