@@ -112,10 +112,6 @@ class Rom(BaseModel):
             f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
         ]
 
-    @hybrid_property
-    def sibling_rom_ids(self):
-        return [s.rom_id for s in self.sibling_roms]
-
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
 
