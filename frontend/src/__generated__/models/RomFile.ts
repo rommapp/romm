@@ -3,9 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type UserNotesSchema = {
-    user_id: number;
-    username: string;
-    note_raw_markdown: string;
+export type RomFile = {
+    filename: string;
+    size: number;
+    crc_hash: string;
+    md5_hash: string;
+    sha1_hash: string;
 };
 

@@ -80,7 +80,7 @@ async def add_roms(
 
         async with await open_file(file_location, "wb+") as f:
             while True:
-                chunk = rom.file.read(1024)
+                chunk = rom.file.read(8192)
                 if not chunk:
                     break
                 await f.write(chunk)
@@ -174,7 +174,7 @@ def head_rom_content(request: Request, id: int, file_name: str):
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     return FileResponse(
-        path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
+        path=rom_path if not rom.multi else f'{rom_path}/{rom.files[0]["filename"]}',
         filename=file_name,
         headers={
             "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
@@ -211,7 +211,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = files or rom.files or []
+    files_to_download = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
         return FileResponse(path=rom_path, filename=rom.file_name)

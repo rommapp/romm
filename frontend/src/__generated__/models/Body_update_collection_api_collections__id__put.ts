@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_screenshots_screenshots_post = {
-  screenshots: Array<Blob>;
+export type Body_update_collection_api_collections__id__put = {
+    artwork?: (Blob | null);
 };
+
