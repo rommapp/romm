@@ -116,8 +116,8 @@ async function login() {
       </v-row>
     </v-card>
 
-    <div id="version" class="text-shadow position-absolute">
-      <span class="text-white">{{ heartbeatStore.value.VERSION }}</span>
+    <div id="version" class="position-absolute">
+      <span class="text-white text-shadow">{{ heartbeatStore.value.VERSION }}</span>
     </div>
   </v-container>
 </template>
