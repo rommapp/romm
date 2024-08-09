@@ -100,7 +100,11 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     )
 
 
-@protected_route(router.get, "/tinfoil/feed", ["roms.read"])
+@protected_route(
+    router.get,
+    "/tinfoil/feed",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSchema:
     """Get tinfoil custom index feed endpoint
     https://blawar.github.io/tinfoil/custom_index/
