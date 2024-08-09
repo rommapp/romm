@@ -158,21 +158,6 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_sibling_rom_ids(self, rom: Rom, session: Session = None) -> list[str]:
-        result = session.execute(
-            text(
-                """
-                SELECT sibling_rom_ids
-                FROM sibling_roms
-                WHERE rom_id = :rom_id
-            """
-            ),
-            {"rom_id": rom.id},
-        ).fetchone()
-
-        return [r for r in result if r]
-
-    @begin_session
     def get_rom_collections(
         self, rom: Rom, session: Session = None
     ) -> list[Collection]:
