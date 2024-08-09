@@ -7,6 +7,7 @@ from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from sqlalchemy import JSON, BigInteger, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -98,11 +99,11 @@ class Rom(BaseModel):
             f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
         ]
 
-    # This is an expensive operation so don't call it on a list of roms
-    def get_sibling_roms(self) -> list[Rom]:
+    @hybrid_property
+    def sibling_rom_ids(self):
         from handler.database import db_rom_handler
 
-        return db_rom_handler.get_sibling_roms(self)
+        return db_rom_handler.get_sibling_rom_ids(self)
 
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler

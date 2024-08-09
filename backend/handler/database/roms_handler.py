@@ -5,6 +5,7 @@ from models.collection import Collection
 from models.rom import Rom, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.sql import text
 
 from .base_handler import DBBaseHandler
 
@@ -154,30 +155,19 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    @with_simple
-    def get_sibling_roms(
-        self, rom: Rom, query: Query = None, session: Session = None
-    ) -> list[Rom]:
-        return session.scalars(
-            query.where(
-                and_(
-                    Rom.platform_id == rom.platform_id,
-                    Rom.id != rom.id,
-                    or_(
-                        and_(
-                            Rom.igdb_id == rom.igdb_id,
-                            Rom.igdb_id.isnot(None),
-                            Rom.igdb_id != "",
-                        ),
-                        and_(
-                            Rom.moby_id == rom.moby_id,
-                            Rom.moby_id.isnot(None),
-                            Rom.moby_id != "",
-                        ),
-                    ),
-                )
-            )
-        ).all()
+    def get_sibling_rom_ids(self, rom: Rom, session: Session = None) -> list[str]:
+        result = session.execute(
+            text(
+                """
+                SELECT sibling_rom_ids
+                FROM sibling_roms
+                WHERE rom_id = :rom_id
+            """
+            ),
+            {"rom_id": rom.id},
+        ).fetchone()
+
+        return [r for r in result if r]
 
     @begin_session
     def get_rom_collections(

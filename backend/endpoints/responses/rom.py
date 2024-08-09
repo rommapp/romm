@@ -114,7 +114,7 @@ class RomSchema(BaseModel):
     updated_at: datetime
 
     rom_user: RomUserSchema | None = Field(default=None)
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
+    sibling_rom_ids: list[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -125,9 +125,6 @@ class RomSchema(BaseModel):
         user_id = request.user.id
 
         rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        rom.sibling_roms = [
-            RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
-        ]
 
         return rom
 
