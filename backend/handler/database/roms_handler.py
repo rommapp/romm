@@ -23,6 +23,7 @@ def with_details(func):
             selectinload(Rom.states),
             selectinload(Rom.screenshots),
             selectinload(Rom.rom_users),
+            selectinload(Rom.sibling_roms),
         )
         return func(*args, **kwargs)
 
@@ -38,7 +39,9 @@ def with_simple(func):
                 f"{func} is missing required kwarg 'session' with type 'Session'"
             )
 
-        kwargs["query"] = select(Rom).options(selectinload(Rom.rom_users))
+        kwargs["query"] = select(Rom).options(
+            selectinload(Rom.rom_users), selectinload(Rom.sibling_roms)
+        )
         return func(*args, **kwargs)
 
     return wrapper
@@ -152,32 +155,6 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             query.filter_by(file_name_no_ext=file_name_no_ext).limit(1)
         )
-
-    @begin_session
-    @with_simple
-    def get_sibling_roms(
-        self, rom: Rom, query: Query = None, session: Session = None
-    ) -> list[Rom]:
-        return session.scalars(
-            query.where(
-                and_(
-                    Rom.platform_id == rom.platform_id,
-                    Rom.id != rom.id,
-                    or_(
-                        and_(
-                            Rom.igdb_id == rom.igdb_id,
-                            Rom.igdb_id.isnot(None),
-                            Rom.igdb_id != "",
-                        ),
-                        and_(
-                            Rom.moby_id == rom.moby_id,
-                            Rom.moby_id.isnot(None),
-                            Rom.moby_id != "",
-                        ),
-                    ),
-                )
-            )
-        ).all()
 
     @begin_session
     def get_rom_collections(

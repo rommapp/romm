@@ -4,11 +4,12 @@
 /* eslint-disable */
 
 export type SearchRomSchema = {
-  igdb_id?: number | null;
-  moby_id?: number | null;
-  slug: string;
-  name: string;
-  summary: string;
-  igdb_url_cover?: string;
-  moby_url_cover?: string;
+    igdb_id?: (number | null);
+    moby_id?: (number | null);
+    slug: string;
+    name: string;
+    summary: string;
+    igdb_url_cover?: string;
+    moby_url_cover?: string;
 };
+

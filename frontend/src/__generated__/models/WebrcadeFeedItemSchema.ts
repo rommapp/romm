@@ -3,14 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { WebrcadeFeedCategorySchema } from './WebrcadeFeedCategorySchema';
+import type { WebrcadeFeedItemPropsSchema } from './WebrcadeFeedItemPropsSchema';
 
-export type WebrcadeFeedSchema = {
+export type WebrcadeFeedItemSchema = {
     title: string;
     longTitle?: string;
     description?: string;
+    type: string;
     thumbnail?: string;
     background?: string;
-    categories: Array<WebrcadeFeedCategorySchema>;
+    props: WebrcadeFeedItemPropsSchema;
 };
 

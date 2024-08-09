@@ -4,8 +4,9 @@
 /* eslint-disable */
 
 export type TaskDict = {
-  ENABLED: boolean;
-  TITLE: string;
-  MESSAGE: string;
-  CRON: string;
+    ENABLED: boolean;
+    TITLE: string;
+    MESSAGE: string;
+    CRON: string;
 };
+

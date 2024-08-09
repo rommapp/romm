@@ -3,9 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type UserNotesSchema = {
-    user_id: number;
-    username: string;
-    note_raw_markdown: string;
+export type Body_add_firmware_api_firmware_post = {
+    files: Array<Blob>;
 };
 
