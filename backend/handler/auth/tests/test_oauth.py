@@ -1,9 +1,10 @@
 import pytest
 from decorators.auth import protected_route
-from fastapi import APIRouter, Request
+from fastapi import Request
 from fastapi.exceptions import HTTPException
 from handler.auth import oauth_handler
 from handler.database import db_user_handler
+from utils.router import APIRouter
 
 
 def test_create_oauth_token():

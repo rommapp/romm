@@ -1,7 +1,8 @@
 from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
-from fastapi import APIRouter, Request
+from fastapi import Request
 from fastapi.responses import FileResponse
+from utils.router import APIRouter
 
 router = APIRouter()
 
