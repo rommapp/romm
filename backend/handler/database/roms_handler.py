@@ -5,7 +5,6 @@ from models.collection import Collection
 from models.rom import Rom, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
-from sqlalchemy.sql import text
 
 from .base_handler import DBBaseHandler
 
