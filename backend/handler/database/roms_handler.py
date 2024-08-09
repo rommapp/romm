@@ -24,6 +24,7 @@ def with_details(func):
             selectinload(Rom.states),
             selectinload(Rom.screenshots),
             selectinload(Rom.rom_users),
+            selectinload(Rom.sibling_roms),
         )
         return func(*args, **kwargs)
 
@@ -39,7 +40,9 @@ def with_simple(func):
                 f"{func} is missing required kwarg 'session' with type 'Session'"
             )
 
-        kwargs["query"] = select(Rom).options(selectinload(Rom.rom_users))
+        kwargs["query"] = select(Rom).options(
+            selectinload(Rom.rom_users), selectinload(Rom.sibling_roms)
+        )
         return func(*args, **kwargs)
 
     return wrapper

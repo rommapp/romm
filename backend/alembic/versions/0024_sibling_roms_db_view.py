@@ -25,7 +25,9 @@ def upgrade() -> None:
             CREATE VIEW sibling_roms AS
             SELECT
                 r1.id AS rom_id,
-                GROUP_CONCAT(r2.id) AS sibling_rom_ids
+                r2.id AS sibling_rom_id,
+                NOW() AS created_at,
+                NOW() AS updated_at
             FROM
                 roms r1
             LEFT JOIN 
@@ -37,9 +39,7 @@ def upgrade() -> None:
                     (r1.igdb_id = r2.igdb_id AND r1.igdb_id IS NOT NULL AND r1.igdb_id != '')
                     OR
                     (r1.moby_id = r2.moby_id AND r1.moby_id IS NOT NULL AND r1.moby_id != '')
-                )
-            GROUP BY
-                r1.id;
+                );
             """
         ),
     )

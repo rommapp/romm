@@ -114,19 +114,9 @@ class RomSchema(BaseModel):
     updated_at: datetime
 
     rom_user: RomUserSchema | None = Field(default=None)
-    sibling_rom_ids: list[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
-
-    @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> RomSchema:
-        rom = cls.model_validate(db_rom)
-        user_id = request.user.id
-
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-
-        return rom
 
     @computed_field  # type: ignore
     @property
@@ -140,11 +130,31 @@ class RomSchema(BaseModel):
             .lower()
         )
 
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> RomSchema:
+        rom = cls.model_validate(db_rom)
+        user_id = request.user.id
+
+        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+
+        return rom
+
+
+class SimpleRomSchema(RomSchema):
+    sibling_roms: list[RomSchema] = Field(default_factory=list)
+
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
+        rom = super().from_orm_with_request(db_rom, request)
+        rom = SimpleRomSchema(**rom.model_dump())
+
+        return rom
+
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    rom_user: RomUserSchema | None = Field(default=None)
     sibling_roms: list[RomSchema] = Field(default_factory=list)
+
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
@@ -153,14 +163,12 @@ class DetailedRomSchema(RomSchema):
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
-        rom = cls.model_validate(db_rom)
+        rom = super().from_orm_with_request(db_rom, request)
+        rom = DetailedRomSchema(**rom.model_dump())
         user_id = request.user.id
 
         rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
         rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
-        rom.sibling_roms = [
-            RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
-        ]
         rom.user_saves = [
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
