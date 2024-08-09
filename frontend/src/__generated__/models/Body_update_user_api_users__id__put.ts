@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_update_user_users__id__put = {
+export type Body_update_user_api_users__id__put = {
     avatar?: (Blob | null);
 };
 

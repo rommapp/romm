@@ -54,8 +54,8 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     rom_user?: (RomUserSchema | null);
-    merged_screenshots: Array<string>;
     sibling_roms?: Array<RomSchema>;
+    merged_screenshots: Array<string>;
     user_saves?: Array<SaveSchema>;
     user_states?: Array<StateSchema>;
     user_screenshots?: Array<ScreenshotSchema>;

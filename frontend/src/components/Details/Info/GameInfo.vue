@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useRouter } from "vue-router";
 
-defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
-const galleryFilter = storeGalleryFilter();
+const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
+const router = useRouter();
+
+function onFilterClick(filter: FilterType, value: string) {
+  router.push({
+    name: "platform",
+    params: { platform: props.rom.platform_id },
+    query: { filter, value },
+  });
+}
 </script>
 <template>
   <v-row no-gutters>
     <v-col>
       <v-divider class="mx-2 my-4" />
-      <template v-for="filter in galleryFilter.filters" :key="filter">
+      <template v-for="filter in galleryFilterStore.filters" :key="filter">
         <v-row
           v-if="rom[filter].length > 0"
           class="align-center my-3"
@@ -26,6 +36,7 @@ const show = ref(false);
             <v-chip
               v-for="value in rom[filter]"
               :key="value"
+              @click="onFilterClick(filter, value)"
               size="small"
               variant="outlined"
               class="my-1 mr-2"

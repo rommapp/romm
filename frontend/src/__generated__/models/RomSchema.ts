@@ -48,6 +48,7 @@ export type RomSchema = {
     created_at: string;
     updated_at: string;
     rom_user?: (RomUserSchema | null);
+    sibling_roms?: Array<RomSchema>;
     readonly sort_comparator: string;
 };
 

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_saves_saves_post = {
-    saves: Array<Blob>;
+export type Body_update_rom_api_roms__id__put = {
+    artwork?: (Blob | null);
 };
 

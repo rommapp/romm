@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_collection_collections_post = {
-    artwork?: (Blob | null);
+export type Body_add_saves_api_saves_post = {
+    saves: Array<Blob>;
 };
 

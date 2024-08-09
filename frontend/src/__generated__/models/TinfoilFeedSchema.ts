@@ -3,9 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { TinfoilFeedFileSchema } from './TinfoilFeedFileSchema';
+
 export type TinfoilFeedSchema = {
-    files: Array<Record<string, any>>;
+    files: Array<TinfoilFeedFileSchema>;
     directories: Array<string>;
-    success: string;
+    success?: string;
+    error?: string;
 };
 

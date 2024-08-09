@@ -29,16 +29,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-overlay
-    v-if="semver.valid(VERSION)"
-    :model-value="true"
-    persistent
-    no-click-animation
-    scroll-strategy="reposition"
-    :scrim="false"
-    class="justify-start pa-3"
-    :class="{ 'ml-16 align-end': !mdAndDown, 'align-start': mdAndDown}"
-  >
+  <div v-if="semver.valid(VERSION)" class="pa-3 sticky-bottom">
     <v-slide-y-transition>
       <v-card
         v-if="
@@ -46,14 +37,14 @@ onMounted(async () => {
           semver.gt(GITHUB_VERSION, VERSION) &&
           !latestVersionDismissed
         "
-        class="pa-1 border-romm-accent-1"
+        class="pa-1 border-romm-accent-1 mx-auto"
         rounded="0"
-        max-width="344"
+        max-width="250"
       >
-        <v-card-text class="py-2 px-4">
+        <v-card-text class="text-center py-2 px-4">
           <span class="text-white text-shadow">New version available</span>
           <span class="text-romm-accent-1 ml-1">v{{ GITHUB_VERSION }}</span>
-          <v-row class="text-center mt-1" no-gutters>
+          <v-row class="mt-1" no-gutters>
             <v-col>
               <span class="pointer text-grey" @click="dismissVersionBanner"
                 >Dismiss</span
@@ -69,5 +60,18 @@ onMounted(async () => {
         </v-card-text>
       </v-card>
     </v-slide-y-transition>
-  </v-overlay>
+  </div>
 </template>
+<style scoped>
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  pointer-events: none;
+}
+.sticky-bottom * {
+    pointer-events: auto; /* Re-enables pointer events for all child elements */
+}
+</style>

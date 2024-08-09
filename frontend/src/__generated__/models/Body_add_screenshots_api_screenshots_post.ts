@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_update_rom_roms__id__put = {
-    artwork?: (Blob | null);
+export type Body_add_screenshots_api_screenshots_post = {
+    screenshots: Array<Blob>;
 };
 

@@ -2,12 +2,13 @@ from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from fastapi import File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
 from logger.logger import log
+from utils.router import APIRouter
 
 router = APIRouter()
 

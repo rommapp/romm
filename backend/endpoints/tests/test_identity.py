@@ -20,25 +20,29 @@ def clear_cache():
 
 
 def test_login_logout(client, admin_user):
-    response = client.get("/login")
+    response = client.get("/api/login")
 
     assert response.status_code == 405
 
     basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
-    response = client.post("/login", headers={"Authorization": f"Basic {basic_auth}"})
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
 
     assert response.status_code == 200
     assert response.cookies.get("romm_session")
     assert response.json()["msg"] == "Successfully logged in"
 
-    response = client.post("/logout")
+    response = client.post("/api/logout")
 
     assert response.status_code == 200
     assert response.json()["msg"] == "Successfully logged out"
 
 
 def test_get_all_users(client, access_token):
-    response = client.get("/users", headers={"Authorization": f"Bearer {access_token}"})
+    response = client.get(
+        "/api/users", headers={"Authorization": f"Bearer {access_token}"}
+    )
     assert response.status_code == 200
 
     users = response.json()
@@ -48,7 +52,8 @@ def test_get_all_users(client, access_token):
 
 def test_get_user(client, access_token, editor_user):
     response = client.get(
-        f"/users/{editor_user.id}", headers={"Authorization": f"Bearer {access_token}"}
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
@@ -58,7 +63,7 @@ def test_get_user(client, access_token, editor_user):
 
 def test_create_user(client, access_token):
     response = client.post(
-        "/users",
+        "/api/users",
         params={
             "username": "new_user",
             "password": "new_user_password",
@@ -77,7 +82,7 @@ def test_update_user(client, access_token, editor_user):
     assert editor_user.role == Role.EDITOR
 
     response = client.put(
-        f"/users/{editor_user.id}",
+        f"/api/users/{editor_user.id}",
         params={"username": "editor_user_new_username", "role": "viewer"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
@@ -89,7 +94,8 @@ def test_update_user(client, access_token, editor_user):
 
 def test_delete_user(client, access_token, editor_user):
     response = client.delete(
-        f"/users/{editor_user.id}", headers={"Authorization": f"Bearer {access_token}"}
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
 
