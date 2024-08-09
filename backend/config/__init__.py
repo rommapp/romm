@@ -9,7 +9,6 @@ load_dotenv()
 # GUNICORN
 DEV_PORT: Final = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
 DEV_HOST: Final = "127.0.0.1"
-ROMM_HOST: Final = os.environ.get("ROMM_HOST", DEV_HOST)
 GUNICORN_WORKERS: Final = int(os.environ.get("GUNICORN_WORKERS", 2))
 
 # PATHS
@@ -51,8 +50,6 @@ MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
 ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # AUTH
-ROMM_AUTH_USERNAME: Final = os.environ.get("ROMM_AUTH_USERNAME", "admin")
-ROMM_AUTH_PASSWORD: Final = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )

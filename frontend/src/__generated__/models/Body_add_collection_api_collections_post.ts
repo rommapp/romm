@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_firmware_firmware_post = {
-    files: Array<Blob>;
+export type Body_add_collection_api_collections_post = {
+    artwork?: (Blob | null);
 };
 

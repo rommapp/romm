@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_states_states_post = {
+export type Body_add_states_api_states_post = {
     states: Array<Blob>;
 };
 

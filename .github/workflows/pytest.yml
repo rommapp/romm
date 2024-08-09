@@ -2,17 +2,13 @@ name: Run Pytest
 
 on:
   pull_request:
-    paths-ignore:
-      - "docker/**"
-      - "examples/*"
-      - "frontend/**"
+    paths:
+      - "backend/**"
   push:
     branches:
       - "master"
-    paths-ignore:
-      - "docker/**"
-      - "examples/*"
-      - "frontend/**"
+    paths:
+      - "backend/**"
 
 permissions: read-all
 

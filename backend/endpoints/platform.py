@@ -5,13 +5,14 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from fastapi import APIRouter, Request
+from fastapi import Request
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.scan_handler import scan_platform
 from logger.logger import log
 from models.platform import Platform
+from utils.router import APIRouter
 
 router = APIRouter()
 

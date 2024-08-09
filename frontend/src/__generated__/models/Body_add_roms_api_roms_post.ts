@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_update_collection_collections__id__put = {
-    artwork?: (Blob | null);
+export type Body_add_roms_api_roms_post = {
+    roms: Array<Blob>;
 };
 
