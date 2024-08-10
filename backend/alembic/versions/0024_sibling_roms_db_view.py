@@ -17,6 +17,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.create_index("idx_roms_igdb_id", ["igdb_id"])
+        batch_op.create_index("idx_roms_moby_id", ["moby_id"])
+
     connection = op.get_bind()
 
     connection.execute(
@@ -26,11 +30,14 @@ def upgrade() -> None:
             SELECT
                 r1.id AS rom_id,
                 r2.id AS sibling_rom_id,
+                r1.platform_id AS platform_id,
+                COALESCE(r1.igdb_id, r2.igdb_id) AS igdb_id,
+                COALESCE(r1.moby_id, r2.moby_id) AS moby_id,
                 NOW() AS created_at,
                 NOW() AS updated_at
             FROM
                 roms r1
-            LEFT JOIN 
+            JOIN 
                 roms r2 
             ON 
                 r1.platform_id = r2.platform_id
@@ -55,3 +62,7 @@ def downgrade() -> None:
             """
         ),
     )
+
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.drop_index("idx_roms_igdb_id")
+        batch_op.drop_index("idx_roms_moby_id")
