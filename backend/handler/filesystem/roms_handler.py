@@ -212,36 +212,36 @@ class FSRomsHandler(FSHandler):
             "sha1_hash": sha1_h.hexdigest(),
         }
 
-    def get_rom_files(self, rom: str, roms_path: str) -> list[RomFile]:
+    def _build_rom_file(self, path: Path, with_hashes: bool = False) -> RomFile:
+        if not with_hashes:
+            return RomFile(
+                filename=path.name,
+                size=os.stat(path).st_size,
+            )
+
+        rom_hashes = self._calculate_rom_hashes(path)
+        return RomFile(
+            filename=path.name,
+            size=os.stat(path).st_size,
+            crc_hash=rom_hashes["crc_hash"],
+            md5_hash=rom_hashes["md5_hash"],
+            sha1_hash=rom_hashes["sha1_hash"],
+        )
+
+    def get_rom_files(
+        self, rom: str, roms_path: str, with_hashes: bool = False
+    ) -> list[RomFile]:
         rom_files: list[RomFile] = []
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{roms_path}/{rom}"):
             multi_files = os.listdir(f"{roms_path}/{rom}")
-            for file in multi_files:
+            for file in self._exclude_files(multi_files, "multi_parts"):
                 path = Path(roms_path, rom, file)
-                rom_hashes = self._calculate_rom_hashes(path)
-                rom_files.append(
-                    RomFile(
-                        filename=file,
-                        size=os.stat(path).st_size,
-                        crc_hash=rom_hashes["crc_hash"],
-                        md5_hash=rom_hashes["md5_hash"],
-                        sha1_hash=rom_hashes["sha1_hash"],
-                    )
-                )
+                rom_files.append(self._build_rom_file(path, with_hashes))
         else:
             path = Path(roms_path, rom)
-            rom_hashes = self._calculate_rom_hashes(path)
-            rom_files.append(
-                RomFile(
-                    filename=rom,
-                    size=os.stat(path).st_size,
-                    crc_hash=rom_hashes["crc_hash"],
-                    md5_hash=rom_hashes["md5_hash"],
-                    sha1_hash=rom_hashes["sha1_hash"],
-                )
-            )
+            rom_files.append(self._build_rom_file(path, with_hashes))
 
         return rom_files
 

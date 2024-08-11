@@ -1,3 +1,4 @@
+import asyncio
 from enum import Enum
 from typing import Any
 
@@ -205,7 +206,6 @@ async def scan_rom(
         )
 
     # Update properties that don't require metadata
-    file_size = sum([file["size"] for file in rom_attrs["files"]])
     regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
@@ -220,7 +220,6 @@ async def scan_rom(
             "file_extension": fs_rom_handler.parse_file_extension(
                 rom_attrs["file_name"]
             ),
-            "file_size_bytes": file_size,
             "multi": rom_attrs["multi"],
             "regions": regs,
             "revision": rev,
@@ -229,42 +228,59 @@ async def scan_rom(
         }
     )
 
-    igdb_handler_rom: IGDBRom = IGDBRom(igdb_id=None)
-    moby_handler_rom: MobyGamesRom = MobyGamesRom(moby_id=None)
+    async def fetch_igdb_rom():
+        if (
+            "igdb" in metadata_sources
+            and platform.igdb_id
+            and (
+                not rom
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
+            )
+        ):
+            main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
+            return await meta_igdb_handler.get_rom(
+                rom_attrs["file_name"], main_platform_igdb_id
+            )
 
-    if (
-        "igdb" in metadata_sources
-        and platform.igdb_id
-        and (
-            not rom
-            or scan_type == ScanType.COMPLETE
-            or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
-            or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
-        )
-    ):
-        main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
-        igdb_handler_rom = await meta_igdb_handler.get_rom(
-            rom_attrs["file_name"], main_platform_igdb_id
-        )
+        return IGDBRom(igdb_id=None)
 
-    if (
-        "moby" in metadata_sources
-        and platform.moby_id
-        and (
-            not rom
-            or scan_type == ScanType.COMPLETE
-            or (scan_type == ScanType.PARTIAL and not rom.moby_id)
-            or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
-        )
-    ):
-        moby_handler_rom = await meta_moby_handler.get_rom(
-            rom_attrs["file_name"], platform_moby_id=platform.moby_id
-        )
+    async def fetch_moby_rom():
+        if (
+            "moby" in metadata_sources
+            and platform.moby_id
+            and (
+                not rom
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.moby_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
+            )
+        ):
+            return await meta_moby_handler.get_rom(
+                rom_attrs["file_name"], platform_moby_id=platform.moby_id
+            )
+
+        return MobyGamesRom(moby_id=None)
+
+    igdb_handler_rom, moby_handler_rom = await asyncio.gather(
+        fetch_igdb_rom(), fetch_moby_rom()
+    )
 
     # Reversed to prioritize IGDB
     rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
 
-    # Return early if not found in IGDB or MobyGames
+    # Calculate file hashes (expensive)
+    rom_files = fs_rom_handler.get_rom_files(rom_attrs["file_name"], roms_path, True)
+    file_size = sum([file["size"] for file in rom_files])
+    rom_attrs.update(
+        {
+            "files": rom_files,
+            "file_size_bytes": file_size,
+        }
+    )
+
+    # If not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
         log.warning(
             emoji.emojize(f"\t   {rom_attrs['file_name']} not found :cross_mark:")
