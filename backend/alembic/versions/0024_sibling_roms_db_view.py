@@ -31,10 +31,10 @@ def upgrade() -> None:
                 r1.id AS rom_id,
                 r2.id AS sibling_rom_id,
                 r1.platform_id AS platform_id,
-                COALESCE(r1.igdb_id, r2.igdb_id) AS igdb_id,
-                COALESCE(r1.moby_id, r2.moby_id) AS moby_id,
                 NOW() AS created_at,
-                NOW() AS updated_at
+                NOW() AS updated_at,
+                CASE WHEN r1.igdb_id <=> r2.igdb_id THEN r1.igdb_id END AS igdb_id,
+                CASE WHEN r1.moby_id <=> r2.moby_id THEN r1.moby_id END AS moby_id
             FROM
                 roms r1
             JOIN 
