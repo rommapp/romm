@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
+    "@ruffle-rs/ruffle": "^0.1.0-nightly.2024.7.29",
     "axios": "^1.6.8",
     "core-js": "^3.37.1",
     "cronstrue": "^2.50.0",

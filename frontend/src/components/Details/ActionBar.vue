@@ -4,7 +4,7 @@ import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, isEmulationSupported } from "@/utils";
+import { getDownloadLink, isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
@@ -13,7 +13,8 @@ const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const playInfoIcon = ref("mdi-play");
-const emulationSupported = isEmulationSupported(props.rom.platform_slug);
+const ejsEmulationSupported = isEJSEmulationSupported(props.rom.platform_slug);
+const ruffleEmulationSupported = isRuffleEmulationSupported(props.rom.platform_slug);
 
 // Functions
 async function copyDownloadLink(rom: DetailedRom) {
@@ -73,11 +74,23 @@ async function copyDownloadLink(rom: DetailedRom) {
       <v-icon icon="mdi-content-copy" />
     </v-btn>
     <v-btn
-      v-if="emulationSupported"
+      v-if="ejsEmulationSupported"
       class="flex-grow-1"
       @click="
         $router.push({
-          name: 'play',
+          name: 'ejs',
+          params: { rom: rom?.id },
+        })
+      "
+    >
+      <v-icon :icon="playInfoIcon" />
+    </v-btn>
+    <v-btn
+      v-if="ruffleEmulationSupported"
+      class="flex-grow-1"
+      @click="
+        $router.push({
+          name: 'ruffle',
           params: { rom: rom?.id },
         })
       "
