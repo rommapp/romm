@@ -6,7 +6,7 @@
 export type RomFile = {
     filename: string;
     size: number;
-    crc_hash: string;
+    crc_hash: number;
     md5_hash: string;
     sha1_hash: string;
 };

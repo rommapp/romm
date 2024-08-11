@@ -38,6 +38,7 @@ export type { SchedulerDict } from './models/SchedulerDict';
 export type { ScreenshotSchema } from './models/ScreenshotSchema';
 export type { SearchCoverSchema } from './models/SearchCoverSchema';
 export type { SearchRomSchema } from './models/SearchRomSchema';
+export type { SimpleRomSchema } from './models/SimpleRomSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { TaskDict } from './models/TaskDict';
