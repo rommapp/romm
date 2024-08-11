@@ -82,6 +82,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
     return (
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASH_SCAN)
         or (
             rom
             and (
