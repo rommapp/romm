@@ -4,7 +4,7 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import { getSupportedCores } from "@/utils";
+import { getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -87,7 +87,7 @@ declare global {
   }
 }
 
-const supportedCores = getSupportedCores(romRef.value.platform_slug);
+const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = romRef.value.id;

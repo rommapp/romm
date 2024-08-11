@@ -8,7 +8,8 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
   formatBytes,
-  isEmulationSupported,
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
@@ -175,11 +176,23 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
-          v-if="isEmulationSupported(item.platform_slug)"
+          v-if="isEJSEmulationSupported(item.platform_slug)"
           size="small"
           @click.stop="
             $router.push({
-              name: 'play',
+              name: 'ejs',
+              params: { rom: item?.id },
+            })
+          "
+        >
+          <v-icon>mdi-play</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="isRuffleEmulationSupported(item.platform_slug)"
+          size="small"
+          @click.stop="
+            $router.push({
+              name: 'ruffle',
               params: { rom: item?.id },
             })
           "

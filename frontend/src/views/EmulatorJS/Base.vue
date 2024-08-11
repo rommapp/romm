@@ -1,14 +1,15 @@
 <script setup lang="ts">
+import { isNull } from "lodash";
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
+
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
-import { formatBytes, formatTimestamp, getSupportedCores } from "@/utils";
-import Player from "@/views/Play/Player.vue";
-import { isNull } from "lodash";
-import { onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
+import Player from "@/views/EmulatorJS/Player.vue";
 
 // Props
 const route = useRoute();
@@ -49,7 +50,7 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 
-  supportedCores.value = [...getSupportedCores(rom.value.platform_slug)];
+  supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
 
   // Load stored bios, save, state, and core
   const storedSaveID = localStorage.getItem(`player:${rom.value.id}:save_id`);
