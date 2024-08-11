@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_firmware_firmware_post = {
-  files: Array<Blob>;
+export type WebrcadeFeedItemPropsSchema = {
+    rom: string;
 };
+
