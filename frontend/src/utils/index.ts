@@ -341,10 +341,14 @@ const _EJS_CORES_MAP = {
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
 
-export function getSupportedCores(platformSlug: string) {
+export function getSupportedEJSCores(platformSlug: string) {
   return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
 }
 
-export function isEmulationSupported(platformSlug: string) {
+export function isEJSEmulationSupported(platformSlug: string) {
   return platformSlug.toLowerCase() in _EJS_CORES_MAP;
+}
+
+export function isRuffleEmulationSupported(platformSlug: string) {
+  return platformSlug.toLowerCase() === "flash";
 }
