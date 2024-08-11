@@ -217,12 +217,17 @@ class FSRomsHandler(FSHandler):
             return RomFile(
                 filename=path.name,
                 size=os.stat(path).st_size,
+                last_modified=os.path.getmtime(path),
+                crc_hash=None,
+                md5_hash=None,
+                sha1_hash=None,
             )
 
         rom_hashes = self._calculate_rom_hashes(path)
         return RomFile(
             filename=path.name,
             size=os.stat(path).st_size,
+            last_modified=os.path.getmtime(path),
             crc_hash=rom_hashes["crc_hash"],
             md5_hash=rom_hashes["md5_hash"],
             sha1_hash=rom_hashes["sha1_hash"],

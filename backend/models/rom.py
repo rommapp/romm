@@ -28,9 +28,10 @@ if TYPE_CHECKING:
 class RomFile(TypedDict):
     filename: str
     size: int
-    crc_hash: int
-    md5_hash: str
-    sha1_hash: str
+    last_modified: float | None
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
 
 
 class Rom(BaseModel):
