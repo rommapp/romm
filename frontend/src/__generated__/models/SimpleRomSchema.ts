@@ -3,18 +3,13 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { CollectionSchema } from './CollectionSchema';
 import type { RomFile } from './RomFile';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSchema } from './RomSchema';
 import type { RomUserSchema } from './RomUserSchema';
-import type { SaveSchema } from './SaveSchema';
-import type { ScreenshotSchema } from './ScreenshotSchema';
-import type { StateSchema } from './StateSchema';
-import type { UserNotesSchema } from './UserNotesSchema';
 
-export type DetailedRomSchema = {
+export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
     sgdb_id: (number | null);
@@ -53,14 +48,8 @@ export type DetailedRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    merged_screenshots: Array<string>;
     sibling_roms?: Array<RomSchema>;
     rom_user?: (RomUserSchema | null);
-    user_saves?: Array<SaveSchema>;
-    user_states?: Array<StateSchema>;
-    user_screenshots?: Array<ScreenshotSchema>;
-    user_notes?: Array<UserNotesSchema>;
-    user_collections?: Array<CollectionSchema>;
     readonly sort_comparator: string;
 };
 

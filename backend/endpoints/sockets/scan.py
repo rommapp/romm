@@ -7,7 +7,7 @@ import emoji
 import socketio  # type: ignore
 from config import SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
-from endpoints.responses.rom import RomSchema
+from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
@@ -368,7 +368,7 @@ async def _identify_rom(
         {
             "platform_name": platform.name,
             "platform_slug": platform.slug,
-            **RomSchema.model_validate(_added_rom).model_dump(
+            **SimpleRomSchema.model_validate(_added_rom).model_dump(
                 exclude={"created_at", "updated_at", "rom_user"}
             ),
         },

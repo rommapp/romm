@@ -17,8 +17,8 @@ from endpoints.responses.rom import (
     AddRomsResponse,
     CustomStreamingResponse,
     DetailedRomSchema,
-    RomSchema,
     RomUserSchema,
+    SimpleRomSchema,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -102,7 +102,7 @@ def get_roms(
     limit: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
-) -> list[RomSchema]:
+) -> list[SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
@@ -110,7 +110,7 @@ def get_roms(
         id (int, optional): Rom internal id
 
     Returns:
-        list[RomSchema]: List of roms stored in the database
+        list[SimpleRomSchema]: List of roms stored in the database
     """
 
     roms = db_rom_handler.get_roms(
@@ -122,7 +122,7 @@ def get_roms(
         limit=limit,
     )
 
-    return [RomSchema.from_orm_with_request(rom, request) for rom in roms]
+    return [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
 
 
 @protected_route(
