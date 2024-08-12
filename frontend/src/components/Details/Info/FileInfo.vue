@@ -136,14 +136,14 @@ watch(
           <v-chip size="small" label>
             Size: {{ formatBytes(rom.file_size_bytes) }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.files[0].sha1_hash" size="small" label class="mx-2">
-            SHA-1 Hash: {{ rom.files[0].sha1_hash }}
+          <v-chip v-if="!rom.multi && rom.sha1_hash" size="small" label class="mx-2">
+            SHA-1 Hash: {{ rom.sha1_hash }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.files[0].md5_hash" size="small" label class="mx-2">
-            MD5 Hash: {{ rom.files[0].md5_hash  }}
+          <v-chip v-if="!rom.multi && rom.md5_hash" size="small" label class="mx-2">
+            MD5 Hash: {{ rom.md5_hash  }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.files[0].crc_hash" size="small" label class="mx-2">
-            CRC Hash: {{ rom.files[0].crc_hash }}
+          <v-chip v-if="!rom.multi && rom.crc_hash" size="small" label class="mx-2">
+            CRC Hash: {{ rom.crc_hash }}
           </v-chip>
         </v-col>
       </v-row>

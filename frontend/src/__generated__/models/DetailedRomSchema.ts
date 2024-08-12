@@ -50,6 +50,9 @@ export type DetailedRomSchema = {
     tags: Array<string>;
     multi: boolean;
     files: Array<RomFile>;
+    crc_hash: (string | null);
+    md5_hash: (string | null);
+    sha1_hash: (string | null);
     full_path: string;
     created_at: string;
     updated_at: string;
