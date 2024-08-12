@@ -82,7 +82,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
     return (
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         or (scan_type == ScanType.COMPLETE)
-        or (scan_type == ScanType.HASH_SCAN)
+        or (scan_type == ScanType.HASHES)
         or (
             rom
             and (
@@ -342,7 +342,7 @@ async def _identify_rom(
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
     # Return early if we're only scanning for hashes
-    if scan_type == ScanType.HASH_SCAN:
+    if scan_type == ScanType.HASHES:
         return scan_stats
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(

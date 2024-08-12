@@ -31,7 +31,11 @@ def upgrade() -> None:
     # Run a no-scan in the background on migrate
     if not IS_PYTEST_RUN:
         high_prio_queue.enqueue(
-            scan_platforms, [], ScanType.HASH_SCAN, [], [], job_timeout=SCAN_TIMEOUT
+            scan_platforms, [], ScanType.QUICK, [], [], job_timeout=SCAN_TIMEOUT
+        )
+
+        high_prio_queue.enqueue(
+            scan_platforms, [], ScanType.HASHES, [], [], job_timeout=SCAN_TIMEOUT
         )
 
 
