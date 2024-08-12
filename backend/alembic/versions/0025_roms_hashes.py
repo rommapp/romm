@@ -28,7 +28,7 @@ def upgrade() -> None:
             sa.Column("sha1_hash", sa.String(length=100), nullable=True)
         )
 
-    # Run a no-scan in the background on startup
+    # Run a no-scan in the background on migrate
     if not IS_PYTEST_RUN:
         high_prio_queue.enqueue(
             scan_platforms, [], ScanType.HASH_SCAN, [], [], job_timeout=SCAN_TIMEOUT
