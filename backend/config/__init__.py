@@ -13,7 +13,8 @@ GUNICORN_WORKERS: Final = int(os.environ.get("GUNICORN_WORKERS", 2))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
-LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
+LIBRARY_PATH_SUFFIX: Final = "/library"
+LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}{LIBRARY_PATH_SUFFIX}"
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
