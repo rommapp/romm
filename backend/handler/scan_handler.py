@@ -230,8 +230,9 @@ async def scan_rom(
         }
     )
 
-    rom_hashes = fs_rom_handler.get_rom_hashes(rom_attrs["file_name"], roms_path)
-    rom_attrs.update(**rom_hashes)
+    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASH_SCAN:
+        rom_hashes = fs_rom_handler.get_rom_hashes(rom_attrs["file_name"], roms_path)
+        rom_attrs.update(**rom_hashes)
 
     # If no metadata scan is required
     if scan_type == ScanType.HASH_SCAN:
