@@ -24,7 +24,7 @@ class ScanType(Enum):
     UNIDENTIFIED = "unidentified"
     PARTIAL = "partial"
     COMPLETE = "complete"
-    HASH_SCAN = "hash_scan"
+    HASHES = "hashes"
 
 
 async def _get_main_platform_igdb_id(platform: Platform):
@@ -231,12 +231,12 @@ async def scan_rom(
     )
 
     # Calculating hashes is expensive, so we only do it if necessary
-    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASH_SCAN:
+    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
         rom_hashes = fs_rom_handler.get_rom_hashes(rom_attrs["file_name"], roms_path)
         rom_attrs.update(**rom_hashes)
 
     # If no metadata scan is required
-    if scan_type == ScanType.HASH_SCAN:
+    if scan_type == ScanType.HASHES:
         return Rom(**rom_attrs)
 
     async def fetch_igdb_rom():
