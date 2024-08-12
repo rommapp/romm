@@ -19,24 +19,24 @@ runtimes:
 lint:
   enabled:
     - markdownlint@0.41.0
-    - eslint@9.7.0
+    - eslint@9.8.0
     - actionlint@1.7.1
     - bandit@1.7.9
-    - black@24.4.2
-    - checkov@3.2.208
+    - black@24.8.0
+    - checkov@3.2.219
     - git-diff-check
     - isort@5.13.2
-    - mypy@1.11.0
-    - osv-scanner@1.8.2
+    - mypy@1.11.1
+    - osv-scanner@1.8.3
     - oxipng@9.1.2
     - prettier@3.3.3
-    - ruff@0.5.5
+    - ruff@0.5.7
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.3.2
-    - taplo@0.9.2
-    - trivy@0.53.0
-    - trufflehog@3.80.1
+    - taplo@0.9.3
+    - trivy@0.54.1
+    - trufflehog@3.81.7
     - yamllint@1.35.1
   ignore:
     - linters: [ALL]
