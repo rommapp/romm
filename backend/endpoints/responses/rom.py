@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.socket_handler import socket_handler
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from pydantic import BaseModel, Field, computed_field
 from typing_extensions import TypedDict
 
@@ -108,7 +108,10 @@ class RomSchema(BaseModel):
     tags: list[str]
 
     multi: bool
-    files: list[str]
+    files: list[RomFile]
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
     full_path: str
     created_at: datetime
     updated_at: datetime

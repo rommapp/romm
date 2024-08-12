@@ -17,7 +17,7 @@ interactions:
         Content-Length:
           - "796"
         User-Agent:
-          - python-requests/2.32.3
+          - python-requests/2.32.0
       method: POST
       uri: https://api.igdb.com/v4/games
     response:
@@ -33,7 +33,7 @@ interactions:
         CF-Cache-Status:
           - DYNAMIC
         CF-RAY:
-          - 8954458a8d1ac1c8-BUD
+          - 8a4509ef2f06ab0c-YYZ
         Connection:
           - keep-alive
         Content-Length:
@@ -41,12 +41,12 @@ interactions:
         Content-Type:
           - application/json
         Date:
-          - Mon, 17 Jun 2024 16:03:47 GMT
+          - Tue, 16 Jul 2024 21:20:53 GMT
         Server:
           - cloudflare
         Set-Cookie:
-          - __cf_bm=Pkqts9nrlZzzqm8MAWz11FD9VAhWJG81SmXWzhFZVXQ-1718640227-1.0.1.1-IlZEHZANhqRkqtx6l9gZD7ncaSkhbRdt7pvVairBZqrcfrq7bZZIIFOLHNRRYBZn.9wEBmD.UmLrxmhaSg2y7A;
-            path=/; expires=Mon, 17-Jun-24 16:33:47 GMT; domain=.igdb.com; HttpOnly; Secure;
+          - __cf_bm=K63xoXgTxGJm.n8D27NJG_ly4hN5z2J6yYDTzgLbD80-1721164853-1.0.1.1-p2nx3KwSJSjeNAWPDw0cRQAUg6YHgO_Y3Z0jYU6sB2Yr5fkj8Db6FRqWdlVSS5EN_6KieLIwqUxDUg4J45h50g;
+            path=/; expires=Tue, 16-Jul-24 21:50:53 GMT; domain=.igdb.com; HttpOnly; Secure;
             SameSite=None
         Strict-Transport-Security:
           - max-age=31536000; includeSubDomains; preload
@@ -55,17 +55,17 @@ interactions:
         alt-svc:
           - h3=":443"; ma=86400
         via:
-          - 1.1 ebc0709f2918acef5e26208dffcb618c.cloudfront.net (CloudFront)
+          - 1.1 1acedc07a77a02e11785c2290515f2e4.cloudfront.net (CloudFront)
         x-amz-apigw-id:
-          - ZhOvkGSYPHcEk1A=
+          - bBiYcG8dvHcEJyg=
         x-amz-cf-id:
-          - 0lKqIn-0Z3y8symJxCZXC5axLtvm5dfu9qs8-s50-DR6KG1wAXCVhA==
+          - 5BP2CkODtFEThqTb1WSzRtjpsi2tscDJRx4NmPXzCpmEQod5maIjnQ==
         x-amz-cf-pop:
-          - FRA56-P8
+          - ORD51-C2
         x-amzn-errortype:
           - AccessDeniedException
         x-amzn-requestid:
-          - 406ba6c1-1be5-4eee-8f8d-03579da25c54
+          - b6b00df1-1438-4aa1-bda3-0cd0f7c23296
         x-cache:
           - Error from cloudfront
       status:
@@ -83,13 +83,13 @@ interactions:
         Content-Length:
           - "0"
         User-Agent:
-          - python-requests/2.32.3
+          - python-requests/2.32.0
       method: POST
       uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
     response:
       body:
         string:
-          '{"access_token":"yg0ucvq4spk9v1eict05z4bpkctaso","expires_in":5268473,"token_type":"bearer"}
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":5624809,"token_type":"bearer"}
 
           '
       headers:
@@ -102,11 +102,11 @@ interactions:
         Content-Type:
           - application/json
         Date:
-          - Mon, 17 Jun 2024 16:03:48 GMT
+          - Tue, 16 Jul 2024 21:20:54 GMT
         Server:
           - nginx
         X-Ctxlog-Logid:
-          - 1-66705e64-4daa4ef9086314ea51864a45
+          - 1-6696e436-783213912ac0e5067f1e9592
       status:
         code: 200
         message: OK
@@ -120,7 +120,7 @@ interactions:
         Accept-Encoding:
           - gzip, deflate
         Authorization:
-          - Bearer yg0ucvq4spk9v1eict05z4bpkctaso
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Client-ID:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Connection:
@@ -128,7 +128,7 @@ interactions:
         Content-Length:
           - "796"
         User-Agent:
-          - python-requests/2.32.3
+          - python-requests/2.32.0
       method: POST
       uri: https://api.igdb.com/v4/games
     response:
@@ -206,7 +206,7 @@ interactions:
           the Mushroom Kingdom\\u0027s diverse locales and biomes, meeting its inhabitants,
           fighthing unruly enemies and recruiting an array of companions in order to
           once again save Princess Peach from the clutches of the evil Koopa King Bowser.\",\n
-          \   \"total_rating\": 88.63712520126188,\n    \"collections\": [\n      {\n
+          \   \"total_rating\": 88.63753217601834,\n    \"collections\": [\n      {\n
           \       \"id\": 240,\n        \"name\": \"Super Mario\"\n      },\n      {\n
           \       \"id\": 593,\n        \"name\": \"Paper Mario\"\n      }\n    ]\n
           \ }\n]"
@@ -214,20 +214,20 @@ interactions:
         CF-Cache-Status:
           - DYNAMIC
         CF-RAY:
-          - 8954459468d768bb-BUD
+          - 8a4509f43a89abb8-YYZ
         Connection:
           - keep-alive
         Content-Length:
-          - "1529"
+          - "1528"
         Content-Type:
           - application/json
         Date:
-          - Mon, 17 Jun 2024 16:03:48 GMT
+          - Tue, 16 Jul 2024 21:20:54 GMT
         Server:
           - cloudflare
         Set-Cookie:
-          - __cf_bm=MZGQ45rHyOlT6dLcQvaxjOTTbOgnNg4SGP9mJGrJCJ0-1718640228-1.0.1.1-5d1QCqvlQBVVBcfqZHDeacIHc5d8UKwR1QBiaLjeF7wu5qdTPIFI9uGU.9LSOBjbiqUwW73rQd2EbPuqduXO3Q;
-            path=/; expires=Mon, 17-Jun-24 16:33:48 GMT; domain=.igdb.com; HttpOnly; Secure;
+          - __cf_bm=PsncMQhPTWpR1oHjMpk15qRUP7WbtGRS.NGfZOY65l8-1721164854-1.0.1.1-cYy4SO3EJA2a4jqwmm1x1Zl3Z9o7Y8cIfRAv5mv0GnC8rjX2I1KEmbMp3aurQ3iwuGOS_LwNuMReKOD74TwXbA;
+            path=/; expires=Tue, 16-Jul-24 21:50:54 GMT; domain=.igdb.com; HttpOnly; Secure;
             SameSite=None
         Strict-Transport-Security:
           - max-age=31536000; includeSubDomains; preload
@@ -236,19 +236,19 @@ interactions:
         alt-svc:
           - h3=":443"; ma=86400
         via:
-          - 1.1 1e0f88a39289286be3e03ff93487da80.cloudfront.net (CloudFront)
+          - 1.1 412b0215b557780a6efcc1651037dc90.cloudfront.net (CloudFront)
         x-amz-apigw-id:
-          - ZhOvxGLJPHcEiyw=
+          - bBiYjGocvHcES9Q=
         x-amz-cf-id:
-          - BRUeRhAc8MkId4W5Ytgwib4jTq6EIo4VgQKkZoAw-vECfwX38KZw4A==
+          - qNRcxGGRlOiahu_AQFHB6TMBbOASu2LA0t9PmPndvxSI4nkv96V3dA==
         x-amz-cf-pop:
-          - FRA56-P8
+          - YTO50-P1
         x-amzn-remapped-content-length:
-          - "1529"
+          - "1528"
         x-amzn-remapped-date:
-          - Mon, 17 Jun 2024 16:03:48 GMT
+          - Tue, 16 Jul 2024 21:20:54 GMT
         x-amzn-requestid:
-          - f83c4ba8-e83b-4b27-b769-3de078d84ba2
+          - 2659af3f-8bbb-4d7b-9e1c-dc972fc6367f
         x-cache:
           - Miss from cloudfront
         x-count:
@@ -266,7 +266,7 @@ interactions:
         Accept-Encoding:
           - gzip, deflate
         Authorization:
-          - Bearer yg0ucvq4spk9v1eict05z4bpkctaso
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Client-ID:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Connection:
@@ -274,7 +274,7 @@ interactions:
         Content-Length:
           - "121"
         User-Agent:
-          - python-requests/2.32.3
+          - python-requests/2.32.0
       method: POST
       uri: https://api.igdb.com/v4/search
     response:
@@ -306,18 +306,18 @@ interactions:
         CF-Cache-Status:
           - DYNAMIC
         CF-RAY:
-          - 89544596b8d6684c-BUD
+          - 8a4509f668ce7119-YYZ
         Connection:
           - keep-alive
         Content-Type:
           - application/json
         Date:
-          - Mon, 17 Jun 2024 16:03:49 GMT
+          - Tue, 16 Jul 2024 21:20:55 GMT
         Server:
           - cloudflare
         Set-Cookie:
-          - __cf_bm=S3S9rrHhBOvzvmVCHIeVraPhJyoqg7eFaasmWKy4WrE-1718640229-1.0.1.1-MynYCqaygKWR4apMN6El6uR.QP9ouU93PdAsZ4IXfYQYAFER1Z9ek7QyBfLq60KBam5Te3U.RvZcUdnUrDIw0g;
-            path=/; expires=Mon, 17-Jun-24 16:33:49 GMT; domain=.igdb.com; HttpOnly; Secure;
+          - __cf_bm=KkAmqxhQPavV7fCKkDnuvzC9DyvenDp7tA7GNRkkVAc-1721164855-1.0.1.1-Ae5ASfcHkdEuszHbLuVn2rOsIOFO4lhkF0wJz_zkUMyHZGyjfMfbxc23IZI6vc_liGEP2Xgy2dI6I4xyduE1pA;
+            path=/; expires=Tue, 16-Jul-24 21:50:55 GMT; domain=.igdb.com; HttpOnly; Secure;
             SameSite=None
         Strict-Transport-Security:
           - max-age=31536000; includeSubDomains; preload
@@ -328,19 +328,19 @@ interactions:
         alt-svc:
           - h3=":443"; ma=86400
         via:
-          - 1.1 193d38535c6cb246e365763e9c32e672.cloudfront.net (CloudFront)
+          - 1.1 19d1514f5f81da4dca6349d0f75a352c.cloudfront.net (CloudFront)
         x-amz-apigw-id:
-          - ZhOv1HtuPHcETtw=
+          - bBiYnGaWvHcEMVw=
         x-amz-cf-id:
-          - 5tJYJzvDTLMBuOc9kX5sQbOwUU8M31kbfrCwEwn6Kmrf2Y6e7LFZEg==
+          - qgoGtG02JXbCB4cXLi0sKJRw1f7uX6caTDqPIzUFUAiiaaTYr0DPmw==
         x-amz-cf-pop:
-          - FRA56-P8
+          - YUL62-C2
         x-amzn-remapped-content-length:
           - "1421"
         x-amzn-remapped-date:
-          - Mon, 17 Jun 2024 16:03:49 GMT
+          - Tue, 16 Jul 2024 21:20:54 GMT
         x-amzn-requestid:
-          - 55032156-444c-4347-af24-51c20426ee8b
+          - b12a507c-48c8-4e57-8028-af00f0ec2ecf
         x-cache:
           - Miss from cloudfront
         x-count:
@@ -358,7 +358,7 @@ interactions:
         Accept-Encoding:
           - gzip, deflate
         Authorization:
-          - Bearer yg0ucvq4spk9v1eict05z4bpkctaso
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Client-ID:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Connection:
@@ -366,7 +366,7 @@ interactions:
         Content-Length:
           - "739"
         User-Agent:
-          - python-requests/2.32.3
+          - python-requests/2.32.0
       method: POST
       uri: https://api.igdb.com/v4/games
     response:
@@ -444,7 +444,7 @@ interactions:
           the Mushroom Kingdom\\u0027s diverse locales and biomes, meeting its inhabitants,
           fighthing unruly enemies and recruiting an array of companions in order to
           once again save Princess Peach from the clutches of the evil Koopa King Bowser.\",\n
-          \   \"total_rating\": 88.63712520126188,\n    \"collections\": [\n      {\n
+          \   \"total_rating\": 88.63753217601834,\n    \"collections\": [\n      {\n
           \       \"id\": 240,\n        \"name\": \"Super Mario\"\n      },\n      {\n
           \       \"id\": 593,\n        \"name\": \"Paper Mario\"\n      }\n    ]\n
           \ }\n]"
@@ -452,20 +452,20 @@ interactions:
         CF-Cache-Status:
           - DYNAMIC
         CF-RAY:
-          - 8954459c292fc1bc-BUD
+          - 8a4509fc9e8da246-YYZ
         Connection:
           - keep-alive
         Content-Length:
-          - "1529"
+          - "1528"
         Content-Type:
           - application/json
         Date:
-          - Mon, 17 Jun 2024 16:03:50 GMT
+          - Tue, 16 Jul 2024 21:20:56 GMT
         Server:
           - cloudflare
         Set-Cookie:
-          - __cf_bm=ou6Xt5NppxZER6H5U_Hf7JhkNeFmqvfi_r26YZDDiDA-1718640230-1.0.1.1-8odH4zUHWZ2rEQs6Es07QiilEn4uihIVSrpuO7nEvnsZyiCrpTXBUJeocFATmAs2nlDkU1rzUo3ywc0a4Vza1w;
-            path=/; expires=Mon, 17-Jun-24 16:33:50 GMT; domain=.igdb.com; HttpOnly; Secure;
+          - __cf_bm=5bPHYIegBMi1xJ02b0hjaxBDqtvwnry9PO980Xd7lNc-1721164856-1.0.1.1-cu9HyVrxbU2z.sX3r4j0oAGX.uCZMrSGh9G3DRsu7t2.CCaDCEZcRTqdbASeR2V9LLJseMkdn7TF7FBTjNY2DA;
+            path=/; expires=Tue, 16-Jul-24 21:50:56 GMT; domain=.igdb.com; HttpOnly; Secure;
             SameSite=None
         Strict-Transport-Security:
           - max-age=31536000; includeSubDomains; preload
@@ -474,19 +474,19 @@ interactions:
         alt-svc:
           - h3=":443"; ma=86400
         via:
-          - 1.1 b7c8b552077b93dc0acaa0b82d11fa62.cloudfront.net (CloudFront)
+          - 1.1 490c6f54e6cd81b80f07ff6be833267e.cloudfront.net (CloudFront)
         x-amz-apigw-id:
-          - ZhOv9EwOPHcEDOQ=
+          - bBiYxEaCPHcEErA=
         x-amz-cf-id:
-          - 6Sn4tTPxhiFmPanVHta__qD8AW6cJVXrSXtZvgRED-1CCTbimEhZzw==
+          - syxc_2spiC05CJNtd7tJxBxPfHKt0FzGAI0rbGnWlRK5_zFEK10LWA==
         x-amz-cf-pop:
-          - FRA56-P8
+          - YTO50-P1
         x-amzn-remapped-content-length:
-          - "1529"
+          - "1528"
         x-amzn-remapped-date:
-          - Mon, 17 Jun 2024 16:03:49 GMT
+          - Tue, 16 Jul 2024 21:20:55 GMT
         x-amzn-requestid:
-          - c60d2696-7381-4b4d-ac0f-18b1c9292fb5
+          - 5674e595-eafc-4003-91be-0267d28f76c9
         x-cache:
           - Miss from cloudfront
         x-count:
