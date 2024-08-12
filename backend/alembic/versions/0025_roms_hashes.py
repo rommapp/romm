@@ -8,7 +8,7 @@ Create Date: 2024-08-11 21:50:53.301352
 
 import sqlalchemy as sa
 from alembic import op
-from config import SCAN_TIMEOUT
+from config import IS_PYTEST_RUN, SCAN_TIMEOUT
 from endpoints.sockets.scan import scan_platforms
 from handler.redis_handler import high_prio_queue
 from handler.scan_handler import ScanType
@@ -29,9 +29,10 @@ def upgrade() -> None:
         )
 
     # Run a no-scan in the background on startup
-    high_prio_queue.enqueue(
-        scan_platforms, [], ScanType.HASH_SCAN, [], [], job_timeout=SCAN_TIMEOUT
-    )
+    if not IS_PYTEST_RUN:
+        high_prio_queue.enqueue(
+            scan_platforms, [], ScanType.HASH_SCAN, [], [], job_timeout=SCAN_TIMEOUT
+        )
 
 
 def downgrade() -> None:
