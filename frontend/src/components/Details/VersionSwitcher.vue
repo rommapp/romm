@@ -11,12 +11,11 @@ const router = useRouter();
 const version = ref(props.rom.id);
 
 // Functions
-function formatItem(rom: DetailedRom) {
+function formatSubtitle(rom: DetailedRom) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
   const tags = rom.tags.map((t) => `(${t})`).join(" ");
-  if (langs || regions || tags) return `${langs} ${regions} ${tags}`;
-  return rom.file_name;
+  return `${langs} ${regions} ${tags}`.trim();
 }
 
 function updateVersion() {
@@ -39,7 +38,8 @@ function updateVersion() {
     hide-details
     :items="
       [rom, ...rom.sibling_roms].map((i) => ({
-        title: formatItem(i),
+        title: i.file_name,
+        props: { subtitle: formatSubtitle(i) },
         value: i.id,
       }))
     "
