@@ -341,6 +341,10 @@ async def _identify_rom(
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
+    # Return early if we're only scanning for hashes
+    if scan_type == ScanType.HASH_SCAN:
+        return scan_stats
+
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         overwrite=True,
         entity=_added_rom,
