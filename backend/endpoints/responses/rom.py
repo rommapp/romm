@@ -109,6 +109,9 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[RomFile]
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
     full_path: str
     created_at: datetime
     updated_at: datetime

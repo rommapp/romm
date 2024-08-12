@@ -29,9 +29,6 @@ class RomFile(TypedDict):
     filename: str
     size: int
     last_modified: float | None
-    crc_hash: str | None
-    md5_hash: str | None
-    sha1_hash: str | None
 
 
 class Rom(BaseModel):
@@ -78,6 +75,9 @@ class Rom(BaseModel):
 
     multi: Mapped[bool] = mapped_column(default=False)
     files: Mapped[list[RomFile] | None] = mapped_column(JSON, default=[])
+    crc_hash: Mapped[str | None] = mapped_column(String(100))
+    md5_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")

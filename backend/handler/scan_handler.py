@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any
 
 import emoji
-from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
@@ -207,6 +206,7 @@ async def scan_rom(
         )
 
     # Update properties that don't require metadata
+    file_size = sum([file["size"] for file in rom_attrs["files"]])
     regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["file_name"])
     rom_attrs.update(
         {
@@ -221,6 +221,7 @@ async def scan_rom(
             "file_extension": fs_rom_handler.parse_file_extension(
                 rom_attrs["file_name"]
             ),
+            "file_size_bytes": file_size,
             "multi": rom_attrs["multi"],
             "regions": regs,
             "revision": rev,
@@ -229,18 +230,8 @@ async def scan_rom(
         }
     )
 
-    # Calculate file hashes (expensive)
-    roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
-    rom_files = fs_rom_handler.get_rom_files(
-        rom_attrs["file_name"], roms_file_path, True
-    )
-    file_size = sum([file["size"] for file in rom_files])
-    rom_attrs.update(
-        {
-            "files": rom_files,
-            "file_size_bytes": file_size,
-        }
-    )
+    rom_hashes = fs_rom_handler.get_rom_hashes(rom_attrs["file_name"], roms_path)
+    rom_attrs.update(**rom_hashes)
 
     # If no metadata scan is required
     if scan_type == ScanType.HASH_SCAN:

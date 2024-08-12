@@ -7,7 +7,7 @@ import shutil
 import tarfile
 import zipfile
 from pathlib import Path
-from typing import Final, Iterator
+from typing import Any, Final, Iterator, Tuple
 
 import magic
 import py7zr
@@ -165,14 +165,34 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
-    def _calculate_rom_hashes(self, file_path: Path) -> dict[str, str]:
+    def _build_rom_file(self, path: Path) -> RomFile:
+        return RomFile(
+            filename=path.name,
+            size=os.stat(path).st_size,
+            last_modified=os.path.getmtime(path),
+        )
+
+    def get_rom_files(self, rom: str, roms_path: str) -> list[RomFile]:
+        rom_files: list[RomFile] = []
+
+        # Check if rom is a multi-part rom
+        if os.path.isdir(f"{roms_path}/{rom}"):
+            multi_files = os.listdir(f"{roms_path}/{rom}")
+            for file in self._exclude_files(multi_files, "multi_parts"):
+                path = Path(roms_path, rom, file)
+                rom_files.append(self._build_rom_file(path))
+        else:
+            path = Path(roms_path, rom)
+            rom_files.append(self._build_rom_file(path))
+
+        return rom_files
+
+    def _calculate_rom_hashes(
+        self, file_path: Path, crc_c: int, md5_h: Any, sha1_h: Any
+    ) -> Tuple[int, Any, Any]:
         mime = magic.Magic(mime=True)
         file_type = mime.from_file(file_path)
         extension = Path(file_path).suffix.lower()
-
-        crc_c = 0
-        md5_h = hashlib.md5(usedforsecurity=False)
-        sha1_h = hashlib.sha1(usedforsecurity=False)
 
         def update_hashes(chunk: bytes):
             md5_h.update(chunk)
@@ -206,49 +226,34 @@ class FSRomsHandler(FSHandler):
                 while chunk := f.read(FILE_READ_CHUNK_SIZE):
                     update_hashes(chunk)
 
+        return crc_c, md5_h, sha1_h
+
+    def get_rom_hashes(self, rom: str, roms_path: str) -> dict[str, str]:
+        roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
+
+        crc_c = 0
+        md5_h = hashlib.md5(usedforsecurity=False)
+        sha1_h = hashlib.sha1(usedforsecurity=False)
+
+        # Check if rom is a multi-part rom
+        if os.path.isdir(f"{roms_file_path}/{rom}"):
+            multi_files = os.listdir(f"{roms_file_path}/{rom}")
+            for file in self._exclude_files(multi_files, "multi_parts"):
+                path = Path(roms_file_path, rom, file)
+                crc_c, md5_h, sha1_h = self._calculate_rom_hashes(
+                    path, crc_c, md5_h, sha1_h
+                )
+        else:
+            path = Path(roms_file_path, rom)
+            crc_c, md5_h, sha1_h = self._calculate_rom_hashes(
+                path, crc_c, md5_h, sha1_h
+            )
+
         return {
             "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
             "md5_hash": md5_h.hexdigest(),
             "sha1_hash": sha1_h.hexdigest(),
         }
-
-    def _build_rom_file(self, path: Path, with_hashes: bool = False) -> RomFile:
-        if not with_hashes:
-            return RomFile(
-                filename=path.name,
-                size=os.stat(path).st_size,
-                last_modified=os.path.getmtime(path),
-                crc_hash=None,
-                md5_hash=None,
-                sha1_hash=None,
-            )
-
-        rom_hashes = self._calculate_rom_hashes(path)
-        return RomFile(
-            filename=path.name,
-            size=os.stat(path).st_size,
-            last_modified=os.path.getmtime(path),
-            crc_hash=rom_hashes["crc_hash"],
-            md5_hash=rom_hashes["md5_hash"],
-            sha1_hash=rom_hashes["sha1_hash"],
-        )
-
-    def get_rom_files(
-        self, rom: str, roms_path: str, with_hashes: bool = False
-    ) -> list[RomFile]:
-        rom_files: list[RomFile] = []
-
-        # Check if rom is a multi-part rom
-        if os.path.isdir(f"{roms_path}/{rom}"):
-            multi_files = os.listdir(f"{roms_path}/{rom}")
-            for file in self._exclude_files(multi_files, "multi_parts"):
-                path = Path(roms_path, rom, file)
-                rom_files.append(self._build_rom_file(path, with_hashes))
-        else:
-            path = Path(roms_path, rom)
-            rom_files.append(self._build_rom_file(path, with_hashes))
-
-        return rom_files
 
     def get_roms(self, platform_fs_slug: str) -> list[FSRom]:
         """Gets all filesystem roms for a platform

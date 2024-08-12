@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 0025_file_hashes_scan
+Revision ID: 0025_roms_hashes
 Revises: 0024_sibling_roms_db_view
-Create Date: 2024-08-11 12:00:00.000000
+Create Date: 2024-08-11 21:50:53.301352
 
 """
 
@@ -14,30 +14,28 @@ from handler.redis_handler import high_prio_queue
 from handler.scan_handler import ScanType
 
 # revision identifiers, used by Alembic.
-revision = "0025_file_hashes_scan"
+revision = "0025_roms_hashes"
 down_revision = "0024_sibling_roms_db_view"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    # Run a hash scan in the background
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("crc_hash", sa.String(length=100), nullable=True))
+        batch_op.add_column(sa.Column("md5_hash", sa.String(length=100), nullable=True))
+        batch_op.add_column(
+            sa.Column("sha1_hash", sa.String(length=100), nullable=True)
+        )
+
+    # Run a no-scan in the background on startup
     high_prio_queue.enqueue(
         scan_platforms, [], ScanType.HASH_SCAN, [], [], job_timeout=SCAN_TIMEOUT
     )
 
 
 def downgrade() -> None:
-    connection = op.get_bind()
-
-    connection.execute(
-        sa.text(
-            """
-            DROP VIEW sibling_roms;
-            """
-        ),
-    )
-
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.drop_index("idx_roms_igdb_id")
-        batch_op.drop_index("idx_roms_moby_id")
+        batch_op.drop_column("sha1_hash")
+        batch_op.drop_column("md5_hash")
+        batch_op.drop_column("crc_hash")
