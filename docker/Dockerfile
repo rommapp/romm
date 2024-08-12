@@ -54,7 +54,9 @@ RUN apk add --no-cache \
     mariadb-connector-c \
     python3 \
     tzdata \
-    redis
+    redis \
+    libmagic \
+    p7zip
 
 COPY ./backend /backend
 

@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { RomFile } from './RomFile';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSchema } from './RomSchema';
@@ -43,12 +44,15 @@ export type SimpleRomSchema = {
     languages: Array<string>;
     tags: Array<string>;
     multi: boolean;
-    files: Array<string>;
+    files: Array<RomFile>;
+    crc_hash: (string | null);
+    md5_hash: (string | null);
+    sha1_hash: (string | null);
     full_path: string;
     created_at: string;
     updated_at: string;
-    rom_user?: (RomUserSchema | null);
     sibling_roms?: Array<RomSchema>;
+    rom_user?: (RomUserSchema | null);
     readonly sort_comparator: string;
 };
 
