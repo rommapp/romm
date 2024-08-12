@@ -229,6 +229,23 @@ async def scan_rom(
         }
     )
 
+    # Calculate file hashes (expensive)
+    roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
+    rom_files = fs_rom_handler.get_rom_files(
+        rom_attrs["file_name"], roms_file_path, True
+    )
+    file_size = sum([file["size"] for file in rom_files])
+    rom_attrs.update(
+        {
+            "files": rom_files,
+            "file_size_bytes": file_size,
+        }
+    )
+
+    # If no metadata scan is required
+    if scan_type == ScanType.HASH_SCAN:
+        return Rom(**rom_attrs)
+
     async def fetch_igdb_rom():
         if (
             "igdb" in metadata_sources
@@ -270,23 +287,6 @@ async def scan_rom(
 
     # Reversed to prioritize IGDB
     rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
-
-    # Calculate file hashes (expensive)
-    roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
-    rom_files = fs_rom_handler.get_rom_files(
-        rom_attrs["file_name"], roms_file_path, True
-    )
-    file_size = sum([file["size"] for file in rom_files])
-    rom_attrs.update(
-        {
-            "files": rom_files,
-            "file_size_bytes": file_size,
-        }
-    )
-
-    # If no metadata scan is required
-    if scan_type == ScanType.HASH_SCAN:
-        return Rom(**rom_attrs)
 
     # If not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
