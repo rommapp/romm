@@ -130,12 +130,21 @@ watch(
       </v-row>
       <v-row no-gutters class="align-center my-3">
         <v-col cols="3" xl="2">
-          <span>Size</span>
+          <span>Info</span>
         </v-col>
         <v-col>
-          <v-chip size="small" label>{{
-            formatBytes(rom.file_size_bytes)
-          }}</v-chip>
+          <v-chip size="small" label>
+            Size: {{ formatBytes(rom.file_size_bytes) }}
+          </v-chip>
+          <v-chip v-if="!rom.multi && rom.files[0].sha1_hash" size="small" label class="mx-2">
+            SHA-1 Hash: {{ rom.files[0].sha1_hash }}
+          </v-chip>
+          <v-chip v-if="!rom.multi && rom.files[0].md5_hash" size="small" label class="mx-2">
+            MD5 Hash: {{ rom.files[0].md5_hash  }}
+          </v-chip>
+          <v-chip v-if="!rom.multi && rom.files[0].crc_hash" size="small" label class="mx-2">
+            CRC Hash: {{ rom.files[0].crc_hash }}
+          </v-chip>
         </v-col>
       </v-row>
       <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
