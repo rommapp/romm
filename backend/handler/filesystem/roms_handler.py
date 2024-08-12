@@ -240,6 +240,7 @@ class FSRomsHandler(FSHandler):
             multi_files = os.listdir(f"{roms_file_path}/{rom}")
             for file in self._exclude_files(multi_files, "multi_parts"):
                 path = Path(roms_file_path, rom, file)
+                # Pass the raw hashes to the next iteration
                 crc_c, md5_h, sha1_h = self._calculate_rom_hashes(
                     path, crc_c, md5_h, sha1_h
                 )
