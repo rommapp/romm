@@ -83,6 +83,7 @@ watch(
                   variant="flat"
                   rounded="0"
                   size="small"
+                  class="ml-2"
                   @click="toggleMainSibling"
                   ><v-icon
                     :class="romUser.is_main_sibling ? '' : 'mr-1'"
@@ -133,17 +134,17 @@ watch(
           <span>Info</span>
         </v-col>
         <v-col>
-          <v-chip size="small" label>
+          <v-chip size="small" label class="mx-1 my-1">
             Size: {{ formatBytes(rom.file_size_bytes) }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.sha1_hash" size="small" label class="mx-2">
-            SHA-1 Hash: {{ rom.sha1_hash }}
+          <v-chip v-if="!rom.multi && rom.sha1_hash" size="small" label class="mx-1 my-1">
+            SHA-1: {{ rom.sha1_hash }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.md5_hash" size="small" label class="mx-2">
-            MD5 Hash: {{ rom.md5_hash  }}
+          <v-chip v-if="!rom.multi && rom.md5_hash" size="small" label class="mx-1 my-1">
+            MD5: {{ rom.md5_hash  }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.crc_hash" size="small" label class="mx-2">
-            CRC Hash: {{ rom.crc_hash }}
+          <v-chip v-if="!rom.multi && rom.crc_hash" size="small" label class="mx-1 my-1">
+            CRC: {{ rom.crc_hash }}
           </v-chip>
         </v-col>
       </v-row>
