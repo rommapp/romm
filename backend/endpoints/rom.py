@@ -9,7 +9,6 @@ from anyio import Path, open_file
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
-    LIBRARY_PATH_SUFFIX,
     RESOURCES_BASE_PATH,
 )
 from decorators.auth import protected_route
@@ -23,7 +22,7 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
@@ -174,8 +173,19 @@ def head_rom_content(request: Request, id: int, file_name: str):
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
+    if not rom.multi:
+        return FileResponse(
+            path=rom_path,
+            filename=rom.file_name,
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(rom.file_size_bytes),
+            },
+        )
+
     return FileResponse(
-        path=rom_path if not rom.multi else f'{rom_path}/{rom.files[0]["filename"]}',
+        path=f'{rom_path}/{rom.files[0]["filename"]}',
         filename=file_name,
         headers={
             "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
@@ -211,27 +221,30 @@ async def get_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_download = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
-        return Response(
+        return FileResponse(
+            path=rom_path,
+            filename=rom.file_name,
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
                 "Content-Type": "application/octet-stream",
-                "X-Accel-Redirect": f"{LIBRARY_PATH_SUFFIX}/{rom.full_path}",
+                "X-Accel-Redirect": f"/library/{rom.full_path}",
             },
         )
 
     if len(files_to_download) == 1:
-        return Response(
+        return FileResponse(
+            path=f"{rom_path}/{files_to_download[0]}",
+            filename=files_to_download[0],
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
                 "Content-Type": "application/octet-stream",
-                "X-Accel-Redirect": f"{LIBRARY_PATH_SUFFIX}/{rom.full_path}/{files_to_download[0]}",
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
             },
         )
-
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
 
     # Builds a generator of tuples for each member file
     async def local_files() -> AsyncIterator[AsyncMemberFile]:
