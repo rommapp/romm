@@ -350,5 +350,5 @@ export function isEJSEmulationSupported(platformSlug: string) {
 }
 
 export function isRuffleEmulationSupported(platformSlug: string) {
-  return platformSlug.toLowerCase() === "flash";
+  return platformSlug.toLowerCase() in ["flash", "browser"];
 }

@@ -12,13 +12,14 @@ const { config } = storeToRefs(configStore);
 
 <template>
   <v-avatar :size="size" :rounded="rounded">
-    <v-img
-      :src="`/assets/platforms/${
-        config.PLATFORMS_VERSIONS?.[props.slug]?.toLowerCase() ??
-        props.slug.toLowerCase()
-      }.ico`"
-      ><template #error
-        ><v-img src="/assets/platforms/default.ico"></v-img></template
-    ></v-img>
+    <v-img :src="`/assets/platforms/${config.PLATFORMS_VERSIONS?.[props.slug]?.toLowerCase()}.ico`">
+      <template #error>
+        <v-img :src="`/assets/platforms/${props.slug.toLowerCase()}.ico`">
+          <template #error>
+            <v-img src="/assets/platforms/default.ico"></v-img>
+          </template>
+        </v-img>
+      </template>
+    </v-img>
   </v-avatar>
 </template>
