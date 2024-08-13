@@ -30,7 +30,7 @@ const downloadStore = storeDownload();
         size="x-small"
         @click="
           $router.push({
-            name: 'ejs',
+            name: 'emulatorjs',
             params: { rom: rom?.id },
           })
         "
