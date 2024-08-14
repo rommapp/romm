@@ -29,7 +29,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
-from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, AsyncMemberFile, async_stream_zip
+from stream_zip import NO_COMPRESSION_64, ZIP_AUTO, AsyncMemberFile, async_stream_zip
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -231,6 +231,7 @@ async def get_rom_content(
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
                 "Content-Type": "application/octet-stream",
+                "Content-Length": str(rom.file_size_bytes),
                 "X-Accel-Redirect": f"/library/{rom.full_path}",
             },
         )
@@ -242,6 +243,7 @@ async def get_rom_content(
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
                 "Content-Type": "application/octet-stream",
+                "Content-Length": str(rom.file_size_bytes),
                 "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
             },
         )
@@ -277,7 +279,7 @@ async def get_rom_content(
             f"{file_name}.m3u",
             now,
             S_IFREG | 0o600,
-            NO_COMPRESSION_32,
+            NO_COMPRESSION_64,
             m3u_file(),
         )
 
@@ -288,7 +290,8 @@ async def get_rom_content(
         zipped_chunks,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+            "Content-Type": "application/zip",
         },
         emit_body={"id": rom.id},
     )
