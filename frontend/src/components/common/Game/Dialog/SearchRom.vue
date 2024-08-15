@@ -148,6 +148,7 @@ onBeforeUnmount(() => {
                     :size="35"
                     :key="(item as SelectItem).raw.platform_slug"
                     :slug="(item as SelectItem).raw.platform_slug"
+                    :name="(item as SelectItem).raw.platform_name"
                   />
                 </template>
               </v-list-item>
@@ -162,6 +163,7 @@ onBeforeUnmount(() => {
                     :size="35"
                     :key="(item as SelectItem).raw.platform_slug"
                     :slug="(item as SelectItem).raw.platform_slug"
+                    :name="(item as SelectItem).raw.platform_name"
                   />
                 </template>
               </v-list-item>
