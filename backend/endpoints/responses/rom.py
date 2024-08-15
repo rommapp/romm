@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import NotRequired, get_type_hints
+from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from endpoints.responses.collection import CollectionSchema
@@ -13,7 +13,6 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.socket_handler import socket_handler
 from models.rom import Rom, RomFile
 from pydantic import BaseModel, Field, computed_field
-from typing_extensions import TypedDict
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
