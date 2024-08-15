@@ -27,6 +27,7 @@ defineProps<{ platform: Platform }>();
           <platform-icon
             :key="platform.slug"
             :slug="platform.slug"
+            :name="platform.name"
             :size="105"
             class="mt-2"
           />

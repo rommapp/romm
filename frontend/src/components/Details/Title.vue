@@ -44,6 +44,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
         <platform-icon
           :key="platform.slug"
           :slug="platform.slug"
+          :name="platform.name"
           :size="30"
           class="ml-2"
         />
