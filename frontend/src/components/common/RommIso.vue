@@ -4,6 +4,6 @@ withDefaults(defineProps<{ size?: number }>(), { size: 40 });
 
 <template>
   <v-avatar :size="size">
-    <img src="/assets/isotipo.svg" />
+    <img src="/assets/isotipo.svg" :width="size" />
   </v-avatar>
 </template>
