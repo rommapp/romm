@@ -2,14 +2,17 @@
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
+import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
 const show = ref(false);
+const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const {
@@ -67,6 +70,9 @@ function resetFilters() {
     mobile
   >
     <v-list>
+      <v-list-item v-if="xs">
+        <filter-text-field />
+      </v-list-item>
       <v-list-item>
         <filter-unmatched-btn />
         <filter-favourites-btn class="mt-2" />
