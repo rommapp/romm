@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 import AdminMenu from "@/components/Gallery/AppBar/Platform/AdminMenu.vue";
 import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
@@ -12,6 +13,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
 
+const { xs } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform, currentCollection } = storeToRefs(romsStore);
 
@@ -24,7 +26,8 @@ const auth = storeAuth();
     <platform-icon v-if="currentPlatform" :slug="currentPlatform.slug" :name="currentPlatform.name":size="36" class="mx-2" />
     <firmware-btn />
     <filter-btn />
-    <filter-text-field />
+    <filter-text-field v-if="!xs" />
+    <div v-if="xs" class="flex-grow-1" />
     <selecting-btn />
     <gallery-view-btn />
     <v-menu location="bottom">
