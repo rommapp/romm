@@ -93,11 +93,11 @@ async function uploadRoms() {
   }
 
   const platformId = selectedPlatform.value.id;
-  emitter?.emit("snackbarShow", {
-    msg: `Uploading ${romsToUpload.value.length} roms to ${selectedPlatform.value.name}...`,
-    icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
-  });
+  // emitter?.emit("snackbarShow", {
+  //   msg: `Uploading ${romsToUpload.value.length} roms to ${selectedPlatform.value.name}...`,
+  //   icon: "mdi-loading mdi-spin",
+  //   color: "romm-accent-1",
+  // });
 
   await romApi
     .uploadRoms({
@@ -105,9 +105,9 @@ async function uploadRoms() {
       platformId: platformId,
     })
     .then(({ data }) => {
-      const { uploaded_roms, skipped_roms } = data;
+      const { uploaded_files, skipped_files } = data;
 
-      if (uploaded_roms.length == 0) {
+      if (uploaded_files.length == 0) {
         return emitter?.emit("snackbarShow", {
           msg: `All files skipped, nothing to upload.`,
           icon: "mdi-close-circle",
@@ -117,7 +117,7 @@ async function uploadRoms() {
       }
 
       emitter?.emit("snackbarShow", {
-        msg: `${uploaded_roms.length} files uploaded successfully (and ${skipped_roms.length} skipped). Starting scan...`,
+        msg: `${uploaded_files.length} files uploaded successfully (and ${skipped_files.length} skipped). Starting scan...`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,

@@ -6,10 +6,30 @@ import type {
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
+import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
+
+function clearFileFromUploads({ name }: { name: string }) {
+  const uploadStore = storeUpload();
+  uploadStore.remove(name);
+
+  // Disconnect socket when no more uploads are in progress
+  if (uploadStore.value.length === 0) socket.disconnect();
+}
+
+socket.on("upload:in_progress", ({ name, progress }) => {
+  const uploadStore = storeUpload();
+  uploadStore.update({
+    filename: name,
+    progress,
+  });
+});
+
+// Listen for upload completion events
+socket.on("upload:complete", clearFileFromUploads);
 
 async function uploadRoms({
   platformId,
@@ -18,8 +38,19 @@ async function uploadRoms({
   platformId: number;
   romsToUpload: File[];
 }): Promise<{ data: AddRomsResponse }> {
+  if (!socket.connected) socket.connect();
+  const uploadStore = storeUpload();
+
   const formData = new FormData();
-  romsToUpload.forEach((rom) => formData.append("roms", rom));
+  romsToUpload.forEach((file) => {
+    formData.append("files", file);
+    uploadStore.add(file.name);
+
+    // Clear upload state after 180 seconds in case error/timeout
+    setTimeout(() => {
+      clearFileFromUploads(file);
+    }, 180 * 1000);
+  });
 
   return api.post("/roms", formData, {
     headers: {

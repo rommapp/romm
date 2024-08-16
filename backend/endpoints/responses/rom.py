@@ -188,8 +188,8 @@ class UserNotesSchema(TypedDict):
 
 
 class AddRomsResponse(TypedDict):
-    uploaded_roms: list[str]
-    skipped_roms: list[str]
+    uploaded_files: list[str]
+    skipped_files: list[str]
 
 
 class CustomStreamingResponse(StreamingResponse):

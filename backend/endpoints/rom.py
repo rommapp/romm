@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator
 from datetime import datetime
 from shutil import rmtree
@@ -22,12 +23,21 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import File, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    BackgroundTasks,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.socket_handler import socket_handler
 from logger.logger import log
 from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, AsyncMemberFile, async_stream_zip
 from utils.router import APIRouter
@@ -39,7 +49,8 @@ router = APIRouter()
 async def add_roms(
     request: Request,
     platform_id: int,
-    roms: list[UploadFile] = File(...),  # noqa: B008
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
@@ -56,40 +67,58 @@ async def add_roms(
     """
 
     platform_fs_slug = db_platform_handler.get_platform(platform_id).fs_slug
+    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+
     log.info(f"Uploading roms to {platform_fs_slug}")
-    if roms is None:
+    if not files:
         log.error("No roms were uploaded")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No roms were uploaded",
         )
 
-    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+    uploaded_files = []
+    skipped_files = []
 
-    uploaded_roms = []
-    skipped_roms = []
-
-    for rom in roms:
-        if fs_rom_handler.file_exists(roms_path, rom.filename):
-            log.warning(f" - Skipping {rom.filename} since the file already exists")
-            skipped_roms.append(rom.filename)
+    for file in files:
+        if fs_rom_handler.file_exists(roms_path, file.filename):
+            skipped_files.append(file.filename)
             continue
 
-        log.info(f" - Uploading {rom.filename}")
-        file_location = f"{roms_path}/{rom.filename}"
+        log.info(f" - Uploading {file.filename}")
+        file_location = f"{roms_path}/{file.filename}"
+        file_size = os.fstat(file.file.fileno()).st_size
+        uploaded_size = 0
 
         async with await open_file(file_location, "wb+") as f:
             while True:
-                chunk = rom.file.read(8192)
+                chunk = file.file.read(65536)
                 if not chunk:
                     break
                 await f.write(chunk)
 
-        uploaded_roms.append(rom.filename)
+                uploaded_size += len(chunk)
+                progress = (uploaded_size / file_size) * 100
+                await socket_handler.socket_server.emit(
+                    "upload:in_progress",
+                    {
+                        "name": file.filename,
+                        "progress": progress,
+                    },
+                )
+
+        uploaded_files.append(file.filename)
+
+        await socket_handler.socket_server.emit(
+            "upload:complete",
+            {
+                "name": file.filename,
+            },
+        )
 
     return {
-        "uploaded_roms": uploaded_roms,
-        "skipped_roms": skipped_roms,
+        "uploaded_files": uploaded_files,
+        "skipped_files": skipped_files,
     }
 
 

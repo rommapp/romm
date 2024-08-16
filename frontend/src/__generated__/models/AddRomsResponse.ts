@@ -4,7 +4,7 @@
 /* eslint-disable */
 
 export type AddRomsResponse = {
-    uploaded_roms: Array<string>;
-    skipped_roms: Array<string>;
+    uploaded_files: Array<string>;
+    skipped_files: Array<string>;
 };
 
