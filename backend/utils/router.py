@@ -1,4 +1,5 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter as FastAPIRouter
 from fastapi.types import DecoratedCallable
