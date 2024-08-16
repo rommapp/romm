@@ -23,13 +23,13 @@ from endpoints.responses.rom import (
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import File, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
-from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, AsyncMemberFile, async_stream_zip
+from stream_zip import NO_COMPRESSION_64, ZIP_AUTO, AsyncMemberFile, async_stream_zip
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -154,7 +154,12 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
     "/roms/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
 )
-def head_rom_content(request: Request, id: int, file_name: str):
+async def head_rom_content(
+    request: Request,
+    id: int,
+    file_name: str,
+    files: Annotated[list[str] | None, Query()] = None,
+):
     """Head rom content endpoint
 
     Args:
@@ -171,15 +176,30 @@ def head_rom_content(request: Request, id: int, file_name: str):
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+    files_to_check = files or [r["filename"] for r in rom.files]
 
-    return FileResponse(
-        path=rom_path if not rom.multi else f'{rom_path}/{rom.files[0]["filename"]}',
-        filename=file_name,
+    if not rom.multi:
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}",
+            },
+        )
+
+    if len(files_to_check) == 1:
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
+            },
+        )
+
+    return Response(
+        media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
-            "Content-Type": "application/zip",
-            "Content-Length": str(rom.file_size_bytes),
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
         },
     )
 
@@ -214,11 +234,21 @@ async def get_rom_content(
     files_to_download = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
-        return FileResponse(path=rom_path, filename=rom.file_name)
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}",
+            },
+        )
 
     if len(files_to_download) == 1:
-        return FileResponse(
-            path=f"{rom_path}/{files_to_download[0]}", filename=files_to_download[0]
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
+            },
         )
 
     # Builds a generator of tuples for each member file
@@ -252,7 +282,7 @@ async def get_rom_content(
             f"{file_name}.m3u",
             now,
             S_IFREG | 0o600,
-            NO_COMPRESSION_32,
+            NO_COMPRESSION_64,
             m3u_file(),
         )
 
@@ -263,7 +293,7 @@ async def get_rom_content(
         zipped_chunks,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
         },
         emit_body={"id": rom.id},
     )
