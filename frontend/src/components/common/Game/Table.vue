@@ -180,7 +180,7 @@ onMounted(() => {
           size="small"
           @click.stop="
             $router.push({
-              name: 'ejs',
+              name: 'emulatorjs',
               params: { rom: item?.id },
             })
           "

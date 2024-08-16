@@ -78,7 +78,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       class="flex-grow-1"
       @click="
         $router.push({
-          name: 'ejs',
+          name: 'emulatorjs',
           params: { rom: rom?.id },
         })
       "
