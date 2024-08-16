@@ -23,7 +23,7 @@ from endpoints.responses.rom import (
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import File, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -154,7 +154,12 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
     "/roms/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
 )
-def head_rom_content(request: Request, id: int, file_name: str):
+async def head_rom_content(
+    request: Request,
+    id: int,
+    file_name: str,
+    files: Annotated[list[str] | None, Query()] = None,
+):
     """Head rom content endpoint
 
     Args:
@@ -172,25 +177,33 @@ def head_rom_content(request: Request, id: int, file_name: str):
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+    files_to_check = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
-        return FileResponse(
-            path=rom_path,
-            filename=rom.file_name,
+        return Response(
+            media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "Content-Type": "application/octet-stream",
                 "Content-Length": str(rom.file_size_bytes),
+                "X-Accel-Redirect": f"/library/{rom.full_path}",
             },
         )
 
-    return FileResponse(
-        path=f'{rom_path}/{rom.files[0]["filename"]}',
-        filename=file_name,
+    if len(files_to_check) == 1:
+        file_path = f"{rom_path}/{files_to_check[0]}"
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
+                "Content-Length": str((await Path(file_path).stat()).st_size),
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
+            },
+        )
+
+    return Response(
+        media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
-            "Content-Type": "application/zip",
-            "Content-Length": str(rom.file_size_bytes),
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
         },
     )
 
@@ -225,25 +238,22 @@ async def get_rom_content(
     files_to_download = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
-        return FileResponse(
-            path=rom_path,
-            filename=rom.file_name,
+        return Response(
+            media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "Content-Type": "application/octet-stream",
                 "Content-Length": str(rom.file_size_bytes),
                 "X-Accel-Redirect": f"/library/{rom.full_path}",
             },
         )
 
     if len(files_to_download) == 1:
-        return FileResponse(
-            path=f"{rom_path}/{files_to_download[0]}",
-            filename=files_to_download[0],
+        file_path = f"{rom_path}/{files_to_download[0]}"
+        return Response(
+            media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(rom.file_size_bytes),
+                "Content-Length": str((await Path(file_path).stat()).st_size),
                 "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
             },
         )
@@ -291,7 +301,6 @@ async def get_rom_content(
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
-            "Content-Type": "application/zip",
         },
         emit_body={"id": rom.id},
     )
