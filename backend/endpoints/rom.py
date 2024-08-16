@@ -176,7 +176,6 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_check = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
@@ -184,18 +183,15 @@ async def head_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "Content-Length": str(rom.file_size_bytes),
                 "X-Accel-Redirect": f"/library/{rom.full_path}",
             },
         )
 
     if len(files_to_check) == 1:
-        file_path = f"{rom_path}/{files_to_check[0]}"
         return Response(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
-                "Content-Length": str((await Path(file_path).stat()).st_size),
                 "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
             },
         )
@@ -242,18 +238,15 @@ async def get_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "Content-Length": str(rom.file_size_bytes),
                 "X-Accel-Redirect": f"/library/{rom.full_path}",
             },
         )
 
     if len(files_to_download) == 1:
-        file_path = f"{rom_path}/{files_to_download[0]}"
         return Response(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
-                "Content-Length": str((await Path(file_path).stat()).st_size),
                 "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
             },
         )
