@@ -8,7 +8,7 @@ repository = "https://github.com/rommapp/romm"
 authors = ["Zurdi <zurdi@romm.app>", "Arcane <arcane@romm.app>"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 anyio = "^4.4"
 fastapi = "0.110.0"
 uvicorn = "0.29.0"

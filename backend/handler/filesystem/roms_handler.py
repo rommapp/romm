@@ -6,8 +6,9 @@ import re
 import shutil
 import tarfile
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Final, Iterator, Tuple
+from typing import Any, Final, TypedDict
 
 import magic
 import py7zr
@@ -15,7 +16,6 @@ from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from models.rom import RomFile
-from typing_extensions import TypedDict
 from utils.filesystem import iter_directories, iter_files
 
 from .base_handler import (
@@ -189,7 +189,7 @@ class FSRomsHandler(FSHandler):
 
     def _calculate_rom_hashes(
         self, file_path: Path, crc_c: int, md5_h: Any, sha1_h: Any
-    ) -> Tuple[int, Any, Any]:
+    ) -> tuple[int, Any, Any]:
         mime = magic.Magic(mime=True)
         file_type = mime.from_file(file_path)
         extension = Path(file_path).suffix.lower()
