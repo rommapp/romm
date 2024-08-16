@@ -201,6 +201,7 @@ watch(itemsPerPage, async () => {
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
+                    :name="item.raw.name"
                   />
                 </template>
               </v-list-item>
@@ -212,6 +213,7 @@ watch(itemsPerPage, async () => {
                     :size="35"
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
+                    :name="item.raw.name"
                   />
                 </template>
               </v-list-item>

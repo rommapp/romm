@@ -162,6 +162,7 @@ onMounted(() => {
               :size="25"
               :key="rom.platform_slug"
               :slug="rom.platform_slug"
+              :name="rom.platform_name"
               class="label-platform"
             />
           </div>
