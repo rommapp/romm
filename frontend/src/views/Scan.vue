@@ -126,6 +126,7 @@ async function stopScan() {
                 :key="item.raw.slug"
                 :size="35"
                 :slug="item.raw.slug"
+                :name="item.raw.name"
               />
             </template>
             <template #append>
@@ -140,6 +141,7 @@ async function stopScan() {
             <platform-icon
               :key="item.raw.slug"
               :slug="item.raw.slug"
+              :name="item.raw.name"
               :size="20"
               class="mr-2"
             />
@@ -309,7 +311,7 @@ async function stopScan() {
             <v-list-item class="pa-0">
               <template #prepend>
                 <v-avatar :rounded="0" size="40">
-                  <platform-icon :key="platform.slug" :slug="platform.slug" />
+                  <platform-icon :key="platform.slug" :slug="platform.slug" :name="platform.name" />
                 </v-avatar>
               </template>
               {{ platform.name }}
