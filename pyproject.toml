@@ -30,7 +30,6 @@ types-pyyaml = "^6.0.12.20240311"
 types-redis = "^4.6.0.20240311 "
 passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 itsdangerous = "^2.1.2"
-stream-zip = "^0.0.81"
 rq-scheduler = "^0.13.1"
 starlette-csrf = "^3.0.0"
 httpx = "^0.27.0"

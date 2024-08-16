@@ -33,9 +33,35 @@ WORKDIR /src
 COPY ./pyproject.toml ./poetry.lock /src/
 RUN poetry install --no-ansi --no-cache --only main
 
+# Build nginx modules
+FROM alpine:${ALPINE_VERSION} AS nginx-build
+
+RUN apk add --no-cache \
+    gcc \
+    git \
+    libc-dev \
+    make \
+    pcre-dev \
+    zlib-dev
+
+ARG NGINX_VERSION
+ARG NGINX_MOD_ZIP_SHA=8e65b82c82c7890f67a6107271c127e9881b6313
+
+RUN git clone https://github.com/evanmiller/mod_zip.git && \
+    cd ./mod_zip && \
+    git checkout "${NGINX_MOD_ZIP_SHA}" && \
+    cd ../ && \
+    git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
+    cd ./nginx && \
+    ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
+    make -f ./objs/Makefile modules && \
+    chmod 644 ./objs/ngx_http_zip_module.so
+
 # Setup frontend and backend
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim AS production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
+
+COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
@@ -62,6 +88,7 @@ COPY ./backend /backend
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
+COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # User permissions

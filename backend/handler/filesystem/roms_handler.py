@@ -17,6 +17,7 @@ from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from models.rom import RomFile
 from utils.filesystem import iter_directories, iter_files
+from utils.hashing import crc32_to_hex
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -271,7 +272,7 @@ class FSRomsHandler(FSHandler):
             )
 
         return {
-            "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
+            "crc_hash": crc32_to_hex(crc_c),
             "md5_hash": md5_h.hexdigest(),
             "sha1_hash": sha1_h.hexdigest(),
         }

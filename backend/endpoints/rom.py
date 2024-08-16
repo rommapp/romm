@@ -1,7 +1,6 @@
-from collections.abc import AsyncIterator
-from datetime import datetime
+import binascii
+from base64 import b64encode
 from shutil import rmtree
-from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
@@ -13,12 +12,7 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.rom import (
-    CustomStreamingResponse,
-    DetailedRomSchema,
-    RomUserSchema,
-    SimpleRomSchema,
-)
+from endpoints.responses.rom import DetailedRomSchema, RomUserSchema, SimpleRomSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Query, Request, UploadFile, status
@@ -29,9 +23,10 @@ from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from starlette.requests import ClientDisconnect
-from stream_zip import NO_COMPRESSION_64, ZIP_AUTO, AsyncMemberFile, async_stream_zip
 from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
+from utils.hashing import crc32_to_hex
+from utils.nginx import ZipContentLine, ZipResponse
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -221,7 +216,7 @@ async def get_rom_content(
         FileResponse: Returns one file for single file roms
 
     Yields:
-        CustomStreamingResponse: Streams a file for multi-part roms
+        ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
     rom = db_rom_handler.get_rom(id)
@@ -230,7 +225,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = files or [r["filename"] for r in rom.files]
+    files_to_download = sorted(files or [r["filename"] for r in rom.files])
 
     if not rom.multi:
         return Response(
@@ -250,51 +245,29 @@ async def get_rom_content(
             },
         )
 
-    # Builds a generator of tuples for each member file
-    async def local_files() -> AsyncIterator[AsyncMemberFile]:
-        async def contents(filename: str) -> AsyncIterator[bytes]:
-            try:
-                async with await open_file(f"{rom_path}/{filename}", "rb") as f:
-                    while chunk := await f.read(65536):
-                        yield chunk
-            except FileNotFoundError:
-                log.error(f"File {rom_path}/{filename} not found!")
-                raise
-
-        async def m3u_file() -> AsyncIterator[bytes]:
-            for file in files_to_download:
-                yield str.encode(f"{file}\n")
-
-        now = datetime.now()
-
-        for f in files_to_download:
-            file_size = (await Path(f"{rom_path}/{f}").stat()).st_size
-            yield (
-                f,
-                now,
-                S_IFREG | 0o600,
-                ZIP_AUTO(file_size, level=0),
-                contents(f),
-            )
-
-        yield (
-            f"{file_name}.m3u",
-            now,
-            S_IFREG | 0o600,
-            NO_COMPRESSION_64,
-            m3u_file(),
+    content_lines = [
+        ZipContentLine(
+            # TODO: Use calculated CRC-32 if available.
+            crc32=None,
+            size_bytes=(await Path(f"{rom_path}/{f}").stat()).st_size,
+            encoded_location=quote(f"/library-zip/{rom.full_path}/{f}"),
+            filename=f,
         )
+        for f in files_to_download
+    ]
 
-    zipped_chunks = async_stream_zip(local_files())
+    m3u_encoded_content = "\n".join([f for f in files_to_download]).encode()
+    m3u_base64_content = b64encode(m3u_encoded_content).decode()
+    m3u_line = ZipContentLine(
+        crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
+        size_bytes=len(m3u_encoded_content),
+        encoded_location=f"/decode?value={m3u_base64_content}",
+        filename=f"{file_name}.m3u",
+    )
 
-    # Streams the zip file to the client
-    return CustomStreamingResponse(
-        zipped_chunks,
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
-        },
-        emit_body={"id": rom.id},
+    return ZipResponse(
+        content_lines=content_lines + [m3u_line],
+        filename=f"{quote(file_name)}.zip",
     )
 
 
