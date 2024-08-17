@@ -89,6 +89,7 @@ async def add_roms(
         file_location = f"{roms_path}/{file.filename}"
         file_size = os.fstat(file.file.fileno()).st_size
         uploaded_size = 0
+        start_time = datetime.now().timestamp()
 
         async with await open_file(file_location, "wb+") as f:
             while True:
@@ -98,12 +99,15 @@ async def add_roms(
                 await f.write(chunk)
 
                 uploaded_size += len(chunk)
-                progress = (uploaded_size / file_size) * 100
                 await socket_handler.socket_server.emit(
                     "upload:in_progress",
                     {
                         "filename": file.filename,
-                        "progress": progress,
+                        "file_size": file_size,
+                        "uploaded_size": uploaded_size,
+                        "upload_speed": round(
+                            uploaded_size / (datetime.now().timestamp() - start_time)
+                        ),
                     },
                 )
 

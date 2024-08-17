@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import storeUpload from "@/stores/upload";
+import { formatBytes } from "@/utils";
 import { ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
@@ -31,21 +32,30 @@ watch(romsList, (newList) => {
         class="py-2 px-4"
         :disabled="rom.finished"
       >
-        <v-list-item-title class="d-flex">
+        <v-list-item-title class="d-flex justify-space-between">
+          {{ rom.filename }}
           <v-icon
             :icon="rom.finished ? `mdi-check` : `mdi-loading mdi-spin`"
             :color="rom.finished ? `green` : `white`"
             class="mx-2"
           />
-          {{ rom.filename }}
         </v-list-item-title>
-        <v-progress-linear
-          v-if="!rom.finished"
-          v-model="rom.progress"
-          height="4"
-          color="white"
-          class="mt-2"
-        />
+        <template v-if="rom.progress > 0">
+          <v-progress-linear
+            v-if="!rom.finished"
+            v-model="rom.progress"
+            height="4"
+            color="white"
+            class="mt-2"
+          />
+          <div class="upload-speeds d-flex justify-space-between mt-1">
+            <div>{{ formatBytes(rom.upload_speed) }}/s</div>
+            <div>
+              {{ formatBytes(rom.uploaded_size) }} /
+              {{ formatBytes(rom.file_size) }}
+            </div>
+          </div>
+        </template>
       </v-list-item>
     </v-list>
   </v-snackbar>
@@ -54,5 +64,9 @@ watch(romsList, (newList) => {
 <style>
 #upload-in-progress .v-snackbar__content {
   padding: 0;
+}
+
+.upload-speeds {
+  font-size: 10px;
 }
 </style>
