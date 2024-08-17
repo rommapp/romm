@@ -7,11 +7,12 @@ import { storeToRefs } from "pinia";
 
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
-const { value: romsList } = storeToRefs(uploadStore);
+const { filenames, progress, total, loaded, rate, finished } =
+  storeToRefs(uploadStore);
 const show = ref(false);
 
-watch(romsList, (newList) => {
-  show.value = newList.length > 0;
+watch(filenames, (fns) => {
+  show.value = fns.length > 0;
 });
 </script>
 
@@ -27,31 +28,38 @@ watch(romsList, (newList) => {
     color="tooltip"
   >
     <v-list>
-      <v-list-item
-        v-for="rom in romsList"
-        class="py-2 px-4"
-        :disabled="rom.finished"
-      >
-        <v-list-item-title class="d-flex justify-space-between">
-          {{ rom.filename }}
-          <v-icon
-            :icon="rom.finished ? `mdi-check` : `mdi-loading mdi-spin`"
-            :color="rom.finished ? `green` : `white`"
-            class="mx-2"
-          />
+        <v-list-item-title  class="py-2 px-4 d-flex justify-space-between">
+          Uploading {{ filenames.length }} files...
+          <v-icon icon="mdi-loading mdi-spin" color="white" class="mx-2"/>
         </v-list-item-title>
-        <template v-if="rom.progress > 0 && !rom.finished">
+      <v-list-item class="py-1 px-4">
+        <v-list-item-title v-for="filename in filenames" class="d-flex justify-space-between">
+          <div class="upload-speeds">
+            • {{ filename }}
+          </div>
+        </v-list-item-title>
+      </v-list-item>
+      <v-list-item class="py-0 px-4">
+        <template v-if="progress > 0 && !finished">
           <v-progress-linear
-            v-model="rom.progress"
+            v-model="progress"
             height="4"
             color="white"
             class="mt-1"
           />
           <div class="upload-speeds d-flex justify-space-between mt-1">
-            <div>{{ formatBytes(rom.upload_speed) }}/s</div>
+            <div>{{ formatBytes(rate) }}/s</div>
             <div>
-              {{ formatBytes(rom.uploaded_size) }} /
-              {{ formatBytes(rom.file_size) }}
+              {{ formatBytes(loaded) }} /
+              {{ formatBytes(total) }}
+            </div>
+          </div>
+        </template>
+        <template v-if="finished">
+          <div class="upload-speeds d-flex justify-space-between mt-1">
+            <div />
+            <div>
+              {{ formatBytes(total) }}
             </div>
           </div>
         </template>
@@ -66,6 +74,6 @@ watch(romsList, (newList) => {
 }
 
 .upload-speeds {
-  font-size: 10px;
+  font-size: 12px;
 }
 </style>

@@ -1,4 +1,3 @@
-import os
 from collections.abc import AsyncIterator
 from datetime import datetime
 from shutil import rmtree
@@ -15,31 +14,25 @@ from config import (
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
-    AddRomsResponse,
     CustomStreamingResponse,
     DetailedRomSchema,
     RomUserSchema,
     SimpleRomSchema,
+    UploadRomsResponse,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import (
-    BackgroundTasks,
-    File,
-    HTTPException,
-    Query,
-    Request,
-    UploadFile,
-    status,
-)
-from fastapi.responses import Response
+from fastapi import HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
-from handler.socket_handler import socket_handler
 from logger.logger import log
+from starlette.requests import ClientDisconnect
 from stream_zip import NO_COMPRESSION_64, ZIP_AUTO, AsyncMemberFile, async_stream_zip
+from streaming_form_data import StreamingFormDataParser
+from streaming_form_data.targets import FileTarget, NullTarget
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -48,87 +41,82 @@ router = APIRouter()
 @protected_route(router.post, "/roms", ["roms.write"])
 async def add_roms(
     request: Request,
-    platform_id: int,
-    background_tasks: BackgroundTasks,
-    files: list[UploadFile] = File(...),  # noqa: B008
-) -> AddRomsResponse:
+) -> UploadRomsResponse:
     """Upload roms endpoint (one or more at the same time)
 
     Args:
         request (Request): Fastapi Request object
-        platform_slug (str): Slug of the platform where to upload the roms
-        roms (list[UploadFile], optional): List of files to upload. Defaults to File(...).
 
     Raises:
         HTTPException: No files were uploaded
 
     Returns:
-        AddRomsResponse: Standard message response
+        UploadRomsResponse: Standard message response
     """
+    platform_id = int(request.headers.get("x-upload-platform", None))
+    if not platform_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No platform ID provided",
+        )
 
     platform_fs_slug = db_platform_handler.get_platform(platform_id).fs_slug
     roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
-
     log.info(f"Uploading roms to {platform_fs_slug}")
-    if not files:
-        log.error("No roms were uploaded")
+
+    parser = StreamingFormDataParser(headers=request.headers)
+    parser.register("x-upload-platform", NullTarget())
+    parser.register("x-upload-filenames", NullTarget())
+
+    skipped_files = []
+    uploaded_files = []
+
+    filenames = request.headers.get("x-upload-filenames", "").split(",")
+    for name in filenames:
+        file_location = f"{roms_path}/{name}"
+        if await Path(file_location).exists():
+            log.warning(f" - Skipping {name} since the file already exists")
+            skipped_files.append(name)
+            continue
+        else:
+            uploaded_files.append(name)
+
+        parser.register(name, FileTarget(f"{roms_path}/{name}"))
+
+    if not filenames:
+        log.error("No files were uploaded")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files were uploaded",
+        )
+
+    async def cleanup_partial_files():
+        for name in filenames:
+            file_location = f"{roms_path}/{name}"
+            if await Path(file_location).exists():
+                await Path(file_location).unlink()
+
+    try:
+        async for chunk in request.stream():
+            parser.data_received(chunk)
+    except ClientDisconnect:
+        log.error("Client disconnected during upload")
+        await cleanup_partial_files()
+    except Exception as exc:
+        log.error("Error uploading files", exc_info=exc)
+        await cleanup_partial_files()
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No roms were uploaded",
+            detail="There was an error uploading the file(s)",
         )
 
-    uploaded_files = []
-    skipped_files = []
-
-    for file in files:
-        file_location = f"{roms_path}/{file.filename}"
-
-        if await Path(file_location).exists():
-            log.warning(f" - Skipping {file.filename} since the file already exists")
-            skipped_files.append(file.filename)
-            continue
-
-        log.info(f" - Uploading {file.filename}")
-        file_size = os.fstat(file.file.fileno()).st_size
-        uploaded_size = 0
-        start_time = datetime.now().timestamp()
-
-        async with await open_file(file_location, "wb+") as f:
-            while True:
-                chunk = file.file.read(65536)
-                if not chunk:
-                    break
-                await f.write(chunk)
-                uploaded_size += len(chunk)
-
-                # Emit progress update roughly every 1 MB uploaded
-                if uploaded_size % (1024 * 1024 * 1) == 0 or uploaded_size == file_size:
-                    elapsed_time = datetime.now().timestamp() - start_time
-                    upload_speed = (
-                        round(uploaded_size / elapsed_time) if elapsed_time > 0 else 0
-                    )
-                    await socket_handler.socket_server.emit(
-                        "upload:in_progress",
-                        {
-                            "filename": file.filename,
-                            "file_size": file_size,
-                            "uploaded_size": uploaded_size,
-                            "upload_speed": upload_speed,
-                        },
-                    )
-
-        uploaded_files.append(file.filename)
-        await socket_handler.socket_server.emit(
-            "upload:complete",
-            {
-                "filename": file.filename,
-            },
-        )
-
-    return {
-        "uploaded_files": uploaded_files,
-        "skipped_files": skipped_files,
-    }
+    return JSONResponse(
+        {
+            "uploaded_files": uploaded_files,
+            "skipped_files": skipped_files,
+        }
+    )
 
 
 @protected_route(router.get, "/roms", ["roms.read"])

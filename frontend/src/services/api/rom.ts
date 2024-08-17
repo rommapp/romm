@@ -1,5 +1,5 @@
 import type {
-  AddRomsResponse,
+  UploadRomsResponse,
   MessageResponse,
   SearchRomSchema,
 } from "@/__generated__";
@@ -9,25 +9,9 @@ import storeDownload from "@/stores/download";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
+import type { AxiosProgressEvent } from "axios";
 
 export const romApi = api;
-
-socket.on(
-  "upload:in_progress",
-  ({ filename, file_size, uploaded_size, upload_speed }) => {
-    const uploadStore = storeUpload();
-    uploadStore.update(filename, {
-      file_size,
-      uploaded_size,
-      upload_speed,
-    });
-  },
-);
-
-socket.on("upload:complete", ({ filename }) => {
-  const uploadStore = storeUpload();
-  uploadStore.markComplete(filename);
-});
 
 async function uploadRoms({
   platformId,
@@ -35,21 +19,29 @@ async function uploadRoms({
 }: {
   platformId: number;
   romsToUpload: File[];
-}): Promise<{ data: AddRomsResponse }> {
+}): Promise<{ data: UploadRomsResponse }> {
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
   const formData = new FormData();
+  const fileNames: string[] = [];
   romsToUpload.forEach((file) => {
-    formData.append("files", file);
-    uploadStore.add(file.name);
+    formData.append(file.name, file);
+    fileNames.push(file.name);
   });
+
+  uploadStore.start(fileNames);
 
   return api.post("/roms", formData, {
     headers: {
-      "Content-Type": "multipart/form-data",
+      "Content-Type": "multipart/form-data; boundary=boundary",
+      "X-Upload-Platform": platformId.toString(),
+      "X-Upload-Filenames": fileNames.join(","),
     },
-    params: { platform_id: platformId },
+    params: {},
+    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+      uploadStore.update(progressEvent);
+    },
   });
 }
 

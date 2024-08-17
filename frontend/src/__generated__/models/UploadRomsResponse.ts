@@ -3,7 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_roms_api_roms_post = {
-    files: Array<Blob>;
+export type UploadRomsResponse = {
+    uploaded_files: Array<string>;
+    skipped_files: Array<string>;
 };
 
