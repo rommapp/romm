@@ -1,40 +1,46 @@
 import type { AxiosProgressEvent } from "axios";
 import { defineStore } from "pinia";
 
+class UploadingFile {
+  filename: string;
+  progress: number;
+  total: number;
+  loaded: number;
+  rate: number;
+  finished: boolean;
+
+  constructor(filename: string) {
+    this.filename = filename;
+    this.progress = 0;
+    this.total = 0;
+    this.loaded = 0;
+    this.rate = 0;
+    this.finished = false;
+  }
+}
+
 export default defineStore("upload", {
   state: () => ({
-    filenames: [] as string[],
-    progress: 0,
-    total: 0,
-    loaded: 0,
-    rate: 0,
-    finished: false,
+    files: [] as UploadingFile[],
   }),
   actions: {
-    start(filenames: string[]) {
-      this.filenames = filenames;
-      this.finished = false;
-      this.reset();
+    start(filename: string) {
+      this.files = [...this.files, new UploadingFile(filename)];
     },
-    update(progressEvent: AxiosProgressEvent) {
-      this.progress = progressEvent.progress
+    update(filename: string, progressEvent: AxiosProgressEvent) {
+      const file = this.files.find((f) => f.filename === filename);
+      if (!file) return;
+
+      file.progress = progressEvent.progress
         ? progressEvent.progress * 100
-        : this.progress;
-      this.total = progressEvent.total || this.total;
-      this.loaded = progressEvent.loaded;
-      this.rate = progressEvent.rate || this.rate;
-      this.finished = progressEvent.loaded === progressEvent.total;
-    },
-    reset() {
-      this.progress = 0;
-      this.total = 0;
-      this.loaded = 0;
-      this.rate = 0;
+        : file.progress;
+      file.total = progressEvent.total || file.total;
+      file.loaded = progressEvent.loaded;
+      file.rate = progressEvent.rate || file.rate;
+      file.finished = progressEvent.loaded === progressEvent.total;
     },
     clear() {
-      this.reset();
-      this.filenames = [];
-      this.finished = true;
+      this.files = [];
     },
   },
 });

@@ -7,12 +7,11 @@ import { storeToRefs } from "pinia";
 
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
-const { filenames, progress, total, loaded, rate, finished } =
-  storeToRefs(uploadStore);
+const { files } = storeToRefs(uploadStore);
 const show = ref(false);
 
-watch(filenames, (fns) => {
-  show.value = fns.length > 0;
+watch(files, (newList) => {
+  show.value = newList.length > 0;
 });
 </script>
 
@@ -28,38 +27,39 @@ watch(filenames, (fns) => {
     color="tooltip"
   >
     <v-list>
-        <v-list-item-title  class="py-2 px-4 d-flex justify-space-between">
-          Uploading {{ filenames.length }} files...
-          <v-icon icon="mdi-loading mdi-spin" color="white" class="mx-2"/>
+      <v-list-item
+        v-for="file in files"
+        class="py-2 px-4"
+        :disabled="file.finished"
+      >
+        <v-list-item-title class="d-flex justify-space-between">
+          {{ file.filename }}
+          <v-icon
+            :icon="file.finished ? `mdi-check` : `mdi-loading mdi-spin`"
+            :color="file.finished ? `green` : `white`"
+            class="mx-2"
+          />
         </v-list-item-title>
-      <v-list-item class="py-1 px-4">
-        <v-list-item-title v-for="filename in filenames" class="d-flex justify-space-between">
-          <div class="upload-speeds">
-            • {{ filename }}
-          </div>
-        </v-list-item-title>
-      </v-list-item>
-      <v-list-item class="py-0 px-4">
-        <template v-if="progress > 0 && !finished">
+        <template v-if="file.progress > 0 && !file.finished">
           <v-progress-linear
-            v-model="progress"
+            v-model="file.progress"
             height="4"
             color="white"
             class="mt-1"
           />
           <div class="upload-speeds d-flex justify-space-between mt-1">
-            <div>{{ formatBytes(rate) }}/s</div>
+            <div>{{ formatBytes(file.rate) }}/s</div>
             <div>
-              {{ formatBytes(loaded) }} /
-              {{ formatBytes(total) }}
+              {{ formatBytes(file.loaded) }} /
+              {{ formatBytes(file.total) }}
             </div>
           </div>
         </template>
-        <template v-if="finished">
+        <template v-if="file.finished">
           <div class="upload-speeds d-flex justify-space-between mt-1">
             <div />
             <div>
-              {{ formatBytes(total) }}
+              {{ formatBytes(file.total) }}
             </div>
           </div>
         </template>
@@ -74,6 +74,6 @@ watch(filenames, (fns) => {
 }
 
 .upload-speeds {
-  font-size: 12px;
+  font-size: 10px;
 }
 </style>

@@ -18,12 +18,11 @@ from endpoints.responses.rom import (
     DetailedRomSchema,
     RomUserSchema,
     SimpleRomSchema,
-    UploadRomsResponse,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -39,22 +38,18 @@ router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
-async def add_roms(
-    request: Request,
-) -> UploadRomsResponse:
-    """Upload roms endpoint (one or more at the same time)
+async def add_rom(request: Request):
+    """Upload single rom endpoint
 
     Args:
         request (Request): Fastapi Request object
 
     Raises:
         HTTPException: No files were uploaded
-
-    Returns:
-        UploadRomsResponse: Standard message response
     """
     platform_id = int(request.headers.get("x-upload-platform", None))
-    if not platform_id:
+    filename = request.headers.get("x-upload-filename", None)
+    if not platform_id or not filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No platform ID provided",
@@ -64,59 +59,38 @@ async def add_roms(
     roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
     log.info(f"Uploading roms to {platform_fs_slug}")
 
+    file_location = f"{roms_path}/{filename}"
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
-    parser.register("x-upload-filenames", NullTarget())
+    parser.register(filename, FileTarget(file_location))
 
-    skipped_files = []
-    uploaded_files = []
-
-    filenames = request.headers.get("x-upload-filenames", "").split(",")
-    for name in filenames:
-        file_location = f"{roms_path}/{name}"
-        if await Path(file_location).exists():
-            log.warning(f" - Skipping {name} since the file already exists")
-            skipped_files.append(name)
-            continue
-        else:
-            uploaded_files.append(name)
-
-        parser.register(name, FileTarget(f"{roms_path}/{name}"))
-
-    if not filenames:
-        log.error("No files were uploaded")
+    if await Path(file_location).exists():
+        log.warning(f" - Skipping {filename} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No files were uploaded",
+            detail=f"File {filename} already exists",
         )
 
-    async def cleanup_partial_files():
-        for name in filenames:
-            file_location = f"{roms_path}/{name}"
-            if await Path(file_location).exists():
-                await Path(file_location).unlink()
+    async def cleanup_partial_file():
+        if await Path(file_location).exists():
+            await Path(file_location).unlink()
 
     try:
         async for chunk in request.stream():
             parser.data_received(chunk)
     except ClientDisconnect:
         log.error("Client disconnected during upload")
-        await cleanup_partial_files()
+        await cleanup_partial_file()
     except Exception as exc:
         log.error("Error uploading files", exc_info=exc)
-        await cleanup_partial_files()
+        await cleanup_partial_file()
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the file(s)",
         )
 
-    return JSONResponse(
-        {
-            "uploaded_files": uploaded_files,
-            "skipped_files": skipped_files,
-        }
-    )
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(router.get, "/roms", ["roms.read"])
