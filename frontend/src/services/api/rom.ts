@@ -1,8 +1,4 @@
-import type {
-  UploadRomsResponse,
-  MessageResponse,
-  SearchRomSchema,
-} from "@/__generated__";
+import type { MessageResponse, SearchRomSchema } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeDownload from "@/stores/download";
@@ -15,34 +11,42 @@ export const romApi = api;
 
 async function uploadRoms({
   platformId,
-  romsToUpload,
+  filesToUpload,
 }: {
   platformId: number;
-  romsToUpload: File[];
-}): Promise<{ data: UploadRomsResponse }> {
+  filesToUpload: File[];
+}): Promise<PromiseSettledResult<unknown>[]> {
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
-  const formData = new FormData();
-  const fileNames: string[] = [];
-  romsToUpload.forEach((file) => {
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
     formData.append(file.name, file);
-    fileNames.push(file.name);
+
+    uploadStore.start(file.name);
+
+    return new Promise((resolve, reject) => {
+      api
+        .post("/roms", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data; boundary=boundary",
+            "X-Upload-Platform": platformId.toString(),
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          console.error("Failed to upload file", file.name, error);
+          reject(error);
+        });
+    });
   });
 
-  uploadStore.start(fileNames);
-
-  return api.post("/roms", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data; boundary=boundary",
-      "X-Upload-Platform": platformId.toString(),
-      "X-Upload-Filenames": fileNames.join(","),
-    },
-    params: {},
-    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-      uploadStore.update(progressEvent);
-    },
-  });
+  return Promise.allSettled(promises);
 }
 
 async function getRoms({
