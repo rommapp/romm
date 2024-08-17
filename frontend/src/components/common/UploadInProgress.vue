@@ -16,21 +16,43 @@ watch(romsList, (newList) => {
 
 <template>
   <v-snackbar
+    id="upload-in-progress"
     v-model="show"
     transition="scroll-y-transition"
     :timeout="100000000000"
     absolute
     :location="xs ? 'bottom' : 'bottom right'"
+    class="mb-4 mr-4"
     color="tooltip"
   >
-    <template v-for="rom in romsList">
-      <v-icon icon="mdi-upload" color="white" class="mx-2" />
-      Uploading {{ rom.filename }}
-      <v-progress-linear
-        v-model="rom.progress"
-        height="2"
-        color="romm-accent-1"
-      />
-    </template>
+    <v-list>
+      <v-list-item
+        v-for="rom in romsList"
+        class="py-2 px-4"
+        :disabled="rom.finished"
+      >
+        <v-list-item-title class="d-flex">
+          <v-icon
+            :icon="rom.finished ? `mdi-check` : `mdi-loading mdi-spin`"
+            :color="rom.finished ? `green` : `white`"
+            class="mx-2"
+          />
+          {{ rom.filename }}...
+        </v-list-item-title>
+        <v-progress-linear
+          v-if="!rom.finished"
+          v-model="rom.progress"
+          height="4"
+          color="white"
+          class="mt-2"
+        />
+      </v-list-item>
+    </v-list>
   </v-snackbar>
 </template>
+
+<style>
+#upload-in-progress .v-snackbar__content {
+  padding: 0;
+}
+</style>

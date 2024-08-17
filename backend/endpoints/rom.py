@@ -102,7 +102,7 @@ async def add_roms(
                 await socket_handler.socket_server.emit(
                     "upload:in_progress",
                     {
-                        "name": file.filename,
+                        "filename": file.filename,
                         "progress": progress,
                     },
                 )
@@ -112,7 +112,7 @@ async def add_roms(
         await socket_handler.socket_server.emit(
             "upload:complete",
             {
-                "name": file.filename,
+                "filename": file.filename,
             },
         )
 
