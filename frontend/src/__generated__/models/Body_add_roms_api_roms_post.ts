@@ -4,6 +4,6 @@
 /* eslint-disable */
 
 export type Body_add_roms_api_roms_post = {
-    roms: Array<Blob>;
+    files: Array<Blob>;
 };
 

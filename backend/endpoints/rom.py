@@ -81,12 +81,14 @@ async def add_roms(
     skipped_files = []
 
     for file in files:
-        if bool(os.path.exists(f"{roms_path}/{file.filename}")):
+        file_location = f"{roms_path}/{file.filename}"
+
+        if await Path(file_location).exists():
+            log.warning(f" - Skipping {file.filename} since the file already exists")
             skipped_files.append(file.filename)
             continue
 
         log.info(f" - Uploading {file.filename}")
-        file_location = f"{roms_path}/{file.filename}"
         file_size = os.fstat(file.file.fileno()).st_size
         uploaded_size = 0
         start_time = datetime.now().timestamp()
@@ -97,22 +99,25 @@ async def add_roms(
                 if not chunk:
                     break
                 await f.write(chunk)
-
                 uploaded_size += len(chunk)
-                await socket_handler.socket_server.emit(
-                    "upload:in_progress",
-                    {
-                        "filename": file.filename,
-                        "file_size": file_size,
-                        "uploaded_size": uploaded_size,
-                        "upload_speed": round(
-                            uploaded_size / (datetime.now().timestamp() - start_time)
-                        ),
-                    },
-                )
+
+                # Emit progress update roughly every 1 MB uploaded
+                if uploaded_size % (1024 * 1024 * 1) == 0 or uploaded_size == file_size:
+                    elapsed_time = datetime.now().timestamp() - start_time
+                    upload_speed = (
+                        round(uploaded_size / elapsed_time) if elapsed_time > 0 else 0
+                    )
+                    await socket_handler.socket_server.emit(
+                        "upload:in_progress",
+                        {
+                            "filename": file.filename,
+                            "file_size": file_size,
+                            "uploaded_size": uploaded_size,
+                            "upload_speed": upload_speed,
+                        },
+                    )
 
         uploaded_files.append(file.filename)
-
         await socket_handler.socket_server.emit(
             "upload:complete",
             {
