@@ -12,20 +12,21 @@ import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
 
-socket.on("upload:in_progress", ({ filename, progress }) => {
-  const uploadStore = storeUpload();
-  uploadStore.update({
-    filename,
-    progress,
-  });
-});
+socket.on(
+  "upload:in_progress",
+  ({ filename, file_size, uploaded_size, upload_speed }) => {
+    const uploadStore = storeUpload();
+    uploadStore.update(filename, {
+      file_size,
+      uploaded_size,
+      upload_speed,
+    });
+  },
+);
 
 socket.on("upload:complete", ({ filename }) => {
   const uploadStore = storeUpload();
-  uploadStore.update({
-    filename,
-    progress: 100,
-  });
+  uploadStore.markComplete(filename);
 });
 
 async function uploadRoms({

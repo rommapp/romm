@@ -1,10 +1,17 @@
 import { defineStore } from "pinia";
 
-type UploadingRom = {
-  filename: string;
-  progress: number;
-  finished?: boolean;
-};
+class UploadingRom {
+  filename = "";
+  progress = 0;
+  file_size = 0;
+  uploaded_size = 0;
+  upload_speed = 0;
+  finished = false;
+
+  constructor(data: Partial<UploadingRom>) {
+    Object.assign(this, data);
+  }
+}
 
 export default defineStore("upload", {
   state: () => ({
@@ -12,12 +19,42 @@ export default defineStore("upload", {
   }),
   actions: {
     add(filename: string) {
-      this.value = [...this.value, { filename, progress: 0 }];
+      this.value = [...this.value, new UploadingRom({ filename })];
     },
-    update({ filename, progress }: { filename: string; progress: number }) {
+    update(
+      filename: string,
+      {
+        file_size,
+        uploaded_size,
+        upload_speed,
+      }: {
+        file_size: number;
+        uploaded_size: number;
+        upload_speed: number;
+      },
+    ) {
       this.value = this.value.map((rom) =>
         rom.filename === filename
-          ? { ...rom, progress, finished: Math.ceil(progress) === 100 }
+          ? {
+              ...rom,
+              file_size,
+              uploaded_size,
+              upload_speed,
+              progress: (uploaded_size / file_size) * 100,
+              finished: uploaded_size === file_size,
+            }
+          : rom,
+      );
+    },
+    markComplete(filename: string) {
+      this.value = this.value.map((rom) =>
+        rom.filename === filename
+          ? {
+              ...rom,
+              progress: 100,
+              upload_speed: 0,
+              finished: true,
+            }
           : rom,
       );
     },
