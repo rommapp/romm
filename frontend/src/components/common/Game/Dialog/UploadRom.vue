@@ -6,6 +6,7 @@ import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
+import storeUpload from "@/stores/upload";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
@@ -21,6 +22,7 @@ const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
+const uploadStore = storeUpload();
 const HEADERS = [
   {
     title: "Name",
@@ -93,11 +95,6 @@ async function uploadRoms() {
   }
 
   const platformId = selectedPlatform.value.id;
-  // emitter?.emit("snackbarShow", {
-  //   msg: `Uploading ${romsToUpload.value.length} roms to ${selectedPlatform.value.name}...`,
-  //   icon: "mdi-loading mdi-spin",
-  //   color: "romm-accent-1",
-  // });
 
   await romApi
     .uploadRoms({
@@ -122,6 +119,8 @@ async function uploadRoms() {
         color: "green",
         timeout: 2000,
       });
+
+      uploadStore.clear();
 
       if (!socket.connected) socket.connect();
       setTimeout(() => {

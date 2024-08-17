@@ -12,24 +12,21 @@ import { getDownloadLink } from "@/utils";
 
 export const romApi = api;
 
-function clearFileFromUploads({ name }: { name: string }) {
-  const uploadStore = storeUpload();
-  uploadStore.remove(name);
-
-  // Disconnect socket when no more uploads are in progress
-  if (uploadStore.value.length === 0) socket.disconnect();
-}
-
-socket.on("upload:in_progress", ({ name, progress }) => {
+socket.on("upload:in_progress", ({ filename, progress }) => {
   const uploadStore = storeUpload();
   uploadStore.update({
-    filename: name,
+    filename,
     progress,
   });
 });
 
-// Listen for upload completion events
-socket.on("upload:complete", clearFileFromUploads);
+socket.on("upload:complete", ({ filename }) => {
+  const uploadStore = storeUpload();
+  uploadStore.update({
+    filename,
+    progress: 100,
+  });
+});
 
 async function uploadRoms({
   platformId,
@@ -45,11 +42,6 @@ async function uploadRoms({
   romsToUpload.forEach((file) => {
     formData.append("files", file);
     uploadStore.add(file.name);
-
-    // Clear upload state after 180 seconds in case error/timeout
-    setTimeout(() => {
-      clearFileFromUploads(file);
-    }, 180 * 1000);
   });
 
   return api.post("/roms", formData, {
