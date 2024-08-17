@@ -40,13 +40,12 @@ watch(romsList, (newList) => {
             class="mx-2"
           />
         </v-list-item-title>
-        <template v-if="rom.progress > 0">
+        <template v-if="rom.progress > 0 && !rom.finished">
           <v-progress-linear
-            v-if="!rom.finished"
             v-model="rom.progress"
             height="4"
             color="white"
-            class="mt-2"
+            class="mt-1"
           />
           <div class="upload-speeds d-flex justify-space-between mt-1">
             <div>{{ formatBytes(rom.upload_speed) }}/s</div>
