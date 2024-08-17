@@ -81,7 +81,7 @@ async def add_roms(
     skipped_files = []
 
     for file in files:
-        if fs_rom_handler.file_exists(roms_path, file.filename):
+        if bool(os.path.exists(f"{roms_path}/{file.filename}")):
             skipped_files.append(file.filename)
             continue
 

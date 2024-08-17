@@ -102,6 +102,8 @@ async function uploadRoms() {
       platformId: platformId,
     })
     .then(({ data }) => {
+      uploadStore.clear();
+
       const { uploaded_files, skipped_files } = data;
 
       if (uploaded_files.length == 0) {
@@ -109,7 +111,7 @@ async function uploadRoms() {
           msg: `All files skipped, nothing to upload.`,
           icon: "mdi-close-circle",
           color: "orange",
-          timeout: 2000,
+          timeout: 5000,
         });
       }
 
@@ -117,10 +119,8 @@ async function uploadRoms() {
         msg: `${uploaded_files.length} files uploaded successfully (and ${skipped_files.length} skipped). Starting scan...`,
         icon: "mdi-check-bold",
         color: "green",
-        timeout: 2000,
+        timeout: 3000,
       });
-
-      uploadStore.clear();
 
       if (!socket.connected) socket.connect();
       setTimeout(() => {

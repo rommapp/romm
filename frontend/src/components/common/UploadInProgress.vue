@@ -37,7 +37,7 @@ watch(romsList, (newList) => {
             :color="rom.finished ? `green` : `white`"
             class="mx-2"
           />
-          {{ rom.filename }}...
+          {{ rom.filename }}
         </v-list-item-title>
         <v-progress-linear
           v-if="!rom.finished"
