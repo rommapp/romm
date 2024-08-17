@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
@@ -16,7 +16,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State

@@ -1,6 +1,4 @@
-from typing import NotRequired
-
-from typing_extensions import TypedDict
+from typing import NotRequired, TypedDict
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     (

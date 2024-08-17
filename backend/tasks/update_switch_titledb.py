@@ -1,4 +1,5 @@
 import json
+from itertools import batched
 from typing import Final
 
 from config import (
@@ -9,7 +10,6 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask
 from utils.context import initialize_context
-from utils.iterators import batched
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
