@@ -17,7 +17,9 @@ export default defineStore("upload", {
       this.reset();
     },
     update(progressEvent: AxiosProgressEvent) {
-      this.progress = progressEvent.progress || this.progress;
+      this.progress = progressEvent.progress
+        ? progressEvent.progress * 100
+        : this.progress;
       this.total = progressEvent.total || this.total;
       this.loaded = progressEvent.loaded;
       this.rate = progressEvent.rate || this.rate;
