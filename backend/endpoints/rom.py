@@ -47,24 +47,24 @@ async def add_rom(request: Request):
     Raises:
         HTTPException: No files were uploaded
     """
-    platform_id = int(request.headers.get("x-upload-platform", None))
-    filename = request.headers.get("x-upload-filename", None)
+    platform_id = request.headers.get("x-upload-platform")
+    filename = request.headers.get("x-upload-filename")
     if not platform_id or not filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No platform ID provided",
+            detail="No platform ID or filename provided",
         )
 
-    platform_fs_slug = db_platform_handler.get_platform(platform_id).fs_slug
+    platform_fs_slug = db_platform_handler.get_platform(int(platform_id)).fs_slug
     roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
-    log.info(f"Uploading roms to {platform_fs_slug}")
+    log.info(f"Uploading file to {platform_fs_slug}")
 
-    file_location = f"{roms_path}/{filename}"
+    file_location = Path(f"{roms_path}/{filename}")
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
-    parser.register(filename, FileTarget(file_location))
+    parser.register(filename, FileTarget(str(file_location)))
 
-    if await Path(file_location).exists():
+    if await file_location.exists():
         log.warning(f" - Skipping {filename} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -72,8 +72,8 @@ async def add_rom(request: Request):
         )
 
     async def cleanup_partial_file():
-        if await Path(file_location).exists():
-            await Path(file_location).unlink()
+        if await file_location.exists():
+            await file_location.unlink()
 
     try:
         async for chunk in request.stream():
@@ -84,7 +84,6 @@ async def add_rom(request: Request):
     except Exception as exc:
         log.error("Error uploading files", exc_info=exc)
         await cleanup_partial_file()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the file(s)",
