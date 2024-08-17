@@ -1,65 +1,38 @@
+import type { AxiosProgressEvent } from "axios";
 import { defineStore } from "pinia";
-
-class UploadingRom {
-  filename = "";
-  progress = 0;
-  file_size = 0;
-  uploaded_size = 0;
-  upload_speed = 0;
-  finished = false;
-
-  constructor(data: Partial<UploadingRom>) {
-    Object.assign(this, data);
-  }
-}
 
 export default defineStore("upload", {
   state: () => ({
-    value: [] as UploadingRom[],
+    filenames: [] as string[],
+    progress: 0,
+    total: 0,
+    loaded: 0,
+    rate: 0,
+    finished: false,
   }),
   actions: {
-    add(filename: string) {
-      this.value = [...this.value, new UploadingRom({ filename })];
+    start(filenames: string[]) {
+      this.filenames = filenames;
+      this.finished = false;
+      this.reset();
     },
-    update(
-      filename: string,
-      {
-        file_size,
-        uploaded_size,
-        upload_speed,
-      }: {
-        file_size: number;
-        uploaded_size: number;
-        upload_speed: number;
-      },
-    ) {
-      this.value = this.value.map((rom) =>
-        rom.filename === filename
-          ? {
-              ...rom,
-              file_size,
-              uploaded_size,
-              upload_speed,
-              progress: (uploaded_size / file_size) * 100,
-              finished: uploaded_size === file_size,
-            }
-          : rom,
-      );
+    update(progressEvent: AxiosProgressEvent) {
+      this.progress = progressEvent.progress || this.progress;
+      this.total = progressEvent.total || this.total;
+      this.loaded = progressEvent.loaded;
+      this.rate = progressEvent.rate || this.rate;
+      this.finished = progressEvent.loaded === progressEvent.total;
     },
-    markComplete(filename: string) {
-      this.value = this.value.map((rom) =>
-        rom.filename === filename
-          ? {
-              ...rom,
-              progress: 100,
-              upload_speed: 0,
-              finished: true,
-            }
-          : rom,
-      );
+    reset() {
+      this.progress = 0;
+      this.total = 0;
+      this.loaded = 0;
+      this.rate = 0;
     },
     clear() {
-      this.value = [] as UploadingRom[];
+      this.reset();
+      this.filenames = [];
+      this.finished = true;
     },
   },
 });

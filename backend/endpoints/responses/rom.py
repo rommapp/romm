@@ -186,7 +186,7 @@ class UserNotesSchema(TypedDict):
     note_raw_markdown: str
 
 
-class AddRomsResponse(TypedDict):
+class UploadRomsResponse(TypedDict):
     uploaded_files: list[str]
     skipped_files: list[str]
 
