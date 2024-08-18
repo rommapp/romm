@@ -63,24 +63,38 @@ def is_compressed_file(file_path: str) -> bool:
     )
 
 
+def read_basic_file(file_path: Path) -> Iterator[bytes]:
+    with open(file_path, "rb") as f:
+        while chunk := f.read(FILE_READ_CHUNK_SIZE):
+            yield chunk
+
+
 def read_zip_file(file_path: Path) -> Iterator[bytes]:
-    with zipfile.ZipFile(file_path, "r") as z:
-        for file in z.namelist():
-            with z.open(file, "r") as f:
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
+    try:
+        with zipfile.ZipFile(file_path, "r") as z:
+            for file in z.namelist():
+                with z.open(file, "r") as f:
+                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                        yield chunk
+    except zipfile.BadZipFile:
+        for chunk in read_basic_file(file_path):
+            yield chunk
 
 
 def read_tar_file(file_path: Path, mode: str = "r") -> Iterator[bytes]:
-    with tarfile.open(file_path, mode) as f:
-        for member in f.getmembers():
-            # Ignore metadata files created by macOS
-            if member.name.startswith("._"):
-                continue
+    try:
+        with tarfile.open(file_path, mode) as f:
+            for member in f.getmembers():
+                # Ignore metadata files created by macOS
+                if member.name.startswith("._"):
+                    continue
 
-            with f.extractfile(member) as ef:  # type: ignore
-                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
+                with f.extractfile(member) as ef:  # type: ignore
+                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                        yield chunk
+    except tarfile.ReadError:
+        for chunk in read_basic_file(file_path):
+            yield chunk
 
 
 def read_gz_file(file_path: Path) -> Iterator[bytes]:
@@ -88,15 +102,23 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
 
 
 def read_7z_file(file_path: Path) -> Iterator[bytes]:
-    with py7zr.SevenZipFile(file_path, "r") as f:
-        for _name, bio in f.readall().items():
-            while chunk := bio.read(FILE_READ_CHUNK_SIZE):
-                yield chunk
+    try:
+        with py7zr.SevenZipFile(file_path, "r") as f:
+            for _name, bio in f.readall().items():
+                while chunk := bio.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
+    except py7zr.Bad7zFile:
+        for chunk in read_basic_file(file_path):
+            yield chunk
 
 
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:
-    with bz2.BZ2File(file_path, "rb") as f:
-        while chunk := f.read(FILE_READ_CHUNK_SIZE):
+    try:
+        with bz2.BZ2File(file_path, "rb") as f:
+            while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                yield chunk
+    except EOFError:
+        for chunk in read_basic_file(file_path):
             yield chunk
 
 
@@ -221,10 +243,8 @@ class FSRomsHandler(FSHandler):
                 update_hashes(chunk)
 
         else:
-            with open(file_path, "rb") as f:
-                # Read in chunks to avoid memory issues
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    update_hashes(chunk)
+            for chunk in read_basic_file(file_path):
+                update_hashes(chunk)
 
         return crc_c, md5_h, sha1_h
 
