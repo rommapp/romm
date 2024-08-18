@@ -53,7 +53,7 @@ async def add_rom(request: Request):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No platform ID or filename provided",
-        )
+        ) from None
 
     platform_fs_slug = db_platform_handler.get_platform(int(platform_id)).fs_slug
     roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
@@ -69,7 +69,7 @@ async def add_rom(request: Request):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File {filename} already exists",
-        )
+        ) from None
 
     async def cleanup_partial_file():
         if await file_location.exists():
@@ -87,7 +87,7 @@ async def add_rom(request: Request):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the file(s)",
-        )
+        ) from exc
 
     return Response(status_code=status.HTTP_201_CREATED)
 
