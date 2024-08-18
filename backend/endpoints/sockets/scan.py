@@ -398,6 +398,14 @@ async def scan_handler(_sid: str, options: dict):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
 
+    # Uncomment this to run scan in the current process
+    # await scan_platforms(
+    #     platform_ids=platform_ids,
+    #     scan_type=scan_type,
+    #     roms_ids=roms_ids,
+    #     metadata_sources=metadata_sources,
+    # )
+
     return high_prio_queue.enqueue(
         scan_platforms,
         platform_ids,
