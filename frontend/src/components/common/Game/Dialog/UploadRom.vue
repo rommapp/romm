@@ -6,6 +6,7 @@ import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
+import storeUpload from "@/stores/upload";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
@@ -16,11 +17,12 @@ import { useDisplay } from "vuetify";
 // Props
 const { xs, mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
-const romsToUpload = ref<File[]>([]);
+const filesToUpload = ref<File[]>([]);
 const scanningStore = storeScanning();
 const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
+const uploadStore = storeUpload();
 const HEADERS = [
   {
     title: "Name",
@@ -64,7 +66,6 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
 async function uploadRoms() {
   if (!selectedPlatform.value) return;
   show.value = false;
-  scanningStore.set(true);
 
   if (selectedPlatform.value.id == -1) {
     await platformApi
@@ -93,35 +94,37 @@ async function uploadRoms() {
   }
 
   const platformId = selectedPlatform.value.id;
-  emitter?.emit("snackbarShow", {
-    msg: `Uploading ${romsToUpload.value.length} roms to ${selectedPlatform.value.name}...`,
-    icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
-  });
 
   await romApi
     .uploadRoms({
-      romsToUpload: romsToUpload.value,
+      filesToUpload: filesToUpload.value,
       platformId: platformId,
     })
-    .then(({ data }) => {
-      const { uploaded_roms, skipped_roms } = data;
+    .then((responses: PromiseSettledResult<unknown>[]) => {
+      uploadStore.clear();
 
-      if (uploaded_roms.length == 0) {
+      const successfulUploads = responses.filter(
+        (d) => d.status == "fulfilled"
+      );
+      const failedUploads = responses.filter((d) => d.status == "rejected");
+
+      if (successfulUploads.length == 0) {
         return emitter?.emit("snackbarShow", {
           msg: `All files skipped, nothing to upload.`,
           icon: "mdi-close-circle",
           color: "orange",
-          timeout: 2000,
+          timeout: 5000,
         });
       }
 
       emitter?.emit("snackbarShow", {
-        msg: `${uploaded_roms.length} files uploaded successfully (and ${skipped_roms.length} skipped). Starting scan...`,
+        msg: `${successfulUploads.length} files uploaded successfully (and ${failedUploads.length} skipped/failed). Starting scan...`,
         icon: "mdi-check-bold",
         color: "green",
-        timeout: 2000,
+        timeout: 3000,
       });
+
+      scanningStore.set(true);
 
       if (!socket.connected) socket.connect();
       setTimeout(() => {
@@ -142,7 +145,7 @@ async function uploadRoms() {
         timeout: 4000,
       });
     });
-  romsToUpload.value = [];
+  filesToUpload.value = [];
   selectedPlatform.value = null;
 }
 
@@ -152,17 +155,19 @@ function triggerFileInput() {
 }
 
 function removeRomFromList(romName: string) {
-  romsToUpload.value = romsToUpload.value.filter((rom) => rom.name !== romName);
+  filesToUpload.value = filesToUpload.value.filter(
+    (rom) => rom.name !== romName
+  );
 }
 
 function closeDialog() {
   show.value = false;
-  romsToUpload.value = [];
+  filesToUpload.value = [];
   selectedPlatform.value = null;
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(romsToUpload.value.length / itemsPerPage.value);
+  pageCount.value = Math.ceil(filesToUpload.value.length / itemsPerPage.value);
 }
 watch(itemsPerPage, async () => {
   updateDataTablePages();
@@ -234,7 +239,7 @@ watch(itemsPerPage, async () => {
           </v-btn>
           <v-file-input
             id="file-input"
-            v-model="romsToUpload"
+            v-model="filesToUpload"
             @update:model-value="updateDataTablePages"
             class="file-input"
             multiple
@@ -245,9 +250,9 @@ watch(itemsPerPage, async () => {
     </template>
     <template #content>
       <v-data-table
-        v-if="romsToUpload.length > 0"
+        v-if="filesToUpload.length > 0"
         :item-value="(item) => item.name"
-        :items="romsToUpload"
+        :items="filesToUpload"
         :width="mdAndUp ? '60vw' : '95vw'"
         :items-per-page="itemsPerPage"
         :items-per-page-options="PER_PAGE_OPTIONS"
@@ -316,9 +321,9 @@ watch(itemsPerPage, async () => {
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
-            :disabled="romsToUpload.length == 0 || selectedPlatform == null"
+            :disabled="filesToUpload.length == 0 || selectedPlatform == null"
             :variant="
-              romsToUpload.length == 0 || selectedPlatform == null
+              filesToUpload.length == 0 || selectedPlatform == null
                 ? 'plain'
                 : 'flat'
             "

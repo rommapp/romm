@@ -14,7 +14,6 @@ from config import (
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
-    AddRomsResponse,
     CustomStreamingResponse,
     DetailedRomSchema,
     RomUserSchema,
@@ -22,75 +21,75 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import File, HTTPException, Query, Request, UploadFile, status
+from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
+from starlette.requests import ClientDisconnect
 from stream_zip import NO_COMPRESSION_64, ZIP_AUTO, AsyncMemberFile, async_stream_zip
+from streaming_form_data import StreamingFormDataParser
+from streaming_form_data.targets import FileTarget, NullTarget
 from utils.router import APIRouter
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
-async def add_roms(
-    request: Request,
-    platform_id: int,
-    roms: list[UploadFile] = File(...),  # noqa: B008
-) -> AddRomsResponse:
-    """Upload roms endpoint (one or more at the same time)
+async def add_rom(request: Request):
+    """Upload single rom endpoint
 
     Args:
         request (Request): Fastapi Request object
-        platform_slug (str): Slug of the platform where to upload the roms
-        roms (list[UploadFile], optional): List of files to upload. Defaults to File(...).
 
     Raises:
         HTTPException: No files were uploaded
-
-    Returns:
-        AddRomsResponse: Standard message response
     """
+    platform_id = request.headers.get("x-upload-platform")
+    filename = request.headers.get("x-upload-filename")
+    if not platform_id or not filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No platform ID or filename provided",
+        ) from None
 
-    platform_fs_slug = db_platform_handler.get_platform(platform_id).fs_slug
-    log.info(f"Uploading roms to {platform_fs_slug}")
-    if roms is None:
-        log.error("No roms were uploaded")
+    platform_fs_slug = db_platform_handler.get_platform(int(platform_id)).fs_slug
+    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+    log.info(f"Uploading file to {platform_fs_slug}")
+
+    file_location = Path(f"{roms_path}/{filename}")
+    parser = StreamingFormDataParser(headers=request.headers)
+    parser.register("x-upload-platform", NullTarget())
+    parser.register(filename, FileTarget(str(file_location)))
+
+    if await file_location.exists():
+        log.warning(f" - Skipping {filename} since the file already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File {filename} already exists",
+        ) from None
+
+    async def cleanup_partial_file():
+        if await file_location.exists():
+            await file_location.unlink()
+
+    try:
+        async for chunk in request.stream():
+            parser.data_received(chunk)
+    except ClientDisconnect:
+        log.error("Client disconnected during upload")
+        await cleanup_partial_file()
+    except Exception as exc:
+        log.error("Error uploading files", exc_info=exc)
+        await cleanup_partial_file()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No roms were uploaded",
-        )
+            detail="There was an error uploading the file(s)",
+        ) from exc
 
-    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
-
-    uploaded_roms = []
-    skipped_roms = []
-
-    for rom in roms:
-        if fs_rom_handler.file_exists(roms_path, rom.filename):
-            log.warning(f" - Skipping {rom.filename} since the file already exists")
-            skipped_roms.append(rom.filename)
-            continue
-
-        log.info(f" - Uploading {rom.filename}")
-        file_location = f"{roms_path}/{rom.filename}"
-
-        async with await open_file(file_location, "wb+") as f:
-            while True:
-                chunk = rom.file.read(8192)
-                if not chunk:
-                    break
-                await f.write(chunk)
-
-        uploaded_roms.append(rom.filename)
-
-    return {
-        "uploaded_roms": uploaded_roms,
-        "skipped_roms": skipped_roms,
-    }
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(router.get, "/roms", ["roms.read"])
