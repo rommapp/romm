@@ -4,10 +4,8 @@
 /* eslint-disable */
 
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
-export type { AddRomsResponse } from './models/AddRomsResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
-export type { Body_add_roms_api_roms_post } from './models/Body_add_roms_api_roms_post';
 export type { Body_add_saves_api_saves_post } from './models/Body_add_saves_api_saves_post';
 export type { Body_add_screenshots_api_screenshots_post } from './models/Body_add_screenshots_api_screenshots_post';
 export type { Body_add_states_api_states_post } from './models/Body_add_states_api_states_post';

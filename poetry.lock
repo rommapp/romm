@@ -2189,7 +2189,6 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
-    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -2498,6 +2497,31 @@ files = [
 ]
 
 [[package]]
+name = "smart-open"
+version = "7.0.4"
+description = "Utils for streaming large files (S3, HDFS, GCS, Azure Blob Storage, gzip, bz2...)"
+optional = false
+python-versions = "<4.0,>=3.7"
+files = [
+    {file = "smart_open-7.0.4-py3-none-any.whl", hash = "sha256:4e98489932b3372595cddc075e6033194775165702887216b65eba760dfd8d47"},
+    {file = "smart_open-7.0.4.tar.gz", hash = "sha256:62b65852bdd1d1d516839fcb1f6bc50cd0f16e05b4ec44b52f43d38bcb838524"},
+]
+
+[package.dependencies]
+wrapt = "*"
+
+[package.extras]
+all = ["azure-common", "azure-core", "azure-storage-blob", "boto3", "google-cloud-storage (>=2.6.0)", "paramiko", "requests", "zstandard"]
+azure = ["azure-common", "azure-core", "azure-storage-blob"]
+gcs = ["google-cloud-storage (>=2.6.0)"]
+http = ["requests"]
+s3 = ["boto3"]
+ssh = ["paramiko"]
+test = ["azure-common", "azure-core", "azure-storage-blob", "boto3", "google-cloud-storage (>=2.6.0)", "moto[server]", "paramiko", "pytest", "pytest-rerunfailures", "requests", "responses", "zstandard"]
+webhdfs = ["requests"]
+zst = ["zstandard"]
+
+[[package]]
 name = "sniffio"
 version = "1.3.1"
 description = "Sniff out which async library your code is running under"
@@ -2691,6 +2715,47 @@ pycryptodome = ">=3.10.1"
 [package.extras]
 ci = ["coverage (==6.2)", "mypy (==0.971)", "pycryptodome (==3.10.1)", "pytest (==7.0.1)", "pytest-cov (==3.0.0)", "pyzipper (==0.3.6)", "stream-unzip (==0.0.86)", "types-contextvars (==2.4.7.3)"]
 dev = ["coverage (>=6.2)", "mypy (>=0.971)", "pytest (>=7.0.1)", "pytest-cov (>=3.0.0)", "pyzipper (>=0.3.6)", "stream-unzip (>=0.0.86)", "types-contextvars (>=2.4.7.3)"]
+
+[[package]]
+name = "streaming-form-data"
+version = "1.16.0"
+description = "Streaming parser for multipart/form-data"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "streaming-form-data-1.16.0.tar.gz", hash = "sha256:cd95cde7a1e362c0f2b6e8bf2bcaf7339df1d4727b06de29968d010fcbbb9f5c"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:68657763f5b9147d1cc54729ccc972af33097a405ee6b72607b7949c4eeecec8"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:5b14be1adb391a2021a25b238ec48cefd20b34f85952b990996d6ffd0abfe0d8"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fb3b54af8d170d58dfd36d6418352c105c43a1a0b85e36772f23f0134bd8a741"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:a96f8a8013f6a209262592eedebf773de3316c22286ed3f1ef5ff39a19f1db9e"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:929b7c69460b5516e65551b76333de1831cab8cc44fb0c5fc200847f3bd28538"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-win32.whl", hash = "sha256:945c642f3d7fbee36cc4682124487ab2c3ee8f6b669c5bff07257ce89625b20c"},
+    {file = "streaming_form_data-1.16.0-cp310-cp310-win_amd64.whl", hash = "sha256:a5b598d1a36ea619aa26a14dff9a5b83baa6368d1d79f56e8132b72d2070f413"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:36e337fe1639fcb67161464e4f18389c288d0d57fa8a65b1f4bbd3f21af58d94"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:d0aa082e2944d5305c41e0acb60c3d2261126c181a3330ff787aeac13d7cf1ce"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:13f2f293e0591ff26efe31197929c4f46614a48e2cdbe46e051fef3258499886"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:df9b6e16ccfd92137c59a0c59d0ccdfd641e6fd10564404ef3387d84e1aebc5e"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:4d401b337659404babecbad6ddc157f593568f861ecb0be71cbe7b6e5a38dca8"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-win32.whl", hash = "sha256:90690e80f206fa42736599ec9cd88bd2ba85d4645dd048c301472502110be911"},
+    {file = "streaming_form_data-1.16.0-cp311-cp311-win_amd64.whl", hash = "sha256:6edb1e379fad699522492a21d3e91ab1ee1b1df34e0a147498251673b7cbbc00"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:ef7b63d02f4243251a5a6e7dc62bb5dda0d9342e141c724fb196410b04191508"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:b61d097ad8a673272222acfa504cee9a745881d5a091dcb4e7ca39ed8e0edcb9"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1c6d920e03146d652ceea0b46682e8ca4d7ff9017cb09ec24a1687c809c1582c"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-musllinux_1_1_i686.whl", hash = "sha256:1bcdfccf7b3885f74ec78c86c5a74f2f4b766341c209b344459a1f42b9581f80"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:79debb41691c669e1b7b254f41120c24ab27889dbc543861660df4472471e4ce"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-win32.whl", hash = "sha256:16399b9dc231e856cfd2138356ab7017f43025a1c994371deb7fbd31bd73b411"},
+    {file = "streaming_form_data-1.16.0-cp38-cp38-win_amd64.whl", hash = "sha256:d561e216501356b1142232d3a5f3a41ea435c50120e01996c853b2779ef3626b"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:9d2540acfb7f8db7ab94d893f42d5b2fcf0145a25cd795e53bc841c001ded4f9"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:cbcfa5bf257c4e6539df01e96d52d9e0f49085a58c5b8efdc98c9e88a3a39595"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:decf1af5fad98a938acd93fba413312630a9ca9a03972bc55ff903f6ce4247d4"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-musllinux_1_1_i686.whl", hash = "sha256:391fb3ff03113ffa71a0067ab88ca622d0a1a085913c4e21962afae61e366871"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:e530661137aa3c38bbd2a98ec4bced7aa15ed8d8a61be6d98abe071e5a8dfc7b"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-win32.whl", hash = "sha256:ba7430f542e9d8359b5f9b1445fd2d20b81930e031100e4e76cb7f064208811d"},
+    {file = "streaming_form_data-1.16.0-cp39-cp39-win_amd64.whl", hash = "sha256:f90d142755e8d60764e4ef883af9cc5fc5d103606fa27adcbbf986d17bff102a"},
+]
+
+[package.dependencies]
+smart-open = ">=6.0"
 
 [[package]]
 name = "texttable"
@@ -3225,4 +3290,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "05c76acc85421bab1fc3f9f28f9291bce64c5e99154b8ee72dc809a26d9804e2"
+content-hash = "fb58ed11d1fd6dc414d7c2c5f16c9d578a07160128bd6d5d09cbd885a2804141"

@@ -186,11 +186,6 @@ class UserNotesSchema(TypedDict):
     note_raw_markdown: str
 
 
-class AddRomsResponse(TypedDict):
-    uploaded_roms: list[str]
-    skipped_roms: list[str]
-
-
 class CustomStreamingResponse(StreamingResponse):
     def __init__(self, *args, **kwargs) -> None:
         self.emit_body = kwargs.pop("emit_body", None)

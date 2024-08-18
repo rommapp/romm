@@ -9,7 +9,6 @@ import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
-import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 
