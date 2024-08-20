@@ -304,7 +304,7 @@ async function fetchSave(): Promise<Uint8Array> {
 
 window.EJS_onLoadSave = async function () {
   const sav = await fetchSave();
-  const FS = window.EJS_emulator.Module.FS;
+  const FS = window.EJS_emulator.gameManager.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
   const paths = path.split("/");
   let cp = "";
