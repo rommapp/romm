@@ -45,8 +45,14 @@ RUN apk add --no-cache \
     zlib-dev
 
 ARG NGINX_VERSION
+# The specified commit SHA is the latest commit on the `master` branch at the time of writing.
+# It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
+# TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
 ARG NGINX_MOD_ZIP_SHA=8e65b82c82c7890f67a6107271c127e9881b6313
 
+# Clone both nginx and `ngx_http_zip_module` repositories, needed to compile the module from source.
+# This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
+# images do not have a simple way to include third-party modules.
 RUN git clone https://github.com/evanmiller/mod_zip.git && \
     cd ./mod_zip && \
     git checkout "${NGINX_MOD_ZIP_SHA}" && \
