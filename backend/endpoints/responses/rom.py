@@ -7,10 +7,8 @@ from typing import NotRequired, TypedDict, get_type_hints
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
-from fastapi.responses import StreamingResponse
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from handler.socket_handler import socket_handler
 from models.rom import Rom, RomFile
 from pydantic import BaseModel, Field, computed_field
 
@@ -184,13 +182,3 @@ class UserNotesSchema(TypedDict):
     user_id: int
     username: str
     note_raw_markdown: str
-
-
-class CustomStreamingResponse(StreamingResponse):
-    def __init__(self, *args, **kwargs) -> None:
-        self.emit_body = kwargs.pop("emit_body", None)
-        super().__init__(*args, **kwargs)
-
-    async def stream_response(self, *args, **kwargs) -> None:
-        await super().stream_response(*args, **kwargs)
-        await socket_handler.socket_server.emit("download:complete", self.emit_body)
