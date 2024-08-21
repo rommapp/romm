@@ -1,7 +1,6 @@
 import type { MessageResponse, SearchRomSchema } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
-import storeDownload from "@/stores/download";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
@@ -87,14 +86,6 @@ async function getRom({
   return api.get(`/roms/${romId}`);
 }
 
-function clearRomFromDownloads({ id }: { id: number }) {
-  const downloadStore = storeDownload();
-  downloadStore.remove(id);
-
-  // Disconnect socket when no more downloads are in progress
-  if (downloadStore.value.length === 0) socket.disconnect();
-}
-
 async function searchRom({
   romId,
   searchTerm,
@@ -113,9 +104,6 @@ async function searchRom({
   });
 }
 
-// Listen for multi-file download completion events
-socket.on("download:complete", clearRomFromDownloads);
-
 // Used only for multi-file downloads
 async function downloadRom({
   rom,
@@ -130,17 +118,6 @@ async function downloadRom({
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-
-  // Only connect socket if multi-file download
-  if (rom.multi && files.length > 1) {
-    if (!socket.connected) socket.connect();
-    storeDownload().add(rom.id);
-
-    // Clear download state after 60 seconds in case error/timeout
-    setTimeout(() => {
-      clearRomFromDownloads(rom);
-    }, 60 * 1000);
-  }
 }
 
 export type UpdateRom = SimpleRom & {

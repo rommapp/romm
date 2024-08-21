@@ -43,6 +43,7 @@ lint:
       paths:
         - frontend/src/__generated__/**
         - docker/Dockerfile
+        - docker/nginx/js/**
   definitions:
     - name: eslint
       files: [typescript, javascript]

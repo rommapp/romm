@@ -12,6 +12,7 @@ from exceptions.fs_exceptions import (
 from fastapi import UploadFile
 from logger.logger import log
 from utils.filesystem import iter_files
+from utils.hashing import crc32_to_hex
 
 from .base_handler import FSHandler
 
@@ -61,7 +62,7 @@ class FSFirmwareHandler(FSHandler):
                 crc_c = binascii.crc32(chunk, crc_c)
 
             return {
-                "crc_hash": (crc_c & 0xFFFFFFFF).to_bytes(4, byteorder="big").hex(),
+                "crc_hash": crc32_to_hex(crc_c),
                 "md5_hash": md5_h.hexdigest(),
                 "sha1_hash": sha1_h.hexdigest(),
             }
