@@ -20,10 +20,6 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
-const fileNameInputRules = {
-  required: (value: string) => !!value || "Required",
-  newFileName: (value: string) => !value.includes("/") || "Invalid characters",
-};
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -62,16 +58,9 @@ async function removeArtwork() {
 async function updateRom() {
   if (!rom.value) return;
 
-  if (rom.value.file_name.includes("/")) {
+  if (!rom.value.file_name) {
     emitter?.emit("snackbarShow", {
-      msg: "Couldn't edit rom: invalid file name characters",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  } else if (!rom.value.file_name) {
-    emitter?.emit("snackbarShow", {
-      msg: "Couldn't edit rom: file name required",
+      msg: "Cannot save: file name is required",
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -145,8 +134,7 @@ function closeDialog() {
                 v-model="rom.file_name"
                 class="py-2"
                 :rules="[
-                  fileNameInputRules.newFileName,
-                  fileNameInputRules.required,
+                  (value: string) => !!value
                 ]"
                 label="File name"
                 variant="outlined"
@@ -177,7 +165,9 @@ function closeDialog() {
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
-                      :disabled="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED"
+                      :disabled="
+                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                      "
                       size="small"
                       class="translucent-dark"
                       @click="
