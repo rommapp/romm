@@ -63,6 +63,7 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, 
             "expanded_games": "[]",
             "ports": "[]",
             "similar_games": "[]",
+            "age_ratings": "[1, 2]",
         },
     )
     assert response.status_code == 200

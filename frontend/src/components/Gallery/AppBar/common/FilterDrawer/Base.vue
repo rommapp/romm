@@ -11,10 +11,10 @@ import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const show = ref(false);
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
+
 const {
   activeFilterDrawer,
   selectedGenre,
@@ -25,7 +25,10 @@ const {
   filterCollections,
   selectedCompany,
   filterCompanies,
+  selectedAgeRating,
+  filterAgeRatings,
 } = storeToRefs(galleryFilterStore);
+
 const filters = [
   {
     label: "Genre",
@@ -47,6 +50,11 @@ const filters = [
     selected: selectedCompany,
     items: filterCompanies,
   },
+  {
+    label: "Age Rating",
+    selected: selectedAgeRating,
+    items: filterAgeRatings,
+  },
 ];
 
 // Functions
@@ -55,6 +63,7 @@ function resetFilters() {
   selectedFranchise.value = null;
   selectedCollection.value = null;
   selectedCompany.value = null;
+  selectedAgeRating.value = null;
   galleryFilterStore.disableFilterUnmatched();
   galleryFilterStore.disableFilterFavourites();
   nextTick(() => emitter?.emit("filter", null));

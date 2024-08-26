@@ -4,7 +4,11 @@ import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import {
+  getDownloadLink,
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+} from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
@@ -14,7 +18,9 @@ const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const playInfoIcon = ref("mdi-play");
 const ejsEmulationSupported = isEJSEmulationSupported(props.rom.platform_slug);
-const ruffleEmulationSupported = isRuffleEmulationSupported(props.rom.platform_slug);
+const ruffleEmulationSupported = isRuffleEmulationSupported(
+  props.rom.platform_slug,
+);
 
 // Functions
 async function copyDownloadLink(rom: DetailedRom) {
@@ -26,7 +32,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       getDownloadLink({
         rom,
         files: downloadStore.filesToDownload,
-      })
+      }),
     );
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(downloadLink);

@@ -43,12 +43,11 @@ const step = ref(1);
 const filledAdminUser = computed(
   () =>
     defaultAdminUser.value.username != "" &&
-    defaultAdminUser.value.password != ""
+    defaultAdminUser.value.password != "",
 );
 const isFirstStep = computed(() => step.value == 1);
 const isLastStep = computed(() => step.value == 2);
 
-// Functions
 async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)
@@ -189,14 +188,20 @@ async function finishWizard() {
 
           <v-stepper-actions :disabled="!filledAdminUser">
             <template #prev>
-              <v-btn class="text-white text-shadow" :ripple="false" :disabled="isFirstStep" @click="prev">{{
-                isFirstStep ? "" : "previous"
-              }}</v-btn>
+              <v-btn
+                class="text-white text-shadow"
+                :ripple="false"
+                :disabled="isFirstStep"
+                @click="prev"
+                >{{ isFirstStep ? "" : "previous" }}</v-btn
+              >
             </template>
             <template #next>
-              <v-btn class="text-white text-shadow" @click="!isLastStep ? next() : finishWizard()">{{
-                !isLastStep ? "Next" : "Finish"
-              }}</v-btn>
+              <v-btn
+                class="text-white text-shadow"
+                @click="!isLastStep ? next() : finishWizard()"
+                >{{ !isLastStep ? "Next" : "Finish" }}</v-btn
+              >
             </template>
           </v-stepper-actions>
         </template>
@@ -223,7 +228,9 @@ async function finishWizard() {
   max-width: 300px;
 }
 #version {
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+  text-shadow:
+    1px 1px 1px #000000,
+    0 0 1px #000000;
   bottom: 0.3rem;
   right: 0.5rem;
 }

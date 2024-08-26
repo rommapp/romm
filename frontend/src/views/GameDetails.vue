@@ -41,7 +41,6 @@ const noRomError = ref(false);
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
 
-// Functions
 async function fetchDetails() {
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
@@ -91,7 +90,7 @@ watch(
   () => route.fullPath,
   async () => {
     await fetchDetails();
-  }
+  },
 );
 </script>
 

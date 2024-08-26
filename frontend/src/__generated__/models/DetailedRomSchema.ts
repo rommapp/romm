@@ -38,6 +38,7 @@ export type DetailedRomSchema = {
     collections: Array<string>;
     companies: Array<string>;
     game_modes: Array<string>;
+    age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     path_cover_s: (string | null);

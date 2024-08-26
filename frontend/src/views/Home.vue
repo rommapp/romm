@@ -52,7 +52,6 @@ emitter?.on("refreshDrawer", async () => {
   platformsStore.set(platformData);
 });
 
-// Functions
 onBeforeMount(async () => {
   await platformApi
     .getPlatforms()
@@ -68,8 +67,8 @@ onBeforeMount(async () => {
       collectionsStore.set(collections);
       collectionsStore.setFavCollection(
         collections.find(
-          (collection) => collection.name.toLowerCase() === "favourites"
-        )
+          (collection) => collection.name.toLowerCase() === "favourites",
+        ),
       );
     })
     .catch((error) => {

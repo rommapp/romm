@@ -23,7 +23,12 @@ function onFilterClick(filter: FilterType, value: string) {
   <v-row no-gutters>
     <v-col>
       <v-divider class="mx-2 my-4" />
-      <template v-for="filter in galleryFilterStore.filters" :key="filter">
+      <template
+        v-for="filter in galleryFilterStore.filters.filter(
+          (f) => f !== 'age_ratings',
+        )"
+        :key="filter"
+      >
         <v-row
           v-if="rom[filter].length > 0"
           class="align-center my-3"
@@ -45,6 +50,30 @@ function onFilterClick(filter: FilterType, value: string) {
               {{ value }}
             </v-chip>
           </v-col>
+        </v-row>
+      </template>
+      <!-- Manually add age ratings to display logos -->
+      <template
+        v-if="
+          rom.igdb_metadata?.age_ratings &&
+          rom.igdb_metadata.age_ratings.length > 0
+        "
+      >
+        <v-row no-gutters class="mt-5">
+          <v-col cols="3" xl="2" class="text-capitalize">
+            <span>Age Rating</span>
+          </v-col>
+          <div class="d-flex">
+            <v-img
+              v-for="value in rom.igdb_metadata.age_ratings"
+              :key="value.rating"
+              @click="onFilterClick('age_ratings', value.rating)"
+              :src="value.rating_cover_url"
+              height="50"
+              width="50"
+              class="mr-4 cursor-pointer"
+            />
+          </div>
         </v-row>
       </template>
       <template v-if="rom.summary != ''">

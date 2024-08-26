@@ -62,7 +62,6 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     });
 });
 
-// Functions
 async function uploadRoms() {
   if (!selectedPlatform.value) return;
   show.value = false;
@@ -104,7 +103,7 @@ async function uploadRoms() {
       uploadStore.clear();
 
       const successfulUploads = responses.filter(
-        (d) => d.status == "fulfilled"
+        (d) => d.status == "fulfilled",
       );
       const failedUploads = responses.filter((d) => d.status == "rejected");
 
@@ -156,7 +155,7 @@ function triggerFileInput() {
 
 function removeRomFromList(romName: string) {
   filesToUpload.value = filesToUpload.value.filter(
-    (rom) => rom.name !== romName
+    (rom) => rom.name !== romName,
   );
 }
 
