@@ -52,9 +52,7 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to upload roms: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
+        msg: `Unable to upload roms: ${response?.data?.detail || response?.statusText || message}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
@@ -100,12 +98,14 @@ async function uploadRoms() {
       platformId: platformId,
     })
     .then((responses: PromiseSettledResult<unknown>[]) => {
-      uploadStore.clear();
-
       const successfulUploads = responses.filter(
         (d) => d.status == "fulfilled",
       );
       const failedUploads = responses.filter((d) => d.status == "rejected");
+
+      if (failedUploads.length == 0) {
+        uploadStore.clearAll();
+      }
 
       if (successfulUploads.length == 0) {
         return emitter?.emit("snackbarShow", {
@@ -136,9 +136,7 @@ async function uploadRoms() {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to upload roms: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
+        msg: `Unable to upload roms: ${response?.data?.detail || response?.statusText || message}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
