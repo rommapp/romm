@@ -36,14 +36,13 @@ emitter?.on("showSearchRomDialog", () => {
   show.value = true;
 });
 
-// Functions
 async function filterRoms() {
   if (!selectedPlatform.value) {
     filteredRoms.value = searchedRoms.value as SimpleRom[];
   } else {
     filteredRoms.value = searchedRoms.value.filter(
       (rom: { platform_name: string }) =>
-        rom.platform_name == selectedPlatform.value?.platform_name
+        rom.platform_name == selectedPlatform.value?.platform_name,
     ) as SimpleRom[];
   }
 }
@@ -73,7 +72,7 @@ async function searchRoms() {
             platform_name: rom.platform_name,
             platform_slug: rom.platform_slug,
           },
-        ])
+        ]),
       ).values(),
     ];
     filterRoms();

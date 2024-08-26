@@ -91,6 +91,7 @@ class RomSchema(BaseModel):
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
+    age_ratings: list[str]
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
 

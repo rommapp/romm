@@ -21,7 +21,6 @@ emitter?.on("showDeletePlatformBindingDialog", ({ fsSlug, slug }) => {
   show.value = true;
 });
 
-// Functions
 function deleteBindPlatform() {
   configApi
     .deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value })
@@ -74,10 +73,7 @@ function closeDialog() {
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn
-            class="bg-terciary text-romm-red"
-            @click="deleteBindPlatform"
-          >
+          <v-btn class="bg-terciary text-romm-red" @click="deleteBindPlatform">
             Confirm
           </v-btn>
         </v-btn-group>

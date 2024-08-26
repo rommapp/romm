@@ -8,7 +8,7 @@ import { useRouter } from "vue-router";
 
 // Props
 const romsStore = storeRoms();
-const { recentRoms } = storeToRefs(romsStore)
+const { recentRoms } = storeToRefs(romsStore);
 const router = useRouter();
 
 // Functions

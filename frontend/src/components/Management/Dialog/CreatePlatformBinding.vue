@@ -42,13 +42,12 @@ emitter?.on(
       });
     fsSlugToCreate.value = fsSlug;
     selectedPlatform.value = supportedPlatforms.value?.find(
-      (platform) => platform.slug == slug
+      (platform) => platform.slug == slug,
     );
     show.value = true;
-  }
+  },
 );
 
-// Functions
 function addBindPlatform() {
   if (!selectedPlatform.value) return;
   configApi
@@ -60,7 +59,7 @@ function addBindPlatform() {
       if (selectedPlatform.value) {
         configStore.addPlatformBinding(
           fsSlugToCreate.value,
-          selectedPlatform.value.slug
+          selectedPlatform.value.slug,
         );
       }
     })

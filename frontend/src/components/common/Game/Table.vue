@@ -75,14 +75,13 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-// Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: "rom", params: { rom: row.item.id } });
 }
 
 function updateDataTablePages() {
   pageCount.value = Math.ceil(
-    romsStore.filteredRoms.length / itemsPerPage.value
+    romsStore.filteredRoms.length / itemsPerPage.value,
   );
 }
 
@@ -137,7 +136,11 @@ onMounted(() => {
           >
           <template #append>
             <v-chip
-              v-if="item.sibling_roms && item.sibling_roms.length > 0 && showSiblings"
+              v-if="
+                item.sibling_roms &&
+                item.sibling_roms.length > 0 &&
+                showSiblings
+              "
               class="translucent-dark ml-2"
               size="x-small"
             >

@@ -155,6 +155,9 @@ export default defineStore("roms", {
       if (galleryFilter.selectedCompany) {
         this._filterCompany(galleryFilter.selectedCompany);
       }
+      if (galleryFilter.selectedAgeRating) {
+        this._filterAgeRating(galleryFilter.selectedAgeRating);
+      }
     },
     _filterSearch(searchFilter: string) {
       this._filteredIDs = this.filteredRoms
@@ -205,6 +208,13 @@ export default defineStore("roms", {
       this._filteredIDs = this.filteredRoms
         .filter((rom) =>
           rom.companies.some((company) => company === companyToFilter),
+        )
+        .map((rom) => rom.id);
+    },
+    _filterAgeRating(ageRatingToFilter: string) {
+      this._filteredIDs = this.filteredRoms
+        .filter((rom) =>
+          rom.age_ratings.some((ageRating) => ageRating === ageRatingToFilter),
         )
         .map((rom) => rom.id);
     },

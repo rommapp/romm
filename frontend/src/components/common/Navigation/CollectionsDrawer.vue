@@ -16,7 +16,6 @@ const { filteredCollections, searchText } = storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 async function addCollection() {
   emitter?.emit("showCreateCollectionDialog", null);
 }

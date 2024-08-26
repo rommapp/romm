@@ -27,7 +27,6 @@ const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
-// Functions
 function onPlay() {
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
@@ -68,12 +67,12 @@ onMounted(async () => {
   } else if (rom.value.user_states) {
     // Otherwise auto select most recent state by last updated date
     stateRef.value = rom.value.user_states?.sort((a, b) =>
-      b.updated_at.localeCompare(a.updated_at)
+      b.updated_at.localeCompare(a.updated_at),
     )[0];
   }
 
   const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`
+    `player:${rom.value.platform_slug}:bios_id`,
   );
   if (storedBiosID) {
     biosRef.value =
@@ -82,7 +81,7 @@ onMounted(async () => {
   }
 
   const storedCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`
+    `player:${rom.value.platform_slug}:core`,
   );
   if (storedCore) {
     coreRef.value = storedCore;
