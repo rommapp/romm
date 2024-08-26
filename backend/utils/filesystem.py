@@ -30,7 +30,8 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
             break
 
 
-INVALID_CHARS = r'[\\/:*?"<>|]'
+INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
+INVALUD_CHARS_EMPTY = re.compile(r'[*?"<>]')
 
 
 def sanitize_filename(filename):
@@ -44,10 +45,10 @@ def sanitize_filename(filename):
     - str: The sanitized filename.
     """
     # Replace some invalid characters with hyphen
-    sanitized_filename = re.sub(r"[\\/:|]", "-", filename)
+    sanitized_filename = INVALID_CHARS_HYPHENS.sub("-", filename)
 
     # Remove other invalid characters
-    sanitized_filename = re.sub(r'[*?"<>]', "", sanitized_filename)
+    sanitized_filename = INVALUD_CHARS_EMPTY.sub("", sanitized_filename)
 
     # Ensure null bytes are not included (ZFS allows any characters except null bytes)
     sanitized_filename = sanitized_filename.replace("\0", "")
