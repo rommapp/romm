@@ -39,7 +39,7 @@ async function uploadRoms({
         })
         .then(resolve)
         .catch((error) => {
-          console.error("Failed to upload file", file.name, error);
+          uploadStore.fail(file.name, error.response?.data?.detail);
           reject(error);
         });
     });

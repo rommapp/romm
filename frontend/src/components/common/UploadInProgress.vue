@@ -10,6 +10,10 @@ const uploadStore = storeUpload();
 const { files } = storeToRefs(uploadStore);
 const show = ref(false);
 
+function clearFinished() {
+  uploadStore.clearFinished();
+}
+
 watch(files, (newList) => {
   show.value = newList.length > 0;
 });
@@ -30,41 +34,64 @@ watch(files, (newList) => {
       <v-list-item
         v-for="file in files"
         class="py-2 px-4"
-        :disabled="file.finished"
+        :disabled="file.finished && !file.failed"
       >
-        <v-list-item-title class="d-flex justify-space-between">
-          {{ file.filename }}
-          <v-icon
-            :icon="file.finished ? `mdi-check` : `mdi-loading mdi-spin`"
-            :color="file.finished ? `green` : `white`"
-            class="mx-2"
-          />
-        </v-list-item-title>
-        <template v-if="file.progress > 0 && !file.finished">
-          <v-progress-linear
-            v-model="file.progress"
-            height="4"
-            color="white"
-            class="mt-1"
-          />
-          <div class="upload-speeds d-flex justify-space-between mt-1">
-            <div>{{ formatBytes(file.rate) }}/s</div>
-            <div>
-              {{ formatBytes(file.loaded) }} /
-              {{ formatBytes(file.total) }}
-            </div>
-          </div>
+        <template v-if="file.failed">
+          <v-list-item-title class="d-flex justify-space-between">
+            {{ file.filename }}
+            <v-icon :icon="`mdi-close`" :color="`red`" class="mx-2" />
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-red mt-1">
+            {{ file.failureReason }}
+          </v-list-item-subtitle>
         </template>
-        <template v-if="file.finished">
-          <div class="upload-speeds d-flex justify-space-between mt-1">
-            <div />
-            <div>
-              {{ formatBytes(file.total) }}
+        <template v-else>
+          <v-list-item-title class="d-flex justify-space-between">
+            {{ file.filename }}
+            <v-icon
+              :icon="file.finished ? `mdi-check` : `mdi-loading mdi-spin`"
+              :color="file.finished ? `green` : `white`"
+              class="mx-2"
+            />
+          </v-list-item-title>
+          <template v-if="file.progress > 0 && !file.finished">
+            <v-progress-linear
+              v-model="file.progress"
+              height="4"
+              color="white"
+              class="mt-1"
+            />
+            <div class="upload-speeds d-flex justify-space-between mt-1">
+              <div>{{ formatBytes(file.rate) }}/s</div>
+              <div>
+                {{ formatBytes(file.loaded) }} /
+                {{ formatBytes(file.total) }}
+              </div>
             </div>
-          </div>
+          </template>
+          <template v-if="file.finished">
+            <div class="upload-speeds d-flex justify-space-between mt-1">
+              <div />
+              <div>
+                {{ formatBytes(file.total) }}
+              </div>
+            </div>
+          </template>
         </template>
       </v-list-item>
     </v-list>
+    <div class="text-center">
+      <v-btn
+        size="small"
+        variant="tonal"
+        class="my-2"
+        color="romm-accent-1"
+        :disabled="!files.some((f) => f.finished || f.failed)"
+        @click="clearFinished"
+      >
+        Clear finished
+      </v-btn>
+    </div>
   </v-snackbar>
 </template>
 

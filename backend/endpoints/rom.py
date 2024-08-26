@@ -50,7 +50,14 @@ async def add_rom(request: Request):
             detail="No platform ID or filename provided",
         ) from None
 
-    platform_fs_slug = db_platform_handler.get_platform(int(platform_id)).fs_slug
+    db_platform = db_platform_handler.get_platform(int(platform_id))
+    if not db_platform:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Platform not found",
+        ) from None
+
+    platform_fs_slug = db_platform.fs_slug
     roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
     log.info(f"Uploading file to {platform_fs_slug}")
 
