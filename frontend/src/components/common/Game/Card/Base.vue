@@ -40,7 +40,7 @@ const props = withDefaults(
     withBorder: false,
     withBorderRommAccent: false,
     src: "",
-  }
+  },
 );
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
@@ -99,29 +99,29 @@ onMounted(() => {
             src
               ? src
               : romsStore.isSimpleRom(rom)
-              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-              : !rom.igdb_url_cover && !rom.moby_url_cover
-              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-              : rom.igdb_url_cover
-              ? rom.igdb_url_cover
-              : rom.moby_url_cover
+                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
+                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
+                : !rom.igdb_url_cover && !rom.moby_url_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  : rom.igdb_url_cover
+                    ? rom.igdb_url_cover
+                    : rom.moby_url_cover
           "
           :lazy-src="
             romsStore.isSimpleRom(rom)
               ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
+                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
               : !rom.igdb_url_cover && !rom.moby_url_cover
-              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-              : rom.igdb_url_cover
-              ? rom.igdb_url_cover
-              : rom.moby_url_cover
+                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                : rom.igdb_url_cover
+                  ? rom.igdb_url_cover
+                  : rom.moby_url_cover
           "
           :aspect-ratio="2 / 3"
         >

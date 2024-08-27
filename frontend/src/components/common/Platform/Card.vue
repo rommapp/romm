@@ -4,28 +4,16 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import { useRouter } from "vue-router";
 const router = useRouter();
 const props = defineProps<{ platform: Platform }>();
-
-const onClick = (event: MouseEvent) => {
-  if (event.metaKey || event.ctrlKey) {
-    const link = router.resolve({
-      name: "platform",
-      params: { platform: props.platform.id },
-    });
-    window.open(link.href, "_blank");
-  } else {
-    router.push({ name: "platform", params: { platform: props.platform.id } });
-  }
-};
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props }">
     <v-card
       v-bind="props"
-      :class="{ 'on-hover': isHovering }"
       class="bg-terciary transform-scale"
+      :class="{ 'on-hover': isHovering }"
       :elevation="isHovering ? 20 : 3"
-      @click="onClick"
+      :to="{ name: 'platform', params: { platform: platform.id } }"
     >
       <v-card-text>
         <v-row class="pa-1 justify-center bg-primary">
