@@ -44,12 +44,31 @@ lint:
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
+  files:
+    - name: vue
+      extensions: [vue]
   definitions:
     - name: eslint
-      files: [typescript, javascript]
+      files:
+        - javascript
+        - typescript
       commands:
         - name: lint
           run_from: ${root_or_parent_with_any_config}
+    - name: prettier
+      files:
+        - typescript
+        - yaml
+        - css
+        - postcss
+        - sass
+        - html
+        - markdown
+        - json
+        - javascript
+        - graphql
+        - vue
+        - prettier_supported_configs
 actions:
   disabled:
     - trunk-check-pre-push
