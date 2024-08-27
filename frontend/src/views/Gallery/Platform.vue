@@ -69,7 +69,7 @@ async function fetchRoms() {
         timeout: 4000,
       });
       console.error(
-        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
+        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
       );
       noPlatformError.value = true;
     })
@@ -87,28 +87,28 @@ function setFilters() {
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort()
+        .sort(),
     ),
   ]);
 }
@@ -135,7 +135,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
     if (emitData.event.shiftKey) {
       const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b
+        (a, b) => a - b,
       );
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
@@ -147,13 +147,21 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         }
       }
       romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
       );
     } else {
       romsStore.updateLastSelected(index);
     }
   } else {
-    router.push({ name: "rom", params: { rom: emitData.rom.id } });
+    if (emitData.event.metaKey || emitData.event.ctrlKey) {
+      const link = router.resolve({
+        name: "rom",
+        params: { rom: emitData.rom.id },
+      });
+      window.open(link.href, "_blank");
+    } else {
+      router.push({ name: "rom", params: { rom: emitData.rom.id } });
+    }
   }
 }
 
