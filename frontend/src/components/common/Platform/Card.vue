@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { Platform } from "@/stores/platforms";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import { useRouter } from "vue-router";
-const router = useRouter();
-const props = defineProps<{ platform: Platform }>();
+
+defineProps<{ platform: Platform }>();
 </script>
 
 <template>
