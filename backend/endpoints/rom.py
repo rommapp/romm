@@ -25,6 +25,7 @@ from logger.logger import log
 from starlette.requests import ClientDisconnect
 from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
+from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import ZipContentLine, ZipResponse
 from utils.router import APIRouter
@@ -50,7 +51,14 @@ async def add_rom(request: Request):
             detail="No platform ID or filename provided",
         ) from None
 
-    platform_fs_slug = db_platform_handler.get_platform(int(platform_id)).fs_slug
+    db_platform = db_platform_handler.get_platform(int(platform_id))
+    if not db_platform:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Platform not found",
+        ) from None
+
+    platform_fs_slug = db_platform.fs_slug
     roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
     log.info(f"Uploading file to {platform_fs_slug}")
 
@@ -337,19 +345,25 @@ async def update_rom(
         }
     )
 
-    fs_safe_file_name = data.get("file_name", rom.file_name).strip().replace("/", "-")
-    fs_safe_name = cleaned_data["name"].strip().replace("/", "-")
-
-    if rename_as_source:
-        fs_safe_file_name = rom.file_name.replace(
-            rom.file_name_no_tags or rom.file_name_no_ext, fs_safe_name
-        )
+    new_file_name = data.get("file_name", rom.file_name)
 
     try:
-        if rom.file_name != fs_safe_file_name:
+        if rename_as_source:
+            new_file_name = rom.file_name.replace(
+                rom.file_name_no_tags or rom.file_name_no_ext,
+                data.get("name", rom.name),
+            )
+            new_file_name = sanitize_filename(new_file_name)
             fs_rom_handler.rename_file(
                 old_name=rom.file_name,
-                new_name=fs_safe_file_name,
+                new_name=new_file_name,
+                file_path=rom.file_path,
+            )
+        elif rom.file_name != new_file_name:
+            new_file_name = sanitize_filename(new_file_name)
+            fs_rom_handler.rename_file(
+                old_name=rom.file_name,
+                new_name=new_file_name,
                 file_path=rom.file_path,
             )
     except RomAlreadyExistsException as exc:
@@ -360,12 +374,12 @@ async def update_rom(
 
     cleaned_data.update(
         {
-            "file_name": fs_safe_file_name,
+            "file_name": new_file_name,
             "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
-                fs_safe_file_name
+                new_file_name
             ),
             "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                fs_safe_file_name
+                new_file_name
             ),
         }
     )
