@@ -8,6 +8,8 @@ class UploadingFile {
   loaded: number;
   rate: number;
   finished: boolean;
+  failed: boolean;
+  failureReason: string;
 
   constructor(filename: string) {
     this.filename = filename;
@@ -16,6 +18,8 @@ class UploadingFile {
     this.loaded = 0;
     this.rate = 0;
     this.finished = false;
+    this.failed = false;
+    this.failureReason = "";
   }
 }
 
@@ -39,7 +43,17 @@ export default defineStore("upload", {
       file.rate = progressEvent.rate || file.rate;
       file.finished = progressEvent.loaded === progressEvent.total;
     },
-    clear() {
+    fail(filename: string, reason: string) {
+      const file = this.files.find((f) => f.filename === filename);
+      if (!file) return;
+
+      file.failed = true;
+      file.failureReason = reason;
+    },
+    clearFinished() {
+      this.files = this.files.filter((f) => !f.finished && !f.failed);
+    },
+    clearAll() {
       this.files = [];
     },
   },
