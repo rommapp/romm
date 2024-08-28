@@ -5,6 +5,7 @@ from endpoints.responses.feeds import (
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
     TinfoilFeedFileSchema,
     TinfoilFeedSchema,
+    TinfoilFeedTitleDBSchema,
     WebrcadeFeedCategorySchema,
     WebrcadeFeedItemPropsSchema,
     WebrcadeFeedItemSchema,
@@ -12,6 +13,8 @@ from endpoints.responses.feeds import (
 )
 from fastapi import Request
 from handler.database import db_platform_handler, db_rom_handler
+from handler.metadata import meta_igdb_handler
+from handler.metadata.base_hander import SWITCH_TITLEDB_REGEX
 from models.rom import Rom
 from starlette.datastructures import URLPath
 from utils.router import APIRouter
@@ -103,9 +106,11 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
 @protected_route(
     router.get,
     "/tinfoil/feed",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+    [],
 )
-def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSchema:
+async def tinfoil_index_feed(
+    request: Request, slug: str = "switch"
+) -> TinfoilFeedSchema:
     """Get tinfoil custom index feed endpoint
     https://blawar.github.io/tinfoil/custom_index/
 
@@ -124,20 +129,45 @@ def tinfoil_index_feed(request: Request, slug: str = "switch") -> TinfoilFeedSch
             error="Nintendo Switch platform not found",
         )
 
-    files: list[Rom] = db_rom_handler.get_roms(platform_id=switch.id)
+    roms: list[Rom] = db_rom_handler.get_roms(platform_id=switch.id)
+
+    async def extract_titledb(roms: list[Rom]) -> dict[str, TinfoilFeedTitleDBSchema]:
+        titledb = {}
+        for rom in roms:
+            match = SWITCH_TITLEDB_REGEX.search(rom.file_name)
+            if match:
+                _search_term, index_entry = (
+                    await meta_igdb_handler._switch_titledb_format(match, rom.file_name)
+                )
+                if index_entry:
+                    titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
+                        id=str(index_entry["nsuId"]),
+                        name=index_entry["name"],
+                        description=index_entry["description"],
+                        size=index_entry["size"],
+                        version=index_entry["version"] or 0,
+                        region=index_entry["region"] or "US",
+                        releaseDate=index_entry["releaseDate"] or 19700101,
+                        rating=index_entry["rating"] or 0,
+                        publisher=index_entry["publisher"] or "",
+                        rank=0,
+                    )
+
+        return titledb
 
     return TinfoilFeedSchema(
         files=[
             TinfoilFeedFileSchema(
                 url=str(
                     request.url_for(
-                        "get_rom_content", id=file.id, file_name=file.file_name
+                        "get_rom_content", id=rom.id, file_name=rom.file_name
                     )
                 ),
-                size=file.file_size_bytes,
+                size=rom.file_size_bytes,
             )
-            for file in files
+            for rom in roms
         ],
         directories=[],
         success="RomM Switch Library",
+        titledb=await extract_titledb(roms),
     )
