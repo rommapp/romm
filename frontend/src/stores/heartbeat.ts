@@ -2,6 +2,8 @@ import type { HeartbeatResponse } from "@/__generated__";
 import { defineStore } from "pinia";
 import { computed } from "vue";
 
+export type Heartbeat = HeartbeatResponse;
+
 export default defineStore("heartbeat", {
   state: () => {
     return { value: {} as HeartbeatResponse };
