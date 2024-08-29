@@ -14,17 +14,7 @@ import { ref, watch } from "vue";
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
-const romUser = ref(
-  props.rom.rom_user ?? {
-    id: null,
-    user_id: auth.user?.id,
-    rom_id: props.rom.id,
-    updated_at: new Date(),
-    note_raw_markdown: "",
-    note_is_public: false,
-    is_main_sibling: false,
-  }
-);
+const romUser = ref(props.rom.rom_user);
 
 // Functions
 function collectionsWithoutFavourites(collections: Collection[]) {
@@ -35,25 +25,13 @@ async function toggleMainSibling() {
   romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({
     romId: props.rom.id,
-    noteRawMarkdown: romUser.value.note_raw_markdown,
-    noteIsPublic: romUser.value.note_is_public,
-    isMainSibling: romUser.value.is_main_sibling,
+    data: romUser.value,
   });
 }
 
 watch(
   () => props.rom,
-  async () => {
-    romUser.value = props.rom.rom_user ?? {
-      id: null,
-      user_id: auth.user?.id,
-      rom_id: props.rom.id,
-      updated_at: new Date(),
-      note_raw_markdown: "",
-      note_is_public: false,
-      is_main_sibling: false,
-    };
-  }
+  async () => (romUser.value = props.rom.rom_user),
 );
 </script>
 <template>
@@ -117,7 +95,7 @@ watch(
             v-model="downloadStore.filesToDownload"
             :label="rom.file_name"
             item-title="file_name"
-            :items="rom.files.map(f => f.filename)"
+            :items="rom.files.map((f) => f.filename)"
             rounded="0"
             density="compact"
             variant="outlined"
@@ -137,13 +115,28 @@ watch(
           <v-chip size="small" label class="mx-1 my-1">
             Size: {{ formatBytes(rom.file_size_bytes) }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.sha1_hash" size="small" label class="mx-1 my-1">
+          <v-chip
+            v-if="!rom.multi && rom.sha1_hash"
+            size="small"
+            label
+            class="mx-1 my-1"
+          >
             SHA-1: {{ rom.sha1_hash }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.md5_hash" size="small" label class="mx-1 my-1">
-            MD5: {{ rom.md5_hash  }}
+          <v-chip
+            v-if="!rom.multi && rom.md5_hash"
+            size="small"
+            label
+            class="mx-1 my-1"
+          >
+            MD5: {{ rom.md5_hash }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.crc_hash" size="small" label class="mx-1 my-1">
+          <v-chip
+            v-if="!rom.multi && rom.crc_hash"
+            size="small"
+            label
+            class="mx-1 my-1"
+          >
             CRC: {{ rom.crc_hash }}
           </v-chip>
         </v-col>
@@ -180,7 +173,7 @@ watch(
         <v-col>
           <v-chip
             v-for="collection in collectionsWithoutFavourites(
-              rom.user_collections
+              rom.user_collections,
             )"
             :to="{ name: 'collection', params: { collection: collection.id } }"
             size="large"
