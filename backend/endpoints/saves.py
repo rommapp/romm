@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import File, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
@@ -19,6 +22,9 @@ def add_saves(
     emulator: str | None = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     current_user = request.user
     log.info(f"Uploading saves to {rom.name}")
 
@@ -57,7 +63,18 @@ def add_saves(
         scanned_save.emulator = emulator
         db_save_handler.add_save(scanned_save)
 
+        # Set the last played time for the current user
+        rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+        if not rom_user:
+            rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+        rom_user.last_played = datetime.now()
+        db_rom_handler.update_rom_user(rom_user.id, {"last_played": datetime.now()})
+
+    # Refetch the rom to get updated saves
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     return {
         "uploaded": len(saves),
         "saves": [s for s in rom.saves if s.user_id == current_user.id],
@@ -94,6 +111,15 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         fs_asset_handler.write_file(file=file, path=db_save.file_path)
         db_save_handler.update_save(db_save.id, {"file_size_bytes": file.size})
 
+    # Set the last played time for the current user
+    current_user = request.user
+    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, current_user.id)
+    if not rom_user:
+        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, current_user.id)
+    rom_user.last_played = datetime.now()
+    db_rom_handler.update_rom_user(rom_user.id, {"last_played": datetime.now()})
+
+    # Refetch the save to get updated fields
     db_save = db_save_handler.get_save(id)
     return db_save
 
