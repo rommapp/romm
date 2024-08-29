@@ -1,20 +1,34 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
 
 // Props
-defineProps<{ rom: SimpleRom }>();
+const props = defineProps<{ rom: SimpleRom }>();
 const downloadStore = storeDownload();
+const heartbeatStore = storeHeartbeat();
+
+const ejsEmulationSupported = computed(() => {
+  return isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value);
+});
+
+const ruffleEmulationSupported = computed(() => {
+  return isRuffleEmulationSupported(
+    props.rom.platform_slug,
+    heartbeatStore.value,
+  );
+});
 </script>
 
 <template>
   <v-row no-gutters>
-    <v-col>
+    <v-col class="d-flex">
       <v-btn
-        class="action-bar-btn-small"
+        class="action-bar-btn-small flex-grow-1"
         size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
@@ -23,10 +37,10 @@ const downloadStore = storeDownload();
         @click="romApi.downloadRom({ rom })"
       />
     </v-col>
-    <v-col>
+    <v-col class="d-flex">
       <v-btn
-        v-if="isEJSEmulationSupported(rom.platform_slug)"
-        class="action-bar-btn-small"
+        v-if="ejsEmulationSupported"
+        class="action-bar-btn-small flex-grow-1"
         size="x-small"
         @click="
           $router.push({
@@ -39,8 +53,8 @@ const downloadStore = storeDownload();
         variant="text"
       />
       <v-btn
-        v-if="isRuffleEmulationSupported(rom.platform_slug)"
-        class="action-bar-btn-small"
+        v-if="ruffleEmulationSupported"
+        class="action-bar-btn-small flex-grow-1"
         size="x-small"
         @click="
           $router.push({
@@ -56,7 +70,7 @@ const downloadStore = storeDownload();
     <v-menu location="bottom">
       <template #activator="{ props }">
         <v-btn
-          class="action-bar-btn-small"
+          class="action-bar-btn-small flex-grow-1"
           size="x-small"
           v-bind="props"
           icon="mdi-dots-vertical"
@@ -71,7 +85,7 @@ const downloadStore = storeDownload();
 
 <style scoped>
 .action-bar-btn-small {
-  max-width: 22px;
   max-height: 30px;
+  width: unset;
 }
 </style>

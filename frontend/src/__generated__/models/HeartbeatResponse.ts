@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { EmulationDict } from './EmulationDict';
 import type { MetadataSourcesDict } from './MetadataSourcesDict';
 import type { SchedulerDict } from './SchedulerDict';
 import type { WatcherDict } from './WatcherDict';
@@ -15,5 +16,6 @@ export type HeartbeatResponse = {
     ANY_SOURCE_ENABLED: boolean;
     METADATA_SOURCES: MetadataSourcesDict;
     FS_PLATFORMS: Array<any>;
+    EMULATION: EmulationDict;
 };
 
