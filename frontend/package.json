@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
-    "axios": "^1.6.8",
+    "axios": "^1.7.4",
     "core-js": "^3.37.1",
     "cronstrue": "^2.50.0",
     "emulatorjs": "github:emulatorjs/emulatorjs#v4.0.12",
