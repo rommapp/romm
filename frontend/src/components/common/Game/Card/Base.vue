@@ -152,14 +152,20 @@ onMounted(() => {
                 v-if="romsStore.isSimpleRom(rom) && showFlags"
                 :rom="rom"
               />
-
-              <v-chip
-                v-if="'rom_user' in rom && rom.rom_user?.completed"
-                title="Game Completed"
-                class="translucent-dark mr-1 mt-1 px-1"
-                density="compact"
-                ><v-icon icon="mdi-checkbox-outline" color="success" />
-              </v-chip>
+              <v-tooltip text="Game Completed">
+                <template #activator="{ props: tooltipProps }">
+                  <v-chip
+                    v-if="'rom_user' in rom && rom.rom_user?.completed"
+                    v-bind="tooltipProps"
+                    title="Game Completed"
+                    class="translucent-dark mr-1 mt-1 px-1"
+                    density="compact"
+                    ><v-icon
+                      icon="mdi-checkbox-outline"
+                      color="success"
+                    /> </v-chip
+                ></template>
+              </v-tooltip>
             </v-row>
           </div>
           <div class="position-absolute append-inner-left">

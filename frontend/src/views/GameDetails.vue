@@ -120,17 +120,6 @@ watch(
           :pointerOnHover="false"
           :rom="currentRom"
         />
-        <span class="completed-checkbox" v-if="currentRom.rom_user?.completed">
-          <v-tooltip text="Game Completed">
-            <template v-slot:activator="{ props }"
-              ><v-icon
-                v-bind="props"
-                icon="mdi-checkbox-outline"
-                color="success"
-              />
-            </template>
-          </v-tooltip>
-        </span>
 
         <action-bar class="mt-2" :rom="currentRom" />
         <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
