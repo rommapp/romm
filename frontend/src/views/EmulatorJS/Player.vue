@@ -89,7 +89,6 @@ declare global {
 }
 
 const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
-window.EJS_DEBUG_XX = true;
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = romRef.value.id;
