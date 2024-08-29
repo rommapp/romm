@@ -68,13 +68,14 @@ watch(
 );
 
 watch(
-  () => romUser.value,
+  romUser,
   () => {
     romApi.updateUserRomProps({
       romId: props.rom.id,
       data: romUser.value,
     });
   },
+  { deep: true },
 );
 </script>
 
@@ -113,10 +114,9 @@ watch(
             <v-rating
               hover
               ripple
-              half-increments
-              :length="5"
-              :size="40"
-              :model-value="romUser.rating"
+              length="10"
+              size="40"
+              v-model="romUser.rating"
               @update:model-value="
                 romUser.rating =
                   typeof $event === 'number' ? $event : parseInt($event)
@@ -133,7 +133,6 @@ watch(
               step="1"
               hide-details
               track-fill-color="romm-accent-1"
-              :thumb-label="false"
             />
             <v-label class="ml-2 opacity-100">
               {{
@@ -150,7 +149,6 @@ watch(
               step="1"
               hide-details
               track-fill-color="romm-accent-1"
-              :thumb-label="false"
             />
             <v-label class="text-body-2 ml-2 opacity-100">
               {{ romUser.completion }}%
@@ -164,6 +162,8 @@ watch(
               label="Status"
               dense
               rounded="0"
+              variant="outlined"
+              density="compact"
               class="mt-1"
             >
               <template v-slot:selection="{ item }">
