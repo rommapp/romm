@@ -5,6 +5,7 @@ import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
+import { trimEnd } from "lodash";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -88,6 +89,7 @@ declare global {
 }
 
 const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
+window.EJS_DEBUG_XX = true;
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = romRef.value.id;
@@ -101,7 +103,11 @@ window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
-window.EJS_defaultOptions = { "save-state-location": "browser" };
+window.EJS_defaultOptions = {
+  "save-state-location": "browser",
+  rewindEnabled: "enabled",
+  fastForward: "enabled",
+};
 if (romRef.value.name) window.EJS_gameName = romRef.value.name;
 
 function buildStateName(): string {
