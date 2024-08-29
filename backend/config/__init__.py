@@ -53,35 +53,49 @@ ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
-DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
-DISABLE_DOWNLOAD_ENDPOINT_AUTH = (
-    os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false") == "true"
-)
+DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") in [
+    "true",
+    True,
+    1,
+]
+DISABLE_DOWNLOAD_ENDPOINT_AUTH = os.environ.get(
+    "DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false"
+) in ["true", True, 1]
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
 
 # TASKS
-ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
-    os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false") == "true"
-)
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = os.environ.get(
+    "ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false"
+) in ["true", True, 1]
 RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final = int(
     os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 minutes
 )
-ENABLE_SCHEDULED_RESCAN: Final = (
-    os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
-)
+ENABLE_SCHEDULED_RESCAN: Final = os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") in [
+    "true",
+    True,
+    1,
+]
 SCHEDULED_RESCAN_CRON: Final = os.environ.get(
     "SCHEDULED_RESCAN_CRON",
     "0 3 * * *",  # At 3:00 AM every day
 )
-ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
-    os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
-)
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = os.environ.get(
+    "ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false"
+) in ["true", True, 1]
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+
+# EMULATION
+DISABLE_EMULATOR_JS = os.environ.get("DISABLE_EMULATOR_JS", "false") in [
+    "true",
+    True,
+    1,
+]
+DISABLE_RUFFLE_RS = os.environ.get("DISABLE_RUFFLE_RS", "false") in ["true", True, 1]
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))
