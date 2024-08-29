@@ -36,6 +36,7 @@ class RomUserSchema(BaseModel):
     note_is_public: bool
     is_main_sibling: bool
     user__username: str
+    completed: bool
 
     class Config:
         from_attributes = True

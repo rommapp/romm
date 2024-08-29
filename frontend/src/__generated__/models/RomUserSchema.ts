@@ -13,5 +13,6 @@ export type RomUserSchema = {
     note_is_public: boolean;
     is_main_sibling: boolean;
     user__username: string;
+    completed: boolean;
 };
 

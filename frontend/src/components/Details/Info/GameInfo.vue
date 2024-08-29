@@ -11,6 +11,8 @@ const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
 const router = useRouter();
 
+console.log(props.rom);
+
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "platform",

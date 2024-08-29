@@ -492,13 +492,13 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     db_rom_user = db_rom_handler.get_rom_user(
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
-
     cleaned_data = {
         "note_raw_markdown": data.get(
             "note_raw_markdown", db_rom_user.note_raw_markdown
         ),
         "note_is_public": data.get("note_is_public", db_rom_user.note_is_public),
         "is_main_sibling": data.get("is_main_sibling", db_rom_user.is_main_sibling),
+        "completed": data.get("completed", db_rom_user.completed),
     }
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

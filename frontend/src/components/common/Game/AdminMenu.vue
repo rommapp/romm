@@ -10,7 +10,8 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject } from "vue";
+import { inject, ref } from "vue";
+import romApi from "@/services/api/rom";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
@@ -20,7 +21,14 @@ const auth = storeAuth();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const { favCollection } = storeToRefs(collectionsStore);
-
+const romUser = ref(
+  props.rom.rom_user ?? {
+    note_raw_markdown: "",
+    note_is_public: false,
+    is_main_sibling: false,
+    completed: false,
+  }
+);
 // Functions
 async function switchFromFavourites() {
   if (!favCollection.value) {
@@ -85,6 +93,17 @@ async function switchFromFavourites() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
+
+const toggleCompleted = () => {
+  romApi.updateUserRomProps({
+    romId: props.rom.id,
+    noteRawMarkdown: romUser.value.note_raw_markdown,
+    noteIsPublic: romUser.value.note_is_public,
+    isMainSibling: romUser.value.is_main_sibling,
+    completed: !romUser.value.completed,
+  });
+  romUser.value.completed = !romUser.value.completed;
+};
 </script>
 
 <template>
@@ -114,8 +133,24 @@ async function switchFromFavourites() {
           <v-icon icon="mdi-pencil-box" class="mr-2" />Edit
         </v-list-item-title>
       </v-list-item>
-      <v-divider />
     </template>
+    <v-list-item class="py-4 pr-5" @click="toggleCompleted">
+      <v-list-item-title class="d-flex">
+        <v-icon
+          :icon="
+            romUser.completed
+              ? 'mdi-checkbox-outline'
+              : 'mdi-checkbox-blank-outline'
+          "
+          class="mr-2"
+        />{{
+          props.rom.rom_user?.completed
+            ? "Remove completed"
+            : "Mark as complete"
+        }}
+      </v-list-item-title>
+    </v-list-item>
+    <v-divider />
     <v-list-item
       v-if="auth.scopes.includes('collections.write')"
       class="py-4 pr-5"

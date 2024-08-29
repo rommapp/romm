@@ -40,7 +40,7 @@ const props = withDefaults(
     withBorder: false,
     withBorderRommAccent: false,
     src: "",
-  },
+  }
 );
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
@@ -87,43 +87,43 @@ onMounted(() => {
       />
       <v-hover v-slot="{ isHovering, props: hoverProps }" open-delay="800">
         <v-img
-          @click="handleClick"
-          @touchstart="handleTouchStart"
-          @touchend="handleTouchEnd"
           v-bind="hoverProps"
-          :class="{ pointer: pointerOnHover }"
-          ref="card"
-          cover
-          :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
           :src="
             src
               ? src
               : romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover && !rom.moby_url_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : rom.igdb_url_cover
-                    ? rom.igdb_url_cover
-                    : rom.moby_url_cover
+              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                : (rom.igdb_id || rom.moby_id) && !rom.has_cover
+                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
+              : !rom.igdb_url_cover && !rom.moby_url_cover
+              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+              : rom.igdb_url_cover
+              ? rom.igdb_url_cover
+              : rom.moby_url_cover
           "
           :lazy-src="
             romsStore.isSimpleRom(rom)
               ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                 : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-              : !rom.igdb_url_cover && !rom.moby_url_cover
                 ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : rom.igdb_url_cover
-                  ? rom.igdb_url_cover
-                  : rom.moby_url_cover
+                : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
+              : !rom.igdb_url_cover && !rom.moby_url_cover
+              ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+              : rom.igdb_url_cover
+              ? rom.igdb_url_cover
+              : rom.moby_url_cover
           "
           :aspect-ratio="2 / 3"
+          @click="handleClick"
+          @touchstart="handleTouchStart"
+          :class="{ pointer: pointerOnHover }"
+          :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
+          cover
+          @touchend="handleTouchEnd"
+          ref="card"
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">
@@ -152,7 +152,14 @@ onMounted(() => {
                 v-if="romsStore.isSimpleRom(rom) && showFlags"
                 :rom="rom"
               />
-              <slot name="prepend-inner"></slot>
+
+              <v-chip
+                v-if="'rom_user' in rom && rom.rom_user?.completed"
+                title="Game Completed"
+                class="translucent-dark mr-1 mt-1 px-1"
+                density="compact"
+                ><v-icon icon="mdi-checkbox-outline" color="success" />
+              </v-chip>
             </v-row>
           </div>
           <div class="position-absolute append-inner-left">
@@ -185,6 +192,7 @@ onMounted(() => {
               </v-icon>
             </v-btn>
           </div>
+
           <div
             class="position-absolute append-inner-left"
             v-if="!showPlatformIcon"

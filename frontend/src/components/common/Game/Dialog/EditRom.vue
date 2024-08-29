@@ -78,7 +78,7 @@ async function updateRom() {
         icon: "mdi-check-bold",
         color: "green",
       });
-      romsStore.update(data as SimpleRom);
+      romsStore.update(data as unknown as SimpleRom);
       if (route.name == "rom") {
         romsStore.currentRom = data;
       }

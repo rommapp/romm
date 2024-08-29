@@ -143,7 +143,10 @@ async function updateRom({
   if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
-    params: { rename_as_source: renameAsSource, remove_cover: removeCover },
+    params: {
+      rename_as_source: renameAsSource,
+      remove_cover: removeCover,
+    },
   });
 }
 
@@ -165,16 +168,19 @@ async function updateUserRomProps({
   noteRawMarkdown,
   noteIsPublic,
   isMainSibling,
+  completed,
 }: {
   romId: number;
   noteRawMarkdown: string;
   noteIsPublic: boolean;
   isMainSibling: boolean;
+  completed?: boolean;
 }): Promise<{ data: DetailedRom }> {
   return api.put(`/roms/${romId}/props`, {
     note_raw_markdown: noteRawMarkdown,
     note_is_public: noteIsPublic,
     is_main_sibling: isMainSibling,
+    completed,
   });
 }
 

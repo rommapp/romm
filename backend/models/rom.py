@@ -185,7 +185,7 @@ class RomUser(BaseModel):
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-
+    completed: Mapped[bool] = mapped_column(default=False)
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="rom_users")
     user: Mapped[User] = relationship(lazy="joined", back_populates="rom_users")
 
