@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { RomUserStatus } from './RomUserStatus';
+
 export type RomUserSchema = {
     id: number;
     user_id: number;
@@ -12,6 +14,13 @@ export type RomUserSchema = {
     note_raw_markdown: string;
     note_is_public: boolean;
     is_main_sibling: boolean;
+    backlogged: boolean;
+    now_playing: boolean;
+    hidden: boolean;
+    rating: number;
+    difficulty: number;
+    completion: number;
+    status: (RomUserStatus | null);
     user__username: string;
 };
 

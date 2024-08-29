@@ -9,7 +9,7 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, RomUserStatus
 from pydantic import BaseModel, Field, computed_field
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
@@ -26,6 +26,27 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 )
 
 
+def rom_user_schema_factory() -> RomUserSchema:
+    return RomUserSchema(
+        id=-1,
+        user_id=-1,
+        rom_id=-1,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        note_raw_markdown="",
+        note_is_public=False,
+        is_main_sibling=False,
+        backlogged=False,
+        now_playing=False,
+        hidden=False,
+        rating=0,
+        difficulty=0,
+        completion=0,
+        status=None,
+        user__username="",
+    )
+
+
 class RomUserSchema(BaseModel):
     id: int
     user_id: int
@@ -35,18 +56,26 @@ class RomUserSchema(BaseModel):
     note_raw_markdown: str
     note_is_public: bool
     is_main_sibling: bool
+    backlogged: bool
+    now_playing: bool
+    hidden: bool
+    rating: int
+    difficulty: int
+    completion: int
+    status: RomUserStatus | None
     user__username: str
 
     class Config:
         from_attributes = True
 
     @classmethod
-    def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema | None:
+    def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
         for n in db_rom.rom_users:
             if n.user_id == user_id:
                 return cls.model_validate(n)
 
-        return None
+        # Return a dummy RomUserSchema if the user + rom combination doesn't exist
+        return rom_user_schema_factory()
 
     @classmethod
     def notes_for_user(cls, user_id: int, db_rom: Rom) -> list[UserNotesSchema]:
@@ -131,7 +160,7 @@ class RomSchema(BaseModel):
 
 class SimpleRomSchema(RomSchema):
     sibling_roms: list[RomSchema] = Field(default_factory=list)
-    rom_user: RomUserSchema | None = Field(default=None)
+    rom_user: RomUserSchema = Field(default_factory=rom_user_schema_factory)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
@@ -146,7 +175,7 @@ class SimpleRomSchema(RomSchema):
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
     sibling_roms: list[RomSchema] = Field(default_factory=list)
-    rom_user: RomUserSchema | None = Field(default=None)
+    rom_user: RomUserSchema = Field(default_factory=rom_user_schema_factory)
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
