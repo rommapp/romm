@@ -226,7 +226,7 @@ class DBRomsHandler(DBBaseHandler):
 
         rom_user = self.get_rom_user_by_id(id)
 
-        if data["is_main_sibling"]:
+        if data.get("is_main_sibling", False):
             session.execute(
                 update(RomUser)
                 .where(
