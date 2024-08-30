@@ -56,12 +56,18 @@ async function removeArtwork() {
 }
 
 const noMetadataMatch = computed(() => {
-  return !rom.value.igdb_id && !rom.value.moby_id && !rom.value.sgdb_id;
+  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.sgdb_id;
 });
 
-async function handleRomUpdate(options, successMessage) {
-  if (!rom.value) return;
-
+async function handleRomUpdate(
+  options: {
+    rom: UpdateRom;
+    renameAsSource?: boolean;
+    removeCover?: boolean;
+    unmatch?: boolean;
+  },
+  successMessage: string,
+) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
@@ -93,6 +99,7 @@ async function handleRomUpdate(options, successMessage) {
 }
 
 async function unmatchRom() {
+  if (!rom.value) return;
   await handleRomUpdate(
     { rom: rom.value, unmatch: true },
     "Rom unmatched successfully",
@@ -100,7 +107,7 @@ async function unmatchRom() {
 }
 
 async function updateRom() {
-  if (!rom.value.file_name) {
+  if (!rom.value?.file_name) {
     emitter?.emit("snackbarShow", {
       msg: "Cannot save: file name is required",
       icon: "mdi-close-circle",
@@ -190,7 +197,9 @@ function closeDialog() {
             <v-btn-group divided density="compact">
               <v-btn
                 :disabled="noMetadataMatch"
-                :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+                :class="` ${
+                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
+                }`"
                 variant="flat"
                 @click="unmatchRom"
               >
