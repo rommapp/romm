@@ -103,8 +103,7 @@ window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
-  rewindEnabled: "enabled",
-  fastForward: "enabled",
+  rewindEnabled: "enabled"
 };
 if (romRef.value.name) window.EJS_gameName = romRef.value.name;
 
