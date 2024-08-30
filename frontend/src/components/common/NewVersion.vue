@@ -18,7 +18,7 @@ function dismissVersionBanner() {
 }
 onMounted(async () => {
   const response = await fetch(
-    "https://api.github.com/repos/rommapp/romm/releases/latest"
+    "https://api.github.com/repos/rommapp/romm/releases/latest",
   );
   const json = await response.json();
   GITHUB_VERSION.value = json.tag_name;
@@ -72,6 +72,6 @@ onMounted(async () => {
   pointer-events: none;
 }
 .sticky-bottom * {
-    pointer-events: auto; /* Re-enables pointer events for all child elements */
+  pointer-events: auto; /* Re-enables pointer events for all child elements */
 }
 </style>

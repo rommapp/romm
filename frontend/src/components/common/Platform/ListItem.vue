@@ -15,7 +15,11 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
     :value="platform.slug"
   >
     <template #prepend>
-      <platform-icon :key="platform.slug" :slug="platform.slug" :name="platform.name">
+      <platform-icon
+        :key="platform.slug"
+        :slug="platform.slug"
+        :name="platform.name"
+      >
         <v-tooltip
           location="bottom"
           class="tooltip"
