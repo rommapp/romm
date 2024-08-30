@@ -55,7 +55,43 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-async function updateRom({ unmatch }: { unmatch?: boolean } = {}) {
+async function unmatchRom() {
+  if (!rom.value) return;
+
+  show.value = false;
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
+
+  await romApi
+    .updateRom({
+      rom: rom.value,
+      unmatch: true,
+    })
+    .then(({ data }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Rom updated successfully!",
+        icon: "mdi-check-bold",
+        color: "green",
+      });
+      romsStore.update(data as SimpleRom);
+      if (route.name == "rom") {
+        romsStore.currentRom = data;
+      }
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      closeDialog();
+    });
+}
+
+async function updateRom() {
   if (!rom.value) return;
 
   if (!rom.value.file_name) {
@@ -71,7 +107,7 @@ async function updateRom({ unmatch }: { unmatch?: boolean } = {}) {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await romApi
-    .updateRom({ rom: rom.value, removeCover: removeCover.value, unmatch })
+    .updateRom({ rom: rom.value, removeCover: removeCover.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -184,7 +220,7 @@ function closeDialog() {
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          rom?.name as string,
+                          rom?.name as string
                         )
                       "
                     >
@@ -226,10 +262,10 @@ function closeDialog() {
       <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn
-           :disabled="rom.igdb_id || rom.moby_id || rom.sgdb_id"
+            :disabled="!rom.igdb_id && !rom.moby_id && !rom.sgdb_id"
             class="text-romm-red bg-terciary"
             variant="flat"
-            @click="() => updateRom({ unmatch: true })"
+            @click="() => unmatchRom()"
           >
             Unmatch Rom
           </v-btn>

@@ -315,7 +315,7 @@ async def update_rom(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
     
-    if(unmatch):
+    if(unmatch_metadata):
         cleaned_data = {
             "igdb_id":  None,
             "sgdb_id": None,

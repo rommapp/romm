@@ -148,7 +148,7 @@ async function updateRom({
     params: {
       rename_as_source: renameAsSource,
       remove_cover: removeCover,
-      unmatch,
+      unmatch_metadata: unmatch,
     },
   });
 }
