@@ -102,8 +102,22 @@ class TinfoilFeedFileSchema(TypedDict):
     size: int
 
 
+class TinfoilFeedTitleDBSchema(TypedDict):
+    id: str
+    name: str
+    version: int
+    region: str
+    releaseDate: int
+    rating: int
+    publisher: str
+    description: str
+    size: int
+    rank: int
+
+
 class TinfoilFeedSchema(TypedDict):
     files: list[TinfoilFeedFileSchema]
     directories: list[str]
+    titledb: NotRequired[dict[str, TinfoilFeedTitleDBSchema]]
     success: NotRequired[str]
     error: NotRequired[str]
