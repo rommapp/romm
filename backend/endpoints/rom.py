@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from anyio import Path, open_file
 from config import (
+    DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
     RESOURCES_BASE_PATH,
@@ -23,6 +24,7 @@ from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from starlette.requests import ClientDisconnect
+from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 from utils.filesystem import sanitize_filename
@@ -178,9 +180,22 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_check = files or [r["filename"] for r in rom.files]
 
     if not rom.multi:
+        # Serve the file directly in development mode for emulatorjs
+        if DEV_MODE:
+            return FileResponse(
+                path=rom_path,
+                filename=rom.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(rom.file_size_bytes),
+                },
+            )
+
         return Response(
             media_type="application/octet-stream",
             headers={
