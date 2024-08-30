@@ -290,7 +290,7 @@ async def update_rom(
     rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
-    unmatch_metadata: bool = False
+    unmatch_metadata: bool = False,
 ) -> DetailedRomSchema:
     """Update rom endpoint
 
@@ -314,15 +314,15 @@ async def update_rom(
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
-    
-    if(unmatch_metadata):
+
+    if unmatch_metadata:
         cleaned_data = {
-            "igdb_id":  None,
+            "igdb_id": None,
             "sgdb_id": None,
             "moby_id": None,
             "name": rom.file_name,
             "summary": "",
-            "url_screenshots": {},
+            "url_screenshots": [],
             "path_cover_s": "",
             "path_cover_l": "",
             "url_cover": "",
@@ -334,9 +334,9 @@ async def update_rom(
 
         db_rom_handler.update_rom(id, cleaned_data)
 
-        return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
-    
-
+        return DetailedRomSchema.from_orm_with_request(
+            db_rom_handler.get_rom(id), request
+        )
 
     cleaned_data = {
         "igdb_id": data.get("igdb_id", None),
@@ -452,7 +452,7 @@ async def update_rom(
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
-    
+
     db_rom_handler.update_rom(id, cleaned_data)
 
     return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
