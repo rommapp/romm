@@ -3,18 +3,29 @@ import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import {
+  getDownloadLink,
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+} from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
+const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const playInfoIcon = ref("mdi-play");
-const ejsEmulationSupported = isEJSEmulationSupported(props.rom.platform_slug);
-const ruffleEmulationSupported = isRuffleEmulationSupported(props.rom.platform_slug);
+
+const ejsEmulationSupported = computed(() =>
+  isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
+);
+const ruffleEmulationSupported = computed(() =>
+  isRuffleEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
+);
 
 // Functions
 async function copyDownloadLink(rom: DetailedRom) {
@@ -26,7 +37,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       getDownloadLink({
         rom,
         files: downloadStore.filesToDownload,
-      })
+      }),
     );
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(downloadLink);

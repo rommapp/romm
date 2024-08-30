@@ -299,7 +299,7 @@
     "md5": "66223be1497460f1e60885eeb35e03cc",
     "sha1": "db6b504744281369794e26ba71a6e385cf6227fa"
   },
-  "odyssey-2-slash-videopac-g7000o2rom.bin": {
+  "odyssey-2-slash-videopac-g7000:o2rom.bin": {
     "size": "1024",
     "crc": "8016a315",
     "md5": "562d5ebf9e030a40d6fabfc2f33139fd",
@@ -875,7 +875,19 @@
     "md5": "e10c53c2f8b90bab96ead2d368858623",
     "sha1": "8951d1bb219ab2ff8583033d2119c899cc81f18c"
   },
+  "dc:boot.bin": {
+    "size": "2097152",
+    "crc": "89f2b1a1",
+    "md5": "e10c53c2f8b90bab96ead2d368858623",
+    "sha1": "8951d1bb219ab2ff8583033d2119c899cc81f18c"
+  },
   "dc:dc_flash.bin": {
+    "size": "131072",
+    "crc": "c611b498",
+    "md5": "0a93f7940c455905bea6e392dfde92a4",
+    "sha1": "94d44d7f9529ec1642ba3771ed3c5f756d5bc872"
+  },
+  "dc:flash.bin": {
     "size": "131072",
     "crc": "c611b498",
     "md5": "0a93f7940c455905bea6e392dfde92a4",
@@ -1189,21 +1201,21 @@
   },
   "zxs:plus3-0.rom": {
     "size": "16384",
-    "crc": "7f4a5482",
-    "md5": "bc123f625e245c225f92ef05933ed134",
-    "sha1": "649fbd233490bf58b35350b0123d36caaaa011eb"
+    "crc": "a10230c0",
+    "md5": "3abdc20e72890a750dd3c745d286dfba",
+    "sha1": "a837f66977040f7b51ed053a2483c10f3d070ab7"
   },
   "zxs:plus3-1.rom": {
     "size": "16384",
-    "crc": "5aeb4675",
-    "md5": "617364264c587d20c9fc4746c29679f2",
-    "sha1": "f12198108cbb14de4f03c6695bc16d08c85ee214"
+    "crc": "09b9c3ca",
+    "md5": "8361a1d9c8bcef89c0c39293776564ad",
+    "sha1": "6a4364f25513e4079f048f2de131a896d30edc64"
   },
   "zxs:plus3-2.rom": {
     "size": "16384",
-    "crc": "504755cb",
-    "md5": "c363e95dcd0a90e6e7f847e6e47e0179",
-    "sha1": "773633dce5ba323a9e00d9d0f9e4d8c295df7c87"
+    "crc": "a60285a0",
+    "md5": "f36c5c2d1f2a682caadeaa6f947db0da",
+    "sha1": "0a747cc0b827a94b4fd74cfd818ca792437a38f7"
   },
   "zxs:plus3-3.rom": {
     "size": "16384",
@@ -1547,6 +1559,12 @@
     "md5": "b9d9a0286c33dc6b7237bb13cd46fdee",
     "sha1": "8d5de56a79954f29e9006929ba3fed9b6a418c1d"
   },
+  "ps:scph9002(7502).bin": {
+    "size": "524288",
+    "crc": "318178bf",
+    "md5": "b9d9a0286c33dc6b7237bb13cd46fdee",
+    "sha1": "8d5de56a79954f29e9006929ba3fed9b6a418c1d"
+  },
   "psp:ppge_atlas.zim": {
     "size": "666530",
     "crc": "7b57fa78",
@@ -1564,5 +1582,545 @@
     "crc": "a93f1c4b",
     "md5": "a17e0e0150155400d8cced329563d9c8",
     "sha1": "718c1a00d38e0810a1ad0ffde79f73447f846f01"
+  },
+  "acpc:cpc464.rom": {
+    "size": "32768",
+    "crc": "40852f25",
+    "md5": "a993f85b88ac4350cf4d41554e87fe4f",
+    "sha1": "56d39c463da60968d93e58b4ba0e675829412a20"
+  },
+  "acpc:cpc664.rom": {
+    "size": "32768",
+    "crc": "9ab5a036",
+    "md5": "5a384a2310f472c7857888371c00ed66",
+    "sha1": "073a7665527b5bd8a148747a3947dbd3328682c8"
+  },
+  "acpc:cpc6128.rom": {
+    "size": "32768",
+    "crc": "9e827fe1",
+    "md5": "b96280dc6c95a48857b4b8eb931533ae",
+    "sha1": "5977adbad3f7c1e0e082cd02fe76a700d9860c30"
+  },
+  "acpc:cpc_amsdos.rom": {
+    "size": "16384",
+    "crc": "1fe22ecd",
+    "md5": "25629dfe870d097469c217b95fdc1c95",
+    "sha1": "39102c8e9cb55fcc0b9b62098780ed4a3cb6a4bb"
+  },
+  "enterprise:hun.rom": {
+    "size": "16384",
+    "crc": "596ab6d6",
+    "md5": "22167938f142c222f40992839aa21a06",
+    "sha1": "325a5e28c2a0d896711f8829e7ff14fed5dd4103"
+  },
+  "enterprise:brd.rom": {
+    "size": "16384",
+    "crc": "6999d6a3",
+    "md5": "6af0402906944fd134004b85097c8524",
+    "sha1": "f34f0c330b44dbf2548329bea954d5991dec30ca"
+  },
+  "enterprise:exos20.rom": {
+    "size": "32768",
+    "crc": "d421795f",
+    "md5": "5ad3baaad3b5156d6b60b34229a676fb",
+    "sha1": "6033a0535136c40c47137e4d1cd9273c06d5fdff"
+  },
+  "enterprise:exos21.rom": {
+    "size": "32768",
+    "crc": "982a3b44",
+    "md5": "f36f24cbb87745fbd2714e4df881db09",
+    "sha1": "55315b20fecb4441a07ee4bc5dc7153f396e0a2e"
+  },
+  "enterprise:zt19uk.rom": {
+    "size": "32768",
+    "crc": "d6deedf1",
+    "md5": "228540b6be83ae2acd7569c8ff0f91d0",
+    "sha1": "b7af62f0bc95fdca4b31d236f8327dafc80f83b7"
+  },
+  "enterprise:basic20.rom": {
+    "size": "16384",
+    "crc": "1228de34",
+    "md5": "8e18edce4a7acb2c33cc0ab18f988482",
+    "sha1": "61d0987b906146e21b94f265d5b51b4938c986a9"
+  },
+  "enterprise:basic21.rom": {
+    "size": "16384",
+    "crc": "55f96251",
+    "md5": "e972fe42b398c9ff1d93ff014786aec6",
+    "sha1": "03bbb386cf530e804363acdfc1d13e64cf28af2e"
+  },
+  "enterprise:exdos13.rom": {
+    "size": "32768",
+    "crc": "e0135929",
+    "md5": "ddff70c014d1958dc75378b6c9aab6f8",
+    "sha1": "cb43ab3676b93c279f1ed8ffcb0d4dcd4b34e631"
+  },
+  "enterprise:epd19hft.rom": {
+    "size": "32768",
+    "crc": "bd503eeb",
+    "md5": "12cfc9c7e48c8a16c2e09edbd926d467",
+    "sha1": "8f28fe73d13e94dd1da02519908ecc6eebe104f6"
+  },
+  "enterprise:zt18hfnt.rom": {
+    "size": "32768",
+    "crc": "76c9dbf6",
+    "md5": "3082dc488d32f30a612761b99074199b",
+    "sha1": "283be1ce417a759a3368bb4bbe72f692fd43ca6d"
+  },
+  "enterprise:epfileio.rom": {
+    "size": "16384",
+    "crc": "60c79925",
+    "md5": "a68ebcbc73a4d2178d755b7755bf18fe",
+    "sha1": "2f9077bcd89b1ec42dbdcd55d335bdbaf361eff3"
+  },
+  "enterprise:exos24uk.rom": {
+    "size": "65536",
+    "crc": "c099a5e3",
+    "md5": "55af78f877a21ca45eb2df68a74fcc60",
+    "sha1": "cf12e971623a54bf8c4f891ca3a36d969f205c49"
+  },
+  "ps2:ps2-0100jd-20000117.bin": {
+    "size": "4194304",
+    "crc": "5a04500c",
+    "md5": "32f2e4d5ff5ee11072a6bc45530f5765",
+    "sha1": "5b33170323ed6344e2363fed8115dc3918bb96a4"
+  },
+  "ps2:ps2-0100j-20000117.bin": {
+    "size": "4194304",
+    "crc": "b7ef81a9",
+    "md5": "acf4730ceb38ac9d8c7d8e21f2614600",
+    "sha1": "aea061e6e263fdcc1c4fdbd68553ef78dae74263"
+  },
+  "ps2:ps2-0101jd-20000217.bin": {
+    "size": "4194304",
+    "crc": "4f8b4205",
+    "md5": "acf9968c8f596d2b15f42272082513d1",
+    "sha1": "16f4a284d0e760ee13a2aff2f7dda928255e3080"
+  },
+  "ps2:ps2-0101j-20000217.bin": {
+    "size": "4194304",
+    "crc": "211dfb6a",
+    "md5": "b1459d7446c69e3e97e6ace3ae23dd1c",
+    "sha1": "916e02431bcd73140504da3355c9598143b77e11"
+  },
+  "ps2:ps2-0101xd-20000224.bin": {
+    "size": "4194304",
+    "crc": "2fef9faf",
+    "md5": "d3f1853a16c2ec18f3cd1ae655213308",
+    "sha1": "4440b246bfde7bb31002c584a76c6ef384908e84"
+  },
+  "ps2:ps2-0110ad-20000727.bin": {
+    "size": "4194304",
+    "crc": "795578c1",
+    "md5": "63e6fd9b3c72e0d7b920e80cf76645cd",
+    "sha1": "339c646cf0699268552df5b05f18f0a03a9f55ff"
+  },
+  "ps2:ps2-0110a-20000727.bin": {
+    "size": "4194304",
+    "crc": "9678ad6a",
+    "md5": "a20c97c02210f16678ca3010127caf36",
+    "sha1": "20f6ce6693cf97e9494f8f0227f2b7988ffaf961"
+  },
+  "ps2:ps2-0120a-20000902.bin": {
+    "size": "4194304",
+    "crc": "1ae71e5d",
+    "md5": "8db2fbbac7413bf3e7154c1e0715e565",
+    "sha1": "dbc2318a1029347b5af3a0c74b0bdf88d19efee6"
+  },
+  "ps2:ps2-0120ed-20000902.bin": {
+    "size": "4194304",
+    "crc": "25495aa7",
+    "md5": "91c87cb2f2eb6ce529a2360f80ce2457",
+    "sha1": "3bb1eecd618ab5c973c7bc53671a4475a02e1d5b"
+  },
+  "ps2:ps2-0120ed-20000902-20030110.bin": {
+    "size": "4194304",
+    "crc": "e2f78425",
+    "md5": "3016b3dd42148a67e2c048595ca4d7ce",
+    "sha1": "1b73dec999fcc2b92fa958110ff6bfe4d0af276e"
+  },
+  "ps2:ps2-0120e-20000902.bin": {
+    "size": "4194304",
+    "crc": "7b08c33b",
+    "md5": "b7fa11e87d51752a98b38e3e691cbf17",
+    "sha1": "274c05fec654913a3f698d4b0d592085866a2cbd"
+  },
+  "ps2:ps2-0120j-20001027-185015.bin": {
+    "size": "4194304",
+    "crc": "9b096622",
+    "md5": "f63bc530bd7ad7c026fcd6f7bd0d9525",
+    "sha1": "e481079eca752225555f0c26d14c9d0f94d9a8e9"
+  },
+  "ps2:ps2-0120j-20001027-191435.bin": {
+    "size": "4194304",
+    "crc": "c1ccf3f6",
+    "md5": "cee06bd68c333fc5768244eae77e4495",
+    "sha1": "a9f5d8ed56cfff18add1b599010493461fa02448"
+  },
+  "ps2:ps2-0150ad-20001228-20030520.bin": {
+    "size": "4194304",
+    "crc": "0380c2ce",
+    "md5": "0bf988e9c7aaa4c051805b0fa6eb3387",
+    "sha1": "7284b9d16df9935afc384318e024c87ef0574fe5"
+  },
+  "ps2:ps2-0150a-20001228.bin": {
+    "size": "4194304",
+    "crc": "bce74746",
+    "md5": "8accc3c49ac45f5ae2c5db0adc854633",
+    "sha1": "5af5b5077d84a9c037ebe12bfab8a38b31d8a543"
+  },
+  "ps2:ps2-0150ed-20001228-20030520.bin": {
+    "size": "4194304",
+    "crc": "60bc0031",
+    "md5": "6f9a6feb749f0533aaae2cc45090b0ed",
+    "sha1": "d004326c9d8060812b4433c3f07646b04854d6c4"
+  },
+  "ps2:ps2-0150e-20001228.bin": {
+    "size": "4194304",
+    "crc": "1559fd43",
+    "md5": "838544f12de9b0abc90811279ee223c8",
+    "sha1": "e22ef231faf3661edd92f2ee449a71297c82a092"
+  },
+  "ps2:ps2-0150jd-20010118.bin": {
+    "size": "4194304",
+    "crc": "0b3ec2bc",
+    "md5": "bb6bbc850458fff08af30e969ffd0175",
+    "sha1": "334e029fc7fd50222a399c50384ff42732652259"
+  },
+  "ps2:ps2-0150j-20010118.bin": {
+    "size": "4194304",
+    "crc": "4fc3b495",
+    "md5": "815ac991d8bc3b364696bead3457de7d",
+    "sha1": "d6f365a0f07cd04ed28108e6ec5076e2f81e5f72"
+  },
+  "ps2:ps2-0160a-20010427.bin": {
+    "size": "4194304",
+    "crc": "4008ac18",
+    "md5": "b107b5710042abe887c0f6175f6e94bb",
+    "sha1": "7331a40b4b4feb1b3f0f77b013b6d38483577baa"
+  },
+  "ps2:ps2-0160j-20010427.bin": {
+    "size": "4194304",
+    "crc": "c268ef47",
+    "md5": "ab55cceea548303c22c72570cfd4dd71",
+    "sha1": "e525a0c900e37acf0ae5a655d82a0abcb07c6f1f"
+  },
+  "ps2:ps2-0160a-20010704.bin": {
+    "size": "4194304",
+    "crc": "c506c693",
+    "md5": "18bcaadb9ff74ed3add26cdf709fff2e",
+    "sha1": "ce92e8e8c88665f2f645a9522e337823d47a914a"
+  },
+  "ps2:ps2-0160e-20010704.bin": {
+    "size": "4194304",
+    "crc": "f1ac735f",
+    "md5": "491209dd815ceee9de02dbbc408c06d6",
+    "sha1": "3cbd048e437c785b5a05a0feced00117a8a42545"
+  },
+  "ps2:ps2-0160a-20011004.bin": {
+    "size": "4194304",
+    "crc": "a01ec625",
+    "md5": "7200a03d51cacc4c14fcdfdbc4898431",
+    "sha1": "d257bce6ecaf3bafb704c75a1b4741b910bd2d49"
+  },
+  "ps2:ps2-0160e-20011004.bin": {
+    "size": "4194304",
+    "crc": "82aa5055",
+    "md5": "8359638e857c8bc18c3c18ac17d9cc3c",
+    "sha1": "ee34c3a87c53c75ca2a37d77b0042ca24d07831f"
+  },
+  "ps2:ps2-0160h-20010730.bin": {
+    "size": "4194304",
+    "crc": "75f83c67",
+    "md5": "352d2ff9b3f68be7e6fa7e6dd8389346",
+    "sha1": "ba15dcf7aac13864c08222037e9321d7468c87d1"
+  },
+  "ps2:ps2-0160a-20020207.bin": {
+    "size": "4194304",
+    "crc": "a19e0bf5",
+    "md5": "d5ce2c7d119f563ce04bc04dbc3a323e",
+    "sha1": "f9a5d629a036b99128f7cb530c6e3ca016e9c8b7"
+  },
+  "ps2:ps2-0160e-20020319.bin": {
+    "size": "4194304",
+    "crc": "2fe21e4d",
+    "md5": "0d2228e6fd4fb639c9c39d077a9ec10c",
+    "sha1": "bff2902bd0ce9729a060581132541e9fd1a9fab6"
+  },
+  "ps2:ps2-0160j-20020426.bin": {
+    "size": "4194304",
+    "crc": "c9363baf",
+    "md5": "72da56fccb8fcd77bba16d1b6f479914",
+    "sha1": "003628c137dae577ff3b04b93ca1787b0c944702"
+  },
+  "ps2:ps2-0160e-20020426.bin": {
+    "size": "4194304",
+    "crc": "dad0baec",
+    "md5": "5b1f47fbeb277c6be2fccdd6344ff2fd",
+    "sha1": "d106b757ae2544dfe63f7e1924e59d5ad44c0c29"
+  },
+  "ps2:ps2-0160h-20020426.bin": {
+    "size": "4194304",
+    "crc": "3355623e",
+    "md5": "315a4003535dfda689752cb25f24785c",
+    "sha1": "e3a74125c426bcacabca00b513fab928665c8846"
+  },
+  "ps2:ps2-0170j-20030206.bin": {
+    "size": "4194304",
+    "crc": "9457f64e",
+    "md5": "312ad4816c232a9606e56f946bc0678a",
+    "sha1": "d812ac65c357d392396ca9edee812dc41bed8bde"
+  },
+  "ps2:ps2-0170ed-20030227.bin": {
+    "size": "4194304",
+    "crc": "970a9c56",
+    "md5": "666018ffec65c5c7e04796081295c6c7",
+    "sha1": "e220bb282378c1f48ea1b585b3675e51a6dca572"
+  },
+  "ps2:ps2-0170e-20030227.bin": {
+    "size": "4194304",
+    "crc": "51b5fb8b",
+    "md5": "6e69920fa6eef8522a1d688a11e41bc6",
+    "sha1": "ad15bd7eabd5bd81ba011516a5be44947d6641aa"
+  },
+  "ps2:ps2-0170ad-20030325.bin": {
+    "size": "4194304",
+    "crc": "0e1ece79",
+    "md5": "eb960de68f0c0f7f9fa083e9f79d0360",
+    "sha1": "c5bc6e893b4c43d528142e56c96073024de64157"
+  },
+  "ps2:ps2-0170a-20030325.bin": {
+    "size": "4194304",
+    "crc": "9a99e3f4",
+    "md5": "8aa12ce243210128c5074552d3b86251",
+    "sha1": "d269d1ed513227f3ef7133c76cf1b3a64f97b15d"
+  },
+  "ps2:ps2-0180cd-20030224.bin": {
+    "size": "4194304",
+    "crc": "8c1a04cf",
+    "md5": "240d4c5ddd4b54069bdc4a3cd2faf99d",
+    "sha1": "2de87767008fc4a303af64a46251156e965d9065"
+  },
+  "ps2:ps2-0180j-20031028.bin": {
+    "size": "4194304",
+    "crc": "585fd27c",
+    "md5": "1c6cd089e6c83da618fbf2a081eb4888",
+    "sha1": "aa4a35c14ee342cf7a03b1dde294ca10e64889e1"
+  },
+  "ps2:ps2-0190j-20030623.bin": {
+    "size": "4194304",
+    "crc": "7c10a967",
+    "md5": "463d87789c555a4a7604e97d7db545d1",
+    "sha1": "6a6ecfe6c10e42eff1ca056349def799b5629067"
+  },
+  "ps2:ps2-0190a-20030623.bin": {
+    "size": "4194304",
+    "crc": "b3e87709",
+    "md5": "35461cecaa51712b300b2d6798825048",
+    "sha1": "c74d92a2952a2912b6698cbcf7742adac8f784d3"
+  },
+  "ps2:ps2-0190e-20030623.bin": {
+    "size": "4194304",
+    "crc": "1752a52e",
+    "md5": "bd6415094e1ce9e05daabe85de807666",
+    "sha1": "18b9ba833c469c4683676cc20da5124080d980bb"
+  },
+  "ps2:ps2-0190h-20030623.bin": {
+    "size": "4194304",
+    "crc": "41391dd3",
+    "md5": "2e70ad008d4ec8549aada8002fdf42fb",
+    "sha1": "caa18ed04854a91e68f2d61a782560edd6373bbf"
+  },
+  "ps2:ps2-0190r-20030623.bin": {
+    "size": "4194304",
+    "crc": "25f6212a",
+    "md5": "b53d51edc7fc086685e31b811dc32aad",
+    "sha1": "34a81db03ab617fbfdd7f9b861692dd2ecd57b82"
+  },
+  "ps2:ps2-0190c-20030623.bin": {
+    "size": "4194304",
+    "crc": "d2347ee7",
+    "md5": "1b6e631b536247756287b916f9396872",
+    "sha1": "92d9eb4b11cef97bb69a275b2851b72f7b0023d6"
+  },
+  "ps2:ps2-0190j-20030822.bin": {
+    "size": "4194304",
+    "crc": "79d60546",
+    "md5": "00da1b177096cfd2532c8fa22b43e667",
+    "sha1": "0ea98a25a32145dda514de2f0d4bfbbd806bd00c"
+  },
+  "ps2:ps2-0190e-20030822.bin": {
+    "size": "4194304",
+    "crc": "3afd1d1e",
+    "md5": "afde410bd026c16be605a1ae4bd651fd",
+    "sha1": "6e1f0eb4aec51a6288b3d802d3bcdb477cf52104"
+  },
+  "ps2:ps2-0190a-20040329.bin": {
+    "size": "4194304",
+    "crc": "9ba4c32f",
+    "md5": "81f4336c1de607dd0865011c0447052e",
+    "sha1": "b68c05f5cd86bf03cb38a643a723b7a97b759531"
+  },
+  "ps2:ps2-0200ed-20040614.bin": {
+    "size": "4194304",
+    "crc": "881c9aa9",
+    "md5": "63ead1d74893bf7f36880af81f68a82d",
+    "sha1": "902f4680b258abd40c0922f6b0d581cbd8f8a73e"
+  },
+  "ps2:ps2-0200h-20040614.bin": {
+    "size": "4194304",
+    "crc": "b57201bf",
+    "md5": "3e3e030c0f600442fa05b94f87a1e238",
+    "sha1": "7f8e812cab7c7393c85eac6c42661e1fd0a642df"
+  },
+  "ps2:ps2-0210j-20040917.bin": {
+    "size": "4194304",
+    "crc": "55710d11",
+    "md5": "1ad977bb539fc9448a08ab276a836bbc",
+    "sha1": "bbb1af3085e77599691ec430d147810157da934f"
+  },
+  "ps2:ps2-0220j-20050620.bin": {
+    "size": "4194304",
+    "crc": "d27fc41d",
+    "md5": "eb4f40fcf4911ede39c1bbfe91e7a89a",
+    "sha1": "7ffa75d142cb8eeea6c777dbcf263143655275d5"
+  },
+  "ps2:ps2-0220ad-20050620.bin": {
+    "size": "4194304",
+    "crc": "181f1bda",
+    "md5": "9959ad7a8685cad66206e7752ca23f8b",
+    "sha1": "7c7efdfcec7705f4e84bb47f45322104e39eed09"
+  },
+  "ps2:ps2-0220a-20050620.bin": {
+    "size": "4194304",
+    "crc": "d305a97a",
+    "md5": "929a14baca1776b00869f983aa6e14d2",
+    "sha1": "48d0445dffd1e879c7ae752c5166ec3101921555"
+  },
+  "ps2:ps2-0220e-20050620.bin": {
+    "size": "4194304",
+    "crc": "e2862e39",
+    "md5": "573f7d4a430c32b3cc0fd0c41e104bbd",
+    "sha1": "929a85e974faf4b40d0a7785023b758402c43bd9"
+  },
+  "ps2:ps2-0220h-20050620.bin": {
+    "size": "4194304",
+    "crc": "e27c4a6c",
+    "md5": "df63a604e8bff5b0599bd1a6c2721bd0",
+    "sha1": "0a071d1b46607a7694770407606d8599f62a372b"
+  },
+  "ps2:ps2-0220j-20060210.bin": {
+    "size": "4194304",
+    "crc": "1303918e",
+    "md5": "5b1ba4bb914406fae75ab8e38901684d",
+    "sha1": "0edf1fbb772a8e6a79ae00e977450e3ade25c4f3"
+  },
+  "ps2:ps2-0220a-20060210.bin": {
+    "size": "4194304",
+    "crc": "1279fce9",
+    "md5": "cb801b7920a7d536ba07b6534d2433ca",
+    "sha1": "92e488d5b2705e4cca83d4d1efbc421012faf83e"
+  },
+  "ps2:ps2-0220e-20060210.bin": {
+    "size": "4194304",
+    "crc": "23fa7baa",
+    "md5": "af60e6d1a939019d55e5b330d24b1c25",
+    "sha1": "28ad756d0cfd1e7b2e2de3de5d9e14207ee89761"
+  },
+  "ps2:ps2-0220h-20060210.bin": {
+    "size": "4194304",
+    "crc": "23001fff",
+    "md5": "549a66d0c698635ca9fa3ab012da7129",
+    "sha1": "fce2a24e5e0400cc6d98c08f426405d19173813e"
+  },
+  "ps2:ps2-0220j-20060905.bin": {
+    "size": "4194304",
+    "crc": "1d6d879b",
+    "md5": "5de9d0d730ff1e7ad122806335332524",
+    "sha1": "3baf847c1c217aa71ac6d298389c88edb3db32e2"
+  },
+  "ps2:ps2-0220ad-20060905.bin": {
+    "size": "4194304",
+    "crc": "431d9b7f",
+    "md5": "21fe4cad111f7dc0f9af29477057f88d",
+    "sha1": "4191b5842f31a9985b5428bc9d2b733ce3abb583"
+  },
+  "ps2:ps2-0220a-20060905.bin": {
+    "size": "4194304",
+    "crc": "1c17eafc",
+    "md5": "40c11c063b3b9409aa5e4058e984e30c",
+    "sha1": "8361d615cc895962e0f0838489337574dbdc9173"
+  },
+  "ps2:ps2-0220e-20060905.bin": {
+    "size": "4194304",
+    "crc": "2d946dbf",
+    "md5": "80bbb237a6af9c611df43b16b930b683",
+    "sha1": "da5aacead2fb55807d6d4e70b1f10f4fdcfd3281"
+  },
+  "ps2:ps2-0220h-20060905.bin": {
+    "size": "4194304",
+    "crc": "2d6e09ea",
+    "md5": "c37bce95d32b2be480f87dd32704e664",
+    "sha1": "a5a2ee0dd9a86ca35b94e97ca92476a584f755bf"
+  },
+  "ps2:ps2-0230j-20080220.bin": {
+    "size": "4194304",
+    "crc": "2912faa5",
+    "md5": "80ac46fa7e77b8ab4366e86948e54f83",
+    "sha1": "fbd54bfc020af34008b317dcb80b812dd29b3759"
+  },
+  "ps2:ps2-0230a-20080220.bin": {
+    "size": "4194304",
+    "crc": "286897c2",
+    "md5": "21038400dc633070a78ad53090c53017",
+    "sha1": "f9229fe159d0353b9f0632f3fdc66819c9030458"
+  },
+  "ps2:ps2-0230e-20080220.bin": {
+    "size": "4194304",
+    "crc": "19eb1081",
+    "md5": "dc69f0643a3030aaa4797501b483d6c4",
+    "sha1": "9915b5ba56798f4027ac1bd8d10abe0c1c9c326a"
+  },
+  "ps2:ps2-0230h-20080220.bin": {
+    "size": "4194304",
+    "crc": "191174d4",
+    "md5": "30d56e79d89fbddf10938fa67fe3f34e",
+    "sha1": "a277b456849697abec11285c6b35bc734598c220"
+  },
+  "ps2:ps2-0250e-20100415.bin": {
+    "size": "4194304",
+    "crc": "7e75fc28",
+    "md5": "93ea3bcee4252627919175ff1b16a1d9",
+    "sha1": "b9cb5775af29cd4d1ec5521e8231f8b6636e2e44"
+  },
+  "ps2:ps2-0250j-20100415.bin": {
+    "size": "4194304",
+    "crc": "4e8c160c",
+    "md5": "d3e81e95db25f5a86a7b7474550a2155",
+    "sha1": "4b5ef16b67e3b523d28ed2406106cb80470a06d0"
+  },
+  "tvc:tvcfileio.rom": {
+    "size": "8192",
+    "crc": "950e32fd",
+    "md5": "a2cf86ba8e7fc58b242137fe59036832",
+    "sha1": "98889c3a56b11dedf077f866ed2e12d51b604113"
+  },
+  "tvc:tvc22_ext.rom": {
+    "size": "8192",
+    "crc": "05e1c3a8",
+    "md5": "5ce95a26ceed5bec73995d83568da9cf",
+    "sha1": "abf119cf947ea32defd08b29a8a25d75f6bd4987"
+  },
+  "tvc:tvc22_sys.rom": {
+    "size": "16384",
+    "crc": "79fa818c",
+    "md5": "8c54285f541930cde766069942bad0f2",
+    "sha1": "f2572ee83d09fc08f4de4a62f101c8bb301a9505"
+  },
+  "tvc:tvc_dos12d.rom": {
+    "size": "16384",
+    "crc": "1466aed4",
+    "md5": "88dc7876d584f90e4106f91444ab23b7",
+    "sha1": "072c6160d4e7d406f5d8f5b1b66066c797d35561"
   }
 }
