@@ -226,7 +226,7 @@ function closeDialog() {
       <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn
-            v-if="rom.igdb_id || rom.moby_id || rom.sgdb_id"
+           :disabled="rom.igdb_id || rom.moby_id || rom.sgdb_id"
             class="text-romm-red bg-terciary"
             variant="flat"
             @click="() => updateRom({ unmatch: true })"
