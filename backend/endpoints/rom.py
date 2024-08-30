@@ -206,7 +206,11 @@ async def head_rom_content(
     )
 
 
-@protected_route(router.get, "/roms/{id}/content/{file_name}", ["roms.read"])
+@protected_route(
+    router.get,
+    "/roms/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 async def get_rom_content(
     request: Request,
     id: int,
