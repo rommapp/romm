@@ -6,7 +6,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
@@ -54,6 +54,10 @@ async function removeArtwork() {
   imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
   removeCover.value = true;
 }
+
+const noMetadataMatch = computed(() => {
+  return !rom.value.igdb_id && !rom.value.moby_id && !rom.value.sgdb_id;
+});
 
 async function handleRomUpdate(options, successMessage) {
   if (!rom.value) return;
@@ -178,9 +182,27 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="updateRom()"
+                @keyup.enter="updateRom"
               />
             </v-col>
+          </v-row>
+          <v-row class="justify-space-between mt-4 mb-2 mx-2" no-gutters>
+            <v-btn-group divided density="compact">
+              <v-btn
+                :disabled="noMetadataMatch"
+                :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                Unmatch Rom
+              </v-btn>
+            </v-btn-group>
+            <v-btn-group divided density="compact">
+              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+                Save
+              </v-btn>
+            </v-btn-group>
           </v-row>
         </v-col>
         <v-col>
@@ -234,24 +256,6 @@ function closeDialog() {
             </v-col>
           </v-row>
         </v-col>
-      </v-row>
-    </template>
-    <template #append>
-      <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact">
-          <v-btn
-            :disabled="!rom.igdb_id && !rom.moby_id && !rom.sgdb_id"
-            class="text-romm-red bg-terciary"
-            variant="flat"
-            @click="() => unmatchRom()"
-          >
-            Unmatch Rom
-          </v-btn>
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-            Apply
-          </v-btn>
-        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>

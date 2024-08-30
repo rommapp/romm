@@ -325,6 +325,7 @@ async def update_rom(
                 "name": rom.file_name,
                 "summary": "",
                 "url_screenshots": [],
+                "path_screenshots": [],
                 "path_cover_s": "",
                 "path_cover_l": "",
                 "url_cover": "",
