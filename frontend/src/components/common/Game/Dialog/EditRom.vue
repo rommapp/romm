@@ -55,20 +55,17 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-async function unmatchRom() {
+async function handleRomUpdate(options, successMessage) {
   if (!rom.value) return;
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await romApi
-    .updateRom({
-      rom: rom.value,
-      unmatch: true,
-    })
+    .updateRom(options)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: "Rom updated successfully!",
+        msg: successMessage,
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -91,9 +88,14 @@ async function unmatchRom() {
     });
 }
 
-async function updateRom() {
-  if (!rom.value) return;
+async function unmatchRom() {
+  await handleRomUpdate(
+    { rom: rom.value, unmatch: true },
+    "Rom unmatched successfully",
+  );
+}
 
+async function updateRom() {
   if (!rom.value.file_name) {
     emitter?.emit("snackbarShow", {
       msg: "Cannot save: file name is required",
@@ -103,34 +105,10 @@ async function updateRom() {
     return;
   }
 
-  show.value = false;
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
-
-  await romApi
-    .updateRom({ rom: rom.value, removeCover: removeCover.value })
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: "Rom updated successfully!",
-        icon: "mdi-check-bold",
-        color: "green",
-      });
-      romsStore.update(data as SimpleRom);
-      if (route.name == "rom") {
-        romsStore.currentRom = data;
-      }
-    })
-    .catch((error) => {
-      console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-    })
-    .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      closeDialog();
-    });
+  await handleRomUpdate(
+    { rom: rom.value, removeCover: removeCover.value },
+    "Rom updated successfully!",
+  );
 }
 
 function closeDialog() {
