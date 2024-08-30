@@ -23,7 +23,7 @@ const romUser = ref(
     note_raw_markdown: "",
     note_is_public: false,
     is_main_sibling: false,
-  }
+  },
 );
 
 // Functions
@@ -53,7 +53,7 @@ watch(
       note_is_public: false,
       is_main_sibling: false,
     };
-  }
+  },
 );
 </script>
 <template>
@@ -117,7 +117,7 @@ watch(
             v-model="downloadStore.filesToDownload"
             :label="rom.file_name"
             item-title="file_name"
-            :items="rom.files.map(f => f.filename)"
+            :items="rom.files.map((f) => f.filename)"
             rounded="0"
             density="compact"
             variant="outlined"
@@ -137,13 +137,28 @@ watch(
           <v-chip size="small" label class="mx-1 my-1">
             Size: {{ formatBytes(rom.file_size_bytes) }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.sha1_hash" size="small" label class="mx-1 my-1">
+          <v-chip
+            v-if="!rom.multi && rom.sha1_hash"
+            size="small"
+            label
+            class="mx-1 my-1"
+          >
             SHA-1: {{ rom.sha1_hash }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.md5_hash" size="small" label class="mx-1 my-1">
-            MD5: {{ rom.md5_hash  }}
+          <v-chip
+            v-if="!rom.multi && rom.md5_hash"
+            size="small"
+            label
+            class="mx-1 my-1"
+          >
+            MD5: {{ rom.md5_hash }}
           </v-chip>
-          <v-chip v-if="!rom.multi && rom.crc_hash" size="small" label class="mx-1 my-1">
+          <v-chip
+            v-if="!rom.multi && rom.crc_hash"
+            size="small"
+            label
+            class="mx-1 my-1"
+          >
             CRC: {{ rom.crc_hash }}
           </v-chip>
         </v-col>
@@ -180,7 +195,7 @@ watch(
         <v-col>
           <v-chip
             v-for="collection in collectionsWithoutFavourites(
-              rom.user_collections
+              rom.user_collections,
             )"
             :to="{ name: 'collection', params: { collection: collection.id } }"
             size="large"
