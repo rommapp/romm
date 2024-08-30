@@ -1,4 +1,6 @@
 from config import (
+    DISABLE_EMULATOR_JS,
+    DISABLE_RUFFLE_RS,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
@@ -54,5 +56,9 @@ def heartbeat() -> HeartbeatResponse:
                 "TITLE": "Scheduled Switch TitleDB update",
                 "MESSAGE": "Updates the Nintendo Switch TitleDB file",
             },
+        },
+        "EMULATION": {
+            "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
+            "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
         },
     }

@@ -60,11 +60,10 @@ class Firmware(BaseModel):
         )
         if cache_entry:
             cache_json = json.loads(cache_entry)
-            return (
-                self.file_size_bytes == int(cache_json.get("size", 0))
-                and self.md5_hash == cache_json.get("md5")
-                and self.sha1_hash == cache_json.get("sha1")
-                and self.crc_hash == cache_json.get("crc")
+            return self.file_size_bytes == int(cache_json.get("size", 0)) and (
+                self.md5_hash == cache_json.get("md5")
+                or self.sha1_hash == cache_json.get("sha1")
+                or self.crc_hash == cache_json.get("crc")
             )
 
         return False

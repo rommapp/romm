@@ -18,12 +18,13 @@ coverage
 /cypress/screenshots/
 
 # Editor directories and files
-.vscode
-.zed
-pyrightconfig.json
+.vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
 !.vscode/tasks.json
+.zed/*
+!.zed/settings.json
+pyrightconfig.json
 .idea
 *.suo
 *.ntvs*
