@@ -220,7 +220,7 @@ function closeDialog() {
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          rom?.name as string
+                          rom?.name as string,
                         )
                       "
                     >

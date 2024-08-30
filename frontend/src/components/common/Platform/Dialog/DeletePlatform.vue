@@ -79,13 +79,8 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" >
-            Cancel
-          </v-btn>
-          <v-btn
-            class="bg-terciary text-romm-red"
-            @click="deletePlatform"
-          >
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary text-romm-red" @click="deletePlatform">
             Confirm
           </v-btn>
         </v-btn-group>
