@@ -86,7 +86,7 @@ watch(
         <span class="text-h6">Status</span>
       </v-list-item>
     </v-card-title>
-    <v-card-text class="py-2 px-8">
+    <v-card-text class="py-4 px-8">
       <v-row no-gutters>
         <v-col cols="6">
           <v-checkbox
@@ -109,13 +109,13 @@ watch(
           />
         </v-col>
         <v-col cols="6">
-          <div class="d-flex align-center mt-3">
+          <div class="d-flex align-center mt-2">
             <v-label class="text-body-2 mr-4">Rating</v-label>
             <v-rating
               hover
               ripple
               length="10"
-              size="40"
+              size="32"
               v-model="romUser.rating"
               @update:model-value="
                 romUser.rating =
@@ -124,7 +124,7 @@ watch(
               active-color="romm-accent-1"
             />
           </div>
-          <div class="d-flex align-center mt-2">
+          <div class="d-flex align-center mt-3">
             <v-label class="text-body-2 mr-4">Difficulty</v-label>
             <v-slider
               v-model="romUser.difficulty"
