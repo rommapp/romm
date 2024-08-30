@@ -55,7 +55,7 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-async function updateRom() {
+async function updateRom({ unmatch }: { unmatch?: boolean } = {}) {
   if (!rom.value) return;
 
   if (!rom.value.file_name) {
@@ -71,7 +71,7 @@ async function updateRom() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await romApi
-    .updateRom({ rom: rom.value, removeCover: removeCover.value })
+    .updateRom({ rom: rom.value, removeCover: removeCover.value, unmatch })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -214,6 +214,14 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
+          <v-btn
+            v-if="rom.igdb_id || rom.moby_id"
+            class="text-romm-red bg-terciary"
+            variant="flat"
+            @click="() => updateRom({ unmatch: true })"
+          >
+            Unmatch Rom
+          </v-btn>
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="updateRom">
             Apply

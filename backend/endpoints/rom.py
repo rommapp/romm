@@ -286,6 +286,7 @@ async def update_rom(
     rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
+    unmatch: bool = False
 ) -> DetailedRomSchema:
     """Update rom endpoint
 
@@ -294,6 +295,7 @@ async def update_rom(
         id (Rom): Rom internal id
         rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
         artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
+        unmatch: Weather to remove the match for this game. Defaults to false
 
     Raises:
         HTTPException: If a rom already have that name when enabling the rename_as_source flag
@@ -308,6 +310,29 @@ async def update_rom(
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+    
+    if(unmatch):
+        cleaned_data = {
+            "igdb_id":  None,
+            "sgdb_id": None,
+            "moby_id": None,
+            "name": rom.file_name,
+            "summary": "",
+            "url_screenshots": {},
+            "path_cover_s": "",
+            "path_cover_l": "",
+            "url_cover": "",
+            "slug": "",
+            "igdb_metadata": {},
+            "moby_metadata": {},
+            "revision": "",
+        }
+
+        db_rom_handler.update_rom(id, cleaned_data)
+
+        return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
+    
+
 
     cleaned_data = {
         "igdb_id": data.get("igdb_id", None),
@@ -423,7 +448,7 @@ async def update_rom(
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
-
+    
     db_rom_handler.update_rom(id, cleaned_data)
 
     return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
