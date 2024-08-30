@@ -2122,5 +2122,95 @@
     "crc": "1466aed4",
     "md5": "88dc7876d584f90e4106f91444ab23b7",
     "sha1": "072c6160d4e7d406f5d8f5b1b66066c797d35561"
+  },
+  "doom:DOOM1.WAD": {
+    "size": "4196020",
+    "crc": "162b696a",
+    "md5": "f0cefca49926d00903cf57551d901abe",
+    "sha1": "5b2e249b9c5133ec987b3ea77596381dc0d6bc1d"
+  },
+  "doom:DOOM.WAD": {
+    "size": "12733492",
+    "crc": "cff03d9f",
+    "md5": "4461d4511386518e784c647e3128e7bc",
+    "sha1": "997bae5e5a190c5bb3b1fb9e7e3e75b2da88cb27"
+  },
+  "doom:DOOM2.WAD": {
+    "size": "14802506",
+    "crc": "09b8a6ae",
+    "md5": "9aa3cbf65b961d0bdac98ec403b832e1",
+    "sha1": "c745f04a6abc2e6d2a2d52382f45500dd2a260be"
+  },
+  "doom:DOOM2F.WAD": {
+    "size": "14607420",
+    "crc": "27eaae69",
+    "md5": "3cb02349b3df649c86290907eed64e7b",
+    "sha1": "d510c877031bbd5f3d198581a2c8651e09b9861f"
+  },
+  "doom:DOOM64.WAD": {
+    "size": "15103212",
+    "crc": "65816192",
+    "md5": "0aaba212339c72250f8a53a0a2b6189e",
+    "sha1": "d041456bea851c173f65ac6ab3f2ee61bb0b8b53"
+  },
+  "doom:TNT.WAD": {
+    "size": "18304630",
+    "crc": "15f18ddb",
+    "md5": "8974e3117ed4a1839c752d5e11ab1b7b",
+    "sha1": "9820e2a3035f0cdd87f69a7d57c59a7a267c9409"
+  },
+  "doom:PLUTONIA.WAD": {
+    "size": "17531493",
+    "crc": "650b998d",
+    "md5": "24037397056e919961005e08611623f4",
+    "sha1": " 816c7c6b0098f66c299c9253f62bd908456efb63"
+  },
+  "doom:HERETIC1.WAD": {
+    "size": "5120920",
+    "crc": "22d3f0ca",
+    "md5": "ae779722390ec32fa37b0d361f7d82f8",
+    "sha1": "b4c50ca9bea07f7c35250a1a11906091971c05ae"
+  },
+  "doom:HERETIC.WAD": {
+    "size": "14189976",
+    "crc": "5b16049e",
+    "md5": "66d686b1ed6d35ff103f15dbd30e0341",
+    "sha1": "f489d479371df32f6d280a0cb23b59a35ba2b833"
+  },
+  "doom:HEXEN.WAD": {
+    "size": "20083672",
+    "crc": "dca9114c",
+    "md5": "abb033caf81e26f12a2103e1fa25453f",
+    "sha1": "4b53832f0733c1e29e5f1de2428e5475e891af29"
+  },
+  "doom:HEXDD.WAD": {
+    "size": "4440584",
+    "crc": "fd5eb11d",
+    "md5": "78d5898e99e220e4de64edaa0e479593",
+    "sha1": "081f6a2024643b54ef4a436a85508539b6d20a1e"
+  },
+  "doom:STRIFE0.WAD": {
+    "size": "9934413",
+    "crc": "93c144dd",
+    "md5": "bb545b9c4eca0ff92c14d466b3294023",
+    "sha1": "bc0a110bf27aee89a0b2fc8111e2391ede891b8d"
+  },
+  "doom:STRIFE1.WAD": {
+    "size": "28377364",
+    "crc": "4234ace5",
+    "md5": "2fed2031a5b03892106e0f117f17901f",
+    "sha1": "64c13b951a845ca7f8081f68138a6181557458d1"
+  },
+  "doom:VOICES.WAD": {
+    "size": "27319149",
+    "crc": "cd12ebcf",
+    "md5": "082234d6a3f7086424856478b5aa9e95",
+    "sha1": "ec6883100d807b894a98f426d024d22c77b63e7f"
+  },
+  "doom:CHEX.WAD": {
+    "size": "12361532",
+    "crc": "298dd5b5",
+    "md5": "25485721882b050afa96a56e5758dd52",
+    "sha1": "eca9cff1014ce5081804e193588d96c6ddb35432"
   }
 }
