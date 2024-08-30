@@ -316,23 +316,24 @@ async def update_rom(
         raise RomNotFoundInDatabaseException(id)
 
     if unmatch_metadata:
-        cleaned_data = {
-            "igdb_id": None,
-            "sgdb_id": None,
-            "moby_id": None,
-            "name": rom.file_name,
-            "summary": "",
-            "url_screenshots": [],
-            "path_cover_s": "",
-            "path_cover_l": "",
-            "url_cover": "",
-            "slug": "",
-            "igdb_metadata": {},
-            "moby_metadata": {},
-            "revision": "",
-        }
-
-        db_rom_handler.update_rom(id, cleaned_data)
+        db_rom_handler.update_rom(
+            id,
+            {
+                "igdb_id": None,
+                "sgdb_id": None,
+                "moby_id": None,
+                "name": rom.file_name,
+                "summary": "",
+                "url_screenshots": [],
+                "path_cover_s": "",
+                "path_cover_l": "",
+                "url_cover": "",
+                "slug": "",
+                "igdb_metadata": {},
+                "moby_metadata": {},
+                "revision": "",
+            },
+        )
 
         return DetailedRomSchema.from_orm_with_request(
             db_rom_handler.get_rom(id), request
