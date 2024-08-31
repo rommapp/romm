@@ -13,6 +13,7 @@ from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.metadata.ra_handler import RA_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from utils import get_version
 from utils.router import APIRouter
@@ -36,6 +37,7 @@ def heartbeat() -> HeartbeatResponse:
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
+            "RA_API_ENABLED": RA_API_ENABLED,
         },
         "FS_PLATFORMS": fs_platform_handler.get_platforms(),
         "WATCHER": {

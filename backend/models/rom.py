@@ -38,6 +38,7 @@ class Rom(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
+    ra_id: Mapped[int | None]
 
     file_name: Mapped[str] = mapped_column(String(length=450))
     file_name_no_tags: Mapped[str] = mapped_column(String(length=450))

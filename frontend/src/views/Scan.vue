@@ -32,6 +32,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
+  {
+    name: "RetroAchievements",
+    value: "retro_achievements",
+    logo_path: "/assets/scrappers/ra.webp",
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
+  },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
 const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
@@ -311,7 +317,11 @@ async function stopScan() {
             <v-list-item class="pa-0">
               <template #prepend>
                 <v-avatar :rounded="0" size="40">
-                  <platform-icon :key="platform.slug" :slug="platform.slug" :name="platform.name" />
+                  <platform-icon
+                    :key="platform.slug"
+                    :slug="platform.slug"
+                    :name="platform.name"
+                  />
                 </v-avatar>
               </template>
               {{ platform.name }}

@@ -18,6 +18,7 @@ class Platform(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
+    ra_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=50))
     fs_slug: Mapped[str] = mapped_column(String(length=50))
     name: Mapped[str] = mapped_column(String(length=400))

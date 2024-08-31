@@ -120,7 +120,7 @@ async def scan_platforms(
         roms_ids = []
 
     if not metadata_sources:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = ["igdb", "moby", "retro_achievements"]
 
     sm = _get_socket_manager()
 
