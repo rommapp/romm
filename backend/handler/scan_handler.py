@@ -7,9 +7,10 @@ from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ra_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
@@ -62,7 +63,7 @@ async def scan_platform(
     log.info(f"· {fs_slug}")
 
     if metadata_sources is None:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = ["igdb", "moby", "retro_achievements"]
 
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
@@ -87,7 +88,6 @@ async def scan_platform(
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
-
     igdb_platform = (
         (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
         if "igdb" in metadata_sources
@@ -99,8 +99,16 @@ async def scan_platform(
         else MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
     )
 
+    ra_platform = (
+        meta_ra_handler.get_platform(platform_attrs["slug"])
+        if "retro_achievements" in metadata_sources
+        else RAGamesPlatform(ra_id=None, slug=platform_attrs["slug"])
+    )
+
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
-    platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
+    platform_attrs.update(
+        {**ra_platform, **moby_platform, **igdb_platform}
+    )  # Reverse order
 
     if platform_attrs["igdb_id"] or platform_attrs["moby_id"]:
         log.info(
@@ -192,6 +200,7 @@ async def scan_rom(
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
                 "sgdb_id": rom.sgdb_id,
+                "ra_id": rom.ra_id,
                 "name": rom.name,
                 "slug": rom.slug,
                 "summary": rom.summary,
