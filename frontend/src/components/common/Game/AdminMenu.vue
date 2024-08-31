@@ -11,6 +11,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
@@ -20,8 +21,17 @@ const auth = storeAuth();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const { favCollection } = storeToRefs(collectionsStore);
+const router = useRouter();
 
 // Functions
+function openInNewTab() {
+  const link = router.resolve({
+    name: "rom",
+    params: { rom: props.rom.id },
+  });
+  window.open(link.href, "_blank");
+}
+
 async function switchFromFavourites() {
   if (!favCollection.value) {
     await collectionApi
@@ -53,7 +63,7 @@ async function switchFromFavourites() {
   } else {
     if (favCollection.value) {
       favCollection.value.roms = favCollection.value.roms.filter(
-        (id) => id !== props.rom.id
+        (id) => id !== props.rom.id,
       );
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
         romsStore.remove([props.rom]);
@@ -89,6 +99,12 @@ async function switchFromFavourites() {
 
 <template>
   <v-list rounded="0" class="pa-0">
+    <v-list-item class="py-4 pr-5" @click="openInNewTab()">
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-open-in-new" class="mr-2" />Open in a new tab
+      </v-list-item-title>
+    </v-list-item>
+    <v-divider />
     <template v-if="auth.scopes.includes('roms.write')">
       <v-list-item
         :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
