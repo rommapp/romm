@@ -173,6 +173,12 @@
     "md5": "79ae0d2bb1901b7e606b6dc339b79a97",
     "sha1": "06fc753d015b43ca1787f4cfd9331b1674202e64"
   },
+  "arcade:naomi2.zip": {
+    "size": "2189528",
+    "crc": "f25cf3a8",
+    "md5": "0ea5bf0345e27b1cf51bbde1bd398eca",
+    "sha1": "533ef12a6d22726da81a50f08871c6e9a377a328"
+  },
   "atari8bit:ATARIBAS.ROM": {
     "size": "8192",
     "crc": "7d684184",
@@ -330,6 +336,12 @@
     "sha1": "000ac11b702a4c42e40f135df12fa5f2f13e20a1"
   },
   "msx:DISK.ROM": {
+    "size": "16384",
+    "crc": "721f61df",
+    "md5": "80dcd1ad1a4cf65d64b7ba10504e8190",
+    "sha1": "032cb1c1c75b9a191fa1230978971698d9d2a17f"
+  },
+  "msx2:DISK.ROM": {
     "size": "16384",
     "crc": "721f61df",
     "md5": "80dcd1ad1a4cf65d64b7ba10504e8190",
@@ -1439,6 +1451,12 @@
     "md5": "08ca8b2dba6662e8024f9e789711c6fc",
     "sha1": "5142f205912869b673a71480c5828b1eaed782a8"
   },
+  "neo-geo-cd:neocdz.zip": {
+    "size": "214876",
+    "crc": "19681e91",
+    "md5": "c38cb8e50321783e413dc5ff292a3ff8",
+    "sha1": "bf6b379c204da77dece1aedf83ff35227a623e5d"
+  },
   "ps:PSXONPSP660.BIN": {
     "size": "524288",
     "crc": "5660f34f",
@@ -2212,5 +2230,17 @@
     "crc": "298dd5b5",
     "md5": "25485721882b050afa96a56e5758dd52",
     "sha1": "eca9cff1014ce5081804e193588d96c6ddb35432"
+  },
+  "xbox:Complex_4627.bin": {
+    "size": "1048576",
+    "crc": "ccb97a84",
+    "md5": "ec00e31e746de2473acfe7903c5a4cb7",
+    "sha1": "6639b6693784574d204c42703a74fd8b088a3a5e"
+  },
+  "xbox:mcpx_1.0.bin": {
+    "size": "512",
+    "crc": "0b07d1f1",
+    "md5": "d49c52a4102f6df7bcf8d0617ac475ed",
+    "sha1": "5d270675b54eb8071b480e42d22a3015ac211cef"
   }
 }
