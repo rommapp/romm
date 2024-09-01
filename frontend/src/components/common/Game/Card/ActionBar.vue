@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import { computed } from "vue";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
@@ -37,7 +37,10 @@ const ruffleEmulationSupported = computed(() => {
         @click="romApi.downloadRom({ rom })"
       />
     </v-col>
-    <v-col class="d-flex">
+    <v-col
+      v-if="ejsEmulationSupported || ruffleEmulationSupported"
+      class="d-flex"
+    >
       <v-btn
         v-if="ejsEmulationSupported"
         class="action-bar-btn-small flex-grow-1"
@@ -67,19 +70,21 @@ const ruffleEmulationSupported = computed(() => {
         variant="text"
       />
     </v-col>
-    <v-menu location="bottom">
-      <template #activator="{ props }">
-        <v-btn
-          class="action-bar-btn-small flex-grow-1"
-          size="x-small"
-          v-bind="props"
-          icon="mdi-dots-vertical"
-          rounded="0"
-          variant="text"
-        />
-      </template>
-      <admin-menu :rom="rom" />
-    </v-menu>
+    <v-col class="d-flex">
+      <v-menu location="bottom">
+        <template #activator="{ props }">
+          <v-btn
+            class="action-bar-btn-small flex-grow-1"
+            size="x-small"
+            v-bind="props"
+            icon="mdi-dots-vertical"
+            rounded="0"
+            variant="text"
+          />
+        </template>
+        <admin-menu :rom="rom" />
+      </v-menu>
+    </v-col>
   </v-row>
 </template>
 
