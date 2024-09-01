@@ -1,7 +1,7 @@
-ARG ALPINE_VERSION=3.19
-ARG NGINX_VERSION=1.27.0
-ARG NODE_VERSION=lts
-ARG PYTHON_VERSION=3.11
+ARG ALPINE_VERSION=3.20
+ARG NGINX_VERSION=1.27.1
+ARG NODE_VERSION=20.16
+ARG PYTHON_VERSION=3.12
 
 # Build frontend
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS front-build-stage
@@ -33,13 +33,46 @@ WORKDIR /src
 COPY ./pyproject.toml ./poetry.lock /src/
 RUN poetry install --no-ansi --no-cache --only main
 
+# Build nginx modules
+FROM alpine:${ALPINE_VERSION} AS nginx-build
+
+RUN apk add --no-cache \
+    gcc \
+    git \
+    libc-dev \
+    make \
+    pcre-dev \
+    zlib-dev
+
+ARG NGINX_VERSION
+# The specified commit SHA is the latest commit on the `master` branch at the time of writing.
+# It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
+# TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
+ARG NGINX_MOD_ZIP_SHA=8e65b82c82c7890f67a6107271c127e9881b6313
+
+# Clone both nginx and `ngx_http_zip_module` repositories, needed to compile the module from source.
+# This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
+# images do not have a simple way to include third-party modules.
+RUN git clone https://github.com/evanmiller/mod_zip.git && \
+    cd ./mod_zip && \
+    git checkout "${NGINX_MOD_ZIP_SHA}" && \
+    cd ../ && \
+    git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
+    cd ./nginx && \
+    ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
+    make -f ./objs/Makefile modules && \
+    chmod 644 ./objs/ngx_http_zip_module.so
+
 # Setup frontend and backend
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim AS production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
+
+COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
+COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
@@ -53,12 +86,15 @@ RUN apk add --no-cache \
     mariadb-connector-c \
     python3 \
     tzdata \
-    redis
+    redis \
+    libmagic \
+    p7zip
 
 COPY ./backend /backend
 
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
+COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # User permissions

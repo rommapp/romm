@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type Body_add_roms_roms_post = {
-  roms: Array<Blob>;
+export type EmulationDict = {
+    DISABLE_EMULATOR_JS: boolean;
+    DISABLE_RUFFLE_RS: boolean;
 };
+

@@ -1,32 +1,51 @@
-import type {
-  AddRomsResponse,
-  MessageResponse,
-  SearchRomSchema,
-} from "@/__generated__";
+import type { MessageResponse, SearchRomSchema } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
-import storeDownload from "@/stores/download";
+import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
+import type { AxiosProgressEvent } from "axios";
 
 export const romApi = api;
 
 async function uploadRoms({
   platformId,
-  romsToUpload,
+  filesToUpload,
 }: {
   platformId: number;
-  romsToUpload: File[];
-}): Promise<{ data: AddRomsResponse }> {
-  const formData = new FormData();
-  romsToUpload.forEach((rom) => formData.append("roms", rom));
+  filesToUpload: File[];
+}): Promise<PromiseSettledResult<unknown>[]> {
+  if (!socket.connected) socket.connect();
+  const uploadStore = storeUpload();
 
-  return api.post("/roms", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    params: { platform_id: platformId },
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+
+    return new Promise((resolve, reject) => {
+      api
+        .post("/roms", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data; boundary=boundary",
+            "X-Upload-Platform": platformId.toString(),
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
   });
+
+  return Promise.allSettled(promises);
 }
 
 async function getRoms({
@@ -67,14 +86,6 @@ async function getRom({
   return api.get(`/roms/${romId}`);
 }
 
-function clearRomFromDownloads({ id }: { id: number }) {
-  const downloadStore = storeDownload();
-  downloadStore.remove(id);
-
-  // Disconnect socket when no more downloads are in progress
-  if (downloadStore.value.length === 0) socket.disconnect();
-}
-
 async function searchRom({
   romId,
   searchTerm,
@@ -93,9 +104,6 @@ async function searchRom({
   });
 }
 
-// Listen for multi-file download completion events
-socket.on("download:complete", clearRomFromDownloads);
-
 // Used only for multi-file downloads
 async function downloadRom({
   rom,
@@ -110,17 +118,6 @@ async function downloadRom({
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-
-  // Only connect socket if multi-file download
-  if (rom.multi && files.length > 1) {
-    if (!socket.connected) socket.connect();
-    storeDownload().add(rom.id);
-
-    // Clear download state after 60 seconds in case error/timeout
-    setTimeout(() => {
-      clearRomFromDownloads(rom);
-    }, 60 * 1000);
-  }
 }
 
 export type UpdateRom = SimpleRom & {
@@ -131,10 +128,12 @@ async function updateRom({
   rom,
   renameAsSource = false,
   removeCover = false,
+  unmatch = false,
 }: {
   rom: UpdateRom;
   renameAsSource?: boolean;
   removeCover?: boolean;
+  unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
@@ -146,7 +145,11 @@ async function updateRom({
   if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
-    params: { rename_as_source: renameAsSource, remove_cover: removeCover },
+    params: {
+      rename_as_source: renameAsSource,
+      remove_cover: removeCover,
+      unmatch_metadata: unmatch,
+    },
   });
 }
 

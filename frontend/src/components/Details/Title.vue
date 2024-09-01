@@ -11,7 +11,7 @@ import { useDisplay } from "vuetify";
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
-  Number(props.rom.first_release_date) * 1000
+  Number(props.rom.first_release_date) * 1000,
 ).toLocaleDateString("en-US", {
   day: "2-digit",
   month: "short",
@@ -44,6 +44,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
         <platform-icon
           :key="platform.slug"
           :slug="platform.slug"
+          :name="platform.name"
           :size="30"
           class="ml-2"
         />

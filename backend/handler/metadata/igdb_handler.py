@@ -1,7 +1,7 @@
 import functools
 import re
 import time
-from typing import Final, NotRequired
+from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -9,7 +9,6 @@ from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
 from handler.redis_handler import sync_cache
 from logger.logger import log
-from typing_extensions import TypedDict
 from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
 

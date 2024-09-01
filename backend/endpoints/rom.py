@@ -1,7 +1,6 @@
-from collections.abc import AsyncIterator
-from datetime import datetime
+import binascii
+from base64 import b64encode
 from shutil import rmtree
-from stat import S_IFREG
 from typing import Annotated
 from urllib.parse import quote
 
@@ -13,84 +12,87 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.rom import (
-    AddRomsResponse,
-    CustomStreamingResponse,
-    DetailedRomSchema,
-    RomSchema,
-    RomUserSchema,
-)
+from endpoints.responses.rom import DetailedRomSchema, RomUserSchema, SimpleRomSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import File, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import Response
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
-from stream_zip import NO_COMPRESSION_32, ZIP_AUTO, AsyncMemberFile, async_stream_zip
+from starlette.requests import ClientDisconnect
+from streaming_form_data import StreamingFormDataParser
+from streaming_form_data.targets import FileTarget, NullTarget
+from utils.filesystem import sanitize_filename
+from utils.hashing import crc32_to_hex
+from utils.nginx import ZipContentLine, ZipResponse
 from utils.router import APIRouter
 
 router = APIRouter()
 
 
 @protected_route(router.post, "/roms", ["roms.write"])
-async def add_roms(
-    request: Request,
-    platform_id: int,
-    roms: list[UploadFile] = File(...),  # noqa: B008
-) -> AddRomsResponse:
-    """Upload roms endpoint (one or more at the same time)
+async def add_rom(request: Request):
+    """Upload single rom endpoint
 
     Args:
         request (Request): Fastapi Request object
-        platform_slug (str): Slug of the platform where to upload the roms
-        roms (list[UploadFile], optional): List of files to upload. Defaults to File(...).
 
     Raises:
         HTTPException: No files were uploaded
-
-    Returns:
-        AddRomsResponse: Standard message response
     """
+    platform_id = request.headers.get("x-upload-platform")
+    filename = request.headers.get("x-upload-filename")
+    if not platform_id or not filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No platform ID or filename provided",
+        ) from None
 
-    platform_fs_slug = db_platform_handler.get_platform(platform_id).fs_slug
-    log.info(f"Uploading roms to {platform_fs_slug}")
-    if roms is None:
-        log.error("No roms were uploaded")
+    db_platform = db_platform_handler.get_platform(int(platform_id))
+    if not db_platform:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Platform not found",
+        ) from None
+
+    platform_fs_slug = db_platform.fs_slug
+    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+    log.info(f"Uploading file to {platform_fs_slug}")
+
+    file_location = Path(f"{roms_path}/{filename}")
+    parser = StreamingFormDataParser(headers=request.headers)
+    parser.register("x-upload-platform", NullTarget())
+    parser.register(filename, FileTarget(str(file_location)))
+
+    if await file_location.exists():
+        log.warning(f" - Skipping {filename} since the file already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File {filename} already exists",
+        ) from None
+
+    async def cleanup_partial_file():
+        if await file_location.exists():
+            await file_location.unlink()
+
+    try:
+        async for chunk in request.stream():
+            parser.data_received(chunk)
+    except ClientDisconnect:
+        log.error("Client disconnected during upload")
+        await cleanup_partial_file()
+    except Exception as exc:
+        log.error("Error uploading files", exc_info=exc)
+        await cleanup_partial_file()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No roms were uploaded",
-        )
+            detail="There was an error uploading the file(s)",
+        ) from exc
 
-    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
-
-    uploaded_roms = []
-    skipped_roms = []
-
-    for rom in roms:
-        if fs_rom_handler.file_exists(roms_path, rom.filename):
-            log.warning(f" - Skipping {rom.filename} since the file already exists")
-            skipped_roms.append(rom.filename)
-            continue
-
-        log.info(f" - Uploading {rom.filename}")
-        file_location = f"{roms_path}/{rom.filename}"
-
-        async with await open_file(file_location, "wb+") as f:
-            while True:
-                chunk = rom.file.read(1024)
-                if not chunk:
-                    break
-                await f.write(chunk)
-
-        uploaded_roms.append(rom.filename)
-
-    return {
-        "uploaded_roms": uploaded_roms,
-        "skipped_roms": skipped_roms,
-    }
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(router.get, "/roms", ["roms.read"])
@@ -102,7 +104,7 @@ def get_roms(
     limit: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
-) -> list[RomSchema]:
+) -> list[SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
@@ -110,7 +112,7 @@ def get_roms(
         id (int, optional): Rom internal id
 
     Returns:
-        list[RomSchema]: List of roms stored in the database
+        list[SimpleRomSchema]: List of roms stored in the database
     """
 
     roms = db_rom_handler.get_roms(
@@ -122,7 +124,7 @@ def get_roms(
         limit=limit,
     )
 
-    return [RomSchema.from_orm_with_request(rom, request) for rom in roms]
+    return [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
 
 
 @protected_route(
@@ -154,7 +156,12 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
     "/roms/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
 )
-def head_rom_content(request: Request, id: int, file_name: str):
+async def head_rom_content(
+    request: Request,
+    id: int,
+    file_name: str,
+    files: Annotated[list[str] | None, Query()] = None,
+):
     """Head rom content endpoint
 
     Args:
@@ -171,20 +178,39 @@ def head_rom_content(request: Request, id: int, file_name: str):
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+    files_to_check = files or [r["filename"] for r in rom.files]
 
-    return FileResponse(
-        path=rom_path if not rom.multi else f"{rom_path}/{rom.files[0]}",
-        filename=file_name,
+    if not rom.multi:
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}",
+            },
+        )
+
+    if len(files_to_check) == 1:
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
+            },
+        )
+
+    return Response(
+        media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{quote(rom.name)}.zip"',
-            "Content-Type": "application/zip",
-            "Content-Length": str(rom.file_size_bytes),
+            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
         },
     )
 
 
-@protected_route(router.get, "/roms/{id}/content/{file_name}", ["roms.read"])
+@protected_route(
+    router.get,
+    "/roms/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+)
 async def get_rom_content(
     request: Request,
     id: int,
@@ -202,7 +228,7 @@ async def get_rom_content(
         FileResponse: Returns one file for single file roms
 
     Yields:
-        CustomStreamingResponse: Streams a file for multi-part roms
+        ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
     rom = db_rom_handler.get_rom(id)
@@ -211,61 +237,49 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = files or rom.files or []
+    files_to_download = sorted(files or [r["filename"] for r in rom.files])
 
     if not rom.multi:
-        return FileResponse(path=rom_path, filename=rom.file_name)
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}",
+            },
+        )
 
     if len(files_to_download) == 1:
-        return FileResponse(
-            path=f"{rom_path}/{files_to_download[0]}", filename=files_to_download[0]
+        return Response(
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
+            },
         )
 
-    # Builds a generator of tuples for each member file
-    async def local_files() -> AsyncIterator[AsyncMemberFile]:
-        async def contents(filename: str) -> AsyncIterator[bytes]:
-            try:
-                async with await open_file(f"{rom_path}/{filename}", "rb") as f:
-                    while chunk := await f.read(65536):
-                        yield chunk
-            except FileNotFoundError:
-                log.error(f"File {rom_path}/{filename} not found!")
-                raise
-
-        async def m3u_file() -> AsyncIterator[bytes]:
-            for file in files_to_download:
-                yield str.encode(f"{file}\n")
-
-        now = datetime.now()
-
-        for f in files_to_download:
-            file_size = (await Path(f"{rom_path}/{f}").stat()).st_size
-            yield (
-                f,
-                now,
-                S_IFREG | 0o600,
-                ZIP_AUTO(file_size, level=0),
-                contents(f),
-            )
-
-        yield (
-            f"{file_name}.m3u",
-            now,
-            S_IFREG | 0o600,
-            NO_COMPRESSION_32,
-            m3u_file(),
+    content_lines = [
+        ZipContentLine(
+            # TODO: Use calculated CRC-32 if available.
+            crc32=None,
+            size_bytes=(await Path(f"{rom_path}/{f}").stat()).st_size,
+            encoded_location=quote(f"/library-zip/{rom.full_path}/{f}"),
+            filename=f,
         )
+        for f in files_to_download
+    ]
 
-    zipped_chunks = async_stream_zip(local_files())
+    m3u_encoded_content = "\n".join([f for f in files_to_download]).encode()
+    m3u_base64_content = b64encode(m3u_encoded_content).decode()
+    m3u_line = ZipContentLine(
+        crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
+        size_bytes=len(m3u_encoded_content),
+        encoded_location=f"/decode?value={m3u_base64_content}",
+        filename=f"{file_name}.m3u",
+    )
 
-    # Streams the zip file to the client
-    return CustomStreamingResponse(
-        zipped_chunks,
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"'
-        },
-        emit_body={"id": rom.id},
+    return ZipResponse(
+        content_lines=content_lines + [m3u_line],
+        filename=f"{quote(file_name)}.zip",
     )
 
 
@@ -276,6 +290,7 @@ async def update_rom(
     rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
+    unmatch_metadata: bool = False,
 ) -> DetailedRomSchema:
     """Update rom endpoint
 
@@ -284,6 +299,7 @@ async def update_rom(
         id (Rom): Rom internal id
         rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
         artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
+        unmatch_metadata: Remove the metadata matches for this game. Defaults to False.
 
     Raises:
         HTTPException: If a rom already have that name when enabling the rename_as_source flag
@@ -298,6 +314,31 @@ async def update_rom(
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
+
+    if unmatch_metadata:
+        db_rom_handler.update_rom(
+            id,
+            {
+                "igdb_id": None,
+                "sgdb_id": None,
+                "moby_id": None,
+                "name": rom.file_name,
+                "summary": "",
+                "url_screenshots": [],
+                "path_screenshots": [],
+                "path_cover_s": "",
+                "path_cover_l": "",
+                "url_cover": "",
+                "slug": "",
+                "igdb_metadata": {},
+                "moby_metadata": {},
+                "revision": "",
+            },
+        )
+
+        return DetailedRomSchema.from_orm_with_request(
+            db_rom_handler.get_rom(id), request
+        )
 
     cleaned_data = {
         "igdb_id": data.get("igdb_id", None),
@@ -335,19 +376,25 @@ async def update_rom(
         }
     )
 
-    fs_safe_file_name = data.get("file_name", rom.file_name).strip().replace("/", "-")
-    fs_safe_name = cleaned_data["name"].strip().replace("/", "-")
-
-    if rename_as_source:
-        fs_safe_file_name = rom.file_name.replace(
-            rom.file_name_no_tags or rom.file_name_no_ext, fs_safe_name
-        )
+    new_file_name = data.get("file_name", rom.file_name)
 
     try:
-        if rom.file_name != fs_safe_file_name:
+        if rename_as_source:
+            new_file_name = rom.file_name.replace(
+                rom.file_name_no_tags or rom.file_name_no_ext,
+                data.get("name", rom.name),
+            )
+            new_file_name = sanitize_filename(new_file_name)
             fs_rom_handler.rename_file(
                 old_name=rom.file_name,
-                new_name=fs_safe_file_name,
+                new_name=new_file_name,
+                file_path=rom.file_path,
+            )
+        elif rom.file_name != new_file_name:
+            new_file_name = sanitize_filename(new_file_name)
+            fs_rom_handler.rename_file(
+                old_name=rom.file_name,
+                new_name=new_file_name,
                 file_path=rom.file_path,
             )
     except RomAlreadyExistsException as exc:
@@ -358,12 +405,12 @@ async def update_rom(
 
     cleaned_data.update(
         {
-            "file_name": fs_safe_file_name,
+            "file_name": new_file_name,
             "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
-                fs_safe_file_name
+                new_file_name
             ),
             "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                fs_safe_file_name
+                new_file_name
             ),
         }
     )

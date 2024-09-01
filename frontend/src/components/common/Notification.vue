@@ -17,7 +17,6 @@ emitter?.on("snackbarShow", (snackbar: SnackbarStatus) => {
   show.value = true;
   snackbarStatus.value = snackbar;
   snackbarStatus.value.id = notificationStore.notifications.length + 1;
-  // notificationStore.add(snackbarStatus.value);
 });
 
 function closeDialog() {

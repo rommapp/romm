@@ -43,7 +43,7 @@ async function filterRoms() {
   } else {
     filteredRoms.value = searchedRoms.value.filter(
       (rom: { platform_name: string }) =>
-        rom.platform_name == selectedPlatform.value?.platform_name
+        rom.platform_name == selectedPlatform.value?.platform_name,
     ) as SimpleRom[];
   }
 }
@@ -73,7 +73,7 @@ async function searchRoms() {
             platform_name: rom.platform_name,
             platform_slug: rom.platform_slug,
           },
-        ])
+        ]),
       ).values(),
     ];
     filterRoms();
@@ -148,6 +148,7 @@ onBeforeUnmount(() => {
                     :size="35"
                     :key="(item as SelectItem).raw.platform_slug"
                     :slug="(item as SelectItem).raw.platform_slug"
+                    :name="(item as SelectItem).raw.platform_name"
                   />
                 </template>
               </v-list-item>
@@ -162,6 +163,7 @@ onBeforeUnmount(() => {
                     :size="35"
                     :key="(item as SelectItem).raw.platform_slug"
                     :slug="(item as SelectItem).raw.platform_slug"
+                    :name="(item as SelectItem).raw.platform_name"
                   />
                 </template>
               </v-list-item>

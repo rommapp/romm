@@ -3,7 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AddRomsResponse = {
-  uploaded_roms: Array<string>;
-  skipped_roms: Array<string>;
+export type RomFile = {
+    filename: string;
+    size: number;
+    last_modified: (number | null);
 };
+

@@ -29,10 +29,11 @@
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
+    "@ruffle-rs/ruffle": "^0.1.0-nightly.2024.7.29",
     "axios": "^1.7.4",
     "core-js": "^3.37.1",
     "cronstrue": "^2.50.0",
-    "emulatorjs": "github:emulatorjs/emulatorjs#v4.0.12",
+    "emulatorjs": "github:emulatorjs/emulatorjs#v4.1.1",
     "file-saver": "^2.0.5",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
