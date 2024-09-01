@@ -134,7 +134,11 @@ function closeDialog() {
             <v-col>
               <v-switch
                 v-model="collection.is_public"
-                :label="collection.is_public ? 'Public (visible to everyone)' : 'Private (only visible to me)'"
+                :label="
+                  collection.is_public
+                    ? 'Public (visible to everyone)'
+                    : 'Private (only visible to me)'
+                "
                 color="romm-accent-1"
                 class="px-2"
                 hide-details
@@ -155,13 +159,15 @@ function closeDialog() {
                 <template #append-inner>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
-                      :disabled="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED"
+                      :disabled="
+                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                      "
                       size="small"
                       class="translucent-dark"
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          collection.name as string
+                          collection.name as string,
                         )
                       "
                     >
