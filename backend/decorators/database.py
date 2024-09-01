@@ -1,6 +1,7 @@
 import functools
 
 from fastapi import HTTPException, status
+from handler.database.base_handler import sync_session
 from logger.logger import log
 from sqlalchemy.exc import ProgrammingError
 
@@ -12,7 +13,7 @@ def begin_session(func):
             return func(*args, **kwargs)
 
         try:
-            with args[0].session.begin() as s:
+            with sync_session.begin() as s:
                 kwargs["session"] = s
                 return func(*args, **kwargs)
         except ProgrammingError as exc:

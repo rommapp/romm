@@ -4,7 +4,7 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import { getSupportedCores } from "@/utils";
+import { getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -26,7 +26,7 @@ onMounted(() => {
   if (props.save) {
     localStorage.setItem(
       `player:${props.rom.id}:save_id`,
-      props.save.id.toString()
+      props.save.id.toString(),
     );
   } else {
     localStorage.removeItem(`player:${props.rom.id}:save_id`);
@@ -35,7 +35,7 @@ onMounted(() => {
   if (props.state) {
     localStorage.setItem(
       `player:${props.rom.id}:state_id`,
-      props.state.id.toString()
+      props.state.id.toString(),
     );
   } else {
     localStorage.removeItem(`player:${props.rom.id}:state_id`);
@@ -44,7 +44,7 @@ onMounted(() => {
   if (props.bios) {
     localStorage.setItem(
       `player:${props.rom.platform_slug}:bios_id`,
-      props.bios.id.toString()
+      props.bios.id.toString(),
     );
   } else {
     localStorage.removeItem(`player:${props.rom.platform_slug}:bios_id`);
@@ -87,7 +87,7 @@ declare global {
   }
 }
 
-const supportedCores = getSupportedCores(romRef.value.platform_slug);
+const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_gameID = romRef.value.id;
@@ -101,7 +101,10 @@ window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
-window.EJS_defaultOptions = { "save-state-location": "browser" };
+window.EJS_defaultOptions = {
+  "save-state-location": "browser",
+  rewindEnabled: "enabled",
+};
 if (romRef.value.name) window.EJS_gameName = romRef.value.name;
 
 function buildStateName(): string {
@@ -140,7 +143,7 @@ async function fetchState(): Promise<Uint8Array> {
   if (stateRef.value) {
     const { data } = await api.get(
       stateRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" }
+      { responseType: "arraybuffer" },
     );
     if (data) {
       window.EJS_emulator.displayMessage("LOADED FROM ROMM");
@@ -150,7 +153,7 @@ async function fetchState(): Promise<Uint8Array> {
 
   if (window.EJS_emulator.saveInBrowserSupported()) {
     const data = await window.EJS_emulator.storage.states.get(
-      window.EJS_emulator.getBaseFileName() + ".state"
+      window.EJS_emulator.getBaseFileName() + ".state",
     );
     if (data) {
       window.EJS_emulator.displayMessage("LOADED FROM BROWSER");
@@ -164,7 +167,7 @@ async function fetchState(): Promise<Uint8Array> {
 
 function downloadFallback(data: BlobPart, name: string) {
   const url = window.URL.createObjectURL(
-    new Blob([data], { type: "application/octet-stream" })
+    new Blob([data], { type: "application/octet-stream" }),
   );
   const a = document.createElement("a");
   a.href = url;
@@ -188,7 +191,7 @@ window.EJS_onSaveState = function ({
   if (window.EJS_emulator.saveInBrowserSupported()) {
     window.EJS_emulator.storage.states.put(
       window.EJS_emulator.getBaseFileName() + ".state",
-      state
+      state,
     );
   }
   if (stateRef.value) {
@@ -212,7 +215,7 @@ window.EJS_onSaveState = function ({
                 stateRef.value.screenshot.file_name,
                 {
                   type: "application/octet-stream",
-                }
+                },
               ),
             })
             .then(({ data }) => {
@@ -258,7 +261,7 @@ window.EJS_onSaveState = function ({
       })
       .then(({ data }) => {
         const allStates = data.states.sort(
-          (a: StateSchema, b: StateSchema) => a.id - b.id
+          (a: StateSchema, b: StateSchema) => a.id - b.id,
         );
         if (romRef.value) romRef.value.user_states = allStates;
         stateRef.value = allStates.pop() ?? null;
@@ -293,7 +296,7 @@ async function fetchSave(): Promise<Uint8Array> {
   if (saveRef.value) {
     const { data } = await api.get(
       saveRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" }
+      { responseType: "arraybuffer" },
     );
     if (data) return new Uint8Array(data);
   }
@@ -304,7 +307,7 @@ async function fetchSave(): Promise<Uint8Array> {
 
 window.EJS_onLoadSave = async function () {
   const sav = await fetchSave();
-  const FS = window.EJS_emulator.Module.FS;
+  const FS = window.EJS_emulator.gameManager.FS;
   const path = window.EJS_emulator.gameManager.getSaveFilePath();
   const paths = path.split("/");
   let cp = "";
@@ -382,7 +385,7 @@ window.EJS_onSaveSave = function ({
       })
       .then(({ data }) => {
         const allSaves = data.saves.sort(
-          (a: SaveSchema, b: SaveSchema) => a.id - b.id
+          (a: SaveSchema, b: SaveSchema) => a.id - b.id,
         );
         if (romRef.value) romRef.value.user_saves = allSaves;
         saveRef.value = allSaves.pop() ?? null;

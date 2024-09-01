@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Notification from "@/components/common/Notification.vue";
+import UploadInProgress from "@/components/common/UploadInProgress.vue";
 import api from "@/services/api/index";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -40,7 +41,7 @@ onBeforeMount(() => {
   <v-app>
     <v-main>
       <notification />
-      <!-- <notification-stack /> -->
+      <upload-in-progress />
       <router-view />
     </v-main>
   </v-app>

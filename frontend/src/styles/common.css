@@ -60,6 +60,12 @@ body {
   border: 1px solid rgba(var(--v-theme-romm-accent-1)) !important;
   transform: scale(1.05);
 }
+#main-app-bar {
+  top: 0 !important;
+}
+#main-app-bar ~ #gallery-app-bar {
+  top: 45px !important;
+}
 /*
 Calculation to fix 100dvh:
 main-app-bar -> 45px

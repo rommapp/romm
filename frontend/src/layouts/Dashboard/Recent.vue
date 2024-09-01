@@ -8,12 +8,20 @@ import { useRouter } from "vue-router";
 
 // Props
 const romsStore = storeRoms();
-const { recentRoms } = storeToRefs(romsStore)
+const { recentRoms } = storeToRefs(romsStore);
 const router = useRouter();
 
 // Functions
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
-  router.push({ name: "rom", params: { rom: emitData.rom.id } });
+  if (emitData.event.metaKey || emitData.event.ctrlKey) {
+    const link = router.resolve({
+      name: "rom",
+      params: { rom: emitData.rom.id },
+    });
+    window.open(link.href, "_blank");
+  } else {
+    router.push({ name: "rom", params: { rom: emitData.rom.id } });
+  }
 }
 </script>
 <template>

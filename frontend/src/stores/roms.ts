@@ -1,5 +1,5 @@
 import type { SearchRomSchema } from "@/__generated__";
-import type { DetailedRomSchema, RomSchema } from "@/__generated__/";
+import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
 import { type Platform } from "@/stores/platforms";
 import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -13,8 +13,7 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 const collectionStore = storeCollection();
 
-export type SimpleRom = RomSchema;
-
+export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
 export default defineStore("roms", {
@@ -24,8 +23,8 @@ export default defineStore("roms", {
     currentRom: null as DetailedRom | null,
     allRoms: [] as SimpleRom[],
     _grouped: [] as SimpleRom[],
-    _filteredIDs: [] as number[],
-    _selectedIDs: [] as number[],
+    _filteredIDs: new Set<number>(),
+    _selectedIDs: new Set<number>(),
     recentRoms: [] as SimpleRom[],
     lastSelectedIndex: -1,
     selecting: false,
@@ -35,9 +34,9 @@ export default defineStore("roms", {
 
   getters: {
     filteredRoms: (state) =>
-      state._grouped.filter((rom) => state._filteredIDs.includes(rom.id)),
+      state._grouped.filter((rom) => state._filteredIDs.has(rom.id)),
     selectedRoms: (state) =>
-      state._grouped.filter((rom) => state._selectedIDs.includes(rom.id)),
+      state._grouped.filter((rom) => state._selectedIDs.has(rom.id)),
   },
 
   actions: {
@@ -116,22 +115,18 @@ export default defineStore("roms", {
           return rom.id === value.id;
         });
       });
-      this._filteredIDs = this._filteredIDs.filter((value) => {
-        return !roms.find((rom) => {
-          return rom.id === value;
-        });
-      });
+      roms.forEach((rom) => this._filteredIDs.delete(rom.id));
     },
     reset() {
       this.allRoms = [];
       this._grouped = [];
-      this._filteredIDs = [];
-      this._selectedIDs = [];
+      this._filteredIDs = new Set<number>();
+      this._selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
     },
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
-      this._filteredIDs = roms.map((rom) => rom.id);
+      this._filteredIDs = new Set(roms.map((rom) => rom.id));
       if (galleryFilter.filterSearch) {
         this._filterSearch(galleryFilter.filterSearch);
       }
@@ -158,68 +153,108 @@ export default defineStore("roms", {
       }
     },
     _filterSearch(searchFilter: string) {
-      this._filteredIDs = this.filteredRoms
-        .filter(
-          (rom) =>
-            rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-            rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase()),
-        )
-        .map((roms) => roms.id);
+      const bySearch = new Set(
+        this.filteredRoms
+          .filter(
+            (rom) =>
+              rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
+              rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase()),
+          )
+          .map((roms) => roms.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = bySearch.intersection(this._filteredIDs);
     },
     _filterUnmatched() {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) => !rom.igdb_id && !rom.moby_id)
-        .map((roms) => roms.id);
+      const byUnmatched = new Set(
+        this.filteredRoms
+          .filter((rom) => !rom.igdb_id && !rom.moby_id)
+          .map((roms) => roms.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byUnmatched.intersection(this._filteredIDs);
     },
     _filterFavourites() {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) => collectionStore.favCollection?.roms?.includes(rom.id))
-        .map((roms) => roms.id);
+      const byFavourites = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            collectionStore.favCollection?.roms?.includes(rom.id),
+          )
+          .map((roms) => roms.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byFavourites.intersection(this._filteredIDs);
     },
     _filterDuplicates() {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) => rom.sibling_roms?.length)
-        .map((rom) => rom.id);
+      const byDuplicates = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.sibling_roms?.length)
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byDuplicates.intersection(this._filteredIDs);
     },
     _filterGenre(genreToFilter: string) {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) => rom.genres.some((genre) => genre === genreToFilter))
-        .map((rom) => rom.id);
+      const byGenre = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.genres.some((genre) => genre === genreToFilter))
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byGenre.intersection(this._filteredIDs);
     },
     _filterFranchise(franchiseToFilter: string) {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) =>
-          rom.franchises.some((franchise) => franchise === franchiseToFilter),
-        )
-        .map((rom) => rom.id);
+      const byFranchise = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.franchises.some((franchise) => franchise === franchiseToFilter),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byFranchise.intersection(this._filteredIDs);
     },
     _filterCollection(collectionToFilter: string) {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) =>
-          rom.collections.some(
-            (collection) => collection === collectionToFilter,
-          ),
-        )
-        .map((rom) => rom.id);
+      const byCollection = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.collections.some(
+              (collection) => collection === collectionToFilter,
+            ),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byCollection.intersection(this._filteredIDs);
     },
     _filterCompany(companyToFilter: string) {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) =>
-          rom.companies.some((company) => company === companyToFilter),
-        )
-        .map((rom) => rom.id);
+      const byCompany = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.companies.some((company) => company === companyToFilter),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byCompany.intersection(this._filteredIDs);
     },
     // Selected roms
     setSelection(roms: SimpleRom[]) {
-      this._selectedIDs = roms.map((rom) => rom.id);
+      this._selectedIDs = new Set(roms.map((rom) => rom.id));
     },
     addToSelection(rom: SimpleRom) {
-      this._selectedIDs.push(rom.id);
+      this._selectedIDs.add(rom.id);
     },
     removeFromSelection(rom: SimpleRom) {
-      this._selectedIDs = this._selectedIDs.filter((id) => {
-        return id !== rom.id;
-      });
+      this._selectedIDs.delete(rom.id);
     },
     updateLastSelected(index: number) {
       this.lastSelectedIndex = index;
@@ -228,7 +263,7 @@ export default defineStore("roms", {
       this.selecting = !this.selecting;
     },
     resetSelection() {
-      this._selectedIDs = [];
+      this._selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
     },
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {

@@ -2,53 +2,73 @@
 # To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
 version: 0.1
 cli:
-  version: 1.22.2
+  version: 1.22.3
 # Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
 plugins:
   sources:
     - id: trunk
-      ref: v1.6.0
+      ref: v1.6.1
       uri: https://github.com/trunk-io/plugins
 # Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
 runtimes:
   enabled:
     - go@1.21.0
     - node@18.12.1
-    - python@3.11.6
+    - python@3.12.2
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
     - markdownlint@0.41.0
-    - eslint@9.6.0
+    - eslint@9.9.0
     - actionlint@1.7.1
     - bandit@1.7.9
-    - black@24.4.2
-    - checkov@3.2.178
+    - black@24.8.0
+    - checkov@3.2.228
     - git-diff-check
     - isort@5.13.2
-    - mypy@1.10.1
-    - osv-scanner@1.8.1
-    - oxipng@9.1.1
-    - prettier@3.3.2
-    - ruff@0.5.1
+    - mypy@1.11.1
+    - osv-scanner@1.8.3
+    - oxipng@9.1.2
+    - prettier@3.3.3
+    - ruff@0.6.0
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.3.2
-    - taplo@0.8.1
-    - trivy@0.52.2
-    - trufflehog@3.79.0
+    - taplo@0.9.3
+    - trivy@0.54.1
+    - trufflehog@3.81.9
     - yamllint@1.35.1
   ignore:
     - linters: [ALL]
       paths:
         - frontend/src/__generated__/**
         - docker/Dockerfile
+        - docker/nginx/js/**
+  files:
+    - name: vue
+      extensions: [vue]
   definitions:
     - name: eslint
-      files: [typescript, javascript]
+      files:
+        - javascript
+        - typescript
       commands:
         - name: lint
           run_from: ${root_or_parent_with_any_config}
+    - name: prettier
+      files:
+        - typescript
+        - yaml
+        - css
+        - postcss
+        - sass
+        - html
+        - markdown
+        - json
+        - javascript
+        - graphql
+        - vue
+        - prettier_supported_configs
 actions:
   disabled:
     - trunk-check-pre-push

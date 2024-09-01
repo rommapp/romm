@@ -11,8 +11,8 @@ from exceptions.fs_exceptions import (
 )
 from fastapi import UploadFile
 from logger.logger import log
-from models.platform import Platform
 from utils.filesystem import iter_files
+from utils.hashing import crc32_to_hex
 
 from .base_handler import FSHandler
 
@@ -27,7 +27,7 @@ class FSFirmwareHandler(FSHandler):
         except IsADirectoryError:
             shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
 
-    def get_firmware(self, platform: Platform):
+    def get_firmware(self, platform_fs_slug: str):
         """Gets all filesystem firmware for a platform
 
         Args:
@@ -35,13 +35,13 @@ class FSFirmwareHandler(FSHandler):
         Returns:
             list with all the filesystem firmware for a platform found in the LIBRARY_BASE_PATH
         """
-        firmware_path = self.get_firmware_fs_structure(platform.fs_slug)
+        firmware_path = self.get_firmware_fs_structure(platform_fs_slug)
         firmware_file_path = f"{LIBRARY_BASE_PATH}/{firmware_path}"
 
         try:
             fs_firmware_files = [f for _, f in iter_files(firmware_file_path)]
         except IndexError as exc:
-            raise FirmwareNotFoundException(platform.fs_slug) from exc
+            raise FirmwareNotFoundException(platform_fs_slug) from exc
 
         return [f for f in self._exclude_files(fs_firmware_files, "single")]
 
@@ -51,13 +51,20 @@ class FSFirmwareHandler(FSHandler):
 
     def calculate_file_hashes(self, firmware_path: str, file_name: str):
         with open(f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}", "rb") as f:
-            data = f.read()
+            crc_c = 0
+            md5_h = hashlib.md5(usedforsecurity=False)
+            sha1_h = hashlib.sha1(usedforsecurity=False)
+
+            # Read in chunks to avoid memory issues
+            while chunk := f.read(8192):
+                md5_h.update(chunk)
+                sha1_h.update(chunk)
+                crc_c = binascii.crc32(chunk, crc_c)
+
             return {
-                "crc_hash": (binascii.crc32(data) & 0xFFFFFFFF)
-                .to_bytes(4, byteorder="big")
-                .hex(),
-                "md5_hash": hashlib.md5(data, usedforsecurity=False).hexdigest(),
-                "sha1_hash": hashlib.sha1(data, usedforsecurity=False).hexdigest(),
+                "crc_hash": crc32_to_hex(crc_c),
+                "md5_hash": md5_h.hexdigest(),
+                "sha1_hash": sha1_h.hexdigest(),
             }
 
     def file_exists(self, path: str, file_name: str):

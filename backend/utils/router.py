@@ -1,4 +1,5 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter as FastAPIRouter
 from fastapi.types import DecoratedCallable
@@ -29,7 +30,9 @@ class APIRouter(FastAPIRouter):
         )
 
         def decorator(func: DecoratedCallable) -> DecoratedCallable:
+            # Path without trailing slash is registered first, for router's `url_path_for` to prefer it.
+            result = add_path(func)
             add_alternate_path(func)
-            return add_path(func)
+            return result
 
         return decorator

@@ -1,7 +1,7 @@
 import pytest
 from handler.scan_handler import ScanType, scan_platform, scan_rom
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from utils.context import initialize_context
 
 
@@ -30,13 +30,17 @@ async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
 
     async with initialize_context():
+        files = [
+            RomFile(
+                filename="Paper Mario (USA).z64",
+                size=1024,
+                last_modified=1620000000,
+            )
+        ]
+
         rom = await scan_rom(
             platform,
-            {
-                "file_name": "Paper Mario (USA).z64",
-                "multi": False,
-                "files": ["Paper Mario (USA).z64"],
-            },
+            {"file_name": "Paper Mario (USA).z64", "multi": False, "files": files},
             ScanType.QUICK,
         )
 
@@ -45,6 +49,6 @@ async def test_scan_rom():
     assert rom.name == "Paper Mario"
     assert rom.igdb_id == 3340
     assert rom.file_size_bytes == 1024
-    assert rom.files == ["Paper Mario (USA).z64"]
+    assert rom.files == files
     assert rom.tags == []
     assert not rom.multi

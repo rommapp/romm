@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDisplay } from "vuetify";
 import AdminMenu from "@/components/Gallery/AppBar/Collection/AdminMenu.vue";
 import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
@@ -8,14 +9,15 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import storeAuth from "@/stores/auth";
 
-// Props
+const { xs } = useDisplay();
 const auth = storeAuth();
 </script>
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
     <filter-btn />
-    <filter-text-field />
+    <filter-text-field v-if="!xs" />
+    <div v-if="xs" class="flex-grow-1" />
     <selecting-btn />
     <gallery-view-btn />
     <v-menu location="bottom">

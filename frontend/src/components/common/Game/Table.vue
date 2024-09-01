@@ -5,10 +5,12 @@ import RAvatar from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import {
   formatBytes,
-  isEmulationSupported,
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
@@ -29,6 +31,7 @@ const router = useRouter();
 const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
+const heartbeatStore = storeHeartbeat();
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
 const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
@@ -81,12 +84,20 @@ function rowClick(_: Event, row: { item: SimpleRom }) {
 
 function updateDataTablePages() {
   pageCount.value = Math.ceil(
-    romsStore.filteredRoms.length / itemsPerPage.value
+    romsStore.filteredRoms.length / itemsPerPage.value,
   );
 }
 
 function updateUrlHash() {
   window.location.hash = String(page.value);
+}
+
+function checkIfEJSEmulationSupported(platformSlug: string) {
+  return isEJSEmulationSupported(platformSlug, heartbeatStore.value);
+}
+
+function checkIfRuffleEmulationSupported(platformSlug: string) {
+  return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
 }
 
 watch(itemsPerPage, async () => {
@@ -136,7 +147,11 @@ onMounted(() => {
           >
           <template #append>
             <v-chip
-              v-if="item.sibling_roms && item.sibling_roms.length > 0 && showSiblings"
+              v-if="
+                item.sibling_roms &&
+                item.sibling_roms.length > 0 &&
+                showSiblings
+              "
               class="translucent-dark ml-2"
               size="x-small"
             >
@@ -175,11 +190,23 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
-          v-if="isEmulationSupported(item.platform_slug)"
+          v-if="checkIfEJSEmulationSupported(item.platform_slug)"
           size="small"
           @click.stop="
             $router.push({
-              name: 'play',
+              name: 'emulatorjs',
+              params: { rom: item?.id },
+            })
+          "
+        >
+          <v-icon>mdi-play</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          size="small"
+          @click.stop="
+            $router.push({
+              name: 'ruffle',
               params: { rom: item?.id },
             })
           "

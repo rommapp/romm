@@ -2,18 +2,15 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import NotRequired, get_type_hints
+from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
-from fastapi.responses import StreamingResponse
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from handler.socket_handler import socket_handler
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from pydantic import BaseModel, Field, computed_field
-from typing_extensions import TypedDict
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
@@ -108,28 +105,16 @@ class RomSchema(BaseModel):
     tags: list[str]
 
     multi: bool
-    files: list[str]
+    files: list[RomFile]
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
     full_path: str
     created_at: datetime
     updated_at: datetime
 
-    rom_user: RomUserSchema | None = Field(default=None)
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
-
     class Config:
         from_attributes = True
-
-    @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> RomSchema:
-        rom = cls.model_validate(db_rom)
-        user_id = request.user.id
-
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        rom.sibling_roms = [
-            RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
-        ]
-
-        return rom
 
     @computed_field  # type: ignore
     @property
@@ -144,10 +129,24 @@ class RomSchema(BaseModel):
         )
 
 
+class SimpleRomSchema(RomSchema):
+    sibling_roms: list[RomSchema] = Field(default_factory=list)
+    rom_user: RomUserSchema | None = Field(default=None)
+
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
+        rom = cls.model_validate(db_rom)
+        user_id = request.user.id
+
+        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+
+        return rom
+
+
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    rom_user: RomUserSchema | None = Field(default=None)
     sibling_roms: list[RomSchema] = Field(default_factory=list)
+    rom_user: RomUserSchema | None = Field(default=None)
     user_saves: list[SaveSchema] = Field(default_factory=list)
     user_states: list[StateSchema] = Field(default_factory=list)
     user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
@@ -161,9 +160,6 @@ class DetailedRomSchema(RomSchema):
 
         rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
         rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
-        rom.sibling_roms = [
-            RomSchema.model_validate(r) for r in db_rom.get_sibling_roms()
-        ]
         rom.user_saves = [
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
@@ -186,18 +182,3 @@ class UserNotesSchema(TypedDict):
     user_id: int
     username: str
     note_raw_markdown: str
-
-
-class AddRomsResponse(TypedDict):
-    uploaded_roms: list[str]
-    skipped_roms: list[str]
-
-
-class CustomStreamingResponse(StreamingResponse):
-    def __init__(self, *args, **kwargs) -> None:
-        self.emit_body = kwargs.pop("emit_body", None)
-        super().__init__(*args, **kwargs)
-
-    async def stream_response(self, *args, **kwargs) -> None:
-        await super().stream_response(*args, **kwargs)
-        await socket_handler.socket_server.emit("download:complete", self.emit_body)

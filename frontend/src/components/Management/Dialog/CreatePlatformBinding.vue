@@ -42,10 +42,10 @@ emitter?.on(
       });
     fsSlugToCreate.value = fsSlug;
     selectedPlatform.value = supportedPlatforms.value?.find(
-      (platform) => platform.slug == slug
+      (platform) => platform.slug == slug,
     );
     show.value = true;
-  }
+  },
 );
 
 // Functions
@@ -60,7 +60,7 @@ function addBindPlatform() {
       if (selectedPlatform.value) {
         configStore.addPlatformBinding(
           fsSlugToCreate.value,
-          selectedPlatform.value.slug
+          selectedPlatform.value.slug,
         );
       }
     })
@@ -136,6 +136,7 @@ function closeDialog() {
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
+                    :name="item.raw.name"
                   />
                 </template>
               </v-list-item>
@@ -147,6 +148,7 @@ function closeDialog() {
                     :size="35"
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
+                    :name="item.raw.name"
                   />
                 </template>
               </v-list-item>
