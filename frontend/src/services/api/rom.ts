@@ -68,6 +68,7 @@ async function getRoms({
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
+      limit: 2500,
     },
   });
 }

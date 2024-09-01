@@ -202,6 +202,7 @@ class IGDBBaseHandler(MetadataHandler):
 
         return wrapper
 
+    # trunk-ignore(ruff/ASYNC109): timeout is used for request
     async def _request(self, url: str, data: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
         try:
