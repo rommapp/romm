@@ -9,7 +9,7 @@ const props = withDefaults(
     size?: number;
     rounded?: number;
   }>(),
-  { size: 40, rounded: 0 }
+  { size: 40, rounded: 0 },
 );
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);

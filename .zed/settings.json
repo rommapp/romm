@@ -1,0 +1,16 @@
+{
+  "languages": {
+    "Python": {
+      "tab_size": 4
+    },
+    "Vue.js": {
+      "tab_size": 2,
+      "formatter": {
+        "external": {
+          "command": "prettier",
+          "arguments": ["--stdin-filepath", "{buffer_path}"]
+        }
+      }
+    }
+  }
+}

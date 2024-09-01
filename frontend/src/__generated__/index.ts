@@ -16,6 +16,7 @@ export type { Body_update_user_api_users__id__put } from './models/Body_update_u
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
+export type { EmulationDict } from './models/EmulationDict';
 export type { FirmwareSchema } from './models/FirmwareSchema';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
@@ -43,6 +44,7 @@ export type { StatsReturn } from './models/StatsReturn';
 export type { TaskDict } from './models/TaskDict';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
+export type { TinfoilFeedTitleDBSchema } from './models/TinfoilFeedTitleDBSchema';
 export type { TokenResponse } from './models/TokenResponse';
 export type { UploadedSavesResponse } from './models/UploadedSavesResponse';
 export type { UploadedScreenshotsResponse } from './models/UploadedScreenshotsResponse';
