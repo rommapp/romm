@@ -250,11 +250,18 @@ export default defineStore("roms", {
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
     },
     _filterAgeRating(ageRatingToFilter: string) {
-      this._filteredIDs = this.filteredRoms
-        .filter((rom) =>
-          rom.age_ratings.some((ageRating) => ageRating === ageRatingToFilter),
-        )
-        .map((rom) => rom.id);
+      const byAgeRating = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.age_ratings.some(
+              (ageRating) => ageRating === ageRatingToFilter,
+            ),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byAgeRating.intersection(this._filteredIDs);
     },
     // Selected roms
     setSelection(roms: SimpleRom[]) {
