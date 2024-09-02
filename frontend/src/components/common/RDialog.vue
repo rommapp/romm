@@ -29,7 +29,7 @@ withDefaults(
     icon: null,
     width: "",
     height: "",
-  }
+  },
 );
 const emit = defineEmits(["update:modelValue", "close"]);
 const hasToolbarSlot = ref(false);

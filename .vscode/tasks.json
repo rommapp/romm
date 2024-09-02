@@ -1,41 +1,42 @@
 {
-	"tasks": [
-		{
-			"label": "Launch frontend",
-			"type": "npm",
-			"path": "frontend",
-			"script": "dev",
-			"problemMatcher": []
-		},
-		{
-			"label": "Launch backend",
-			"type": "shell",
-			"command": "cd backend && poetry run python3 main.py",
-			"problemMatcher": []
-		},
-		{
-			"label": "Launch worker",
-			"type": "shell",
-			"command": "cd backend && poetry run python3 worker.py",
-			"problemMatcher": []
-		},
-		{
-			"label": "Execute tests",
-			"type": "shell",
-			"command": "cd backend && poetry run pytest -vv -c ../pytest.ini",
-			"problemMatcher": []
-		},
-		{
-			"label": "Setup development environment",
-			"type": "shell",
-			"command": "docker compose up -d",
-			"problemMatcher": []
-		},
-		{
-			"label": "Setup testing environment",
-			"type": "shell",
-			"command": "export $(cat .env | grep DB_ROOT_PASSWD | xargs) && docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
-			"problemMatcher": []
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Launch frontend",
+      "type": "npm",
+      "path": "frontend",
+      "script": "dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "Launch backend",
+      "type": "shell",
+      "command": "cd backend && poetry run python3 main.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Launch worker",
+      "type": "shell",
+      "command": "cd backend && poetry run python3 worker.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Execute tests",
+      "type": "shell",
+      "command": "cd backend && poetry run pytest -vv -c ../pytest.ini",
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup development environment",
+      "type": "shell",
+      "command": "docker compose up -d",
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup testing environment",
+      "type": "shell",
+      "command": "export $(cat .env | grep DB_ROOT_PASSWD | xargs) && docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
+      "problemMatcher": []
+    }
+  ]
 }
