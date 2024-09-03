@@ -12,10 +12,17 @@ from typing import Any, Final, TypedDict
 
 import magic
 import py7zr
+import zipfile_deflate64  # trunk-ignore(ruff/F401): Patches zipfile to support deflate64 compression
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from models.rom import RomFile
+from py7zr.exceptions import (
+    Bad7zFile,
+    DecompressionError,
+    PasswordRequired,
+    UnsupportedCompressionMethodError,
+)
 from utils.filesystem import iter_directories, iter_files
 from utils.hashing import crc32_to_hex
 
@@ -108,7 +115,12 @@ def read_7z_file(file_path: Path) -> Iterator[bytes]:
             for _name, bio in f.readall().items():
                 while chunk := bio.read(FILE_READ_CHUNK_SIZE):
                     yield chunk
-    except py7zr.Bad7zFile:
+    except (
+        Bad7zFile,
+        DecompressionError,
+        PasswordRequired,
+        UnsupportedCompressionMethodError,
+    ):
         for chunk in read_basic_file(file_path):
             yield chunk
 
