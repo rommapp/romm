@@ -173,7 +173,7 @@ async def scan_rom(
     metadata_sources: list[str] | None = None,
 ) -> Rom:
     if not metadata_sources:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = ["igdb", "moby", "retro_achievements"]
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
@@ -191,6 +191,9 @@ async def scan_rom(
         "name": fs_rom["file_name"],
         "url_cover": "",
         "url_screenshots": [],
+        "crc_hash": rom.crc_hash if rom else None,
+        "md5_hash": rom.md5_hash if rom else None,
+        "sha1_hash": rom.sha1_hash if rom else None,
     }
 
     # Update properties from existing rom if not a complete rescan
@@ -283,13 +286,33 @@ async def scan_rom(
 
         return MobyGamesRom(moby_id=None)
 
+    async def fetch_ra_info():
+        if (
+            "retro_achievements" in metadata_sources
+            and platform.ra_id
+            and (
+                not rom
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.ra_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.ra_id)
+            )
+        ):
+            return await meta_ra_handler.get_rom(
+                rom_attrs["crc_hash"],
+                rom_attrs["md5_hash"],
+                rom_attrs["sha1_hash"],
+                platform_ra_id=platform.ra_id,
+            )
+
+        return RAGameRom(ra_id=None)
+
     # Run both metadata fetches concurrently
-    igdb_handler_rom, moby_handler_rom = await asyncio.gather(
-        fetch_igdb_rom(), fetch_moby_rom()
+    igdb_handler_rom, moby_handler_rom, ra_handler_info = await asyncio.gather(
+        fetch_igdb_rom(), fetch_moby_rom(), fetch_ra_info()
     )
 
     # Reversed to prioritize IGDB
-    rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
+    rom_attrs.update({**ra_handler_info, **moby_handler_rom, **igdb_handler_rom})
 
     # If not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):

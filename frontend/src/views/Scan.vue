@@ -18,6 +18,12 @@ const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const panels = ref([0]);
 const panelIndex = ref(0);
+const retroAchievements = computed(() => ({
+  name: "RetroAchievements",
+  value: "retro_achievements",
+  logo_path: "/assets/scrappers/ra.webp",
+  disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
+}));
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -31,12 +37,6 @@ const metadataOptions = computed(() => [
     value: "moby",
     logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-  },
-  {
-    name: "RetroAchievements",
-    value: "retro_achievements",
-    logo_path: "/assets/scrappers/ra.webp",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
@@ -87,7 +87,10 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
+    apis: [
+      ...metadataSources.value.map((s) => s.value),
+      retroAchievements.value.value,
+    ],
   });
 }
 

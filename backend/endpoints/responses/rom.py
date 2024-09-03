@@ -67,6 +67,7 @@ class RomSchema(BaseModel):
     igdb_id: int | None
     sgdb_id: int | None
     moby_id: int | None
+    ra_id: int | None
 
     platform_id: int
     platform_slug: str

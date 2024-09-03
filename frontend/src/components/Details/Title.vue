@@ -11,7 +11,7 @@ import { useDisplay } from "vuetify";
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
-  Number(props.rom.first_release_date) * 1000
+  Number(props.rom.first_release_date) * 1000,
 ).toLocaleDateString("en-US", {
   day: "2-digit",
   month: "short",
