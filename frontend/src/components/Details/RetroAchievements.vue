@@ -13,9 +13,9 @@ const authorization = buildAuthorization({
 
 // Then, make the API call.
 const gameExtended = await getGameInfoAndUserProgress(authorization, {
-  gameId: props.rom.ra_id,
+  gameId: props.rom.ra_id as number,
   username: "NikkitaFTW",
-  shouldIncludeHighestAwardMetadata: 1,
+  shouldIncludeHighestAwardMetadata: true,
 });
 </script>
 <template>
@@ -27,7 +27,10 @@ const gameExtended = await getGameInfoAndUserProgress(authorization, {
           if (!a.dateEarned) return 1;
           return -1;
         })
-        .sort((a, b) => new Date(b.dateEarned) - new Date(a.dateEarned))"
+        .sort(
+          (a, b) =>
+            (new Date(b.dateEarned) as any) - (new Date(a.dateEarned) as any),
+        )"
       :key="achievement.id"
       width="100%"
       class="d-flex pa-4"
