@@ -23,7 +23,13 @@ const auth = storeAuth();
 
 <template>
   <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
-    <platform-icon v-if="currentPlatform" :slug="currentPlatform.slug" :name="currentPlatform.name":size="36" class="mx-2" />
+    <platform-icon
+      v-if="currentPlatform"
+      :slug="currentPlatform.slug"
+      :name="currentPlatform.name"
+      :size="36"
+      class="mx-2"
+    />
     <firmware-btn />
     <filter-btn />
     <filter-text-field v-if="!xs" />

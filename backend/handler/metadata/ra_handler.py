@@ -1,6 +1,5 @@
 import asyncio
 import http
-import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
@@ -13,76 +12,27 @@ from logger.logger import log
 from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
 
-from .base_hander import (
-    PS2_OPL_REGEX,
-    SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
-    SWITCH_TITLEDB_REGEX,
-    MetadataHandler,
-)
+from .base_hander import MetadataHandler
 
 # Used to display the RetroAchievements API status in the frontend
 RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY) and bool(
     RETROACHIEVEMENTS_USERNAME
 )
 
-PS1_MOBY_ID: Final = 6
-PS2_MOBY_ID: Final = 7
-PSP_MOBY_ID: Final = 46
-SWITCH_MOBY_ID: Final = 203
-ARCADE_MOBY_IDS: Final = [143, 36]
-
 
 class RAGamesPlatform(TypedDict):
     slug: str
-    moby_id: int | None
+    ra_id: int | None
     name: NotRequired[str]
-
-
-class RAMetadataPlatform(TypedDict):
-    ra_id: int
-    name: str
-
-
-class RAMetadata(TypedDict):
-    moby_score: str
-    genres: list[str]
-    alternate_titles: list[str]
-    platforms: list[RAMetadataPlatform]
 
 
 class RAGameRom(TypedDict):
-    moby_id: int | None
-    slug: NotRequired[str]
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
-    moby_metadata: NotRequired[RAMetadata]
-
-
-def extract_metadata_from_moby_rom(rom: dict) -> RAMetadata:
-    return RAMetadata(
-        {
-            "moby_score": str(rom.get("moby_score", "")),
-            "genres": rom.get("genres.genre_name", []),
-            "alternate_titles": rom.get("alternate_titles.title", []),
-            "platforms": [
-                {
-                    "moby_id": p["platform_id"],
-                    "name": p["platform_name"],
-                }
-                for p in rom.get("platforms", [])
-            ],
-        }
-    )
+    ra_id: int | None
 
 
 class RetroAchievementsHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.platform_url = (
-            "https://retroachievements.org/API/API_GetGameList.php?&h=1&f=1"
-        )
+        self.platform_url = "https://retroachievements.org/API/API_GetGameList.php"
         self.games_url = "https://api.mobygames.com/v1/games"
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
@@ -133,35 +83,25 @@ class RetroAchievementsHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(self, search_term: str, platform_moby_id: int) -> dict | None:
-        if not platform_moby_id:
+    async def _search_rom(
+        self, crc_hash: str, md5_hash: str, sha1_hash: str, platform_ra_id: int
+    ) -> dict | None:
+
+        if not platform_ra_id:
             return None
 
-        search_term = uc(search_term)
-        url = yarl.URL(self.games_url).with_query(
-            platform=[platform_moby_id],
-            title=quote(search_term, safe="/ "),
+        url = yarl.URL(self.platform_url).with_query(
+            i=[platform_ra_id], h=["1"], f=["1"]
         )
-        roms = (await self._request(str(url))).get("games", [])
+        roms = await self._request(str(url))
+        for rom in roms:
+            if md5_hash in rom["Hashes"]:
+                return rom
 
-        exact_matches = [
-            rom
-            for rom in roms
-            if (
-                rom["title"].lower() == search_term.lower()
-                or (
-                    self._normalize_exact_match(rom["title"])
-                    == self._normalize_exact_match(search_term)
-                )
-            )
-        ]
-
-        return pydash.get(exact_matches or roms, "[0]", None)
+        return None
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         platform = SLUG_TO_RA_ID.get(slug.lower(), None)
-
-        print(platform)
 
         if not platform:
             return RAGamesPlatform(ra_id=None, slug=slug)
@@ -172,115 +112,37 @@ class RetroAchievementsHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, file_name: str, platform_moby_id: int) -> RAGameRom:
-        from handler.filesystem import fs_rom_handler
-
+    async def get_rom(
+        self, crc_hash: str, md5_hash: str, sha1_hash: str, platform_ra_id: int
+    ) -> RAGameRom:
         if not RA_API_ENABLED:
-            return RAGameRom(moby_id=None)
+            return RAGameRom(ra_id=None)
 
-        if not platform_moby_id:
-            return RAGameRom(moby_id=None)
+        if not platform_ra_id:
+            return RAGameRom(ra_id=None)
 
-        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
-        fallback_rom = RAGameRom(moby_id=None)
-
-        # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(file_name)
-        if platform_moby_id == PS2_MOBY_ID and match:
-            search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = RAGameRom(moby_id=None, name=search_term)
-
-        # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
-        if platform_moby_id == PS1_MOBY_ID and match:
-            search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = RAGameRom(moby_id=None, name=search_term)
-
-        if platform_moby_id == PS2_MOBY_ID and match:
-            search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = RAGameRom(moby_id=None, name=search_term)
-
-        if platform_moby_id == PSP_MOBY_ID and match:
-            search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = RAGameRom(moby_id=None, name=search_term)
-
-        # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(file_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
-            search_term, index_entry = await self._switch_titledb_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = RAGameRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
-            search_term, index_entry = await self._switch_productid_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = RAGameRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for MAME arcade filename format
-        if platform_moby_id in ARCADE_MOBY_IDS:
-            search_term = await self._mame_format(search_term)
-            fallback_rom = RAGameRom(moby_id=None, name=search_term)
-
-        search_term = self.normalize_search_term(search_term)
-        res = await self._search_rom(search_term, platform_moby_id)
-
-        # Split the search term since mobygames search doesn't support special caracters
-        if not res and ":" in search_term:
-            for term in search_term.split(":")[::-1]:
-                res = await self._search_rom(term, platform_moby_id)
-                if res:
-                    break
-
-        # Some MAME games have two titles split by a slash
-        if not res and "/" in search_term:
-            for term in search_term.split("/"):
-                res = await self._search_rom(term.strip(), platform_moby_id)
-                if res:
-                    break
+        fallback_rom = RAGameRom(ra_id=None)
+        res = await self._search_rom(crc_hash, md5_hash, sha1_hash, platform_ra_id)
 
         if not res:
             return fallback_rom
 
-        rom = {
-            "moby_id": res["game_id"],
-            "name": res["title"],
-            "slug": res["moby_url"].split("/")[-1],
-            "summary": res.get("description", ""),
-            "url_cover": pydash.get(res, "sample_cover.image", ""),
-            "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-            "moby_metadata": extract_metadata_from_moby_rom(res),
-        }
+        return RAGameRom(
+            {
+                "ra_id": res["ID"],
+            }
+        )  # type: ignore[misc]
 
-        return RAGameRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
-
-    async def get_rom_by_id(self, moby_id: int) -> RAGameRom:
+    async def get_rom_by_id(self, ra_id: int) -> RAGameRom:
         if not RA_API_ENABLED:
-            return RAGameRom(moby_id=None)
+            return RAGameRom(ra_id=None)
 
-        url = yarl.URL(self.games_url).with_query(id=moby_id)
+        url = yarl.URL(self.games_url).with_query(id=ra_id)
         roms = (await self._request(str(url))).get("games", [])
         res = pydash.get(roms, "[0]", None)
 
         if not res:
-            return RAGameRom(moby_id=None)
+            return RAGameRom(ra_id=None)
 
         rom = {
             "moby_id": res["game_id"],
@@ -289,17 +151,16 @@ class RetroAchievementsHandler(MetadataHandler):
             "summary": res.get("description", None),
             "url_cover": pydash.get(res, "sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-            "moby_metadata": extract_metadata_from_moby_rom(res),
         }
 
         return RAGameRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_matched_roms_by_id(self, moby_id: int) -> list[RAGameRom]:
+    async def get_matched_roms_by_id(self, ra_id: int) -> list[RAGameRom]:
         if not RA_API_ENABLED:
             return []
 
-        rom = await self.get_rom_by_id(moby_id)
-        return [rom] if rom["moby_id"] else []
+        rom = await self.get_rom_by_id(ra_id)
+        return [rom] if rom["ra_id"] else []
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_moby_id: int
@@ -329,7 +190,6 @@ class RetroAchievementsHandler(MetadataHandler):
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
                         ],
-                        "moby_metadata": extract_metadata_from_moby_rom(rom),
                     }.items()
                     if v
                 }
@@ -338,12 +198,12 @@ class RetroAchievementsHandler(MetadataHandler):
         ]
 
 
-class SlugToMobyId(TypedDict):
+class SlugToRAId(TypedDict):
     id: int
     name: str
 
 
-SLUG_TO_RA_ID: dict[str, SlugToMobyId] = {
+SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "3do": {"id": 43, "name": "3DO"},
     "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
