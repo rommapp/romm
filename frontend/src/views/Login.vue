@@ -42,7 +42,7 @@ async function login() {
       });
 
       console.error(
-        `[${response.status} ${response.statusText}] ${errorMessage}`
+        `[${response.status} ${response.statusText}] ${errorMessage}`,
       );
     })
     .finally(() => {
@@ -117,7 +117,9 @@ async function login() {
     </v-card>
 
     <div id="version" class="position-absolute">
-      <span class="text-white text-shadow">{{ heartbeatStore.value.VERSION }}</span>
+      <span class="text-white text-shadow">{{
+        heartbeatStore.value.VERSION
+      }}</span>
     </div>
   </v-container>
 </template>
