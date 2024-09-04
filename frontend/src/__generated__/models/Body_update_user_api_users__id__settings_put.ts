@@ -3,9 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type MetadataSourcesDict = {
-    IGDB_API_ENABLED: boolean;
-    MOBY_API_ENABLED: boolean;
-    STEAMGRIDDB_ENABLED: boolean;
+export type Body_update_user_api_users__id__settings_put = {
+    avatar?: (Blob | null);
 };
 

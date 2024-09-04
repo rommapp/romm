@@ -14,11 +14,6 @@ from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
 
-# Used to display the RetroAchievements API status in the frontend
-RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY) and bool(
-    RETROACHIEVEMENTS_USERNAME
-)
-
 
 class RAGamesPlatform(TypedDict):
     slug: str

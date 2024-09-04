@@ -13,6 +13,7 @@ export type { Body_token_api_token_post } from './models/Body_token_api_token_po
 export type { Body_update_collection_api_collections__id__put } from './models/Body_update_collection_api_collections__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
 export type { Body_update_user_api_users__id__put } from './models/Body_update_user_api_users__id__put';
+export type { Body_update_user_api_users__id__settings_put } from './models/Body_update_user_api_users__id__settings_put';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';

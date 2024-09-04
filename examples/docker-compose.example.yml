@@ -20,8 +20,6 @@ services:
       - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
       - MOBYGAMES_API_KEY= # https://www.mobygames.com/info/api/
       - STEAMGRIDDB_API_KEY # https://github.com/rommapp/romm/wiki/Generate-API-Keys#steamgriddb
-      - RETROACHIEVEMENTS_API_KEY # https://api-docs.retroachievements.org/#api-access
-      - RETROACHIEVEMENTS_USERNAME # https://api-docs.retroachievements.org/#api-access
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
