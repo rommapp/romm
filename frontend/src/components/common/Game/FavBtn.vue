@@ -49,7 +49,7 @@ async function switchFromFavourites() {
   } else {
     if (favCollection.value) {
       favCollection.value.roms = favCollection.value.roms.filter(
-        (id) => id !== props.rom.id
+        (id) => id !== props.rom.id,
       );
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
         romsStore.remove([props.rom]);

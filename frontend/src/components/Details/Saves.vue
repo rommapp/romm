@@ -60,7 +60,7 @@ async function downloasSaves() {
 function updateDataTablePages() {
   if (props.rom.user_saves) {
     pageCount.value = Math.ceil(
-      props.rom.user_saves.length / itemsPerPage.value
+      props.rom.user_saves.length / itemsPerPage.value,
     );
   }
 }

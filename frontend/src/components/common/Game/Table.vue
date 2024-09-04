@@ -16,7 +16,7 @@ import {
 } from "@/utils";
 import { isNull } from "lodash";
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch } from "vue";
+import { inject, onMounted, ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
@@ -77,6 +77,10 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
+const selectedRomIDs = computed(() =>
+  romsStore.selectedRoms.map((rom) => rom.id),
+);
+
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: "rom", params: { rom: row.item.id } });
@@ -98,6 +102,14 @@ function checkIfEJSEmulationSupported(platformSlug: string) {
 
 function checkIfRuffleEmulationSupported(platformSlug: string) {
   return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
+}
+
+function updateSelectedRom(rom: SimpleRom) {
+  if (selectedRomIDs.value.includes(rom.id)) {
+    romsStore.removeFromSelection(rom);
+  } else {
+    romsStore.addToSelection(rom);
+  }
 }
 
 watch(itemsPerPage, async () => {
@@ -123,7 +135,7 @@ onMounted(() => {
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
     :headers="HEADERS"
-    v-model="romsStore._selectedIDs"
+    v-model="selectedRomIDs"
     v-model:page="page"
     show-select
     fixed-header
@@ -131,6 +143,13 @@ onMounted(() => {
     hide-default-footer
     hover
   >
+    <template #item.data-table-select="{ item }">
+      <v-checkbox-btn
+        :value="item.id"
+        @click.stop
+        @click="updateSelectedRom(item)"
+      />
+    </template>
     <template #item.name="{ item }">
       <td class="name-row">
         <v-list-item class="px-0">
