@@ -23,6 +23,7 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import storeAuth from "@/stores/auth";
 
 // Props
 const route = useRoute();
@@ -41,6 +42,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
+const auth = storeAuth();
+
 // Functions
 async function fetchDetails() {
   await romApi
@@ -153,7 +156,11 @@ watch(
             <v-tab value="saves" rounded="0"> Saves </v-tab>
             <v-tab value="states" rounded="0"> States </v-tab>
             <v-tab
-              v-if="currentRom.ra_id"
+              v-if="
+                currentRom.ra_id &&
+                auth.user?.ra_username &&
+                auth.user.ra_api_key
+              "
               value="retro_achievements"
               rounded="0"
             >

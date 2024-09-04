@@ -55,6 +55,21 @@ async function updateUser({
   );
 }
 
+async function updateUserRetroAchievements({
+  id,
+  ra_username,
+  ra_api_key,
+}: {
+  id: number;
+  ra_api_key: string | null;
+  ra_username: string | null;
+}): Promise<{ data: UserSchema }> {
+  return api.put(`/users/${id}/settings`, {
+    ra_username,
+    ra_api_key,
+  });
+}
+
 async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
@@ -66,4 +81,5 @@ export default {
   fetchCurrentUser,
   updateUser,
   deleteUser,
+  updateUserRetroAchievements,
 };

@@ -33,7 +33,7 @@ async function logout() {
       color: "green",
     });
   });
-  
+
   await router.push({ name: "login" });
   auth.setUser(null);
 }
@@ -72,7 +72,7 @@ async function logout() {
         >Profile</v-list-item
       >
       <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
-        >UI Settings</v-list-item
+        >Settings</v-list-item
       >
       <v-list-item
         v-if="scopes.includes('platforms.write')"

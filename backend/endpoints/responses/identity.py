@@ -13,6 +13,8 @@ class UserSchema(BaseModel):
     avatar_path: str
     last_login: datetime | None
     last_active: datetime | None
+    ra_api_key: str | None = None
+    ra_username: str | None = None
 
     created_at: datetime
     updated_at: datetime
