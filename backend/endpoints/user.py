@@ -204,42 +204,25 @@ async def update_user(
     """
 
     db_user = db_user_handler.get_user(id)
-    print(form_data.ra_api_key, form_data.ra_username)
 
-    # if not db_user:
-
-    msg = f"Username with id {id} not found"
-    log.error(msg)
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    if not db_user:
+        msg = f"Username with id {id} not found"
+        log.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
 
     # Admin users can edit any user, while other users can only edit self
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     cleaned_data = {}
+    if form_data.ra_username:
+        cleaned_data["ra_username"] = form_data.ra_username
 
-    if form_data.password:
-        cleaned_data["hashed_password"] = auth_handler.get_password_hash(
-            form_data.password
-        )
-
-    # You can't change your own role
-    if form_data.role and request.user.id != id:
-        cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
-
-    # You can't disable yourself
-    if form_data.enabled is not None and request.user.id != id:
-        cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
+    if form_data.ra_api_key:
+        cleaned_data["ra_api_key"] = form_data.ra_api_key
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
-
-        # Log out the current user if username or password changed
-        creds_updated = cleaned_data.get("username") or cleaned_data.get(
-            "hashed_password"
-        )
-        if request.user.id == id and creds_updated:
-            request.session.clear()
 
     return db_user_handler.get_user(id)
 
