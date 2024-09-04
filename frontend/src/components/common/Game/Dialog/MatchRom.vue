@@ -135,7 +135,7 @@ function confirm() {
   updateRom(
     Object.assign(selectedMatchRom.value, {
       url_cover: selectedCover.value.url_cover,
-    })
+    }),
   );
   closeDialog();
 }

@@ -68,6 +68,7 @@ async function getRoms({
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
+      limit: 2500,
     },
   });
 }
@@ -128,10 +129,12 @@ async function updateRom({
   rom,
   renameAsSource = false,
   removeCover = false,
+  unmatch = false,
 }: {
   rom: UpdateRom;
   renameAsSource?: boolean;
   removeCover?: boolean;
+  unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
@@ -143,7 +146,11 @@ async function updateRom({
   if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
-    params: { rename_as_source: renameAsSource, remove_cover: removeCover },
+    params: {
+      rename_as_source: renameAsSource,
+      remove_cover: removeCover,
+      unmatch_metadata: unmatch,
+    },
   });
 }
 

@@ -12,8 +12,9 @@ def str_to_bool(value: str) -> bool:
 
 
 # GUNICORN
-DEV_PORT: Final = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
-DEV_HOST: Final = "127.0.0.1"
+DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
+DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
+DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
 GUNICORN_WORKERS: Final = int(os.environ.get("GUNICORN_WORKERS", 2))
 
 # PATHS

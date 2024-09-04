@@ -6,7 +6,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
@@ -55,26 +55,27 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-async function updateRom() {
-  if (!rom.value) return;
+const noMetadataMatch = computed(() => {
+  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.sgdb_id;
+});
 
-  if (!rom.value.file_name) {
-    emitter?.emit("snackbarShow", {
-      msg: "Cannot save: file name is required",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  }
-
+async function handleRomUpdate(
+  options: {
+    rom: UpdateRom;
+    renameAsSource?: boolean;
+    removeCover?: boolean;
+    unmatch?: boolean;
+  },
+  successMessage: string,
+) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await romApi
-    .updateRom({ rom: rom.value, removeCover: removeCover.value })
+    .updateRom(options)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: "Rom updated successfully!",
+        msg: successMessage,
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -95,6 +96,30 @@ async function updateRom() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       closeDialog();
     });
+}
+
+async function unmatchRom() {
+  if (!rom.value) return;
+  await handleRomUpdate(
+    { rom: rom.value, unmatch: true },
+    "Rom unmatched successfully",
+  );
+}
+
+async function updateRom() {
+  if (!rom.value?.file_name) {
+    emitter?.emit("snackbarShow", {
+      msg: "Cannot save: file name is required",
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+    return;
+  }
+
+  await handleRomUpdate(
+    { rom: rom.value, removeCover: removeCover.value },
+    "Rom updated successfully!",
+  );
 }
 
 function closeDialog() {
@@ -164,9 +189,29 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="updateRom()"
+                @keyup.enter="updateRom"
               />
             </v-col>
+          </v-row>
+          <v-row class="justify-space-between mt-4 mb-2 mx-2" no-gutters>
+            <v-btn-group divided density="compact">
+              <v-btn
+                :disabled="noMetadataMatch"
+                :class="` ${
+                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
+                }`"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                Unmatch Rom
+              </v-btn>
+            </v-btn-group>
+            <v-btn-group divided density="compact">
+              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+                Save
+              </v-btn>
+            </v-btn-group>
           </v-row>
         </v-col>
         <v-col>
@@ -220,16 +265,6 @@ function closeDialog() {
             </v-col>
           </v-row>
         </v-col>
-      </v-row>
-    </template>
-    <template #append>
-      <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-            Apply
-          </v-btn>
-        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>

@@ -146,13 +146,15 @@ function closeDialog() {
                 <template #append-inner>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
-                      :disabled="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED"
+                      :disabled="
+                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                      "
                       size="small"
                       class="translucent-dark"
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          collection.name as string
+                          collection.name as string,
                         )
                       "
                     >
