@@ -6,7 +6,6 @@ from urllib.parse import quote
 import httpx
 import pydash
 import yarl
-from config import RETROACHIEVEMENTS_API_KEY, RETROACHIEVEMENTS_USERNAME
 from fastapi import HTTPException, status
 from logger.logger import log
 from unidecode import unidecode as uc
@@ -34,8 +33,8 @@ class RetroAchievementsHandler(MetadataHandler):
         httpx_client = ctx_httpx_client.get()
         authorized_url = (
             yarl.URL(url)
-            .update_query(z=RETROACHIEVEMENTS_USERNAME)
-            .update_query(y=RETROACHIEVEMENTS_API_KEY)
+            # .update_query(z=RETROACHIEVEMENTS_USERNAME)
+            # .update_query(y=RETROACHIEVEMENTS_API_KEY)
         )
         try:
             res = await httpx_client.get(str(authorized_url), timeout=timeout)
@@ -199,21 +198,21 @@ class SlugToRAId(TypedDict):
 
 
 SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
-    "3do": {"id": 43, "name": "3DO"},
+    # "3do": {"id": 43, "name": "3DO"},
     "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
     "apple2": {"id": 38, "name": "Apple II"},
     "appleii": {"id": 38, "name": "Apple II"},
-    "arcade": {"id": 27, "name": "Arcade"},
+    # "arcade": {"id": 27, "name": "Arcade"},
     "arcadia-2001": {"id": 73, "name": "Arcadia 2001"},
-    "arduboy": {"id": 71, "name": "Arduboy"},
+    # "arduboy": {"id": 71, "name": "Arduboy"},
     "atari-2600": {"id": 25, "name": "Atari 2600"},
     "atari2600": {"id": 25, "name": "Atari 2600"},  # IGDB
     "atari-7800": {"id": 51, "name": "Atari 7800"},
     "atari7800": {"id": 51, "name": "Atari 7800"},  # IGDB
-    "atari-jaguar-cd": {"id": 77, "name": "Atari Jaguar CD"},
+    # "atari-jaguar-cd": {"id": 77, "name": "Atari Jaguar CD"},
     "colecovision": {"id": 44, "name": "ColecoVision"},
-    "dreamcast": {"id": 40, "name": "Dreamcast"},
+    # "dreamcast": {"id": 40, "name": "Dreamcast"},
     "dc": {"id": 40, "name": "Dreamcast"},  # IGDB
     "gameboy": {"id": 4, "name": "Game Boy"},
     "gb": {"id": 4, "name": "Game Boy"},  # IGDB
@@ -223,8 +222,8 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "gbc": {"id": 6, "name": "Game Boy Color"},  # IGDB
     "game-gear": {"id": 15, "name": "Game Gear"},
     "gamegear": {"id": 15, "name": "Game Gear"},  # IGDB
-    "gamecube": {"id": 16, "name": "GameCube"},
-    "ngc": {"id": 14, "name": "GameCube"},  # IGDB
+    # "gamecube": {"id": 16, "name": "GameCube"},
+    # "ngc": {"id": 14, "name": "GameCube"},  # IGDB
     "genesis": {"id": 1, "name": "Genesis/Mega Drive"},
     "genesis-slash-megadrive": {"id": 16, "name": "Genesis/Mega Drive"},
     "intellivision": {"id": 45, "name": "Intellivision"},
@@ -232,35 +231,35 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "lynx": {"id": 13, "name": "Lynx"},
     "msx": {"id": 29, "name": "MSX"},
     "mega-duck-slash-cougar-boy": {"id": 69, "name": "Mega Duck/Cougar Boy"},
-    "nes": {"id": 7, "name": "NES"},
-    "famicom": {"id": 7, "name": "NES"},
-    "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
+    # "nes": {"id": 7, "name": "NES"},
+    # "famicom": {"id": 7, "name": "NES"},
+    # "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
     "neo-geo-pocket": {"id": 14, "name": "Neo Geo Pocket"},
     "neo-geo-pocket-color": {"id": 14, "name": "Neo Geo Pocket Color"},
     "n64": {"id": 2, "name": "Nintendo 64"},
-    "nintendo-ds": {"id": 18, "name": "Nintendo DS"},
-    "nds": {"id": 18, "name": "Nintendo DS"},  # IGDB
+    # "nintendo-ds": {"id": 18, "name": "Nintendo DS"},
+    # "nds": {"id": 18, "name": "Nintendo DS"},  # IGDB
     "nintendo-dsi": {"id": 78, "name": "Nintendo DSi"},
     "odyssey-2": {"id": 23, "name": "Odyssey 2"},
     "pc-8000": {"id": 47, "name": "PC-8000"},
     "pc-8800-series": {"id": 47, "name": "PC-8800 Series"},  # IGDB
     "pc-fx": {"id": 49, "name": "PC-FX"},
-    "psp": {"id": 41, "name": "PSP"},
-    "playstation": {"id": 12, "name": "PlayStation"},
-    "ps": {"id": 12, "name": "PlayStation"},  # IGDB
-    "ps2": {"id": 21, "name": "PlayStation 2"},
+    # "psp": {"id": 41, "name": "PSP"},
+    # "playstation": {"id": 12, "name": "PlayStation"},
+    # "ps": {"id": 12, "name": "PlayStation"},  # IGDB
+    # "ps2": {"id": 21, "name": "PlayStation 2"},
     "pokemon-mini": {"id": 24, "name": "Pokémon Mini"},
-    "saturn": {"id": 39, "name": "Sega Saturn"},
+    # "saturn": {"id": 39, "name": "Sega Saturn"},
     "sega-32x": {"id": 10, "name": "SEGA 32X"},
     "sega32": {"id": 10, "name": "SEGA 32X"},  # IGDB
-    "sega-cd": {"id": 9, "name": "SEGA CD"},
-    "segacd": {"id": 9, "name": "SEGA CD"},  # IGDB
+    # "sega-cd": {"id": 9, "name": "SEGA CD"},
+    # "segacd": {"id": 9, "name": "SEGA CD"},  # IGDB
     "sega-master-system": {"id": 11, "name": "SEGA Master System"},
     "sms": {"id": 11, "name": "SEGA Master System"},  # IGDB
     "sg-1000": {"id": 33, "name": "SG-1000"},
     "snes": {"id": 3, "name": "SNES"},
-    "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
-    "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
+    # "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
+    # "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
     "turbo-grafx": {"id": 8, "name": "TurboGrafx-16"},
     "turbografx16--1": {"id": 8, "name": "TurboGrafx-16"},  # IGDB
     "vectrex": {"id": 26, "name": "Vectrex"},
