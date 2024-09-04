@@ -32,6 +32,8 @@ class User(BaseModel, SimpleUser):
     enabled: Mapped[bool] = mapped_column(default=True)
     role: Mapped[Role | None] = mapped_column(Enum(Role), default=Role.VIEWER)
     avatar_path: Mapped[str | None] = mapped_column(String(length=255), default="")
+    ra_username: Mapped[str | None] = mapped_column(String(length=255), default="")
+    ra_api_key: Mapped[str | None] = mapped_column(String(length=255), default="")
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

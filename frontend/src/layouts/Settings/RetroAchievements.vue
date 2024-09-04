@@ -5,13 +5,23 @@ import { inject, ref } from "vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import userApi from "@/services/api/user";
+import { watch } from "vue";
 
 const valid = ref(false);
-const username = ref("");
-const apiKey = ref("");
 const auth = storeAuth();
+const apiKey = ref(auth.user?.ra_api_key);
+const username = ref(auth.user?.ra_username);
+
+watch(
+  auth,
+  (newAuth) => {
+    apiKey.value = newAuth.user?.ra_api_key;
+    username.value = newAuth.user?.ra_username;
+  },
+  { deep: true },
+);
+
 const emitter = inject<Emitter<Events>>("emitter");
-console.log(auth.user);
 const rules = [
   (value: string) => {
     if (value) return true;
@@ -51,7 +61,17 @@ function editUser() {
   <r-section icon="mdi-palette-swatch-outline" title="RetroAchievements">
     <template #content>
       <p class="ma-4">
-        Explain what retro-achievements are and how to set it up
+        Using your
+        <a href="https://retroachievements.org/" target="_blank"
+          >RetroAchievements</a
+        >
+        username and
+        <a
+          href="https://api-docs.retroachievements.org/getting-started.html#get-your-web-api-key"
+          target="_blank"
+          >API key</a
+        >
+        you can keep track of your latest achievements
       </p>
       <v-form v-model="valid" @submit.prevent="editUser" class="pa-1">
         <v-row no-gutters>
@@ -69,7 +89,6 @@ function editUser() {
           <v-col md="4">
             <v-text-field
               v-model="apiKey"
-              :counter="10"
               :rules="rules"
               label="Web Api Key"
               hide-details

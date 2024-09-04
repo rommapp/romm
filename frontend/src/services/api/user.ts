@@ -64,10 +64,16 @@ async function updateUserRetroAchievements({
   ra_api_key: string | null;
   ra_username: string | null;
 }): Promise<{ data: UserSchema }> {
-  return api.put(`/users/${id}/settings`, {
-    ra_username,
-    ra_api_key,
-  });
+  return api.put(
+    `/users/${id}/settings`,
+    {},
+    {
+      params: {
+        ra_username,
+        ra_api_key,
+      },
+    },
+  );
 }
 
 async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
