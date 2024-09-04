@@ -185,6 +185,65 @@ async def update_user(
     return db_user_handler.get_user(id)
 
 
+@protected_route(router.put, "/users/{id}/settings", ["me.write"])
+async def update_user(
+    request: Request, id: int, form_data: Annotated[UserForm, Depends()]
+) -> UserSchema:
+    """Update user settings endpoint
+
+    Args:
+        request (Request): Fastapi Requests object
+        user_id (int): User internal id
+        form_data (Annotated[UserUpdateForm, Depends): Form Data with user updated info
+
+    Raises:
+        HTTPException: User is not found in database
+
+    Returns:
+        UserSchema: Updated user info
+    """
+
+    db_user = db_user_handler.get_user(id)
+    print(form_data.ra_api_key, form_data.ra_username)
+
+    # if not db_user:
+
+    msg = f"Username with id {id} not found"
+    log.error(msg)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+
+    # Admin users can edit any user, while other users can only edit self
+    if db_user.id != request.user.id and request.user.role != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    cleaned_data = {}
+
+    if form_data.password:
+        cleaned_data["hashed_password"] = auth_handler.get_password_hash(
+            form_data.password
+        )
+
+    # You can't change your own role
+    if form_data.role and request.user.id != id:
+        cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
+
+    # You can't disable yourself
+    if form_data.enabled is not None and request.user.id != id:
+        cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
+
+    if cleaned_data:
+        db_user_handler.update_user(id, cleaned_data)
+
+        # Log out the current user if username or password changed
+        creds_updated = cleaned_data.get("username") or cleaned_data.get(
+            "hashed_password"
+        )
+        if request.user.id == id and creds_updated:
+            request.session.clear()
+
+    return db_user_handler.get_user(id)
+
+
 @protected_route(router.delete, "/users/{id}", ["users.write"])
 def delete_user(request: Request, id: int) -> MessageResponse:
     """Delete user endpoint

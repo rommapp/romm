@@ -4,17 +4,19 @@ import {
   buildAuthorization,
   getGameInfoAndUserProgress,
 } from "@retroachievements/api";
+import storeAuth from "@/stores/auth";
 const props = defineProps<{ rom: DetailedRom }>();
+const auth = storeAuth();
 
 const authorization = buildAuthorization({
-  username: "NikkitaFTW",
-  webApiKey: "shDNuJYVjepV0Xaju466xuxazpgyTMwz",
+  username: auth.user?.ra_username as string,
+  webApiKey: auth.user?.ra_api_key as string,
 });
 
 // Then, make the API call.
 const gameExtended = await getGameInfoAndUserProgress(authorization, {
   gameId: props.rom.ra_id as number,
-  username: "NikkitaFTW",
+  username: auth.user?.ra_username as string,
   shouldIncludeHighestAwardMetadata: true,
 });
 </script>

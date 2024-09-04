@@ -19,16 +19,26 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("ra_id", sa.Integer(), nullable=True))
-    pass
+
+    with op.batch_alter_table("users", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("ra_api_key", sa.String(length=100), nullable=True)
+        )
+        batch_op.add_column(
+            sa.Column("ra_username", sa.String(length=100), nullable=True)
+        )
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("ra_id", sa.Integer(), nullable=True))
-    pass
 
 
 def downgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.drop_column("ra_id")
-    pass
+
+    with op.batch_alter_table("users", schema=None) as batch_op:
+        batch_op.drop_column("ra_api_key")
+        batch_op.drop_column("ra_username")
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_column("ra_id")
-    pass
