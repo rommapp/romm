@@ -91,7 +91,7 @@ watch(
   () => route.fullPath,
   async () => {
     await fetchDetails();
-  }
+  },
 );
 </script>
 

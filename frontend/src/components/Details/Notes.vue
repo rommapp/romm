@@ -21,7 +21,7 @@ const romUser = ref(
     note_raw_markdown: "",
     note_is_public: false,
     is_main_sibling: false,
-  }
+  },
 );
 const publicNotes =
   props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
@@ -61,7 +61,7 @@ watch(
       note_is_public: false,
       is_main_sibling: false,
     };
-  }
+  },
 );
 </script>
 <template>
@@ -131,11 +131,7 @@ watch(
     </v-card-text>
   </v-card>
 
-  <v-card
-    rounded="0"
-    v-if="publicNotes && publicNotes.length > 0"
-    class="mt-2"
-  >
+  <v-card rounded="0" v-if="publicNotes && publicNotes.length > 0" class="mt-2">
     <v-card-title class="bg-terciary">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">Public notes</span>

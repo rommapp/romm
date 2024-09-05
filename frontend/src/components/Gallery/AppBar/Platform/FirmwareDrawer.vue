@@ -53,7 +53,7 @@ function deleteSelectedFirmware() {
 
 function updateDataTablePages() {
   pageCount.value = Math.ceil(
-    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value
+    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value,
   );
 }
 
