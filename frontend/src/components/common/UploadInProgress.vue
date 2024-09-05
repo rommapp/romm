@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
+import { storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
 
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
@@ -49,8 +49,8 @@ watch(files, (newList) => {
           <v-list-item-title class="d-flex justify-space-between">
             {{ file.filename }}
             <v-icon
-              :icon="file.finished ? `mdi-check` : `mdi-loading mdi-spin`"
-              :color="file.finished ? `green` : `white`"
+              :icon="file.finished ? 'mdi-check' : 'mdi-loading mdi-spin'"
+              :color="file.finished ? 'green' : 'romm-accent-1'"
               class="mx-2"
             />
           </v-list-item-title>
@@ -58,7 +58,7 @@ watch(files, (newList) => {
             <v-progress-linear
               v-model="file.progress"
               height="4"
-              color="white"
+              color="romm-accent-1"
               class="mt-1"
             />
             <div class="upload-speeds d-flex justify-space-between mt-1">
