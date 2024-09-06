@@ -39,13 +39,15 @@ const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 emitter?.on("showMatchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  // Use rom name as search term, only when it's matched; otherwise use the filename without tags
-  // and extension.
+  show.value = true;
+
+  // Use name as search term, only when it's matched
+  // Otherwise use the filename without tags and extensions
   searchTerm.value =
     romToSearch.igdb_id || romToSearch.moby_id
-      ? romToSearch.name || ""
-      : romToSearch.file_name_no_tags || "";
-  show.value = true;
+      ? (romToSearch.name ?? "")
+      : romToSearch.file_name_no_tags;
+
   if (searchTerm.value) {
     searchRom();
   }
