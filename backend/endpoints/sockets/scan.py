@@ -106,6 +106,7 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[str] | None = None,
     metadata_sources: list[str] | None = None,
+    retroAchievements_info: dict | None = None,
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -163,6 +164,7 @@ async def scan_platforms(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 socket_manager=sm,
+                retroAchievements_info=retroAchievements_info,
             )
 
         # Same protection for platforms
@@ -188,6 +190,7 @@ async def _identify_platform(
     roms_ids: list[str],
     metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
+    retroAchievements_info: dict | None = None,
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -261,6 +264,7 @@ async def _identify_platform(
             roms_ids=roms_ids,
             metadata_sources=metadata_sources,
             socket_manager=socket_manager,
+            retroAchievements_info=retroAchievements_info,
         )
 
     # Only purge entries if there are some file remaining in the library
@@ -309,6 +313,7 @@ async def _identify_rom(
     roms_ids: list[str],
     metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
+    retroAchievements_info: dict | None = None,
 ) -> ScanStats:
     scan_stats = ScanStats()
 
@@ -333,6 +338,7 @@ async def _identify_rom(
         scan_type=scan_type,
         rom=rom,
         metadata_sources=metadata_sources,
+        retroAchievements_info=retroAchievements_info,
     )
 
     scan_stats.scanned_roms += 1
@@ -390,13 +396,12 @@ async def scan_handler(_sid: str, options: dict):
     Args:
         options (dict): Socket options
     """
-
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-
     platform_ids = options.get("platforms", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
+    retroAchievements_info = options.get("retroAchievementsInfo", [])
 
     # Uncomment this to run scan in the current process
     # await scan_platforms(
@@ -412,6 +417,7 @@ async def scan_handler(_sid: str, options: dict):
         scan_type,
         roms_ids,
         metadata_sources,
+        retroAchievements_info,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
     )
 
