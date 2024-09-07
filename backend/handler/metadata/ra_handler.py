@@ -31,11 +31,7 @@ class RetroAchievementsHandler(MetadataHandler):
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
-        authorized_url = (
-            yarl.URL(url)
-            # .update_query(z=RETROACHIEVEMENTS_USERNAME)
-            # .update_query(y=RETROACHIEVEMENTS_API_KEY)
-        )
+        authorized_url = yarl.URL(url)
         try:
             res = await httpx_client.get(str(authorized_url), timeout=timeout)
             res.raise_for_status()
@@ -78,15 +74,20 @@ class RetroAchievementsHandler(MetadataHandler):
         return res.json()
 
     async def _search_rom(
-        self, crc_hash: str, md5_hash: str, sha1_hash: str, platform_ra_id: int
+        self, md5_hash: str, platform_ra_id: int, retroAchievements_info: dict
     ) -> dict | None:
 
         if not platform_ra_id:
             return None
 
         url = yarl.URL(self.platform_url).with_query(
-            i=[platform_ra_id], h=["1"], f=["1"]
+            i=[platform_ra_id],
+            h=["1"],
+            f=["1"],
+            z=[retroAchievements_info.get("username")],
+            y=[retroAchievements_info.get("api_key")],
         )
+
         roms = await self._request(str(url))
         for rom in roms:
             if md5_hash in rom["Hashes"]:
@@ -107,16 +108,19 @@ class RetroAchievementsHandler(MetadataHandler):
         )
 
     async def get_rom(
-        self, crc_hash: str, md5_hash: str, sha1_hash: str, platform_ra_id: int
+        self, md5_hash: str, retroAchievements_info: dict, platform_ra_id: int
     ) -> RAGameRom:
-        if not RA_API_ENABLED:
+
+        if not retroAchievements_info.get("api_key") or not retroAchievements_info.get(
+            "username"
+        ):
             return RAGameRom(ra_id=None)
 
         if not platform_ra_id:
             return RAGameRom(ra_id=None)
 
         fallback_rom = RAGameRom(ra_id=None)
-        res = await self._search_rom(crc_hash, md5_hash, sha1_hash, platform_ra_id)
+        res = await self._search_rom(md5_hash, platform_ra_id, retroAchievements_info)
 
         if not res:
             return fallback_rom
@@ -126,70 +130,6 @@ class RetroAchievementsHandler(MetadataHandler):
                 "ra_id": res["ID"],
             }
         )  # type: ignore[misc]
-
-    async def get_rom_by_id(self, ra_id: int) -> RAGameRom:
-        if not RA_API_ENABLED:
-            return RAGameRom(ra_id=None)
-
-        url = yarl.URL(self.games_url).with_query(id=ra_id)
-        roms = (await self._request(str(url))).get("games", [])
-        res = pydash.get(roms, "[0]", None)
-
-        if not res:
-            return RAGameRom(ra_id=None)
-
-        rom = {
-            "moby_id": res["game_id"],
-            "name": res["title"],
-            "slug": res["moby_url"].split("/")[-1],
-            "summary": res.get("description", None),
-            "url_cover": pydash.get(res, "sample_cover.image", None),
-            "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-        }
-
-        return RAGameRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
-
-    async def get_matched_roms_by_id(self, ra_id: int) -> list[RAGameRom]:
-        if not RA_API_ENABLED:
-            return []
-
-        rom = await self.get_rom_by_id(ra_id)
-        return [rom] if rom["ra_id"] else []
-
-    async def get_matched_roms_by_name(
-        self, search_term: str, platform_moby_id: int
-    ) -> list[RAGameRom]:
-        if not RA_API_ENABLED:
-            return []
-
-        if not platform_moby_id:
-            return []
-
-        search_term = uc(search_term)
-        url = yarl.URL(self.games_url).with_query(
-            platform=[platform_moby_id], title=quote(search_term, safe="/ ")
-        )
-        matched_roms = (await self._request(str(url))).get("games", [])
-
-        return [
-            RAGameRom(  # type: ignore[misc]
-                {
-                    k: v
-                    for k, v in {
-                        "moby_id": rom["game_id"],
-                        "name": rom["title"],
-                        "slug": rom["moby_url"].split("/")[-1],
-                        "summary": rom.get("description", ""),
-                        "url_cover": pydash.get(rom, "sample_cover.image", ""),
-                        "url_screenshots": [
-                            s["image"] for s in rom.get("sample_screenshots", [])
-                        ],
-                    }.items()
-                    if v
-                }
-            )
-            for rom in matched_roms
-        ]
 
 
 class SlugToRAId(TypedDict):

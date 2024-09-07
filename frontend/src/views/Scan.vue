@@ -89,6 +89,12 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
+    retroAchievementsInfo: retroAchievements.value.disabled
+      ? {}
+      : {
+          api_key: auth.user?.ra_api_key,
+          username: auth.user?.ra_username,
+        },
     apis: [
       ...metadataSources.value.map((s) => s.value),
       retroAchievements.value.value,

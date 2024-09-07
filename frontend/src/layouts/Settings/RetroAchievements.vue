@@ -35,8 +35,8 @@ function editUser() {
   userApi
     .updateUserRetroAchievements({
       id: auth.user.id,
-      ra_api_key: apiKey.value,
-      ra_username: username.value,
+      ra_api_key: apiKey.value as string,
+      ra_username: username.value as string,
     })
     .then(() => {
       emitter?.emit("snackbarShow", {
