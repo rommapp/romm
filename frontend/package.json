@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@mdi/font": "7.0.96",
-    "@retroachievements/api": "^2.1.0",
     "@ruffle-rs/ruffle": "^0.1.0-nightly.2024.7.29",
     "axios": "^1.7.4",
     "core-js": "^3.37.1",
