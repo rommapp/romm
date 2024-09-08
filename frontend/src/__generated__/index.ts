@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export type { Achievements } from './models/Achievements';
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
@@ -27,6 +28,7 @@ export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { PlatformSchema } from './models/PlatformSchema';
+export type { RetroAchievementsGameSchema } from './models/RetroAchievementsGameSchema';
 export type { Role } from './models/Role';
 export type { RomFile } from './models/RomFile';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
