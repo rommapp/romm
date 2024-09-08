@@ -19,6 +19,7 @@ from endpoints import (
     feeds,
     firmware,
     heartbeat,
+    user,
     platform,
     raw,
     rom,
@@ -28,7 +29,7 @@ from endpoints import (
     states,
     stats,
     tasks,
-    user,
+    retroachievements
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -99,6 +100,7 @@ app.include_router(feeds.router, prefix="/api")
 app.include_router(config.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(raw.router, prefix="/api")
+app.include_router(retroachievements.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")

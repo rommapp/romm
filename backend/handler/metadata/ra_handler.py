@@ -1,14 +1,11 @@
 import asyncio
 import http
-from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
+from typing import  NotRequired, TypedDict
 
 import httpx
-import pydash
 import yarl
 from fastapi import HTTPException, status
 from logger.logger import log
-from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
