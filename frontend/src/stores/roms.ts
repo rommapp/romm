@@ -1,5 +1,6 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
+import { getStatusKeyForText } from "@/utils";
 import { type Platform } from "@/stores/platforms";
 import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -250,7 +251,7 @@ export default defineStore("roms", {
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
     },
     _filterStatus(statusToFilter: string) {
-      const stf = statusToFilter.replace(" ", "_").toLocaleLowerCase();
+      const stf = getStatusKeyForText(statusToFilter);
 
       const byStatus = new Set(
         this.filteredRoms
