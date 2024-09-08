@@ -168,11 +168,7 @@ class SimpleRomSchema(RomSchema):
     ) -> SimpleRomSchema | None:
         user_id = request.user.id
 
-        rom_user = RomUserSchema.for_user(user_id, db_rom)
-        if rom_user and rom_user.hidden:
-            return None
-
-        db_rom.rom_user = rom_user
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
 
         return cls.model_validate(db_rom)
 
