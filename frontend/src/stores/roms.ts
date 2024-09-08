@@ -154,6 +154,13 @@ export default defineStore("roms", {
       }
       if (galleryFilter.selectedStatus) {
         this._filterStatus(galleryFilter.selectedStatus);
+      } else {
+        this._filteredIDs = new Set(
+          // Filter hidden roms if the status is not hidden
+          this.filteredRoms
+            .filter((rom) => !rom.rom_user.hidden)
+            .map((rom) => rom.id),
+        );
       }
     },
     _filterSearch(searchFilter: string) {
@@ -259,8 +266,11 @@ export default defineStore("roms", {
             (rom) =>
               rom.rom_user.status === stf ||
               (stf === "now_playing" && rom.rom_user.now_playing) ||
-              (stf === "backlogged" && rom.rom_user.backlogged),
+              (stf === "backlogged" && rom.rom_user.backlogged) ||
+              (stf === "hidden" && rom.rom_user.hidden),
           )
+          // Filter hidden roms if the status is not hidden
+          .filter((rom) => (stf === "hidden" ? true : !rom.rom_user.hidden))
           .map((rom) => rom.id),
       );
 

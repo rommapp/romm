@@ -367,7 +367,7 @@ export function isRuffleEmulationSupported(
   );
 }
 
-type PlayingStatus = RomUserStatus | "backlogged" | "now_playing";
+type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 export const romStatusMap: Record<
   PlayingStatus,
@@ -380,6 +380,7 @@ export const romStatusMap: Record<
   completed_100: { emoji: "💯", text: "Completed 100%" },
   retired: { emoji: "🏴", text: "Retired" },
   never_playing: { emoji: "🚫", text: "Never Playing" },
+  hidden: { emoji: "👻", text: "Hidden" },
 };
 
 const inverseRomStatusMap = Object.fromEntries(
