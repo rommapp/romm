@@ -10,6 +10,7 @@ const { xs } = useDisplay();
 const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
 const router = useRouter();
+const filters = ["genres", "franchises", "collections", "companies"] as const;
 
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
@@ -23,7 +24,7 @@ function onFilterClick(filter: FilterType, value: string) {
   <v-row no-gutters>
     <v-col>
       <v-divider class="mx-2 my-4" />
-      <template v-for="filter in galleryFilterStore.filters" :key="filter">
+      <template v-for="filter in filters" :key="filter">
         <v-row
           v-if="rom[filter].length > 0"
           class="align-center my-3"

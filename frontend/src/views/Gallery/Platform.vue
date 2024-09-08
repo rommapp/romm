@@ -206,6 +206,7 @@ const filterToSetFilter: Record<FilterType, Function> = {
   franchises: galleryFilterStore.setSelectedFilterFranchise,
   collections: galleryFilterStore.setSelectedFilterCollection,
   companies: galleryFilterStore.setSelectedFilterCompany,
+  status: galleryFilterStore.setSelectedFilterStatus,
 };
 
 onMounted(async () => {
