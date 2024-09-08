@@ -151,6 +151,9 @@ export default defineStore("roms", {
       if (galleryFilter.selectedCompany) {
         this._filterCompany(galleryFilter.selectedCompany);
       }
+      if (galleryFilter.selectedStatus) {
+        this._filterStatus(galleryFilter.selectedStatus);
+      }
     },
     _filterSearch(searchFilter: string) {
       const bySearch = new Set(
@@ -245,6 +248,23 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
+    },
+    _filterStatus(statusToFilter: string) {
+      const stf = statusToFilter.replace(" ", "_").toLocaleLowerCase();
+
+      const byStatus = new Set(
+        this.filteredRoms
+          .filter(
+            (rom) =>
+              rom.rom_user.status === stf ||
+              (stf === "now_playing" && rom.rom_user.now_playing) ||
+              (stf === "backlogged" && rom.rom_user.backlogged),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byStatus.intersection(this._filteredIDs);
     },
     // Selected roms
     setSelection(roms: SimpleRom[]) {

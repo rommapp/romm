@@ -2,8 +2,8 @@
 import { computed } from "vue";
 import { type SimpleRom } from "@/stores/roms.js";
 import { languageToEmoji, regionToEmoji } from "@/utils";
-import type { RomUserStatus, RomUserSchema } from "@/__generated__";
-import { identity, isNull } from "lodash";
+import type { RomUserStatus } from "@/__generated__";
+import { identity, isNull, capitalize } from "lodash";
 
 const props = defineProps<{ rom: SimpleRom }>();
 const showRegions = isNull(localStorage.getItem("settings.showRegions"))
@@ -32,16 +32,6 @@ const statusToEmoji: Record<PlayingStatus, string> = {
   completed_100: "💯",
   retired: "🏴",
   never_playing: "🚫",
-};
-
-const statusToOption: Record<PlayingStatus, string> = {
-  backlogged: "Backlogged (will play soon)",
-  now_playing: "Now playing",
-  incomplete: "Incomplete (started but not finished)",
-  finished: "Finished (reached the end)",
-  completed_100: "Completed (all levels, achivements, endings, etc...)",
-  retired: "Retired (won't play again)",
-  never_playing: "Never playing (will never play)",
 };
 </script>
 
@@ -72,7 +62,7 @@ const statusToOption: Record<PlayingStatus, string> = {
     v-if="playingStatus"
     class="translucent-dark mr-1 mt-1"
     density="compact"
-    :title="statusToOption[playingStatus]"
+    :title="capitalize(playingStatus.replace(/_/g, ' '))"
   >
     {{ statusToEmoji[playingStatus] }}
   </v-chip>
