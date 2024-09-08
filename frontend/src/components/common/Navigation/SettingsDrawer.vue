@@ -71,7 +71,7 @@ async function logout() {
         append-icon="mdi-account"
         >Profile</v-list-item
       >
-      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
+      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-cog"
         >Settings</v-list-item
       >
       <v-list-item

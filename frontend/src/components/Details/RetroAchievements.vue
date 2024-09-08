@@ -38,27 +38,30 @@ onBeforeMount(async () => {
     class="d-flex flex-column ga-2 flex-wrap mt-8"
   >
     <v-row no-gutters>
-      <v-col cols="12" sm="4">
+      <v-col cols="12" sm="3">
         <v-sheet class="pa-2" width="100%">
           <b>Awards:</b> {{ retroAchievementsInfo.NumAwardedToUser }}/{{
             retroAchievementsInfo.NumAchievements
           }}
         </v-sheet>
       </v-col>
-      <v-col cols="12" sm="4">
+      <v-col cols="12" sm="3">
         <v-sheet class="pa-2" width="100%">
           <b>Completed:</b> {{ retroAchievementsInfo.UserCompletion }}
         </v-sheet>
       </v-col>
-      <v-col cols="12" sm="4">
+      <v-col cols="12" sm="3">
         <v-sheet class="pa-2" width="100%">
           <a
             target="_blank"
             :href="`https://retroachievements.org/game/${retroAchievementsInfo.ID}`"
           >
-            RetroAchievements Page</a
+            Info</a
           >
-          {{ ` / ` }}
+        </v-sheet>
+      </v-col>
+      <v-col cols="12" sm="3">
+        <v-sheet class="pa-2" width="100%">
           <a
             v-if="retroAchievementsInfo.GuideURL"
             :href="retroAchievementsInfo.GuideURL"
