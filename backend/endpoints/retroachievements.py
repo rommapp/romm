@@ -86,5 +86,5 @@ async def get_rom_retroachievements(request: Request, id: int) -> RetroAchieveme
     if not game_with_details:
         raise RomNotFoundInRetroAchievementsException(id)
 
-    return game_with_details
+    return RetroAchievementsGameSchema.from_orm_with_request(game_with_details, request)
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DetailedRom } from "@/stores/roms";
 import retroAchievementsApi from "@/services/api/retroAchivements";
+import type { RetroAchievementsGameSchema } from "@/__generated__";
 
 import { inject } from "vue";
 import type { Emitter } from "mitt";
@@ -10,7 +11,7 @@ import { onBeforeMount } from "vue";
 
 const emitter = inject<Emitter<Events>>("emitter");
 const props = defineProps<{ rom: DetailedRom }>();
-const retroAchievementsInfo = ref();
+const retroAchievementsInfo = ref<RetroAchievementsGameSchema>();
 
 // Functions
 async function fetchDetails() {
@@ -34,8 +35,8 @@ onBeforeMount(async () => {
 </script>
 <template>
   <div
-    class="d-flex flex-column ga-2 flex-wrap mt-8"
     v-if="retroAchievementsInfo?.Achievements"
+    class="d-flex flex-column ga-2 flex-wrap mt-8"
   >
     <h2>All awards</h2>
     <v-card
@@ -46,7 +47,7 @@ onBeforeMount(async () => {
         })
         .sort(
           (a, b) =>
-            (new Date(b.DateEarned) as any) - (new Date(a.DateEarned) as any),
+            (new Date(b.DateEarned as string) as any) - (new Date(a.DateEarned as string) as any),
         )"
       :key="achievement.ID"
       width="100%"
