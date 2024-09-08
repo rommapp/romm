@@ -13,7 +13,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 const props = defineProps<{ rom: DetailedRom }>();
 const retroAchievementsInfo = ref<RetroAchievementsGameSchema>();
 
-// Functions
 async function fetchDetails() {
   await retroAchievementsApi
     .getGameInfo({ id: props.rom.ra_id as number })
@@ -38,6 +37,39 @@ onBeforeMount(async () => {
     v-if="retroAchievementsInfo?.Achievements"
     class="d-flex flex-column ga-2 flex-wrap mt-8"
   >
+    <v-row no-gutters>
+      <v-col cols="12" sm="4">
+        <v-sheet class="pa-2" width="100%">
+          <b>Awards:</b> {{ retroAchievementsInfo.NumAwardedToUser }}/{{
+            retroAchievementsInfo.NumAchievements
+          }}
+        </v-sheet>
+      </v-col>
+      <v-col cols="12" sm="4">
+        <v-sheet class="pa-2" width="100%">
+          <b>Completed:</b> {{ retroAchievementsInfo.UserCompletion }}
+        </v-sheet>
+      </v-col>
+      <v-col cols="12" sm="4">
+        <v-sheet class="pa-2" width="100%">
+          <a
+            target="_blank"
+            :href="`https://retroachievements.org/game/${retroAchievementsInfo.ID}`"
+          >
+            RetroAchievements Page</a
+          >
+          {{ ` / ` }}
+          <a
+            v-if="retroAchievementsInfo.GuideURL"
+            :href="retroAchievementsInfo.GuideURL"
+            target="_blank"
+          >
+            Guide</a
+          >
+        </v-sheet>
+      </v-col>
+    </v-row>
+
     <h2>All awards</h2>
     <v-card
       v-for="achievement in Object.values(retroAchievementsInfo.Achievements)
@@ -47,11 +79,13 @@ onBeforeMount(async () => {
         })
         .sort(
           (a, b) =>
-            (new Date(b.DateEarned as string) as any) - (new Date(a.DateEarned as string) as any),
+            (new Date(b.DateEarned as string) as any) -
+            (new Date(a.DateEarned as string) as any),
         )"
       :key="achievement.ID"
       width="100%"
       class="d-flex pa-4"
+      :href="`https://retroachievements.org/achievement/${achievement.ID}`"
     >
       <div class="d-flex align-center">
         <v-img
@@ -63,8 +97,16 @@ onBeforeMount(async () => {
         />
       </div>
       <div class="flex-grow-1">
-        <v-card-title class="py-0"> {{ achievement.Title }}</v-card-title>
-        <v-card-subtitle class="py-0">
+        <v-card-title
+          class="py-0"
+          style="word-wrap: break-word; white-space: normal"
+        >
+          {{ achievement.Title }}</v-card-title
+        >
+        <v-card-subtitle
+          class="py-0"
+          style="word-wrap: break-word; white-space: normal"
+        >
           {{ achievement.Description }}</v-card-subtitle
         >
 
