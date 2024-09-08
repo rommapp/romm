@@ -10,7 +10,7 @@ from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from models.rom import Rom, RomFile, RomUserStatus
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, computed_field
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
@@ -159,52 +159,50 @@ class RomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
-    rom_user: RomUserSchema = Field(default_factory=rom_user_schema_factory)
+    sibling_roms: list[RomSchema]
+    rom_user: RomUserSchema
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
-        rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
 
-        return rom
+        return cls.model_validate(db_rom)
 
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
-    rom_user: RomUserSchema = Field(default_factory=rom_user_schema_factory)
-    user_saves: list[SaveSchema] = Field(default_factory=list)
-    user_states: list[StateSchema] = Field(default_factory=list)
-    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    user_notes: list[UserNotesSchema] = Field(default_factory=list)
-    user_collections: list[CollectionSchema] = Field(default_factory=list)
+    sibling_roms: list[RomSchema]
+    rom_user: RomUserSchema
+    user_saves: list[SaveSchema]
+    user_states: list[StateSchema]
+    user_screenshots: list[ScreenshotSchema]
+    user_notes: list[UserNotesSchema]
+    user_collections: list[CollectionSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
-        rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
-        rom.user_saves = [
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+        db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
+        db_rom.user_saves = [
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
-        rom.user_states = [
+        db_rom.user_states = [
             StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
         ]
-        rom.user_screenshots = [
+        db_rom.user_screenshots = [
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.user_collections = CollectionSchema.for_user(
+        db_rom.user_collections = CollectionSchema.for_user(
             user_id, db_rom.get_collections()
         )
 
-        return rom
+        return cls.model_validate(db_rom)
 
 
 class UserNotesSchema(TypedDict):
