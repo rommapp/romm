@@ -57,13 +57,13 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     merged_screenshots: Array<string>;
-    sibling_roms?: Array<RomSchema>;
-    rom_user?: RomUserSchema;
-    user_saves?: Array<SaveSchema>;
-    user_states?: Array<StateSchema>;
-    user_screenshots?: Array<ScreenshotSchema>;
-    user_notes?: Array<UserNotesSchema>;
-    user_collections?: Array<CollectionSchema>;
+    sibling_roms: Array<RomSchema>;
+    rom_user: RomUserSchema;
+    user_saves: Array<SaveSchema>;
+    user_states: Array<StateSchema>;
+    user_screenshots: Array<ScreenshotSchema>;
+    user_notes: Array<UserNotesSchema>;
+    user_collections: Array<CollectionSchema>;
     readonly sort_comparator: string;
 };
 
