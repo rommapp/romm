@@ -3,12 +3,12 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { RomUserStatus } from "@/__generated__";
+import { getTextForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
 import { useTheme } from "vuetify";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
@@ -39,15 +39,6 @@ const statusOptions = [
   "never_playing",
 ];
 
-const statusToOption: Record<RomUserStatus, string> = {
-  incomplete: "Incomplete (started but not finished)",
-  finished: "Finished (reached the end)",
-  completed_100: "Completed (all levels, achivements, endings, etc...)",
-  retired: "Retired (won't play again)",
-  never_playing: "Never playing (will never play)",
-};
-
-// Functions
 function editNote() {
   if (editingNote.value) {
     romApi.updateUserRomProps({
@@ -167,7 +158,7 @@ watch(
               class="mt-1"
             >
               <template v-slot:selection="{ item }">
-                <span>{{ statusToOption[item.raw as RomUserStatus] }}</span>
+                <span>{{ getTextForStatus(item.raw as RomUserStatus) }}</span>
               </template>
               <template v-slot:item="{ item }">
                 <v-list-item
@@ -175,7 +166,7 @@ watch(
                   rounded="0"
                   @click="onStatusItemClick(item.raw)"
                 >
-                  {{ statusToOption[item.raw as RomUserStatus] }}
+                  {{ getTextForStatus(item.raw as RomUserStatus) }}
                 </v-list-item>
               </template>
             </v-select>

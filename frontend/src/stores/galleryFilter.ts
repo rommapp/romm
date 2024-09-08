@@ -1,5 +1,6 @@
 import { normalizeString } from "@/utils";
 import { defineStore } from "pinia";
+import { romStatusMap } from "@/utils";
 
 const filters = [
   "genres",
@@ -8,15 +9,8 @@ const filters = [
   "companies",
   "status",
 ] as const;
-const statusFilters = [
-  "Backlogged",
-  "Now Playing",
-  "Incomplete",
-  "Finished",
-  "Completed 100%",
-  "Retired",
-  "Never Playing",
-] as const;
+
+const statusFilters = Object.values(romStatusMap).map((status) => status.text);
 
 export type FilterType = (typeof filters)[number];
 

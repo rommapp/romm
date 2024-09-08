@@ -1,6 +1,7 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
+import type { RomUserStatus } from "@/__generated__";
 
 export const views: Record<
   number,
@@ -364,4 +365,35 @@ export function isRuffleEmulationSupported(
     ["flash", "browser"].includes(platformSlug.toLowerCase()) &&
     !heartbeat.EMULATION.DISABLE_RUFFLE_RS
   );
+}
+
+type PlayingStatus = RomUserStatus | "backlogged" | "now_playing";
+
+export const romStatusMap: Record<
+  PlayingStatus,
+  { emoji: string; text: string }
+> = {
+  backlogged: { emoji: "🔜", text: "Backlogged" },
+  now_playing: { emoji: "🕹️", text: "Now Playing" },
+  incomplete: { emoji: "🚧", text: "Incomplete" },
+  finished: { emoji: "🏁", text: "Finished" },
+  completed_100: { emoji: "💯", text: "Completed 100%" },
+  retired: { emoji: "🏴", text: "Retired" },
+  never_playing: { emoji: "🚫", text: "Never Playing" },
+};
+
+const inverseRomStatusMap = Object.fromEntries(
+  Object.entries(romStatusMap).map(([key, value]) => [value.text, key]),
+) as Record<string, PlayingStatus>;
+
+export function getEmojiForStatus(status: PlayingStatus) {
+  return romStatusMap[status].emoji;
+}
+
+export function getTextForStatus(status: PlayingStatus) {
+  return romStatusMap[status].text;
+}
+
+export function getStatusKeyForText(text: string) {
+  return inverseRomStatusMap[text];
 }
