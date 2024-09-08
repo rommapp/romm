@@ -49,7 +49,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
 
 
-app = FastAPI(title="RomM API", version=get_version(), lifespan=lifespan)
+app = FastAPI(
+    title="RomM API",
+    version=get_version(),
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,
