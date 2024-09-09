@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -67,8 +67,9 @@ def add_states(
         rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
         if not rom_user:
             rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
-        rom_user.last_played = datetime.now()
-        db_rom_handler.update_rom_user(rom_user.id, {"last_played": datetime.now()})
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
 
     rom = db_rom_handler.get_rom(rom_id)
     return {
@@ -112,8 +113,9 @@ async def update_state(request: Request, id: int) -> StateSchema:
     rom_user = db_rom_handler.get_rom_user(db_state.rom_id, current_user.id)
     if not rom_user:
         rom_user = db_rom_handler.add_rom_user(db_state.rom_id, current_user.id)
-    rom_user.last_played = datetime.now()
-    db_rom_handler.update_rom_user(rom_user.id, {"last_played": datetime.now()})
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    )
 
     db_state = db_state_handler.get_state(id)
     return db_state

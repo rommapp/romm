@@ -174,7 +174,7 @@ class Rom(BaseModel):
         return self.file_name
 
 
-class RomUserStatus(enum.Enum):
+class RomUserStatus(enum.StrEnum):
     INCOMPLETE = "incomplete"  # Started but not finished
     FINISHED = "finished"  # Reached the end of the game
     COMPLETED_100 = "completed_100"  # Completed 100%

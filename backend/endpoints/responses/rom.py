@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
@@ -27,12 +27,13 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 
 
 def rom_user_schema_factory() -> RomUserSchema:
+    now = datetime.now(timezone.utc)
     return RomUserSchema(
         id=-1,
         user_id=-1,
         rom_id=-1,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=now,
+        updated_at=now,
         note_raw_markdown="",
         note_is_public=False,
         is_main_sibling=False,

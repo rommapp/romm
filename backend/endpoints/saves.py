@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -67,8 +67,9 @@ def add_saves(
         rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
         if not rom_user:
             rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
-        rom_user.last_played = datetime.now()
-        db_rom_handler.update_rom_user(rom_user.id, {"last_played": datetime.now()})
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
 
     # Refetch the rom to get updated saves
     rom = db_rom_handler.get_rom(rom_id)
@@ -116,8 +117,9 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     rom_user = db_rom_handler.get_rom_user(db_save.rom_id, current_user.id)
     if not rom_user:
         rom_user = db_rom_handler.add_rom_user(db_save.rom_id, current_user.id)
-    rom_user.last_played = datetime.now()
-    db_rom_handler.update_rom_user(rom_user.id, {"last_played": datetime.now()})
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    )
 
     # Refetch the save to get updated fields
     db_save = db_save_handler.get_save(id)
