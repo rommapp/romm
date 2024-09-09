@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
@@ -61,4 +61,6 @@ class User(BaseModel, SimpleUser):
     def set_last_active(self):
         from handler.database import db_user_handler
 
-        db_user_handler.update_user(self.id, {"last_active": datetime.now()})
+        db_user_handler.update_user(
+            self.id, {"last_active": datetime.now(timezone.utc)}
+        )
