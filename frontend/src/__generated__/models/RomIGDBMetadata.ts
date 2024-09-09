@@ -10,6 +10,7 @@ export type RomIGDBMetadata = {
     total_rating?: string;
     aggregated_rating?: string;
     first_release_date?: (number | null);
+    youtube_video_id?: (string | null);
     genres?: Array<string>;
     franchises?: Array<string>;
     alternative_names?: Array<string>;
