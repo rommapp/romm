@@ -52,8 +52,8 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    sibling_roms?: Array<RomSchema>;
-    rom_user?: (RomUserSchema | null);
+    sibling_roms: Array<RomSchema>;
+    rom_user: RomUserSchema;
     readonly sort_comparator: string;
 };
 

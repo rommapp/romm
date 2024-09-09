@@ -4,7 +4,7 @@ import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
-import Notes from "@/components/Details/Notes.vue";
+import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -30,7 +30,7 @@ const tab = ref<
   | "details"
   | "saves"
   | "states"
-  | "notes"
+  | "personal"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -152,7 +152,7 @@ watch(
             <v-tab value="details" rounded="0"> Details </v-tab>
             <v-tab value="saves" rounded="0"> Saves </v-tab>
             <v-tab value="states" rounded="0"> States </v-tab>
-            <v-tab value="notes" rounded="0"> Notes </v-tab>
+            <v-tab value="personal" rounded="0"> Personal </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -197,8 +197,8 @@ watch(
               <v-window-item value="states">
                 <states :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="notes">
-                <notes :rom="currentRom" />
+              <v-window-item value="personal">
+                <personal :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="

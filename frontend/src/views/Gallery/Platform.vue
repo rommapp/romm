@@ -121,7 +121,6 @@ async function onFilterChange() {
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
-    emitData.event.ctrlKey ||
     emitData.event.shiftKey ||
     romsStore.selecting ||
     romsStore.selectedRoms.length > 0
@@ -152,16 +151,14 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     } else {
       romsStore.updateLastSelected(index);
     }
+  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
+    const link = router.resolve({
+      name: "rom",
+      params: { rom: emitData.rom.id },
+    });
+    window.open(link.href, "_blank");
   } else {
-    if (emitData.event.metaKey || emitData.event.ctrlKey) {
-      const link = router.resolve({
-        name: "rom",
-        params: { rom: emitData.rom.id },
-      });
-      window.open(link.href, "_blank");
-    } else {
-      router.push({ name: "rom", params: { rom: emitData.rom.id } });
-    }
+    router.push({ name: "rom", params: { rom: emitData.rom.id } });
   }
 }
 
@@ -209,6 +206,7 @@ const filterToSetFilter: Record<FilterType, Function> = {
   franchises: galleryFilterStore.setSelectedFilterFranchise,
   collections: galleryFilterStore.setSelectedFilterCollection,
   companies: galleryFilterStore.setSelectedFilterCompany,
+  status: galleryFilterStore.setSelectedFilterStatus,
 };
 
 onMounted(async () => {
