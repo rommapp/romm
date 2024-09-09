@@ -127,6 +127,10 @@ class Rom(BaseModel):
 
     # Metadata fields
     @property
+    def youtube_video_id(self) -> str:
+        return self.igdb_metadata.get("youtube_video_id", "")
+
+    @property
     def alternative_names(self) -> list[str]:
         return (
             self.igdb_metadata.get("alternative_names", None)
