@@ -9,6 +9,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
+const carousel = ref(0);
 const router = useRouter();
 
 function onFilterClick(filter: FilterType, value: string) {
@@ -62,6 +63,7 @@ function onFilterClick(filter: FilterType, value: string) {
         <v-row no-gutters>
           <v-col>
             <v-carousel
+              v-model="carousel"
               hide-delimiter-background
               delimiter-icon="mdi-square"
               class="bg-primary"
@@ -120,6 +122,7 @@ function onFilterClick(filter: FilterType, value: string) {
                 </template>
               </v-list-item>
               <v-carousel
+                v-model="carousel"
                 hide-delimiter-background
                 delimiter-icon="mdi-square"
                 show-arrows="hover"
