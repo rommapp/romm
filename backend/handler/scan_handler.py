@@ -17,6 +17,8 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
+NON_HASHABLE_PLATFORMS = ["pc", "win", "mac", "linux"]
+
 
 class ScanType(Enum):
     NEW_PLATFORMS = "new_platforms"
@@ -232,8 +234,14 @@ async def scan_rom(
 
     # Calculating hashes is expensive, so we only do it if necessary
     if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
-        rom_hashes = fs_rom_handler.get_rom_hashes(rom_attrs["file_name"], roms_path)
-        rom_attrs.update(**rom_hashes)
+        # Skip hashing games for platforms that don't have a hash database
+        if platform.slug in NON_HASHABLE_PLATFORMS:
+            rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
+        else:
+            rom_hashes = fs_rom_handler.get_rom_hashes(
+                rom_attrs["file_name"], roms_path
+            )
+            rom_attrs.update(**rom_hashes)
 
     # If no metadata scan is required
     if scan_type == ScanType.HASHES:
