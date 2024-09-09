@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema, UploadedStatesResponse
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import File, HTTPException, Request, UploadFile, status
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
@@ -19,6 +22,9 @@ def add_states(
     emulator: str | None = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     current_user = request.user
     log.info(f"Uploading states to {rom.name}")
 
@@ -57,6 +63,14 @@ def add_states(
         scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
+        # Set the last played time for the current user
+        rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+        if not rom_user:
+            rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
+
     rom = db_rom_handler.get_rom(rom_id)
     return {
         "uploaded": len(states),
@@ -93,6 +107,15 @@ async def update_state(request: Request, id: int) -> StateSchema:
         file: UploadFile = data["file"]
         fs_asset_handler.write_file(file=file, path=db_state.file_path)
         db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
+
+    # Set the last played time for the current user
+    current_user = request.user
+    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, current_user.id)
+    if not rom_user:
+        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, current_user.id)
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    )
 
     db_state = db_state_handler.get_state(id)
     return db_state

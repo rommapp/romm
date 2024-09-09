@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
 from endpoints.forms.identity import OAuth2RequestForm
@@ -161,9 +161,8 @@ def login(
     request.session.update({"iss": "romm:auth", "sub": user.username})
 
     # Update last login and active times
-    db_user_handler.update_user(
-        user.id, {"last_login": datetime.now(), "last_active": datetime.now()}
-    )
+    now = datetime.now(timezone.utc)
+    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
     return {"msg": "Successfully logged in"}
 
