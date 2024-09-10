@@ -4,7 +4,7 @@ import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
-import Notes from "@/components/Details/Notes.vue";
+import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import RetroAchievements from "@/components/Details/RetroAchievements.vue";
 import Saves from "@/components/Details/Saves.vue";
@@ -32,7 +32,7 @@ const tab = ref<
   | "details"
   | "saves"
   | "states"
-  | "notes"
+  | "personal"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -94,7 +94,7 @@ watch(
   () => route.fullPath,
   async () => {
     await fetchDetails();
-  },
+  }
 );
 </script>
 
@@ -167,6 +167,7 @@ watch(
               Retro Achievements
             </v-tab>
             <v-tab value="notes" rounded="0"> Notes </v-tab>
+            <v-tab value="personal" rounded="0"> Personal </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -211,10 +212,10 @@ watch(
               <v-window-item value="states">
                 <states :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="notes">
-                <notes :rom="currentRom" />
+              <v-window-item value="personal">
+                <personal :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="retro_achievements" v-if="currentRom.ra_id">
+              <v-window-item v-if="currentRom.ra_id" value="retro_achievements">
                 <retro-achievements :rom="currentRom" />
               </v-window-item>
               <v-window-item

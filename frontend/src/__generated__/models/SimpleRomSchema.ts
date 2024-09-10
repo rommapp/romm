@@ -28,6 +28,7 @@ export type SimpleRomSchema = {
     slug: (string | null);
     summary: (string | null);
     first_release_date: (number | null);
+    youtube_video_id: (string | null);
     alternative_names: Array<string>;
     genres: Array<string>;
     franchises: Array<string>;
@@ -52,8 +53,8 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    sibling_roms?: Array<RomSchema>;
-    rom_user?: (RomUserSchema | null);
+    sibling_roms: Array<RomSchema>;
+    rom_user: RomUserSchema;
     readonly sort_comparator: string;
 };
 

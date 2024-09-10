@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import enum
+from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -8,6 +10,8 @@ from models.base import BaseModel
 from sqlalchemy import (
     JSON,
     BigInteger,
+    DateTime,
+    Enum,
     ForeignKey,
     Integer,
     String,
@@ -128,6 +132,10 @@ class Rom(BaseModel):
 
     # Metadata fields
     @property
+    def youtube_video_id(self) -> str:
+        return self.igdb_metadata.get("youtube_video_id", "")
+
+    @property
     def alternative_names(self) -> list[str]:
         return (
             self.igdb_metadata.get("alternative_names", None)
@@ -171,6 +179,14 @@ class Rom(BaseModel):
         return self.file_name
 
 
+class RomUserStatus(enum.StrEnum):
+    INCOMPLETE = "incomplete"  # Started but not finished
+    FINISHED = "finished"  # Reached the end of the game
+    COMPLETED_100 = "completed_100"  # Completed 100%
+    RETIRED = "retired"  # Won't play again
+    NEVER_PLAYING = "never_playing"  # Will never play
+
+
 class RomUser(BaseModel):
     __tablename__ = "rom_user"
     __table_args__ = (
@@ -183,6 +199,17 @@ class RomUser(BaseModel):
     note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
+    last_played: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    backlogged: Mapped[bool] = mapped_column(default=False)
+    now_playing: Mapped[bool] = mapped_column(default=False)
+    hidden: Mapped[bool] = mapped_column(default=False)
+    rating: Mapped[int] = mapped_column(default=0)
+    difficulty: Mapped[int] = mapped_column(default=0)
+    completion: Mapped[int] = mapped_column(default=0)
+    status: Mapped[RomUserStatus | None] = mapped_column(
+        Enum(RomUserStatus), default=None
+    )
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
