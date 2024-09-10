@@ -1,14 +1,20 @@
 import asyncio
 import http
-from typing import  NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict
 
 import httpx
 import yarl
+from config import RETROACHIEVEMENTS_API_KEY, RETROACHIEVEMENTS_USERNAME
 from fastapi import HTTPException, status
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
+
+# Used to display the Mobygames API status in the frontend
+RETROACHIEVEMENTS_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY) and bool(
+    RETROACHIEVEMENTS_USERNAME
+)
 
 
 class RAGamesPlatform(TypedDict):
@@ -70,9 +76,7 @@ class RetroAchievementsHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(
-        self, md5_hash: str, platform_ra_id: int, retroAchievements_info: dict
-    ) -> dict | None:
+    async def _search_rom(self, md5_hash: str, platform_ra_id: int) -> dict | None:
 
         if not platform_ra_id:
             return None
@@ -81,8 +85,8 @@ class RetroAchievementsHandler(MetadataHandler):
             i=[platform_ra_id],
             h=["1"],
             f=["1"],
-            z=[retroAchievements_info.get("username")],
-            y=[retroAchievements_info.get("api_key")],
+            z=[RETROACHIEVEMENTS_USERNAME],
+            y=[RETROACHIEVEMENTS_API_KEY],
         )
 
         roms = await self._request(str(url))
@@ -104,20 +108,13 @@ class RetroAchievementsHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(
-        self, md5_hash: str, retroAchievements_info: dict, platform_ra_id: int
-    ) -> RAGameRom:
-
-        if not retroAchievements_info.get("api_key") or not retroAchievements_info.get(
-            "username"
-        ):
-            return RAGameRom(ra_id=None)
+    async def get_rom(self, md5_hash: str, platform_ra_id: int) -> RAGameRom:
 
         if not platform_ra_id:
             return RAGameRom(ra_id=None)
 
         fallback_rom = RAGameRom(ra_id=None)
-        res = await self._search_rom(md5_hash, platform_ra_id, retroAchievements_info)
+        res = await self._search_rom(md5_hash, platform_ra_id)
 
         if not res:
             return fallback_rom

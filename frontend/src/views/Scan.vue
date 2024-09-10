@@ -24,7 +24,7 @@ const retroAchievements = computed(() => ({
   name: "RetroAchievements",
   value: "retro_achievements",
   logo_path: "/assets/scrappers/ra.webp",
-  disabled: !auth.user?.ra_api_key || !auth.user.ra_username,
+  disabled: !heartbeat.value.METADATA_SOURCES?.RETROACHIEVEMENTS_ENABLED,
 }));
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -89,12 +89,6 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    retroAchievementsInfo: retroAchievements.value.disabled
-      ? {}
-      : {
-          api_key: auth.user?.ra_api_key,
-          username: auth.user?.ra_username,
-        },
     apis: [
       ...metadataSources.value.map((s) => s.value),
       retroAchievements.value.value,

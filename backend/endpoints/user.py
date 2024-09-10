@@ -186,7 +186,7 @@ async def update_user(
 
 
 @protected_route(router.put, "/users/{id}/settings", ["me.write"])
-async def update_user(
+async def update_user_settings(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
     """Update user settings endpoint
