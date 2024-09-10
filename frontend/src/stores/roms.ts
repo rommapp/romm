@@ -1,5 +1,6 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
+import { getStatusKeyForText } from "@/utils";
 import { type Platform } from "@/stores/platforms";
 import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -151,6 +152,16 @@ export default defineStore("roms", {
       if (galleryFilter.selectedCompany) {
         this._filterCompany(galleryFilter.selectedCompany);
       }
+      if (galleryFilter.selectedStatus) {
+        this._filterStatus(galleryFilter.selectedStatus);
+      } else {
+        this._filteredIDs = new Set(
+          // Filter hidden roms if the status is not hidden
+          this.filteredRoms
+            .filter((rom) => !rom.rom_user.hidden)
+            .map((rom) => rom.id),
+        );
+      }
     },
     _filterSearch(searchFilter: string) {
       const bySearch = new Set(
@@ -245,6 +256,26 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
+    },
+    _filterStatus(statusToFilter: string) {
+      const stf = getStatusKeyForText(statusToFilter);
+
+      const byStatus = new Set(
+        this.filteredRoms
+          .filter(
+            (rom) =>
+              rom.rom_user.status === stf ||
+              (stf === "now_playing" && rom.rom_user.now_playing) ||
+              (stf === "backlogged" && rom.rom_user.backlogged) ||
+              (stf === "hidden" && rom.rom_user.hidden),
+          )
+          // Filter hidden roms if the status is not hidden
+          .filter((rom) => (stf === "hidden" ? true : !rom.rom_user.hidden))
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byStatus.intersection(this._filteredIDs);
     },
     // Selected roms
     setSelection(roms: SimpleRom[]) {

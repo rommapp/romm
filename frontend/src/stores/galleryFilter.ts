@@ -1,7 +1,16 @@
 import { normalizeString } from "@/utils";
 import { defineStore } from "pinia";
+import { romStatusMap } from "@/utils";
 
-const filters = ["genres", "franchises", "collections", "companies"] as const;
+const filters = [
+  "genres",
+  "franchises",
+  "collections",
+  "companies",
+  "status",
+] as const;
+
+const statusFilters = Object.values(romStatusMap).map((status) => status.text);
 
 export type FilterType = (typeof filters)[number];
 
@@ -14,6 +23,7 @@ export default defineStore("galleryFilter", {
     filterFranchises: [] as string[],
     filterCollections: [] as string[],
     filterCompanies: [] as string[],
+    filterStatuses: statusFilters,
     filterUnmatched: false,
     filterFavourites: false,
     filterDuplicates: false,
@@ -21,6 +31,7 @@ export default defineStore("galleryFilter", {
     selectedFranchise: null as string | null,
     selectedCollection: null as string | null,
     selectedCompany: null as string | null,
+    selectedStatus: null as string | null,
   }),
 
   actions: {
@@ -54,6 +65,9 @@ export default defineStore("galleryFilter", {
     setSelectedFilterCompany(company: string) {
       this.selectedCompany = company;
     },
+    setSelectedFilterStatus(status: string) {
+      this.selectedStatus = status;
+    },
     switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
     },
@@ -81,7 +95,8 @@ export default defineStore("galleryFilter", {
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
-          this.selectedCompany,
+          this.selectedCompany ||
+          this.selectedStatus,
       );
     },
     reset() {
@@ -93,6 +108,7 @@ export default defineStore("galleryFilter", {
       this.selectedFranchise = null;
       this.selectedCollection = null;
       this.selectedCompany = null;
+      this.selectedStatus = null;
     },
   },
 });
