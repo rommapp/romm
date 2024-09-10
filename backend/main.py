@@ -19,9 +19,9 @@ from endpoints import (
     feeds,
     firmware,
     heartbeat,
-    user,
     platform,
     raw,
+    retroachievements,
     rom,
     saves,
     screenshots,
@@ -29,7 +29,7 @@ from endpoints import (
     states,
     stats,
     tasks,
-    retroachievements
+    user,
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

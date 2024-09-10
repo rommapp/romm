@@ -58,6 +58,7 @@ class CollectionAlreadyExistsException(Exception):
     def __repr__(self) -> str:
         return self.message
 
+
 class RomNotFoundInRetroAchievementsException(Exception):
     def __init__(self, id):
         self.message = f"Rom with id '{id}' does not exist on RetroAchievements"

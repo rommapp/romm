@@ -50,7 +50,6 @@ async def _get_main_platform_igdb_id(platform: Platform):
 async def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    retroAchievements_info: dict | None = None,
     metadata_sources: list[str] | None = None,
 ) -> Platform:
     """Get platform details
@@ -172,7 +171,6 @@ async def scan_rom(
     scan_type: ScanType,
     rom: Rom | None = None,
     metadata_sources: list[str] | None = None,
-    retroAchievements_info: dict | None = None,
 ) -> Rom:
     if not metadata_sources:
         metadata_sources = ["igdb", "moby", "retro_achievements"]
@@ -193,9 +191,6 @@ async def scan_rom(
         "name": fs_rom["file_name"],
         "url_cover": "",
         "url_screenshots": [],
-        "crc_hash": rom.crc_hash if rom else None,
-        "md5_hash": rom.md5_hash if rom else None,
-        "sha1_hash": rom.sha1_hash if rom else None,
     }
 
     # Update properties from existing rom if not a complete rescan
@@ -301,7 +296,6 @@ async def scan_rom(
         ):
             return await meta_ra_handler.get_rom(
                 rom_attrs["md5_hash"],
-                retroAchievements_info=retroAchievements_info or {},
                 platform_ra_id=platform.ra_id,
             )
 

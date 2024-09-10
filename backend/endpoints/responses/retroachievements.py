@@ -1,8 +1,10 @@
 from __future__ import annotations
-from fastapi import HTTPException, Query, Request, UploadFile, status
+
 from typing import Any
 
-from pydantic import BaseModel, Field
+from fastapi import Request
+from pydantic import BaseModel
+
 
 class Achievements(BaseModel):
     ID: int
@@ -20,8 +22,6 @@ class Achievements(BaseModel):
     DisplayOrder: int
     MemAddr: str
     type: Any
-
-
 
 
 class RetroAchievementsGameSchema(BaseModel):
@@ -57,8 +57,9 @@ class RetroAchievementsGameSchema(BaseModel):
     HighestAwardDate: str | None = None
 
     @classmethod
-    def from_orm_with_request(cls, db_rom: RetroAchievementsGameSchema, request: Request) -> RetroAchievementsGameSchema:
+    def from_orm_with_request(
+        cls, db_rom: RetroAchievementsGameSchema, request: Request
+    ) -> RetroAchievementsGameSchema:
         rom = cls.model_validate(db_rom)
 
         return rom
-

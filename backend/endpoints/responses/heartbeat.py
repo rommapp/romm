@@ -20,6 +20,7 @@ class MetadataSourcesDict(TypedDict):
     IGDB_API_ENABLED: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_ENABLED: bool
+    RETROACHIEVEMENTS_ENABLED: bool
 
 
 class EmulationDict(TypedDict):
