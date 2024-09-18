@@ -48,6 +48,13 @@ Then create the virtual environment
 poetry install --sync
 ```
 
+If you are on Archlinux you need to run the command as follows:
+
+```sh
+# https://bbs.archlinux.org/viewtopic.php?id=296542
+CFLAGS="-Wno-error=incompatible-pointer-types" poetry install --sync # https://bbs.archlinux.org/viewtopic.php?id=296542
+```
+
 #### - Spin up mariadb in docker
 
 ```sh
