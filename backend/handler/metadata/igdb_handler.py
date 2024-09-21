@@ -109,7 +109,9 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                 for p in rom.get("platforms", [])
             ],
             "age_ratings": [
-                IGDB_AGE_RATINGS[r["rating"]] for r in rom.get("age_ratings", [])
+                IGDB_AGE_RATINGS[r["rating"]]
+                for r in rom.get("age_ratings", [])
+                if r["rating"] in IGDB_AGE_RATINGS
             ],
             "expansions": [
                 IGDBRelatedGame(
