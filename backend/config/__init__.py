@@ -94,6 +94,7 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
 # EMULATION
 DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false"))
 DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
+DISABLE_PLAY_PS2 = str_to_bool(os.environ.get("DISABLE_PLAY_PS2", "false"))
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

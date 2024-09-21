@@ -1,5 +1,6 @@
 from config import (
     DISABLE_EMULATOR_JS,
+    DISABLE_PLAY_PS2,
     DISABLE_RUFFLE_RS,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
@@ -60,5 +61,6 @@ def heartbeat() -> HeartbeatResponse:
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
+            "DISABLE_PLAY_PS2": DISABLE_PLAY_PS2,
         },
     }

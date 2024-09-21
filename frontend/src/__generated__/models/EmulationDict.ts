@@ -6,5 +6,6 @@
 export type EmulationDict = {
     DISABLE_EMULATOR_JS: boolean;
     DISABLE_RUFFLE_RS: boolean;
+    DISABLE_PLAY_PS2: boolean;
 };
 

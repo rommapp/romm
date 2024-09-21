@@ -367,6 +367,16 @@ export function isRuffleEmulationSupported(
   );
 }
 
+export function isPlayPS2EmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+) {
+  return (
+    platformSlug.toLowerCase() === "ps2" &&
+    !heartbeat.EMULATION.DISABLE_PLAY_PS2
+  );
+}
+
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 export const romStatusMap: Record<

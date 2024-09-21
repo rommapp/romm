@@ -4,7 +4,11 @@ import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import {
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+  isPlayPS2EmulationSupported,
+} from "@/utils";
 import { computed } from "vue";
 
 // Props
@@ -18,6 +22,13 @@ const ejsEmulationSupported = computed(() => {
 
 const ruffleEmulationSupported = computed(() => {
   return isRuffleEmulationSupported(
+    props.rom.platform_slug,
+    heartbeatStore.value,
+  );
+});
+
+const playPS2EmulationSupported = computed(() => {
+  return isPlayPS2EmulationSupported(
     props.rom.platform_slug,
     heartbeatStore.value,
   );
@@ -38,7 +49,11 @@ const ruffleEmulationSupported = computed(() => {
       />
     </v-col>
     <v-col
-      v-if="ejsEmulationSupported || ruffleEmulationSupported"
+      v-if="
+        ejsEmulationSupported ||
+        ruffleEmulationSupported ||
+        playPS2EmulationSupported
+      "
       class="d-flex"
     >
       <v-btn
@@ -62,6 +77,20 @@ const ruffleEmulationSupported = computed(() => {
         @click="
           $router.push({
             name: 'ruffle',
+            params: { rom: rom?.id },
+          })
+        "
+        icon="mdi-play"
+        rounded="0"
+        variant="text"
+      />
+      <v-btn
+        v-if="playPS2EmulationSupported"
+        class="action-bar-btn-small flex-grow-1"
+        size="x-small"
+        @click="
+          $router.push({
+            name: 'playps2',
             params: { rom: rom?.id },
           })
         "

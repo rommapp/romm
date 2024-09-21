@@ -9,6 +9,7 @@ import {
   getDownloadLink,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
+  isPlayPS2EmulationSupported,
 } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref, computed } from "vue";
@@ -25,6 +26,9 @@ const ejsEmulationSupported = computed(() =>
 );
 const ruffleEmulationSupported = computed(() =>
   isRuffleEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
+);
+const playPS2EmulationSupported = computed(() =>
+  isPlayPS2EmulationSupported(props.rom.platform_slug, heartbeatStore.value),
 );
 
 // Functions
@@ -102,6 +106,18 @@ async function copyDownloadLink(rom: DetailedRom) {
       @click="
         $router.push({
           name: 'ruffle',
+          params: { rom: rom?.id },
+        })
+      "
+    >
+      <v-icon :icon="playInfoIcon" />
+    </v-btn>
+    <v-btn
+      v-if="playPS2EmulationSupported"
+      class="flex-grow-1"
+      @click="
+        $router.push({
+          name: 'playps2',
           params: { rom: rom?.id },
         })
       "

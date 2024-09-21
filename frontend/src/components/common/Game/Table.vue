@@ -11,6 +11,7 @@ import {
   formatBytes,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
+  isPlayPS2EmulationSupported,
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
@@ -102,6 +103,10 @@ function checkIfEJSEmulationSupported(platformSlug: string) {
 
 function checkIfRuffleEmulationSupported(platformSlug: string) {
   return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
+}
+
+function checkIfPlayPS2EmulationSupported(platformSlug: string) {
+  return isPlayPS2EmulationSupported(platformSlug, heartbeatStore.value);
 }
 
 function updateSelectedRom(rom: SimpleRom) {
@@ -226,6 +231,18 @@ onMounted(() => {
           @click.stop="
             $router.push({
               name: 'ruffle',
+              params: { rom: item?.id },
+            })
+          "
+        >
+          <v-icon>mdi-play</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="checkIfPlayPS2EmulationSupported(item.platform_slug)"
+          size="small"
+          @click.stop="
+            $router.push({
+              name: 'playps2',
               params: { rom: item?.id },
             })
           "

@@ -86,6 +86,10 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
         },
       },
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+      },
       port: 3000,
     },
   };

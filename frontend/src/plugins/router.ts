@@ -49,6 +49,11 @@ const routes = [
         component: () => import("@/views/RuffleRS/Base.vue"),
       },
       {
+        path: "/rom/:rom/playps2",
+        name: "playps2",
+        component: () => import("@/views/PlayPS2/Base.vue"),
+      },
+      {
         path: "/scan",
         name: "scan",
         component: () => import("@/views/Scan.vue"),
