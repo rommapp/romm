@@ -126,7 +126,8 @@ def get_roms(
         limit=limit,
     )
 
-    return [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
+    roms = [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
+    return [rom for rom in roms if rom]
 
 
 @protected_route(
@@ -539,12 +540,36 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    cleaned_data = {
-        "note_raw_markdown": data.get(
-            "note_raw_markdown", db_rom_user.note_raw_markdown
-        ),
-        "note_is_public": data.get("note_is_public", db_rom_user.note_is_public),
-        "is_main_sibling": data.get("is_main_sibling", db_rom_user.is_main_sibling),
-    }
+    cleaned_data = {}
+
+    if "note_raw_markdown" in data:
+        cleaned_data.update({"note_raw_markdown": data.get("note_raw_markdown")})
+
+    if "note_is_public" in data:
+        cleaned_data.update({"note_is_public": data.get("note_is_public")})
+
+    if "is_main_sibling" in data:
+        cleaned_data.update({"is_main_sibling": data.get("is_main_sibling")})
+
+    if "backlogged" in data:
+        cleaned_data.update({"backlogged": data.get("backlogged")})
+
+    if "now_playing" in data:
+        cleaned_data.update({"now_playing": data.get("now_playing")})
+
+    if "hidden" in data:
+        cleaned_data.update({"hidden": data.get("hidden")})
+
+    if "rating" in data:
+        cleaned_data.update({"rating": data.get("rating")})
+
+    if "difficulty" in data:
+        cleaned_data.update({"difficulty": data.get("difficulty")})
+
+    if "completion" in data:
+        cleaned_data.update({"completion": data.get("completion")})
+
+    if "status" in data:
+        cleaned_data.update({"status": data.get("status")})
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

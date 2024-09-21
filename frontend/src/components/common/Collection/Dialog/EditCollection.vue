@@ -23,11 +23,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditCollectionDialog", (collectionToEdit: Collection) => {
   collection.value = collectionToEdit;
   show.value = true;
+  removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
   if (!collection.value) return;
   collection.value.url_cover = url_cover;
-  imagePreviewUrl.value = url_cover;
+  setArtwork(url_cover);
 });
 
 function triggerFileInput() {
@@ -41,11 +42,17 @@ function previewImage(event: Event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
+    setArtwork(reader.result?.toString() || "");
   };
   if (input.files[0]) {
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
 }
 
 async function removeArtwork() {
@@ -61,6 +68,7 @@ async function editCollection() {
   await collectionApi
     .updateCollection({
       collection: collection.value,
+      removeCover: removeCover.value,
     })
     .then(({ data }) => {
       storeCollection.update(data);

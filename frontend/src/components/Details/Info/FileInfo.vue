@@ -14,17 +14,7 @@ import { ref, watch } from "vue";
 const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
-const romUser = ref(
-  props.rom.rom_user ?? {
-    id: null,
-    user_id: auth.user?.id,
-    rom_id: props.rom.id,
-    updated_at: new Date(),
-    note_raw_markdown: "",
-    note_is_public: false,
-    is_main_sibling: false,
-  },
-);
+const romUser = ref(props.rom.rom_user);
 
 // Functions
 function collectionsWithoutFavourites(collections: Collection[]) {
@@ -35,25 +25,13 @@ async function toggleMainSibling() {
   romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({
     romId: props.rom.id,
-    noteRawMarkdown: romUser.value.note_raw_markdown,
-    noteIsPublic: romUser.value.note_is_public,
-    isMainSibling: romUser.value.is_main_sibling,
+    data: romUser.value,
   });
 }
 
 watch(
   () => props.rom,
-  async () => {
-    romUser.value = props.rom.rom_user ?? {
-      id: null,
-      user_id: auth.user?.id,
-      rom_id: props.rom.id,
-      updated_at: new Date(),
-      note_raw_markdown: "",
-      note_is_public: false,
-      is_main_sibling: false,
-    };
-  },
+  async () => (romUser.value = props.rom.rom_user),
 );
 </script>
 <template>
