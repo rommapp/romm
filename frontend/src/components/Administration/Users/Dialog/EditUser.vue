@@ -22,7 +22,6 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
   show.value = true;
 });
 
-// Functions
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();

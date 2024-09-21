@@ -31,7 +31,6 @@ emitter?.on("updateUrlCover", (url_cover) => {
   setArtwork(url_cover);
 });
 
-// Functions
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();

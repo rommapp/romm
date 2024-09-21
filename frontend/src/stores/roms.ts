@@ -152,6 +152,9 @@ export default defineStore("roms", {
       if (galleryFilter.selectedCompany) {
         this._filterCompany(galleryFilter.selectedCompany);
       }
+      if (galleryFilter.selectedAgeRating) {
+        this._filterAgeRating(galleryFilter.selectedAgeRating);
+      }
       if (galleryFilter.selectedStatus) {
         this._filterStatus(galleryFilter.selectedStatus);
       } else {
@@ -256,6 +259,20 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
+    },
+    _filterAgeRating(ageRatingToFilter: string) {
+      const byAgeRating = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.age_ratings.some(
+              (ageRating) => ageRating === ageRatingToFilter,
+            ),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byAgeRating.intersection(this._filteredIDs);
     },
     _filterStatus(statusToFilter: string) {
       const stf = getStatusKeyForText(statusToFilter);

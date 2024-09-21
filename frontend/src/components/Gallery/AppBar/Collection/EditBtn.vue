@@ -19,7 +19,7 @@ const roms = storeRoms();
     @click="
       emitter?.emit(
         'showEditCollectionDialog',
-        roms.currentCollection as Collection
+        roms.currentCollection as Collection,
       )
     "
   >

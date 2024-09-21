@@ -42,7 +42,6 @@ let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
-// Functions
 async function fetchRoms() {
   if (gettingRoms.value) return;
 
@@ -108,6 +107,13 @@ function setFilters() {
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
+        .sort(),
+    ),
+  ]);
+  galleryFilterStore.setFilterAgeRatings([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
         .sort(),
     ),
   ]);
@@ -206,6 +212,7 @@ const filterToSetFilter: Record<FilterType, Function> = {
   franchises: galleryFilterStore.setSelectedFilterFranchise,
   collections: galleryFilterStore.setSelectedFilterCollection,
   companies: galleryFilterStore.setSelectedFilterCompany,
+  age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
   status: galleryFilterStore.setSelectedFilterStatus,
 };
 

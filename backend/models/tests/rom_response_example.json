@@ -124,6 +124,7 @@
       }
     }
   ],
+  "age_ratings": [{ "rating": 1 }, { "rating": 2 }],
   "expansions": [
     {
       "id": 239930,

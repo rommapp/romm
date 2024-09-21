@@ -19,7 +19,7 @@ const route = useRoute();
     @click="
       emitter?.emit(
         'showDeletePlatformDialog',
-        roms.currentPlatform as Platform
+        roms.currentPlatform as Platform,
       )
     "
   >

@@ -21,7 +21,6 @@ emitter?.on("showDeletePlatformBindingDialog", ({ fsSlug, slug }) => {
   show.value = true;
 });
 
-// Functions
 function deleteBindPlatform() {
   configApi
     .deletePlatformBindConfig({ fsSlug: platformBindingFSSlugToDelete.value })

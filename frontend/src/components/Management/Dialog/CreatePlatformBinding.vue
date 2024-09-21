@@ -48,7 +48,6 @@ emitter?.on(
   },
 );
 
-// Functions
 function addBindPlatform() {
   if (!selectedPlatform.value) return;
   configApi

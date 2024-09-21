@@ -20,6 +20,7 @@ export type { EmulationDict } from './models/EmulationDict';
 export type { FirmwareSchema } from './models/FirmwareSchema';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
+export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { MessageResponse } from './models/MessageResponse';

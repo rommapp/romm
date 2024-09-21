@@ -6,7 +6,7 @@ withDefaults(
     description?: string;
     icon?: string;
   }>(),
-  { title: "", description: "", icon: "" }
+  { title: "", description: "", icon: "" },
 );
 </script>
 <template>

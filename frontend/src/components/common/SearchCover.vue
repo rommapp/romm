@@ -23,7 +23,6 @@ emitter?.on("showSearchCoverDialog", (term) => {
   if (searchTerm.value) searchCovers();
 });
 
-// Functions
 async function searchCovers() {
   covers.value = [];
 

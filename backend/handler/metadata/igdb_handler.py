@@ -39,6 +39,12 @@ class IGDBPlatform(TypedDict):
     name: NotRequired[str]
 
 
+class IGDBAgeRating(TypedDict):
+    rating: str
+    category: str
+    rating_cover_url: str
+
+
 class IGDBMetadataPlatform(TypedDict):
     igdb_id: int
     name: str
@@ -63,6 +69,7 @@ class IGDBMetadata(TypedDict):
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
+    age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
     expansions: list[IGDBRelatedGame]
     dlcs: list[IGDBRelatedGame]
@@ -104,6 +111,11 @@ def extract_metadata_from_igdb_rom(
             "platforms": [
                 IGDBMetadataPlatform(igdb_id=p.get("id", ""), name=p.get("name", ""))
                 for p in rom.get("platforms", [])
+            ],
+            "age_ratings": [
+                IGDB_AGE_RATINGS[r["rating"]]
+                for r in rom.get("age_ratings", [])
+                if r["rating"] in IGDB_AGE_RATINGS
             ],
             "expansions": [
                 IGDBRelatedGame(
@@ -556,8 +568,8 @@ class IGDBBaseHandler(MetadataHandler):
         ]
 
         return [
-            IGDBRom(  # type: ignore[misc]
-                {
+            IGDBRom(
+                {  # type: ignore[misc]
                     k: v
                     for k, v in {
                         "igdb_id": rom["id"],
@@ -565,12 +577,12 @@ class IGDBBaseHandler(MetadataHandler):
                         "name": rom["name"],
                         "summary": rom.get("summary", ""),
                         "url_cover": self._normalize_cover_url(
-                            rom.get("cover", {})
-                            .get("url", "")
-                            .replace("t_thumb", "t_cover_big")
+                            pydash.get(rom, "cover.url", "").replace(
+                                "t_thumb", "t_cover_big"
+                            )
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", ""))
+                            self._normalize_cover_url(s.get("url", ""))  # type: ignore[arg-type]
                             for s in rom.get("screenshots", [])
                         ],
                         "igdb_metadata": extract_metadata_from_igdb_rom(rom),
@@ -693,6 +705,7 @@ GAMES_FIELDS = [
     "similar_games.slug",
     "similar_games.name",
     "similar_games.cover.url",
+    "age_ratings.rating",
 ]
 
 SEARCH_FIELDS = ["game.id", "name"]
@@ -921,3 +934,186 @@ IGDB_PLATFORM_LIST = [
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
 ]
+
+IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
+    1: {
+        "rating": "Three",
+        "category": "PEGI",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_3.png",
+    },
+    2: {
+        "rating": "Seven",
+        "category": "PEGI",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_7.png",
+    },
+    3: {
+        "rating": "Twelve",
+        "category": "PEGI",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_12.png",
+    },
+    4: {
+        "rating": "Sixteen",
+        "category": "PEGI",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_16.png",
+    },
+    5: {
+        "rating": "Eighteen",
+        "category": "PEGI",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_18.png",
+    },
+    6: {
+        "rating": "RP",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_rp.png",
+    },
+    7: {
+        "rating": "EC",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_ec.png",
+    },
+    8: {
+        "rating": "E",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_e.png",
+    },
+    9: {
+        "rating": "E10",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_e10.png",
+    },
+    10: {
+        "rating": "T",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_t.png",
+    },
+    11: {
+        "rating": "M",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_m.png",
+    },
+    12: {
+        "rating": "AO",
+        "category": "ESRB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_ao.png",
+    },
+    13: {
+        "rating": "CERO_A",
+        "category": "CERO",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_a.png",
+    },
+    14: {
+        "rating": "CERO_B",
+        "category": "CERO",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_b.png",
+    },
+    15: {
+        "rating": "CERO_C",
+        "category": "CERO",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_c.png",
+    },
+    16: {
+        "rating": "CERO_D",
+        "category": "CERO",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_d.png",
+    },
+    17: {
+        "rating": "CERO_Z",
+        "category": "CERO",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_z.png",
+    },
+    18: {
+        "rating": "USK_0",
+        "category": "USK",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_0.png",
+    },
+    19: {
+        "rating": "USK_6",
+        "category": "USK",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_6.png",
+    },
+    20: {
+        "rating": "USK_12",
+        "category": "USK",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_12.png",
+    },
+    21: {
+        "rating": "USK_16",
+        "category": "USK",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_16.png",
+    },
+    22: {
+        "rating": "USK_18",
+        "category": "USK",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_18.png",
+    },
+    23: {
+        "rating": "GRAC_ALL",
+        "category": "GRAC",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_all.png",
+    },
+    24: {
+        "rating": "GRAC_Twelve",
+        "category": "GRAC",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_twelve.png",
+    },
+    25: {
+        "rating": "GRAC_Fifteen",
+        "category": "GRAC",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_fifteen.png",
+    },
+    26: {
+        "rating": "GRAC_Eighteen",
+        "category": "GRAC",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_eighteen.png",
+    },
+    27: {
+        "rating": "GRAC_TESTING",
+        "category": "GRAC",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_testing.png",
+    },
+    28: {
+        "rating": "CLASS_IND_L",
+        "category": "CLASS_IND",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_l.png",
+    },
+    29: {
+        "rating": "CLASS_IND_Ten",
+        "category": "CLASS_IND",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_ten.png",
+    },
+    30: {
+        "rating": "CLASS_IND_Twelve",
+        "category": "CLASS_IND",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_twelve.png",
+    },
+    31: {
+        "rating": "ACB_G",
+        "category": "ACB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_g.png",
+    },
+    32: {
+        "rating": "ACB_PG",
+        "category": "ACB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_pg.png",
+    },
+    33: {
+        "rating": "ACB_M",
+        "category": "ACB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_m.png",
+    },
+    34: {
+        "rating": "ACB_MA15",
+        "category": "ACB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_ma15.png",
+    },
+    35: {
+        "rating": "ACB_R18",
+        "category": "ACB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_r18.png",
+    },
+    36: {
+        "rating": "ACB_RC",
+        "category": "ACB",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_rc.png",
+    },
+}
