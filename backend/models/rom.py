@@ -171,6 +171,10 @@ class Rom(BaseModel):
         return self.igdb_metadata.get("game_modes", [])
 
     @property
+    def age_ratings(self) -> list[str]:
+        return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
+
+    @property
     def fs_resources_path(self) -> str:
         return f"roms/{str(self.platform_id)}/{str(self.id)}"
 

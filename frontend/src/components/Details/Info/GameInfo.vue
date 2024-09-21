@@ -7,7 +7,6 @@ import { useRouter } from "vue-router";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
-const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
@@ -47,6 +46,30 @@ function onFilterClick(filter: FilterType, value: string) {
               {{ value }}
             </v-chip>
           </v-col>
+        </v-row>
+      </template>
+      <!-- Manually add age ratings to display logos -->
+      <template
+        v-if="
+          rom.igdb_metadata?.age_ratings &&
+          rom.igdb_metadata.age_ratings.length > 0
+        "
+      >
+        <v-row no-gutters class="mt-5">
+          <v-col cols="3" xl="2" class="text-capitalize">
+            <span>Age Rating</span>
+          </v-col>
+          <div class="d-flex">
+            <v-img
+              v-for="value in rom.igdb_metadata.age_ratings"
+              :key="value.rating"
+              @click="onFilterClick('age_ratings', value.rating)"
+              :src="value.rating_cover_url"
+              height="50"
+              width="50"
+              class="mr-4 cursor-pointer"
+            />
+          </div>
         </v-row>
       </template>
       <template v-if="rom.summary != ''">

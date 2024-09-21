@@ -15,7 +15,6 @@ emitter?.on("showCopyDownloadLinkDialog", (downloadLink) => {
   link.value = downloadLink;
 });
 
-// Functions
 function closeDialog() {
   show.value = false;
   link.value = "";

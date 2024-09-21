@@ -9,7 +9,7 @@ withDefaults(
     description?: string;
     icon?: string;
   }>(),
-  { title: "", description: "", icon: "" }
+  { title: "", description: "", icon: "" },
 );
 const emit = defineEmits(["update:modelValue"]);
 </script>

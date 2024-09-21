@@ -32,10 +32,11 @@ async function uploadRoms({
       api
         .post("/roms", formData, {
           headers: {
-            "Content-Type": "multipart/form-data; boundary=boundary",
+            "Content-Type": "multipart/form-data",
             "X-Upload-Platform": platformId.toString(),
             "X-Upload-Filename": file.name,
           },
+          timeout: 600000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);

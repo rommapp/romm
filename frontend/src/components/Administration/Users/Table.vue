@@ -58,7 +58,6 @@ const usersPerPage = ref(isNaN(storedUsersPerPage) ? 25 : storedUsersPerPage);
 const pageCount = ref(0);
 emitter?.on("updateDataTablePages", updateDataTablePages);
 
-// Functions
 function updateDataTablePages() {
   pageCount.value = Math.ceil(usersStore.allUsers.length / usersPerPage.value);
 }

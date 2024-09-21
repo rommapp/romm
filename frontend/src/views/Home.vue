@@ -52,7 +52,6 @@ emitter?.on("refreshDrawer", async () => {
   platformsStore.set(platformData);
 });
 
-// Functions
 onBeforeMount(async () => {
   await platformApi
     .getPlatforms()

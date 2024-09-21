@@ -18,7 +18,7 @@ withDefaults(
   }>(),
   {
     block: false,
-  }
+  },
 );
 const navigationStore = storeNavigation();
 const auth = storeAuth();
@@ -36,10 +36,10 @@ socket.on(
   ({ name, slug, id }: { name: string; slug: string; id: number }) => {
     scanningStore.set(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
-      (platform) => platform.name !== name
+      (platform) => platform.name !== name,
     );
     scanningPlatforms.value.push({ name, slug, id, roms: [] });
-  }
+  },
 );
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
@@ -49,12 +49,12 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
     romsStore.add([rom]);
     romsStore.setFiltered(
       isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
-      galleryFilter
+      galleryFilter,
     );
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
-    (p) => p.slug === rom.platform_slug
+    (p) => p.slug === rom.platform_slug,
   );
 
   // Add the platform if the socket dropped and it's missing

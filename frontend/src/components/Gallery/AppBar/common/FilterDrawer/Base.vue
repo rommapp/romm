@@ -13,6 +13,7 @@ import { useDisplay } from "vuetify";
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
+
 const {
   activeFilterDrawer,
   selectedGenre,
@@ -23,9 +24,12 @@ const {
   filterCollections,
   selectedCompany,
   filterCompanies,
+  selectedAgeRating,
+  filterAgeRatings,
   selectedStatus,
   filterStatuses,
 } = storeToRefs(galleryFilterStore);
+
 const filters = [
   {
     label: "Genre",
@@ -48,6 +52,11 @@ const filters = [
     items: filterCompanies,
   },
   {
+    label: "Age Rating",
+    selected: selectedAgeRating,
+    items: filterAgeRatings,
+  },
+  {
     label: "Status",
     selected: selectedStatus,
     items: filterStatuses,
@@ -59,6 +68,7 @@ function resetFilters() {
   selectedFranchise.value = null;
   selectedCollection.value = null;
   selectedCompany.value = null;
+  selectedAgeRating.value = null;
   selectedStatus.value = null;
   galleryFilterStore.disableFilterUnmatched();
   galleryFilterStore.disableFilterFavourites();

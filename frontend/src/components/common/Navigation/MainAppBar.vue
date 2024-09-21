@@ -24,7 +24,7 @@ import UserBtn from "@/components/common/Navigation/UserBtn.vue";
     <v-divider opacity="0" class="mx-3" vertical />
     <upload-btn />
     <scan-btn />
-    
+
     <template #append>
       <user-btn />
     </template>

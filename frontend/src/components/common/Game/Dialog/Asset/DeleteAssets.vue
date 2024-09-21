@@ -69,7 +69,7 @@ async function deleteAssets() {
         const deletedAssetIds = assets.value.map((asset) => asset.id);
         romRef.value[assetType.value] =
           romRef.value[assetType.value]?.filter(
-            (asset) => !deletedAssetIds.includes(asset.id)
+            (asset) => !deletedAssetIds.includes(asset.id),
           ) ?? [];
         romsStore.update(romRef.value);
         emitter?.emit("romUpdated", romRef.value);
@@ -147,7 +147,8 @@ function closeDialog() {
           <v-list-item class="px-0">
             <v-row no-gutters>
               <v-col>
-                {{ item.file_name }}<v-chip
+                {{ item.file_name
+                }}<v-chip
                   v-if="assetsToDeleteFromFs.includes(item.id) && smAndUp"
                   label
                   size="x-small"
