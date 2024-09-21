@@ -73,6 +73,7 @@ COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY ./frontend/assets/playps2 ${WEBSERVER_FOLDER}/assets/playps2
 COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
