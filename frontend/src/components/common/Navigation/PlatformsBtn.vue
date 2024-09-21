@@ -8,7 +8,7 @@ withDefaults(
   }>(),
   {
     block: false,
-  }
+  },
 );
 const navigationStore = storeNavigation();
 const { activePlatformsDrawer } = storeToRefs(navigationStore);

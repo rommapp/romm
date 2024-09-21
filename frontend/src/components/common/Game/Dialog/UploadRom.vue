@@ -60,7 +60,6 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     });
 });
 
-// Functions
 async function uploadRoms() {
   if (!selectedPlatform.value) return;
   show.value = false;

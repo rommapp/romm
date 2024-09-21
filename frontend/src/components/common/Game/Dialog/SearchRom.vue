@@ -36,7 +36,6 @@ emitter?.on("showSearchRomDialog", () => {
   show.value = true;
 });
 
-// Functions
 async function filterRoms() {
   if (!selectedPlatform.value) {
     filteredRoms.value = searchedRoms.value as SimpleRom[];

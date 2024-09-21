@@ -111,6 +111,13 @@ function setFilters() {
         .sort(),
     ),
   ]);
+  galleryFilterStore.setFilterAgeRatings([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
+        .sort(),
+    ),
+  ]);
 }
 
 async function onFilterChange() {
