@@ -1,5 +1,6 @@
 import { normalizeString } from "@/utils";
 import { defineStore } from "pinia";
+import { romStatusMap } from "@/utils";
 
 const filters = [
   "genres",
@@ -7,7 +8,10 @@ const filters = [
   "collections",
   "companies",
   "age_ratings",
+  "status",
 ] as const;
+
+const statusFilters = Object.values(romStatusMap).map((status) => status.text);
 
 export type FilterType = (typeof filters)[number];
 
@@ -21,6 +25,7 @@ export default defineStore("galleryFilter", {
     filterCollections: [] as string[],
     filterCompanies: [] as string[],
     filterAgeRatings: [] as string[],
+    filterStatuses: statusFilters,
     filterUnmatched: false,
     filterFavourites: false,
     filterDuplicates: false,
@@ -29,6 +34,7 @@ export default defineStore("galleryFilter", {
     selectedCollection: null as string | null,
     selectedCompany: null as string | null,
     selectedAgeRating: null as string | null,
+    selectedStatus: null as string | null,
   }),
 
   actions: {
@@ -68,6 +74,9 @@ export default defineStore("galleryFilter", {
     setSelectedFilterAgeRating(ageRating: string) {
       this.selectedAgeRating = ageRating;
     },
+    setSelectedFilterStatus(status: string) {
+      this.selectedStatus = status;
+    },
     switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
     },
@@ -96,7 +105,8 @@ export default defineStore("galleryFilter", {
           this.selectedFranchise ||
           this.selectedCollection ||
           this.selectedCompany ||
-          this.selectedAgeRating,
+          this.selectedAgeRating ||
+          this.selectedStatus,
       );
     },
     reset() {
@@ -109,6 +119,7 @@ export default defineStore("galleryFilter", {
       this.selectedCollection = null;
       this.selectedCompany = null;
       this.selectedAgeRating = null;
+      this.selectedStatus = null;
     },
   },
 });

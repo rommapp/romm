@@ -7,10 +7,9 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, ref } from "vue";
+import { inject, nextTick } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
@@ -27,6 +26,8 @@ const {
   filterCompanies,
   selectedAgeRating,
   filterAgeRatings,
+  selectedStatus,
+  filterStatuses,
 } = storeToRefs(galleryFilterStore);
 
 const filters = [
@@ -55,15 +56,20 @@ const filters = [
     selected: selectedAgeRating,
     items: filterAgeRatings,
   },
+  {
+    label: "Status",
+    selected: selectedStatus,
+    items: filterStatuses,
+  },
 ];
 
-// Functions
 function resetFilters() {
   selectedGenre.value = null;
   selectedFranchise.value = null;
   selectedCollection.value = null;
   selectedCompany.value = null;
   selectedAgeRating.value = null;
+  selectedStatus.value = null;
   galleryFilterStore.disableFilterUnmatched();
   galleryFilterStore.disableFilterFavourites();
   nextTick(() => emitter?.emit("filter", null));
@@ -102,8 +108,8 @@ function resetFilters() {
       </v-list-item>
       <v-list-item class="justify-center d-flex">
         <v-btn size="small" variant="tonal" @click="resetFilters">
-          Reset filters</v-btn
-        >
+          Reset filters
+        </v-btn>
       </v-list-item>
     </v-list>
   </v-navigation-drawer>

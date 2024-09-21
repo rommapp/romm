@@ -2,68 +2,179 @@
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
+import type { RomUserStatus } from "@/__generated__";
+import { getTextForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
 import { useTheme } from "vuetify";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 const editingNote = ref(false);
-const romUser = ref(
-  props.rom.rom_user ?? {
-    id: null,
-    user_id: auth.user?.id,
-    rom_id: props.rom.id,
-    updated_at: new Date(),
-    note_raw_markdown: "",
-    note_is_public: false,
-    is_main_sibling: false,
-  },
-);
+const romUser = ref(props.rom.rom_user);
 const publicNotes =
   props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
 
-function togglePublic() {
-  romUser.value.note_is_public = !romUser.value.note_is_public;
-  romApi.updateUserRomProps({
-    romId: props.rom.id,
-    noteRawMarkdown: romUser.value.note_raw_markdown,
-    noteIsPublic: romUser.value.note_is_public,
-    isMainSibling: romUser.value.is_main_sibling,
-  });
-}
+const difficultyEmojis = [
+  "😴",
+  "🥱",
+  "😐",
+  "😄",
+  "🤔",
+  "🤯",
+  "😓",
+  "😡",
+  "🤬",
+  "😵",
+];
+
+const statusOptions = [
+  null,
+  "incomplete",
+  "finished",
+  "completed_100",
+  "retired",
+  "never_playing",
+];
 
 function editNote() {
   if (editingNote.value) {
     romApi.updateUserRomProps({
       romId: props.rom.id,
-      noteRawMarkdown: romUser.value.note_raw_markdown,
-      noteIsPublic: romUser.value.note_is_public,
-      isMainSibling: romUser.value.is_main_sibling,
+      data: romUser.value,
     });
   }
   editingNote.value = !editingNote.value;
 }
 
+function onStatusItemClick(status: string | null) {
+  romUser.value.status = status as RomUserStatus | null;
+}
+
 watch(
   () => props.rom,
-  async () => {
-    romUser.value = props.rom.rom_user ?? {
-      id: null,
-      user_id: auth.user?.id,
-      rom_id: props.rom.id,
-      updated_at: new Date(),
-      note_raw_markdown: "",
-      note_is_public: false,
-      is_main_sibling: false,
-    };
+  async () => (romUser.value = props.rom.rom_user),
+);
+
+watch(
+  romUser,
+  () => {
+    romApi.updateUserRomProps({
+      romId: props.rom.id,
+      data: romUser.value,
+    });
   },
+  { deep: true },
 );
 </script>
+
 <template>
+  <v-card rounded="0" class="mb-2">
+    <v-card-title class="bg-terciary">
+      <v-list-item class="pl-2 pr-0">
+        <span class="text-h6">Status</span>
+      </v-list-item>
+    </v-card-title>
+    <v-card-text class="py-4 px-8">
+      <v-row no-gutters>
+        <v-col cols="6">
+          <v-checkbox
+            label="Backlogged"
+            v-model="romUser.backlogged"
+            color="romm-accent-1"
+            hide-details
+          />
+          <v-checkbox
+            label="Now playing"
+            v-model="romUser.now_playing"
+            color="romm-accent-1"
+            hide-details
+          />
+          <v-checkbox
+            label="Hidden"
+            v-model="romUser.hidden"
+            color="romm-accent-1"
+            hide-details
+          />
+        </v-col>
+        <v-col cols="6">
+          <div class="d-flex align-center mt-2">
+            <v-label class="text-body-2 mr-4">Rating</v-label>
+            <v-rating
+              hover
+              ripple
+              length="10"
+              size="32"
+              v-model="romUser.rating"
+              @update:model-value="
+                romUser.rating =
+                  typeof $event === 'number' ? $event : parseInt($event)
+              "
+              active-color="romm-accent-1"
+            />
+          </div>
+          <div class="d-flex align-center mt-3">
+            <v-label class="text-body-2 mr-4">Difficulty</v-label>
+            <v-slider
+              v-model="romUser.difficulty"
+              min="1"
+              max="10"
+              step="1"
+              hide-details
+              track-fill-color="romm-accent-1"
+            />
+            <v-label class="ml-2 opacity-100">
+              {{
+                difficultyEmojis[Math.floor(romUser.difficulty) - 1] ?? "😀"
+              }}</v-label
+            >
+          </div>
+          <div class="d-flex align-center mt-3">
+            <v-label class="text-body-2 mr-4">Completion %</v-label>
+            <v-slider
+              v-model="romUser.completion"
+              min="1"
+              max="100"
+              step="1"
+              hide-details
+              track-fill-color="romm-accent-1"
+            />
+            <v-label class="text-body-2 ml-2 opacity-100">
+              {{ romUser.completion }}%
+            </v-label>
+          </div>
+          <div class="d-flex align-center mt-3">
+            <v-select
+              v-model="romUser.status"
+              :items="statusOptions"
+              hide-details
+              label="Status"
+              dense
+              rounded="0"
+              variant="outlined"
+              density="compact"
+              class="mt-1"
+            >
+              <template v-slot:selection="{ item }">
+                <span>{{ getTextForStatus(item.raw as RomUserStatus) }}</span>
+              </template>
+              <template v-slot:item="{ item }">
+                <v-list-item
+                  link
+                  rounded="0"
+                  @click="onStatusItemClick(item.raw)"
+                >
+                  {{ getTextForStatus(item.raw as RomUserStatus) }}
+                </v-list-item>
+              </template>
+            </v-select>
+          </div>
+        </v-col>
+      </v-row>
+    </v-card-text>
+  </v-card>
   <v-card rounded="0">
     <v-card-title class="bg-terciary">
       <v-list-item class="pl-2 pr-0">
@@ -78,7 +189,7 @@ watch(
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
-                  @click="togglePublic"
+                  @click="romUser.note_is_public = !romUser.note_is_public"
                   v-bind="tooltipProps"
                   class="bg-terciary"
                 >

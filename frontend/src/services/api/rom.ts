@@ -1,4 +1,8 @@
-import type { MessageResponse, SearchRomSchema } from "@/__generated__";
+import type {
+  MessageResponse,
+  SearchRomSchema,
+  RomUserSchema,
+} from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
@@ -169,20 +173,12 @@ async function deleteRoms({
 
 async function updateUserRomProps({
   romId,
-  noteRawMarkdown,
-  noteIsPublic,
-  isMainSibling,
+  data,
 }: {
   romId: number;
-  noteRawMarkdown: string;
-  noteIsPublic: boolean;
-  isMainSibling: boolean;
+  data: Partial<RomUserSchema>;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/props`, {
-    note_raw_markdown: noteRawMarkdown,
-    note_is_public: noteIsPublic,
-    is_main_sibling: isMainSibling,
-  });
+  return api.put(`/roms/${romId}/props`, data);
 }
 
 export default {

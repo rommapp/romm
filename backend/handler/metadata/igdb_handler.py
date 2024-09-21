@@ -62,6 +62,7 @@ class IGDBMetadata(TypedDict):
     total_rating: str
     aggregated_rating: str
     first_release_date: int | None
+    youtube_video_id: str | None
     genres: list[str]
     franchises: list[str]
     alternative_names: list[str]
@@ -89,9 +90,12 @@ class IGDBRom(TypedDict):
     igdb_metadata: NotRequired[IGDBMetadata]
 
 
-def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
+def extract_metadata_from_igdb_rom(
+    rom: dict, video_id: str | None = None
+) -> IGDBMetadata:
     return IGDBMetadata(
         {
+            "youtube_video_id": video_id,
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
@@ -197,6 +201,7 @@ class IGDBBaseHandler(MetadataHandler):
         self.games_fields = GAMES_FIELDS
         self.search_endpoint = f"{self.BASE_URL}/search"
         self.search_fields = SEARCH_FIELDS
+        self.video_endpoint = f"{self.BASE_URL}/game_videos"
         self.pagination_limit = 200
         self.twitch_auth = TwitchAuth()
         self.headers = {
@@ -214,7 +219,6 @@ class IGDBBaseHandler(MetadataHandler):
 
         return wrapper
 
-    # trunk-ignore(ruff/ASYNC109): timeout is used for request
     async def _request(self, url: str, data: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
         try:
@@ -436,6 +440,13 @@ class IGDBBaseHandler(MetadataHandler):
         if not rom:
             return fallback_rom
 
+        # Get the video ID for the game
+        video_ids = await self._request(
+            self.video_endpoint,
+            f'fields video_id; where game={rom["id"]};',
+        )
+        video_id = pydash.get(video_ids, "[0].video_id", None)
+
         return IGDBRom(
             igdb_id=rom["id"],
             slug=rom["slug"],
@@ -450,7 +461,7 @@ class IGDBBaseHandler(MetadataHandler):
                 )
                 for s in rom.get("screenshots", [])
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(rom),
+            igdb_metadata=extract_metadata_from_igdb_rom(rom, video_id),
         )
 
     @check_twitch_token
@@ -467,6 +478,13 @@ class IGDBBaseHandler(MetadataHandler):
         if not rom:
             return IGDBRom(igdb_id=None)
 
+        # Get the video ID for the game
+        video_ids = await self._request(
+            self.video_endpoint,
+            f'fields video_id; where game={rom["id"]};',
+        )
+        video_id = pydash.get(video_ids, "[0].video_id", None)
+
         return IGDBRom(
             igdb_id=rom["id"],
             slug=rom["slug"],
@@ -481,7 +499,7 @@ class IGDBBaseHandler(MetadataHandler):
                 )
                 for s in rom.get("screenshots", [])
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(rom),
+            igdb_metadata=extract_metadata_from_igdb_rom(rom, video_id),
         )
 
     @check_twitch_token

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Final
 
 from config import ROMM_AUTH_SECRET_KEY
@@ -106,9 +106,11 @@ class OAuthHandler:
         to_encode = data.copy()
 
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=DEFAULT_OAUTH_TOKEN_EXPIRY)
+            expire = datetime.now(timezone.utc) + timedelta(
+                minutes=DEFAULT_OAUTH_TOKEN_EXPIRY
+            )
 
         to_encode.update({"exp": expire})
 
