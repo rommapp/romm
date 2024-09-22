@@ -29,6 +29,7 @@ function onPlay() {
     if (!rom.value) return;
 
     const { default: PlayPS2 } = await import(
+      /* @vite-ignore */
       window.location.origin + "/assets/playps2/playps2.js"
     );
     const PlayModule = await PlayPS2(MODULE_OVERRIDES);
