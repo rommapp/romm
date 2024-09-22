@@ -11,9 +11,9 @@ services:
     ports:
       - $DB_PORT:3306
 
-  redis:
-    image: redis:alpine
-    container_name: redis
+  valkey:
+    image: valkey/valkey:8
+    container_name: valkey
     restart: unless-stopped
     ports:
       - $REDIS_PORT:6379

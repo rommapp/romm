@@ -83,12 +83,12 @@ RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
 # Install required packages and dependencies
 RUN apk add --no-cache \
     bash \
+    libmagic \
     mariadb-connector-c \
+    p7zip \
     python3 \
     tzdata \
-    redis \
-    libmagic \
-    p7zip
+    valkey
 
 COPY ./backend /backend
 
