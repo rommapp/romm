@@ -37,26 +37,41 @@ function onPlay() {
     PlayModule.ccall("initVm", "", [], []);
 
     const url = `/api/roms/${rom.value.id}/content/${rom.value.file_name}`;
-    const blob = await fetch(url).then((response) => {
-      if (!response.ok) {
-        return null;
-      } else {
-        return response.blob();
-      }
-    });
-    if (blob === null) return;
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error("Network response was not ok");
+      return null;
+    }
 
-    const data = new Uint8Array(await blob.arrayBuffer());
+    const reader = response.body?.getReader();
+    if (!reader) {
+      console.error("Response body is not readable");
+      return null;
+    }
+
     if (rom.value.file_extension === ".elf") {
       const stream = PlayModule.FS.open(rom.value.file_name, "w+");
-      PlayModule.FS.write(stream, data, 0, data.length, 0);
+      let offset = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        PlayModule.FS.write(stream, value, offset, value.length, offset);
+        offset += value.length;
+      }
       PlayModule.FS.close(stream);
       URL.revokeObjectURL(url);
       PlayModule.bootElf(rom.value.file_name);
     } else {
-      const file = new File([data], rom.value.file_name, {
-        type: "application/octet-stream",
-      });
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+
+      const file = new Blob(chunks, { type: "application/octet-stream" });
       PlayModule.discImageDevice.setFile(file);
       PlayModule.bootDiscImage(rom.value.file_name);
     }

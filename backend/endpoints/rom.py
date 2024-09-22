@@ -256,6 +256,18 @@ async def get_rom_content(
     files_to_download = sorted(files or [r["filename"] for r in rom.files])
 
     if not rom.multi:
+        # Serve the file directly in development mode for emulatorjs
+        if DEV_MODE:
+            return FileResponse(
+                path=rom_path,
+                filename=rom.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(rom.file_size_bytes),
+                },
+            )
+
         return Response(
             media_type="application/octet-stream",
             headers={
