@@ -22,24 +22,16 @@ const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
-declare global {
-  interface Window {
-    PlayPS2: any;
-  }
-}
-
-window.PlayPS2 = window.PlayPS2 || {};
-const script = document.createElement("script");
-script.src = "/assets/playps2/playps2.js";
-document.body.appendChild(script);
-
 function onPlay() {
   gameRunning.value = true;
 
   nextTick(async () => {
     if (!rom.value) return;
 
-    const PlayModule = await window.PlayPS2(MODULE_OVERRIDES);
+    const { default: PlayPS2 } = await import(
+      window.location.origin + "/assets/playps2/playps2.js"
+    );
+    const PlayModule = await PlayPS2(MODULE_OVERRIDES);
     PlayModule.FS.mkdir("/work");
     PlayModule.discImageDevice = new DiskImageDevice(PlayModule);
     PlayModule.ccall("initVm", "", [], []);
@@ -95,7 +87,7 @@ onMounted(async () => {
       class="bg-secondary"
       rounded
     >
-      <div id="game" />
+      <canvas id="outputCanvas" tabindex="-1"></canvas>
     </v-col>
 
     <v-col
@@ -219,7 +211,7 @@ onMounted(async () => {
 </style>
 
 <style scoped>
-#game {
+#outputCanvas {
   max-height: 100dvh;
   height: 100%;
   --splash-screen-background: none;

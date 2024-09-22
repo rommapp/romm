@@ -1,4 +1,4 @@
-window.PlayPS2 = (() => {
+var Play = (() => {
   var _scriptDir =
     typeof document !== "undefined" && document.currentScript
       ? document.currentScript.src
@@ -10814,3 +10814,4 @@ window.PlayPS2 = (() => {
     return moduleArg.ready;
   };
 })();
+export default Play;
