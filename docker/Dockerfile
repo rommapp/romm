@@ -1,9 +1,18 @@
+# Stages:
+#   - front-build-stage: Build frontend
+#   - backend-build: Build backend environment
+#   - rahasher-build: Build RAHasher
+#   - nginx-build: Build nginx modules
+#   - production-stage: Setup frontend and backend
+#   - final-stage: Move everything to final stage
+
+# Versions:
 ARG ALPINE_VERSION=3.20
 ARG NGINX_VERSION=1.27.1
 ARG NODE_VERSION=20.16
 ARG PYTHON_VERSION=3.12
 
-# Build frontend
+
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS front-build-stage
 WORKDIR /front
 
@@ -13,7 +22,7 @@ RUN npm ci
 COPY ./frontend ./
 RUN npm run build
 
-# Build backend environment
+
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
 # libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
@@ -31,9 +40,33 @@ ENV POETRY_NO_INTERACTION=1 \
 WORKDIR /src
 
 COPY ./pyproject.toml ./poetry.lock /src/
-RUN poetry install --no-ansi --no-cache --only main
+RUN poetry install --no-ansi --no-cache
 
-# Build nginx modules
+
+# TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to work
+#       with it (seems like Alpine 3.18's g++ v12 is the latest version that works with RAHasher,
+#       while g++ v13 fails to compile it).
+FROM alpine:3.18 AS rahasher-build
+
+RUN apk add --no-cache \
+    g++ \
+    git \
+    linux-headers \
+    make \
+    zlib-dev
+
+# TODO: Change to a tagged version, once v1.7.2 or newer is released.
+#       Current pinned commit is needed to enable building RAHasher on ARM64.
+ARG RALIBRETRO_SHA=5b60a1d6d067238ece378b6250ae1ae8aeb90904
+
+# TODO: Remove `sed` command when RAHasher can be compiled without it.
+RUN git clone --recursive https://github.com/RetroAchievements/RALibretro.git && \
+    cd ./RALibretro && \
+    git checkout "${RALIBRETRO_SHA}" && \
+    sed -i '22a #include <ctime>' ./src/Util.h && \
+    make HAVE_CHD=1 -f ./Makefile.RAHasher
+
+
 FROM alpine:${ALPINE_VERSION} AS nginx-build
 
 RUN apk add --no-cache \
@@ -63,10 +96,11 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
     make -f ./objs/Makefile modules && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
-# Setup frontend and backend
+
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
+COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 
 COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
@@ -101,7 +135,7 @@ COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
-# Move everything to final stage
+
 FROM scratch AS final-stage
 
 COPY --from=production-stage / /
