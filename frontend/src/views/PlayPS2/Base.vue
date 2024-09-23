@@ -220,16 +220,9 @@ onMounted(async () => {
   </v-row>
 </template>
 
-<style>
-#game-wrapper {
-  aspect-ratio: 16 / 9;
-}
-</style>
-
 <style scoped>
 #outputCanvas {
-  max-height: 100dvh;
-  height: 100%;
-  --splash-screen-background: none;
+  height: 480px;
+  width: 640px;
 }
 </style>
