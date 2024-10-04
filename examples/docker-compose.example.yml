@@ -27,7 +27,7 @@ services:
       - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
       - /path/to/config:/romm/config # Path where config.yml is stored
     ports:
-      - 80:8080
+      - 8080:8080
     depends_on:
       - romm-db
 
