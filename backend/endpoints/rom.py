@@ -29,7 +29,7 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.targets import FileTarget, NullTarget
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
-from utils.nginx import ZipContentLine, ZipResponse
+from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 
 router = APIRouter()
@@ -197,21 +197,14 @@ async def head_rom_content(
                 },
             )
 
-        return Response(
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}",
-            },
+        return FileRedirectResponse(
+            download_path=Path(f"/library/{rom.full_path}"),
+            filename=rom.file_name,
         )
 
     if len(files_to_check) == 1:
-        return Response(
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
-            },
+        return FileRedirectResponse(
+            download_path=Path(f"/library/{rom.full_path}/{files_to_check[0]}"),
         )
 
     return Response(
@@ -256,21 +249,14 @@ async def get_rom_content(
     files_to_download = sorted(files or [r["filename"] for r in rom.files])
 
     if not rom.multi:
-        return Response(
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}",
-            },
+        return FileRedirectResponse(
+            download_path=Path(f"/library/{rom.full_path}"),
+            filename=rom.file_name,
         )
 
     if len(files_to_download) == 1:
-        return Response(
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
-            },
+        return FileRedirectResponse(
+            download_path=Path(f"/library/{rom.full_path}/{files_to_download[0]}"),
         )
 
     content_lines = [
