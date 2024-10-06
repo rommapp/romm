@@ -41,7 +41,7 @@ joserfc = "^0.9.0"
 pillow = "^10.3.0"
 certifi = "2024.07.04"
 python-magic = "^0.4.27"
-py7zr = "^0.21.1"
+py7zr = "^0.22"
 streaming-form-data = "^1.16.0"
 zipfile-deflate64 = "^0.2.0"
 
