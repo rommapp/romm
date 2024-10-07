@@ -15,7 +15,7 @@ import { useDisplay } from "vuetify";
 
 const { xs } = useDisplay();
 const romsStore = storeRoms();
-const { currentPlatform, currentCollection } = storeToRefs(romsStore);
+const { currentPlatform } = storeToRefs(romsStore);
 
 // Props
 const auth = storeAuth();

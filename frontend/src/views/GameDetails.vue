@@ -6,6 +6,7 @@ import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
+import RetroAchievements from "@/components/Details/RetroAchievements.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
@@ -22,6 +23,7 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { onBeforeRouteLeave, useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import storeAuth from "@/stores/auth";
 
 // Props
 const route = useRoute();
@@ -40,6 +42,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
+const auth = storeAuth();
 
 async function fetchDetails() {
   await romApi
@@ -90,7 +93,7 @@ watch(
   () => route.fullPath,
   async () => {
     await fetchDetails();
-  },
+  }
 );
 </script>
 
@@ -151,6 +154,18 @@ watch(
             <v-tab value="details" rounded="0"> Details </v-tab>
             <v-tab value="saves" rounded="0"> Saves </v-tab>
             <v-tab value="states" rounded="0"> States </v-tab>
+            <v-tab
+              v-if="
+                currentRom.ra_id &&
+                auth.user?.ra_username &&
+                auth.user.ra_api_key
+              "
+              value="retro_achievements"
+              rounded="0"
+            >
+              Retro Achievements
+            </v-tab>
+            <v-tab value="notes" rounded="0"> Notes </v-tab>
             <v-tab value="personal" rounded="0"> Personal </v-tab>
             <v-tab
               v-if="
@@ -198,6 +213,9 @@ watch(
               </v-window-item>
               <v-window-item value="personal">
                 <personal :rom="currentRom" />
+              </v-window-item>
+              <v-window-item v-if="currentRom.ra_id" value="retro_achievements">
+                <retro-achievements :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
