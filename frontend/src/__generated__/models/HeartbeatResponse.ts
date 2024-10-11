@@ -4,6 +4,7 @@
 /* eslint-disable */
 
 import type { EmulationDict } from './EmulationDict';
+import type { FrontendDict } from './FrontendDict';
 import type { MetadataSourcesDict } from './MetadataSourcesDict';
 import type { SchedulerDict } from './SchedulerDict';
 import type { WatcherDict } from './WatcherDict';
@@ -17,5 +18,6 @@ export type HeartbeatResponse = {
     METADATA_SOURCES: MetadataSourcesDict;
     FS_PLATFORMS: Array<any>;
     EMULATION: EmulationDict;
+    FRONTEND: FrontendDict;
 };
 
