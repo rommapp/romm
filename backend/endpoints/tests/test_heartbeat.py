@@ -27,4 +27,4 @@ def test_heartbeat(client):
         heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("TITLE")
         == "Scheduled Switch TitleDB update"
     )
-    assert heartbeat.get("FRONTEND").get("UPLOAD_TIMEOUT") == 20000
+    assert heartbeat.get("FRONTEND").get("UPLOAD_TIMEOUT") == 20
