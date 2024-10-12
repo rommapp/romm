@@ -1,10 +1,11 @@
 import binascii
 from base64 import b64encode
+from io import BytesIO
 from shutil import rmtree
 from typing import Annotated
 from urllib.parse import quote
 
-from anyio import Path, open_file
+from anyio import Path
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -23,6 +24,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
+from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -433,15 +435,15 @@ async def update_rom(
                 {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
             )
 
-            artwork_file = artwork.file.read()
-            file_location_s = f"{artwork_path}/small.{file_ext}"
-            async with await open_file(file_location_s, "wb+") as artwork_s:
-                await artwork_s.write(artwork_file)
-                fs_resource_handler.resize_cover_to_small(file_location_s)
+            artwork_content = BytesIO(await artwork.read())
+            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
+            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
+            with Image.open(artwork_content) as img:
+                img.save(file_location_large)
+                fs_resource_handler.resize_cover_to_small(
+                    img, save_path=file_location_small
+                )
 
-            file_location_l = f"{artwork_path}/big.{file_ext}"
-            async with await open_file(file_location_l, "wb+") as artwork_l:
-                await artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
             if data.get("url_cover", "") != rom.url_cover or not (

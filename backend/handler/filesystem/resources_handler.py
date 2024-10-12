@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image
+from PIL import Image, ImageFile
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -33,9 +33,8 @@ class FSResourcesHandler(FSHandler):
         return False
 
     @staticmethod
-    def resize_cover_to_small(cover_path: str) -> None:
-        """Path of the cover image to resize"""
-        cover = Image.open(cover_path)
+    def resize_cover_to_small(cover: ImageFile.ImageFile, save_path: Path) -> None:
+        """Resize cover to small size, and save it to filesystem."""
         if cover.height >= 1000:
             ratio = 0.2
         else:
@@ -44,7 +43,7 @@ class FSResourcesHandler(FSHandler):
         small_height = int(cover.height * ratio)
         small_size = (small_width, small_height)
         small_img = cover.resize(small_size)
-        small_img.save(cover_path)
+        small_img.save(save_path)
 
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
@@ -57,15 +56,15 @@ class FSResourcesHandler(FSHandler):
             url_cover: url to get the cover
             size: size of the cover
         """
-        cover_file = f"{size.value}.png"
-        cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
+        cover_path = Path(f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover")
+        cover_file = cover_path / Path(f"{size.value}.png")
 
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
                 if response.status_code == 200:
-                    await Path(cover_path).mkdir(parents=True, exist_ok=True)
-                    async with await open_file(f"{cover_path}/{cover_file}", "wb") as f:
+                    await cover_path.mkdir(parents=True, exist_ok=True)
+                    async with await cover_file.open("wb") as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.NetworkError as exc:
@@ -77,7 +76,8 @@ class FSResourcesHandler(FSHandler):
             log.warning(f"Failure writing cover {url_cover} to file (ProtocolError)")
 
         if size == CoverSize.SMALL:
-            self.resize_cover_to_small(f"{cover_path}/{cover_file}")
+            with Image.open(cover_file) as img:
+                self.resize_cover_to_small(img, save_path=cover_file)
 
     @staticmethod
     async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
