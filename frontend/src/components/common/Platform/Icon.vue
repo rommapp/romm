@@ -18,9 +18,11 @@ const { config } = storeToRefs(configStore);
 <template>
   <v-avatar :size="size" :rounded="rounded" :title="name || slug">
     <v-img
-      :src="`/assets/platforms/${config.PLATFORMS_VERSIONS?.[
-        props.slug
-      ]?.toLowerCase()}.ico`"
+      :src="
+        config.PLATFORMS_VERSIONS?.[props.slug]?.toLowerCase()
+          ? `/assets/platforms/${config.PLATFORMS_VERSIONS?.[props.slug]?.toLowerCase()}.ico`
+          : `/assets/platforms/${props.slug.toLowerCase()}.ico`
+      "
     >
       <template #error>
         <v-img :src="`/assets/platforms/${props.slug.toLowerCase()}.ico`">
