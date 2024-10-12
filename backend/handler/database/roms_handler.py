@@ -115,6 +115,7 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         limit: int | None = None,
+        offset: int | None = None,
         query: Query = None,
         session: Session = None,
     ) -> list[Rom]:
@@ -122,7 +123,8 @@ class DBRomsHandler(DBBaseHandler):
             query, platform_id, collection_id, search_term, session
         )
         ordered_query = self._order(filtered_query, order_by, order_dir)
-        limited_query = ordered_query.limit(limit)
+        offset_query = ordered_query.offset(offset)
+        limited_query = offset_query.limit(limit)
         return session.scalars(limited_query).unique().all()
 
     @begin_session
