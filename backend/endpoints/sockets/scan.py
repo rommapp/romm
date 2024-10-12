@@ -5,7 +5,7 @@ from typing import Any, Final
 
 import emoji
 import socketio  # type: ignore
-from config import SCAN_TIMEOUT
+from config import REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
@@ -24,7 +24,7 @@ from handler.filesystem import (
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
-from handler.redis_handler import high_prio_queue, redis_client, redis_url
+from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
 from logger.logger import log
@@ -64,9 +64,9 @@ class ScanStats:
         )
 
 
-def _get_socket_manager():
+def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(redis_url, write_only=True)
+    return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
 
 
 def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
