@@ -1,14 +1,7 @@
 import sys
 from enum import Enum
 
-from config import (
-    IS_PYTEST_RUN,
-    REDIS_DB,
-    REDIS_HOST,
-    REDIS_PASSWORD,
-    REDIS_PORT,
-    REDIS_USERNAME,
-)
+from config import IS_PYTEST_RUN, REDIS_URL
 from logger.logger import log
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -21,18 +14,7 @@ class QueuePrio(Enum):
     LOW = "low"
 
 
-redis_client = Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    password=REDIS_PASSWORD,
-    username=REDIS_USERNAME,
-    db=REDIS_DB,
-)
-redis_url = (
-    f"redis://{REDIS_USERNAME}:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
-    if REDIS_PASSWORD
-    else f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
-)
+redis_client = Redis.from_url(str(REDIS_URL))
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
@@ -48,14 +30,7 @@ def __get_sync_cache() -> Redis:
 
     log.info(f"Connecting to sync redis in {sys.argv[0]}...")
     # A separate client that auto-decodes responses is needed
-    client = Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-        username=REDIS_USERNAME,
-        db=REDIS_DB,
-        decode_responses=True,
-    )
+    client = Redis.from_url(str(REDIS_URL), decode_responses=True)
     log.info(f"Redis sync connection established in {sys.argv[0]}!")
     return client
 
@@ -69,14 +44,7 @@ def __get_async_cache() -> AsyncRedis:
 
     log.info(f"Connecting to async redis in {sys.argv[0]}...")
     # A separate client that auto-decodes responses is needed
-    client = AsyncRedis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-        username=REDIS_USERNAME,
-        db=REDIS_DB,
-        decode_responses=True,
-    )
+    client = AsyncRedis.from_url(str(REDIS_URL), decode_responses=True)
     log.info(f"Redis async connection established in {sys.argv[0]}!")
     return client
 
