@@ -37,7 +37,7 @@ async function uploadRoms({
             "X-Upload-Platform": platformId.toString(),
             "X-Upload-Filename": file.name,
           },
-          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT,
+          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);

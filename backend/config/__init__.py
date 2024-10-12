@@ -96,7 +96,7 @@ DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false")
 DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 
 # FRONTEND
-UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600000))
+UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))
