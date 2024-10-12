@@ -55,14 +55,11 @@ RUN apk add --no-cache \
     make \
     zlib-dev
 
-# TODO: Change to a tagged version, once v1.7.2 or newer is released.
-#       Current pinned commit is needed to enable building RAHasher on ARM64.
-ARG RALIBRETRO_SHA=5b60a1d6d067238ece378b6250ae1ae8aeb90904
+ARG RALIBRETRO_VERSION=1.8.0
 
 # TODO: Remove `sed` command when RAHasher can be compiled without it.
-RUN git clone --recursive https://github.com/RetroAchievements/RALibretro.git && \
+RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
-    git checkout "${RALIBRETRO_SHA}" && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
