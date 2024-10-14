@@ -106,6 +106,7 @@ def get_roms(
     collection_id: int | None = None,
     search_term: str = "",
     limit: int | None = None,
+    offset: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
 ) -> list[SimpleRomSchema]:
@@ -126,6 +127,7 @@ def get_roms(
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
         limit=limit,
+        offset=offset,
     )
 
     roms = [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
