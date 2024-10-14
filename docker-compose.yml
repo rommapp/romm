@@ -1,13 +1,15 @@
+# Please see the full example under examples/docker-compose.example.yml
+
 services:
   mariadb:
     image: mariadb:latest
     container_name: mariadb
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=$DB_ROOT_PASSWD
-      - MYSQL_DATABASE=$DB_NAME
-      - MYSQL_USER=$DB_USER
-      - MYSQL_PASSWORD=$DB_PASSWD
+      - MARIADB_ROOT_PASSWORD=$DB_ROOT_PASSWD
+      - MARIADB_DATABASE=$DB_NAME
+      - MARIADB_USER=$DB_USER
+      - MARIADB_PASSWORD=$DB_PASSWD
     ports:
       - $DB_PORT:3306
 
