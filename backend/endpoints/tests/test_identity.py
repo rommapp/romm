@@ -131,6 +131,22 @@ def test_add_user_from_unauthorized_user(
         assert response.status_code == expected_status_code
 
 
+def test_add_user_with_existing_username(client, access_token, admin_user):
+    response = client.post(
+        "/api/users",
+        params={
+            "username": admin_user.username,
+            "password": "new_user_password",
+            "role": Role.VIEWER.value,
+        },
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+    response = response.json()
+    assert response["detail"] == f"Username {admin_user.username} already exists"
+
+
 def test_update_user(client, access_token, editor_user):
     assert editor_user.role == Role.EDITOR
 
