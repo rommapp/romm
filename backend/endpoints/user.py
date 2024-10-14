@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated
 
 from anyio import open_file
-from config import ASSETS_BASE_PATH, IS_PYTEST_RUN
+from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
@@ -21,11 +21,7 @@ router = APIRouter()
 @protected_route(
     router.post,
     "/users",
-    (
-        []
-        if not IS_PYTEST_RUN and len(db_user_handler.get_admin_users()) == 0
-        else ["users.write"]
-    ),
+    [],
     status_code=status.HTTP_201_CREATED,
 )
 def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
@@ -40,6 +36,16 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
     Returns:
         UserSchema: Created user info
     """
+
+    # If there are admin users already, enforce the `users.write` scope.
+    if (
+        "users.write" not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
 
     if username in [user.username for user in db_user_handler.get_users()]:
         msg = f"Username {username} already exists"
