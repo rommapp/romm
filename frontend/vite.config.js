@@ -11,7 +11,11 @@ import { defineConfig, loadEnv } from "vite";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
-  const env = { ...loadEnv(mode, "../"), ...loadEnv(mode, "./") };
+  const envPrefixes = ["VITE", "DEV"];
+  const env = {
+    ...loadEnv(mode, "../", envPrefixes),
+    ...loadEnv(mode, "./", envPrefixes),
+  };
   const backendPort = env.DEV_PORT ?? "5000";
 
   return {

@@ -18,6 +18,7 @@ export type { ConfigResponse } from './models/ConfigResponse';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EmulationDict } from './models/EmulationDict';
 export type { FirmwareSchema } from './models/FirmwareSchema';
+export type { FrontendDict } from './models/FrontendDict';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';

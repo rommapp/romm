@@ -9,7 +9,9 @@ import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
+import storeHeartbeat from "@/stores/heartbeat";
 
+const heartbeat = storeHeartbeat();
 export const romApi = api;
 
 async function uploadRoms({
@@ -27,7 +29,6 @@ async function uploadRoms({
     formData.append(file.name, file);
 
     uploadStore.start(file.name);
-
     return new Promise((resolve, reject) => {
       api
         .post("/roms", formData, {
@@ -36,7 +37,7 @@ async function uploadRoms({
             "X-Upload-Platform": platformId.toString(),
             "X-Upload-Filename": file.name,
           },
-          timeout: 600000,
+          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);
