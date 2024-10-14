@@ -47,7 +47,8 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
             detail="Forbidden",
         )
 
-    if username in [user.username for user in db_user_handler.get_users()]:
+    existing_user = db_user_handler.get_user_by_username(username)
+    if existing_user:
         msg = f"Username {username} already exists"
         log.error(msg)
         raise HTTPException(
