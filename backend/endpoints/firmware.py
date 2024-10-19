@@ -4,6 +4,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from fastapi import File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
+from handler.auth.base_handler import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
@@ -13,7 +14,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-@protected_route(router.post, "/firmware", ["firmware.write"])
+@protected_route(router.post, "/firmware", [Scope.FIRMWARE_WRITE])
 def add_firmware(
     request: Request,
     platform_id: int,
@@ -76,7 +77,7 @@ def add_firmware(
     }
 
 
-@protected_route(router.get, "/firmware", ["firmware.read"])
+@protected_route(router.get, "/firmware", [Scope.FIRMWARE_READ])
 def get_platform_firmware(
     request: Request,
     platform_id: int | None = None,
@@ -95,7 +96,7 @@ def get_platform_firmware(
 @protected_route(
     router.get,
     "/firmware/{id}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["firmware.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
 def get_firmware(request: Request, id: int) -> FirmwareSchema:
     """Get firmware endpoint
@@ -113,7 +114,7 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
 @protected_route(
     router.head,
     "/firmware/{id}/content/{file_name}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["firmware.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
 def head_firmware_content(request: Request, id: int, file_name: str):
     """Head firmware content endpoint
@@ -139,7 +140,11 @@ def head_firmware_content(request: Request, id: int, file_name: str):
     )
 
 
-@protected_route(router.get, "/firmware/{id}/content/{file_name}", ["firmware.read"])
+@protected_route(
+    router.get,
+    "/firmware/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
+)
 def get_firmware_content(
     request: Request,
     id: int,
@@ -162,7 +167,7 @@ def get_firmware_content(
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
 
-@protected_route(router.post, "/firmware/delete", ["firmware.write"])
+@protected_route(router.post, "/firmware/delete", [Scope.FIRMWARE_WRITE])
 async def delete_firmware(
     request: Request,
 ) -> MessageResponse:

@@ -12,6 +12,7 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from fastapi import Request
+from handler.auth.base_handler import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_hander import SWITCH_TITLEDB_REGEX
@@ -25,7 +26,7 @@ router = APIRouter()
 @protected_route(
     router.get,
     "/webrcade/feed",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """Get webrcade feed endpoint

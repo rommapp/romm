@@ -8,6 +8,7 @@ from handler.auth.base_handler import (
     DEFAULT_SCOPES_MAP,
     FULL_SCOPES_MAP,
     WRITE_SCOPES_MAP,
+    Scope,
 )
 from starlette.authentication import requires
 
@@ -25,7 +26,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 def protected_route(
     method: Any,
     path: str,
-    scopes: list[str] | None = None,
+    scopes: list[Scope] | None = None,
     **kwargs,
 ):
     def decorator(func: DecoratedCallable):
