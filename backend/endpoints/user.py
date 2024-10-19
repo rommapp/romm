@@ -9,6 +9,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import Depends, HTTPException, Request, status
 from handler.auth import auth_handler
+from handler.auth.base_handler import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from logger.logger import log
@@ -37,9 +38,9 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         UserSchema: Created user info
     """
 
-    # If there are admin users already, enforce the `users.write` scope.
+    # If there are admin users already, enforce the USERS_WRITE scope.
     if (
-        "users.write" not in request.auth.scopes
+        Scope.USERS_WRITE not in request.auth.scopes
         and len(db_user_handler.get_admin_users()) > 0
     ):
         raise HTTPException(
@@ -65,7 +66,7 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
     return db_user_handler.add_user(user)
 
 
-@protected_route(router.get, "/users", ["users.read"])
+@protected_route(router.get, "/users", [Scope.USERS_READ])
 def get_users(request: Request) -> list[UserSchema]:
     """Get all users endpoint
 
@@ -79,7 +80,7 @@ def get_users(request: Request) -> list[UserSchema]:
     return db_user_handler.get_users()
 
 
-@protected_route(router.get, "/users/me", ["me.read"])
+@protected_route(router.get, "/users/me", [Scope.ME_READ])
 def get_current_user(request: Request) -> UserSchema | None:
     """Get current user endpoint
 
@@ -93,7 +94,7 @@ def get_current_user(request: Request) -> UserSchema | None:
     return request.user
 
 
-@protected_route(router.get, "/users/{id}", ["users.read"])
+@protected_route(router.get, "/users/{id}", [Scope.USERS_READ])
 def get_user(request: Request, id: int) -> UserSchema:
     """Get user endpoint
 
@@ -111,7 +112,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return user
 
 
-@protected_route(router.put, "/users/{id}", ["me.write"])
+@protected_route(router.put, "/users/{id}", [Scope.USERS_WRITE])
 async def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
@@ -192,7 +193,7 @@ async def update_user(
     return db_user_handler.get_user(id)
 
 
-@protected_route(router.delete, "/users/{id}", ["users.write"])
+@protected_route(router.delete, "/users/{id}", [Scope.USERS_WRITE])
 def delete_user(request: Request, id: int) -> MessageResponse:
     """Delete user endpoint
 
