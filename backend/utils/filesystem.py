@@ -3,6 +3,11 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
+from anyio import Path as AnyIOPath
+
+# Type alias for a path that can be either a `pathlib.Path` or an `anyio.Path`.
+AnyPath = Path | AnyIOPath
+
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
     """List files in a directory.

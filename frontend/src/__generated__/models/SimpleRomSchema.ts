@@ -27,12 +27,14 @@ export type SimpleRomSchema = {
     slug: (string | null);
     summary: (string | null);
     first_release_date: (number | null);
+    youtube_video_id: (string | null);
     alternative_names: Array<string>;
     genres: Array<string>;
     franchises: Array<string>;
     collections: Array<string>;
     companies: Array<string>;
     game_modes: Array<string>;
+    age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     path_cover_s: (string | null);
@@ -51,8 +53,8 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    sibling_roms?: Array<RomSchema>;
-    rom_user?: (RomUserSchema | null);
+    sibling_roms: Array<RomSchema>;
+    rom_user: RomUserSchema;
     readonly sort_comparator: string;
 };
 

@@ -18,15 +18,12 @@ const route = useRoute();
     @click="
       emitter?.emit(
         'showUploadRomDialog',
-        platforms.get(Number(route.params.platform)) as Platform
+        platforms.get(Number(route.params.platform)) as Platform,
       )
     "
   >
     <v-list-item-title class="d-flex">
-      <v-icon
-        icon="mdi-upload"
-        class="mr-2"
-      />Upload roms
+      <v-icon icon="mdi-upload" class="mr-2" />Upload roms
     </v-list-item-title>
   </v-list-item>
 </template>

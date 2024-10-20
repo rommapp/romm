@@ -1,8 +1,10 @@
 import dataclasses
 from collections.abc import Collection
 from typing import Any
+from urllib.parse import quote
 
 from fastapi.responses import Response
+from utils.filesystem import AnyPath
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,3 +49,27 @@ class ZipResponse(Response):
         )
 
         super().__init__(**kwargs)
+
+
+class FileRedirectResponse(Response):
+    """Response class for serving a file download by using the X-Accel-Redirect header."""
+
+    def __init__(
+        self, *, download_path: AnyPath, filename: str | None = None, **kwargs: Any
+    ):
+        """
+        Arguments:
+          - download_path: Path to the file to be served.
+          - filename: Name of the file to be served. If not provided, the file name from the
+              download_path is used.
+        """
+        media_type = kwargs.pop("media_type", "application/octet-stream")
+        filename = filename or download_path.name
+        kwargs.setdefault("headers", {}).update(
+            {
+                "Content-Disposition": f'attachment; filename="{quote(filename)}"',
+                "X-Accel-Redirect": quote(str(download_path)),
+            }
+        )
+
+        super().__init__(media_type=media_type, **kwargs)

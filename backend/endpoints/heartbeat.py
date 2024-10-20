@@ -7,6 +7,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    UPLOAD_TIMEOUT,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
@@ -61,4 +62,5 @@ def heartbeat() -> HeartbeatResponse:
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
         },
+        "FRONTEND": {"UPLOAD_TIMEOUT": UPLOAD_TIMEOUT},
     }

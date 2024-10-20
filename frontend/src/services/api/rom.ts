@@ -1,11 +1,17 @@
-import type { MessageResponse, SearchRomSchema } from "@/__generated__";
+import type {
+  MessageResponse,
+  SearchRomSchema,
+  RomUserSchema,
+} from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadLink } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
+import storeHeartbeat from "@/stores/heartbeat";
 
+const heartbeat = storeHeartbeat();
 export const romApi = api;
 
 async function uploadRoms({
@@ -23,15 +29,15 @@ async function uploadRoms({
     formData.append(file.name, file);
 
     uploadStore.start(file.name);
-
     return new Promise((resolve, reject) => {
       api
         .post("/roms", formData, {
           headers: {
-            "Content-Type": "multipart/form-data; boundary=boundary",
+            "Content-Type": "multipart/form-data",
             "X-Upload-Platform": platformId.toString(),
             "X-Upload-Filename": file.name,
           },
+          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);
@@ -169,20 +175,12 @@ async function deleteRoms({
 
 async function updateUserRomProps({
   romId,
-  noteRawMarkdown,
-  noteIsPublic,
-  isMainSibling,
+  data,
 }: {
   romId: number;
-  noteRawMarkdown: string;
-  noteIsPublic: boolean;
-  isMainSibling: boolean;
+  data: Partial<RomUserSchema>;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/props`, {
-    note_raw_markdown: noteRawMarkdown,
-    note_is_public: noteIsPublic,
-    is_main_sibling: isMainSibling,
-  });
+  return api.put(`/roms/${romId}/props`, data);
 }
 
 export default {

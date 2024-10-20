@@ -11,7 +11,7 @@ withDefaults(
   }>(),
   {
     block: false,
-  }
+  },
 );
 const navigationStore = storeNavigation();
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);

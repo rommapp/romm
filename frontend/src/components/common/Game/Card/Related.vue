@@ -12,7 +12,7 @@ const handleClick = () => {
     window.open(
       `https://www.igdb.com/games/${props.game.slug}`,
       "_blank",
-      "noopener noreferrer"
+      "noopener noreferrer",
     );
   }
 };

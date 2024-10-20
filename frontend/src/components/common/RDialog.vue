@@ -37,7 +37,6 @@ const hasPrependSlot = ref(false);
 const hasAppendSlot = ref(false);
 const hasFooterSlot = ref(false);
 
-// Functions
 function closeDialog() {
   emit("update:modelValue", false);
   emit("close");

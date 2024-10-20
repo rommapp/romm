@@ -37,9 +37,7 @@ function onPlay() {
       allowFullScreen: true,
       autoplay: "on",
       backgroundColor: "#0D1117",
-      logLevel: "debug",
       openUrlMode: "confirm",
-      preferredRenderer: "webgl",
       publicPath: "/assets/ruffle/",
       url: `/api/roms/${rom.value?.id}/content/${rom.value?.file_name}`,
     });

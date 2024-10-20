@@ -24,11 +24,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
   rom.value = romToEdit;
+  removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
   if (!rom.value) return;
   rom.value.url_cover = url_cover;
-  imagePreviewUrl.value = url_cover;
+  setArtwork(url_cover);
 });
 
 // Functions
@@ -43,11 +44,17 @@ function previewImage(event: Event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
+    setArtwork(reader.result?.toString() || "");
   };
   if (input.files[0]) {
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
 }
 
 async function removeArtwork() {

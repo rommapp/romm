@@ -7,7 +7,11 @@ const homeUrl = ref(`${location.protocol}//${location.host}`);
 const navigationStore = storeNavigation();
 </script>
 <template>
-  <a @click.prevent style="text-decoration: none; color: inherit" :href="homeUrl">
+  <a
+    @click.prevent
+    style="text-decoration: none; color: inherit"
+    :href="homeUrl"
+  >
     <v-hover v-slot="{ isHovering, props: hoverProps }">
       <romm-iso
         @click="navigationStore.goHome"

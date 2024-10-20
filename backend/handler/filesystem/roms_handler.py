@@ -112,9 +112,17 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
 def read_7z_file(file_path: Path) -> Iterator[bytes]:
     try:
         with py7zr.SevenZipFile(file_path, "r") as f:
-            for _name, bio in f.readall().items():
-                while chunk := bio.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
+            for name in f.namelist():
+                # TODO: This `read` call still reads the member file for this iteration into memory
+                #       (but not the whole 7zip archive). This is because `py7zr` does not support
+                #       streaming decompression yet.
+                #       Related issue: https://github.com/miurahr/py7zr/issues/579
+                for bio in f.read([name]).values():
+                    while chunk := bio.read(FILE_READ_CHUNK_SIZE):
+                        yield chunk
+                # Extracting each file separately requires resetting file pointer and decompressor
+                # between `read` operations.
+                f.reset()
     except (
         Bad7zFile,
         DecompressionError,

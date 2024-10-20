@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -69,6 +69,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     db_platforms_map = {p.name: p.id for p in db_platforms}
 
     for platform in IGDB_PLATFORM_LIST:
+        now = datetime.now(timezone.utc)
         sup_plat = {
             "id": -1,
             "name": platform["name"],
@@ -77,8 +78,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "logo_path": "",
             "roms": [],
             "rom_count": 0,
-            "created_at": datetime.now(),
-            "updated_at": datetime.now(),
+            "created_at": now,
+            "updated_at": now,
         }
 
         if platform["name"] in db_platforms_map:

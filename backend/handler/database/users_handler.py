@@ -12,11 +12,13 @@ class DBUsersHandler(DBBaseHandler):
         return session.merge(user)
 
     @begin_session
-    def get_user_by_username(self, username: str, session: Session = None):
+    def get_user_by_username(
+        self, username: str, session: Session = None
+    ) -> User | None:
         return session.scalar(select(User).filter_by(username=username).limit(1))
 
     @begin_session
-    def get_user(self, id: int, session: Session = None) -> User:
+    def get_user(self, id: int, session: Session = None) -> User | None:
         return session.get(User, id)
 
     @begin_session
