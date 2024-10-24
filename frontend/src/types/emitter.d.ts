@@ -51,7 +51,11 @@ export type Events = {
     fsSlug: string;
     slug: string;
   };
-  showCreateExclusionDialog: { type: string; icon: string; title: string };
+  showCreateExclusionDialog: {
+    type: string;
+    icon: string;
+    title: string;
+  };
   showCreateUserDialog: null;
   showEditUserDialog: User;
   showDeleteUserDialog: User;
