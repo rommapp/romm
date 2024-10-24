@@ -10,10 +10,10 @@ import { useDisplay } from "vuetify";
 const { mdAndUp, smAndDown } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const exclusionValue = ref();
-const exclusionType = ref();
-const exclusionIcon = ref();
-const exclusionTitle = ref();
+const exclusionValue = ref("");
+const exclusionType = ref("");
+const exclusionIcon = ref("");
+const exclusionTitle = ref("");
 emitter?.on("showCreateExclusionDialog", ({ type, icon, title }) => {
   exclusionType.value = type;
   exclusionIcon.value = icon;
@@ -33,6 +33,7 @@ function addExclusion() {
 
 function closeDialog() {
   show.value = false;
+  exclusionValue.value = "";
 }
 </script>
 <template>
@@ -69,6 +70,21 @@ function closeDialog() {
             @keyup.enter="addExclusion"
           />
         </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn
+            class="bg-terciary text-romm-green"
+            :disabled="exclusionValue == ''"
+            :variant="exclusionValue == '' ? 'plain' : 'flat'"
+            @click="addExclusion"
+          >
+            Confirm
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>
