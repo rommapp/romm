@@ -310,7 +310,7 @@ class ConfigManager:
         self.update_config_file()
 
     def add_exclusion(self, exclusion_type: str, exclusion_value: str):
-        config_item = self.config.__getattribute__(f"EXCLUDED_{exclusion_type}")
+        config_item = self.config.__getattribute__(exclusion_type)
         if exclusion_value in config_item:
             log.warning(f"{exclusion_value} already excluded in {exclusion_type}")
             return
@@ -320,7 +320,7 @@ class ConfigManager:
         self.update_config_file()
 
     def remove_exclusion(self, exclusion_type: str, exclusion_value: str):
-        config_item = self.config.__getattribute__(f"EXCLUDED_{exclusion_type}")
+        config_item = self.config.__getattribute__(exclusion_type)
 
         try:
             config_item.remove(exclusion_value)

@@ -135,13 +135,16 @@ async def add_exclusion(request: Request) -> MessageResponse:
     }
 
 
-@protected_route(router.delete, "/config/exclude", ["platforms.write"])
-async def delete_exclusion(request: Request) -> MessageResponse:
+@protected_route(
+    router.delete,
+    "/config/exclude/{exclusion_type}/{exclusion_value}",
+    ["platforms.write"],
+)
+async def delete_exclusion(
+    request: Request, exclusion_type: str, exclusion_value: str
+) -> MessageResponse:
     """Delete platform binding from the configuration"""
 
-    data = await request.json()
-    exclusion_value = data["exclusion_value"]
-    exclusion_type = data["exclusion_type"]
     try:
         cm.remove_exclusion(exclusion_type, exclusion_value)
     except ConfigNotWritableException as exc:

@@ -52,10 +52,21 @@ async function addExclusion({
   });
 }
 
+async function deleteExclusion({
+  exclusionValue,
+  exclusionType,
+}: {
+  exclusionValue: string;
+  exclusionType: string;
+}): Promise<{ data: MessageResponse }> {
+  return api.delete(`/config/exclude/${exclusionType}/${exclusionValue}`);
+}
+
 export default {
   addPlatformBindConfig,
   deletePlatformBindConfig,
   addPlatformVersionConfig,
   deletePlatformVersionConfig,
   addExclusion,
+  deleteExclusion,
 };
