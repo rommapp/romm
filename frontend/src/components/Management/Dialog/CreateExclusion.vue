@@ -12,10 +12,10 @@ const { mdAndUp, smAndDown } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
-const exclusionValue = ref("");
-const exclusionType = ref("");
-const exclusionIcon = ref("");
-const exclusionTitle = ref("");
+const exclusionValue = ref();
+const exclusionType = ref();
+const exclusionIcon = ref();
+const exclusionTitle = ref();
 emitter?.on("showCreateExclusionDialog", ({ type, icon, title }) => {
   exclusionType.value = type;
   exclusionIcon.value = icon;
@@ -25,12 +25,16 @@ emitter?.on("showCreateExclusionDialog", ({ type, icon, title }) => {
 
 // Functions
 function addExclusion() {
-  configApi.addExclusion({
-    exclusionValue: exclusionValue.value,
-    exclusionType: exclusionType.value,
-  });
-  configStore.addExclusion(exclusionValue.value, exclusionType.value);
-  closeDialog();
+  if (configStore.isExclusionType(exclusionType.value)) {
+    configApi.addExclusion({
+      exclusionValue: exclusionValue.value,
+      exclusionType: exclusionType.value,
+    });
+    configStore.addExclusion(exclusionType.value, exclusionValue.value);
+    closeDialog();
+  } else {
+    console.error(`Invalid exclusion type '${exclusionType.value}'`);
+  }
 }
 
 function closeDialog() {

@@ -12,17 +12,21 @@ const props = defineProps<{
   editable: boolean;
   title: string;
   type: string;
-  icon?: string;
+  icon: string;
 }>();
 const configStore = storeConfig();
 
 // Functions
 function removeExclusion(exclusionValue: string) {
-  configApi.deleteExclusion({
-    exclusionValue: exclusionValue,
-    exclusionType: props.type,
-  });
-  configStore.removeExclusion(exclusionValue, props.type);
+  if (configStore.isExclusionType(props.type)) {
+    configApi.deleteExclusion({
+      exclusionValue: exclusionValue,
+      exclusionType: props.type,
+    });
+    configStore.removeExclusion(exclusionValue, props.type);
+  } else {
+    console.error(`Invalid exclusion type '${props.type}'`);
+  }
 }
 </script>
 <template>
