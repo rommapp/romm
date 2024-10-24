@@ -3,6 +3,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import storeConfig from "@/stores/config";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -10,6 +11,7 @@ import { useDisplay } from "vuetify";
 const { mdAndUp, smAndDown } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
+const configStore = storeConfig();
 const exclusionValue = ref("");
 const exclusionType = ref("");
 const exclusionIcon = ref("");
@@ -27,7 +29,7 @@ function addExclusion() {
     exclusionValue: exclusionValue.value,
     exclusionType: exclusionType.value,
   });
-  configStore.addExclusion(exclusionValue, exclusionType);
+  configStore.addExclusion(exclusionValue.value, exclusionType.value);
   closeDialog();
 }
 

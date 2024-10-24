@@ -13,37 +13,37 @@ const exclusions = [
     set: configStore.config.EXCLUDED_PLATFORMS,
     title: "Platform",
     icon: "mdi-controller-off",
-    type: "PLATFORMS",
+    type: "EXCLUDED_PLATFORMS",
   },
   {
     set: configStore.config.EXCLUDED_SINGLE_FILES,
     title: "Single rom files",
     icon: "mdi-file-document-remove-outline",
-    type: "SINGLE_FILES",
+    type: "EXCLUDED_SINGLE_FILES",
   },
   {
     set: configStore.config.EXCLUDED_SINGLE_EXT,
     title: "Single Roms Extensions",
     icon: "mdi-file-document-remove-outline",
-    type: "SINGLE_EXT",
+    type: "EXCLUDED_SINGLE_EXT",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_FILES,
     title: "Multi Roms Files",
     icon: "mdi-file-document-remove-outline",
-    type: "MULTI_FILES",
+    type: "EXCLUDED_MULTI_FILES",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_PARTS_FILES,
     title: "Multi Roms Parts Files",
     icon: "mdi-file-document-remove-outline",
-    type: "MULTI_PART_FILES",
+    type: "EXCLUDED_MULTI_PARTS_FILES",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_PARTS_EXT,
     title: "Multi Roms Parts Extensions",
     icon: "mdi-file-document-remove-outline",
-    type: "MULTI_PART_EXT",
+    type: "EXCLUDED_MULTI_PARTS_EXT",
   },
 ];
 const editable = ref(false);
