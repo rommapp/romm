@@ -115,25 +115,41 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} version removed successfully!"}
 
 
-# @protected_route(router.post, "/config/exclude", ["platforms.write"])
-# async def add_exclusion(request: Request) -> MessageResponse:
-#     """Add platform binding to the configuration"""
+@protected_route(router.post, "/config/exclude", ["platforms.write"])
+async def add_exclusion(request: Request) -> MessageResponse:
+    """Add platform exclusion to the configuration"""
 
-#     data = await request.json()
-#     exclude = data['exclude']
-#     exclusion = data['exclusion']
-#     cm.add_exclusion(exclude, exclusion)
+    data = await request.json()
+    exclusion_value = data["exclusion_value"]
+    exclusion_type = data["exclusion_type"]
+    try:
+        cm.add_exclusion(exclusion_type, exclusion_value)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
-#     return {"msg": f"Exclusion {exclusion} added to {exclude} successfully!"}
+    return {
+        "msg": f"Exclusion {exclusion_value} added to {exclusion_type} successfully!"
+    }
 
 
-# @protected_route(router.delete, "/config/exclude", ["platforms.write"])
-# async def delete_exclusion(request: Request) -> MessageResponse:
-#     """Delete platform binding from the configuration"""
+@protected_route(router.delete, "/config/exclude", ["platforms.write"])
+async def delete_exclusion(request: Request) -> MessageResponse:
+    """Delete platform binding from the configuration"""
 
-#     data = await request.json()
-#     exclude = data['exclude']
-#     exclusion = data['exclusion']
-#     cm.remove_exclusion(exclude, exclusion)
+    data = await request.json()
+    exclusion_value = data["exclusion_value"]
+    exclusion_type = data["exclusion_type"]
+    try:
+        cm.remove_exclusion(exclusion_type, exclusion_value)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
-#     return {"msg": f"Exclusion {exclusion} removed from {exclude} successfully!"}
+    return {
+        "msg": f"Exclusion {exclusion_value} removed from {exclusion_type} successfully!"
+    }

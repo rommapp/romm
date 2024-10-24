@@ -40,15 +40,15 @@ async function deletePlatformVersionConfig({
 }
 
 async function addExclusion({
-  exclude,
-  exclusion,
+  exclusionValue,
+  exclusionType,
 }: {
-  exclude: string;
-  exclusion: string;
+  exclusionValue: string;
+  exclusionType: string;
 }): Promise<{ data: MessageResponse }> {
   return api.post("/config/exclude", {
-    exclude: exclude,
-    exclusion: exclusion,
+    exclusion_value: exclusionValue,
+    exclusion_type: exclusionType,
   });
 }
 

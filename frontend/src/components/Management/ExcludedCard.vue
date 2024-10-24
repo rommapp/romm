@@ -9,7 +9,7 @@ defineProps<{
   set: string[];
   editable: boolean;
   title: string;
-  emit: string;
+  type: string;
   icon?: string;
 }>();
 </script>
@@ -33,7 +33,9 @@ defineProps<{
           class="text-romm-accent-1 ml-1"
           @click="
             emitter?.emit('showCreateExclusionDialog', {
-              exclude: emit,
+              type: type,
+              icon: icon,
+              title: title,
             })
           "
         >
