@@ -48,8 +48,6 @@ export default defineStore("config", {
       exclusionValue: string,
       exclusionType: keyof ConfigResponse,
     ) {
-      console.log(exclusionValue);
-      console.log(exclusionType);
       if (Array.isArray(this.config[exclusionType])) {
         const index = (this.config[exclusionType] as string[]).indexOf(
           exclusionValue,
