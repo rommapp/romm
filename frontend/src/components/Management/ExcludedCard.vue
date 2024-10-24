@@ -1,17 +1,33 @@
 <script setup lang="ts">
+import configApi from "@/services/api/config";
+import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
-defineProps<{
+const props = defineProps<{
   set: string[];
   editable: boolean;
   title: string;
-  emit: string;
-  icon?: string;
+  type: string;
+  icon: string;
 }>();
+const configStore = storeConfig();
+
+// Functions
+function removeExclusion(exclusionValue: string) {
+  if (configStore.isExclusionType(props.type)) {
+    configApi.deleteExclusion({
+      exclusionValue: exclusionValue,
+      exclusionType: props.type,
+    });
+    configStore.removeExclusion(exclusionValue, props.type);
+  } else {
+    console.error(`Invalid exclusion type '${props.type}'`);
+  }
+}
 </script>
 <template>
   <v-card rounded="0" color="terciary">
@@ -21,8 +37,24 @@ defineProps<{
     >
     <v-divider />
     <v-card-text class="pa-2">
-      <v-chip v-for="excluded in set" :key="excluded" label class="ma-1">
-        {{ excluded }}
+      <v-chip
+        v-for="exclusionValue in set"
+        :key="exclusionValue"
+        label
+        class="ma-1"
+      >
+        <span>{{ exclusionValue }}</span>
+        <v-slide-x-reverse-transition>
+          <v-btn
+            v-if="editable"
+            rounded="0"
+            variant="text"
+            size="x-small"
+            icon="mdi-delete"
+            class="text-romm-red ml-1"
+            @click="removeExclusion(exclusionValue)"
+          />
+        </v-slide-x-reverse-transition>
       </v-chip>
       <v-expand-transition>
         <v-btn
@@ -33,7 +65,9 @@ defineProps<{
           class="text-romm-accent-1 ml-1"
           @click="
             emitter?.emit('showCreateExclusionDialog', {
-              exclude: emit,
+              type: type,
+              icon: icon,
+              title: title,
             })
           "
         >
