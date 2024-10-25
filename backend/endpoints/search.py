@@ -3,10 +3,16 @@ from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from fastapi import HTTPException, Request, status
 from handler.database import db_rom_handler
-from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
+from handler.metadata import (
+    meta_igdb_handler,
+    meta_moby_handler,
+    meta_sgdb_handler,
+    meta_ss_handler,
+)
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
+from handler.metadata.ss_handler import SS_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 from utils.router import APIRouter
@@ -35,7 +41,7 @@ async def search_rom(
         list[SearchRomSchema]: List of matched roms
     """
 
-    if not IGDB_API_ENABLED and not MOBY_API_ENABLED:
+    if not IGDB_API_ENABLED and not SS_API_ENABLED and not MOBY_API_ENABLED:
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -78,6 +84,7 @@ async def search_rom(
         moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
+        await meta_ss_handler.search_rom(search_term)
 
     merged_dict = {
         item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}
