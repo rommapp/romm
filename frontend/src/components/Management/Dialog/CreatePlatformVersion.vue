@@ -58,7 +58,7 @@ function addVersionPlatform() {
     })
     .then(() => {
       if (selectedPlatform.value) {
-        configStore.addPlatformBinding(
+        configStore.addPlatformVersion(
           fsSlugToCreate.value,
           selectedPlatform.value.slug,
         );
