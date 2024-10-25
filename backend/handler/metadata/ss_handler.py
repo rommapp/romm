@@ -5,7 +5,7 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
-from config import SCREENSCRAPER_API_KEY, SCREENSCRAPER_USER_ID
+from config import SCREENSCRAPER_API_KEY, SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from fastapi import HTTPException, status
 from handler.redis_handler import sync_cache
 from logger.logger import log
@@ -15,16 +15,7 @@ from utils.context import ctx_httpx_client
 from .base_hander import MetadataHandler
 
 # Used to display the IGDB API status in the frontend
-SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER_ID) and bool(SCREENSCRAPER_API_KEY)
-
-MAIN_GAME_CATEGORY: Final = 0
-EXPANDED_GAME_CATEGORY: Final = 10
-N_SCREENSHOTS: Final = 5
-PS1_IGDB_ID: Final = 7
-PS2_IGDB_ID: Final = 8
-PSP_IGDB_ID: Final = 38
-SWITCH_IGDB_ID: Final = 130
-ARCADE_IGDB_IDS: Final = [52, 79, 80]
+SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
 
 
 class IGDBPlatform(TypedDict):
@@ -194,36 +185,37 @@ class SSBaseHandler(MetadataHandler):
         # self.games_endpoint = f"{self.BASE_URL}/games"
         # self.games_fields = GAMES_FIELDS
         self.search_endpoint = f"{self.BASE_URL}/jeuRecherche.php"
-        self.search_params = SEARCH_FIELDS
         # self.video_endpoint = f"{self.BASE_URL}/game_videos"
-        # self.pagination_limit = 200
-        # self.twitch_auth = TwitchAuth()
-        # self.headers = {
-        #     "Client-ID": IGDB_CLIENT_ID,
-        #     "Accept": "application/json",
-        # }
         self.auth_params = {
-            "devid": SCREENSCRAPER_USER_ID,
+            "ssid": SCREENSCRAPER_USER,
+            "sspassword": SCREENSCRAPER_PASSWORD,
+            "devid": SCREENSCRAPER_USER,
             "devpassword": SCREENSCRAPER_API_KEY,
         }
         self.output_param = {"output": "json"}
+        self.LOGIN_ERROR_CHECK: Final = "Erreur de login"
 
     async def _request(self, url: str, search_term: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
         try:
-            params = {
-                **self.auth_params,
-                **self.output_param,
-                "recherche": search_term,
-                # "systemeid": "1",
-            }
             res = await httpx_client.get(
                 url,
-                params=params,
+                params={
+                    **self.auth_params,
+                    **self.output_param,
+                    "recherche": search_term,
+                },
+                headers={},
                 timeout=timeout,
             )
 
             res.raise_for_status()
+            if self.LOGIN_ERROR_CHECK in res.text:
+                log.error("Invalid screenscraper credentials")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid screenscraper credentials",
+                )
             matches: list[dict] = []
             for rom in res.json().get("response", []).get("jeux", []):
                 for name in rom.get("noms", []):
@@ -244,55 +236,55 @@ class SSBaseHandler(MetadataHandler):
     async def search_rom(self, search_term) -> None:
         await self._request(self.search_endpoint, search_term)
 
-    # async def _search_rom(
-    #     self, search_term: str, platform_igdb_id: int, with_category: bool = False
-    # ) -> dict | None:
-    #     if not platform_igdb_id:
-    #         return None
+    async def _search_rom(
+        self, search_term: str, platform_igdb_id: int, with_category: bool = False
+    ) -> dict | None:
+        if not platform_igdb_id:
+            return None
 
-    #     search_term = uc(search_term)
-    #     category_filter: str = (
-    #         f"& (category={MAIN_GAME_CATEGORY} | category={EXPANDED_GAME_CATEGORY})"
-    #         if with_category
-    #         else ""
-    #     )
+        search_term = uc(search_term)
+        category_filter: str = (
+            f"& (category={MAIN_GAME_CATEGORY} | category={EXPANDED_GAME_CATEGORY})"
+            if with_category
+            else ""
+        )
 
-    #     def is_exact_match(rom: dict, search_term: str) -> bool:
-    #         return (
-    #             rom["name"].lower() == search_term.lower()
-    #             or rom["slug"].lower() == search_term.lower()
-    #             or (
-    #                 self._normalize_exact_match(rom["name"])
-    #                 == self._normalize_exact_match(search_term)
-    #             )
-    #         )
+        def is_exact_match(rom: dict, search_term: str) -> bool:
+            return (
+                rom["name"].lower() == search_term.lower()
+                or rom["slug"].lower() == search_term.lower()
+                or (
+                    self._normalize_exact_match(rom["name"])
+                    == self._normalize_exact_match(search_term)
+                )
+            )
 
-    #     roms = await self._request(
-    #         self.games_endpoint,
-    #         data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
-    #     )
-    #     for rom in roms:
-    #         # Return early if an exact match is found.
-    #         if is_exact_match(rom, search_term):
-    #             return rom
+        roms = await self._request(
+            self.games_endpoint,
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
+        )
+        for rom in roms:
+            # Return early if an exact match is found.
+            if is_exact_match(rom, search_term):
+                return rom
 
-    #     roms_expanded = await self._request(
-    #         self.search_endpoint,
-    #         data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
-    #     )
-    #     if roms_expanded:
-    #         extra_roms = await self._request(
-    #             self.games_endpoint,
-    #             f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
-    #         )
-    #         for rom in extra_roms:
-    #             # Return early if an exact match is found.
-    #             if is_exact_match(rom, search_term):
-    #                 return rom
+        roms_expanded = await self._request(
+            self.search_endpoint,
+            data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
+        )
+        if roms_expanded:
+            extra_roms = await self._request(
+                self.games_endpoint,
+                f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
+            )
+            for rom in extra_roms:
+                # Return early if an exact match is found.
+                if is_exact_match(rom, search_term):
+                    return rom
 
-    #         roms.extend(extra_roms)
+            roms.extend(extra_roms)
 
-    #     return roms[0] if roms else None
+        return roms[0] if roms else None
 
     # @check_twitch_token
     # async def get_platform(self, slug: str) -> IGDBPlatform:
@@ -624,8 +616,6 @@ GAMES_FIELDS = [
     "similar_games.cover.url",
     "age_ratings.rating",
 ]
-
-SEARCH_FIELDS = ["game.id", "name"]
 
 # Generated from the following code on https://www.igdb.com/platforms/:
 # Array.from(document.querySelectorAll(".media-body a")).map(a => ({

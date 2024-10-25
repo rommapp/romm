@@ -2,8 +2,8 @@
 
 services:
   mariadb:
-    image: mariadb:latest
-    container_name: mariadb
+    image: mariadb:11.3.2
+    container_name: romm-db-dev
     restart: unless-stopped
     environment:
       - MARIADB_ROOT_PASSWORD=$DB_ROOT_PASSWD
@@ -15,7 +15,7 @@ services:
 
   valkey:
     image: valkey/valkey:8
-    container_name: valkey
+    container_name: romm-valkey-dev
     restart: unless-stopped
     ports:
       - $REDIS_PORT:6379
