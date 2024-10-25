@@ -37,6 +37,12 @@
       "type": "shell",
       "command": "export $(cat .env | grep DB_ROOT_PASSWD | xargs) && docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
       "problemMatcher": []
+    },
+    {
+      "label": "Launch full stack",
+      "dependsOn": ["Launch frontend", "Launch backend", "Launch worker"],
+      "problemMatcher": [],
+      "dependsOrder": "parallel"
     }
   ]
 }

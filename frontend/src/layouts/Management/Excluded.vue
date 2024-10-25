@@ -13,37 +13,37 @@ const exclusions = [
     set: configStore.config.EXCLUDED_PLATFORMS,
     title: "Platform",
     icon: "mdi-controller-off",
-    emit: "platform",
+    type: "EXCLUDED_PLATFORMS",
   },
   {
     set: configStore.config.EXCLUDED_SINGLE_FILES,
     title: "Single rom files",
     icon: "mdi-file-document-remove-outline",
-    emit: "singleFile",
+    type: "EXCLUDED_SINGLE_FILES",
   },
   {
     set: configStore.config.EXCLUDED_SINGLE_EXT,
     title: "Single Roms Extensions",
     icon: "mdi-file-document-remove-outline",
-    emit: "singleFileExt",
+    type: "EXCLUDED_SINGLE_EXT",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_FILES,
     title: "Multi Roms Files",
     icon: "mdi-file-document-remove-outline",
-    emit: "multiFile",
+    type: "EXCLUDED_MULTI_FILES",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_PARTS_FILES,
     title: "Multi Roms Parts Files",
     icon: "mdi-file-document-remove-outline",
-    emit: "multiFilePart",
+    type: "EXCLUDED_MULTI_PARTS_FILES",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_PARTS_EXT,
     title: "Multi Roms Parts Extensions",
     icon: "mdi-file-document-remove-outline",
-    emit: "multiFilePartExt",
+    type: "EXCLUDED_MULTI_PARTS_EXT",
   },
 ];
 const editable = ref(false);
@@ -53,7 +53,6 @@ const editable = ref(false);
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
-        disabled
         class="ma-2"
         rounded="0"
         size="small"
@@ -68,7 +67,7 @@ const editable = ref(false);
         v-for="exclusion in exclusions"
         class="mb-1"
         :set="exclusion.set"
-        :emit="exclusion.emit"
+        :type="exclusion.type"
         :title="exclusion.title"
         :icon="exclusion.icon"
         :editable="editable && authStore.scopes.includes('platforms.write')"
