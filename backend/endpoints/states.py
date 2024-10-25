@@ -5,6 +5,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema, UploadedStatesResponse
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import File, HTTPException, Request, UploadFile, status
+from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_state
@@ -14,7 +15,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-@protected_route(router.post, "/states", ["assets.write"])
+@protected_route(router.post, "/states", [Scope.ASSETS_WRITE])
 def add_states(
     request: Request,
     rom_id: int,
@@ -78,17 +79,17 @@ def add_states(
     }
 
 
-# @protected_route(router.get, "/states", ["assets.read"])
+# @protected_route(router.get, "/states", [Scope.ASSETS_READ])
 # def get_states(request: Request) -> MessageResponse:
 #     pass
 
 
-# @protected_route(router.get, "/states/{id}", ["assets.read"])
+# @protected_route(router.get, "/states/{id}", [Scope.ASSETS_READ])
 # def get_state(request: Request, id: int) -> MessageResponse:
 #     pass
 
 
-@protected_route(router.put, "/states/{id}", ["assets.write"])
+@protected_route(router.put, "/states/{id}", [Scope.ASSETS_WRITE])
 async def update_state(request: Request, id: int) -> StateSchema:
     data = await request.form()
 
@@ -121,7 +122,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
     return db_state
 
 
-@protected_route(router.post, "/states/delete", ["assets.write"])
+@protected_route(router.post, "/states/delete", [Scope.ASSETS_WRITE])
 async def delete_states(request: Request) -> MessageResponse:
     data: dict = await request.json()
     state_ids: list = data["states"]

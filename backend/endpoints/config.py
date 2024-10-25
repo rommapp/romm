@@ -7,6 +7,7 @@ from exceptions.config_exceptions import (
     ConfigNotWritableException,
 )
 from fastapi import HTTPException, Request, status
+from handler.auth.base_handler import Scope
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -43,7 +44,7 @@ def get_config() -> ConfigResponse:
         ) from exc
 
 
-@protected_route(router.post, "/config/system/platforms", ["platforms.write"])
+@protected_route(router.post, "/config/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(request: Request) -> MessageResponse:
     """Add platform binding to the configuration"""
 
@@ -63,7 +64,7 @@ async def add_platform_binding(request: Request) -> MessageResponse:
 
 
 @protected_route(
-    router.delete, "/config/system/platforms/{fs_slug}", ["platforms.write"]
+    router.delete, "/config/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE]
 )
 async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform binding from the configuration"""
@@ -79,7 +80,7 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} bind removed successfully!"}
 
 
-@protected_route(router.post, "/config/system/versions", ["platforms.write"])
+@protected_route(router.post, "/config/system/versions", [Scope.PLATFORMS_WRITE])
 async def add_platform_version(request: Request) -> MessageResponse:
     """Add platform version to the configuration"""
 
@@ -99,7 +100,7 @@ async def add_platform_version(request: Request) -> MessageResponse:
 
 
 @protected_route(
-    router.delete, "/config/system/versions/{fs_slug}", ["platforms.write"]
+    router.delete, "/config/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE]
 )
 async def delete_platform_version(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform version from the configuration"""
@@ -115,7 +116,7 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} version removed successfully!"}
 
 
-# @protected_route(router.post, "/config/exclude", ["platforms.write"])
+# @protected_route(router.post, "/config/exclude", [Scope.PLATFORMS_WRITE])
 # async def add_exclusion(request: Request) -> MessageResponse:
 #     """Add platform binding to the configuration"""
 
@@ -127,7 +128,7 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
 #     return {"msg": f"Exclusion {exclusion} added to {exclude} successfully!"}
 
 
-# @protected_route(router.delete, "/config/exclude", ["platforms.write"])
+# @protected_route(router.delete, "/config/exclude", [Scope.PLATFORMS_WRITE])
 # async def delete_exclusion(request: Request) -> MessageResponse:
 #     """Delete platform binding from the configuration"""
 

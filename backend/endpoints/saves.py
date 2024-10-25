@@ -5,6 +5,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import File, HTTPException, Request, UploadFile, status
+from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
@@ -14,7 +15,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-@protected_route(router.post, "/saves", ["assets.write"])
+@protected_route(router.post, "/saves", [Scope.ASSETS_WRITE])
 def add_saves(
     request: Request,
     rom_id: int,
@@ -82,17 +83,17 @@ def add_saves(
     }
 
 
-# @protected_route(router.get, "/saves", ["assets.read"])
+# @protected_route(router.get, "/saves", [Scope.ASSETS_READ])
 # def get_saves(request: Request) -> MessageResponse:
 #     pass
 
 
-# @protected_route(router.get, "/saves/{id}", ["assets.read"])
+# @protected_route(router.get, "/saves/{id}", [Scope.ASSETS_READ])
 # def get_save(request: Request, id: int) -> MessageResponse:
 #     pass
 
 
-@protected_route(router.put, "/saves/{id}", ["assets.write"])
+@protected_route(router.put, "/saves/{id}", [Scope.ASSETS_WRITE])
 async def update_save(request: Request, id: int) -> SaveSchema:
     data = await request.form()
 
@@ -126,7 +127,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     return db_save
 
 
-@protected_route(router.post, "/saves/delete", ["assets.write"])
+@protected_route(router.post, "/saves/delete", [Scope.ASSETS_WRITE])
 async def delete_saves(request: Request) -> MessageResponse:
     data: dict = await request.json()
     save_ids: list = data["saves"]
