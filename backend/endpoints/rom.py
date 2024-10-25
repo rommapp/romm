@@ -19,6 +19,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
+from handler.auth.base_handler import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -37,7 +38,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-@protected_route(router.post, "/roms", ["roms.write"])
+@protected_route(router.post, "/roms", [Scope.ROMS_WRITE])
 async def add_rom(request: Request):
     """Upload single rom endpoint
 
@@ -99,7 +100,7 @@ async def add_rom(request: Request):
     return Response(status_code=status.HTTP_201_CREATED)
 
 
-@protected_route(router.get, "/roms", ["roms.read"])
+@protected_route(router.get, "/roms", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
     platform_id: int | None = None,
@@ -137,7 +138,7 @@ def get_roms(
 @protected_route(
     router.get,
     "/roms/{id}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def get_rom(request: Request, id: int) -> DetailedRomSchema:
     """Get rom endpoint
@@ -161,7 +162,7 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
 @protected_route(
     router.head,
     "/roms/{id}/content/{file_name}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 async def head_rom_content(
     request: Request,
@@ -222,7 +223,7 @@ async def head_rom_content(
 @protected_route(
     router.get,
     "/roms/{id}/content/{file_name}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 async def get_rom_content(
     request: Request,
@@ -289,7 +290,7 @@ async def get_rom_content(
     )
 
 
-@protected_route(router.put, "/roms/{id}", ["roms.write"])
+@protected_route(router.put, "/roms/{id}", [Scope.ROMS_WRITE])
 async def update_rom(
     request: Request,
     id: int,
@@ -466,7 +467,7 @@ async def update_rom(
     return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
 
 
-@protected_route(router.post, "/roms/delete", ["roms.write"])
+@protected_route(router.post, "/roms/delete", [Scope.ROMS_WRITE])
 async def delete_roms(
     request: Request,
 ) -> MessageResponse:
@@ -517,7 +518,7 @@ async def delete_roms(
     return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
 
 
-@protected_route(router.put, "/roms/{id}/props", ["roms.user.write"])
+@protected_route(router.put, "/roms/{id}/props", [Scope.ROMS_USER_WRITE])
 async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
 

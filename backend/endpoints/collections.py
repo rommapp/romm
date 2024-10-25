@@ -13,6 +13,7 @@ from exceptions.endpoint_exceptions import (
     CollectionPermissionError,
 )
 from fastapi import Request, UploadFile
+from handler.auth.base_handler import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
@@ -25,7 +26,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-@protected_route(router.post, "/collections", ["collections.write"])
+@protected_route(router.post, "/collections", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
     artwork: UploadFile | None = None,
@@ -91,7 +92,7 @@ async def add_collection(
     )
 
 
-@protected_route(router.get, "/collections", ["collections.read"])
+@protected_route(router.get, "/collections", [Scope.COLLECTIONS_READ])
 def get_collections(request: Request) -> list[CollectionSchema]:
     """Get collections endpoint
 
@@ -107,7 +108,7 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     return CollectionSchema.for_user(request.user.id, collections)
 
 
-@protected_route(router.get, "/collections/{id}", ["collections.read"])
+@protected_route(router.get, "/collections/{id}", [Scope.COLLECTIONS_READ])
 def get_collection(request: Request, id: int) -> CollectionSchema:
     """Get collections endpoint
 
@@ -127,7 +128,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     return collection
 
 
-@protected_route(router.put, "/collections/{id}", ["collections.write"])
+@protected_route(router.put, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_collection(
     request: Request,
     id: int,
@@ -213,7 +214,7 @@ async def update_collection(
     return db_collection_handler.update_collection(id, cleaned_data)
 
 
-@protected_route(router.delete, "/collections/{id}", ["collections.write"])
+@protected_route(router.delete, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
 async def delete_collections(request: Request, id: int) -> MessageResponse:
     """Delete collections endpoint
 
