@@ -22,12 +22,21 @@
 
 # Table of Contents
 
+- [Table of Contents](#table-of-contents)
 - [Overview](#overview)
+  - [Features](#features)
+  - [Preview](#preview)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Folder Structure](#folder-structure)
+  - [Folder Structure](#folder-structure)
+  - [Configuration File](#configuration-file)
+  - [Scheduler](#scheduler)
 - [Naming Convention](#naming-convention)
+  - [Platform Support](#platform-support)
+  - [Tag Support](#tag-support)
 - [Community](#community)
+  - [Support](#support)
+  - [Our Friends](#our-friends)
 
 # Overview
 
@@ -46,9 +55,9 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Preview
 
-|                                        🖥 Desktop                                         |                                                             📱 Mobile                                                             |
-| :---------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------: |
-| <img src=".github/resources/screenshots/romm-desktop-slider.gif" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" alt="mobile preview" /> |
+|                                      🖥 Desktop                                       |                                                           📱 Mobile                                                           |
+| :-----------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------: |
+| <img src=".github/resources/screenshots/preview-desktop.gif" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.gif" alt="mobile preview" /> |
 
 # Installation
 
