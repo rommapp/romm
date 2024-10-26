@@ -14,6 +14,7 @@ import { useDisplay, useTheme } from "vuetify";
 type MatchedSource = {
   url_cover: string | undefined;
   name: "IGDB" | "Mobygames";
+  logo_path: string;
 };
 
 // Props
@@ -126,10 +127,12 @@ function showSources(matchedRom: SearchRomSchema) {
   sources.value.push({
     url_cover: matchedRom.igdb_url_cover,
     name: "IGDB",
+    logo_path: "/assets/scrappers/igdb.png",
   });
   sources.value.push({
     url_cover: matchedRom.moby_url_cover,
     name: "Mobygames",
+    logo_path: "/assets/scrappers/moby.png",
   });
 }
 
@@ -408,9 +411,7 @@ onBeforeUnmount(() => {
                       </template>
                       <v-row no-gutters class="text-white pa-1">
                         <v-avatar class="mr-1" size="30" rounded="1">
-                          <v-img
-                            :src="`/assets/scrappers/${source.name}.png`"
-                          />
+                          <v-img :src="source.logo_path" />
                         </v-avatar>
                       </v-row>
                     </v-img>
