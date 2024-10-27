@@ -55,5 +55,5 @@ pytest-recording = "^0.13"
 
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
-mypy = "^1.10.0"
+mypy = "^1.13"
 ipykernel = "^6.29.4"
