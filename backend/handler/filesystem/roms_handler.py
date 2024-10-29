@@ -93,6 +93,10 @@ def read_tar_file(file_path: Path, mode: str = "r") -> Iterator[bytes]:
     try:
         with tarfile.open(file_path, mode) as f:
             for member in f.getmembers():
+                # Ignore directories and any other non-regular files
+                if not member.isfile():
+                    continue
+
                 # Ignore metadata files created by macOS
                 if member.name.startswith("._"):
                     continue
