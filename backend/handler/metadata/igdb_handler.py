@@ -456,9 +456,7 @@ class IGDBBaseHandler(MetadataHandler):
                 rom.get("cover", {}).get("url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
-                self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_screenshot_huge"
-                )
+                self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom.get("screenshots", [])
             ],
             igdb_metadata=extract_metadata_from_igdb_rom(rom, video_id),
@@ -494,9 +492,7 @@ class IGDBBaseHandler(MetadataHandler):
                 rom.get("cover", {}).get("url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
-                self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_screenshot_huge"
-                )
+                self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom.get("screenshots", [])
             ],
             igdb_metadata=extract_metadata_from_igdb_rom(rom, video_id),
@@ -578,11 +574,13 @@ class IGDBBaseHandler(MetadataHandler):
                         "summary": rom.get("summary", ""),
                         "url_cover": self._normalize_cover_url(
                             pydash.get(rom, "cover.url", "").replace(
-                                "t_thumb", "t_cover_big"
+                                "t_thumb", "t_1080p"
                             )
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", ""))  # type: ignore[arg-type]
+                            self._normalize_cover_url(s.get("url", "")).replace(
+                                "t_thumb", "t_720p"
+                            )
                             for s in rom.get("screenshots", [])
                         ],
                         "igdb_metadata": extract_metadata_from_igdb_rom(rom),
