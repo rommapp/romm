@@ -1054,17 +1054,17 @@ IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     24: {
         "rating": "GRAC_Twelve",
         "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_twelve.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_12.png",
     },
     25: {
         "rating": "GRAC_Fifteen",
         "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_fifteen.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_15.png",
     },
     26: {
         "rating": "GRAC_Eighteen",
         "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_eighteen.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_18.png",
     },
     27: {
         "rating": "GRAC_TESTING",
@@ -1074,17 +1074,17 @@ IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     28: {
         "rating": "CLASS_IND_L",
         "category": "CLASS_IND",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_l.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_l.png",
     },
     29: {
         "rating": "CLASS_IND_Ten",
         "category": "CLASS_IND",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_ten.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_10.png",
     },
     30: {
         "rating": "CLASS_IND_Twelve",
         "category": "CLASS_IND",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_twelve.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_12.png",
     },
     31: {
         "rating": "ACB_G",
