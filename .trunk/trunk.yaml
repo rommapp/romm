@@ -26,7 +26,7 @@ lint:
     - checkov@3.2.239
     - git-diff-check
     - isort@5.13.2
-    - mypy@1.11.2
+    - mypy@1.13.0
     - osv-scanner@1.8.4
     - oxipng@9.1.2
     - prettier@3.3.3
