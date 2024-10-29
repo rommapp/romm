@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
-const { smAndDown } = useDisplay();
+const { mdAndUp, smAndDown } = useDisplay();
 const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
 const publicNotes =
@@ -119,7 +119,7 @@ watch(
             </v-col>
             <v-col cols="12" md="10">
               <v-rating
-                class="ml-2"
+                :class="{ 'ml-2': mdAndUp }"
                 hover
                 ripple
                 length="10"
@@ -139,7 +139,7 @@ watch(
             </v-col>
             <v-col cols="11" md="9">
               <v-slider
-                class="ml-4"
+                :class="{ 'ml-4': mdAndUp }"
                 v-model="romUser.difficulty"
                 min="1"
                 max="10"
@@ -163,7 +163,7 @@ watch(
             </v-col>
             <v-col cols="11" md="9">
               <v-slider
-                class="ml-4"
+                :class="{ 'ml-4': mdAndUp }"
                 v-model="romUser.completion"
                 min="1"
                 max="100"
