@@ -5,6 +5,7 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
+from adapters.services.igdb_types import GameCategory
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
 from handler.redis_handler import sync_cache
@@ -23,9 +24,6 @@ from .base_hander import (
 # Used to display the IGDB API status in the frontend
 IGDB_API_ENABLED: Final = bool(IGDB_CLIENT_ID) and bool(IGDB_CLIENT_SECRET)
 
-MAIN_GAME_CATEGORY: Final = 0
-EXPANDED_GAME_CATEGORY: Final = 10
-N_SCREENSHOTS: Final = 5
 PS1_IGDB_ID: Final = 7
 PS2_IGDB_ID: Final = 8
 PSP_IGDB_ID: Final = 38
@@ -274,7 +272,7 @@ class IGDBBaseHandler(MetadataHandler):
 
         search_term = uc(search_term)
         category_filter: str = (
-            f"& (category={MAIN_GAME_CATEGORY} | category={EXPANDED_GAME_CATEGORY})"
+            f"& (category={GameCategory.MAIN_GAME} | category={GameCategory.EXPANDED_GAME})"
             if with_category
             else ""
         )
