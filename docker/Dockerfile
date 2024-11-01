@@ -118,6 +118,7 @@ RUN apk add --no-cache \
     mariadb-connector-c \
     p7zip \
     python3 \
+    tini \
     tzdata \
     valkey
 
@@ -148,4 +149,6 @@ VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/re
 # Expose ports and start
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
+
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/init"]
