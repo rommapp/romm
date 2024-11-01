@@ -369,6 +369,19 @@ export function isRuffleEmulationSupported(
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
+export const difficultyEmojis = [
+  "😴",
+  "🥱",
+  "😐",
+  "😄",
+  "🤔",
+  "🤯",
+  "😓",
+  "😡",
+  "🤬",
+  "😵",
+];
+
 export const romStatusMap: Record<
   PlayingStatus,
   { emoji: string; text: string }
@@ -388,11 +401,19 @@ const inverseRomStatusMap = Object.fromEntries(
 ) as Record<string, PlayingStatus>;
 
 export function getEmojiForStatus(status: PlayingStatus) {
-  return romStatusMap[status].emoji;
+  if (status) {
+    return romStatusMap[status].emoji;
+  } else {
+    return null;
+  }
 }
 
 export function getTextForStatus(status: PlayingStatus) {
-  return romStatusMap[status].text;
+  if (status) {
+    return romStatusMap[status].text;
+  } else {
+    return null;
+  }
 }
 
 export function getStatusKeyForText(text: string) {
