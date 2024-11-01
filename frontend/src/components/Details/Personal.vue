@@ -3,40 +3,27 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { RomUserStatus } from "@/__generated__";
-import { getTextForStatus } from "@/utils";
+import { difficultyEmojis, getTextForStatus, getEmojiForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
-import { useTheme } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
+const { mdAndUp, smAndDown } = useDisplay();
 const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
 const publicNotes =
   props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
 
-const difficultyEmojis = [
-  "😴",
-  "🥱",
-  "😐",
-  "😄",
-  "🤔",
-  "🤯",
-  "😓",
-  "😡",
-  "🤬",
-  "😵",
-];
-
 const statusOptions = [
-  null,
+  "never_playing",
+  "retired",
   "incomplete",
   "finished",
   "completed_100",
-  "retired",
-  "never_playing",
 ];
 
 function editNote() {
@@ -77,88 +64,137 @@ watch(
         <span class="text-h6">Status</span>
       </v-list-item>
     </v-card-title>
-    <v-card-text class="py-4 px-8">
-      <v-row no-gutters>
-        <v-col cols="6">
+    <v-card-text class="px-8 py-4">
+      <v-row
+        class="align-center"
+        :class="{ 'text-center': smAndDown }"
+        no-gutters
+      >
+        <v-col cols="12" md="5">
           <v-checkbox
-            label="Backlogged"
             v-model="romUser.backlogged"
             color="romm-accent-1"
             hide-details
-          />
+          >
+            <template v-slot:label
+              ><span>Backlogged</span
+              ><span class="ml-2">{{
+                getEmojiForStatus("backlogged")
+              }}</span></template
+            >
+          </v-checkbox>
           <v-checkbox
-            label="Now playing"
             v-model="romUser.now_playing"
             color="romm-accent-1"
             hide-details
-          />
+          >
+            <template v-slot:label
+              ><span>Now playing</span
+              ><span class="ml-2">{{
+                getEmojiForStatus("now_playing")
+              }}</span></template
+            >
+          </v-checkbox>
           <v-checkbox
-            label="Hidden"
             v-model="romUser.hidden"
             color="romm-accent-1"
             hide-details
-          />
-        </v-col>
-        <v-col cols="6">
-          <div class="d-flex align-center mt-2">
-            <v-label class="text-body-2 mr-4">Rating</v-label>
-            <v-rating
-              hover
-              ripple
-              length="10"
-              size="32"
-              v-model="romUser.rating"
-              @update:model-value="
-                romUser.rating =
-                  typeof $event === 'number' ? $event : parseInt($event)
-              "
-              active-color="romm-accent-1"
-            />
-          </div>
-          <div class="d-flex align-center mt-3">
-            <v-label class="text-body-2 mr-4">Difficulty</v-label>
-            <v-slider
-              v-model="romUser.difficulty"
-              min="1"
-              max="10"
-              step="1"
-              hide-details
-              track-fill-color="romm-accent-1"
-            />
-            <v-label class="ml-2 opacity-100">
-              {{
-                difficultyEmojis[Math.floor(romUser.difficulty) - 1] ?? "😀"
-              }}</v-label
+          >
+            <template v-slot:label
+              ><span>Hidden</span
+              ><span class="ml-2">{{
+                getEmojiForStatus("hidden")
+              }}</span></template
             >
-          </div>
-          <div class="d-flex align-center mt-3">
-            <v-label class="text-body-2 mr-4">Completion %</v-label>
-            <v-slider
-              v-model="romUser.completion"
-              min="1"
-              max="100"
-              step="1"
-              hide-details
-              track-fill-color="romm-accent-1"
-            />
-            <v-label class="text-body-2 ml-2 opacity-100">
-              {{ romUser.completion }}%
-            </v-label>
-          </div>
-          <div class="d-flex align-center mt-3">
+          </v-checkbox>
+        </v-col>
+        <v-col cols="12" md="7">
+          <v-row
+            class="d-flex align-center"
+            :class="{ 'mt-4': smAndDown }"
+            no-gutters
+          >
+            <v-col cols="12" md="2">
+              <v-label>Rating</v-label>
+            </v-col>
+            <v-col cols="12" md="10">
+              <v-rating
+                :class="{ 'ml-2': mdAndUp }"
+                hover
+                ripple
+                length="10"
+                size="26"
+                v-model="romUser.rating"
+                @update:model-value="
+                  romUser.rating =
+                    typeof $event === 'number' ? $event : parseInt($event)
+                "
+                active-color="romm-accent-1"
+              />
+            </v-col>
+          </v-row>
+          <v-row class="d-flex align-center mt-4" no-gutters>
+            <v-col cols="12" md="2">
+              <v-label>Difficulty</v-label>
+            </v-col>
+            <v-col cols="11" md="9">
+              <v-slider
+                :class="{ 'ml-4': mdAndUp }"
+                v-model="romUser.difficulty"
+                min="1"
+                max="10"
+                step="1"
+                hide-details
+                track-fill-color="romm-accent-1"
+              />
+            </v-col>
+            <v-col cols="1">
+              <v-label class="ml-2 opacity-100">
+                {{
+                  difficultyEmojis[Math.floor(romUser.difficulty) - 1] ??
+                  difficultyEmojis[3]
+                }}
+              </v-label>
+            </v-col>
+          </v-row>
+          <v-row class="d-flex align-center mt-4" no-gutters>
+            <v-col cols="12" md="2">
+              <v-label>Completion %</v-label>
+            </v-col>
+            <v-col cols="11" md="9">
+              <v-slider
+                :class="{ 'ml-4': mdAndUp }"
+                v-model="romUser.completion"
+                min="1"
+                max="100"
+                step="1"
+                hide-details
+                track-fill-color="romm-accent-1"
+              />
+            </v-col>
+            <v-col cols="1"
+              ><v-label class="ml-2 opacity-100">
+                {{ romUser.completion }}%
+              </v-label></v-col
+            >
+          </v-row>
+          <div class="d-flex align-center mt-4">
             <v-select
               v-model="romUser.status"
               :items="statusOptions"
               hide-details
               label="Status"
-              dense
+              clearable
               rounded="0"
               variant="outlined"
               density="compact"
               class="mt-1"
             >
               <template v-slot:selection="{ item }">
-                <span>{{ getTextForStatus(item.raw as RomUserStatus) }}</span>
+                <span>{{ getEmojiForStatus(item.raw as RomUserStatus) }}</span
+                ><span class="ml-2">{{
+                  getTextForStatus(item.raw as RomUserStatus)
+                }}</span>
               </template>
               <template v-slot:item="{ item }">
                 <v-list-item
@@ -166,7 +202,10 @@ watch(
                   rounded="0"
                   @click="onStatusItemClick(item.raw)"
                 >
-                  {{ getTextForStatus(item.raw as RomUserStatus) }}
+                  <span>{{ getEmojiForStatus(item.raw as RomUserStatus) }}</span
+                  ><span class="ml-2">{{
+                    getTextForStatus(item.raw as RomUserStatus)
+                  }}</span>
                 </v-list-item>
               </template>
             </v-select>
@@ -175,6 +214,7 @@ watch(
       </v-row>
     </v-card-text>
   </v-card>
+
   <v-card rounded="0">
     <v-card-title class="bg-terciary">
       <v-list-item class="pl-2 pr-0">
