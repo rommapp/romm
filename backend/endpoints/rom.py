@@ -209,7 +209,7 @@ async def head_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
-                "X-Accel-Redirect": f"/library/{quote(rom.full_path)}/{quote(files_to_check[0])}",
+                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
             },
         )
 
