@@ -12,9 +12,9 @@ services:
     restart: unless-stopped
     environment:
       - DB_HOST=romm-db
-      - DB_NAME=romm # Should match MARIADB_DATABASE in mariadb
-      - DB_USER=romm-user # Should match MARIADB_USER in mariadb
-      - DB_PASSWD= # Should match MARIADB_PASSWORD in mariadb
+      - DB_NAME=romm # Should match MYSQL_DATABASE in mariadb
+      - DB_USER=romm-user # Should match MYSQL_USER in mariadb
+      - DB_PASSWD= # Should match MYSQL_PASSWORD in mariadb
       - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
       - IGDB_CLIENT_ID= # Generate an ID and SECRET in IGDB
       - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
@@ -36,9 +36,9 @@ services:
     container_name: romm-db
     restart: unless-stopped
     environment:
-      - MARIADB_ROOT_PASSWORD= # Use a unique, secure password
-      - MARIADB_DATABASE=romm
-      - MARIADB_USER=romm-user
-      - MARIADB_PASSWORD=
+      - MYSQL_ROOT_PASSWORD= # Use a unique, secure password
+      - MYSQL_DATABASE=romm
+      - MYSQL_USER=romm-user
+      - MYSQL_PASSWORD=
     volumes:
       - mysql_data:/var/lib/mysql
