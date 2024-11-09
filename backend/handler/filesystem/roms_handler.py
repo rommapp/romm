@@ -6,7 +6,7 @@ import re
 import shutil
 import tarfile
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, Final, TypedDict
 
@@ -23,6 +23,7 @@ from py7zr.exceptions import (
     PasswordRequired,
     UnsupportedCompressionMethodError,
 )
+from utils.archive_7zip import CallbackIOFactory
 from utils.filesystem import iter_directories, iter_files
 from utils.hashing import crc32_to_hex
 
@@ -113,20 +114,32 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
     return read_tar_file(file_path, "r:gz")
 
 
-def read_7z_file(file_path: Path) -> Iterator[bytes]:
+def process_7z_file(
+    file_path: Path,
+    fn_hash_update: Callable[[bytes | bytearray], None],
+    fn_hash_read: Callable[[int | None], bytes],
+) -> None:
+    """Process a 7zip file and use the provided callables to update the calculated hashes.
+
+    7zip files are special, as the py7zr library does not provide a similar interface to the
+    other compression utils. Instead, we must use a factory to intercept the read and write
+    operations of the 7zip file to calculate the hashes.
+
+    Hashes end up being updated by reference in the provided callables, so they will include the
+    final hash when this function returns.
+    """
+
     try:
-        with py7zr.SevenZipFile(file_path, "r") as f:
-            for name in f.namelist():
-                # TODO: This `read` call still reads the member file for this iteration into memory
-                #       (but not the whole 7zip archive). This is because `py7zr` does not support
-                #       streaming decompression yet.
-                #       Related issue: https://github.com/miurahr/py7zr/issues/579
-                for bio in f.read([name]).values():
-                    while chunk := bio.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
-                # Extracting each file separately requires resetting file pointer and decompressor
-                # between `read` operations.
-                f.reset()
+        factory = CallbackIOFactory(
+            on_write=fn_hash_update,
+            on_read=fn_hash_read,
+        )
+        # Provide a file handler to `SevenZipFile` instead of a file path to deactivate the
+        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes, by
+        # reading each included file in order, one by one.
+        with open(file_path, "rb") as f:
+            with py7zr.SevenZipFile(f, mode="r") as archive:
+                archive.extractall(factory=factory)  # nosec B202
     except (
         Bad7zFile,
         DecompressionError,
@@ -134,7 +147,7 @@ def read_7z_file(file_path: Path) -> Iterator[bytes]:
         UnsupportedCompressionMethodError,
     ):
         for chunk in read_basic_file(file_path):
-            yield chunk
+            fn_hash_update(chunk)
 
 
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:
@@ -241,7 +254,7 @@ class FSRomsHandler(FSHandler):
         file_type = mime.from_file(file_path)
         extension = Path(file_path).suffix.lower()
 
-        def update_hashes(chunk: bytes):
+        def update_hashes(chunk: bytes | bytearray):
             md5_h.update(chunk)
             sha1_h.update(chunk)
             nonlocal crc_c
@@ -260,8 +273,11 @@ class FSRomsHandler(FSHandler):
                 update_hashes(chunk)
 
         elif extension == ".7z" or file_type == "application/x-7z-compressed":
-            for chunk in read_7z_file(file_path):
-                update_hashes(chunk)
+            process_7z_file(
+                file_path=file_path,
+                fn_hash_update=update_hashes,
+                fn_hash_read=lambda size: sha1_h.digest(),
+            )
 
         elif extension == ".bz2" or file_type == "application/x-bzip2":
             for chunk in read_bz2_file(file_path):
