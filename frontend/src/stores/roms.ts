@@ -4,7 +4,7 @@ import { getStatusKeyForText } from "@/utils";
 import { type Platform } from "@/stores/platforms";
 import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
-import { groupBy, uniqBy } from "lodash";
+import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 import storeGalleryFilter from "./galleryFilter";
@@ -48,7 +48,9 @@ export default defineStore("roms", {
       });
 
       // Check if roms should be grouped
-      const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
+      const groupRoms = isNull(localStorage.getItem("settings.groupRoms"))
+        ? true
+        : localStorage.getItem("settings.groupRoms") === "true";
       if (!groupRoms) {
         this._grouped = this.allRoms;
         return;
