@@ -200,7 +200,7 @@ async def head_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}",
+                "X-Accel-Redirect": f"/library/{quote(rom.full_path)}",
             },
         )
 
@@ -209,7 +209,7 @@ async def head_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_check[0])}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_check[0]}",
+                "X-Accel-Redirect": f"/library/{quote(rom.full_path)}/{quote(files_to_check[0])}",
             },
         )
 
@@ -259,7 +259,7 @@ async def get_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}",
+                "X-Accel-Redirect": f"/library/{quote(rom.full_path)}",
             },
         )
 
@@ -268,7 +268,7 @@ async def get_rom_content(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{quote(files_to_download[0])}"',
-                "X-Accel-Redirect": f"/library/{rom.full_path}/{files_to_download[0]}",
+                "X-Accel-Redirect": f"/library/{quote(rom.full_path)}/{quote(files_to_download[0])}",
             },
         )
 
@@ -277,7 +277,7 @@ async def get_rom_content(
             # TODO: Use calculated CRC-32 if available.
             crc32=None,
             size_bytes=(await Path(f"{rom_path}/{f}").stat()).st_size,
-            encoded_location=quote(f"/library-zip/{rom.full_path}/{f}"),
+            encoded_location=quote(f"/library-zip/{quote(rom.full_path)}/{f}"),
             filename=f,
         )
         for f in files_to_download
@@ -289,7 +289,7 @@ async def get_rom_content(
         crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
         size_bytes=len(m3u_encoded_content),
         encoded_location=f"/decode?value={m3u_base64_content}",
-        filename=f"{file_name}.m3u",
+        filename=f"{quote(file_name)}.m3u",
     )
 
     return ZipResponse(
