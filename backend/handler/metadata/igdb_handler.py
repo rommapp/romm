@@ -278,13 +278,23 @@ class IGDBBaseHandler(MetadataHandler):
         )
 
         def is_exact_match(rom: dict, search_term: str) -> bool:
-            return (
-                rom["name"].lower() == search_term.lower()
-                or rom["slug"].lower() == search_term.lower()
-                or (
-                    self._normalize_exact_match(rom["name"])
-                    == self._normalize_exact_match(search_term)
+            search_term_lower = search_term.lower()
+            if rom["slug"].lower() == search_term_lower:
+                return True
+
+            search_term_normalized = self._normalize_exact_match(search_term)
+            # Check both the ROM name and alternative names for an exact match.
+            rom_names = [rom["name"]] + [
+                alternative_name["name"]
+                for alternative_name in rom.get("alternative_names", [])
+            ]
+
+            return any(
+                (
+                    rom_name.lower() == search_term_lower
+                    or self._normalize_exact_match(rom_name) == search_term_normalized
                 )
+                for rom_name in rom_names
             )
 
         roms = await self._request(
