@@ -10,6 +10,7 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from handler.redis_handler import low_prio_queue
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
@@ -159,6 +160,9 @@ def scan_firmware(
     return Firmware(**firmware_attrs)
 
 
+LARGE_ROM_SIZE_BYTES = 200_000_000  # 200MB
+
+
 async def scan_rom(
     platform: Platform,
     fs_rom: FSRom,
@@ -237,6 +241,16 @@ async def scan_rom(
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug in NON_HASHABLE_PLATFORMS:
             rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
+        # Run in background task if the file size is large
+        elif rom_attrs["file_size_bytes"] > LARGE_ROM_SIZE_BYTES:
+            log.info("\t   Large file, hashing in background...")
+            low_prio_queue.enqueue(
+                fs_rom_handler.get_rom_hashes,
+                rom_attrs["file_name"],
+                roms_path,
+                timeout=600,
+                job_id=f"{platform.slug}-{rom_attrs['file_name']}",
+            )
         else:
             rom_hashes = fs_rom_handler.get_rom_hashes(
                 rom_attrs["file_name"], roms_path
