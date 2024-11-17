@@ -271,11 +271,17 @@ class IGDBBaseHandler(MetadataHandler):
             return None
 
         search_term = uc(search_term)
-        category_filter: str = (
-            f"& (category={GameCategory.MAIN_GAME} | category={GameCategory.EXPANDED_GAME})"
-            if with_category
-            else ""
-        )
+        if with_category:
+            categories = (
+                GameCategory.EXPANDED_GAME,
+                GameCategory.MAIN_GAME,
+                GameCategory.PORT,
+                GameCategory.REMAKE,
+                GameCategory.REMASTER,
+            )
+            category_filter = f"& category=({','.join(map(str, categories))})"
+        else:
+            category_filter = ""
 
         def is_exact_match(rom: dict, search_term: str) -> bool:
             search_term_lower = search_term.lower()
