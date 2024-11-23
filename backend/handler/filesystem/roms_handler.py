@@ -348,7 +348,7 @@ class FSRomsHandler(FSHandler):
 
         return [
             FSRom(
-                multi=rom["multi"],
+                multi=False if len(files := self.get_rom_files(rom["file_name"], roms_file_path)) == 1 else rom["multi"],
                 file_name=rom["file_name"],
                 files=self.get_rom_files(rom["file_name"], roms_file_path),
             )
