@@ -164,7 +164,7 @@ async def tinfoil_index_feed(
                         "get_rom_content", id=rom.id, file_name=rom.files[0].get('filename') + "#" + rom.file_name
                     )
                 ),
-                size=rom.rom.files[0].get('size'),
+                size=rom.files[0].get('size'),
             )
             for rom in roms
         ],
