@@ -166,7 +166,7 @@ async def tinfoil_index_feed(
                 ),
                 size=rom.files[0].get('size'),
             )
-            for rom in roms
+            for rom in roms if rom.files and len(rom.files) > 0
         ],
         directories=[],
         success="RomM Switch Library",
