@@ -33,7 +33,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 
 config = Config(
     environ={
-        "OAUTH_ENABLED": OAUTH_ENABLED,
+        "OAUTH_ENABLED": str(OAUTH_ENABLED),
         "OAUTH_CLIENT_ID": OAUTH_CLIENT_ID,
         "OAUTH_CLIENT_SECRET": OAUTH_CLIENT_SECRET,
         "OAUTH_REDIRECT_URI": OAUTH_REDIRECT_URI,
@@ -52,6 +52,12 @@ oauth.register(
 oauth2_autorization_code_bearer = OAuth2AuthorizationCodeBearer(
     authorizationUrl="/auth/openid",
     tokenUrl="/token",
+    auto_error=False,
+    scopes={
+        **DEFAULT_SCOPES_MAP,
+        **WRITE_SCOPES_MAP,
+        **FULL_SCOPES_MAP,
+    },
 )
 
 
@@ -61,7 +67,7 @@ def protected_route(
     scopes: list[Scope] | None = None,
     **kwargs,
 ):
-    def decorator(func: DecoratedCallable):
+    def decorator(func: DecoratedCallable) -> DecoratedCallable:
         fn = requires(scopes or [])(func)
         return method(
             path,

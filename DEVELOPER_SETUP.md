@@ -137,17 +137,3 @@ cd backend
 # path or test file can be passed as argument to test only a subset
 poetry run pytest [path/file]
 ```
-
-## Hydra setup
-
-```sh
-docker exec hydra hydra create client \
-  --endpoint http://127.0.0.1:4445/ \
-  --format json \
-  --grant-type authorization_code,refresh_token \
-  --redirect-uri "http://localhost:3000/api/oauth/openid" \
-  --scope openid \
-  --scope profile \
-  --scope email \
-  --scope offline
-```

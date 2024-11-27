@@ -6,10 +6,15 @@ from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
-from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
+from exceptions.auth_exceptions import (
+    AuthCredentialsException,
+    OAuthDisableException,
+    OAuthNotConfiguredException,
+    UserDisabledException,
+)
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security.http import HTTPBasic
-from handler.auth import auth_handler, oauth_handler
+from handler.auth import auth_handler, oauth_handler, open_id_handler
 from handler.database import db_user_handler
 from utils.router import APIRouter
 
@@ -47,9 +52,15 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        user, claims = await oauth_handler.get_current_active_user_from_bearer_token(
+        potential_user = await oauth_handler.get_current_active_user_from_bearer_token(
             token
         )
+        if not potential_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+            )
+
+        user, claims = potential_user
         if claims.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -148,7 +159,7 @@ def login(
 
     Raises:
         CredentialsException: Invalid credentials
-        DisabledException: Auth is disabled
+        UserDisabledException: Auth is disabled
 
     Returns:
         MessageResponse: Standard message response
@@ -159,7 +170,7 @@ def login(
         raise AuthCredentialsException
 
     if not user.enabled:
-        raise DisabledException
+        raise UserDisabledException
 
     request.session.update({"iss": "romm:auth", "sub": user.username})
 
@@ -177,12 +188,19 @@ async def login_via_openid(request: Request):
     Args:
         request (Request): Fastapi Request object
 
+    Raises:
+        OAuthDisableException: OAuth is disabled
+        OAuthNotConfiguredException: OAuth not configured
+
     Returns:
         RedirectResponse: Redirect to OAuth2 provider
     """
 
     if not OAUTH_ENABLED:
-        raise DisabledException
+        raise OAuthDisableException
+
+    if not oauth.openid:
+        raise OAuthNotConfiguredException
 
     return await oauth.openid.authorize_redirect(request, OAUTH_REDIRECT_URI)
 
@@ -194,25 +212,42 @@ async def auth_openid(request: Request):
     Args:
         request (Request): Fastapi Request object
 
+    Raises:
+        OAuthDisableException: OAuth is disabled
+        OAuthNotConfiguredException: OAuth not configured
+        AuthCredentialsException: Invalid credentials
+        UserDisabledException: Auth is disabled
+
     Returns:
         RedirectResponse: Redirect to home page
     """
 
+    if not OAUTH_ENABLED:
+        raise OAuthDisableException
+
+    if not oauth.openid:
+        raise OAuthNotConfiguredException
+
     token = await oauth.openid.authorize_access_token(request)
-    user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
+    potential_user = await open_id_handler.get_current_active_user_from_openid_token(
+        token
+    )
+    if not potential_user:
+        raise AuthCredentialsException
+
+    user, _claims = potential_user
 
     if not user:
         raise AuthCredentialsException
 
     if not user.enabled:
-        raise DisabledException
+        raise UserDisabledException
 
     request.session.update({"iss": "romm:auth", "sub": user.username})
 
     # Update last login and active times
-    db_user_handler.update_user(
-        user.id, {"last_login": datetime.now(), "last_active": datetime.now()}
-    )
+    now = datetime.now(timezone.utc)
+    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
     return {"msg": "Successfully logged in"}
 
