@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import NewType, TypedDict
+from typing import Literal, NewType, TypedDict
 
 # https://api-docs.igdb.com/#expander
 type ExpandableField[T] = T | int
@@ -9,24 +9,14 @@ type ExpandableField[T] = T | int
 # TODO: Add missing structures until all are implemented.
 UnimplementedEntity = NewType("UnimplementedEntity", dict)
 AgeRatingContentDescription = UnimplementedEntity
-AlternativeName = UnimplementedEntity
 Artwork = UnimplementedEntity
 CollectionRelation = UnimplementedEntity
-CollectionType = UnimplementedEntity
-Cover = UnimplementedEntity
 ExternalGame = UnimplementedEntity
-Franchise = UnimplementedEntity
 GameEngine = UnimplementedEntity
-GameLocalization = UnimplementedEntity
 GameMode = UnimplementedEntity
-Genre = UnimplementedEntity
 InvolvedCompany = UnimplementedEntity
 Keyword = UnimplementedEntity
 LanguageSupport = UnimplementedEntity
-MultiplayerMode = UnimplementedEntity
-PlatformFamily = UnimplementedEntity
-PlatformLogo = UnimplementedEntity
-PlatformVersionCompany = UnimplementedEntity
 PlatformVersionReleaseDate = UnimplementedEntity
 PlatformWebsite = UnimplementedEntity
 PlayerPerspective = UnimplementedEntity
@@ -110,6 +100,14 @@ class AgeRating(IGDBEntity, total=False):
     synopsis: str
 
 
+# https://api-docs.igdb.com/#alternative-name
+class AlternativeName(IGDBEntity, total=False):
+    checksum: str  # uuid
+    comment: str
+    game: ExpandableField[Game]
+    name: str
+
+
 # https://api-docs.igdb.com/#collection
 class Collection(IGDBEntity, total=False):
     as_child_relations: list[ExpandableField[CollectionRelation]]
@@ -120,6 +118,125 @@ class Collection(IGDBEntity, total=False):
     name: str
     slug: str
     type: ExpandableField[CollectionType]
+    updated_at: int  # timestamp
+    url: str
+
+
+# https://api-docs.igdb.com/#collection-type
+class CollectionType(IGDBEntity, total=False):
+    checksum: str  # uuid
+    created_at: int  # timestamp
+    description: str
+    name: str
+    updated_at: int  # timestamp
+
+
+# https://api-docs.igdb.com/#company
+class Company(IGDBEntity, total=False):
+    change_date: int  # timestamp
+    change_date_category: CompanyChangeDateCategory
+    changed_company_id: ExpandableField[Company]
+    checksum: str  # uuid
+    country: int
+    created_at: int  # timestamp
+    description: str
+    developed: list[ExpandableField[Game]]
+    logo: ExpandableField[CompanyLogo]
+    name: str
+    parent: ExpandableField[Company]
+    published: list[ExpandableField[Game]]
+    slug: str
+    start_date: int  # timestamp
+    start_date_category: CompanyStartDateCategory
+    updated_at: int  # timestamp
+    url: str
+    websites: list[ExpandableField[CompanyWebsite]]
+
+
+# https://api-docs.igdb.com/#company-enums
+class CompanyChangeDateCategory(enum.IntEnum):
+    YYYYMMMMDD = 0
+    YYYYMMMM = 1
+    YYYY = 2
+    YYYYQ1 = 3
+    YYYYQ2 = 4
+    YYYYQ3 = 5
+    YYYYQ4 = 6
+    TBD = 7
+
+
+# https://api-docs.igdb.com/#company-logo
+class CompanyLogo(IGDBEntity, total=False):
+    alpha_channel: bool
+    animated: bool
+    checksum: str  # uuid
+    height: int
+    image_id: str
+    url: str
+    width: int
+
+
+# https://api-docs.igdb.com/#company-enums
+class CompanyStartDateCategory(enum.IntEnum):
+    YYYYMMMMDD = 0
+    YYYYMMMM = 1
+    YYYY = 2
+    YYYYQ1 = 3
+    YYYYQ2 = 4
+    YYYYQ3 = 5
+    YYYYQ4 = 6
+    TBD = 7
+
+
+# https://api-docs.igdb.com/#company-website
+class CompanyWebsite(IGDBEntity, total=False):
+    category: CompanyWebsiteCategory
+    checksum: str  # uuid
+    trusted: bool
+    url: str
+
+
+# https://api-docs.igdb.com/#company-website-enums
+class CompanyWebsiteCategory(enum.IntEnum):
+    OFFICIAL = 1
+    WIKIA = 2
+    WIKIPEDIA = 3
+    FACEBOOK = 4
+    TWITTER = 5
+    TWITCH = 6
+    INSTAGRAM = 8
+    YOUTUBE = 9
+    IPHONE = 10
+    IPAD = 11
+    ANDROID = 12
+    STEAM = 13
+    REDDIT = 14
+    ITCH = 15
+    EPICGAMES = 16
+    GOG = 17
+    DISCORD = 18
+
+
+# https://api-docs.igdb.com/#cover
+class Cover(IGDBEntity, total=False):
+    alpha_channel: bool
+    animated: bool
+    checksum: str  # uuid
+    game: ExpandableField[Game]
+    game_localization: ExpandableField[GameLocalization]
+    height: int
+    image_id: str
+    url: str
+    width: int
+
+
+# https://api-docs.igdb.com/#franchise
+class Franchise(IGDBEntity, total=False):
+    checksum: str  # uuid
+    created_at: int  # timestamp
+    games: list[ExpandableField[Game]]
+    name: str
+    slug: str
     updated_at: int  # timestamp
     url: str
 
@@ -214,12 +331,63 @@ class Game(IGDBEntity, total=False):
     websites: list[ExpandableField[Website]]
 
 
+# https://api-docs.igdb.com/#game-localization
+class GameLocalization(IGDBEntity, total=False):
+    checksum: str  # uuid
+    cover: ExpandableField[Cover]
+    created_at: int  # timestamp
+    game: ExpandableField[Game]
+    name: str
+    region: ExpandableField[Region]
+    updated_at: int  # timestamp
+
+
+# https://api-docs.igdb.com/#game-time-to-beat
+class GameTimeToBeat(IGDBEntity, total=False):
+    checksum: str  # uuid
+    completely: int
+    count: int
+    created_at: int  # timestamp
+    game_id: int
+    hastily: int
+    normally: int
+    updated_at: int  # timestamp
+
+
 # https://api-docs.igdb.com/#game-video
 class GameVideo(IGDBEntity, total=False):
     checksum: str  # uuid
     game: ExpandableField[Game]
     name: str
     video_id: str
+
+
+# https://api-docs.igdb.com/#genre
+class Genre(IGDBEntity, total=False):
+    checksum: str  # uuid
+    created_at: int  # timestamp
+    name: str
+    slug: str
+    updated_at: int  # timestamp
+    url: str
+
+
+# https://api-docs.igdb.com/#multiplayer-mode
+class MultiplayerMode(IGDBEntity, total=False):
+    campaigncoop: bool
+    checksum: str  # uuid
+    dropin: bool
+    game: ExpandableField[Game]
+    lancoop: bool
+    offlinecoop: bool
+    offlinecoopmax: int
+    offlinemax: int
+    onlinecoop: bool
+    onlinecoopmax: int
+    onlinemax: int
+    platform: ExpandableField[Platform]
+    splitscreen: bool
+    splitscreenonline: bool
 
 
 # https://api-docs.igdb.com/#platform-enums
@@ -251,6 +419,24 @@ class Platform(IGDBEntity, total=False):
     websites: list[ExpandableField[PlatformWebsite]]
 
 
+# https://api-docs.igdb.com/#platform-family
+class PlatformFamily(IGDBEntity, total=False):
+    checksum: str  # uuid
+    name: str
+    slug: str
+
+
+# https://api-docs.igdb.com/#platform-logo
+class PlatformLogo(IGDBEntity, total=False):
+    alpha_channel: bool
+    animated: bool
+    checksum: str  # uuid
+    height: int
+    image_id: str
+    url: str
+    width: int
+
+
 # https://api-docs.igdb.com/#platform-version
 class PlatformVersion(IGDBEntity, total=False):
     checksum: str  # uuid
@@ -272,6 +458,25 @@ class PlatformVersion(IGDBEntity, total=False):
     storage: str
     summary: str
     url: str
+
+
+# https://api-docs.igdb.com/#platform-version-company
+class PlatformVersionCompany(IGDBEntity, total=False):
+    checksum: str  # uuid
+    comment: str
+    company: ExpandableField[Company]
+    developer: bool
+    manufacturer: bool
+
+
+# https://api-docs.igdb.com/#region
+class Region(IGDBEntity, total=False):
+    category: Literal["locale", "continent"]
+    checksum: str  # uuid
+    created_at: int  # timestamp
+    identifier: str
+    name: str
+    updated_at: int  # timestamp
 
 
 # https://api-docs.igdb.com/#screenshot

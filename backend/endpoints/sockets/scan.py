@@ -167,6 +167,8 @@ async def scan_platforms(
 
         # Same protection for platforms
         if len(fs_platforms) > 0:
+            log.info("Purging platforms not found in the filesystem:")
+            log.info("\n".join([f"  - {platform}" for platform in fs_platforms]))
             db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark: Scan completed "))
@@ -268,10 +270,14 @@ async def _identify_platform(
     # the folder structure is not correct or the drive is not mounted
 
     if len(fs_roms) > 0:
+        log.info("Purging roms not found in the filesystem:")
+        log.info("\n".join([f"  - {rom['file_name']}" for rom in fs_roms]))
         db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
+        log.info("Purging firmware not found in the filesystem:")
+        log.info("\n".join([f"  - {fw}" for fw in fs_firmware]))
         db_firmware_handler.purge_firmware(platform.id, [fw for fw in fs_firmware])
 
     return scan_stats

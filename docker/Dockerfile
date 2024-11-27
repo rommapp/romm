@@ -25,9 +25,11 @@ RUN npm run build
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
+# git is needed to install py7zr fork
 # libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
 RUN apk add --no-cache \
     gcc \
+    git \
     mariadb-connector-c-dev \
     musl-dev \
     libffi-dev

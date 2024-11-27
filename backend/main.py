@@ -70,7 +70,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CustomCSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
-        exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
+        exempt_urls=[re.compile(r"^/api/token.*"), re.compile(r"^/ws")],
     )
 
 # Handles both basic and oauth authentication
