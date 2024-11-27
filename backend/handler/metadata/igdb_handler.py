@@ -220,6 +220,14 @@ class IGDBBaseHandler(MetadataHandler):
     async def _request(self, url: str, data: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
         try:
+            masked_headers = self._mask_sensitive_values(self.headers)
+            log.debug(
+                "API request: URL=%s, Headers=%s, Content=%s, Timeout=%s",
+                url,
+                masked_headers,
+                f"{data} limit {self.pagination_limit};",
+                timeout,
+            )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
@@ -250,6 +258,13 @@ class IGDBBaseHandler(MetadataHandler):
             pass
 
         try:
+            log.debug(
+                "Making a second attempt API request: URL=%s, Headers=%s, Content=%s, Timeout=%s",
+                url,
+                masked_headers,
+                f"{data} limit {self.pagination_limit};",
+                timeout,
+            )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
@@ -606,7 +621,17 @@ class IGDBBaseHandler(MetadataHandler):
         ]
 
 
-class TwitchAuth:
+class TwitchAuth(MetadataHandler):
+    def __init__(self):
+        self.BASE_URL = "https://id.twitch.tv/oauth2/token"
+        self.params = {
+            "client_id": IGDB_CLIENT_ID,
+            "client_secret": IGDB_CLIENT_SECRET,
+            "grant_type": "client_credentials",
+        }
+        self.masked_params = self._mask_sensitive_values(self.params)
+        self.timeout = 10
+
     async def _update_twitch_token(self) -> str:
         token = None
         expires_in = 0
@@ -616,14 +641,16 @@ class TwitchAuth:
 
         httpx_client = ctx_httpx_client.get()
         try:
+            log.debug(
+                "API request: URL=%s, Params=%s, Timeout=%s",
+                self.BASE_URL,
+                self.masked_params,
+                self.timeout,
+            )
             res = await httpx_client.post(
-                url="https://id.twitch.tv/oauth2/token",
-                params={
-                    "client_id": IGDB_CLIENT_ID,
-                    "client_secret": IGDB_CLIENT_SECRET,
-                    "grant_type": "client_credentials",
-                },
-                timeout=10,
+                url=self.BASE_URL,
+                params=self.params,
+                timeout=self.timeout,
             )
 
             if res.status_code == 400:
