@@ -23,7 +23,6 @@ emitter?.on("showSearchCoverDialog", (term) => {
   if (searchTerm.value) searchCovers();
 });
 
-// Functions
 async function searchCovers() {
   covers.value = [];
 
@@ -47,7 +46,7 @@ async function searchCovers() {
                 coverType.value === "all"
                   ? game.resources
                   : game.resources.filter(
-                      (resource) => resource.type === coverType.value
+                      (resource) => resource.type === coverType.value,
                     ),
             };
           })
@@ -81,7 +80,7 @@ function filterCovers() {
             coverType.value === "all"
               ? game.resources
               : game.resources.filter(
-                  (resource) => resource.type === coverType.value
+                  (resource) => resource.type === coverType.value,
                 ),
         };
       })

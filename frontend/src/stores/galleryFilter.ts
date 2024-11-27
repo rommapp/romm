@@ -1,21 +1,40 @@
 import { normalizeString } from "@/utils";
 import { defineStore } from "pinia";
+import { romStatusMap } from "@/utils";
+
+const filters = [
+  "genres",
+  "franchises",
+  "collections",
+  "companies",
+  "age_ratings",
+  "status",
+] as const;
+
+const statusFilters = Object.values(romStatusMap).map((status) => status.text);
+
+export type FilterType = (typeof filters)[number];
 
 export default defineStore("galleryFilter", {
   state: () => ({
     activeFilterDrawer: false,
     filterSearch: "",
-    filters: ["genres", "franchises", "collections", "companies"] as const,
+    filters: filters,
     filterGenres: [] as string[],
     filterFranchises: [] as string[],
     filterCollections: [] as string[],
     filterCompanies: [] as string[],
+    filterAgeRatings: [] as string[],
+    filterStatuses: statusFilters,
     filterUnmatched: false,
     filterFavourites: false,
+    filterDuplicates: false,
     selectedGenre: null as string | null,
     selectedFranchise: null as string | null,
     selectedCollection: null as string | null,
     selectedCompany: null as string | null,
+    selectedAgeRating: null as string | null,
+    selectedStatus: null as string | null,
   }),
 
   actions: {
@@ -25,19 +44,22 @@ export default defineStore("galleryFilter", {
     setFilterSearch(filterSearch: string) {
       this.filterSearch = normalizeString(filterSearch);
     },
-    setFilterGenre(genres: string[]) {
+    setFilterGenres(genres: string[]) {
       this.filterGenres = genres;
     },
-    setFilterFranchise(franchises: string[]) {
+    setFilterFranchises(franchises: string[]) {
       this.filterFranchises = franchises;
     },
-    setFilterCollection(collections: string[]) {
+    setFilterCollections(collections: string[]) {
       this.filterCollections = collections;
     },
-    setFilterCompany(companies: string[]) {
+    setFilterCompanies(companies: string[]) {
       this.filterCompanies = companies;
     },
-    setSelectedGenre(genre: string) {
+    setFilterAgeRatings(ageRatings: string[]) {
+      this.filterAgeRatings = ageRatings;
+    },
+    setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
     },
     setSelectedFilterFranchise(franchise: string) {
@@ -48,6 +70,12 @@ export default defineStore("galleryFilter", {
     },
     setSelectedFilterCompany(company: string) {
       this.selectedCompany = company;
+    },
+    setSelectedFilterAgeRating(ageRating: string) {
+      this.selectedAgeRating = ageRating;
+    },
+    setSelectedFilterStatus(status: string) {
+      this.selectedStatus = status;
     },
     switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
@@ -61,15 +89,24 @@ export default defineStore("galleryFilter", {
     disableFilterFavourites() {
       this.filterFavourites = false;
     },
+    switchFilterDuplicates() {
+      this.filterDuplicates = !this.filterDuplicates;
+    },
+    disableFilterDuplicates() {
+      this.filterDuplicates = false;
+    },
     isFiltered() {
       return Boolean(
         normalizeString(this.filterSearch).trim() != "" ||
           this.filterUnmatched ||
           this.filterFavourites ||
+          this.filterDuplicates ||
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
-          this.selectedCompany,
+          this.selectedCompany ||
+          this.selectedAgeRating ||
+          this.selectedStatus,
       );
     },
     reset() {
@@ -81,6 +118,8 @@ export default defineStore("galleryFilter", {
       this.selectedFranchise = null;
       this.selectedCollection = null;
       this.selectedCompany = null;
+      this.selectedAgeRating = null;
+      this.selectedStatus = null;
     },
   },
 });

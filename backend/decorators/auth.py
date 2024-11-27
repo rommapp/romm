@@ -16,6 +16,7 @@ from handler.auth.base_handler import (
     DEFAULT_SCOPES_MAP,
     FULL_SCOPES_MAP,
     WRITE_SCOPES_MAP,
+    Scope,
 )
 from starlette.authentication import requires
 from starlette.config import Config
@@ -57,7 +58,7 @@ oauth2_autorization_code_bearer = OAuth2AuthorizationCodeBearer(
 def protected_route(
     method: Any,
     path: str,
-    scopes: list[str] | None = None,
+    scopes: list[Scope] | None = None,
     **kwargs,
 ):
     def decorator(func: DecoratedCallable):

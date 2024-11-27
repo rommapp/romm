@@ -6,13 +6,13 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { lgAndUp } = useDisplay();
+const { lgAndUp, mdAndUp, smAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
@@ -20,19 +20,16 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
-const fileNameInputRules = {
-  required: (value: string) => !!value || "Required",
-  newFileName: (value: string) => !value.includes("/") || "Invalid characters",
-};
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
   rom.value = romToEdit;
+  removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
   if (!rom.value) return;
   rom.value.url_cover = url_cover;
-  imagePreviewUrl.value = url_cover;
+  setArtwork(url_cover);
 });
 
 // Functions
@@ -47,11 +44,17 @@ function previewImage(event: Event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
+    setArtwork(reader.result?.toString() || "");
   };
   if (input.files[0]) {
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
 }
 
 async function removeArtwork() {
@@ -59,33 +62,27 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-async function updateRom() {
-  if (!rom.value) return;
+const noMetadataMatch = computed(() => {
+  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.sgdb_id;
+});
 
-  if (rom.value.file_name.includes("/")) {
-    emitter?.emit("snackbarShow", {
-      msg: "Couldn't edit rom: invalid file name characters",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  } else if (!rom.value.file_name) {
-    emitter?.emit("snackbarShow", {
-      msg: "Couldn't edit rom: file name required",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  }
-
+async function handleRomUpdate(
+  options: {
+    rom: UpdateRom;
+    renameAsSource?: boolean;
+    removeCover?: boolean;
+    unmatch?: boolean;
+  },
+  successMessage: string,
+) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await romApi
-    .updateRom({ rom: rom.value, removeCover: removeCover.value })
+    .updateRom(options)
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: "Rom updated successfully!",
+        msg: successMessage,
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -108,6 +105,30 @@ async function updateRom() {
     });
 }
 
+async function unmatchRom() {
+  if (!rom.value) return;
+  await handleRomUpdate(
+    { rom: rom.value, unmatch: true },
+    "Rom unmatched successfully",
+  );
+}
+
+async function updateRom() {
+  if (!rom.value?.file_name) {
+    emitter?.emit("snackbarShow", {
+      msg: "Cannot save: file name is required",
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+    return;
+  }
+
+  await handleRomUpdate(
+    { rom: rom.value, removeCover: removeCover.value },
+    "Rom updated successfully!",
+  );
+}
+
 function closeDialog() {
   show.value = false;
   imagePreviewUrl.value = "";
@@ -121,12 +142,13 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
+    scroll-content
     :width="lgAndUp ? '65vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
         <v-col cols="12" md="8" lg="8" xl="9">
-          <v-row class="pa-2" no-gutters>
+          <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
                 v-model="rom.name"
@@ -139,24 +161,34 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
-          <v-row class="pa-2" no-gutters>
+          <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
                 v-model="rom.file_name"
                 class="py-2"
-                :rules="[
-                  fileNameInputRules.newFileName,
-                  fileNameInputRules.required,
-                ]"
-                label="File name"
+                :rules="[(value: string) => !!value]"
+                label="Filename"
                 variant="outlined"
                 required
                 hide-details
                 @keyup.enter="updateRom()"
-              />
+              >
+                <v-label
+                  v-if="smAndUp"
+                  id="file-name-label"
+                  class="text-caption"
+                >
+                  <v-icon size="small" class="mr-1">
+                    mdi-folder-file-outline
+                  </v-icon>
+                  <span>
+                    /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
+                  </span>
+                </v-label>
+              </v-text-field>
             </v-col>
           </v-row>
-          <v-row class="pa-2" no-gutters>
+          <v-row class="px-2" no-gutters>
             <v-col>
               <v-textarea
                 v-model="rom.summary"
@@ -165,25 +197,51 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="updateRom()"
+                @keyup.enter="updateRom"
               />
             </v-col>
           </v-row>
+          <v-row
+            v-if="mdAndUp"
+            class="justify-space-between mt-4 mb-2 mx-2"
+            no-gutters
+          >
+            <v-btn-group divided density="compact">
+              <v-btn
+                :disabled="noMetadataMatch"
+                :class="` ${
+                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
+                }`"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                Unmatch Rom
+              </v-btn>
+            </v-btn-group>
+            <v-btn-group divided density="compact">
+              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+                Save
+              </v-btn>
+            </v-btn-group>
+          </v-row>
         </v-col>
         <v-col>
-          <v-row class="pa-2 justify-center" no-gutters>
-            <v-col class="cover">
+          <v-row class="justify-center">
+            <v-col :class="{ 'mobile-cover': smAndDown, 'pa-8': !smAndDown }">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
-                      :disabled="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED"
+                      :disabled="
+                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                      "
                       size="small"
                       class="translucent-dark"
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          rom?.name as string
+                          rom?.name as string,
                         )
                       "
                     >
@@ -218,26 +276,43 @@ function closeDialog() {
               </game-card>
             </v-col>
           </v-row>
+          <v-row v-if="smAndDown" class="justify-space-between pa-4">
+            <v-btn-group divided density="compact" class="my-1">
+              <v-btn
+                :disabled="noMetadataMatch"
+                :class="` ${
+                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
+                }`"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                Unmatch Rom
+              </v-btn>
+            </v-btn-group>
+            <v-btn-group divided density="compact" class="my-1">
+              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+                Save
+              </v-btn>
+            </v-btn-group>
+          </v-row>
         </v-col>
-      </v-row>
-    </template>
-    <template #append>
-      <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-            Apply
-          </v-btn>
-        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>
 </template>
 <style scoped>
-.cover {
+.mobile-cover {
   min-width: 240px;
   min-height: 330px;
   max-width: 240px;
   max-height: 330px;
+}
+</style>
+
+<style>
+#file-name-label {
+  position: absolute;
+  right: 1rem;
 }
 </style>

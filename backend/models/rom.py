@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import enum
+from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
-from sqlalchemy import JSON, BigInteger, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +26,12 @@ if TYPE_CHECKING:
     from models.collection import Collection
     from models.platform import Platform
     from models.user import User
+
+
+class RomFile(TypedDict):
+    filename: str
+    size: int
+    last_modified: float | None
 
 
 class Rom(BaseModel):
@@ -59,13 +77,21 @@ class Rom(BaseModel):
     )
 
     multi: Mapped[bool] = mapped_column(default=False)
-    files: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    files: Mapped[list[RomFile] | None] = mapped_column(JSON, default=[])
+    crc_hash: Mapped[str | None] = mapped_column(String(100))
+    md5_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
     platform: Mapped[Platform] = relationship(lazy="immediate")
+    sibling_roms: Mapped[list[Rom]] = relationship(
+        secondary="sibling_roms",
+        primaryjoin="Rom.id == SiblingRom.rom_id",
+        secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
+    )
 
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
@@ -98,18 +124,16 @@ class Rom(BaseModel):
             f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
         ]
 
-    # This is an expensive operation so don't call it on a list of roms
-    def get_sibling_roms(self) -> list[Rom]:
-        from handler.database import db_rom_handler
-
-        return db_rom_handler.get_sibling_roms(self)
-
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
 
         return db_rom_handler.get_rom_collections(self)
 
     # Metadata fields
+    @property
+    def youtube_video_id(self) -> str:
+        return self.igdb_metadata.get("youtube_video_id", "")
+
     @property
     def alternative_names(self) -> list[str]:
         return (
@@ -147,11 +171,23 @@ class Rom(BaseModel):
         return self.igdb_metadata.get("game_modes", [])
 
     @property
+    def age_ratings(self) -> list[str]:
+        return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
+
+    @property
     def fs_resources_path(self) -> str:
         return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.file_name
+
+
+class RomUserStatus(enum.StrEnum):
+    INCOMPLETE = "incomplete"  # Started but not finished
+    FINISHED = "finished"  # Reached the end of the game
+    COMPLETED_100 = "completed_100"  # Completed 100%
+    RETIRED = "retired"  # Won't play again
+    NEVER_PLAYING = "never_playing"  # Will never play
 
 
 class RomUser(BaseModel):
@@ -166,6 +202,17 @@ class RomUser(BaseModel):
     note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
+    last_played: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    backlogged: Mapped[bool] = mapped_column(default=False)
+    now_playing: Mapped[bool] = mapped_column(default=False)
+    hidden: Mapped[bool] = mapped_column(default=False)
+    rating: Mapped[int] = mapped_column(default=0)
+    difficulty: Mapped[int] = mapped_column(default=0)
+    completion: Mapped[int] = mapped_column(default=0)
+    status: Mapped[RomUserStatus | None] = mapped_column(
+        Enum(RomUserStatus), default=None
+    )
 
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -176,3 +223,14 @@ class RomUser(BaseModel):
     @property
     def user__username(self) -> str:
         return self.user.username
+
+
+class SiblingRom(BaseModel):
+    __tablename__ = "sibling_roms"
+
+    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    __table_args__ = (
+        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
+    )

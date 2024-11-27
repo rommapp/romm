@@ -3,8 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { TinfoilFeedFileSchema } from './TinfoilFeedFileSchema';
+import type { TinfoilFeedTitleDBSchema } from './TinfoilFeedTitleDBSchema';
+
 export type TinfoilFeedSchema = {
-  files: Array<Record<string, any>>;
-  directories: Array<string>;
-  success: string;
+    files: Array<TinfoilFeedFileSchema>;
+    directories: Array<string>;
+    titledb?: Record<string, TinfoilFeedTitleDBSchema>;
+    success?: string;
+    error?: string;
 };
+

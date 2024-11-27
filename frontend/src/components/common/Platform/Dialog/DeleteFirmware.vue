@@ -48,7 +48,7 @@ async function deleteFirmware() {
     .then(() => {
       if (currentPlatform.value?.firmware) {
         currentPlatform.value.firmware = currentPlatform.value.firmware.filter(
-          (firm) => !firmwares.value.includes(firm)
+          (firm) => !firmwares.value.includes(firm),
         );
       }
       emitter?.emit("snackbarShow", {

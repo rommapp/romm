@@ -3,7 +3,7 @@ withDefaults(
   defineProps<{
     enabled?: boolean;
   }>(),
-  { enabled: false }
+  { enabled: false },
 );
 const emit = defineEmits(["click"]);
 </script>

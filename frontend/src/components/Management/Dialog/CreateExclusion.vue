@@ -1,80 +1,97 @@
 <script setup lang="ts">
+import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import storeConfig from "@/stores/config";
 import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
+const { mdAndUp, smAndDown } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const excludeToCreate = ref();
-const exclusionToCreate = ref();
-emitter?.on("showCreateExclusionDialog", ({ exclude }) => {
-  excludeToCreate.value = exclude;
+const configStore = storeConfig();
+const exclusionValue = ref();
+const exclusionType = ref();
+const exclusionIcon = ref();
+const exclusionTitle = ref();
+emitter?.on("showCreateExclusionDialog", ({ type, icon, title }) => {
+  exclusionType.value = type;
+  exclusionIcon.value = icon;
+  exclusionTitle.value = title;
   show.value = true;
 });
 
 // Functions
 function addExclusion() {
-  configApi.addExclusion({
-    exclude: excludeToCreate.value,
-    exclusion: exclusionToCreate.value,
-  });
-  // configStore.addExclusion(exclusion);
-  closeDialog();
+  if (configStore.isExclusionType(exclusionType.value)) {
+    configApi.addExclusion({
+      exclusionValue: exclusionValue.value,
+      exclusionType: exclusionType.value,
+    });
+    configStore.addExclusion(exclusionType.value, exclusionValue.value);
+    closeDialog();
+  } else {
+    console.error(`Invalid exclusion type '${exclusionType.value}'`);
+  }
 }
 
 function closeDialog() {
   show.value = false;
+  exclusionValue.value = "";
 }
 </script>
 <template>
-  <!-- TODO: unify refactor dialog -->
-  <v-dialog v-model="show" max-width="500px" :scrim="true">
-    <v-card>
-      <v-toolbar density="compact" class="bg-terciary">
-        <v-row class="align-center" no-gutters>
-          <v-col cols="10">
-            <v-icon icon="mdi-controller" class="ml-5" />
-            <v-icon icon="mdi-menu-right" class="ml-1 text-romm-gray" />
-            <v-icon icon="mdi-controller" class="ml-1 text-romm-accent-1" />
-          </v-col>
-          <v-col>
-            <v-btn
-              class="bg-terciary"
-              rounded="0"
-              variant="text"
-              icon="mdi-close"
-              block
-              @click="closeDialog"
-            />
-          </v-col>
-        </v-row>
-      </v-toolbar>
-      <v-divider />
-
-      <v-card-text>
-        <v-row class="pa-2 align-center" no-gutters>
-          <v-icon icon="mdi-menu-right" class="mx-2 text-romm-gray" />
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-cancel"
+    :width="mdAndUp ? '45vw' : '95vw'"
+  >
+    <template #content>
+      <v-row v-if="smAndDown" no-gutters>
+        <v-col class="mt-2 py-2 text-center">
+          <v-icon :icon="exclusionIcon" />
+          <span class="ml-2">{{ exclusionTitle }}</span>
+        </v-col>
+      </v-row>
+      <v-row class="align-center py-2 px-4" no-gutters>
+        <v-col v-if="mdAndUp" class="text-center" cols="2">
+          <div>
+            <v-icon :icon="exclusionIcon" />
+          </div>
+          <div class="mt-2">
+            <span class="ml-2">{{ exclusionTitle }}</span>
+          </div>
+        </v-col>
+        <v-col>
           <v-text-field
-            v-model="exclusionToCreate"
-            class="text-romm-accent-1"
-            label="RomM platform"
-            color="romm-accent-1"
-            base-color="romm-accent-1"
+            v-model="exclusionValue"
+            class="py-2"
+            :class="{ 'ml-4': mdAndUp }"
             variant="outlined"
             required
             hide-details
             @keyup.enter="addExclusion"
           />
-        </v-row>
-        <v-row class="justify-center pa-2" no-gutters>
+        </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-row class="justify-center mb-2" no-gutters>
+        <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="text-romm-green bg-terciary ml-5" @click="addExclusion">
+          <v-btn
+            class="bg-terciary text-romm-green"
+            :disabled="exclusionValue == ''"
+            :variant="exclusionValue == '' ? 'plain' : 'flat'"
+            @click="addExclusion"
+          >
             Confirm
           </v-btn>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>

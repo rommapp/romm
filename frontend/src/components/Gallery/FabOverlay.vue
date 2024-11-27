@@ -69,7 +69,7 @@ function resetSelection() {
 async function addToFavourites() {
   if (!favCollection.value) return;
   favCollection.value.roms = favCollection.value.roms.concat(
-    selectedRoms.value.map((r) => r.id)
+    selectedRoms.value.map((r) => r.id),
   );
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
@@ -98,7 +98,7 @@ async function addToFavourites() {
 async function removeFromFavourites() {
   if (!favCollection.value) return;
   favCollection.value.roms = favCollection.value.roms.filter(
-    (value) => !selectedRoms.value.map((r) => r.id).includes(value)
+    (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
   if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
     romsStore.remove(selectedRoms.value);
@@ -137,13 +137,7 @@ function onDownload() {
 </script>
 
 <template>
-  <v-overlay
-    :model-value="true"
-    persistent
-    scroll-strategy="reposition"
-    :scrim="false"
-    class="align-end justify-end pa-3"
-  >
+  <div class="text-right pa-2 sticky-bottom">
     <v-scroll-y-reverse-transition>
       <v-btn
         icon
@@ -216,7 +210,7 @@ function onDownload() {
             ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
             : emitter?.emit(
                 'showRemoveFromCollectionDialog',
-                romsStore.selectedRoms
+                romsStore.selectedRoms,
               )
         "
       />
@@ -253,5 +247,18 @@ function onDownload() {
         @click.stop="resetSelection"
       />
     </v-speed-dial>
-  </v-overlay>
+  </div>
 </template>
+<style scoped>
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  pointer-events: none;
+}
+.sticky-bottom * {
+  pointer-events: auto; /* Re-enables pointer events for all child elements */
+}
+</style>

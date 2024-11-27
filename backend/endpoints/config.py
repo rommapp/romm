@@ -6,8 +6,10 @@ from exceptions.config_exceptions import (
     ConfigNotReadableException,
     ConfigNotWritableException,
 )
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
+from handler.auth.base_handler import Scope
 from logger.logger import log
+from utils.router import APIRouter
 
 router = APIRouter()
 
@@ -42,7 +44,7 @@ def get_config() -> ConfigResponse:
         ) from exc
 
 
-@protected_route(router.post, "/config/system/platforms", ["platforms.write"])
+@protected_route(router.post, "/config/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(request: Request) -> MessageResponse:
     """Add platform binding to the configuration"""
 
@@ -62,7 +64,7 @@ async def add_platform_binding(request: Request) -> MessageResponse:
 
 
 @protected_route(
-    router.delete, "/config/system/platforms/{fs_slug}", ["platforms.write"]
+    router.delete, "/config/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE]
 )
 async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform binding from the configuration"""
@@ -78,7 +80,7 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} bind removed successfully!"}
 
 
-@protected_route(router.post, "/config/system/versions", ["platforms.write"])
+@protected_route(router.post, "/config/system/versions", [Scope.PLATFORMS_WRITE])
 async def add_platform_version(request: Request) -> MessageResponse:
     """Add platform version to the configuration"""
 
@@ -98,7 +100,7 @@ async def add_platform_version(request: Request) -> MessageResponse:
 
 
 @protected_route(
-    router.delete, "/config/system/versions/{fs_slug}", ["platforms.write"]
+    router.delete, "/config/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE]
 )
 async def delete_platform_version(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform version from the configuration"""
@@ -114,25 +116,44 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} version removed successfully!"}
 
 
-# @protected_route(router.post, "/config/exclude", ["platforms.write"])
-# async def add_exclusion(request: Request) -> MessageResponse:
-#     """Add platform binding to the configuration"""
+@protected_route(router.post, "/config/exclude", [Scope.PLATFORMS_WRITE])
+async def add_exclusion(request: Request) -> MessageResponse:
+    """Add platform exclusion to the configuration"""
 
-#     data = await request.json()
-#     exclude = data['exclude']
-#     exclusion = data['exclusion']
-#     cm.add_exclusion(exclude, exclusion)
+    data = await request.json()
+    exclusion_value = data["exclusion_value"]
+    exclusion_type = data["exclusion_type"]
+    try:
+        cm.add_exclusion(exclusion_type, exclusion_value)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
-#     return {"msg": f"Exclusion {exclusion} added to {exclude} successfully!"}
+    return {
+        "msg": f"Exclusion {exclusion_value} added to {exclusion_type} successfully!"
+    }
 
 
-# @protected_route(router.delete, "/config/exclude", ["platforms.write"])
-# async def delete_exclusion(request: Request) -> MessageResponse:
-#     """Delete platform binding from the configuration"""
+@protected_route(
+    router.delete,
+    "/config/exclude/{exclusion_type}/{exclusion_value}",
+    [Scope.PLATFORMS_WRITE],
+)
+async def delete_exclusion(
+    request: Request, exclusion_type: str, exclusion_value: str
+) -> MessageResponse:
+    """Delete platform binding from the configuration"""
 
-#     data = await request.json()
-#     exclude = data['exclude']
-#     exclusion = data['exclusion']
-#     cm.remove_exclusion(exclude, exclusion)
+    try:
+        cm.remove_exclusion(exclusion_type, exclusion_value)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
 
-#     return {"msg": f"Exclusion {exclusion} removed from {exclude} successfully!"}
+    return {
+        "msg": f"Exclusion {exclusion_value} removed from {exclusion_type} successfully!"
+    }

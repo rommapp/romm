@@ -4,7 +4,7 @@ withDefaults(
     title: string;
     icon: string;
   }>(),
-  { title: "", icon: "" }
+  { title: "", icon: "" },
 );
 </script>
 <template>

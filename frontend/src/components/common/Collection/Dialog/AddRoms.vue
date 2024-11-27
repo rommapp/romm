@@ -37,7 +37,6 @@ const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-// Functions
 async function addRomsToCollection() {
   if (!selectedCollection.value) return;
   selectedCollection.value.roms.push(...roms.value.map((r) => r.id));

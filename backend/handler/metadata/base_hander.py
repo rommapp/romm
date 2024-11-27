@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unicodedata
+from itertools import batched
 from typing import Final
 
 from handler.redis_handler import async_cache, sync_cache
@@ -11,7 +12,6 @@ from tasks.update_switch_titledb import (
     SWITCH_TITLEDB_INDEX_KEY,
     update_switch_titledb_task,
 )
-from utils.iterators import batched
 
 
 def conditionally_set_cache(

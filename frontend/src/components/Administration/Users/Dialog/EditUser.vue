@@ -22,7 +22,6 @@ emitter?.on("showEditUserDialog", (userToEdit) => {
   show.value = true;
 });
 
-// Functions
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();
@@ -138,8 +137,8 @@ function closeDialog() {
                     imagePreviewUrl
                       ? imagePreviewUrl
                       : user.avatar_path
-                      ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
-                      : defaultAvatarPath
+                        ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
+                        : defaultAvatarPath
                   "
                 >
                   <v-fade-transition>
