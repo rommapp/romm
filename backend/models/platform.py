@@ -21,6 +21,11 @@ class Platform(BaseModel):
     slug: Mapped[str] = mapped_column(String(length=50))
     fs_slug: Mapped[str] = mapped_column(String(length=50))
     name: Mapped[str] = mapped_column(String(length=400))
+    category: Mapped[str | None] = mapped_column(String(length=50), default="")
+    generation: Mapped[int | None]
+    family: Mapped[str | None] = mapped_column(String(length=1000), default="")
+    url: Mapped[str | None] = mapped_column(String(length=1000), default="")
+    url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
     roms: Mapped[list[Rom]] = relationship(back_populates="platform")

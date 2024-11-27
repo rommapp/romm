@@ -35,6 +35,12 @@ class IGDBPlatform(TypedDict):
     slug: str
     igdb_id: int | None
     name: NotRequired[str]
+    category: NotRequired[str]
+    generation: NotRequired[str]
+    family: NotRequired[int]
+    url: NotRequired[str]
+    url_logo: NotRequired[str]
+    logo_path: NotRequired[str]
 
 
 class IGDBAgeRating(TypedDict):
@@ -323,13 +329,17 @@ class IGDBBaseHandler(MetadataHandler):
             self.platform_endpoint,
             data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
         )
-
         platform = pydash.get(platforms, "[0]", None)
         if platform:
             return IGDBPlatform(
-                igdb_id=platform["id"],
+                igdb_id=platform.get("id", None),
                 slug=slug,
-                name=platform["name"],
+                name=platform.get("name", slug),
+                category=IGDB_PLATFORM_CATEGORIES.get(platform["category"], "Unknown"),
+                generation=platform.get("generation", None),
+                family=platform.get("family", None),
+                url=platform.get("url", None),
+                url_logo=platform.get("url_logo", None),
             )
 
         # Check if platform is a version if not found
@@ -651,7 +661,15 @@ class TwitchAuth:
         return token
 
 
-PLATFORMS_FIELDS = ["id", "name"]
+PLATFORMS_FIELDS = [
+    "id",
+    "name",
+    "category",
+    "generation",
+    "url",
+    # "platform_families.name",
+    # "platform_logos.image_id",
+]
 
 GAMES_FIELDS = [
     "id",
@@ -930,6 +948,15 @@ IGDB_PLATFORM_LIST = [
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
 ]
+
+IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
+    1: "Console",
+    2: "Arcade",
+    3: "Platform",
+    4: "Operative System",
+    5: "Portable Console",
+    6: "Computer",
+}
 
 IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     1: {
