@@ -22,51 +22,67 @@ services:
     env_file:
       - .env
 
-  hydra:
-    image: oryd/hydra:v2.2.0
-    container_name: hydra
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    container_name: postgresql
     restart: unless-stopped
-    ports:
-      - 4444:4444 # Public port
-      - 4445:4445 # Admin port
-      - 5555:5555 # Port for hydra token user
-    command: serve -c /etc/config/hydra/hydra.yml all --dev
     volumes:
-      - hydra-sqlite:/var/lib/sqlite
-      - ./hydra/quickstart:/etc/config/hydra
+      - postgres_db:/var/lib/postgresql/data
     environment:
-      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_DB: $POSTGRES_DB
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+
+  authentik_server:
+    image: ghcr.io/goauthentik/server:2024.10.4
+    container_name: authentik_server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: valkey
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
+      AUTHENTIK_POSTGRESQL__NAME: $POSTGRES_DB
+      AUTHENTIK_POSTGRESQL__PASSWORD: $POSTGRES_PASSWORD
+      AUTHENTIK_SECRET_KEY: $AUTHENTIK_SECRET_KEY
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+    env_file:
+      - .env
+    ports:
+      - 9000:9000
+      - 9443:9443
     depends_on:
-      - hydra-migrate
-    networks:
-      - hydranet
+      - postgresql
+      - valkey
 
-  hydra-migrate:
-    image: oryd/hydra:v2.2.0
-    container_name: hydra-migrate
+  authentik_worker:
+    image: ghcr.io/goauthentik/server:2024.10.4
+    container_name: authentik_worker
     restart: unless-stopped
+    command: worker
     environment:
-      - DSN=sqlite:///var/lib/sqlite/db.sqlite?_fk=true
-    command: migrate -c /etc/config/hydra/hydra.yml sql -e --yes
+      AUTHENTIK_REDIS__HOST: valkey
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
+      AUTHENTIK_POSTGRESQL__NAME: $POSTGRES_DB
+      AUTHENTIK_POSTGRESQL__PASSWORD: $POSTGRES_PASSWORD
+      AUTHENTIK_SECRET_KEY: $AUTHENTIK_SECRET_KEY
     volumes:
-      - hydra-sqlite:/var/lib/sqlite
-      - ./hydra/quickstart:/etc/config/hydra
-    networks:
-      - hydranet
-
-  hydra-consent:
-    image: oryd/hydra-login-consent-node:v2.2.0
-    container_name: hydra-consent
-    restart: unless-stopped
-    environment:
-      - HYDRA_ADMIN_URL=http://hydra:4445
-    ports:
-      - 3001:3000
-    networks:
-      - hydranet
-
-networks:
-  hydranet:
+      - authentik_media:/media
+      - authentik_templates:/templates
+    env_file:
+      - .env
+    depends_on:
+      - postgresql
+      - valkey
 
 volumes:
-  hydra-sqlite:
+  postgres_db:
+  authentik_media:
+  authentik_templates:

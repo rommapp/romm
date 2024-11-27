@@ -36,7 +36,7 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 403) {
       // Clear cookies and redirect to login page
       Cookies.remove("romm_session");
 

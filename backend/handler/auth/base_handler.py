@@ -1,13 +1,13 @@
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Any, Final
 
 from config import ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
-from joserfc.jwk import OctKey
+from joserfc.jwk import OctKey, RSAKey
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
@@ -148,6 +148,40 @@ class OAuthHandler:
             return None
 
         username = payload.claims.get("sub")
+        if username is None:
+            raise OAuthCredentialsException
+
+        user = db_user_handler.get_user_by_username(username)
+        if user is None:
+            raise OAuthCredentialsException
+
+        if not user.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
+            )
+
+        return user, payload.claims
+
+
+class OpenIDHandler:
+    def __init__(self) -> None:
+        pass
+
+    async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.database import db_user_handler
+
+        # http://localhost:9000/application/o/romm/jwks/
+        rsa_key = RSAKey.import_key(public_key)
+        id_token = token.get("id_token")
+
+        try:
+            payload = jwt.decode(id_token, rsa_key, algorithms=["RS256"])
+        except (BadSignatureError, ValueError) as exc:
+            raise OAuthCredentialsException from exc
+
+        # TODO: verify iss claim
+
+        username = payload.claims.get("preferred_username")
         if username is None:
             raise OAuthCredentialsException
 
