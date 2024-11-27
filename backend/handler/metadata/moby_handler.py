@@ -85,10 +85,13 @@ class MobyGamesHandler(MetadataHandler):
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
         authorized_url = yarl.URL(url).update_query(api_key=MOBYGAMES_API_KEY)
+        masked_url = authorized_url.with_query(
+            self._mask_sensitive_values(dict(authorized_url.query))
+        )
 
         log.debug(
             "API request: URL=%s, Timeout=%s",
-            authorized_url,
+            masked_url,
             timeout,
         )
 
@@ -116,7 +119,7 @@ class MobyGamesHandler(MetadataHandler):
                 return {}
         except httpx.TimeoutException:
             log.debug(
-                "Request to URL=%s timed out. Retrying with URL=%s", authorized_url, url
+                "Request to URL=%s timed out. Retrying with URL=%s", masked_url, url
             )
             # Retry the request once if it times out
         try:
