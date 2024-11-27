@@ -2,13 +2,14 @@
 import { isNull } from "lodash";
 import { onMounted, ref, nextTick } from "vue";
 import { useRoute } from "vue-router";
-
 import RAvatar from "@/components/common/Game/RAvatar.vue";
+import storeGalleryView from "@/stores/galleryView";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 
 // Props
 const route = useRoute();
+const galleryViewStore = storeGalleryView();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -25,6 +26,7 @@ const script = document.createElement("script");
 script.src = "/assets/ruffle/ruffle.js";
 document.body.appendChild(script);
 
+// Functions
 function onPlay() {
   gameRunning.value = true;
 

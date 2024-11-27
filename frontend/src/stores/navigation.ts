@@ -5,6 +5,7 @@ export default defineStore("navigation", {
     activePlatformsDrawer: false,
     activeCollectionsDrawer: false,
     activeSettingsDrawer: false,
+    activePlatformInfoDrawer: false,
   }),
 
   actions: {
@@ -12,16 +13,25 @@ export default defineStore("navigation", {
       this.activeCollectionsDrawer = false;
       this.activeSettingsDrawer = false;
       this.activePlatformsDrawer = !this.activePlatformsDrawer;
+      this.activePlatformInfoDrawer = false;
     },
     switchActiveCollectionsDrawer() {
       this.activePlatformsDrawer = false;
       this.activeSettingsDrawer = false;
       this.activeCollectionsDrawer = !this.activeCollectionsDrawer;
+      this.activePlatformInfoDrawer = false;
     },
     switchActiveSettingsDrawer() {
       this.activePlatformsDrawer = false;
       this.activeCollectionsDrawer = false;
       this.activeSettingsDrawer = !this.activeSettingsDrawer;
+      this.activePlatformInfoDrawer = false;
+    },
+    switchActivePlatformInfoDrawer() {
+      this.activePlatformsDrawer = false;
+      this.activeCollectionsDrawer = false;
+      this.activeSettingsDrawer = false;
+      this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
     goHome() {
       this.resetDrawers();

@@ -59,6 +59,7 @@ const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 
+// Functions
 onMounted(() => {
   card.value.$el.addEventListener("contextmenu", (event: Event) => {
     event.preventDefault();
@@ -123,7 +124,7 @@ onMounted(() => {
                   ? rom.igdb_url_cover
                   : rom.moby_url_cover
           "
-          :aspect-ratio="2 / 3"
+          :aspect-ratio="galleryViewStore.aspectRatioCover"
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">
@@ -198,7 +199,7 @@ onMounted(() => {
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
               cover
-              :aspect-ratio="2 / 3"
+              :aspect-ratio="galleryViewStore.aspectRatioCover"
             ></v-img>
           </template>
           <template #placeholder>
