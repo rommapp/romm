@@ -1,9 +1,15 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { type SimpleRom } from "@/stores/roms.js";
-import { languageToEmoji, regionToEmoji } from "@/utils";
+import {
+  languageToEmoji,
+  regionToEmoji,
+  getEmojiForStatus,
+  getTextForStatus,
+} from "@/utils";
 import { identity, isNull } from "lodash";
 
-defineProps<{ rom: SimpleRom }>();
+const props = defineProps<{ rom: SimpleRom }>();
 const showRegions = isNull(localStorage.getItem("settings.showRegions"))
   ? true
   : localStorage.getItem("settings.showRegions") === "true";
@@ -13,6 +19,12 @@ const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
+
+const playingStatus = computed(() => {
+  if (props.rom.rom_user.now_playing) return "now_playing";
+  if (props.rom.rom_user.backlogged) return "backlogged";
+  return props.rom.rom_user.status;
+});
 </script>
 
 <template>
@@ -39,10 +51,18 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
     </span>
   </v-chip>
   <v-chip
-    v-if="rom.siblings && rom.siblings.length > 0 && showSiblings"
+    v-if="playingStatus"
+    class="translucent-dark mr-1 mt-1"
+    density="compact"
+    :title="getTextForStatus(playingStatus)"
+  >
+    {{ getEmojiForStatus(playingStatus) }}
+  </v-chip>
+  <v-chip
+    v-if="rom.sibling_roms && rom.sibling_roms.length > 0 && showSiblings"
     class="translucent-dark mr-1 mt-1"
     density="compact"
   >
-    +{{ rom.siblings.length }}
+    +{{ rom.sibling_roms.length }}
   </v-chip>
 </template>

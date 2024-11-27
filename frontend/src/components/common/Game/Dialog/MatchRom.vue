@@ -14,6 +14,7 @@ import { useDisplay, useTheme } from "vuetify";
 type MatchedSource = {
   url_cover: string | undefined;
   name: "IGDB" | "Mobygames";
+  logo_path: string;
 };
 
 // Props
@@ -39,9 +40,16 @@ const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 emitter?.on("showMatchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
-  searchTerm.value = romToSearch.name || romToSearch.file_name_no_tags || "";
   show.value = true;
-  if (rom.value.igdb_id || rom.value.moby_id) {
+
+  // Use name as search term, only when it's matched
+  // Otherwise use the filename without tags and extensions
+  searchTerm.value =
+    romToSearch.igdb_id || romToSearch.moby_id
+      ? (romToSearch.name ?? "")
+      : romToSearch.file_name_no_tags;
+
+  if (searchTerm.value) {
     searchRom();
   }
 });
@@ -119,10 +127,12 @@ function showSources(matchedRom: SearchRomSchema) {
   sources.value.push({
     url_cover: matchedRom.igdb_url_cover,
     name: "IGDB",
+    logo_path: "/assets/scrappers/igdb.png",
   });
   sources.value.push({
     url_cover: matchedRom.moby_url_cover,
     name: "Mobygames",
+    logo_path: "/assets/scrappers/moby.png",
   });
 }
 
@@ -135,7 +145,7 @@ function confirm() {
   updateRom(
     Object.assign(selectedMatchRom.value, {
       url_cover: selectedCover.value.url_cover,
-    })
+    }),
   );
   closeDialog();
 }
@@ -401,9 +411,7 @@ onBeforeUnmount(() => {
                       </template>
                       <v-row no-gutters class="text-white pa-1">
                         <v-avatar class="mr-1" size="30" rounded="1">
-                          <v-img
-                            :src="`/assets/scrappers/${source.name}.png`"
-                          />
+                          <v-img :src="source.logo_path" />
                         </v-avatar>
                       </v-row>
                     </v-img>

@@ -11,7 +11,7 @@ def client():
 
 
 def test_heartbeat(client):
-    response = client.get("/heartbeat")
+    response = client.get("/api/heartbeat")
     assert response.status_code == 200
 
     heartbeat = response.json()
@@ -27,3 +27,4 @@ def test_heartbeat(client):
         heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("TITLE")
         == "Scheduled Switch TitleDB update"
     )
+    assert heartbeat.get("FRONTEND").get("UPLOAD_TIMEOUT") == 20

@@ -11,8 +11,12 @@ import { defineConfig, loadEnv } from "vite";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
-  const env = { ...loadEnv(mode, "../"), ...loadEnv(mode, "./") };
-  const backendPort = env.VITE_BACKEND_DEV_PORT ?? "5000";
+  const envPrefixes = ["VITE", "DEV"];
+  const env = {
+    ...loadEnv(mode, "../", envPrefixes),
+    ...loadEnv(mode, "./", envPrefixes),
+  };
+  const backendPort = env.DEV_PORT ?? "5000";
 
   return {
     build: {
@@ -51,6 +55,10 @@ export default defineConfig(({ mode }) => {
             src: "node_modules/emulatorjs/data/*",
             dest: "assets/emulatorjs/",
           },
+          {
+            src: "node_modules/@ruffle-rs/ruffle/*",
+            dest: "assets/ruffle/",
+          },
         ],
       }),
     ],
@@ -70,7 +78,6 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: false,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api/, ""),
         },
         "/ws": {
           target: `http://127.0.0.1:${backendPort}`,

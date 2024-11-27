@@ -2,7 +2,6 @@ import os
 import sys
 from pathlib import Path
 from typing import Final
-from urllib.parse import quote_plus
 
 import pydash
 import yaml
@@ -21,6 +20,7 @@ from exceptions.config_exceptions import (
     ConfigNotWritableException,
 )
 from logger.logger import log
+from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
@@ -76,7 +76,7 @@ class ConfigManager:
             sys.exit(5)
 
     @staticmethod
-    def get_db_engine() -> str:
+    def get_db_engine() -> URL:
         """Builds the database connection string depending on the defined database in the config.yml file
 
         Returns:
@@ -90,9 +90,13 @@ class ConfigManager:
                 )
                 sys.exit(3)
 
-            return (
-                f"mariadb+mariadbconnector://{DB_USER}:%s@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-                % quote_plus(DB_PASSWD)
+            return URL.create(
+                drivername="mariadb+mariadbconnector",
+                username=DB_USER,
+                password=DB_PASSWD,
+                host=DB_HOST,
+                port=DB_PORT,
+                database=DB_NAME,
             )
 
         # DEPRECATED
@@ -266,7 +270,7 @@ class ConfigManager:
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
-            log.warn(f"Binding for {fs_slug} already exists")
+            log.warning(f"Binding for {fs_slug} already exists")
             return
 
         platform_bindings[fs_slug] = slug
@@ -287,7 +291,7 @@ class ConfigManager:
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
-            log.warn(f"Version for {fs_slug} already exists")
+            log.warning(f"Version for {fs_slug} already exists")
             return
 
         platform_versions[fs_slug] = slug
@@ -305,21 +309,25 @@ class ConfigManager:
         self.config.PLATFORMS_VERSIONS = platform_versions
         self.update_config_file()
 
-    def add_exclusion(self, config_key: str, exclusion: str):
-        config_item = self.config.__getattribute__(config_key)
-        config_item.append(exclusion)
-        self.config.__setattr__(config_key, config_item)
+    def add_exclusion(self, exclusion_type: str, exclusion_value: str):
+        config_item = self.config.__getattribute__(exclusion_type)
+        if exclusion_value in config_item:
+            log.warning(f"{exclusion_value} already excluded in {exclusion_type}")
+            return
+
+        config_item.append(exclusion_value)
+        self.config.__setattr__(exclusion_type, config_item)
         self.update_config_file()
 
-    def remove_exclusion(self, config_key: str, exclusion: str):
-        config_item = self.config.__getattribute__(config_key)
+    def remove_exclusion(self, exclusion_type: str, exclusion_value: str):
+        config_item = self.config.__getattribute__(exclusion_type)
 
         try:
-            config_item.remove(exclusion)
+            config_item.remove(exclusion_value)
         except ValueError:
             pass
 
-        self.config.__setattr__(config_key, config_item)
+        self.config.__setattr__(exclusion_type, config_item)
         self.update_config_file()
 
 

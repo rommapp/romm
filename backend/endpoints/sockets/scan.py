@@ -5,9 +5,9 @@ from typing import Any, Final
 
 import emoji
 import socketio  # type: ignore
-from config import SCAN_TIMEOUT
+from config import REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
-from endpoints.responses.rom import RomSchema
+from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
@@ -21,9 +21,10 @@ from handler.filesystem import (
     fs_resource_handler,
     fs_rom_handler,
 )
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
-from handler.redis_handler import high_prio_queue, redis_client, redis_url
+from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
 from logger.logger import log
@@ -63,9 +64,9 @@ class ScanStats:
         )
 
 
-def _get_socket_manager():
+def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(redis_url, write_only=True)
+    return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
 
 
 def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
@@ -81,6 +82,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
     return (
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASHES)
         or (
             rom
             and (
@@ -165,6 +167,8 @@ async def scan_platforms(
 
         # Same protection for platforms
         if len(fs_platforms) > 0:
+            log.info("Purging platforms not found in the filesystem:")
+            log.info("\n".join([f"  - {platform}" for platform in fs_platforms]))
             db_platform_handler.purge_platforms(fs_platforms)
 
         log.info(emoji.emojize(":check_mark: Scan completed "))
@@ -224,7 +228,7 @@ async def _identify_platform(
 
     # Scanning firmware
     try:
-        fs_firmware = fs_firmware_handler.get_firmware(platform)
+        fs_firmware = fs_firmware_handler.get_firmware(platform.fs_slug)
     except FirmwareNotFoundException:
         fs_firmware = []
 
@@ -241,7 +245,7 @@ async def _identify_platform(
 
     # Scanning roms
     try:
-        fs_roms = fs_rom_handler.get_roms(platform)
+        fs_roms = fs_rom_handler.get_roms(platform.fs_slug)
     except RomsNotFoundException as e:
         log.error(e)
         return scan_stats
@@ -266,10 +270,14 @@ async def _identify_platform(
     # the folder structure is not correct or the drive is not mounted
 
     if len(fs_roms) > 0:
+        log.info("Purging roms not found in the filesystem:")
+        log.info("\n".join([f"  - {rom['file_name']}" for rom in fs_roms]))
         db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
+        log.info("Purging firmware not found in the filesystem:")
+        log.info("\n".join([f"  - {fw}" for fw in fs_firmware]))
         db_firmware_handler.purge_firmware(platform.id, [fw for fw in fs_firmware])
 
     return scan_stats
@@ -302,7 +310,7 @@ async def _identify_firmware(
 
 async def _identify_rom(
     platform: Platform,
-    fs_rom: dict,
+    fs_rom: FSRom,
     scan_type: ScanType,
     roms_ids: list[str],
     metadata_sources: list[str],
@@ -317,11 +325,17 @@ async def _identify_rom(
     rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
+        # Just to update the filesystem data
+        rom.file_name = fs_rom["file_name"]
+        rom.multi = fs_rom["multi"]
+        rom.files = fs_rom["files"]
+        db_rom_handler.add_rom(rom)
+
         return scan_stats
 
     scanned_rom = await scan_rom(
         platform=platform,
-        rom_attrs=fs_rom,
+        fs_rom=fs_rom,
         scan_type=scan_type,
         rom=rom,
         metadata_sources=metadata_sources,
@@ -332,6 +346,10 @@ async def _identify_rom(
     scan_stats.metadata_roms += 1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    # Return early if we're only scanning for hashes
+    if scan_type == ScanType.HASHES:
+        return scan_stats
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         overwrite=True,
@@ -361,7 +379,7 @@ async def _identify_rom(
         {
             "platform_name": platform.name,
             "platform_slug": platform.slug,
-            **RomSchema.model_validate(_added_rom).model_dump(
+            **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
                 exclude={"created_at", "updated_at", "rom_user"}
             ),
         },
@@ -385,6 +403,14 @@ async def scan_handler(_sid: str, options: dict):
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
+
+    # Uncomment this to run scan in the current process
+    # await scan_platforms(
+    #     platform_ids=platform_ids,
+    #     scan_type=scan_type,
+    #     roms_ids=roms_ids,
+    #     metadata_sources=metadata_sources,
+    # )
 
     return high_prio_queue.enqueue(
         scan_platforms,

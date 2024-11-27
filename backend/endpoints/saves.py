@@ -1,16 +1,21 @@
+from datetime import datetime, timezone
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from fastapi import File, HTTPException, Request, UploadFile, status
+from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save
 from logger.logger import log
+from utils.router import APIRouter
 
 router = APIRouter()
 
 
-@protected_route(router.post, "/saves", ["assets.write"])
+@protected_route(router.post, "/saves", [Scope.ASSETS_WRITE])
 def add_saves(
     request: Request,
     rom_id: int,
@@ -18,6 +23,9 @@ def add_saves(
     emulator: str | None = None,
 ) -> UploadedSavesResponse:
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     current_user = request.user
     log.info(f"Uploading saves to {rom.name}")
 
@@ -56,24 +64,36 @@ def add_saves(
         scanned_save.emulator = emulator
         db_save_handler.add_save(scanned_save)
 
+        # Set the last played time for the current user
+        rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+        if not rom_user:
+            rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
+
+    # Refetch the rom to get updated saves
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     return {
         "uploaded": len(saves),
         "saves": [s for s in rom.saves if s.user_id == current_user.id],
     }
 
 
-# @protected_route(router.get, "/saves", ["assets.read"])
+# @protected_route(router.get, "/saves", [Scope.ASSETS_READ])
 # def get_saves(request: Request) -> MessageResponse:
 #     pass
 
 
-# @protected_route(router.get, "/saves/{id}", ["assets.read"])
+# @protected_route(router.get, "/saves/{id}", [Scope.ASSETS_READ])
 # def get_save(request: Request, id: int) -> MessageResponse:
 #     pass
 
 
-@protected_route(router.put, "/saves/{id}", ["assets.write"])
+@protected_route(router.put, "/saves/{id}", [Scope.ASSETS_WRITE])
 async def update_save(request: Request, id: int) -> SaveSchema:
     data = await request.form()
 
@@ -93,11 +113,21 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         fs_asset_handler.write_file(file=file, path=db_save.file_path)
         db_save_handler.update_save(db_save.id, {"file_size_bytes": file.size})
 
+    # Set the last played time for the current user
+    current_user = request.user
+    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, current_user.id)
+    if not rom_user:
+        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, current_user.id)
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    )
+
+    # Refetch the save to get updated fields
     db_save = db_save_handler.get_save(id)
     return db_save
 
 
-@protected_route(router.post, "/saves/delete", ["assets.write"])
+@protected_route(router.post, "/saves/delete", [Scope.ASSETS_WRITE])
 async def delete_saves(request: Request) -> MessageResponse:
     data: dict = await request.json()
     save_ids: list = data["saves"]

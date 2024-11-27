@@ -1,7 +1,8 @@
 import json
+from io import BytesIO
 from shutil import rmtree
 
-from anyio import open_file
+from anyio import Path
 from config import RESOURCES_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -11,18 +12,21 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import Request, UploadFile
+from handler.auth.base_handler import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
 from logger.logger import log
 from models.collection import Collection
+from PIL import Image
 from sqlalchemy.inspection import inspect
+from utils.router import APIRouter
 
 router = APIRouter()
 
 
-@protected_route(router.post, "/collections", ["collections.write"])
+@protected_route(router.post, "/collections", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
     artwork: UploadFile | None = None,
@@ -61,15 +65,14 @@ async def add_collection(
             artwork_path,
         ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
 
-        artwork_file = artwork.file.read()
-        file_location_s = f"{artwork_path}/small.{file_ext}"
-        async with await open_file(file_location_s, "wb+") as artwork_s:
-            await artwork_s.write(artwork_file)
-            fs_resource_handler.resize_cover_to_small(file_location_s)
-
-        file_location_l = f"{artwork_path}/big.{file_ext}"
-        async with await open_file(file_location_l, "wb+") as artwork_l:
-            await artwork_l.write(artwork_file)
+        artwork_content = BytesIO(await artwork.read())
+        file_location_small = Path(f"{artwork_path}/small.{file_ext}")
+        file_location_large = Path(f"{artwork_path}/big.{file_ext}")
+        with Image.open(artwork_content) as img:
+            img.save(file_location_large)
+            fs_resource_handler.resize_cover_to_small(
+                img, save_path=file_location_small
+            )
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             overwrite=True,
@@ -89,7 +92,7 @@ async def add_collection(
     )
 
 
-@protected_route(router.get, "/collections", ["collections.read"])
+@protected_route(router.get, "/collections", [Scope.COLLECTIONS_READ])
 def get_collections(request: Request) -> list[CollectionSchema]:
     """Get collections endpoint
 
@@ -105,7 +108,7 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     return CollectionSchema.for_user(request.user.id, collections)
 
 
-@protected_route(router.get, "/collections/{id}", ["collections.read"])
+@protected_route(router.get, "/collections/{id}", [Scope.COLLECTIONS_READ])
 def get_collection(request: Request, id: int) -> CollectionSchema:
     """Get collections endpoint
 
@@ -125,7 +128,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     return collection
 
 
-@protected_route(router.put, "/collections/{id}", ["collections.write"])
+@protected_route(router.put, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_collection(
     request: Request,
     id: int,
@@ -182,15 +185,15 @@ async def update_collection(
             cleaned_data["path_cover_l"] = path_cover_l
             cleaned_data["path_cover_s"] = path_cover_s
 
-            artwork_file = artwork.file.read()
-            file_location_s = f"{artwork_path}/small.{file_ext}"
-            async with await open_file(file_location_s, "wb+") as artwork_s:
-                await artwork_s.write(artwork_file)
-                fs_resource_handler.resize_cover_to_small(file_location_s)
+            artwork_content = BytesIO(await artwork.read())
+            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
+            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
+            with Image.open(artwork_content) as img:
+                img.save(file_location_large)
+                fs_resource_handler.resize_cover_to_small(
+                    img, save_path=file_location_small
+                )
 
-            file_location_l = f"{artwork_path}/big.{file_ext}"
-            async with await open_file(file_location_l, "wb+") as artwork_l:
-                await artwork_l.write(artwork_file)
             cleaned_data.update({"url_cover": ""})
         else:
             if data.get("url_cover", "") != collection.url_cover or not (
@@ -211,7 +214,7 @@ async def update_collection(
     return db_collection_handler.update_collection(id, cleaned_data)
 
 
-@protected_route(router.delete, "/collections/{id}", ["collections.write"])
+@protected_route(router.delete, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
 async def delete_collections(request: Request, id: int) -> MessageResponse:
     """Delete collections endpoint
 

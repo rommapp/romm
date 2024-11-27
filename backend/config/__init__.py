@@ -2,14 +2,20 @@ import os
 import secrets
 from typing import Final
 
+import yarl
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def str_to_bool(value: str) -> bool:
+    return value.lower() in ("true", "1")
+
+
 # GUNICORN
-DEV_PORT: Final = int(os.environ.get("VITE_BACKEND_DEV_PORT", "5000"))
-DEV_HOST: Final = "127.0.0.1"
-ROMM_HOST: Final = os.environ.get("ROMM_HOST", DEV_HOST)
+DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
+DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
+DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
 GUNICORN_WORKERS: Final = int(os.environ.get("GUNICORN_WORKERS", 2))
 
 # PATHS
@@ -32,6 +38,15 @@ REDIS_PORT: Final = int(os.environ.get("REDIS_PORT", 6379))
 REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
 REDIS_USERNAME: Final = os.environ.get("REDIS_USERNAME", "")
 REDIS_DB: Final = int(os.environ.get("REDIS_DB", 0))
+REDIS_SSL: Final = str_to_bool(os.environ.get("REDIS_SSL", "false"))
+REDIS_URL: Final = yarl.URL.build(
+    scheme="rediss" if REDIS_SSL else "redis",
+    user=REDIS_USERNAME or None,
+    password=REDIS_PASSWORD or None,
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    path=f"/{REDIS_DB}",
+)
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
@@ -51,14 +66,14 @@ MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
 ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # AUTH
-ROMM_AUTH_USERNAME: Final = os.environ.get("ROMM_AUTH_USERNAME", "admin")
-ROMM_AUTH_PASSWORD: Final = os.environ.get("ROMM_AUTH_PASSWORD", "admin")
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
-DISABLE_CSRF_PROTECTION = os.environ.get("DISABLE_CSRF_PROTECTION", "false") == "true"
-DISABLE_DOWNLOAD_ENDPOINT_AUTH = (
-    os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false") == "true"
+DISABLE_CSRF_PROTECTION = str_to_bool(
+    os.environ.get("DISABLE_CSRF_PROTECTION", "false")
+)
+DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
+    os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
 )
 
 # OAUTH
@@ -72,26 +87,33 @@ OAUTH_SERVER_METADATA_URL: Final = os.environ.get("OAUTH_SERVER_METADATA_URL", "
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
 
 # TASKS
-ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = (
-    os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false") == "true"
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = str_to_bool(
+    os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false")
 )
 RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final = int(
     os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 minutes
 )
-ENABLE_SCHEDULED_RESCAN: Final = (
-    os.environ.get("ENABLE_SCHEDULED_RESCAN", "false") == "true"
+ENABLE_SCHEDULED_RESCAN: Final = str_to_bool(
+    os.environ.get("ENABLE_SCHEDULED_RESCAN", "false")
 )
 SCHEDULED_RESCAN_CRON: Final = os.environ.get(
     "SCHEDULED_RESCAN_CRON",
     "0 3 * * *",  # At 3:00 AM every day
 )
-ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = (
-    os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false") == "true"
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = str_to_bool(
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false")
 )
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+
+# EMULATION
+DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false"))
+DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
+
+# FRONTEND
+UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

@@ -4,6 +4,7 @@
 /* eslint-disable */
 
 export type SearchCoverSchema = {
-  name: string;
-  resources: Array<any>;
+    name: string;
+    resources: Array<any>;
 };
+

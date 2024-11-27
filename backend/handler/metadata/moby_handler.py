@@ -1,7 +1,7 @@
 import asyncio
 import http
 import re
-from typing import Final, NotRequired
+from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import httpx
@@ -10,7 +10,6 @@ import yarl
 from config import MOBYGAMES_API_KEY
 from fastapi import HTTPException, status
 from logger.logger import log
-from typing_extensions import TypedDict
 from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
 
@@ -621,6 +620,7 @@ SLUG_TO_MOBY_ID: dict[str, SlugToMobyId] = {
     "sega-cd": {"id": 20, "name": "SEGA CD"},
     "segacd": {"id": 20, "name": "SEGA CD"},  # IGDB
     "sega-master-system": {"id": 26, "name": "SEGA Master System"},
+    "sms": {"id": 26, "name": "SEGA Master System"},  # IGDB
     "sega-pico": {"id": 103, "name": "SEGA Pico"},
     "sega-saturn": {"id": 23, "name": "SEGA Saturn"},
     "saturn": {"id": 23, "name": "SEGA Saturn"},  # IGDB

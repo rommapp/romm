@@ -15,7 +15,7 @@ def client():
 
 def test_get_rom(client, access_token, rom):
     response = client.get(
-        f"/roms/{rom.id}",
+        f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
@@ -26,7 +26,7 @@ def test_get_rom(client, access_token, rom):
 
 def test_get_all_roms(client, access_token, rom, platform):
     response = client.get(
-        "/roms",
+        "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},
         params={"platform_id": platform.id},
     )
@@ -41,7 +41,7 @@ def test_get_all_roms(client, access_token, rom, platform):
 @patch.object(IGDBBaseHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, rom):
     response = client.put(
-        f"/roms/{rom.id}",
+        f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         params={"rename_as_source": True},
         data={
@@ -58,11 +58,13 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, 
             "dlcs": "[]",
             "companies": '[{"id": 203227, "company": {"id": 70, "name": "Nintendo"}}, {"id": 203307, "company": {"id": 766, "name": "Retro Studios"}}]',
             "first_release_date": 1675814400,
+            "youtube_video_id": "dQw4w9WgXcQ",
             "remasters": "[]",
             "remakes": "[]",
             "expanded_games": "[]",
             "ports": "[]",
             "similar_games": "[]",
+            "age_ratings": "[1, 2]",
         },
     )
     assert response.status_code == 200
@@ -76,7 +78,7 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, 
 
 def test_delete_roms(client, access_token, rom):
     response = client.post(
-        "/roms/delete",
+        "/api/roms/delete",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": []},
     )

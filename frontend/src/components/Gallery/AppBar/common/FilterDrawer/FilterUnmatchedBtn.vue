@@ -31,7 +31,7 @@ function setUnmatched() {
         'text-romm-white': !filterUnmatched,
         'text-romm-accent-1': filterUnmatched,
       }"
-      >Filter unmatched</span
+      >Show unmatched</span
     ></v-btn
   >
 </template>

@@ -39,9 +39,14 @@ const routes = [
         component: () => import("@/views/GameDetails.vue"),
       },
       {
-        path: "/rom/:rom/play",
-        name: "play",
-        component: () => import("@/views/Play/Base.vue"),
+        path: "/rom/:rom/ejs",
+        name: "emulatorjs",
+        component: () => import("@/views/EmulatorJS/Base.vue"),
+      },
+      {
+        path: "/rom/:rom/ruffle",
+        name: "ruffle",
+        component: () => import("@/views/RuffleRS/Base.vue"),
       },
       {
         path: "/scan",

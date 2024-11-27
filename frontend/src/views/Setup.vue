@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import router from "@/plugins/router";
+import { refetchCSRFToken } from "@/services/api/index";
 import userApi from "@/services/api/user";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { useRoute } from "vue-router";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -12,7 +12,6 @@ import { useDisplay } from "vuetify";
 const { xs, smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
-const route = useRoute()
 const visiblePassword = ref(false);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -44,17 +43,16 @@ const step = ref(1);
 const filledAdminUser = computed(
   () =>
     defaultAdminUser.value.username != "" &&
-    defaultAdminUser.value.password != ""
+    defaultAdminUser.value.password != "",
 );
 const isFirstStep = computed(() => step.value == 1);
 const isLastStep = computed(() => step.value == 2);
 
-// Functions
 async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)
-    .then(() => {
-      router.go(0); // Needed to get the csrftoken properly after creating default admin user
+    .then(async () => {
+      await refetchCSRFToken();
       router.push({ name: "login" });
     })
     .catch(({ response, message }) => {
@@ -86,6 +84,7 @@ async function finishWizard() {
         <template v-slot:default="{ prev, next }">
           <v-stepper-header>
             <v-stepper-item
+              class="text-white text-shadow"
               title="Create an admin user"
               :value="1"
             ></v-stepper-item>
@@ -93,6 +92,7 @@ async function finishWizard() {
             <v-divider></v-divider>
 
             <v-stepper-item
+              class="text-white text-shadow"
               title="Check metadata sources"
               :value="2"
             ></v-stepper-item>
@@ -155,6 +155,7 @@ async function finishWizard() {
                     <v-col id="sources">
                       <v-list-item
                         v-for="source in metadataOptions"
+                        class="text-white text-shadow"
                         :title="source.name"
                         :subtitle="
                           source.disabled ? 'API key missing or invalid' : ''
@@ -187,14 +188,20 @@ async function finishWizard() {
 
           <v-stepper-actions :disabled="!filledAdminUser">
             <template #prev>
-              <v-btn :ripple="false" :disabled="isFirstStep" @click="prev">{{
-                isFirstStep ? "" : "previous"
-              }}</v-btn>
+              <v-btn
+                class="text-white text-shadow"
+                :ripple="false"
+                :disabled="isFirstStep"
+                @click="prev"
+                >{{ isFirstStep ? "" : "previous" }}</v-btn
+              >
             </template>
             <template #next>
-              <v-btn @click="!isLastStep ? next() : finishWizard()">{{
-                !isLastStep ? "Next" : "Finish"
-              }}</v-btn>
+              <v-btn
+                class="text-white text-shadow"
+                @click="!isLastStep ? next() : finishWizard()"
+                >{{ !isLastStep ? "Next" : "Finish" }}</v-btn
+              >
             </template>
           </v-stepper-actions>
         </template>
@@ -221,7 +228,9 @@ async function finishWizard() {
   max-width: 300px;
 }
 #version {
-  text-shadow: 1px 1px 1px #000000, 0 0 1px #000000;
+  text-shadow:
+    1px 1px 1px #000000,
+    0 0 1px #000000;
   bottom: 0.3rem;
   right: 0.5rem;
 }

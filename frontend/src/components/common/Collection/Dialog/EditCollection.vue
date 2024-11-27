@@ -23,14 +23,14 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditCollectionDialog", (collectionToEdit: Collection) => {
   collection.value = collectionToEdit;
   show.value = true;
+  removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
   if (!collection.value) return;
   collection.value.url_cover = url_cover;
-  imagePreviewUrl.value = url_cover;
+  setArtwork(url_cover);
 });
 
-// Functions
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();
@@ -42,11 +42,17 @@ function previewImage(event: Event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
+    setArtwork(reader.result?.toString() || "");
   };
   if (input.files[0]) {
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
 }
 
 async function removeArtwork() {
@@ -62,6 +68,7 @@ async function editCollection() {
   await collectionApi
     .updateCollection({
       collection: collection.value,
+      removeCover: removeCover.value,
     })
     .then(({ data }) => {
       storeCollection.update(data);
@@ -134,7 +141,11 @@ function closeDialog() {
             <v-col>
               <v-switch
                 v-model="collection.is_public"
-                :label="collection.is_public ? 'Public (visible to everyone)' : 'Private (only visible to me)'"
+                :label="
+                  collection.is_public
+                    ? 'Public (visible to everyone)'
+                    : 'Private (only visible to me)'
+                "
                 color="romm-accent-1"
                 class="px-2"
                 hide-details
@@ -155,13 +166,15 @@ function closeDialog() {
                 <template #append-inner>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
-                      :disabled="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED"
+                      :disabled="
+                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                      "
                       size="small"
                       class="translucent-dark"
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          collection.name as string
+                          collection.name as string,
                         )
                       "
                     >

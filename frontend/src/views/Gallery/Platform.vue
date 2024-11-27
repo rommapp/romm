@@ -7,7 +7,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -42,7 +42,6 @@ let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
-// Functions
 async function fetchRoms() {
   if (gettingRoms.value) return;
 
@@ -69,7 +68,7 @@ async function fetchRoms() {
         timeout: 4000,
       });
       console.error(
-        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
+        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
       );
       noPlatformError.value = true;
     })
@@ -83,32 +82,39 @@ async function fetchRoms() {
 }
 
 function setFilters() {
-  galleryFilterStore.setFilterGenre([
+  galleryFilterStore.setFilterGenres([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterFranchise([
+  galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterCompany([
+  galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterCollection([
+  galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort()
+        .sort(),
+    ),
+  ]);
+  galleryFilterStore.setFilterAgeRatings([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
+        .sort(),
     ),
   ]);
 }
@@ -121,7 +127,6 @@ async function onFilterChange() {
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
-    emitData.event.ctrlKey ||
     emitData.event.shiftKey ||
     romsStore.selecting ||
     romsStore.selectedRoms.length > 0
@@ -135,7 +140,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
     if (emitData.event.shiftKey) {
       const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b
+        (a, b) => a - b,
       );
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
@@ -147,11 +152,17 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         }
       }
       romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
       );
     } else {
       romsStore.updateLastSelected(index);
     }
+  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
+    const link = router.resolve({
+      name: "rom",
+      params: { rom: emitData.rom.id },
+    });
+    window.open(link.href, "_blank");
   } else {
     router.push({ name: "rom", params: { rom: emitData.rom.id } });
   }
@@ -196,6 +207,15 @@ function resetGallery() {
   itemsShown.value = itemsPerBatch.value;
 }
 
+const filterToSetFilter: Record<FilterType, Function> = {
+  genres: galleryFilterStore.setSelectedFilterGenre,
+  franchises: galleryFilterStore.setSelectedFilterFranchise,
+  collections: galleryFilterStore.setSelectedFilterCollection,
+  companies: galleryFilterStore.setSelectedFilterCompany,
+  age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
+  status: galleryFilterStore.setSelectedFilterStatus,
+};
+
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
   const routePlatform = platforms.get(routePlatformId);
@@ -219,6 +239,16 @@ onMounted(async () => {
     resetGallery();
     await fetchRoms();
     setFilters();
+
+    // Check if there are query params to set filters
+    if (route.query.filter && route.query.value) {
+      const filter = route.query.filter as FilterType;
+      const value = route.query.value as string;
+      filterToSetFilter[filter](value);
+      onFilterChange(); // Update the UI
+      router.replace({ query: {} }); // Clear query params
+    }
+
     window.addEventListener("wheel", onScroll);
     window.addEventListener("scroll", onScroll);
   }

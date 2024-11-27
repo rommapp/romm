@@ -8,7 +8,7 @@ repository = "https://github.com/rommapp/romm"
 authors = ["Zurdi <zurdi@romm.app>", "Arcane <arcane@romm.app>"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 anyio = "^4.4"
 fastapi = "0.110.0"
 uvicorn = "0.29.0"
@@ -30,18 +30,23 @@ types-pyyaml = "^6.0.12.20240311"
 types-redis = "^4.6.0.20240311 "
 passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 itsdangerous = "^2.1.2"
-stream-zip = "^0.0.81"
 rq-scheduler = "^0.13.1"
 starlette-csrf = "^3.0.0"
 httpx = "^0.27.0"
 python-multipart = "^0.0.9"
 types-passlib = "^1.7.7.20240311"
 watchdog = "^4.0.0"
-yarl = "^1.9.4"
+yarl = "^1.14"
 joserfc = "^0.9.0"
 pillow = "^10.3.0"
 certifi = "2024.07.04"
 authlib = "^1.3.1"
+python-magic = "^0.4.27"
+# TODO: Move back to `py7zr` official releases, once the following PR is merged and released:
+#       https://github.com/miurahr/py7zr/pull/620
+py7zr = { git = "https://github.com/adamantike/py7zr.git", rev = "54b68426" }
+streaming-form-data = "^1.16.0"
+zipfile-deflate64 = "^0.2.0"
 
 [tool.poetry.group.test.dependencies]
 fakeredis = "^2.21.3"
@@ -53,5 +58,5 @@ pytest-recording = "^0.13"
 
 [tool.poetry.group.dev.dependencies]
 ipdb = "^0.13.13"
-mypy = "^1.10.0"
+mypy = "^1.13"
 ipykernel = "^6.29.4"

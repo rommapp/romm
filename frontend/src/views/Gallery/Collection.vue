@@ -69,7 +69,7 @@ async function fetchRoms() {
         timeout: 4000,
       });
       console.error(
-        `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`
+        `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`,
       );
       noCollectionError.value = true;
     })
@@ -83,32 +83,39 @@ async function fetchRoms() {
 }
 
 function setFilters() {
-  galleryFilterStore.setFilterGenre([
+  galleryFilterStore.setFilterGenres([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterFranchise([
+  galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterCompany([
+  galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterCollection([
+  galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort()
+        .sort(),
+    ),
+  ]);
+  galleryFilterStore.setFilterAgeRatings([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
+        .sort(),
     ),
   ]);
 }
@@ -121,7 +128,6 @@ async function onFilterChange() {
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
-    emitData.event.ctrlKey ||
     emitData.event.shiftKey ||
     romsStore.selecting ||
     romsStore.selectedRoms.length > 0
@@ -135,7 +141,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
     if (emitData.event.shiftKey) {
       const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b
+        (a, b) => a - b,
       );
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
@@ -147,11 +153,17 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         }
       }
       romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
       );
     } else {
       romsStore.updateLastSelected(index);
     }
+  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
+    const link = router.resolve({
+      name: "rom",
+      params: { rom: emitData.rom.id },
+    });
+    window.open(link.href, "_blank");
   } else {
     router.push({ name: "rom", params: { rom: emitData.rom.id } });
   }
