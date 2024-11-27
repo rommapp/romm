@@ -29,10 +29,12 @@ services:
     ports:
       - 80:8080
     depends_on:
-      - romm-db
+      romm-db:
+        condition: service_healthy
+        restart: true
 
   romm-db:
-    image: mariadb:latest # if you experience issues, try: linuxserver/mariadb:latest
+    image: mariadb:latest
     container_name: romm-db
     restart: unless-stopped
     environment:
@@ -42,3 +44,10 @@ services:
       - MARIADB_PASSWORD=
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      start_interval: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
