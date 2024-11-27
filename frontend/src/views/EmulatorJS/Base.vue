@@ -2,8 +2,8 @@
 import { isNull } from "lodash";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import storeGalleryView from "@/stores/galleryView";
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
@@ -13,6 +13,7 @@ import Player from "@/views/EmulatorJS/Player.vue";
 
 // Props
 const route = useRoute();
+const galleryViewStore = storeGalleryView();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
@@ -27,6 +28,7 @@ const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
+// Functions
 function onPlay() {
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);

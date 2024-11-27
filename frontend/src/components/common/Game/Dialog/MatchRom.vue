@@ -4,6 +4,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -22,6 +23,7 @@ const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
+const galleryViewStore = storeGalleryView();
 const searching = ref(false);
 const route = useRoute();
 const searchTerm = ref("");
@@ -394,7 +396,7 @@ onBeforeUnmount(() => {
                           ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                           : source.url_cover
                       "
-                      :aspect-ratio="2 / 3"
+                      :aspect-ratio="galleryViewStore.aspectRatioCover"
                       cover
                       lazy
                     >

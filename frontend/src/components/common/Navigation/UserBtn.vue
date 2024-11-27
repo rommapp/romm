@@ -10,21 +10,27 @@ const auth = storeAuth();
 const { user } = storeToRefs(auth);
 </script>
 <template>
-  <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <v-avatar
-      @click="navigationStore.switchActiveSettingsDrawer"
-      class="pointer"
-      size="35"
-      v-bind="hoverProps"
-      :class="{ 'border-romm-accent-1': isHovering }"
-    >
-      <v-img
-        :src="
-          user?.avatar_path
-            ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
-            : defaultAvatarPath
-        "
-      />
-    </v-avatar>
-  </v-hover>
+  <v-avatar
+    @click="navigationStore.switchActiveSettingsDrawer"
+    class="pointer"
+    size="35"
+    :class="{ active: navigationStore.activeSettingsDrawer }"
+  >
+    <v-img
+      :src="
+        user?.avatar_path
+          ? `/assets/romm/assets/${user?.avatar_path}?ts=${user?.updated_at}`
+          : defaultAvatarPath
+      "
+    />
+  </v-avatar>
 </template>
+<style scoped>
+.v-avatar {
+  transition: filter 0.15s ease-in-out;
+}
+.v-avatar:hover,
+.v-avatar.active {
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-romm-accent-1)));
+}
+</style>

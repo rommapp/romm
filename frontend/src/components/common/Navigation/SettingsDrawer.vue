@@ -42,7 +42,7 @@ async function logout() {
   <v-navigation-drawer
     :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="400"
+    width="500"
     v-model="activeSettingsDrawer"
     class="bg-terciary"
   >
