@@ -191,13 +191,25 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_roms(
-        self, platform_id: int, roms: list[str], session: Session = None
-    ) -> int:
-        return session.execute(
+        self, platform_id: int, fs_roms: list[str], session: Session = None
+    ) -> list[Rom]:
+        purged_roms = (
+            session.scalars(
+                select(Rom)
+                .order_by(Rom.file_name.asc())
+                .where(
+                    and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms))
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))  # type: ignore[attr-defined]
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_roms
 
     @begin_session
     def add_rom_user(

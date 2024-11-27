@@ -191,3 +191,24 @@ class MetadataHandler:
             )
 
         return search_term
+
+    def _mask_sensitive_values(self, values: dict[str, str]) -> dict[str, str]:
+        """
+        Mask sensitive values (headers or params), leaving only the first 3 and last 3 characters of the token.
+        """
+        return {
+            key: (
+                # Mask 'Authorization' Bearer tokens
+                f"Bearer {values[key].split(' ')[1][:3]}***{values[key].split(' ')[1][-3:]}"
+                if key == "Authorization" and values[key].startswith("Bearer ")
+                # Mask 'Client-ID' and 'Client-Secret'
+                else (
+                    f"{values[key][:3]}***{values[key][-3:]}"
+                    if key
+                    in {"Client-ID", "Client-Secret", "client_id", "client_secret"}
+                    # Leave other keys unchanged
+                    else values[key]
+                )
+            )
+            for key in values
+        }

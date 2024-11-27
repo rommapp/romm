@@ -78,12 +78,20 @@ def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
 
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.platform_url = "https://api.mobygames.com/v1/platforms"
-        self.games_url = "https://api.mobygames.com/v1/games"
+        self.BASE_URL = "https://api.mobygames.com/v1"
+        self.platform_url = f"{self.BASE_URL}/platforms"
+        self.games_url = f"{self.BASE_URL}/games"
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
         authorized_url = yarl.URL(url).update_query(api_key=MOBYGAMES_API_KEY)
+
+        log.debug(
+            "API request: URL=%s, Timeout=%s",
+            authorized_url,
+            timeout,
+        )
+
         try:
             res = await httpx_client.get(str(authorized_url), timeout=timeout)
             res.raise_for_status()
@@ -107,10 +115,16 @@ class MobyGamesHandler(MetadataHandler):
                 log.error(err)
                 return {}
         except httpx.TimeoutException:
+            log.debug(
+                "Request to URL=%s timed out. Retrying with URL=%s", authorized_url, url
+            )
             # Retry the request once if it times out
-            pass
-
         try:
+            log.debug(
+                "API request: URL=%s, Timeout=%s",
+                url,
+                timeout,
+            )
             res = await httpx_client.get(url, timeout=timeout)
             res.raise_for_status()
         except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
@@ -120,7 +134,6 @@ class MobyGamesHandler(MetadataHandler):
             ):
                 # Sometimes Mobygames returns 401 even with a valid API key
                 return {}
-
             # Log the error and return an empty dict if the request fails with a different code
             log.error(err)
             return {}
