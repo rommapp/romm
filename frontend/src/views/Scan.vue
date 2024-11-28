@@ -220,23 +220,20 @@ async function stopScan() {
     no-gutters
   >
     <v-btn
-      :disabled="scanning || metadataSources.length == 0"
+      :disabled="scanning"
       rounded="4"
       height="40"
       :loading="scanning"
       @click="scan()"
     >
       <template #prepend>
-        <v-icon
-          :color="
-            scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'
-          "
+        <v-icon :color="scanning ? '' : 'romm-accent-1'"
           >mdi-magnify-scan</v-icon
         >
       </template>
       <span
         :class="{
-          'text-romm-accent-1': !(scanning || metadataSources.length == 0),
+          'text-romm-accent-1': !scanning,
         }"
         >Scan</span
       >
@@ -278,7 +275,10 @@ async function stopScan() {
   >
     <v-list-item class="text-caption text-yellow py-0">
       <v-icon>mdi-alert</v-icon
-      ><span class="ml-2">Please select at least one metadata source.</span>
+      ><span class="ml-2"
+        >Please select at least one metadata source if you want to enrich your
+        library with artwork and metadata.</span
+      >
     </v-list-item>
   </v-row>
 

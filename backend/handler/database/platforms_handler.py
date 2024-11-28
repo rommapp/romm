@@ -59,9 +59,23 @@ class DBPlatformsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_platforms(self, fs_platforms: list[str], session: Session) -> int:
-        return session.execute(
+    def purge_platforms(
+        self, fs_platforms: list[str], session: Session
+    ) -> Select[tuple[Platform]]:
+        purged_platforms = (
+            session.scalars(
+                select(Platform)
+                .order_by(Platform.name.asc())
+                .where(
+                    or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None))
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Platform)
             .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="fetch")
         )
+        return purged_platforms
