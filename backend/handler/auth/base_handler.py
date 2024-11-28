@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 
 import httpx
-from config import OAUTH_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
+from config import OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -13,7 +13,7 @@ from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
 ALGORITHM: Final = "HS256"
-DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
+DEFAULT_OIDC_TOKEN_EXPIRY: Final = timedelta(minutes=15)
 
 
 class Scope(enum.StrEnum):
@@ -126,7 +126,7 @@ class OAuthHandler:
         pass
 
     def create_oauth_token(
-        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+        self, data: dict, expires_delta: timedelta = DEFAULT_OIDC_TOKEN_EXPIRY
     ) -> str:
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + expires_delta
@@ -166,7 +166,7 @@ class OAuthHandler:
 
 class OpenIDHandler:
     def __init__(self) -> None:
-        jwks_url = f"{OAUTH_SERVER_APPLICATION_URL}/jwks/"
+        jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
         with httpx.Client() as httpx_client:
             try:
                 response = httpx_client.get(jwks_url, timeout=120)
@@ -189,7 +189,7 @@ class OpenIDHandler:
             raise OAuthCredentialsException from exc
 
         iss = payload.claims.get("iss")
-        if not OAUTH_SERVER_APPLICATION_URL in str(iss):
+        if not OIDC_SERVER_APPLICATION_URL in str(iss):
             raise OAuthCredentialsException
 
         username = payload.claims.get("preferred_username")
