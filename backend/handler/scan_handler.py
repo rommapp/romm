@@ -95,8 +95,6 @@ async def scan_platform(
         if "igdb" in metadata_sources
         else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
     )
-    for key, value in igdb_platform.items():
-        log.debug(key + ": " + str(value))
     moby_platform = (
         meta_moby_handler.get_platform(platform_attrs["slug"])
         if "moby" in metadata_sources

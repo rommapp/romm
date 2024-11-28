@@ -127,7 +127,9 @@ def extract_metadata_from_igdb_rom(
                     id=e["id"],
                     slug=e["slug"],
                     name=e["name"],
-                    cover_url=pydash.get(e, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(e, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="expansion",
                 )
                 for e in rom.get("expansions", [])
@@ -137,7 +139,9 @@ def extract_metadata_from_igdb_rom(
                     id=d["id"],
                     slug=d["slug"],
                     name=d["name"],
-                    cover_url=pydash.get(d, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(d, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="dlc",
                 )
                 for d in rom.get("dlcs", [])
@@ -147,7 +151,9 @@ def extract_metadata_from_igdb_rom(
                     id=r["id"],
                     slug=r["slug"],
                     name=r["name"],
-                    cover_url=pydash.get(r, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="remaster",
                 )
                 for r in rom.get("remasters", [])
@@ -157,7 +163,9 @@ def extract_metadata_from_igdb_rom(
                     id=r["id"],
                     slug=r["slug"],
                     name=r["name"],
-                    cover_url=pydash.get(r, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="remake",
                 )
                 for r in rom.get("remakes", [])
@@ -167,7 +175,9 @@ def extract_metadata_from_igdb_rom(
                     id=g["id"],
                     slug=g["slug"],
                     name=g["name"],
-                    cover_url=pydash.get(g, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(g, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="expanded",
                 )
                 for g in rom.get("expanded_games", [])
@@ -177,7 +187,9 @@ def extract_metadata_from_igdb_rom(
                     id=p["id"],
                     slug=p["slug"],
                     name=p["name"],
-                    cover_url=pydash.get(p, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(p, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="port",
                 )
                 for p in rom.get("ports", [])
@@ -187,7 +199,9 @@ def extract_metadata_from_igdb_rom(
                     id=s["id"],
                     slug=s["slug"],
                     name=s["name"],
-                    cover_url=pydash.get(s, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(s, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="similar",
                 )
                 for s in rom.get("similar_games", [])
@@ -354,10 +368,14 @@ class IGDBBaseHandler(MetadataHandler):
                 name=platform.get("name", slug),
                 category=IGDB_PLATFORM_CATEGORIES.get(platform["category"], "Unknown"),
                 generation=platform.get("generation", None),
-                family_name=platform.get("family_name", None),
-                family_slug=platform.get("family_slug", None),
+                family_name=pydash.get(platform, "platform_family.name", None),
+                family_slug=pydash.get(platform, "platform_family.slug", None),
                 url=platform.get("url", None),
-                url_logo=platform.get("url_logo", None),
+                url_logo=self._normalize_cover_url(
+                    pydash.get(platform, "platform_logo.url", None).replace(
+                        "t_thumb", "t_1080p"
+                    )
+                ),
             )
 
         # Check if platform is a version if not found
