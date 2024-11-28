@@ -74,14 +74,6 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
-  await userApi
-    .fetchCurrentUser()
-    .then(({ data: user }) => {
-      auth.setUser(user);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
   navigationStore.resetDrawers();
 });
 </script>
