@@ -1,19 +1,20 @@
 import logging
 import sys
 
-from logger.stdout_formatter import StdoutFormatter
+from config import LOGLEVEL
+from logger.formatter import Formatter
 
 # Set up logger
 log = logging.getLogger("romm")
-log.setLevel(logging.DEBUG)
+log.setLevel(LOGLEVEL)
 
 # Set up sqlachemy logger
 # sql_log = logging.getLogger("sqlalchemy.engine")
-# sql_log.setLevel(logging.DEBUG)
+# sql_log.setLevel(LOGLEVEL)
 
 # Define stdout handler
 stdout_handler = logging.StreamHandler(sys.stdout)
-stdout_handler.setFormatter(StdoutFormatter())
+stdout_handler.setFormatter(Formatter())
 log.addHandler(stdout_handler)
 # sql_log.addHandler(stdout_handler)
 

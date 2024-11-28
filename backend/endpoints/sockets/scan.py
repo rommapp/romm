@@ -22,11 +22,11 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata.igdb_handler import IGDB_API_ENABLED
-from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
+from logger.formatter import LIGHTYELLOW
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
@@ -124,11 +124,6 @@ async def scan_platforms(
 
     sm = _get_socket_manager()
 
-    if not IGDB_API_ENABLED and not MOBY_API_ENABLED:
-        log.error("Search error: No metadata providers enabled")
-        await sm.emit("scan:done_ko", "No metadata providers enabled")
-        return
-
     try:
         fs_platforms: list[str] = fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
@@ -149,11 +144,14 @@ async def scan_platforms(
         ] or fs_platforms
 
         if len(platform_list) == 0:
-            log.warn(
-                "⚠️ No platforms found, verify that the folder structure is right and the volume is mounted correctly "
+            log.warning(
+                emoji.emojize(
+                    f"{hl(':warning:', color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
+                Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
+                )
             )
         else:
-            log.info(f"Found {len(platform_list)} platforms in file system ")
+            log.info(f"Found {len(platform_list)} platforms in the file system")
 
         for platform_slug in platform_list:
             scan_stats += await _identify_platform(
@@ -165,11 +163,15 @@ async def scan_platforms(
                 socket_manager=sm,
             )
 
-        # Same protection for platforms
+        # Only purge platforms if there are some platforms remaining in the library
+        # This protects against accidental deletion of entries when
+        # the folder structure is not correct or the drive is not mounted
         if len(fs_platforms) > 0:
-            log.info("Purging platforms not found in the filesystem:")
-            log.info("\n".join([f"  - {platform}" for platform in fs_platforms]))
-            db_platform_handler.purge_platforms(fs_platforms)
+            purged_platforms = db_platform_handler.purge_platforms(fs_platforms)
+            if len(purged_platforms) > 0:
+                log.info("Purging platforms not found in the filesystem:")
+                for p in purged_platforms:
+                    log.info(f" - {p.slug}")
 
         log.info(emoji.emojize(":check_mark: Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
@@ -233,7 +235,11 @@ async def _identify_platform(
         fs_firmware = []
 
     if len(fs_firmware) == 0:
-        log.warning("  ⚠️ No firmware found, skipping firmware scan for this platform")
+        log.warning(
+            emoji.emojize(
+                f"  {hl(':warning:', color=LIGHTYELLOW)} No firmware found, skipping firmware scan for this platform"
+            )
+        )
     else:
         log.info(f"  {len(fs_firmware)} firmware files found")
 
@@ -251,9 +257,13 @@ async def _identify_platform(
         return scan_stats
 
     if len(fs_roms) == 0:
-        log.warning("  ⚠️ No roms found, verify that the folder structure is correct")
+        log.warning(
+            emoji.emojize(
+                f"  {hl(':warning:', color=LIGHTYELLOW)} No roms found, verify that the folder structure is correct"
+            )
+        )
     else:
-        log.info(f"  {len(fs_roms)} roms found")
+        log.info(f"  {len(fs_roms)} roms found in the file system")
 
     for fs_rom in fs_roms:
         scan_stats += await _identify_rom(
@@ -268,17 +278,24 @@ async def _identify_platform(
     # Only purge entries if there are some file remaining in the library
     # This protects against accidental deletion of entries when
     # the folder structure is not correct or the drive is not mounted
-
     if len(fs_roms) > 0:
-        log.info("Purging roms not found in the filesystem:")
-        log.info("\n".join([f"  - {rom['file_name']}" for rom in fs_roms]))
-        db_rom_handler.purge_roms(platform.id, [rom["file_name"] for rom in fs_roms])
+        purged_roms = db_rom_handler.purge_roms(
+            platform.id, [rom["file_name"] for rom in fs_roms]
+        )
+        if len(purged_roms) > 0:
+            log.info("Purging roms not found in the filesystem:")
+            for r in purged_roms:
+                log.info(f" - {r.file_name}")
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
-        log.info("Purging firmware not found in the filesystem:")
-        log.info("\n".join([f"  - {fw}" for fw in fs_firmware]))
-        db_firmware_handler.purge_firmware(platform.id, [fw for fw in fs_firmware])
+        purged_firmware = db_firmware_handler.purge_firmware(
+            platform.id, [fw for fw in fs_firmware]
+        )
+        if len(purged_firmware) > 0:
+            log.info("Purging firmware not found in the filesystem:")
+            for f in purged_firmware:
+                log.info(f" - {f}")
 
     return scan_stats
 
