@@ -14,6 +14,5 @@ export type ConfigResponse = {
     PLATFORMS_VERSIONS: Record<string, string>;
     ROMS_FOLDER_NAME: string;
     FIRMWARE_FOLDER_NAME: string;
-    HIGH_PRIO_STRUCTURE_PATH: string;
 };
 

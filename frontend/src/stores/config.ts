@@ -24,7 +24,6 @@ export default defineStore("config", {
         PLATFORMS_VERSIONS: {} as Record<string, string>,
         ROMS_FOLDER_NAME: "",
         FIRMWARE_FOLDER_NAME: "",
-        HIGH_PRIO_STRUCTURE_PATH: "",
       } as ConfigResponse,
     };
   },

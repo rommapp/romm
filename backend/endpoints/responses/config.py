@@ -12,4 +12,3 @@ class ConfigResponse(TypedDict):
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
-    HIGH_PRIO_STRUCTURE_PATH: str
