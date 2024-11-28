@@ -21,7 +21,12 @@ def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("category", sa.String(length=50), nullable=True))
         batch_op.add_column(sa.Column("generation", sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column("family", sa.String(length=1000), nullable=True))
+        batch_op.add_column(
+            sa.Column("family_name", sa.String(length=1000), nullable=True)
+        )
+        batch_op.add_column(
+            sa.Column("family_slug", sa.String(length=1000), nullable=True)
+        )
         batch_op.add_column(sa.Column("url", sa.String(length=1000), nullable=True))
         batch_op.add_column(
             sa.Column("url_logo", sa.String(length=1000), nullable=True)
@@ -34,7 +39,8 @@ def downgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.drop_column("url_logo")
         batch_op.drop_column("url")
-        batch_op.drop_column("family")
+        batch_op.drop_column("family_name")
+        batch_op.drop_column("family_slug")
         batch_op.drop_column("generation")
         batch_op.drop_column("category")
     # ### end Alembic commands ###

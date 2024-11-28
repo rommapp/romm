@@ -23,7 +23,8 @@ class Platform(BaseModel):
     name: Mapped[str] = mapped_column(String(length=400))
     category: Mapped[str | None] = mapped_column(String(length=50), default="")
     generation: Mapped[int | None]
-    family: Mapped[str | None] = mapped_column(String(length=1000), default="")
+    family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
+    family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
