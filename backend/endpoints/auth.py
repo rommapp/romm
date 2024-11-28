@@ -25,6 +25,58 @@ REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 router = APIRouter()
 
 
+# Session authentication endpoints
+@router.post("/login")
+def login(
+    request: Request,
+    credentials=Depends(HTTPBasic()),  # noqa
+) -> MessageResponse:
+    """Session login endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        credentials: Defaults to Depends(HTTPBasic()).
+
+    Raises:
+        CredentialsException: Invalid credentials
+        UserDisabledException: Auth is disabled
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    user = auth_handler.authenticate_user(credentials.username, credentials.password)
+    if not user:
+        raise AuthCredentialsException
+
+    if not user.enabled:
+        raise UserDisabledException
+
+    request.session.update({"iss": "romm:auth", "sub": user.username})
+
+    # Update last login and active times
+    now = datetime.now(timezone.utc)
+    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
+
+    return {"msg": "Successfully logged in"}
+
+
+@router.post("/logout")
+def logout(request: Request) -> MessageResponse:
+    """Session logout endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    request.session.clear()
+
+    return {"msg": "Successfully logged out"}
+
+
 @router.post("/token")
 async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
     """OAuth2 token endpoint
@@ -147,44 +199,10 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
     }
 
 
-@router.post("/login")
-def login(
-    request: Request,
-    credentials=Depends(HTTPBasic()),  # noqa
-) -> MessageResponse:
-    """Session login endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        credentials: Defaults to Depends(HTTPBasic()).
-
-    Raises:
-        CredentialsException: Invalid credentials
-        UserDisabledException: Auth is disabled
-
-    Returns:
-        MessageResponse: Standard message response
-    """
-
-    user = auth_handler.authenticate_user(credentials.username, credentials.password)
-    if not user:
-        raise AuthCredentialsException
-
-    if not user.enabled:
-        raise UserDisabledException
-
-    request.session.update({"iss": "romm:auth", "sub": user.username})
-
-    # Update last login and active times
-    now = datetime.now(timezone.utc)
-    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
-
-    return {"msg": "Successfully logged in"}
-
-
+# OIDC login and callback endpoints
 @router.get("/login/openid")
 async def login_via_openid(request: Request):
-    """OAuth2 login endpoint
+    """OIDC login endpoint
 
     Args:
         request (Request): Fastapi Request object
@@ -194,7 +212,7 @@ async def login_via_openid(request: Request):
         OIDCNotConfiguredException: OAuth not configured
 
     Returns:
-        RedirectResponse: Redirect to OAuth2 provider
+        RedirectResponse: Redirect to OIDC provider
     """
 
     if not OIDC_ENABLED:
@@ -208,7 +226,7 @@ async def login_via_openid(request: Request):
 
 @router.get("/oauth/openid")
 async def auth_openid(request: Request):
-    """OAuth2 callback endpoint
+    """OIDC callback endpoint
 
     Args:
         request (Request): Fastapi Request object
@@ -251,19 +269,3 @@ async def auth_openid(request: Request):
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
     return RedirectResponse(url="/")
-
-
-@router.post("/logout")
-def logout(request: Request) -> MessageResponse:
-    """Session logout endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        MessageResponse: Standard message response
-    """
-
-    request.session.clear()
-
-    return {"msg": "Successfully logged out"}

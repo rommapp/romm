@@ -8,9 +8,9 @@ from config import (
     OIDC_REDIRECT_URI,
     OIDC_SERVER_APPLICATION_URL,
 )
-from fastapi import Depends, Security
+from fastapi import Security
 from fastapi.security.http import HTTPBasic
-from fastapi.security.oauth2 import OAuth2AuthorizationCodeBearer, OAuth2PasswordBearer
+from fastapi.security.oauth2 import OAuth2PasswordBearer
 from fastapi.types import DecoratedCallable
 from handler.auth.base_handler import (
     DEFAULT_SCOPES_MAP,
@@ -21,7 +21,7 @@ from handler.auth.base_handler import (
 from starlette.authentication import requires
 from starlette.config import Config
 
-# Using the Bearer token for the password flow
+# Using the internal password flow
 oauth2_password_bearer = OAuth2PasswordBearer(
     tokenUrl="/token",
     auto_error=False,
@@ -32,7 +32,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
     },
 )
 
-# Using an OIDC Authorization Code flow
+# Using an OIDC authorization code flow
 config = Config(
     environ={
         "OIDC_ENABLED": str(OIDC_ENABLED),
@@ -49,16 +49,6 @@ oauth.register(
     client_secret=config.get("OIDC_CLIENT_SECRET"),
     server_metadata_url=f'{config.get("OIDC_SERVER_APPLICATION_URL")}/.well-known/openid-configuration',
     client_kwargs={"scope": "openid profile email"},
-)
-oauth2_autorization_code_bearer = OAuth2AuthorizationCodeBearer(
-    authorizationUrl="/auth/openid",
-    tokenUrl="/token",
-    auto_error=False,
-    scopes={
-        **DEFAULT_SCOPES_MAP,
-        **WRITE_SCOPES_MAP,
-        **FULL_SCOPES_MAP,
-    },
 )
 
 
@@ -78,13 +68,6 @@ def protected_route(
                     scopes=scopes or [],
                 ),
                 Security(dependency=HTTPBasic(auto_error=False)),
-                (
-                    Security(
-                        dependency=oauth2_autorization_code_bearer, scopes=scopes or []
-                    )
-                    if OIDC_ENABLED
-                    else Depends(lambda: None)
-                ),
             ],
             **kwargs,
         )(fn)
