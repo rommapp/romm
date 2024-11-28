@@ -6,7 +6,7 @@ from config import (
     OAUTH_CLIENT_SECRET,
     OAUTH_ENABLED,
     OAUTH_REDIRECT_URI,
-    OAUTH_SERVER_METADATA_URL,
+    OAUTH_SERVER_APPLICATION_URL,
 )
 from fastapi import Depends, Security
 from fastapi.security.http import HTTPBasic
@@ -37,7 +37,7 @@ config = Config(
         "OAUTH_CLIENT_ID": OAUTH_CLIENT_ID,
         "OAUTH_CLIENT_SECRET": OAUTH_CLIENT_SECRET,
         "OAUTH_REDIRECT_URI": OAUTH_REDIRECT_URI,
-        "OAUTH_SERVER_METADATA_URL": OAUTH_SERVER_METADATA_URL,
+        "OAUTH_SERVER_APPLICATION_URL": OAUTH_SERVER_APPLICATION_URL,
     }
 )
 oauth = OAuth(config=config)
@@ -45,7 +45,7 @@ oauth.register(
     name="openid",
     client_id=config.get("OAUTH_CLIENT_ID"),
     client_secret=config.get("OAUTH_CLIENT_SECRET"),
-    server_metadata_url=config.get("OAUTH_SERVER_METADATA_URL"),
+    server_metadata_url=f'{config.get("OAUTH_SERVER_APPLICATION_URL")}/.well-known/openid-configuration',
     client_kwargs={"scope": "openid profile email"},
 )
 
