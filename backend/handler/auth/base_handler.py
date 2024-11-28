@@ -2,7 +2,8 @@ import enum
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 
-from config import ROMM_AUTH_SECRET_KEY
+import httpx
+from config import OAUTH_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -165,21 +166,31 @@ class OAuthHandler:
 
 class OpenIDHandler:
     def __init__(self) -> None:
-        pass
+        jwks_url = f"{OAUTH_SERVER_APPLICATION_URL}/jwks/"
+        with httpx.Client() as httpx_client:
+            try:
+                response = httpx_client.get(jwks_url, timeout=120)
+                key = response.json()["keys"][0]
+                self.rsa_key = RSAKey.import_key(key)
+            except httpx.HTTPStatusError as exc:
+                raise HTTPException(
+                    status_code=exc.response.status_code,
+                    detail=exc.response.text,
+                ) from exc
 
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
 
-        # http://localhost:9000/application/o/romm/jwks/
-        rsa_key = RSAKey.import_key(public_key)
         id_token = token.get("id_token")
 
         try:
-            payload = jwt.decode(id_token, rsa_key, algorithms=["RS256"])
+            payload = jwt.decode(id_token, self.rsa_key, algorithms=["RS256"])
         except (BadSignatureError, ValueError) as exc:
             raise OAuthCredentialsException from exc
 
-        # TODO: verify iss claim
+        iss = payload.claims.get("iss")
+        if not OAUTH_SERVER_APPLICATION_URL in str(iss):
+            raise OAuthCredentialsException
 
         username = payload.claims.get("preferred_username")
         if username is None:

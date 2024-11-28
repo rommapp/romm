@@ -13,6 +13,7 @@ from exceptions.auth_exceptions import (
     UserDisabledException,
 )
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 from handler.auth import auth_handler, oauth_handler, open_id_handler
 from handler.database import db_user_handler
@@ -249,7 +250,7 @@ async def auth_openid(request: Request):
     now = datetime.now(timezone.utc)
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
-    return {"msg": "Successfully logged in"}
+    return RedirectResponse(url="/")
 
 
 @router.post("/logout")
