@@ -15,7 +15,7 @@ import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
@@ -25,7 +25,8 @@ const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -218,62 +219,65 @@ const filterToSetFilter: Record<FilterType, Function> = {
 
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
-  const routePlatform = platforms.get(routePlatformId);
+  const routePlatform = platformsStore.get(routePlatformId);
 
-  if (!routePlatform) {
-    await platformApi
-      .getPlatform(routePlatformId)
-      .then((data) => {
-        platforms.add(data.data);
-        romsStore.setCurrentPlatform(data.data);
-      })
-      .catch((error) => {
-        console.log(error);
-        noPlatformError.value = true;
-      });
-  } else {
-    romsStore.setCurrentPlatform(routePlatform);
-  }
+  watch(
+    () => allPlatforms.value,
+    (platforms) => {
+      if (
+        platforms.length > 0 &&
+        platforms.some((platform) => platform.id === routePlatformId)
+      ) {
+        romsStore.setCurrentPlatform(
+          platforms.find((platform) => platform.id === routePlatformId),
+        );
+        resetGallery();
+        fetchRoms();
+        setFilters();
 
-  if (!noPlatformError.value) {
-    resetGallery();
-    await fetchRoms();
-    setFilters();
+        // Check if there are query params to set filters
+        if (route.query.filter && route.query.value) {
+          const filter = route.query.filter as FilterType;
+          const value = route.query.value as string;
+          filterToSetFilter[filter](value);
+          onFilterChange(); // Update the UI
+          router.replace({ query: {} }); // Clear query params
+        }
 
-    // Check if there are query params to set filters
-    if (route.query.filter && route.query.value) {
-      const filter = route.query.filter as FilterType;
-      const value = route.query.value as string;
-      filterToSetFilter[filter](value);
-      onFilterChange(); // Update the UI
-      router.replace({ query: {} }); // Clear query params
-    }
-
-    window.addEventListener("wheel", onScroll);
-    window.addEventListener("scroll", onScroll);
-  }
+        window.addEventListener("wheel", onScroll);
+        window.addEventListener("scroll", onScroll);
+      }
+    },
+    { immediate: true }, // This ensures the watcher is triggered immediately if allPlatforms is already populated
+  );
 });
 
 onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change param of the same route
   // Reset store if switching to another platform
-  if (to.path === from.path) return true;
+  if (to.path === from.path) return;
 
   resetGallery();
 
   const routePlatformId = Number(to.params.platform);
-  const routePlatform = platforms.get(routePlatformId);
-  if (!routePlatform) {
-    const { data } = await platformApi.getPlatform(routePlatformId);
-    platforms.add(data);
-  } else {
-    romsStore.setCurrentPlatform(routePlatform);
-  }
+  const routePlatform = platformsStore.get(routePlatformId);
 
-  await fetchRoms();
-  setFilters();
-
-  return true;
+  watch(
+    () => allPlatforms.value,
+    (platforms) => {
+      if (
+        platforms.length > 0 &&
+        platforms.some((platform) => platform.id === routePlatformId)
+      ) {
+        romsStore.setCurrentPlatform(
+          platforms.find((platform) => platform.id === routePlatformId),
+        );
+        fetchRoms();
+        setFilters();
+      }
+    },
+    { immediate: true }, // This ensures the watcher is triggered immediately if allPlatforms is already populated
+  );
 });
 
 onBeforeUnmount(() => {
