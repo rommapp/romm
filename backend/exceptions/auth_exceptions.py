@@ -21,12 +21,12 @@ OAuthCredentialsException = HTTPException(
     headers={"WWW-Authenticate": "Bearer"},
 )
 
-OAuthDisableException = HTTPException(
+OIDCDisableException = HTTPException(
     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     detail="OAuth disabled",
 )
 
-OAuthNotConfiguredException = HTTPException(
+OIDCNotConfiguredException = HTTPException(
     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     detail="OAuth not configured",
 )

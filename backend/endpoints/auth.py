@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
-from config import OAUTH_ENABLED, OAUTH_REDIRECT_URI
+from config import OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
-    OAuthDisableException,
-    OAuthNotConfiguredException,
+    OIDCDisableException,
+    OIDCNotConfiguredException,
     UserDisabledException,
 )
 from fastapi import Depends, HTTPException, Request, status
@@ -190,20 +190,20 @@ async def login_via_openid(request: Request):
         request (Request): Fastapi Request object
 
     Raises:
-        OAuthDisableException: OAuth is disabled
-        OAuthNotConfiguredException: OAuth not configured
+        OIDCDisableException: OAuth is disabled
+        OIDCNotConfiguredException: OAuth not configured
 
     Returns:
         RedirectResponse: Redirect to OAuth2 provider
     """
 
-    if not OAUTH_ENABLED:
-        raise OAuthDisableException
+    if not OIDC_ENABLED:
+        raise OIDCDisableException
 
     if not oauth.openid:
-        raise OAuthNotConfiguredException
+        raise OIDCNotConfiguredException
 
-    return await oauth.openid.authorize_redirect(request, OAUTH_REDIRECT_URI)
+    return await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI)
 
 
 @router.get("/oauth/openid")
@@ -214,8 +214,8 @@ async def auth_openid(request: Request):
         request (Request): Fastapi Request object
 
     Raises:
-        OAuthDisableException: OAuth is disabled
-        OAuthNotConfiguredException: OAuth not configured
+        OIDCDisableException: OAuth is disabled
+        OIDCNotConfiguredException: OAuth not configured
         AuthCredentialsException: Invalid credentials
         UserDisabledException: Auth is disabled
 
@@ -223,11 +223,11 @@ async def auth_openid(request: Request):
         RedirectResponse: Redirect to home page
     """
 
-    if not OAUTH_ENABLED:
-        raise OAuthDisableException
+    if not OIDC_ENABLED:
+        raise OIDCDisableException
 
     if not oauth.openid:
-        raise OAuthNotConfiguredException
+        raise OIDCNotConfiguredException
 
     token = await oauth.openid.authorize_access_token(request)
     potential_user = await open_id_handler.get_current_active_user_from_openid_token(
