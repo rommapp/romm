@@ -10,5 +10,3 @@ class ConfigResponse(TypedDict):
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
-    ROMS_FOLDER_NAME: str
-    FIRMWARE_FOLDER_NAME: str
