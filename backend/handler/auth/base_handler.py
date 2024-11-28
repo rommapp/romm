@@ -189,7 +189,7 @@ class OpenIDHandler:
             raise OAuthCredentialsException from exc
 
         iss = payload.claims.get("iss")
-        if not OIDC_SERVER_APPLICATION_URL in str(iss):
+        if OIDC_SERVER_APPLICATION_URL not in str(iss):
             raise OAuthCredentialsException
 
         username = payload.claims.get("preferred_username")
