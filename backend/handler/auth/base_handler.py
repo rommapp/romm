@@ -13,7 +13,7 @@ from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
 ALGORITHM: Final = "HS256"
-DEFAULT_OIDC_TOKEN_EXPIRY: Final = timedelta(minutes=15)
+DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
 
 
 class Scope(enum.StrEnum):
@@ -126,7 +126,7 @@ class OAuthHandler:
         pass
 
     def create_oauth_token(
-        self, data: dict, expires_delta: timedelta = DEFAULT_OIDC_TOKEN_EXPIRY
+        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
     ) -> str:
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + expires_delta
