@@ -15,6 +15,7 @@ import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import type { Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -56,17 +57,11 @@ async function fetchDetails() {
     });
 
   if (!noRomError.value) {
-    await platformApi
-      .getPlatform(currentRom.value?.platform_id)
-      .then((response) => {
-        platform.value = response.data;
-      })
-      .catch((error) => {
-        console.log(error);
-      })
-      .finally(() => {
-        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      });
+    const platformsStore = storePlatforms();
+    const { allPlatforms } = storeToRefs(platformsStore);
+    platform.value = allPlatforms.value.find(
+      (platform) => platform.id === currentRom.value?.platform_id,
+    );
   }
 }
 
