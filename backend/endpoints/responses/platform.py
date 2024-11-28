@@ -14,6 +14,10 @@ class PlatformSchema(BaseModel):
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None
+    family_name: str | None = ""
+    family_slug: str | None = ""
+    url: str | None = ""
+    url_logo: str | None = ""
     logo_path: str | None = ""
     firmware: list[FirmwareSchema] = Field(default_factory=list)
 

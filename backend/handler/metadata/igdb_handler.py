@@ -37,21 +37,22 @@ class IGDBPlatform(TypedDict):
     name: NotRequired[str]
     category: NotRequired[str]
     generation: NotRequired[str]
-    family: NotRequired[int]
+    family_name: NotRequired[str]
+    family_slug: NotRequired[str]
     url: NotRequired[str]
     url_logo: NotRequired[str]
     logo_path: NotRequired[str]
+
+
+class IGDBMetadataPlatform(TypedDict):
+    igdb_id: int
+    name: str
 
 
 class IGDBAgeRating(TypedDict):
     rating: str
     category: str
     rating_cover_url: str
-
-
-class IGDBMetadataPlatform(TypedDict):
-    igdb_id: int
-    name: str
 
 
 class IGDBRelatedGame(TypedDict):
@@ -353,7 +354,8 @@ class IGDBBaseHandler(MetadataHandler):
                 name=platform.get("name", slug),
                 category=IGDB_PLATFORM_CATEGORIES.get(platform["category"], "Unknown"),
                 generation=platform.get("generation", None),
-                family=platform.get("family", None),
+                family_name=platform.get("family_name", None),
+                family_slug=platform.get("family_slug", None),
                 url=platform.get("url", None),
                 url_logo=platform.get("url_logo", None),
             )
@@ -683,8 +685,9 @@ PLATFORMS_FIELDS = [
     "category",
     "generation",
     "url",
-    # "platform_families.name",
-    # "platform_logos.image_id",
+    "platform_family.name",
+    "platform_family.slug",
+    "platform_logo.url",
 ]
 
 GAMES_FIELDS = [
