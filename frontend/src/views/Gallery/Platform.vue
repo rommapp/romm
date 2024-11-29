@@ -219,7 +219,6 @@ const filterToSetFilter: Record<FilterType, Function> = {
 
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
-  const routePlatform = platformsStore.get(routePlatformId);
 
   watch(
     () => allPlatforms.value,
@@ -228,14 +227,22 @@ onMounted(async () => {
         platforms.length > 0 &&
         platforms.some((platform) => platform.id === routePlatformId)
       ) {
-        romsStore.setCurrentPlatform(
-          platforms.find((platform) => platform.id === routePlatformId),
+        const newPlatform = platforms.find(
+          (platform) => platform.id === routePlatformId,
         );
-        resetGallery();
-        fetchRoms();
-        setFilters();
 
-        // Check if there are query params to set filters
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
+        ) {
+          romsStore.setCurrentPlatform(newPlatform);
+          resetGallery();
+          fetchRoms();
+          setFilters();
+        }
+
+        // Check for query params to set filters
         if (route.query.filter && route.query.value) {
           const filter = route.query.filter as FilterType;
           const value = route.query.value as string;
@@ -248,40 +255,42 @@ onMounted(async () => {
         window.addEventListener("scroll", onScroll);
       }
     },
-    { immediate: true }, // This ensures the watcher is triggered immediately if allPlatforms is already populated
+    { immediate: true }, // Ensure watcher is triggered immediately
   );
 });
 
 onBeforeRouteUpdate(async (to, from) => {
-  // Triggers when change param of the same route
-  // Reset store if switching to another platform
+  // Avoid unnecessary actions if navigating within the same path
   if (to.path === from.path) return;
 
   resetGallery();
 
   const routePlatformId = Number(to.params.platform);
-  const routePlatform = platformsStore.get(routePlatformId);
 
   watch(
     () => allPlatforms.value,
     (platforms) => {
-      if (
-        platforms.length > 0 &&
-        platforms.some((platform) => platform.id === routePlatformId)
-      ) {
-        romsStore.setCurrentPlatform(
-          platforms.find((platform) => platform.id === routePlatformId),
+      if (platforms.length > 0) {
+        const newPlatform = platforms.find(
+          (platform) => platform.id === routePlatformId,
         );
-        fetchRoms();
-        setFilters();
+
+        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
+        ) {
+          romsStore.setCurrentPlatform(newPlatform);
+          fetchRoms();
+          setFilters();
+        }
       }
     },
-    { immediate: true }, // This ensures the watcher is triggered immediately if allPlatforms is already populated
+    { immediate: true }, // Ensure watcher is triggered immediately
   );
 });
 
 onBeforeUnmount(() => {
-  romsStore.setCurrentPlatform(null);
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
 });

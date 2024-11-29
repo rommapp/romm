@@ -26,7 +26,6 @@ import { useDisplay } from "vuetify";
 
 // Props
 const route = useRoute();
-const platform = ref<Platform>();
 const tab = ref<
   | "details"
   | "saves"
@@ -40,9 +39,10 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
-const { currentRom } = storeToRefs(romsStore);
+const { currentRom, currentPlatform, gettingRoms } = storeToRefs(romsStore);
 
 async function fetchDetails() {
+  gettingRoms.value = true;
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then(({ data }) => {
@@ -54,44 +54,49 @@ async function fetchDetails() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      gettingRoms.value = false;
     });
 
   if (!noRomError.value) {
     const platformsStore = storePlatforms();
     const { allPlatforms } = storeToRefs(platformsStore);
-    platform.value = allPlatforms.value.find(
+    currentPlatform.value = allPlatforms.value.find(
       (platform) => platform.id === currentRom.value?.platform_id,
     );
   }
 }
 
 onBeforeMount(async () => {
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-  if (currentRom.value?.id == parseInt(route.params.rom as string)) {
-    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-  } else {
+  const romId = parseInt(route.params.rom as string);
+
+  // Only fetch details if the currentRom ID differs
+  if (currentRom.value?.id !== romId) {
+    emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
     await fetchDetails();
+  } else {
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   }
+
   const downloadStore = storeDownload();
   downloadStore.clear();
-});
-
-onBeforeRouteLeave(() => {
-  currentRom.value = null;
-  return true;
 });
 
 watch(
   () => route.fullPath,
   async () => {
-    await fetchDetails();
+    const romId = parseInt(route.params.rom as string);
+
+    // Only fetch details if the currentRom ID differs
+    if (currentRom.value?.id !== romId) {
+      await fetchDetails();
+    }
   },
 );
 </script>
 
 <template>
   <!-- TODO: review layout on certain roms - ej: mortal kombat 2 for gb  -->
-  <template v-if="currentRom && platform">
+  <template v-if="currentRom && currentPlatform && !gettingRoms">
     <background-header />
 
     <v-row
@@ -134,7 +139,7 @@ watch(
             'justify-center': smAndDown,
           }"
         >
-          <title-info :rom="currentRom" :platform="platform" />
+          <title-info :rom="currentRom" :platform="currentPlatform" />
         </div>
         <v-row
           :class="{
