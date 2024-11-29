@@ -39,7 +39,7 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
-const { currentRom, currentPlatform, gettingRoms } = storeToRefs(romsStore);
+const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
 async function fetchDetails() {
   gettingRoms.value = true;
@@ -88,7 +88,7 @@ watch(
 
 <template>
   <!-- TODO: review layout on certain roms - ej: mortal kombat 2 for gb  -->
-  <template v-if="currentRom && currentPlatform && !gettingRoms">
+  <template v-if="currentRom && !gettingRoms">
     <background-header />
 
     <v-row
@@ -139,7 +139,6 @@ watch(
               slug: currentRom.platform_slug,
             }"
           />
-          <
         </div>
         <v-row
           :class="{
@@ -185,7 +184,7 @@ watch(
               <v-window-item value="details">
                 <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
                   <v-col>
-                    <file-info :rom="currentRom" :platform="platform" />
+                    <file-info :rom="currentRom" />
                     <game-info :rom="currentRom" />
                   </v-col>
                 </v-row>

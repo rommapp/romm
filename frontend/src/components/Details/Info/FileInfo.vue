@@ -5,13 +5,12 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { Collection } from "@/stores/collections";
 import storeDownload from "@/stores/download";
-import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import { ref, watch } from "vue";
 
 // Props
-const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
 const romUser = ref(props.rom.rom_user);
@@ -47,7 +46,7 @@ watch(
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
-            <version-switcher :rom="rom" :platform="platform" />
+            <version-switcher :rom="rom" />
             <v-tooltip
               location="top"
               class="tooltip"
