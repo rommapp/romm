@@ -8,22 +8,43 @@ import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
+import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
+import { computed, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, smAndDown, mdAndUp } = useDisplay();
+const { xs } = useDisplay();
 const romsStore = storeRoms();
-const { currentPlatform, currentCollection } = storeToRefs(romsStore);
+const { currentPlatform } = storeToRefs(romsStore);
 const auth = storeAuth();
-import storeNavigation from "@/stores/navigation";
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
+const selectedAspectRatio = ref(2);
+const aspectRatioOptions = computed(() => [
+  {
+    name: "2 / 3",
+    size: 2 / 3,
+    source: "SteamGridDB",
+  },
+  {
+    name: "3 / 4",
+    size: 3 / 4,
+    source: "IGDB / MobyGames",
+  },
+  {
+    name: "1 / 1",
+    size: 1 / 1,
+    source: "Old squared cases",
+  },
+]);
 
-function setAspectRatio(ratio: string) {
-  console.log(`Aspect ratio set to: ${ratio}`);
+function setAspectRatio() {
+  // TODO: save aspect ratio on database
+  console.log(aspectRatioOptions.value[selectedAspectRatio.value]);
 }
 </script>
 
@@ -66,46 +87,73 @@ function setAspectRatio(ratio: string) {
     floating
     mobile
     v-model="activePlatformInfoDrawer"
-    class="bg-terciary"
     :scrim="false"
+    v-if="currentPlatform"
   >
-    <v-row no-gutters>
-      <v-col class="pl-4 text-center" cols="12" sm="auto">
+    <!-- <v-row no-gutters class="justify-center mx-auto">
+      <v-col cols="auto">
         <platform-icon
-          v-if="currentPlatform"
           :slug="currentPlatform.slug"
           :name="currentPlatform.name"
-          class="platform-logo"
-          :size="180"
+          class="platform-icon-big"
+          :size="160"
         />
       </v-col>
-      <v-col cols="auto" :class="{ 'w-30': mdAndUp }">
-        <div class="pa-6">
-          <p>
-            The Game Boy Advance (GBA) is a 32-bit handheld game console
-            developed, manufactured, and marketed by Nintendo as the successor
-            to the Game Boy Color. It was released in Japan on March 21, 2001,
-            in North America on June 11, 2001, in Australia and Europe on June
-            22, 2001, and in mainland China as iQue Game Boy Advance on June 8,
-            2004. The GBA is part of the sixth generation of video game
-            consoles.
-          </p>
-          <br />
-          <p>
-            The GBA features a 2.9-inch reflective TFT color LCD screen, capable
-            of displaying 32,768 colors. It is powered by a 16.8 MHz 32-bit
-            ARM7TDMI CPU with embedded memory. The console is backward
-            compatible with Game Boy and Game Boy Color games, making it a
-            versatile device for gamers.
-          </p>
-          <br />
-          <p>
-            The GBA has a rich library of games, including popular titles such
-            as Pokémon Ruby and Sapphire, The Legend of Zelda: The Minish Cap,
-            and Metroid Fusion. Its compact design and extensive game library
-            have made it a beloved console among gamers.
-          </p>
-        </div>
+      <v-col cols="auto"
+        ><v-img
+          max-width="200"
+          v-if="currentPlatform.url_logo"
+          :src="currentPlatform.url_logo"
+      /></v-col>
+    </v-row> -->
+    <v-row no-gutters class="justify-center">
+      <v-col>
+        <r-section icon="mdi-aspect-ratio" title="Cover aspect ratio">
+          <template #content>
+            <v-item-group
+              v-model="selectedAspectRatio"
+              mandatory
+              @update:model-value="setAspectRatio"
+            >
+              <v-row no-gutters class="align-center">
+                <v-col
+                  cols="4"
+                  sm="3"
+                  md="2"
+                  class="pa-2 mx-auto"
+                  v-for="aspectRatio in aspectRatioOptions"
+                >
+                  <v-item v-slot="{ isSelected, toggle }">
+                    <v-card
+                      :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                      variant="outlined"
+                      @click="toggle"
+                    >
+                      <v-card-text
+                        class="pa-0 text-center align-center justify-center"
+                      >
+                        <v-img
+                          :aspect-ratio="aspectRatio.size"
+                          cover
+                          src="/assets/login_bg.png"
+                          :class="{ greyscale: !isSelected }"
+                          class="d-flex align-center justify-center"
+                        >
+                          <p class="text-h5 text-romm-white">
+                            {{ aspectRatio.name }}
+                          </p>
+                        </v-img>
+                        <p class="text-center text-caption">
+                          {{ aspectRatio.source }}
+                        </p>
+                      </v-card-text>
+                    </v-card>
+                  </v-item>
+                </v-col>
+              </v-row>
+            </v-item-group>
+          </template>
+        </r-section>
       </v-col>
     </v-row>
   </v-navigation-drawer>
@@ -128,11 +176,14 @@ function setAspectRatio(ratio: string) {
 .platform-icon.active {
   filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
 }
-.platform-logo {
+.platform-icon-big {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
 }
 #platform-info-drawer {
   z-index: 3 !important;
   height: calc(100dvh - 48px) !important;
+}
+.greyscale {
+  filter: grayscale(100%);
 }
 </style>
