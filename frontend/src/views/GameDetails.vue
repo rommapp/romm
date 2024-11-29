@@ -56,14 +56,6 @@ async function fetchDetails() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       gettingRoms.value = false;
     });
-
-  if (!noRomError.value) {
-    const platformsStore = storePlatforms();
-    const { allPlatforms } = storeToRefs(platformsStore);
-    currentPlatform.value = allPlatforms.value.find(
-      (platform) => platform.id === currentRom.value?.platform_id,
-    );
-  }
 }
 
 onBeforeMount(async () => {
@@ -139,7 +131,15 @@ watch(
             'justify-center': smAndDown,
           }"
         >
-          <title-info :rom="currentRom" :platform="currentPlatform" />
+          <title-info
+            :rom="currentRom"
+            :platform="{
+              id: currentRom.platform_id,
+              name: currentRom.platform_name,
+              slug: currentRom.platform_slug,
+            }"
+          />
+          <
         </div>
         <v-row
           :class="{
