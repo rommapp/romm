@@ -170,21 +170,18 @@ function closeDialog() {
                 label="Filename"
                 variant="outlined"
                 required
-                hide-details
                 @keyup.enter="updateRom()"
               >
-                <v-label
-                  v-if="smAndUp"
-                  id="file-name-label"
-                  class="text-caption"
-                >
-                  <v-icon size="small" class="mr-1">
-                    mdi-folder-file-outline
-                  </v-icon>
-                  <span>
-                    /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
-                  </span>
-                </v-label>
+                <template #details>
+                  <v-label class="text-caption text-wrap">
+                    <v-icon size="small" class="mr-2 text-romm-accent-1">
+                      mdi-folder-file-outline
+                    </v-icon>
+                    <span>
+                      /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
+                    </span>
+                  </v-label>
+                </template>
               </v-text-field>
             </v-col>
           </v-row>
@@ -307,12 +304,5 @@ function closeDialog() {
   min-height: 330px;
   max-width: 240px;
   max-height: 330px;
-}
-</style>
-
-<style>
-#file-name-label {
-  position: absolute;
-  right: 1rem;
 }
 </style>
