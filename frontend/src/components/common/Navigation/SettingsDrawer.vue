@@ -33,7 +33,7 @@ async function logout() {
       color: "green",
     });
   });
-  
+
   await router.push({ name: "login" });
   auth.setUser(null);
 }

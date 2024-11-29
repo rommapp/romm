@@ -22,7 +22,6 @@ emitter?.on("showCreateUserDialog", () => {
   show.value = true;
 });
 
-// Functions
 async function createUser() {
   await userApi
     .createUser(user.value)

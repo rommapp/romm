@@ -1,7 +1,11 @@
+from datetime import datetime, timezone
+
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema, UploadedStatesResponse
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import File, HTTPException, Request, UploadFile, status
+from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_state
@@ -11,7 +15,7 @@ from utils.router import APIRouter
 router = APIRouter()
 
 
-@protected_route(router.post, "/states", ["assets.write"])
+@protected_route(router.post, "/states", [Scope.ASSETS_WRITE])
 def add_states(
     request: Request,
     rom_id: int,
@@ -19,6 +23,9 @@ def add_states(
     emulator: str | None = None,
 ) -> UploadedStatesResponse:
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     current_user = request.user
     log.info(f"Uploading states to {rom.name}")
 
@@ -57,6 +64,14 @@ def add_states(
         scanned_state.emulator = emulator
         db_state_handler.add_state(scanned_state)
 
+        # Set the last played time for the current user
+        rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+        if not rom_user:
+            rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+        db_rom_handler.update_rom_user(
+            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+        )
+
     rom = db_rom_handler.get_rom(rom_id)
     return {
         "uploaded": len(states),
@@ -64,17 +79,17 @@ def add_states(
     }
 
 
-# @protected_route(router.get, "/states", ["assets.read"])
+# @protected_route(router.get, "/states", [Scope.ASSETS_READ])
 # def get_states(request: Request) -> MessageResponse:
 #     pass
 
 
-# @protected_route(router.get, "/states/{id}", ["assets.read"])
+# @protected_route(router.get, "/states/{id}", [Scope.ASSETS_READ])
 # def get_state(request: Request, id: int) -> MessageResponse:
 #     pass
 
 
-@protected_route(router.put, "/states/{id}", ["assets.write"])
+@protected_route(router.put, "/states/{id}", [Scope.ASSETS_WRITE])
 async def update_state(request: Request, id: int) -> StateSchema:
     data = await request.form()
 
@@ -94,11 +109,20 @@ async def update_state(request: Request, id: int) -> StateSchema:
         fs_asset_handler.write_file(file=file, path=db_state.file_path)
         db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
 
+    # Set the last played time for the current user
+    current_user = request.user
+    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, current_user.id)
+    if not rom_user:
+        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, current_user.id)
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    )
+
     db_state = db_state_handler.get_state(id)
     return db_state
 
 
-@protected_route(router.post, "/states/delete", ["assets.write"])
+@protected_route(router.post, "/states/delete", [Scope.ASSETS_WRITE])
 async def delete_states(request: Request) -> MessageResponse:
     data: dict = await request.json()
     state_ids: list = data["states"]

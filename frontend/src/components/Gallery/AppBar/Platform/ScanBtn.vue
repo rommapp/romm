@@ -23,7 +23,11 @@ async function scan() {
 </script>
 
 <template>
-  <v-list-item v-if="romsStore.currentPlatform?.id" class="py-4 pr-5" @click="scan">
+  <v-list-item
+    v-if="romsStore.currentPlatform?.id"
+    class="py-4 pr-5"
+    @click="scan"
+  >
     <v-list-item-title class="d-flex">
       <v-icon icon="mdi-magnify-scan" class="mr-2" />
       Scan platform

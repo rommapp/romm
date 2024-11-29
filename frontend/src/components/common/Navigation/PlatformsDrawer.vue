@@ -12,7 +12,6 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
-// Functions
 function clear() {
   searchText.value = "";
 }

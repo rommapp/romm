@@ -7,12 +7,12 @@ import { computed, ref } from "vue";
 // Initializing refs from localStorage
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
 const groupRomsRef = ref(
-  isNull(storedGroupRoms) ? true : storedGroupRoms === "true"
+  isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
 );
 
 const storedSiblings = localStorage.getItem("settings.showSiblings");
 const siblingsRef = ref(
-  isNull(storedSiblings) ? true : storedSiblings === "true"
+  isNull(storedSiblings) ? true : storedSiblings === "true",
 );
 
 const storedRegions = localStorage.getItem("settings.showRegions");
@@ -20,7 +20,7 @@ const regionsRef = ref(isNull(storedRegions) ? true : storedRegions === "true");
 
 const storedLanguages = localStorage.getItem("settings.showLanguages");
 const languagesRef = ref(
-  isNull(storedLanguages) ? true : storedLanguages === "true"
+  isNull(storedLanguages) ? true : storedLanguages === "true",
 );
 
 // Functions to update localStorage

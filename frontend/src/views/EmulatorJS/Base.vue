@@ -27,7 +27,6 @@ const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
-// Functions
 function onPlay() {
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
