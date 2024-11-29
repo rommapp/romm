@@ -131,14 +131,7 @@ watch(
             'justify-center': smAndDown,
           }"
         >
-          <title-info
-            :rom="currentRom"
-            :platform="{
-              id: currentRom.platform_id,
-              name: currentRom.platform_name,
-              slug: currentRom.platform_slug,
-            }"
-          />
+          <title-info :rom="currentRom" />
         </div>
         <v-row
           :class="{

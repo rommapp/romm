@@ -14,6 +14,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
+import { platform } from "os";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -227,16 +228,17 @@ onMounted(async () => {
         platforms.length > 0 &&
         platforms.some((platform) => platform.id === routePlatformId)
       ) {
-        const newPlatform = platforms.find(
+        const platform = platforms.find(
           (platform) => platform.id === routePlatformId,
         );
 
         // Check if the current platform is different or no ROMs have been loaded
         if (
-          currentPlatform.value?.id !== routePlatformId ||
-          allRoms.value.length === 0
+          (currentPlatform.value?.id !== routePlatformId ||
+            allRoms.value.length === 0) &&
+          platform
         ) {
-          romsStore.setCurrentPlatform(newPlatform);
+          romsStore.setCurrentPlatform(platform);
           resetGallery();
           fetchRoms();
           setFilters();
@@ -271,16 +273,17 @@ onBeforeRouteUpdate(async (to, from) => {
     () => allPlatforms.value,
     (platforms) => {
       if (platforms.length > 0) {
-        const newPlatform = platforms.find(
+        const platform = platforms.find(
           (platform) => platform.id === routePlatformId,
         );
 
         // Only trigger fetchRoms if switching platforms or ROMs are not loaded
         if (
-          currentPlatform.value?.id !== routePlatformId ||
-          allRoms.value.length === 0
+          (currentPlatform.value?.id !== routePlatformId ||
+            allRoms.value.length === 0) &&
+          platform
         ) {
-          romsStore.setCurrentPlatform(newPlatform);
+          romsStore.setCurrentPlatform(platform);
           fetchRoms();
           setFilters();
         }

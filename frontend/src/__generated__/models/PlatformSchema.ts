@@ -14,6 +14,10 @@ export type PlatformSchema = {
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
     moby_id?: (number | null);
+    family_name?: (string | null);
+    family_slug?: (string | null);
+    url?: (string | null);
+    url_logo?: (string | null);
     logo_path?: (string | null);
     firmware?: Array<FirmwareSchema>;
     created_at: string;
