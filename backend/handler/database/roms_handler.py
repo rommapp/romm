@@ -115,6 +115,7 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         limit: int | None = None,
+        offset: int | None = None,
         query: Query = None,
         session: Session = None,
     ) -> list[Rom]:
@@ -122,7 +123,8 @@ class DBRomsHandler(DBBaseHandler):
             query, platform_id, collection_id, search_term, session
         )
         ordered_query = self._order(filtered_query, order_by, order_dir)
-        limited_query = ordered_query.limit(limit)
+        offset_query = ordered_query.offset(offset)
+        limited_query = offset_query.limit(limit)
         return session.scalars(limited_query).unique().all()
 
     @begin_session
@@ -189,13 +191,25 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_roms(
-        self, platform_id: int, roms: list[str], session: Session = None
-    ) -> int:
-        return session.execute(
+        self, platform_id: int, fs_roms: list[str], session: Session = None
+    ) -> list[Rom]:
+        purged_roms = (
+            session.scalars(
+                select(Rom)
+                .order_by(Rom.file_name.asc())
+                .where(
+                    and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms))
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))  # type: ignore[attr-defined]
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_roms
 
     @begin_session
     def add_rom_user(
@@ -226,7 +240,7 @@ class DBRomsHandler(DBBaseHandler):
 
         rom_user = self.get_rom_user_by_id(id)
 
-        if data["is_main_sibling"]:
+        if data.get("is_main_sibling", False):
             rom = self.get_rom(rom_user.rom_id)
 
             session.execute(

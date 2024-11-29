@@ -22,12 +22,21 @@
 
 # Table of Contents
 
+- [Table of Contents](#table-of-contents)
 - [Overview](#overview)
+  - [Features](#features)
+  - [Preview](#preview)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Folder Structure](#folder-structure)
+  - [Folder Structure](#folder-structure)
+  - [Configuration File](#configuration-file)
+  - [Scheduler](#scheduler)
 - [Naming Convention](#naming-convention)
+  - [Platform Support](#platform-support)
+  - [Tag Support](#tag-support)
 - [Community](#community)
+  - [Support](#support)
+  - [Our Friends](#our-friends)
 
 # Overview
 
@@ -46,9 +55,9 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 ## Preview
 
-|                                        🖥 Desktop                                         |                                                             📱 Mobile                                                             |
-| :---------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------: |
-| <img src=".github/resources/screenshots/romm-desktop-slider.gif" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/romm-mobile-slider.gif" alt="mobile preview" /> |
+|                                      🖥 Desktop                                       |                                                           📱 Mobile                                                           |
+| :-----------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------: |
+| <img src=".github/resources/screenshots/preview-desktop.gif" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.gif" alt="mobile preview" /> |
 
 # Installation
 
@@ -170,8 +179,9 @@ Tags can be used to search for games in the search bar. For example, searching f
 
 # Community
 
-Here are a few projects maintained by members of our community. Since the RomM team does not regularly review them, **we recommend that you review them closely before you use them**.
+Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
+- [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
 - CasaOS app via the [BigBear App Store][big-bear-casaos]
 - [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
 
@@ -181,9 +191,9 @@ Join us on Discord, where you can ask questions, submit ideas, get help, showcas
 
 ## Support
 
-If you like this project, consider buying me a coffee!
+Consider supporting the development of this project on Open Collective.
 
-[![coffee-donate-img]][coffee-donate]
+[![oc-donate-img]][oc-donate]
 
 ## Our Friends
 
@@ -237,8 +247,8 @@ Here are a few projects that we think you might like:
 
 [discord-invite-img]: https://invidget.switchblade.xyz/P5HtHnhUDH
 [discord-invite]: https://discord.gg/P5HtHnhUDH
-[coffee-donate-img]: https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png
-[coffee-donate]: https://www.buymeacoff.ee/zurdi15
+[oc-donate-img]: https://opencollective.com/romm/donate/button@2x.png?color=blue
+[oc-donate]: https://opencollective.com/romm
 
 <!-- External links -->
 
@@ -247,3 +257,4 @@ Here are a few projects that we think you might like:
 [mobygames-api]: https://www.mobygames.com/info/api/
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm
+[romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm

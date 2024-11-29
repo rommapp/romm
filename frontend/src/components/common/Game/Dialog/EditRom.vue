@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { lgAndUp, smAndUp } = useDisplay();
+const { lgAndUp, mdAndUp, smAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
@@ -24,11 +24,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
   rom.value = romToEdit;
+  removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
   if (!rom.value) return;
   rom.value.url_cover = url_cover;
-  imagePreviewUrl.value = url_cover;
+  setArtwork(url_cover);
 });
 
 // Functions
@@ -43,11 +44,17 @@ function previewImage(event: Event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
+    setArtwork(reader.result?.toString() || "");
   };
   if (input.files[0]) {
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
 }
 
 async function removeArtwork() {
@@ -135,6 +142,7 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
+    scroll-content
     :width="lgAndUp ? '65vw' : '95vw'"
   >
     <template #content>
@@ -193,7 +201,11 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
-          <v-row class="justify-space-between mt-4 mb-2 mx-2" no-gutters>
+          <v-row
+            v-if="mdAndUp"
+            class="justify-space-between mt-4 mb-2 mx-2"
+            no-gutters
+          >
             <v-btn-group divided density="compact">
               <v-btn
                 :disabled="noMetadataMatch"
@@ -215,8 +227,8 @@ function closeDialog() {
           </v-row>
         </v-col>
         <v-col>
-          <v-row class="pa-2 justify-center" no-gutters>
-            <v-col class="cover">
+          <v-row class="justify-center">
+            <v-col :class="{ 'mobile-cover': smAndDown, 'pa-8': !smAndDown }">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
@@ -264,13 +276,33 @@ function closeDialog() {
               </game-card>
             </v-col>
           </v-row>
+          <v-row v-if="smAndDown" class="justify-space-between pa-4">
+            <v-btn-group divided density="compact" class="my-1">
+              <v-btn
+                :disabled="noMetadataMatch"
+                :class="` ${
+                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
+                }`"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                Unmatch Rom
+              </v-btn>
+            </v-btn-group>
+            <v-btn-group divided density="compact" class="my-1">
+              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+                Save
+              </v-btn>
+            </v-btn-group>
+          </v-row>
         </v-col>
       </v-row>
     </template>
   </r-dialog>
 </template>
 <style scoped>
-.cover {
+.mobile-cover {
   min-width: 240px;
   min-height: 330px;
   max-width: 240px;

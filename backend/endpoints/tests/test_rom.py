@@ -58,11 +58,13 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, 
             "dlcs": "[]",
             "companies": '[{"id": 203227, "company": {"id": 70, "name": "Nintendo"}}, {"id": 203307, "company": {"id": 766, "name": "Retro Studios"}}]',
             "first_release_date": 1675814400,
+            "youtube_video_id": "dQw4w9WgXcQ",
             "remasters": "[]",
             "remakes": "[]",
             "expanded_games": "[]",
             "ports": "[]",
             "similar_games": "[]",
+            "age_ratings": "[1, 2]",
         },
     )
     assert response.status_code == 200

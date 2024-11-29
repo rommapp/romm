@@ -15,8 +15,8 @@ const theme = useTheme();
         collection.has_cover
           ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
           : collection.name?.toLowerCase() == 'favourites'
-          ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
-          : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+            ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
+            : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
       "
     >
       <template #error>

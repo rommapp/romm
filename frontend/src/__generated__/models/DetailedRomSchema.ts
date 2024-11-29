@@ -32,12 +32,14 @@ export type DetailedRomSchema = {
     slug: (string | null);
     summary: (string | null);
     first_release_date: (number | null);
+    youtube_video_id: (string | null);
     alternative_names: Array<string>;
     genres: Array<string>;
     franchises: Array<string>;
     collections: Array<string>;
     companies: Array<string>;
     game_modes: Array<string>;
+    age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     path_cover_s: (string | null);
@@ -57,13 +59,13 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     merged_screenshots: Array<string>;
-    sibling_roms?: Array<RomSchema>;
-    rom_user?: (RomUserSchema | null);
-    user_saves?: Array<SaveSchema>;
-    user_states?: Array<StateSchema>;
-    user_screenshots?: Array<ScreenshotSchema>;
-    user_notes?: Array<UserNotesSchema>;
-    user_collections?: Array<CollectionSchema>;
+    sibling_roms: Array<RomSchema>;
+    rom_user: RomUserSchema;
+    user_saves: Array<SaveSchema>;
+    user_states: Array<StateSchema>;
+    user_screenshots: Array<ScreenshotSchema>;
+    user_notes: Array<UserNotesSchema>;
+    user_collections: Array<CollectionSchema>;
     readonly sort_comparator: string;
 };
 
