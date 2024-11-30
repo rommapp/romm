@@ -56,8 +56,6 @@ function setAspectRatio() {
       :name="currentPlatform.name"
       :size="36"
       class="mr-3 platform-icon"
-      :class="{ active: activePlatformInfoDrawer }"
-      @click="navigationStore.switchActivePlatformInfoDrawer"
     />
     <firmware-btn />
     <filter-btn />
@@ -65,50 +63,86 @@ function setAspectRatio() {
     <div v-if="xs" class="flex-grow-1" />
     <selecting-btn />
     <gallery-view-btn />
-    <v-menu location="bottom">
-      <template #activator="{ props }">
-        <v-btn
-          v-if="auth.scopes.includes('roms.write')"
-          v-bind="props"
-          rounded="0"
-          variant="text"
-          class="mr-0"
-          icon="mdi-dots-vertical"
-          @click.stop
-        />
-      </template>
-      <admin-menu />
-    </v-menu>
+    <!-- <v-menu location="bottom"> -->
+    <!-- <template #activator="{ props }"> -->
+    <v-btn
+      v-if="auth.scopes.includes('platforms.write')"
+      rounded="0"
+      variant="text"
+      class="mr-0"
+      icon="mdi-information"
+      :color="navigationStore.activePlatformInfoDrawer ? 'romm-accent-1' : ''"
+      @click="navigationStore.switchActivePlatformInfoDrawer"
+    />
+    <v-btn
+      v-if="auth.scopes.includes('platforms.write')"
+      rounded="0"
+      variant="text"
+      class="mr-0"
+      icon="mdi-cog"
+      :color="navigationStore.activePlatformInfoDrawer ? 'romm-accent-1' : ''"
+      @click="navigationStore.switchActivePlatformInfoDrawer"
+    />
+    <!-- </template> -->
+    <!-- <admin-menu /> -->
+    <!-- </v-menu> -->
   </v-app-bar>
 
   <v-navigation-drawer
     id="platform-info-drawer"
-    location="top"
+    location="right"
     floating
+    width="345"
     mobile
     v-model="activePlatformInfoDrawer"
     :scrim="false"
     v-if="currentPlatform"
   >
-    <!-- <v-row no-gutters class="justify-center mx-auto">
-      <v-col cols="auto">
-        <platform-icon
-          :slug="currentPlatform.slug"
-          :name="currentPlatform.name"
-          class="platform-icon-big"
-          :size="160"
-        />
+    <v-row no-gutters>
+      <v-col cols="12" md="auto">
+        <div class="text-center">
+          <platform-icon
+            :slug="currentPlatform.slug"
+            :name="currentPlatform.name"
+            class="platform-icon-big"
+            :size="160"
+          />
+        </div>
+        <p class="text-center text-h6">{{ currentPlatform.name }}</p>
+        <v-card min-width="300" class="mx-6 my-8 bg-terciary" elevation="3">
+          <v-card-text class="pa-4">
+            <p>Name: {{ currentPlatform.name }}</p>
+            <br />
+            <p>Slug: {{ currentPlatform.slug }}</p>
+            <br />
+            <p>Filesystem folder name: {{ currentPlatform.fs_slug }}</p>
+            <br />
+            <p>IGDB id: {{ currentPlatform.igdb_id }}</p>
+            <br />
+            <p>SGDB id: {{ currentPlatform.sgdb_id }}</p>
+            <br />
+            <p>MOBY id: {{ currentPlatform.moby_id }}</p>
+            <br />
+            <p>Category: {{ currentPlatform.category }}</p>
+            <br />
+            <p>Generation: {{ currentPlatform.generation }}</p>
+            <br />
+            <p>Family name: {{ currentPlatform.family_name }}</p>
+            <br />
+            <p>IGDB url: {{ currentPlatform.url }}</p>
+            <br />
+            <p>Created at: {{ currentPlatform.created_at }}</p>
+            <br />
+            <p>Updated at: {{ currentPlatform.updated_at }}</p>
+          </v-card-text>
+        </v-card>
       </v-col>
-      <v-col cols="auto"
-        ><v-img
-          max-width="200"
-          v-if="currentPlatform.url_logo"
-          :src="currentPlatform.url_logo"
-      /></v-col>
-    </v-row> -->
-    <v-row no-gutters class="justify-center">
       <v-col>
-        <r-section icon="mdi-aspect-ratio" title="Cover aspect ratio">
+        <r-section
+          icon="mdi-aspect-ratio"
+          title="Cover aspect ratio"
+          elevation="0"
+        >
           <template #content>
             <v-item-group
               v-model="selectedAspectRatio"
@@ -154,7 +188,16 @@ function setAspectRatio() {
             </v-item-group>
           </template>
         </r-section>
+        <r-section icon="mdi-upload" title="Upload roms" elevation="0">
+          <template #content> </template>
+        </r-section>
+        <r-section icon="mdi-delete" title="Delete platform" elevation="0">
+          <template #content> </template>
+        </r-section>
       </v-col>
+    </v-row>
+    <v-row no-gutters class="justify-center">
+      <v-col> </v-col>
     </v-row>
   </v-navigation-drawer>
   <filter-drawer />
@@ -166,15 +209,7 @@ function setAspectRatio() {
   z-index: 999 !important;
 }
 .platform-icon {
-  cursor: pointer;
-  transition: filter 0.15s ease-in-out;
-}
-.platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
-}
-.platform-icon:hover,
-.platform-icon.active {
-  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
 }
 .platform-icon-big {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
