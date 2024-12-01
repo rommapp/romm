@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import AdminMenu from "@/components/Gallery/AppBar/Platform/AdminMenu.vue";
 import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
@@ -12,17 +11,23 @@ import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
+import { formatTimestamp } from "@/utils";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { computed, ref, inject } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
+const emitter = inject<Emitter<Events>>("emitter");
 const { xs } = useDisplay();
+const viewportWidth = ref(window.innerWidth);
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
-const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
+const { activePlatformInfoDrawer, activePlatformSettingsDrawer } =
+  storeToRefs(navigationStore);
 const selectedAspectRatio = ref(2);
 const aspectRatioOptions = computed(() => [
   {
@@ -42,6 +47,15 @@ const aspectRatioOptions = computed(() => [
   },
 ]);
 
+const platformInfoFields = [
+  { key: "name", label: "Name" },
+  { key: "slug", label: "Slug" },
+  { key: "fs_slug", label: "Filesystem folder name" },
+  { key: "category", label: "Category" },
+  { key: "generation", label: "Generation" },
+  { key: "family_name", label: "Family" },
+];
+
 function setAspectRatio() {
   // TODO: save aspect ratio on database
   console.log(aspectRatioOptions.value[selectedAspectRatio.value]);
@@ -49,13 +63,23 @@ function setAspectRatio() {
 </script>
 
 <template>
-  <v-app-bar id="gallery-app-bar" elevation="0" density="compact" class="pl-3">
+  <v-app-bar
+    id="gallery-app-bar"
+    elevation="0"
+    density="compact"
+    mode="shift"
+    app
+    fixed
+    top
+  >
     <platform-icon
       v-if="currentPlatform"
       :slug="currentPlatform.slug"
       :name="currentPlatform.name"
       :size="36"
-      class="mr-3 platform-icon"
+      class="mx-3 platform-icon"
+      :class="{ active: activePlatformInfoDrawer }"
+      @click="navigationStore.switchActivePlatformInfoDrawer"
     />
     <firmware-btn />
     <filter-btn />
@@ -63,43 +87,17 @@ function setAspectRatio() {
     <div v-if="xs" class="flex-grow-1" />
     <selecting-btn />
     <gallery-view-btn />
-    <!-- <v-menu location="bottom"> -->
-    <!-- <template #activator="{ props }"> -->
-    <v-btn
-      v-if="auth.scopes.includes('platforms.write')"
-      rounded="0"
-      variant="text"
-      class="mr-0"
-      icon="mdi-information"
-      :color="navigationStore.activePlatformInfoDrawer ? 'romm-accent-1' : ''"
-      @click="navigationStore.switchActivePlatformInfoDrawer"
-    />
-    <v-btn
-      v-if="auth.scopes.includes('platforms.write')"
-      rounded="0"
-      variant="text"
-      class="mr-0"
-      icon="mdi-cog"
-      :color="navigationStore.activePlatformInfoDrawer ? 'romm-accent-1' : ''"
-      @click="navigationStore.switchActivePlatformInfoDrawer"
-    />
-    <!-- </template> -->
-    <!-- <admin-menu /> -->
-    <!-- </v-menu> -->
   </v-app-bar>
 
   <v-navigation-drawer
-    id="platform-info-drawer"
-    location="right"
-    floating
-    width="345"
-    mobile
     v-model="activePlatformInfoDrawer"
-    :scrim="false"
+    floating
+    mobile
+    :width="xs ? viewportWidth : '500'"
     v-if="currentPlatform"
   >
-    <v-row no-gutters>
-      <v-col cols="12" md="auto">
+    <v-row no-gutters class="justify-center align-center">
+      <v-col cols="12">
         <div class="text-center">
           <platform-icon
             :slug="currentPlatform.slug"
@@ -108,55 +106,77 @@ function setAspectRatio() {
             :size="160"
           />
         </div>
-        <p class="text-center text-h6">{{ currentPlatform.name }}</p>
-        <v-card min-width="300" class="mx-6 my-8 bg-terciary" elevation="3">
+        <div class="text-center">
+          <v-btn
+            class="bg-terciary"
+            @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
+          >
+            <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+            Upload roms
+          </v-btn>
+        </div>
+        <div class="mt-4 text-center">
+          <a
+            v-if="currentPlatform.igdb_id"
+            style="text-decoration: none; color: inherit"
+            :href="currentPlatform.url"
+            target="_blank"
+          >
+            <v-chip size="x-small" @click.stop>
+              <span>IGDB</span>
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>ID: {{ currentPlatform.igdb_id }}</span>
+            </v-chip>
+          </a>
+          <v-chip
+            size="x-small"
+            class="ml-1"
+            @click.stop
+            :class="{ 'ml-1': currentPlatform.igdb_id }"
+            v-if="currentPlatform.moby_id"
+          >
+            <span>Mobygames</span>
+            <v-divider class="mx-2 border-opacity-25" vertical />
+            <span>ID: {{ currentPlatform.moby_id }}</span>
+          </v-chip>
+        </div>
+        <v-card class="mt-4 mx-4 bg-terciary fill-width" elevation="0">
           <v-card-text class="pa-4">
-            <p>Name: {{ currentPlatform.name }}</p>
-            <br />
-            <p>Slug: {{ currentPlatform.slug }}</p>
-            <br />
-            <p>Filesystem folder name: {{ currentPlatform.fs_slug }}</p>
-            <br />
-            <p>IGDB id: {{ currentPlatform.igdb_id }}</p>
-            <br />
-            <p>SGDB id: {{ currentPlatform.sgdb_id }}</p>
-            <br />
-            <p>MOBY id: {{ currentPlatform.moby_id }}</p>
-            <br />
-            <p>Category: {{ currentPlatform.category }}</p>
-            <br />
-            <p>Generation: {{ currentPlatform.generation }}</p>
-            <br />
-            <p>Family name: {{ currentPlatform.family_name }}</p>
-            <br />
-            <p>IGDB url: {{ currentPlatform.url }}</p>
-            <br />
-            <p>Created at: {{ currentPlatform.created_at }}</p>
-            <br />
-            <p>Updated at: {{ currentPlatform.updated_at }}</p>
+            <template
+              v-for="(field, index) in platformInfoFields"
+              :key="field.key"
+            >
+              <div
+                v-if="currentPlatform[field.key]"
+                :class="{ 'mt-4': index !== 0 }"
+              >
+                <p class="text-subtitle-1 text-decoration-underline">
+                  {{ field.label }}
+                </p>
+                <p class="text-subtitle-2">
+                  {{
+                    field.format
+                      ? field.format(currentPlatform[field.key])
+                      : currentPlatform[field.key]
+                  }}
+                </p>
+              </div>
+            </template>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col>
-        <r-section
-          icon="mdi-aspect-ratio"
-          title="Cover aspect ratio"
-          elevation="0"
-        >
+    </v-row>
+    <v-row class="mt-4" no-gutters>
+      <v-col cols="12">
+        <r-section icon="mdi-aspect-ratio" title="UI Settings" elevation="0">
           <template #content>
             <v-item-group
               v-model="selectedAspectRatio"
               mandatory
               @update:model-value="setAspectRatio"
             >
-              <v-row no-gutters class="align-center">
-                <v-col
-                  cols="4"
-                  sm="3"
-                  md="2"
-                  class="pa-2 mx-auto"
-                  v-for="aspectRatio in aspectRatioOptions"
-                >
+              <v-row no-gutters class="text-center justify-center align-center">
+                <v-col class="ma-2" v-for="aspectRatio in aspectRatioOptions">
                   <v-item v-slot="{ isSelected, toggle }">
                     <v-card
                       :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
@@ -177,7 +197,7 @@ function setAspectRatio() {
                             {{ aspectRatio.name }}
                           </p>
                         </v-img>
-                        <p class="text-center text-caption">
+                        <p class="text-center mx-2 text-caption">
                           {{ aspectRatio.source }}
                         </p>
                       </v-card-text>
@@ -188,18 +208,34 @@ function setAspectRatio() {
             </v-item-group>
           </template>
         </r-section>
-        <r-section icon="mdi-upload" title="Upload roms" elevation="0">
-          <template #content> </template>
-        </r-section>
-        <r-section icon="mdi-delete" title="Delete platform" elevation="0">
-          <template #content> </template>
+        <r-section
+          icon="mdi-alert"
+          icon-color="red"
+          title="Danger zone"
+          elevation="0"
+        >
+          <template #content>
+            <div class="text-center my-2">
+              <v-btn
+                class="text-romm-red bg-terciary"
+                variant="flat"
+                @click="
+                  emitter?.emit(
+                    'showDeletePlatformDialog',
+                    currentPlatform as Platform,
+                  )
+                "
+              >
+                <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
+                Delete platform
+              </v-btn>
+            </div>
+          </template>
         </r-section>
       </v-col>
     </v-row>
-    <v-row no-gutters class="justify-center">
-      <v-col> </v-col>
-    </v-row>
   </v-navigation-drawer>
+
   <filter-drawer />
   <firmware-drawer />
 </template>
@@ -209,14 +245,18 @@ function setAspectRatio() {
   z-index: 999 !important;
 }
 .platform-icon {
+  cursor: pointer;
+  transition: filter 0.15s ease-in-out;
+}
+.platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+}
+.platform-icon:hover,
+.platform-icon.active {
+  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
 }
 .platform-icon-big {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
-}
-#platform-info-drawer {
-  z-index: 3 !important;
-  height: calc(100dvh - 48px) !important;
 }
 .greyscale {
   filter: grayscale(100%);

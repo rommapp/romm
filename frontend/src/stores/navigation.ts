@@ -6,32 +6,29 @@ export default defineStore("navigation", {
     activeCollectionsDrawer: false,
     activeSettingsDrawer: false,
     activePlatformInfoDrawer: false,
+    activePlatformSettingsDrawer: false,
   }),
 
   actions: {
     switchActivePlatformsDrawer() {
-      this.activeCollectionsDrawer = false;
-      this.activeSettingsDrawer = false;
+      this.resetDrawers();
       this.activePlatformsDrawer = !this.activePlatformsDrawer;
-      this.activePlatformInfoDrawer = false;
     },
     switchActiveCollectionsDrawer() {
-      this.activePlatformsDrawer = false;
-      this.activeSettingsDrawer = false;
+      this.resetDrawers();
       this.activeCollectionsDrawer = !this.activeCollectionsDrawer;
-      this.activePlatformInfoDrawer = false;
     },
     switchActiveSettingsDrawer() {
-      this.activePlatformsDrawer = false;
-      this.activeCollectionsDrawer = false;
+      this.resetDrawers();
       this.activeSettingsDrawer = !this.activeSettingsDrawer;
-      this.activePlatformInfoDrawer = false;
     },
     switchActivePlatformInfoDrawer() {
-      this.activePlatformsDrawer = false;
-      this.activeCollectionsDrawer = false;
-      this.activeSettingsDrawer = false;
+      this.resetDrawers();
       this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
+    },
+    switchActivePlatformSettingsDrawer() {
+      this.resetDrawers();
+      this.activePlatformSettingsDrawer = !this.activePlatformSettingsDrawer;
     },
     goHome() {
       this.resetDrawers();
@@ -45,6 +42,8 @@ export default defineStore("navigation", {
       this.activePlatformsDrawer = false;
       this.activeCollectionsDrawer = false;
       this.activeSettingsDrawer = false;
+      this.activePlatformInfoDrawer = false;
+      this.activePlatformSettingsDrawer = false;
     },
   },
 });
