@@ -8,21 +8,25 @@ import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vu
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RSection from "@/components/common/RSection.vue";
+import socket from "@/services/socket";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
-import { formatTimestamp } from "@/utils";
-import { storeToRefs } from "pinia";
+import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { computed, ref, inject } from "vue";
+import { storeToRefs } from "pinia";
+import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
 const { xs } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
+const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
+const scanningStore = storeScanning();
 const { currentPlatform } = storeToRefs(romsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
@@ -55,6 +59,19 @@ const platformInfoFields = [
   { key: "generation", label: "Generation" },
   { key: "family_name", label: "Family" },
 ];
+
+// Functions
+async function scan() {
+  scanningStore.set(true);
+
+  if (!socket.connected) socket.connect();
+
+  socket.emit("scan", {
+    platforms: [romsStore.currentPlatform?.id],
+    type: "quick",
+    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+  });
+}
 
 function setAspectRatio() {
   // TODO: save aspect ratio on database
@@ -114,12 +131,20 @@ function setAspectRatio() {
             <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
             Upload roms
           </v-btn>
+          <v-btn
+            v-if="romsStore.currentPlatform?.id"
+            class="bg-terciary ml-2"
+            @click="scan"
+          >
+            <v-icon icon="mdi-magnify-scan" class="text-romm-accent-1 mr-2" />
+            Scan platform
+          </v-btn>
         </div>
         <div class="mt-4 text-center">
           <a
             v-if="currentPlatform.igdb_id"
             style="text-decoration: none; color: inherit"
-            :href="currentPlatform.url"
+            :href="currentPlatform.url ? currentPlatform.url : ''"
             target="_blank"
           >
             <v-chip size="x-small" @click.stop>
@@ -144,7 +169,7 @@ function setAspectRatio() {
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in platformInfoFields"
-              :key="field.key"
+              :key="field.key as string"
             >
               <div
                 v-if="currentPlatform[field.key]"
@@ -154,11 +179,7 @@ function setAspectRatio() {
                   {{ field.label }}
                 </p>
                 <p class="text-subtitle-2">
-                  {{
-                    field.format
-                      ? field.format(currentPlatform[field.key])
-                      : currentPlatform[field.key]
-                  }}
+                  {{ currentPlatform[field.key] }}
                 </p>
               </div>
             </template>
@@ -220,10 +241,7 @@ function setAspectRatio() {
                 class="text-romm-red bg-terciary"
                 variant="flat"
                 @click="
-                  emitter?.emit(
-                    'showDeletePlatformDialog',
-                    currentPlatform as Platform,
-                  )
+                  emitter?.emit('showDeletePlatformDialog', currentPlatform)
                 "
               >
                 <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
