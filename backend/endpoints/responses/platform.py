@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from models.platform import DEFAULT_COVER_ASPECT_RATIO
 from pydantic import BaseModel, Field
 
 from .firmware import FirmwareSchema
@@ -22,6 +23,7 @@ class PlatformSchema(BaseModel):
     url_logo: str | None = None
     logo_path: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
+    aspect_ratio: float = DEFAULT_COVER_ASPECT_RATIO
     created_at: datetime
     updated_at: datetime
 

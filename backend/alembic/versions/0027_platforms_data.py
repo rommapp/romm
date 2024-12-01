@@ -8,6 +8,7 @@ Create Date: 2024-11-17 23:05:31.038917
 
 import sqlalchemy as sa
 from alembic import op
+from models.platform import DEFAULT_COVER_ASPECT_RATIO
 
 # revision identifiers, used by Alembic.
 revision = "0027_platforms_data"
@@ -31,6 +32,14 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("url_logo", sa.String(length=1000), nullable=True)
         )
+        batch_op.add_column(
+            sa.Column(
+                "aspect_ratio",
+                sa.Float(),
+                nullable=False,
+                server_default=str(DEFAULT_COVER_ASPECT_RATIO),
+            )
+        )
     # ### end Alembic commands ###
 
 
@@ -43,4 +52,5 @@ def downgrade() -> None:
         batch_op.drop_column("family_slug")
         batch_op.drop_column("generation")
         batch_op.drop_column("category")
+        batch_op.drop_column("aspect_ratio")
     # ### end Alembic commands ###
