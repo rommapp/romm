@@ -16,6 +16,7 @@ import { useTheme } from "vuetify";
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
+    aspectRatio: number;
     transformScale?: boolean;
     titleOnHover?: boolean;
     showFlags?: boolean;
@@ -29,6 +30,7 @@ const props = withDefaults(
     src?: string;
   }>(),
   {
+    aspectRatio: 2 / 3,
     transformScale: false,
     titleOnHover: false,
     showFlags: false,
@@ -124,7 +126,7 @@ onMounted(() => {
                   ? rom.igdb_url_cover
                   : rom.moby_url_cover
           "
-          :aspect-ratio="galleryViewStore.aspectRatioCover"
+          :aspect-ratio="aspectRatio"
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">
@@ -199,7 +201,7 @@ onMounted(() => {
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
               cover
-              :aspect-ratio="galleryViewStore.aspectRatioCover"
+              :aspect-ratio="aspectRatio"
             ></v-img>
           </template>
           <template #placeholder>

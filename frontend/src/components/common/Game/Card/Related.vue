@@ -30,6 +30,7 @@ const handleClick = () => {
       open-delay="1000"
       >{{ game.name }}</v-tooltip
     >
+    <!-- TODO: fix aspect ratio -->
     <v-img
       v-bind="props"
       :src="

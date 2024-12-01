@@ -19,6 +19,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import platformApi from "@/services/api/platform";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
@@ -90,9 +91,34 @@ async function scan() {
   });
 }
 
-function setAspectRatio() {
-  // TODO: save aspect ratio on database
-  console.log(aspectRatioOptions.value[selectedAspectRatio.value]);
+async function setAspectRatio() {
+  if (currentPlatform.value) {
+    const selectedOption = aspectRatioOptions.value[selectedAspectRatio.value];
+    platformApi
+      .updatePlatform({
+        platform: {
+          ...currentPlatform.value,
+          aspect_ratio: selectedOption.size,
+        },
+      })
+      .then(({ data }) => {
+        emitter?.emit("snackbarShow", {
+          msg: data.msg,
+          icon: "mdi-check-bold",
+          color: "green",
+        });
+        currentPlatform.value.aspect_ratio = selectedOption.size;
+      })
+      .catch((error) => {
+        emitter?.emit("snackbarShow", {
+          msg: `Failed to update aspect ratio: ${
+            error.response?.data?.msg || error.message
+          }`,
+          icon: "mdi-close-circle",
+          color: "red",
+        });
+      });
+  }
 }
 </script>
 
