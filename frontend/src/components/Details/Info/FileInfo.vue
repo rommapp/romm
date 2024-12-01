@@ -110,15 +110,15 @@ watch(
         <v-col cols="3" xl="2">
           <span>Info</span>
         </v-col>
-        <v-col>
-          <v-chip size="small" label class="mx-1 my-1">
+        <v-col class="my-1">
+          <v-chip size="small" label>
             Size: {{ formatBytes(rom.file_size_bytes) }}
           </v-chip>
           <v-chip
             v-if="!rom.multi && rom.sha1_hash"
             size="small"
             label
-            class="mx-1 my-1"
+            class="ml-1"
           >
             SHA-1: {{ rom.sha1_hash }}
           </v-chip>
@@ -126,7 +126,7 @@ watch(
             v-if="!rom.multi && rom.md5_hash"
             size="small"
             label
-            class="mx-1 my-1"
+            class="ml-1"
           >
             MD5: {{ rom.md5_hash }}
           </v-chip>
@@ -134,7 +134,7 @@ watch(
             v-if="!rom.multi && rom.crc_hash"
             size="small"
             label
-            class="mx-1 my-1"
+            class="ml-1"
           >
             CRC: {{ rom.crc_hash }}
           </v-chip>

@@ -67,7 +67,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-navigation-drawer v-model="activeFirmwareDrawer" mobile location="bottom">
+  <v-navigation-drawer
+    v-model="activeFirmwareDrawer"
+    mobile
+    floating
+    location="bottom"
+  >
     <v-data-table
       :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"

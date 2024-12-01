@@ -9,10 +9,13 @@ import UserBtn from "@/components/common/Navigation/UserBtn.vue";
 </script>
 <template>
   <v-app-bar
-    :elevation="0"
+    elevation="0"
     class="bg-primary justify-center px-1"
     mode="shift"
     height="45"
+    app
+    fixed
+    left
   >
     <template #prepend>
       <home-btn />
