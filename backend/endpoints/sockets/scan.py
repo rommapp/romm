@@ -342,11 +342,16 @@ async def _identify_rom(
     rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        # Just to update the filesystem data
-        rom.file_name = fs_rom["file_name"]
-        rom.multi = fs_rom["multi"]
-        rom.files = fs_rom["files"]
-        db_rom_handler.add_rom(rom)
+        if (
+            rom.file_name != fs_rom["file_name"]
+            or rom.multi != fs_rom["multi"]
+            or rom.files != fs_rom["files"]
+        ):
+            # Just to update the filesystem data
+            rom.file_name = fs_rom["file_name"]
+            rom.multi = fs_rom["multi"]
+            rom.files = fs_rom["files"]
+            db_rom_handler.add_rom(rom)
 
         return scan_stats
 
