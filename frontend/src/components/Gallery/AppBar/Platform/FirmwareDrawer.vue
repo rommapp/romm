@@ -52,9 +52,11 @@ function deleteSelectedFirmware() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(
-    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value,
-  );
+  if (currentPlatform.value?.firmware) {
+    pageCount.value = Math.ceil(
+      Number(currentPlatform.value.firmware.length) / itemsPerPage.value,
+    );
+  }
 }
 
 watch(itemsPerPage, async () => {
