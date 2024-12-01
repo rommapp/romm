@@ -4,11 +4,14 @@ from typing import TYPE_CHECKING
 
 from models.base import BaseModel
 from models.rom import Rom
-from sqlalchemy import String, func, select
+from sqlalchemy import Float, String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 if TYPE_CHECKING:
     from models.firmware import Firmware
+
+
+DEFAULT_COVER_ASPECT_RATIO = 2 / 3
 
 
 class Platform(BaseModel):
@@ -32,6 +35,10 @@ class Platform(BaseModel):
     roms: Mapped[list[Rom]] = relationship(back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
         lazy="selectin", back_populates="platform"
+    )
+
+    aspect_ratio: Mapped[float] = mapped_column(
+        Float, server_default=str(DEFAULT_COVER_ASPECT_RATIO)
     )
 
     # This runs a subquery to get the count of roms for the platform
