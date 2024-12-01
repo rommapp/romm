@@ -184,17 +184,21 @@ function setAspectRatio() {
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in platformInfoFields"
-              :key="field.key as string"
+              :key="field.key"
             >
               <div
-                v-if="currentPlatform[field.key]"
+                v-if="
+                  currentPlatform[field.key as keyof typeof currentPlatform]
+                "
                 :class="{ 'mt-4': index !== 0 }"
               >
                 <p class="text-subtitle-1 text-decoration-underline">
                   {{ field.label }}
                 </p>
                 <p class="text-subtitle-2">
-                  {{ currentPlatform[field.key] }}
+                  {{
+                    currentPlatform[field.key as keyof typeof currentPlatform]
+                  }}
                 </p>
               </div>
             </template>
