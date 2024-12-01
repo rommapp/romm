@@ -27,6 +27,7 @@ const viewportWidth = ref(window.innerWidth);
 const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
 const scanningStore = storeScanning();
+const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
@@ -132,12 +133,26 @@ function setAspectRatio() {
             Upload roms
           </v-btn>
           <v-btn
-            v-if="romsStore.currentPlatform?.id"
-            class="bg-terciary ml-2"
+            :disabled="scanning"
+            rounded="4"
+            :loading="scanning"
             @click="scan"
+            class="ml-2 bg-terciary"
           >
-            <v-icon icon="mdi-magnify-scan" class="text-romm-accent-1 mr-2" />
+            <template #prepend>
+              <v-icon :color="scanning ? '' : 'romm-accent-1'"
+                >mdi-magnify-scan</v-icon
+              >
+            </template>
             Scan platform
+            <template #loader>
+              <v-progress-circular
+                color="romm-accent-1"
+                :width="2"
+                :size="20"
+                indeterminate
+              />
+            </template>
           </v-btn>
         </div>
         <div class="mt-4 text-center">
