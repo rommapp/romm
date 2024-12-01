@@ -11,23 +11,23 @@ export default defineStore("navigation", {
 
   actions: {
     switchActivePlatformsDrawer() {
-      this.resetDrawers();
+      this.resetDrawersExcept("activePlatformsDrawer");
       this.activePlatformsDrawer = !this.activePlatformsDrawer;
     },
     switchActiveCollectionsDrawer() {
-      this.resetDrawers();
+      this.resetDrawersExcept("activeCollectionsDrawer");
       this.activeCollectionsDrawer = !this.activeCollectionsDrawer;
     },
     switchActiveSettingsDrawer() {
-      this.resetDrawers();
+      this.resetDrawersExcept("activeSettingsDrawer");
       this.activeSettingsDrawer = !this.activeSettingsDrawer;
     },
     switchActivePlatformInfoDrawer() {
-      this.resetDrawers();
+      this.resetDrawersExcept("activePlatformInfoDrawer");
       this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
     switchActivePlatformSettingsDrawer() {
-      this.resetDrawers();
+      this.resetDrawersExcept("activePlatformSettingsDrawer");
       this.activePlatformSettingsDrawer = !this.activePlatformSettingsDrawer;
     },
     goHome() {
@@ -44,6 +44,24 @@ export default defineStore("navigation", {
       this.activeSettingsDrawer = false;
       this.activePlatformInfoDrawer = false;
       this.activePlatformSettingsDrawer = false;
+    },
+    resetDrawersExcept(drawer: string) {
+      this.activePlatformsDrawer =
+        drawer === "activePlatformsDrawer" ? this.activePlatformsDrawer : false;
+      this.activeCollectionsDrawer =
+        drawer === "activeCollectionsDrawer"
+          ? this.activeCollectionsDrawer
+          : false;
+      this.activeSettingsDrawer =
+        drawer === "activeSettingsDrawer" ? this.activeSettingsDrawer : false;
+      this.activePlatformInfoDrawer =
+        drawer === "activePlatformInfoDrawer"
+          ? this.activePlatformInfoDrawer
+          : false;
+      this.activePlatformSettingsDrawer =
+        drawer === "activePlatformSettingsDrawer"
+          ? this.activePlatformSettingsDrawer
+          : false;
     },
   },
 });
