@@ -6,7 +6,6 @@ export default defineStore("navigation", {
     activeCollectionsDrawer: false,
     activeSettingsDrawer: false,
     activePlatformInfoDrawer: false,
-    activePlatformSettingsDrawer: false,
   }),
 
   actions: {
@@ -26,10 +25,6 @@ export default defineStore("navigation", {
       this.resetDrawersExcept("activePlatformInfoDrawer");
       this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
-    switchActivePlatformSettingsDrawer() {
-      this.resetDrawersExcept("activePlatformSettingsDrawer");
-      this.activePlatformSettingsDrawer = !this.activePlatformSettingsDrawer;
-    },
     goHome() {
       this.resetDrawers();
       this.$router.push({ name: "dashboard" });
@@ -43,7 +38,6 @@ export default defineStore("navigation", {
       this.activeCollectionsDrawer = false;
       this.activeSettingsDrawer = false;
       this.activePlatformInfoDrawer = false;
-      this.activePlatformSettingsDrawer = false;
     },
     resetDrawersExcept(drawer: string) {
       this.activePlatformsDrawer =
@@ -57,10 +51,6 @@ export default defineStore("navigation", {
       this.activePlatformInfoDrawer =
         drawer === "activePlatformInfoDrawer"
           ? this.activePlatformInfoDrawer
-          : false;
-      this.activePlatformSettingsDrawer =
-        drawer === "activePlatformSettingsDrawer"
-          ? this.activePlatformSettingsDrawer
           : false;
     },
   },

@@ -17,7 +17,7 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -31,9 +31,8 @@ const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
-const { activePlatformInfoDrawer, activePlatformSettingsDrawer } =
-  storeToRefs(navigationStore);
-const selectedAspectRatio = ref(2);
+const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
+const selectedAspectRatio = ref(0);
 const aspectRatioOptions = computed(() => [
   {
     name: "2 / 3",
@@ -60,6 +59,23 @@ const platformInfoFields = [
   { key: "generation", label: "Generation" },
   { key: "family_name", label: "Family" },
 ];
+
+watch(
+  () => currentPlatform.value?.aspect_ratio,
+  (aspectRatio) => {
+    if (aspectRatio) {
+      // Find the index of the aspect ratio option that matches the current aspect ratio
+      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
+        (option) => Math.abs(option.size - aspectRatio) < 0.01, // Handle floating-point precision issues
+      );
+      // If a matching aspect ratio option is found, update the selectedAspectRatio
+      if (defaultAspectRatio !== -1) {
+        selectedAspectRatio.value = defaultAspectRatio;
+      }
+    }
+  },
+  { immediate: true }, // Execute the callback immediately with the current value
+);
 
 // Functions
 async function scan() {
@@ -208,7 +224,12 @@ function setAspectRatio() {
     </v-row>
     <v-row class="mt-4" no-gutters>
       <v-col cols="12">
-        <r-section icon="mdi-aspect-ratio" title="UI Settings" elevation="0">
+        <r-section
+          v-if="auth.scopes.includes('platforms.write')"
+          icon="mdi-aspect-ratio"
+          title="UI Settings"
+          elevation="0"
+        >
           <template #content>
             <v-item-group
               v-model="selectedAspectRatio"
@@ -249,6 +270,7 @@ function setAspectRatio() {
           </template>
         </r-section>
         <r-section
+          v-if="auth.scopes.includes('platforms.write')"
           icon="mdi-alert"
           icon-color="red"
           title="Danger zone"
