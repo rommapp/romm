@@ -47,6 +47,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
             show-fav
             transform-scale
             show-action-bar
+            show-platform-icon
           />
         </v-col>
       </v-row>
