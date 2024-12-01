@@ -325,6 +325,7 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            :aspect-ratio="currentPlatform.aspect_ratio"
             show-flags
             show-action-bar
             show-fav

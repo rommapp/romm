@@ -30,7 +30,6 @@ import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlat
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
-import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";

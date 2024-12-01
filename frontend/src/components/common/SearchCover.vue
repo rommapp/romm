@@ -178,6 +178,7 @@ onBeforeUnmount(() => {
                 v-for="resource in game.resources"
               >
                 <v-hover v-slot="{ isHovering, props: hoverProps }">
+                  <!-- TODO: fix aspect ratio -->
                   <v-img
                     v-bind="hoverProps"
                     :class="{ 'on-hover': isHovering }"
@@ -188,6 +189,7 @@ onBeforeUnmount(() => {
                     cover
                   >
                     <template #error>
+                      <!-- TODO: fix aspect ratio -->
                       <v-img
                         :src="resource.url"
                         cover

@@ -390,6 +390,7 @@ onBeforeUnmount(() => {
                     :elevation="isHovering ? 20 : 3"
                     @click="selectCover(source)"
                   >
+                    <!-- TODO: fix aspect ratio -->
                     <v-img
                       :src="
                         !source.url_cover
