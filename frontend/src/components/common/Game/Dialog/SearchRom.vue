@@ -3,7 +3,6 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
-import storePlatforms from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -24,7 +23,6 @@ type SelectItem = {
 // Props
 const { lgAndUp } = useDisplay();
 const show = ref(false);
-const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const searched = ref(false);
 const router = useRouter();
@@ -199,7 +197,6 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
-            :aspect-ratio="platfotmsStore.getAspectRatio(rom.platform_id)"
             title-on-hover
             show-flags
             show-fav

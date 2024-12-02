@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
+import storePlatforms from "@/stores/platforms";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
@@ -30,7 +31,7 @@ const props = withDefaults(
     src?: string;
   }>(),
   {
-    aspectRatio: 2 / 3,
+    aspectRatio: undefined,
     transformScale: false,
     titleOnHover: false,
     showFlags: false,
@@ -44,6 +45,7 @@ const props = withDefaults(
     src: "",
   },
 );
+const platfotmsStore = storePlatforms();
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
 const handleClick = (event: MouseEvent) => {
@@ -126,7 +128,13 @@ onMounted(() => {
                   ? rom.igdb_url_cover
                   : rom.moby_url_cover
           "
-          :aspect-ratio="aspectRatio"
+          :aspect-ratio="
+            aspectRatio
+              ? aspectRatio
+              : platfotmsStore.getAspectRatio(rom.platform_id)
+                ? platfotmsStore.getAspectRatio(rom.platform_id)
+                : galleryViewStore.defaultAspectRatioCover
+          "
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">

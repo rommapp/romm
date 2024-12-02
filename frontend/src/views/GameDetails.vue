@@ -10,18 +10,15 @@ import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
-import Cover from "@/components/common/Game/Card/Base.vue";
-import platformApi from "@/services/api/platform";
+import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { Platform } from "@/stores/platforms";
-import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
-import { onBeforeRouteLeave, useRoute } from "vue-router";
+import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -106,7 +103,7 @@ watch(
           'cover-mobile': smAndDown,
         }"
       >
-        <cover
+        <game-card
           :key="currentRom.updated_at"
           :pointerOnHover="false"
           :rom="currentRom"
