@@ -135,7 +135,10 @@ async function setAspectRatio() {
             :size="160"
           />
         </div>
-        <div class="text-center mt-4">
+        <div
+          class="text-center mt-4"
+          v-if="auth.scopes.includes('platforms.write')"
+        >
           <v-btn
             class="bg-terciary"
             @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
