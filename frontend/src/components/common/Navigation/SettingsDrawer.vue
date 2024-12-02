@@ -32,6 +32,7 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
+    navigationStore.switchActiveSettingsDrawer();
   });
 
   await router.push({ name: "login" });
