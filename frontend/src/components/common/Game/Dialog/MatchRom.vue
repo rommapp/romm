@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
+import storePlatforms from "@/stores/platforms";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -23,6 +24,7 @@ const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
+const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 const searching = ref(false);
 const route = useRoute();
@@ -332,8 +334,10 @@ onBeforeUnmount(() => {
           v-for="matchedRom in filteredMatchedRoms"
         >
           <game-card
+            v-if="rom"
             @click="showSources(matchedRom)"
             :rom="matchedRom"
+            :aspect-ratio="platfotmsStore.getAspectRatio(rom.platform_id)"
             title-on-footer
             transform-scale
             title-on-hover

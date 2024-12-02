@@ -42,8 +42,8 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         >
           <game-card
             :key="rom.updated_at"
-            @click="onGameClick"
             :rom="rom"
+            @click="onGameClick"
             :aspect-ratio="platfotmsStore.getAspectRatio(rom.platform_id)"
             title-on-hover
             show-flags
