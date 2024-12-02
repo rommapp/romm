@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import batched
 from typing import Any, Final
 
 import emoji
@@ -69,7 +70,7 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
     return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
 
 
-def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
+def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) -> bool:
     """Decide if a rom should be scanned or not
 
     Args:
@@ -79,7 +80,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom, roms_ids: list):
     """
 
     # This logic is tricky so only touch it if you know what you're doing"""
-    return (
+    return bool(
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
@@ -265,15 +266,22 @@ async def _identify_platform(
     else:
         log.info(f"  {len(fs_roms)} roms found in the file system")
 
-    for fs_rom in fs_roms:
-        scan_stats += await _identify_rom(
-            platform=platform,
-            fs_rom=fs_rom,
-            scan_type=scan_type,
-            roms_ids=roms_ids,
-            metadata_sources=metadata_sources,
-            socket_manager=socket_manager,
+    for fs_roms_batch in batched(fs_roms, 200):
+        rom_by_filename_map = db_rom_handler.get_roms_by_filename(
+            platform_id=platform.id,
+            file_names={fs_rom["file_name"] for fs_rom in fs_roms_batch},
         )
+
+        for fs_rom in fs_roms_batch:
+            scan_stats += await _identify_rom(
+                platform=platform,
+                fs_rom=fs_rom,
+                rom=rom_by_filename_map.get(fs_rom["file_name"]),
+                scan_type=scan_type,
+                roms_ids=roms_ids,
+                metadata_sources=metadata_sources,
+                socket_manager=socket_manager,
+            )
 
     # Only purge entries if there are some file remaining in the library
     # This protects against accidental deletion of entries when
@@ -328,6 +336,7 @@ async def _identify_firmware(
 async def _identify_rom(
     platform: Platform,
     fs_rom: FSRom,
+    rom: Rom | None,
     scan_type: ScanType,
     roms_ids: list[str],
     metadata_sources: list[str],
@@ -339,14 +348,17 @@ async def _identify_rom(
     if redis_client.get(STOP_SCAN_FLAG):
         return scan_stats
 
-    rom = db_rom_handler.get_rom_by_filename(platform.id, fs_rom["file_name"])
-
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        # Just to update the filesystem data
-        rom.file_name = fs_rom["file_name"]
-        rom.multi = fs_rom["multi"]
-        rom.files = fs_rom["files"]
-        db_rom_handler.add_rom(rom)
+        if rom and (
+            rom.file_name != fs_rom["file_name"]
+            or rom.multi != fs_rom["multi"]
+            or rom.files != fs_rom["files"]
+        ):
+            # Just to update the filesystem data
+            rom.file_name = fs_rom["file_name"]
+            rom.multi = fs_rom["multi"]
+            rom.files = fs_rom["files"]
+            db_rom_handler.add_rom(rom)
 
         return scan_stats
 
