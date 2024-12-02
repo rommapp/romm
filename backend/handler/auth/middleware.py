@@ -110,12 +110,13 @@ class SessionMiddleware:
                 scope["session"] = jwt_claims
                 initial_session_was_empty = False
 
-                # Check if the user exists
-                db_user_handler = DBUsersHandler()
-                user = db_user_handler.get_user_by_username(jwt_claims.get("sub"))
-                if not user:
-                    scope["session"] = {}
-                    initial_session_was_empty = True
+                # Check if the user exists only for /api/heartbeat endpoint
+                if scope["path"] == "/api/heartbeat":
+                    db_user_handler = DBUsersHandler()
+                    user = db_user_handler.get_user_by_username(jwt_claims.get("sub"))
+                    if not user:
+                        scope["session"] = {}
+                        initial_session_was_empty = True
 
             except (BadSignatureError, HTTPException):
                 scope["session"] = {}
