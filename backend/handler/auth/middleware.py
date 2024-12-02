@@ -2,7 +2,6 @@ import time
 from collections import namedtuple
 
 from fastapi import HTTPException
-from handler.database.users_handler import DBUsersHandler
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -109,14 +108,6 @@ class SessionMiddleware:
                 jwt_claims = self._validate_jwt_payload(jwt_payload)
                 scope["session"] = jwt_claims
                 initial_session_was_empty = False
-
-                # Check if the user exists only for /api/heartbeat endpoint
-                if scope["path"] == "/api/heartbeat":
-                    db_user_handler = DBUsersHandler()
-                    user = db_user_handler.get_user_by_username(jwt_claims.get("sub"))
-                    if not user:
-                        scope["session"] = {}
-                        initial_session_was_empty = True
 
             except (BadSignatureError, HTTPException):
                 scope["session"] = {}
