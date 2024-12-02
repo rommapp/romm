@@ -3,7 +3,6 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -13,13 +12,12 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { lgAndUp, mdAndUp, smAndUp, smAndDown } = useDisplay();
+const { lgAndUp, mdAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
-const platfotmsStore = storePlatforms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -228,11 +226,7 @@ function closeDialog() {
         <v-col>
           <v-row class="justify-center">
             <v-col :class="{ 'mobile-cover': smAndDown, 'pa-8': !smAndDown }">
-              <game-card
-                :rom="rom"
-                :src="imagePreviewUrl"
-                :aspect-ratio="platfotmsStore.getAspectRatio(rom.platform_id)"
-              >
+              <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
