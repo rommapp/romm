@@ -62,7 +62,7 @@ onMounted(() => {
     no-click-animation
     persistent
   >
-    <v-card rounded="0" :height="height">
+    <v-card rounded="0" :min-height="height">
       <v-toolbar density="compact" class="bg-terciary">
         <v-icon v-if="icon" :icon="icon" class="ml-5" />
         <romm-iso :size="30" class="mx-4" v-if="showRommIcon" />
