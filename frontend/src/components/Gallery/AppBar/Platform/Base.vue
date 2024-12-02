@@ -110,7 +110,4 @@ watch(
 .platform-icon-big {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
 }
-.greyscale {
-  filter: grayscale(100%);
-}
 </style>

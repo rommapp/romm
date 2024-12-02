@@ -3,8 +3,8 @@ import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeGalleryView from "@/stores/galleryView";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -397,7 +397,9 @@ onBeforeUnmount(() => {
                           ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                           : source.url_cover
                       "
-                      :aspect-ratio="galleryViewStore.aspectRatioCover"
+                      :aspect-ratio="
+                        galleryViewStore.defaultAspectRatioCollection
+                      "
                       cover
                       lazy
                     >

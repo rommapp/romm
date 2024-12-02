@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { IGDBRelatedGame } from "@/__generated__";
-import { useTheme } from "vuetify";
 import storeGalleryView from "@/stores/galleryView";
+import { useTheme } from "vuetify";
 
 // Props
 const props = defineProps<{
@@ -38,7 +38,7 @@ const handleClick = () => {
           ? `https:${game.cover_url.replace('t_thumb', 't_cover_big')}`
           : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
       "
-      :aspect-ratio="galleryViewStore.aspectRatioCover"
+      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
       cover
       lazy
       ><v-chip

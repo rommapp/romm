@@ -68,7 +68,7 @@ const galleryViewStore = storeGalleryView();
                 ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
                 : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
         "
-        :aspect-ratio="galleryViewStore.aspectRatioCollection"
+        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
       >
         <div class="position-absolute append-inner">
           <slot name="append-inner"></slot>
@@ -78,7 +78,7 @@ const galleryViewStore = storeGalleryView();
           <v-img
             :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
             cover
-            :aspect-ratio="galleryViewStore.aspectRatioCollection"
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           ></v-img>
         </template>
         <template #placeholder>
