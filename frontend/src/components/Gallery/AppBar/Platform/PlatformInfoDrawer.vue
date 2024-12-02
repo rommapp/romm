@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RSection from "@/components/common/RSection.vue";
+import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
@@ -12,7 +13,6 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
-import platformApi from "@/services/api/platform";
 
 // Props
 const emitter = inject<Emitter<Events>>("emitter");
@@ -290,3 +290,8 @@ async function setAspectRatio() {
     </v-row>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.greyscale {
+  filter: grayscale(100%);
+}
+</style>

@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
                     @click="selectCover(resource.url)"
-                    :aspect-ratio="galleryViewStore.aspectRatioCover"
+                    :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
                     :src="resource.thumb"
                     cover
                   >
@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
                       <v-img
                         :src="resource.url"
                         cover
-                        :aspect-ratio="galleryViewStore.aspectRatioCover"
+                        :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
                       ></v-img>
                     </template>
                     <template #placeholder>

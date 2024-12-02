@@ -1,6 +1,6 @@
-import { defineStore } from "pinia";
 import type { PlatformSchema } from "@/__generated__";
 import { uniqBy } from "lodash";
+import { defineStore } from "pinia";
 
 export type Platform = PlatformSchema;
 
@@ -50,6 +50,10 @@ export default defineStore("platforms", {
     },
     get(platformId: number) {
       return this.allPlatforms.find((p) => p.id === platformId);
+    },
+    getAspectRatio(platformId: number): number {
+      const platform = this.allPlatforms.find((p) => p.id === platformId);
+      return platform && platform.aspect_ratio ? platform.aspect_ratio : 2 / 3;
     },
   },
 });

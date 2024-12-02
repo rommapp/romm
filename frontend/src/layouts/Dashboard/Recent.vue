@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RSection from "@/components/common/RSection.vue";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
 import { storeToRefs } from "pinia";
@@ -9,6 +10,7 @@ import { useRouter } from "vue-router";
 // Props
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
+const platfotmsStore = storePlatforms();
 const router = useRouter();
 
 // Functions
@@ -27,7 +29,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
 <template>
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
-      <v-row class="flex-nowrap overflow-x-auto" no-gutters>
+      <v-row class="flex-nowrap overflow-x-auto align-center" no-gutters>
         <v-col
           v-for="rom in recentRoms"
           :key="rom.id"
@@ -42,6 +44,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
             :key="rom.updated_at"
             @click="onGameClick"
             :rom="rom"
+            :aspect-ratio="platfotmsStore.getAspectRatio(rom.platform_id)"
             title-on-hover
             show-flags
             show-fav
