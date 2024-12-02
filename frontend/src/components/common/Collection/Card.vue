@@ -17,7 +17,7 @@ withDefaults(
     transformScale: false,
     showTitle: false,
     showRomCount: false,
-    withLink: true,
+    withLink: false,
     src: "",
   },
 );
@@ -28,17 +28,19 @@ const galleryViewStore = storeGalleryView();
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="hoverProps"
+      v-bind="{
+        ...hoverProps,
+        ...(withLink && collection
+          ? {
+              to: { name: 'collection', params: { collection: collection.id } },
+            }
+          : {}),
+      }"
       :class="{
         'on-hover': isHovering,
         'transform-scale': transformScale,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
-      :to="
-        withLink && collection
-          ? { name: 'collection', params: { collection: collection.id } }
-          : ''
-      "
     >
       <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
         <div

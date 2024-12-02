@@ -18,6 +18,21 @@ const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 const open = ref(false);
+
+const collectionInfoFields = [
+  {
+    key: "name",
+    label: "Name",
+  },
+  {
+    key: "description",
+    label: "Description",
+  },
+  {
+    key: "rom_count",
+    label: "Roms",
+  },
+];
 </script>
 
 <template>
@@ -67,7 +82,7 @@ const open = ref(false);
     :width="xs ? viewportWidth : '500'"
     v-if="currentCollection"
   >
-    <v-row no-gutters class="justify-center align-center my-4">
+    <v-row no-gutters class="text-center justify-center align-center mt-2">
       <v-col style="max-width: 240px">
         <collection-card
           :key="currentCollection.updated_at"
@@ -75,22 +90,32 @@ const open = ref(false);
         />
       </v-col>
     </v-row>
-    <v-row no-gutters>
+    <v-row no-gutters class="mt-4">
       <v-col cols="12">
-        <v-card class="mt-4 mx-4 bg-terciary fill-width" elevation="0">
-          <v-card-text class="pa-4 text-center">
-            <p class="text-h6">
-              {{ currentCollection.name }}
-            </p>
-            <p class="text-caption-1">
-              {{ currentCollection.description }}
-            </p>
-            <p class="text-caption-1">
-              is public: {{ currentCollection.is_public }}
-            </p>
-            <p class="text-caption-1">
-              roms: {{ currentCollection.rom_count }}
-            </p>
+        <v-card class="mx-4 bg-terciary" elevation="0">
+          <v-card-text class="pa-4">
+            <template
+              v-for="(field, index) in collectionInfoFields"
+              :key="field.key"
+            >
+              <div
+                v-if="
+                  currentCollection[field.key as keyof typeof currentCollection]
+                "
+                :class="{ 'mt-4': index !== 0 }"
+              >
+                <p class="text-subtitle-1 text-decoration-underline">
+                  {{ field.label }}
+                </p>
+                <p class="text-subtitle-2">
+                  {{
+                    currentCollection[
+                      field.key as keyof typeof currentCollection
+                    ]
+                  }}
+                </p>
+              </div>
+            </template>
           </v-card-text>
         </v-card>
       </v-col>
