@@ -107,7 +107,4 @@ watch(
   filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
   transform: scale(1.1);
 }
-.platform-icon-big {
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
-}
 </style>

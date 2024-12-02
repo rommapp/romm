@@ -131,7 +131,7 @@ async function setAspectRatio() {
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
-            class="platform-icon-big"
+            class="platform-icon"
             :size="160"
           />
         </div>
@@ -291,6 +291,9 @@ async function setAspectRatio() {
   </v-navigation-drawer>
 </template>
 <style scoped>
+.platform-icon {
+  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+}
 .greyscale {
   filter: grayscale(100%);
 }
