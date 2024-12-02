@@ -1,7 +1,6 @@
 import time
 from collections import namedtuple
 
-from fastapi import HTTPException
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -109,7 +108,7 @@ class SessionMiddleware:
                 scope["session"] = jwt_claims
                 initial_session_was_empty = False
 
-            except (BadSignatureError, HTTPException):
+            except BadSignatureError:
                 scope["session"] = {}
         else:
             scope["session"] = {}
