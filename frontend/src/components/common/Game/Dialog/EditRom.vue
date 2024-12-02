@@ -147,7 +147,7 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" md="8" lg="8" xl="9">
+        <v-col cols="12" md="8" xl="9">
           <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
@@ -223,9 +223,9 @@ function closeDialog() {
             </v-btn-group>
           </v-row>
         </v-col>
-        <v-col>
-          <v-row class="justify-center">
-            <v-col :class="{ 'mobile-cover': smAndDown, 'pa-8': !smAndDown }">
+        <v-col cols="12" md="4" xl="3">
+          <v-row class="justify-center" no-gutters>
+            <v-col style="max-width: 240px" :class="{ 'my-4': smAndDown }">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
@@ -273,7 +273,7 @@ function closeDialog() {
               </game-card>
             </v-col>
           </v-row>
-          <v-row v-if="smAndDown" class="justify-space-between pa-4">
+          <v-row v-if="smAndDown" class="justify-space-between pa-2" no-gutters>
             <v-btn-group divided density="compact" class="my-1">
               <v-btn
                 :disabled="noMetadataMatch"
@@ -298,11 +298,3 @@ function closeDialog() {
     </template>
   </r-dialog>
 </template>
-<style scoped>
-.mobile-cover {
-  min-width: 240px;
-  min-height: 330px;
-  max-width: 240px;
-  max-height: 330px;
-}
-</style>
