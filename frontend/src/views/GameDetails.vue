@@ -7,6 +7,7 @@ import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
+import storePlatforms from "@/stores/platforms";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
@@ -36,6 +37,7 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
+const platfotmsStore = storePlatforms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
 async function fetchDetails() {
@@ -84,7 +86,6 @@ watch(
 </script>
 
 <template>
-  <!-- TODO: review layout on certain roms - ej: mortal kombat 2 for gb  -->
   <template v-if="currentRom && !gettingRoms">
     <background-header />
 
@@ -100,8 +101,14 @@ watch(
         class="cover"
         :class="{
           'cover-desktop': mdAndUp,
-          'cover-mobile': smAndDown,
         }"
+        :style="
+          smAndDown
+            ? platfotmsStore.getAspectRatio(currentRom.platform_id) == 1 / 1
+              ? 'margin-top: -220px;'
+              : 'margin-top: -280px;'
+            : ''
+        "
       >
         <game-card
           :key="currentRom.updated_at"
@@ -118,8 +125,14 @@ watch(
         class="px-5"
         :class="{
           'info-lg': mdAndUp,
-          'info-mobile': smAndDown,
         }"
+        :style="
+          smAndDown
+            ? platfotmsStore.getAspectRatio(currentRom.platform_id) == 1 / 1
+              ? 'margin-top: -40px;'
+              : 'margin-top: 100px;'
+            : ''
+        "
       >
         <div
           class="px-3 pb-3"
@@ -242,9 +255,6 @@ watch(
 .title-desktop {
   margin-top: -190px;
   margin-left: -20px;
-}
-.cover-mobile {
-  margin-top: -280px;
 }
 .info-mobile {
   margin-top: 100px;
