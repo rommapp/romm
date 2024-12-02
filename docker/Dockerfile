@@ -11,7 +11,8 @@ ARG ALPINE_VERSION=3.20
 ARG NGINX_VERSION=1.27.1
 ARG NODE_VERSION=20.16
 ARG PYTHON_VERSION=3.12
-
+ARG PUID=1000
+ARG PGID=1000
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS front-build-stage
 WORKDIR /front
@@ -132,7 +133,7 @@ COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # User permissions
-RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
+RUN addgroup -g "${PGID}" -S romm && adduser -u "${PUID}" -D -S -G romm romm && \
     mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
 
