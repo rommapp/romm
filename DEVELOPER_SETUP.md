@@ -130,7 +130,7 @@ docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/set
 
 ### - Run tests
 
-*\_\_*Migrations will be run automatically when running the tests.\_\_\_\_
+*\_*Migrations will be run automatically when running the tests.\_\_\_
 
 ```sh
 cd backend
