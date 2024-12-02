@@ -3,10 +3,11 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref, computed } from "vue";
+import { computed, inject, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 
@@ -18,6 +19,7 @@ const route = useRoute();
 const show = ref(false);
 const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
+const platfotmsStore = storePlatforms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -226,7 +228,11 @@ function closeDialog() {
         <v-col>
           <v-row class="justify-center">
             <v-col :class="{ 'mobile-cover': smAndDown, 'pa-8': !smAndDown }">
-              <game-card :rom="rom" :src="imagePreviewUrl">
+              <game-card
+                :rom="rom"
+                :src="imagePreviewUrl"
+                :aspect-ratio="platfotmsStore.getAspectRatio(rom.platform_id)"
+              >
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn
@@ -238,7 +244,7 @@ function closeDialog() {
                       @click="
                         emitter?.emit(
                           'showSearchCoverDialog',
-                          rom?.name as string,
+                          rom.name as string,
                         )
                       "
                     >
