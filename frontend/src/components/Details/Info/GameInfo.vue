@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import type { DetailedRom } from "@/stores/roms";
-import storeGalleryView from "@/stores/galleryView";
 import { ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
@@ -10,7 +9,6 @@ import { useRouter } from "vue-router";
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const show = ref(false);
-const galleryViewStore = storeGalleryView();
 const carousel = ref(0);
 const router = useRouter();
 const filters = ["genres", "franchises", "collections", "companies"] as const;

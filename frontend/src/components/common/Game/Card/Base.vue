@@ -16,7 +16,7 @@ import { useTheme } from "vuetify";
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
-    aspectRatio: number;
+    aspectRatio?: number;
     transformScale?: boolean;
     titleOnHover?: boolean;
     showFlags?: boolean;
