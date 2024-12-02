@@ -1,6 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue"],
   "types": ["node", "file-saver", "lodash", "js-cookie", "vue-router", "vue"],
   "compilerOptions": {
     "composite": true,
