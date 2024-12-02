@@ -1,24 +1,27 @@
 <script setup lang="ts">
-import { useDisplay } from "vuetify";
-import AdminMenu from "@/components/Gallery/AppBar/Collection/AdminMenu.vue";
 import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
+import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
+import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { ref } from "vue";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 
+// Props
 const { xs } = useDisplay();
+const emitter = inject<Emitter<Events>>("emitter");
 const viewportWidth = ref(window.innerWidth);
 const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 const open = ref(false);
-
 const collectionInfoFields = [
   {
     key: "name",
@@ -31,6 +34,14 @@ const collectionInfoFields = [
   {
     key: "rom_count",
     label: "Roms",
+  },
+  {
+    key: "user__username",
+    label: "Owner",
+  },
+  {
+    key: "is_public",
+    label: "Public",
   },
 ];
 </script>
@@ -58,20 +69,6 @@ const collectionInfoFields = [
     <template #append>
       <selecting-btn />
       <gallery-view-btn />
-      <v-menu location="bottom">
-        <template #activator="{ props }">
-          <v-btn
-            v-if="auth.scopes.includes('collections.write')"
-            v-bind="props"
-            rounded="0"
-            variant="text"
-            class="mr-0"
-            icon="mdi-dots-vertical"
-            @click.stop
-          />
-        </template>
-        <admin-menu />
-      </v-menu>
     </template>
   </v-app-bar>
 
@@ -82,12 +79,24 @@ const collectionInfoFields = [
     :width="xs ? viewportWidth : '500'"
     v-if="currentCollection"
   >
-    <v-row no-gutters class="text-center justify-center align-center mt-2">
+    <v-row no-gutters class="text-center justify-center align-center mt-4">
       <v-col style="max-width: 240px">
         <collection-card
           :key="currentCollection.updated_at"
           :collection="currentCollection"
         />
+        <v-btn
+          rounded="4"
+          @click="
+            emitter?.emit('showEditCollectionDialog', { ...currentCollection })
+          "
+          class="mt-4 bg-terciary"
+        >
+          <template #prepend>
+            <v-icon>mdi-pencil-box</v-icon>
+          </template>
+          Edit collection
+        </v-btn>
       </v-col>
     </v-row>
     <v-row no-gutters class="mt-4">
@@ -118,6 +127,32 @@ const collectionInfoFields = [
             </template>
           </v-card-text>
         </v-card>
+      </v-col>
+    </v-row>
+    <v-row no-gutters class="mt-4">
+      <v-col cols="12">
+        <r-section
+          v-if="auth.scopes.includes('collections.write')"
+          icon="mdi-alert"
+          icon-color="red"
+          title="Danger zone"
+          elevation="0"
+        >
+          <template #content>
+            <div class="text-center my-2">
+              <v-btn
+                class="text-romm-red bg-terciary"
+                variant="flat"
+                @click="
+                  emitter?.emit('showDeleteCollectionDialog', currentCollection)
+                "
+              >
+                <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
+                Delete collection
+              </v-btn>
+            </div>
+          </template>
+        </r-section>
       </v-col>
     </v-row>
   </v-navigation-drawer>
