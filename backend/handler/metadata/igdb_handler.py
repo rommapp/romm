@@ -384,13 +384,15 @@ class IGDBBaseHandler(MetadataHandler):
                 igdb_id=platform.get("id", None),
                 slug=slug,
                 name=platform.get("name", slug),
-                category=IGDB_PLATFORM_CATEGORIES.get(platform["category"], "Unknown"),
+                category=IGDB_PLATFORM_CATEGORIES.get(
+                    platform.get("category", 0), "Unknown"
+                ),
                 generation=platform.get("generation", None),
                 family_name=pydash.get(platform, "platform_family.name", None),
                 family_slug=pydash.get(platform, "platform_family.slug", None),
                 url=platform.get("url", None),
                 url_logo=self._normalize_cover_url(
-                    pydash.get(platform, "platform_logo.url", None).replace(
+                    pydash.get(platform, "platform_logo.url", "").replace(
                         "t_thumb", "t_1080p"
                     )
                 ),
@@ -1014,6 +1016,7 @@ IGDB_PLATFORM_LIST = [
 ]
 
 IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
+    0: "Unknown",
     1: "Console",
     2: "Arcade",
     3: "Platform",
