@@ -10,14 +10,14 @@ import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed } from "vue";
 import { useTheme } from "vuetify";
 
 // Props
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
-    aspectRatio?: number;
+    aspectRatio?: string | number;
     transformScale?: boolean;
     titleOnHover?: boolean;
     showFlags?: boolean;
@@ -62,6 +62,13 @@ const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
+const computedAspectRatio = computed(() => {
+  const ratio =
+    props.aspectRatio ||
+    platfotmsStore.getAspectRatio(props.rom.platform_id) ||
+    galleryViewStore.defaultAspectRatioCover;
+  return parseFloat(ratio.toString());
+});
 
 // Functions
 onMounted(() => {
@@ -128,13 +135,7 @@ onMounted(() => {
                   ? rom.igdb_url_cover
                   : rom.moby_url_cover
           "
-          :aspect-ratio="
-            aspectRatio
-              ? aspectRatio
-              : platfotmsStore.getAspectRatio(rom.platform_id)
-                ? platfotmsStore.getAspectRatio(rom.platform_id)
-                : galleryViewStore.defaultAspectRatioCover
-          "
+          :aspect-ratio="computedAspectRatio"
         >
           <div v-bind="props" style="position: absolute; top: 0; width: 100%">
             <template v-if="titleOnHover">
@@ -209,7 +210,7 @@ onMounted(() => {
             <v-img
               :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
               cover
-              :aspect-ratio="aspectRatio"
+              :aspect-ratio="computedAspectRatio"
             ></v-img>
           </template>
           <template #placeholder>
