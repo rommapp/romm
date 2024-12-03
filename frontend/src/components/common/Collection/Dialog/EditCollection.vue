@@ -141,14 +141,18 @@ function closeDialog() {
             <v-col>
               <v-switch
                 v-model="collection.is_public"
-                :label="
+                color="romm-accent-1"
+                class="px-2"
+                false-icon="mdi-lock"
+                true-icon="mdi-lock-open"
+                inset
+                persistent-hint
+                message="Public (visible to everyone)"
+                :hint="
                   collection.is_public
                     ? 'Public (visible to everyone)'
                     : 'Private (only visible to me)'
                 "
-                color="romm-accent-1"
-                class="px-2"
-                hide-details
               />
             </v-col>
           </v-row>

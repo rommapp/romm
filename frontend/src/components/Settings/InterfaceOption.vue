@@ -29,6 +29,7 @@ const emit = defineEmits(["update:modelValue"]);
 
       <template #append>
         <v-switch
+          inset
           :model-value="modelValue"
           @update:model-value="(value) => emit('update:modelValue', value)"
           :class="{ 'pr-16': !xs }"
