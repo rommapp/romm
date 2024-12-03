@@ -105,7 +105,7 @@ async function stopScan() {
         v-model="platformsToScan"
         label="Platforms"
         item-title="name"
-        :items="platforms.all"
+        :items="platforms.allPlatforms"
         variant="outlined"
         density="comfortable"
         multiple
@@ -231,12 +231,7 @@ async function stopScan() {
           >mdi-magnify-scan</v-icon
         >
       </template>
-      <span
-        :class="{
-          'text-romm-accent-1': !scanning,
-        }"
-        >Scan</span
-      >
+      Scan
       <template #loader>
         <v-progress-circular
           color="romm-accent-1"
@@ -256,7 +251,7 @@ async function stopScan() {
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
       </template>
-      <span :class="{ 'text-romm-red': scanning }">Abort</span>
+      Abort
     </v-btn>
     <v-btn
       prepend-icon="mdi-table-cog"

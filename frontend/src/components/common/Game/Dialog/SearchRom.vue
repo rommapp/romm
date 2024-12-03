@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row no-gutters>
+      <v-row no-gutters class="align-content-start align-center">
         <v-col
           class="pa-1"
           cols="4"
@@ -194,13 +194,15 @@ onBeforeUnmount(() => {
           v-for="rom in filteredRoms"
         >
           <game-card
+            :key="rom.updated_at"
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
             title-on-hover
             show-flags
-            transform-scale
-            show-platform-icon
             show-fav
+            transform-scale
+            show-action-bar
+            show-platform-icon
           />
         </v-col>
       </v-row>

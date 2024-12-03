@@ -8,7 +8,7 @@ import { identity } from "lodash";
 import { useDisplay } from "vuetify";
 
 // Props
-const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
   Number(props.rom.first_release_date) * 1000,
@@ -39,12 +39,12 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     no-gutters
   >
     <v-col>
-      <v-chip :to="{ name: 'platform', params: { platform: platform.id } }">
-        {{ platform.name }}
+      <v-chip :to="{ name: 'platform', params: { platform: rom.platform_id } }">
+        {{ rom.platform_name }}
         <platform-icon
-          :key="platform.slug"
-          :slug="platform.slug"
-          :name="platform.name"
+          :key="rom.platform_slug"
+          :slug="rom.platform_slug"
+          :name="rom.platform_name"
           :size="30"
           class="ml-2"
         />

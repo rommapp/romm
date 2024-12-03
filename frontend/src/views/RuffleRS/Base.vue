@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { isNull } from "lodash";
-import { onMounted, ref, nextTick } from "vue";
-import { useRoute } from "vue-router";
-
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
+import { isNull } from "lodash";
+import { storeToRefs } from "pinia";
+import { nextTick, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 
 // Props
 const route = useRoute();
+const galleryViewStore = storeGalleryView();
+const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -25,6 +28,7 @@ const script = document.createElement("script");
 script.src = "/assets/ruffle/ruffle.js";
 document.body.appendChild(script);
 
+// Functions
 function onPlay() {
   gameRunning.value = true;
 
@@ -71,6 +75,7 @@ onMounted(async () => {
       md="8"
       xl="10"
       id="game-wrapper"
+      :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
       class="bg-secondary"
       rounded
     >
@@ -190,12 +195,6 @@ onMounted(async () => {
     </v-col>
   </v-row>
 </template>
-
-<style>
-#game-wrapper {
-  aspect-ratio: 16 / 9;
-}
-</style>
 
 <style scoped>
 #game {

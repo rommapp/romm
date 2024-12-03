@@ -270,7 +270,7 @@ onBeforeUnmount(() => {
     <template v-if="filteredRoms.length > 0">
       <v-row
         no-gutters
-        class="overflow-hidden"
+        class="overflow-hidden align-center"
         :class="{ 'pa-1': currentView != 2 }"
       >
         <!-- Gallery cards view -->
