@@ -7,25 +7,23 @@ import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
+import storePlatforms from "@/stores/platforms";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
-import Cover from "@/components/common/Game/Card/Base.vue";
-import platformApi from "@/services/api/platform";
+import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
-import { onBeforeRouteLeave, useRoute } from "vue-router";
+import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
 const route = useRoute();
-const platform = ref<Platform>();
 const tab = ref<
   | "details"
   | "saves"
@@ -39,9 +37,11 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
-const { currentRom } = storeToRefs(romsStore);
+const platfotmsStore = storePlatforms();
+const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
 async function fetchDetails() {
+  gettingRoms.value = true;
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then(({ data }) => {
@@ -53,50 +53,40 @@ async function fetchDetails() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      gettingRoms.value = false;
     });
-
-  if (!noRomError.value) {
-    await platformApi
-      .getPlatform(currentRom.value?.platform_id)
-      .then((response) => {
-        platform.value = response.data;
-      })
-      .catch((error) => {
-        console.log(error);
-      })
-      .finally(() => {
-        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      });
-  }
 }
 
 onBeforeMount(async () => {
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-  if (currentRom.value?.id == parseInt(route.params.rom as string)) {
-    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-  } else {
+  const romId = parseInt(route.params.rom as string);
+
+  // Only fetch details if the currentRom ID differs
+  if (currentRom.value?.id !== romId) {
+    emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
     await fetchDetails();
+  } else {
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   }
+
   const downloadStore = storeDownload();
   downloadStore.clear();
-});
-
-onBeforeRouteLeave(() => {
-  currentRom.value = null;
-  return true;
 });
 
 watch(
   () => route.fullPath,
   async () => {
-    await fetchDetails();
+    const romId = parseInt(route.params.rom as string);
+
+    // Only fetch details if the currentRom ID differs
+    if (currentRom.value?.id !== romId) {
+      await fetchDetails();
+    }
   },
 );
 </script>
 
 <template>
-  <!-- TODO: review layout on certain roms - ej: mortal kombat 2 for gb  -->
-  <template v-if="currentRom && platform">
+  <template v-if="currentRom && !gettingRoms">
     <background-header />
 
     <v-row
@@ -111,10 +101,16 @@ watch(
         class="cover"
         :class="{
           'cover-desktop': mdAndUp,
-          'cover-mobile': smAndDown,
         }"
+        :style="
+          smAndDown
+            ? platfotmsStore.getAspectRatio(currentRom.platform_id) == 1 / 1
+              ? 'margin-top: -220px;'
+              : 'margin-top: -280px;'
+            : ''
+        "
       >
-        <cover
+        <game-card
           :key="currentRom.updated_at"
           :pointerOnHover="false"
           :rom="currentRom"
@@ -129,8 +125,14 @@ watch(
         class="px-5"
         :class="{
           'info-lg': mdAndUp,
-          'info-mobile': smAndDown,
         }"
+        :style="
+          smAndDown
+            ? platfotmsStore.getAspectRatio(currentRom.platform_id) == 1 / 1
+              ? 'margin-top: -40px;'
+              : 'margin-top: 100px;'
+            : ''
+        "
       >
         <div
           class="px-3 pb-3"
@@ -139,7 +141,7 @@ watch(
             'justify-center': smAndDown,
           }"
         >
-          <title-info :rom="currentRom" :platform="platform" />
+          <title-info :rom="currentRom" />
         </div>
         <v-row
           :class="{
@@ -185,7 +187,7 @@ watch(
               <v-window-item value="details">
                 <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
                   <v-col>
-                    <file-info :rom="currentRom" :platform="platform" />
+                    <file-info :rom="currentRom" />
                     <game-info :rom="currentRom" />
                   </v-col>
                 </v-row>
@@ -253,9 +255,6 @@ watch(
 .title-desktop {
   margin-top: -190px;
   margin-left: -20px;
-}
-.cover-mobile {
-  margin-top: -280px;
 }
 .info-mobile {
   margin-top: 100px;

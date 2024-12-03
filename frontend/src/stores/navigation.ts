@@ -5,23 +5,25 @@ export default defineStore("navigation", {
     activePlatformsDrawer: false,
     activeCollectionsDrawer: false,
     activeSettingsDrawer: false,
+    activePlatformInfoDrawer: false,
   }),
 
   actions: {
     switchActivePlatformsDrawer() {
-      this.activeCollectionsDrawer = false;
-      this.activeSettingsDrawer = false;
+      this.resetDrawersExcept("activePlatformsDrawer");
       this.activePlatformsDrawer = !this.activePlatformsDrawer;
     },
     switchActiveCollectionsDrawer() {
-      this.activePlatformsDrawer = false;
-      this.activeSettingsDrawer = false;
+      this.resetDrawersExcept("activeCollectionsDrawer");
       this.activeCollectionsDrawer = !this.activeCollectionsDrawer;
     },
     switchActiveSettingsDrawer() {
-      this.activePlatformsDrawer = false;
-      this.activeCollectionsDrawer = false;
+      this.resetDrawersExcept("activeSettingsDrawer");
       this.activeSettingsDrawer = !this.activeSettingsDrawer;
+    },
+    switchActivePlatformInfoDrawer() {
+      this.resetDrawersExcept("activePlatformInfoDrawer");
+      this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
     goHome() {
       this.resetDrawers();
@@ -35,6 +37,21 @@ export default defineStore("navigation", {
       this.activePlatformsDrawer = false;
       this.activeCollectionsDrawer = false;
       this.activeSettingsDrawer = false;
+      this.activePlatformInfoDrawer = false;
+    },
+    resetDrawersExcept(drawer: string) {
+      this.activePlatformsDrawer =
+        drawer === "activePlatformsDrawer" ? this.activePlatformsDrawer : false;
+      this.activeCollectionsDrawer =
+        drawer === "activeCollectionsDrawer"
+          ? this.activeCollectionsDrawer
+          : false;
+      this.activeSettingsDrawer =
+        drawer === "activeSettingsDrawer" ? this.activeSettingsDrawer : false;
+      this.activePlatformInfoDrawer =
+        drawer === "activePlatformInfoDrawer"
+          ? this.activePlatformInfoDrawer
+          : false;
     },
   },
 });

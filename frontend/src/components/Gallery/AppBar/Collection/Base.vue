@@ -14,7 +14,15 @@ const auth = storeAuth();
 </script>
 
 <template>
-  <v-app-bar id="gallery-app-bar" elevation="0" density="compact">
+  <v-app-bar
+    id="gallery-app-bar"
+    elevation="0"
+    density="compact"
+    mode="shift"
+    app
+    fixed
+    top
+  >
     <filter-btn />
     <filter-text-field v-if="!xs" />
     <div v-if="xs" class="flex-grow-1" />

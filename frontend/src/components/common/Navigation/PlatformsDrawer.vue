@@ -21,7 +21,7 @@ function clear() {
     :location="smAndDown ? 'top' : 'left'"
     mobile
     @update:model-value="clear"
-    width="400"
+    width="500"
     v-model="activePlatformsDrawer"
     class="bg-terciary"
   >

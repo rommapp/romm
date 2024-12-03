@@ -6,6 +6,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
+import storeGalleryView from "@/stores/galleryView";
 
 // Props
 const { lgAndUp } = useDisplay();
@@ -15,6 +16,7 @@ const searchTerm = ref("");
 const coverType = ref("all");
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
+const galleryViewStore = storeGalleryView();
 const panels = ref([0]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchCoverDialog", (term) => {
@@ -23,6 +25,7 @@ emitter?.on("showSearchCoverDialog", (term) => {
   if (searchTerm.value) searchCovers();
 });
 
+// Functions
 async function searchCovers() {
   covers.value = [];
 
@@ -175,20 +178,22 @@ onBeforeUnmount(() => {
                 v-for="resource in game.resources"
               >
                 <v-hover v-slot="{ isHovering, props: hoverProps }">
+                  <!-- TODO: fix aspect ratio -->
                   <v-img
                     v-bind="hoverProps"
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
                     @click="selectCover(resource.url)"
-                    :aspect-ratio="2 / 3"
+                    :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
                     :src="resource.thumb"
                     cover
                   >
                     <template #error>
+                      <!-- TODO: fix aspect ratio -->
                       <v-img
                         :src="resource.url"
                         cover
-                        :aspect-ratio="2 / 3"
+                        :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
                       ></v-img>
                     </template>
                     <template #placeholder>
