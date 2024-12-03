@@ -81,7 +81,7 @@ const computedAspectRatio = computed(() => {
     <v-card
       v-bind="{
         ...hoverProps,
-        ...(withLink && rom
+        ...(withLink && rom && romsStore.isSimpleRom(rom)
           ? {
               to: { name: 'rom', params: { rom: rom.id } },
             }
