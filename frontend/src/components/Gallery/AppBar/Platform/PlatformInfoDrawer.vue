@@ -60,7 +60,7 @@ watch(
     if (aspectRatio) {
       // Find the index of the aspect ratio option that matches the current aspect ratio
       const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => Math.abs(option.size - aspectRatio) < 0.01, // Handle floating-point precision issues
+        (option) => option.name == aspectRatio,
       );
       // If a matching aspect ratio option is found, update the selectedAspectRatio
       if (defaultAspectRatio !== -1) {
@@ -91,7 +91,7 @@ async function setAspectRatio() {
       .updatePlatform({
         platform: {
           ...currentPlatform.value,
-          aspect_ratio: selectedOption.size,
+          aspect_ratio: selectedOption.name,
         },
       })
       .then(({ data }) => {
@@ -101,7 +101,7 @@ async function setAspectRatio() {
           color: "green",
         });
         if (currentPlatform.value) {
-          currentPlatform.value.aspect_ratio = selectedOption.size;
+          currentPlatform.value.aspect_ratio = selectedOption.name;
         }
       })
       .catch((error) => {

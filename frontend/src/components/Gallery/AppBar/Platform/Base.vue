@@ -11,7 +11,6 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -20,41 +19,6 @@ const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
-const selectedAspectRatio = ref(0);
-const aspectRatioOptions = computed(() => [
-  {
-    name: "2 / 3",
-    size: 2 / 3,
-    source: "SteamGridDB",
-  },
-  {
-    name: "3 / 4",
-    size: 3 / 4,
-    source: "IGDB / MobyGames",
-  },
-  {
-    name: "1 / 1",
-    size: 1 / 1,
-    source: "Old squared cases",
-  },
-]);
-
-watch(
-  () => currentPlatform.value?.aspect_ratio,
-  (aspectRatio) => {
-    if (aspectRatio) {
-      // Find the index of the aspect ratio option that matches the current aspect ratio
-      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => Math.abs(option.size - aspectRatio) < 0.01, // Handle floating-point precision issues
-      );
-      // If a matching aspect ratio option is found, update the selectedAspectRatio
-      if (defaultAspectRatio !== -1) {
-        selectedAspectRatio.value = defaultAspectRatio;
-      }
-    }
-  },
-  { immediate: true }, // Execute the callback immediately with the current value
-);
 </script>
 
 <template>
