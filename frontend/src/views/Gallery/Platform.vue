@@ -314,7 +314,7 @@ onBeforeUnmount(() => {
           v-for="rom in filteredRoms.slice(0, itemsShown)"
           v-show="currentView != 2"
           :key="rom.id"
-          class="pa-1"
+          class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
           :sm="views[currentView]['size-sm']"
           :md="views[currentView]['size-md']"
