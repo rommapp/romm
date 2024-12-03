@@ -28,7 +28,7 @@ const props = withDefaults(
     showFav?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
-    withLink: boolean;
+    withLink?: boolean;
     src?: string;
   }>(),
   {
@@ -63,7 +63,6 @@ const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
 const downloadStore = storeDownload();
-const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
