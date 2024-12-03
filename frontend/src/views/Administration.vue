@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import UsersTable from "@/components/Administration/Users/Table.vue";
-import Tasks from "@/layouts/Administration/Tasks.vue";
+import Tasks from "@/components/Administration/Tasks.vue";
 import storeAuth from "@/stores/auth";
 
 // Props

@@ -5,11 +5,13 @@ import { storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
+// Props
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
 const { files } = storeToRefs(uploadStore);
 const show = ref(false);
 
+// Functions
 function clearFinished() {
   uploadStore.clearFinished();
 }
@@ -24,7 +26,7 @@ watch(files, (newList) => {
     id="upload-in-progress"
     v-model="show"
     transition="scroll-y-transition"
-    :timeout="100000000000"
+    :timeout="-1"
     absolute
     :location="xs ? 'bottom' : 'bottom right'"
     class="mb-4 mr-4"

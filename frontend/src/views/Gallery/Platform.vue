@@ -42,6 +42,7 @@ let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
+// Functions
 async function fetchRoms() {
   if (gettingRoms.value) return;
 

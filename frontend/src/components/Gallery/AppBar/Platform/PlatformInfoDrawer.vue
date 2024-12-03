@@ -224,11 +224,18 @@ async function setAspectRatio() {
       <v-col cols="12">
         <r-section
           v-if="auth.scopes.includes('platforms.write')"
-          icon="mdi-aspect-ratio"
-          title="UI Settings"
+          icon="mdi-cog"
+          title="Settings"
           elevation="0"
         >
           <template #content>
+            <v-chip
+              label
+              variant="text"
+              class="ma-1"
+              prepend-icon="mdi-aspect-ratio"
+              >Set cover style</v-chip
+            >
             <v-item-group
               v-model="selectedAspectRatio"
               mandatory
