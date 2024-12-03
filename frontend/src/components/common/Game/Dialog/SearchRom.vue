@@ -198,6 +198,8 @@ onBeforeUnmount(() => {
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
             title-on-hover
+            pointerOnHover
+            withLink
             show-flags
             show-fav
             transform-scale

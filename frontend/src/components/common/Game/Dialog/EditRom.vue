@@ -226,11 +226,7 @@ function closeDialog() {
         <v-col cols="12" md="4" xl="3">
           <v-row class="justify-center" no-gutters>
             <v-col style="max-width: 240px" :class="{ 'my-4': smAndDown }">
-              <game-card
-                :rom="rom"
-                :src="imagePreviewUrl"
-                :pointerOnHover="false"
-              >
+              <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
                     <v-btn

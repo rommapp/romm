@@ -28,6 +28,7 @@ const props = withDefaults(
     showFav?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
+    withLink: boolean;
     src?: string;
   }>(),
   {
@@ -35,13 +36,14 @@ const props = withDefaults(
     transformScale: false,
     titleOnHover: false,
     showFlags: false,
-    pointerOnHover: true,
+    pointerOnHover: false,
     titleOnFooter: false,
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
     withBorder: false,
     withBorderRommAccent: false,
+    withLink: false,
     src: "",
   },
 );
@@ -49,7 +51,10 @@ const platfotmsStore = storePlatforms();
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
 const handleClick = (event: MouseEvent) => {
-  emit("click", { event: event, rom: props.rom });
+  if (event.button === 0) {
+    // Only handle left-click
+    emit("click", { event: event, rom: props.rom });
+  }
 };
 const handleTouchStart = (event: TouchEvent) => {
   emit("touchstart", { event: event, rom: props.rom });
@@ -69,19 +74,19 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
-
-// Functions
-onMounted(() => {
-  card.value.$el.addEventListener("contextmenu", (event: Event) => {
-    event.preventDefault();
-  });
-});
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="hoverProps"
+      v-bind="{
+        ...hoverProps,
+        ...(withLink && rom
+          ? {
+              to: { name: 'rom', params: { rom: rom.id } },
+            }
+          : {}),
+      }"
       :class="{
         'on-hover': isHovering,
         'border-romm-accent-1': withBorderRommAccent,
@@ -90,143 +95,145 @@ onMounted(() => {
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
-      <v-progress-linear
-        v-if="romsStore.isSimpleRom(rom)"
-        color="romm-accent-1"
-        :active="downloadStore.value.includes(rom.id)"
-        :indeterminate="true"
-        absolute
-      />
-      <v-hover v-slot="{ isHovering, props: hoverProps }" open-delay="800">
-        <v-img
-          @click="handleClick"
-          @touchstart="handleTouchStart"
-          @touchend="handleTouchEnd"
-          v-bind="hoverProps"
-          :class="{ pointer: pointerOnHover }"
-          ref="card"
-          cover
-          :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-          :src="
-            src
-              ? src
-              : romsStore.isSimpleRom(rom)
+      <v-card-text class="pa-0">
+        <v-progress-linear
+          v-if="romsStore.isSimpleRom(rom)"
+          color="romm-accent-1"
+          :active="downloadStore.value.includes(rom.id)"
+          :indeterminate="true"
+          absolute
+        />
+        <v-hover v-slot="{ isHovering, props: hoverProps }" open-delay="800">
+          <v-img
+            @click="handleClick"
+            @touchstart="handleTouchStart"
+            @touchend="handleTouchEnd"
+            v-bind="hoverProps"
+            :class="{ pointer: pointerOnHover }"
+            ref="card"
+            cover
+            :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
+            :src="
+              src
+                ? src
+                : romsStore.isSimpleRom(rom)
+                  ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                    ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                    : (rom.igdb_id || rom.moby_id) && !rom.has_cover
+                      ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                      : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
+                  : !rom.igdb_url_cover && !rom.moby_url_cover
+                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                    : rom.igdb_url_cover
+                      ? rom.igdb_url_cover
+                      : rom.moby_url_cover
+            "
+            :lazy-src="
+              romsStore.isSimpleRom(rom)
                 ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
                   : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                     ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
+                    : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover && !rom.moby_url_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                   : rom.igdb_url_cover
                     ? rom.igdb_url_cover
                     : rom.moby_url_cover
-          "
-          :lazy-src="
-            romsStore.isSimpleRom(rom)
-              ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-              : !rom.igdb_url_cover && !rom.moby_url_cover
-                ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                : rom.igdb_url_cover
-                  ? rom.igdb_url_cover
-                  : rom.moby_url_cover
-          "
-          :aspect-ratio="computedAspectRatio"
-        >
-          <div v-bind="props" style="position: absolute; top: 0; width: 100%">
-            <template v-if="titleOnHover">
-              <v-expand-transition>
-                <div
-                  v-if="
-                    isHovering ||
-                    (romsStore.isSimpleRom(rom) && !rom.has_cover) ||
-                    (!romsStore.isSimpleRom(rom) &&
-                      !rom.igdb_url_cover &&
-                      !rom.moby_url_cover)
-                  "
-                  class="translucent-dark text-caption text-white"
-                  :class="{
-                    'text-truncate':
-                      galleryViewStore.currentView == 0 && !isHovering,
-                  }"
-                >
-                  <v-list-item>{{ rom.name }}</v-list-item>
-                </div>
-              </v-expand-transition>
-            </template>
-            <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
-            <v-row no-gutters class="text-white px-1">
-              <game-card-flags
-                v-if="romsStore.isSimpleRom(rom) && showFlags"
-                :rom="rom"
-              />
-              <slot name="prepend-inner"></slot>
-            </v-row>
-          </div>
-          <div class="position-absolute append-inner-left">
-            <platform-icon
-              v-if="romsStore.isSimpleRom(rom) && showPlatformIcon"
-              :size="25"
-              :key="rom.platform_slug"
-              :slug="rom.platform_slug"
-              :name="rom.platform_name"
-              class="label-platform"
-            />
-          </div>
-          <div class="position-absolute append-inner-right">
-            <v-btn
-              v-if="
-                romsStore.isSimpleRom(rom) &&
-                collectionsStore.isFav(rom) &&
-                showFav
-              "
-              @click.stop=""
-              class="label-fav"
-              rouded="0"
-              size="small"
-              color="romm-accent-1"
-            >
-              <v-icon class="icon-fav" size="x-small"
-                >{{
-                  collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
-                }}
-              </v-icon>
-            </v-btn>
-          </div>
-          <div
-            class="position-absolute append-inner-left"
-            v-if="!showPlatformIcon"
+            "
+            :aspect-ratio="computedAspectRatio"
           >
-            <slot name="append-inner-left"> </slot>
-          </div>
-          <div class="position-absolute append-inner-right" v-if="!showFav">
-            <slot name="append-inner-right"> </slot>
-          </div>
-          <template #error>
-            <v-img
-              :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-              cover
-              :aspect-ratio="computedAspectRatio"
-            ></v-img>
-          </template>
-          <template #placeholder>
-            <div class="d-flex align-center justify-center fill-height">
-              <v-progress-circular
-                :width="2"
-                :size="40"
-                color="romm-accent-1"
-                indeterminate
+            <div v-bind="props" style="position: absolute; top: 0; width: 100%">
+              <template v-if="titleOnHover">
+                <v-expand-transition>
+                  <div
+                    v-if="
+                      isHovering ||
+                      (romsStore.isSimpleRom(rom) && !rom.has_cover) ||
+                      (!romsStore.isSimpleRom(rom) &&
+                        !rom.igdb_url_cover &&
+                        !rom.moby_url_cover)
+                    "
+                    class="translucent-dark text-caption text-white"
+                    :class="{
+                      'text-truncate':
+                        galleryViewStore.currentView == 0 && !isHovering,
+                    }"
+                  >
+                    <v-list-item>{{ rom.name }}</v-list-item>
+                  </div>
+                </v-expand-transition>
+              </template>
+              <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
+              <v-row no-gutters class="text-white px-1">
+                <game-card-flags
+                  v-if="romsStore.isSimpleRom(rom) && showFlags"
+                  :rom="rom"
+                />
+                <slot name="prepend-inner"></slot>
+              </v-row>
+            </div>
+            <div class="position-absolute append-inner-left">
+              <platform-icon
+                v-if="romsStore.isSimpleRom(rom) && showPlatformIcon"
+                :size="25"
+                :key="rom.platform_slug"
+                :slug="rom.platform_slug"
+                :name="rom.platform_name"
+                class="label-platform"
               />
             </div>
-          </template>
-        </v-img>
-      </v-hover>
-      <v-card-text v-if="titleOnFooter">
-        <v-row class="pa-1 align-center">
+            <div class="position-absolute append-inner-right">
+              <v-btn
+                v-if="
+                  romsStore.isSimpleRom(rom) &&
+                  collectionsStore.isFav(rom) &&
+                  showFav
+                "
+                @click.stop=""
+                class="label-fav"
+                rouded="0"
+                size="small"
+                color="romm-accent-1"
+              >
+                <v-icon class="icon-fav" size="x-small"
+                  >{{
+                    collectionsStore.isFav(rom)
+                      ? "mdi-star"
+                      : "mdi-star-outline"
+                  }}
+                </v-icon>
+              </v-btn>
+            </div>
+            <div
+              class="position-absolute append-inner-left"
+              v-if="!showPlatformIcon"
+            >
+              <slot name="append-inner-left"> </slot>
+            </div>
+            <div class="position-absolute append-inner-right" v-if="!showFav">
+              <slot name="append-inner-right"> </slot>
+            </div>
+            <template #error>
+              <v-img
+                :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+                cover
+                :aspect-ratio="computedAspectRatio"
+              ></v-img>
+            </template>
+            <template #placeholder>
+              <div class="d-flex align-center justify-center fill-height">
+                <v-progress-circular
+                  :width="2"
+                  :size="40"
+                  color="romm-accent-1"
+                  indeterminate
+                />
+              </div>
+            </template>
+          </v-img>
+        </v-hover>
+        <v-row v-if="titleOnFooter" class="pa-1 align-center">
           <v-col class="pa-0 ml-1 text-truncate">
             <span>{{ rom.name }}</span>
           </v-col>
