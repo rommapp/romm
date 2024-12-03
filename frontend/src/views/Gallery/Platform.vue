@@ -32,6 +32,7 @@ const {
   filteredRoms,
   selectedRoms,
   currentPlatform,
+  currentCollection,
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
@@ -218,6 +219,7 @@ const filterToSetFilter: Record<FilterType, Function> = {
 
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
+  currentCollection.value = null;
 
   watch(
     () => allPlatforms.value,
