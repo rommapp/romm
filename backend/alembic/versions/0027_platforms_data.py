@@ -35,9 +35,9 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "aspect_ratio",
-                sa.Float(),
+                sa.String(length=10),
                 nullable=False,
-                server_default=str(DEFAULT_COVER_ASPECT_RATIO),
+                server_default=DEFAULT_COVER_ASPECT_RATIO,
             )
         )
     # ### end Alembic commands ###
