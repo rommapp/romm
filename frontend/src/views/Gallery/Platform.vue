@@ -326,6 +326,8 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            pointerOnHover
+            withLink
             show-flags
             show-action-bar
             show-fav

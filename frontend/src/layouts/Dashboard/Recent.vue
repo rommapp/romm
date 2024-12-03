@@ -43,6 +43,8 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
             :rom="rom"
             @click="onGameClick"
             title-on-hover
+            pointerOnHover
+            withLink
             show-flags
             show-fav
             transform-scale

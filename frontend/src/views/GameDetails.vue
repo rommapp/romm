@@ -110,11 +110,7 @@ watch(
             : ''
         "
       >
-        <game-card
-          :key="currentRom.updated_at"
-          :pointerOnHover="false"
-          :rom="currentRom"
-        />
+        <game-card :key="currentRom.updated_at" :rom="currentRom" />
         <action-bar class="mt-2" :rom="currentRom" />
         <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
       </v-col>
