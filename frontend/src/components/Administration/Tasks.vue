@@ -13,7 +13,6 @@ import { computed, inject } from "vue";
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeatStore = storeHeartbeat();
 const runningTasks = storeRunningTasks();
-
 const tasks = computed(() => [
   {
     title: heartbeatStore.value.WATCHER.TITLE,
@@ -47,7 +46,7 @@ const tasks = computed(() => [
   },
 ]);
 
-// Methods
+// Functions
 const runAllTasks = async () => {
   runningTasks.value = true;
   const result = await api.post("/tasks/run");

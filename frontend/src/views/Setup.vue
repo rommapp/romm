@@ -48,6 +48,7 @@ const filledAdminUser = computed(
 const isFirstStep = computed(() => step.value == 1);
 const isLastStep = computed(() => step.value == 2);
 
+// Functions
 async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)

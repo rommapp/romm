@@ -16,60 +16,67 @@ const routes = [
   {
     path: "/",
     name: "home",
-    component: () => import("@/views/Home.vue"),
+    component: () => import("@/layouts/Main.vue"),
     children: [
       {
-        path: "/",
+        path: "",
         name: "dashboard",
         component: () => import("@/views/Dashboard.vue"),
       },
       {
-        path: "/platform/:platform",
+        path: "platform/:platform",
         name: "platform",
         component: () => import("@/views/Gallery/Platform.vue"),
       },
       {
-        path: "/collection/:collection",
+        path: "collection/:collection",
         name: "collection",
         component: () => import("@/views/Gallery/Collection.vue"),
       },
       {
-        path: "/rom/:rom",
+        path: "rom/:rom",
         name: "rom",
         component: () => import("@/views/GameDetails.vue"),
       },
       {
-        path: "/rom/:rom/ejs",
+        path: "rom/:rom/ejs",
         name: "emulatorjs",
         component: () => import("@/views/EmulatorJS/Base.vue"),
       },
       {
-        path: "/rom/:rom/ruffle",
+        path: "rom/:rom/ruffle",
         name: "ruffle",
         component: () => import("@/views/RuffleRS/Base.vue"),
       },
       {
-        path: "/scan",
+        path: "scan",
         name: "scan",
         component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/management",
-        name: "management",
-        component: () => import("@/views/Management.vue"),
-      },
-      {
-        path: "/settings",
+        path: "settings",
         name: "settings",
-        component: () => import("@/views/Settings.vue"),
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
+          {
+            path: "ui",
+            name: "ui",
+            component: () => import("@/views/UI.vue"),
+          },
+          {
+            path: "management",
+            name: "management",
+            component: () => import("@/views/Management.vue"),
+          },
+          {
+            path: "administration",
+            name: "administration",
+            component: () => import("@/views/Administration.vue"),
+          },
+        ],
       },
       {
-        path: "/administration",
-        name: "administration",
-        component: () => import("@/views/Administration.vue"),
-      },
-      {
-        path: "/:pathMatch(.*)*",
+        path: ":pathMatch(.*)*",
         name: "noMatch",
         component: () => import("@/views/Dashboard.vue"),
       },
@@ -92,7 +99,7 @@ router.beforeEach((to, _from, next) => {
 });
 
 router.afterEach(() => {
-  // Scroll to top to avoid annoying behaviour in mobile
+  // Scroll to top to avoid annoying behaviour on mobile
   window.scrollTo({ top: 0, left: 0 });
 });
 

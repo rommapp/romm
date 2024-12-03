@@ -72,8 +72,8 @@ async function logout() {
         append-icon="mdi-account"
         >Profile</v-list-item
       >
-      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
-        >UI Settings</v-list-item
+      <v-list-item :to="{ name: 'ui' }" append-icon="mdi-palette"
+        >User Interface</v-list-item
       >
       <v-list-item
         v-if="scopes.includes('platforms.write')"

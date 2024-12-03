@@ -16,6 +16,7 @@ const password = ref("");
 const visiblePassword = ref(false);
 const logging = ref(false);
 
+// Functions
 async function login() {
   logging.value = true;
 
