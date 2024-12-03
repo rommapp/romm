@@ -1,4 +1,5 @@
 import functools
+from collections.abc import Iterable
 
 from decorators.database import begin_session
 from models.collection import Collection
@@ -139,6 +140,27 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             query.filter_by(platform_id=platform_id, file_name=file_name).limit(1)
         )
+
+    @begin_session
+    def get_roms_by_filename(
+        self,
+        platform_id: int,
+        file_names: Iterable[str],
+        query: Query = None,
+        session: Session = None,
+    ) -> dict[str, Rom]:
+        """Retrieve a dictionary of roms by their file names."""
+        query = query or select(Rom)
+        roms = (
+            session.scalars(
+                query.filter(Rom.file_name.in_(file_names)).filter_by(
+                    platform_id=platform_id
+                )
+            )
+            .unique()
+            .all()
+        )
+        return {rom.file_name: rom for rom in roms}
 
     @begin_session
     @with_details
