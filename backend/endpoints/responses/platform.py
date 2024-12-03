@@ -23,7 +23,7 @@ class PlatformSchema(BaseModel):
     url_logo: str | None = None
     logo_path: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
-    aspect_ratio: float = DEFAULT_COVER_ASPECT_RATIO
+    aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
     created_at: datetime
     updated_at: datetime
 

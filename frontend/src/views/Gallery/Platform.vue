@@ -32,6 +32,7 @@ const {
   filteredRoms,
   selectedRoms,
   currentPlatform,
+  currentCollection,
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
@@ -219,6 +220,7 @@ const filterToSetFilter: Record<FilterType, Function> = {
 
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
+  currentCollection.value = null;
 
   watch(
     () => allPlatforms.value,
@@ -313,7 +315,7 @@ onBeforeUnmount(() => {
           v-for="rom in filteredRoms.slice(0, itemsShown)"
           v-show="currentView != 2"
           :key="rom.id"
-          class="pa-1"
+          class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
           :sm="views[currentView]['size-sm']"
           :md="views[currentView]['size-md']"
@@ -325,6 +327,8 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            pointerOnHover
+            withLink
             show-flags
             show-action-bar
             show-fav
