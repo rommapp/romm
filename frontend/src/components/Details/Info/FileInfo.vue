@@ -14,6 +14,11 @@ const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const auth = storeAuth();
 const romUser = ref(props.rom.rom_user);
+const romInfo = ref([
+  { label: "SHA-1", value: props.rom.sha1_hash },
+  { label: "MD5", value: props.rom.md5_hash },
+  { label: "CRC", value: props.rom.crc_hash },
+]);
 
 // Functions
 function collectionsWithoutFavourites(collections: Collection[]) {
@@ -111,33 +116,17 @@ watch(
           <span>Info</span>
         </v-col>
         <v-col class="my-1">
-          <v-chip size="small" label>
+          <v-chip size="small" class="my-1 mr-2" label>
             Size: {{ formatBytes(rom.file_size_bytes) }}
           </v-chip>
           <v-chip
+            v-for="info in romInfo"
             v-if="!rom.multi && rom.sha1_hash"
             size="small"
             label
-            class="ml-1"
+            class="my-1 mr-2"
+            >{{ info.label }}: {{ info.value }}</v-chip
           >
-            SHA-1: {{ rom.sha1_hash }}
-          </v-chip>
-          <v-chip
-            v-if="!rom.multi && rom.md5_hash"
-            size="small"
-            label
-            class="ml-1"
-          >
-            MD5: {{ rom.md5_hash }}
-          </v-chip>
-          <v-chip
-            v-if="!rom.multi && rom.crc_hash"
-            size="small"
-            label
-            class="ml-1"
-          >
-            CRC: {{ rom.crc_hash }}
-          </v-chip>
         </v-col>
       </v-row>
       <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
