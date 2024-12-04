@@ -326,15 +326,15 @@ onBeforeUnmount(() => {
             v-if="currentPlatform"
             :key="rom.updated_at"
             :rom="rom"
-            title-on-hover
+            titleOnHover
             pointerOnHover
             withLink
-            show-flags
-            show-action-bar
-            show-fav
-            transform-scale
-            with-border
-            :with-border-romm-accent="
+            showFlags
+            showActionBar
+            showFav
+            transformScale
+            withBorder
+            :withBorderRommAccent="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
             @click="onGameClick"

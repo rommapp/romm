@@ -341,9 +341,8 @@ onBeforeUnmount(() => {
             v-if="rom"
             @click="showSources(matchedRom)"
             :rom="matchedRom"
-            title-on-footer
-            transform-scale
-            title-on-hover
+            transformScale
+            titleOnHover
             pointerOnHover
           />
         </v-col>
