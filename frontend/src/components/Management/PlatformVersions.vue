@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AddBtn from "@/components/Management/AddBtn.vue";
+import CreatePlatformVersionDialog from "@/components/Management/Dialog/CreatePlatformVersion.vue";
+import DeletePlatformVersionDialog from "@/components/Management/Dialog/DeletePlatformVersion.vue";
 import PlatformBindCard from "@/components/Management/PlatformBindCard.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
@@ -74,4 +76,7 @@ const editable = ref(false);
       </v-row>
     </template>
   </r-section>
+
+  <create-platform-version-dialog />
+  <delete-platform-version-dialog />
 </template>

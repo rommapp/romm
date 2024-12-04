@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
+import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { DetailedRom } from "@/stores/roms";
 import storeHeartbeat from "@/stores/heartbeat";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
   getDownloadLink,
@@ -11,7 +12,7 @@ import {
   isRuffleEmulationSupported,
 } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref, computed } from "vue";
+import { computed, inject, ref } from "vue";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
@@ -117,4 +118,6 @@ async function copyDownloadLink(rom: DetailedRom) {
       <admin-menu :rom="rom" />
     </v-menu>
   </v-btn-group>
+
+  <copy-rom-download-link-dialog />
 </template>

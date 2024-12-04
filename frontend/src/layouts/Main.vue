@@ -1,19 +1,7 @@
 <script setup lang="ts">
-import CreateUserDialog from "@/components/Administration/Users/Dialog/CreateUser.vue";
-import DeleteUserDialog from "@/components/Administration/Users/Dialog/DeleteUser.vue";
 import EditUserDialog from "@/components/Administration/Users/Dialog/EditUser.vue";
-import CreateExclusionDialog from "@/components/Management/Dialog/CreateExclusion.vue";
-import CreatePlatformBindingDialog from "@/components/Management/Dialog/CreatePlatformBinding.vue";
-import CreatePlatformVersionDialog from "@/components/Management/Dialog/CreatePlatformVersion.vue";
-import DeletePlatformBindingDialog from "@/components/Management/Dialog/DeletePlatformBinding.vue";
-import DeletePlatformVersionDialog from "@/components/Management/Dialog/DeletePlatformVersion.vue";
 import AddRomsToCollectionDialog from "@/components/common/Collection/Dialog/AddRoms.vue";
-import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
-import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
-import EditCollectionDialog from "@/components/common/Collection/Dialog/EditCollection.vue";
 import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialog/RemoveRoms.vue";
-import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
-import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
@@ -24,12 +12,12 @@ import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import MainDrawer from "@/components/common/Navigation/MainDrawer.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
-import NewVersion from "@/components/common/NewVersion.vue";
+import NewVersionDialog from "@/components/common/NewVersionDialog.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
-import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import ViewLoader from "@/components/common/ViewLoader.vue";
+import router from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import api from "@/services/api/index";
 import platformApi from "@/services/api/platform";
@@ -44,7 +32,6 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount } from "vue";
 import { useDisplay } from "vuetify";
-import router from "../plugins/router";
 
 // Props
 const { smAndDown } = useDisplay();
@@ -108,50 +95,31 @@ onBeforeMount(async () => {
 </script>
 
 <template>
+  <notification />
+
   <template v-if="!smAndDown">
     <main-drawer />
   </template>
   <template v-else>
     <main-app-bar />
   </template>
+  <search-rom-dialog />
   <platforms-drawer />
   <collections-drawer />
+  <upload-rom-dialog />
   <settings-drawer />
 
-  <notification />
-
+  <view-loader />
   <router-view />
 
-  <delete-platform-dialog />
-  <create-collection-dialog />
-  <edit-collection-dialog />
+  <match-rom-dialog />
+  <edit-rom-dialog />
+  <search-cover-dialog />
   <add-roms-to-collection-dialog />
   <remove-roms-from-collection-dialog />
-  <delete-collection-dialog />
-  <search-rom-dialog />
-  <match-rom-dialog />
-  <search-cover-dialog />
-  <copy-rom-download-link-dialog />
-  <upload-rom-dialog />
-  <edit-rom-dialog />
   <delete-rom-dialog />
-  <delete-asset-dialog />
-  <create-platform-binding-dialog />
-  <delete-platform-binding-dialog />
-  <create-platform-version-dialog />
-  <delete-platform-version-dialog />
-  <create-exclusion-dialog />
-  <create-user-dialog />
   <edit-user-dialog />
-  <delete-user-dialog />
 
-  <view-loader />
-
-  <new-version />
+  <new-version-dialog />
   <upload-progress />
 </template>
-<style scoped>
-.v-progress-linear {
-  z-index: 9999 !important;
-}
-</style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import ExcludedCard from "@/components/Management/ExcludedCard.vue";
 import RSection from "@/components/common/RSection.vue";
+import CreateExclusionDialog from "@/components/Management/Dialog/CreateExclusion.vue";
+import ExcludedCard from "@/components/Management/ExcludedCard.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { ref } from "vue";
@@ -74,4 +75,6 @@ const editable = ref(false);
       />
     </template>
   </r-section>
+
+  <create-exclusion-dialog />
 </template>
