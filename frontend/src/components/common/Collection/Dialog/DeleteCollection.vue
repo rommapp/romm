@@ -47,7 +47,7 @@ async function deleteCollection() {
       return;
     });
 
-  await router.push({ name: "dashboard" });
+  await router.push({ name: "home" });
 
   collectionsStore.remove(collection.value);
   emitter?.emit("refreshDrawer", null);

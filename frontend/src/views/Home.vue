@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import Collections from "@/components/Dashboard/Collections.vue";
-import Platforms from "@/components/Dashboard/Platforms.vue";
-import recentlyAdded from "@/components/Dashboard/Recent.vue";
-import Stats from "@/components/Dashboard/Stats.vue";
+import Collections from "@/components/Home/Collections.vue";
+import Platforms from "@/components/Home/Platforms.vue";
+import RecentlyAdded from "@/components/Home/Recent.vue";
+import Stats from "@/components/Home/Stats.vue";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";

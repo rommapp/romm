@@ -5,23 +5,37 @@ import storeHeartbeat from "@/stores/heartbeat";
 const routes = [
   {
     path: "/login",
-    name: "login",
-    component: () => import("@/views/Login.vue"),
+    name: "loginView",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: "login",
+        component: () => import("@/views/Auth/Login.vue"),
+      },
+    ],
   },
   {
     path: "/setup",
-    name: "setup",
-    component: () => import("@/views/Setup.vue"),
+    name: "setupView",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: "setup",
+        component: () => import("@/views/Auth/Setup.vue"),
+      },
+    ],
   },
   {
     path: "/",
-    name: "home",
+    name: "main",
     component: () => import("@/layouts/Main.vue"),
     children: [
       {
         path: "",
-        name: "dashboard",
-        component: () => import("@/views/Dashboard.vue"),
+        name: "home",
+        component: () => import("@/views/Home.vue"),
       },
       {
         path: "platform/:platform",
@@ -41,12 +55,12 @@ const routes = [
       {
         path: "rom/:rom/ejs",
         name: "emulatorjs",
-        component: () => import("@/views/EmulatorJS/Base.vue"),
+        component: () => import("@/views/Player/EmulatorJS/Base.vue"),
       },
       {
         path: "rom/:rom/ruffle",
         name: "ruffle",
-        component: () => import("@/views/RuffleRS/Base.vue"),
+        component: () => import("@/views/Player/RuffleRS/Base.vue"),
       },
       {
         path: "scan",
@@ -66,19 +80,19 @@ const routes = [
           {
             path: "management",
             name: "management",
-            component: () => import("@/views/Management.vue"),
+            component: () => import("@/views/Settings/Management.vue"),
           },
           {
             path: "administration",
             name: "administration",
-            component: () => import("@/views/Administration.vue"),
+            component: () => import("@/views/Settings/Administration.vue"),
           },
         ],
       },
       {
         path: ":pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Dashboard.vue"),
+        component: () => import("@/views/Home.vue"),
       },
     ],
   },
@@ -89,10 +103,10 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
   if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
-    next({ name: "dashboard" });
+    next({ name: "home" });
   } else {
     next();
   }
