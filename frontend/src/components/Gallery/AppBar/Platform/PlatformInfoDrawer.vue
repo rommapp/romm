@@ -127,7 +127,7 @@ async function setAspectRatio() {
   >
     <v-row no-gutters class="justify-center align-center">
       <v-col cols="12">
-        <div class="text-center">
+        <div class="text-center mt-2">
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
@@ -135,7 +135,10 @@ async function setAspectRatio() {
             :size="160"
           />
         </div>
-        <div class="text-center">
+        <div
+          class="text-center mt-4"
+          v-if="auth.scopes.includes('platforms.write')"
+        >
           <v-btn
             class="bg-terciary"
             @click="emitter?.emit('showUploadRomDialog', currentPlatform)"

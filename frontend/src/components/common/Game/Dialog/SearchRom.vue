@@ -186,7 +186,7 @@ onBeforeUnmount(() => {
     <template #content>
       <v-row no-gutters class="align-content-start align-center">
         <v-col
-          class="pa-1"
+          class="pa-1 align-self-end"
           cols="4"
           sm="3"
           md="2"
@@ -198,6 +198,8 @@ onBeforeUnmount(() => {
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
             title-on-hover
+            pointerOnHover
+            withLink
             show-flags
             show-fav
             transform-scale
