@@ -338,6 +338,7 @@ onBeforeUnmount(() => {
             title-on-footer
             transform-scale
             title-on-hover
+            pointerOnHover
           />
         </v-col>
       </v-row>

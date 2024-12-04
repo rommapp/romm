@@ -34,7 +34,7 @@ const ruffleEmulationSupported = computed(() => {
         icon="mdi-download"
         rounded="0"
         variant="text"
-        @click="romApi.downloadRom({ rom })"
+        @click.prevent="romApi.downloadRom({ rom })"
       />
     </v-col>
     <v-col
@@ -43,6 +43,7 @@ const ruffleEmulationSupported = computed(() => {
     >
       <v-btn
         v-if="ejsEmulationSupported"
+        @click.prevent
         class="action-bar-btn-small flex-grow-1"
         size="x-small"
         @click="
@@ -57,6 +58,7 @@ const ruffleEmulationSupported = computed(() => {
       />
       <v-btn
         v-if="ruffleEmulationSupported"
+        @click.prevent
         class="action-bar-btn-small flex-grow-1"
         size="x-small"
         @click="
@@ -74,6 +76,7 @@ const ruffleEmulationSupported = computed(() => {
       <v-menu location="bottom">
         <template #activator="{ props }">
           <v-btn
+            @click.prevent
             class="action-bar-btn-small flex-grow-1"
             size="x-small"
             v-bind="props"
