@@ -6,7 +6,7 @@ import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
-import Player from "@/views/EmulatorJS/Player.vue";
+import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";

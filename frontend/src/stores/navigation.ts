@@ -32,7 +32,7 @@ export default defineStore("navigation", {
     },
     goHome() {
       this.resetDrawers();
-      this.$router.push({ name: "dashboard" });
+      this.$router.push({ name: "home" });
     },
     goScan() {
       this.resetDrawers();
