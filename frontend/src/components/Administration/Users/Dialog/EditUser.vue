@@ -145,7 +145,7 @@ function closeDialog() {
                   <v-fade-transition>
                     <div
                       v-if="isHovering"
-                      class="d-flex translucent edit-hover text-h4"
+                      class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
                       @click="triggerFileInput"
                     >
                       <v-icon>mdi-pencil</v-icon>
@@ -186,15 +186,3 @@ function closeDialog() {
     </template>
   </r-dialog>
 </template>
-
-<style scoped>
-.edit-hover {
-  align-items: center;
-  bottom: 0;
-  justify-content: center;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-}
-</style>
