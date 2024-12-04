@@ -1,4 +1,5 @@
 import asyncio
+import zlib
 from enum import Enum
 from typing import Any
 
@@ -10,7 +11,7 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
-from logger.formatter import BLUE
+from logger.formatter import BLUE, RED
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, Screenshot, State
@@ -244,10 +245,17 @@ async def scan_rom(
         if platform.slug in NON_HASHABLE_PLATFORMS:
             rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
         else:
-            rom_hashes = fs_rom_handler.get_rom_hashes(
-                rom_attrs["file_name"], roms_path
-            )
-            rom_attrs.update(**rom_hashes)
+            try:
+                rom_hashes = fs_rom_handler.get_rom_hashes(
+                    rom_attrs["file_name"], roms_path
+                )
+                rom_attrs.update(**rom_hashes)
+            except zlib.error as e:
+                # Return empty hashes if calculating them fails for corrupted files
+                log.error(
+                    f"Hashes of {rom_attrs['file_name']} couldn't be calculated: {hl(e, color=RED)}"
+                )
+                rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
 
     # If no metadata scan is required
     if scan_type == ScanType.HASHES:
