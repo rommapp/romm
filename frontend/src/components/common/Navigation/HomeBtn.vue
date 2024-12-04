@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import RommIso from "@/components/common/RommIso.vue";
+import RIsotipo from "@/components/common/RIsotipo.vue";
 import storeNavigation from "@/stores/navigation";
 
 const homeUrl = ref(`${location.protocol}//${location.host}`);
@@ -13,7 +13,7 @@ const navigationStore = storeNavigation();
     :href="homeUrl"
   >
     <v-hover v-slot="{ isHovering, props: hoverProps }">
-      <romm-iso
+      <r-isotipo
         @click="navigationStore.goHome"
         v-bind="hoverProps"
         class="pointer"
