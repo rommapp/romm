@@ -10,7 +10,7 @@ authors = ["Zurdi <zurdi@romm.app>", "Arcane <arcane@romm.app>"]
 [tool.poetry.dependencies]
 python = "^3.12"
 anyio = "^4.4"
-fastapi = "0.110.0"
+fastapi = "0.115.6"
 uvicorn = "0.29.0"
 gunicorn = "22.0.0"
 websockets = "12.0"
