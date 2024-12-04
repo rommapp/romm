@@ -253,7 +253,7 @@ async def scan_rom(
             except zlib.error as e:
                 # Return empty hashes if calculating them fails for corrupted files
                 log.error(
-                    f"Hashes of {rom_attrs['file_name']} couldn't be calculated: {hl(e, color=RED)}"
+                    f"Hashes of {rom_attrs['file_name']} couldn't be calculated: {hl(str(e), color=RED)}"
                 )
                 rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
 
