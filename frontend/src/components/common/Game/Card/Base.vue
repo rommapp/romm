@@ -109,7 +109,6 @@ const computedAspectRatio = computed(() => {
             @touchend="handleTouchEnd"
             v-bind="hoverProps"
             :class="{ pointer: pointerOnHover }"
-            ref="card"
             cover
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="

@@ -2,7 +2,7 @@
 import EmptyFirmware from "@/components/common/EmptyFirmware.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
-import RommIso from "@/components/common/RommIso.vue";
+import RIsotipo from "@/components/common/RIsotipo.vue";
 import { onMounted, ref, useSlots } from "vue";
 
 // Props
@@ -65,7 +65,7 @@ onMounted(() => {
     <v-card rounded="0" :min-height="height" :max-height="height">
       <v-toolbar density="compact" class="bg-terciary">
         <v-icon v-if="icon" :icon="icon" class="ml-5" />
-        <romm-iso :size="30" class="mx-4" v-if="showRommIcon" />
+        <r-isotipo :size="30" class="mx-4" v-if="showRommIcon" />
         <slot name="header"></slot>
         <template #append>
           <v-btn
