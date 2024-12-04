@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AddBtn from "@/components/Management/AddBtn.vue";
+import CreatePlatformBindingDialog from "@/components/Management/Dialog/CreatePlatformBinding.vue";
+import DeletePlatformBindingDialog from "@/components/Management/Dialog/DeletePlatformBinding.vue";
 import PlatformBindCard from "@/components/Management/PlatformBindCard.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
@@ -74,4 +76,7 @@ const editable = ref(false);
       </v-row>
     </template>
   </r-section>
+
+  <create-platform-binding-dialog />
+  <delete-platform-binding-dialog />
 </template>

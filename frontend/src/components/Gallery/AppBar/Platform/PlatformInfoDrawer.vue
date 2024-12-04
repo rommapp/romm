@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RSection from "@/components/common/RSection.vue";
 import platformApi from "@/services/api/platform";
@@ -295,6 +296,8 @@ async function setAspectRatio() {
       </template>
     </r-section>
   </v-navigation-drawer>
+
+  <delete-platform-dialog />
 </template>
 <style scoped>
 .platform-icon {

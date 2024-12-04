@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
+import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
+import EditCollectionDialog from "@/components/common/Collection/Dialog/EditCollection.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
 import storeNavigation from "@/stores/navigation";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -136,4 +133,7 @@ const collectionInfoFields = [
       </template>
     </r-section>
   </v-navigation-drawer>
+
+  <edit-collection-dialog />
+  <delete-collection-dialog />
 </template>

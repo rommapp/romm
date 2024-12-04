@@ -8,6 +8,9 @@ body {
     1px 1px 3px #000000,
     0 0 3px #000000 !important;
 }
+.v-progress-linear {
+  z-index: 9999 !important;
+}
 .translucent {
   backdrop-filter: blur(3px) !important;
   text-shadow:
