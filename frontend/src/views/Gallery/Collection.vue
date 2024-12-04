@@ -308,16 +308,16 @@ onBeforeUnmount(() => {
           <game-card
             :key="rom.updated_at"
             :rom="rom"
-            title-on-hover
+            titleOnHover
             pointerOnHover
             withLink
-            show-flags
-            show-action-bar
-            transform-scale
-            with-border
-            show-fav
-            show-platform-icon
-            :with-border-romm-accent="
+            showFlags
+            showActionBar
+            transformScale
+            withBorder
+            showFav
+            showPlatformIcon
+            :withBorderRommAccent="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
             @click="onGameClick"
