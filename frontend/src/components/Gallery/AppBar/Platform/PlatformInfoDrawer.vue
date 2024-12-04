@@ -125,9 +125,9 @@ async function setAspectRatio() {
     :width="xs ? viewportWidth : '500'"
     v-if="currentPlatform"
   >
-    <v-row no-gutters class="justify-center align-center">
+    <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">
-        <div class="text-center mt-2">
+        <div class="text-center justify-center align-center">
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
@@ -194,7 +194,7 @@ async function setAspectRatio() {
             <span>ID: {{ currentPlatform.moby_id }}</span>
           </v-chip>
         </div>
-        <v-card class="mt-4 mx-4 bg-terciary fill-width" elevation="0">
+        <v-card class="mt-4 bg-terciary fill-width" elevation="0">
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in platformInfoFields"
@@ -220,84 +220,80 @@ async function setAspectRatio() {
         </v-card>
       </v-col>
     </v-row>
-    <v-row class="mt-4" no-gutters>
-      <v-col cols="12">
-        <r-section
-          v-if="auth.scopes.includes('platforms.write')"
-          icon="mdi-cog"
-          title="Settings"
-          elevation="0"
-        >
-          <template #content>
-            <v-chip
-              label
-              variant="text"
-              class="ma-1"
-              prepend-icon="mdi-aspect-ratio"
-              >Set cover style</v-chip
+    <r-section
+      v-if="auth.scopes.includes('platforms.write')"
+      icon="mdi-cog"
+      title="Settings"
+      elevation="0"
+    >
+      <template #content>
+        <div class="text-center">
+          <v-chip label variant="text" prepend-icon="mdi-aspect-ratio"
+            >Set cover style</v-chip
+          >
+          <v-divider class="border-opacity-25 mx-2" />
+          <v-item-group
+            v-model="selectedAspectRatio"
+            mandatory
+            @update:model-value="setAspectRatio"
+          >
+            <v-row
+              no-gutters
+              class="text-center justify-center align-center pa-2"
             >
-            <v-item-group
-              v-model="selectedAspectRatio"
-              mandatory
-              @update:model-value="setAspectRatio"
-            >
-              <v-row no-gutters class="text-center justify-center align-center">
-                <v-col class="ma-2" v-for="aspectRatio in aspectRatioOptions">
-                  <v-item v-slot="{ isSelected, toggle }">
-                    <v-card
-                      :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
-                      variant="outlined"
-                      @click="toggle"
+              <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+                <v-item v-slot="{ isSelected, toggle }">
+                  <v-card
+                    :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                    variant="outlined"
+                    @click="toggle"
+                  >
+                    <v-card-text
+                      class="pa-0 text-center align-center justify-center"
                     >
-                      <v-card-text
-                        class="pa-0 text-center align-center justify-center"
+                      <v-img
+                        :aspect-ratio="aspectRatio.size"
+                        cover
+                        src="/assets/login_bg.png"
+                        :class="{ greyscale: !isSelected }"
+                        class="d-flex align-center justify-center"
                       >
-                        <v-img
-                          :aspect-ratio="aspectRatio.size"
-                          cover
-                          src="/assets/login_bg.png"
-                          :class="{ greyscale: !isSelected }"
-                          class="d-flex align-center justify-center"
-                        >
-                          <p class="text-h5 text-romm-white">
-                            {{ aspectRatio.name }}
-                          </p>
-                        </v-img>
-                        <p class="text-center mx-2 text-caption">
-                          {{ aspectRatio.source }}
+                        <p class="text-h5 text-romm-white">
+                          {{ aspectRatio.name }}
                         </p>
-                      </v-card-text>
-                    </v-card>
-                  </v-item>
-                </v-col>
-              </v-row>
-            </v-item-group>
-          </template>
-        </r-section>
-        <r-section
-          v-if="auth.scopes.includes('platforms.write')"
-          icon="mdi-alert"
-          icon-color="red"
-          title="Danger zone"
-          elevation="0"
-        >
-          <template #content>
-            <div class="text-center my-2">
-              <v-btn
-                class="text-romm-red bg-terciary"
-                variant="flat"
-                @click="
-                  emitter?.emit('showDeletePlatformDialog', currentPlatform)
-                "
-              >
-                <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
-                Delete platform
-              </v-btn>
-            </div>
-          </template>
-        </r-section>
-      </v-col>
-    </v-row>
+                      </v-img>
+                      <p class="text-center text-caption">
+                        {{ aspectRatio.source }}
+                      </p>
+                    </v-card-text>
+                  </v-card>
+                </v-item>
+              </v-col>
+            </v-row>
+          </v-item-group>
+        </div>
+      </template>
+    </r-section>
+    <r-section
+      v-if="auth.scopes.includes('platforms.write')"
+      icon="mdi-alert"
+      icon-color="red"
+      title="Danger zone"
+      elevation="0"
+    >
+      <template #content>
+        <div class="text-center">
+          <v-btn
+            class="text-romm-red bg-terciary ma-2"
+            variant="flat"
+            @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
+          >
+            <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
+            Delete platform
+          </v-btn>
+        </div>
+      </template>
+    </r-section>
   </v-navigation-drawer>
 </template>
 <style scoped>
