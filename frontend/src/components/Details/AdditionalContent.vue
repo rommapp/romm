@@ -11,27 +11,8 @@ const combined = computed(() => [
 </script>
 <template>
   <v-row no-gutters>
-    <v-col
-      class="pa-0"
-      cols="4"
-      sm="3"
-      lg="6"
-      xxl="4"
-      v-for="expansion in combined"
-    >
-      <a
-        style="text-decoration: none; color: inherit"
-        :href="`https://www.igdb.com/games/${expansion.slug}`"
-        target="_blank"
-      >
-        <related-card :game="expansion" />
-      </a>
+    <v-col cols="4" sm="3" md="6" class="px-1" v-for="expansion in combined">
+      <related-card :game="expansion" />
     </v-col>
   </v-row>
 </template>
-<style scoped>
-.chip-type {
-  top: -0.1rem;
-  left: -0.1rem;
-}
-</style>

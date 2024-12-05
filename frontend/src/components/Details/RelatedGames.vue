@@ -12,7 +12,7 @@ const games = computed(() => [
 </script>
 <template>
   <v-row no-gutters>
-    <v-col cols="4" sm="3" md="6" v-for="game in games">
+    <v-col cols="4" sm="3" md="6" class="px-1" v-for="game in games">
       <related-card :game="game" />
     </v-col>
   </v-row>

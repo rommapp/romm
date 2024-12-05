@@ -21,7 +21,7 @@ const handleClick = () => {
 </script>
 
 <template>
-  <v-card class="ma-1" @click="handleClick">
+  <v-card @click="handleClick">
     <v-tooltip
       activator="parent"
       location="top"
