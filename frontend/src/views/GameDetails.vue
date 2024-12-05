@@ -96,12 +96,23 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col cols="12" md="8" :class="{ 'px-5': mdAndUp }">
-        <div :class="{ 'position-absolute title-desktop': mdAndUp }">
+      <v-col>
+        <div
+          class="ml-4"
+          :class="{ 'position-absolute title-desktop': mdAndUp }"
+        >
           <title-info :rom="currentRom" />
         </div>
-        <v-row no-gutters>
-          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
+        <v-row
+          :class="{ 'px-4': mdAndUp, 'justify-center': smAndDown }"
+          no-gutters
+        >
+          <v-tabs
+            v-model="tab"
+            slider-color="romm-accent-1"
+            :class="{ 'mt-4': smAndDown }"
+            rounded="0"
+          >
             <v-tab value="details" rounded="0"> Details </v-tab>
             <v-tab value="saves" rounded="0"> Saves </v-tab>
             <v-tab value="states" rounded="0"> States </v-tab>
@@ -132,8 +143,6 @@ watch(
               Related Games
             </v-tab>
           </v-tabs>
-        </v-row>
-        <v-row no-gutters>
           <v-col cols="12" class="px-2">
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
@@ -183,8 +192,10 @@ watch(
         </v-row>
       </v-col>
 
-      <v-col v-if="lgAndUp">
-        <additional-content class="mt-2" :rom="currentRom" />
+      <v-col cols="auto" v-if="lgAndUp">
+        <v-container :width="270" class="pa-0">
+          <additional-content class="mt-2" :rom="currentRom" />
+        </v-container>
       </v-col>
     </v-row>
   </template>

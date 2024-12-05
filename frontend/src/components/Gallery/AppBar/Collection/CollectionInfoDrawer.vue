@@ -66,6 +66,7 @@ const collectionInfoFields = [
           v-if="auth.scopes.includes('collections.write')"
         >
           <v-btn
+            v-if="currentCollection.user__username === auth.user?.username"
             rounded="4"
             @click="
               emitter?.emit('showEditCollectionDialog', {
@@ -111,7 +112,10 @@ const collectionInfoFields = [
       </v-col>
     </v-row>
     <r-section
-      v-if="auth.scopes.includes('collections.write')"
+      v-if="
+        auth.scopes.includes('collections.write') &&
+        currentCollection.user__username === auth.user?.username
+      "
       icon="mdi-alert"
       icon-color="red"
       title="Danger zone"
