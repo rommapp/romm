@@ -100,12 +100,12 @@ async function stopScan() {
     <!-- Platform selector -->
     <v-col cols="12" md="5" lg="6" class="px-1">
       <v-select
-        :menu-props="{ maxHeight: 650 }"
-        prepend-inner-icon="mdi-controller"
         v-model="platformsToScan"
+        :items="platforms.allPlatforms"
+        :menu-props="{ maxHeight: 650 }"
         label="Platforms"
         item-title="name"
-        :items="platforms.allPlatforms"
+        prepend-inner-icon="mdi-controller"
         variant="outlined"
         density="comfortable"
         multiple
@@ -116,8 +116,8 @@ async function stopScan() {
       >
         <template #item="{ props, item }">
           <v-list-item
-            class="py-4"
             v-bind="props"
+            class="py-4"
             :title="item.raw.name ?? ''"
             :subtitle="item.raw.fs_slug"
           >
@@ -152,13 +152,13 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col class="px-1" cols="12" md="5" lg="4" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="5" lg="4" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
-        prepend-inner-icon="mdi-database-search"
         v-model="metadataSources"
+        :items="metadataOptions"
         label="Metadata sources"
         item-title="name"
-        :items="metadataOptions"
+        prepend-inner-icon="mdi-database-search"
         variant="outlined"
         density="comfortable"
         multiple
@@ -195,16 +195,17 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
+
     <!-- Scan options -->
-    <v-col class="px-1" cols="12" md="2" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="2" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
-        prepend-inner-icon="mdi-magnify-scan"
         v-model="scanType"
+        :items="scanOptions"
+        label="Scan option"
+        prepend-inner-icon="mdi-magnify-scan"
         hide-details
         density="comfortable"
         variant="outlined"
-        label="Scan option"
-        :items="scanOptions"
       >
         <template #item="{ props, item }">
           <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
@@ -221,9 +222,9 @@ async function stopScan() {
   >
     <v-btn
       :disabled="scanning"
+      :loading="scanning"
       rounded="4"
       height="40"
-      :loading="scanning"
       @click="scan()"
     >
       <template #prepend>
@@ -263,6 +264,7 @@ async function stopScan() {
       Manage
     </v-btn>
   </v-row>
+
   <v-row
     v-if="metadataSources.length == 0"
     no-gutters
@@ -292,7 +294,7 @@ async function stopScan() {
   >
     <v-card-text class="pa-0">
       <v-expansion-panels
-        :model-value="panels"
+        v-model="panels"
         multiple
         flat
         rounded="0"
@@ -366,7 +368,8 @@ async function stopScan() {
     :elevation="0"
     height="40"
     class="text-caption align-center"
-    ><v-chip variant="outlined" color="terciary" class="px-1">
+  >
+    <v-chip variant="outlined" color="terciary" class="px-1">
       <v-icon class="text-white"> mdi-information </v-icon>
       <v-chip
         v-if="scanningPlatforms.length > 0"
@@ -376,10 +379,12 @@ async function stopScan() {
         class="ml-1 my-1"
       >
         <v-icon left>mdi-controller</v-icon>
-        <span>&nbsp;Platforms: {{ scanningPlatforms.length }} scanned</span>
+        <span clasS="ml-2"
+          >Platforms: {{ scanningPlatforms.length }} scanned</span
+        >
         <span v-if="!xs">, with {{ scanStats.added_platforms }} new</span>
         <span v-if="!xs"
-          >&nbsp;and {{ scanStats.metadata_platforms }} identified</span
+          >and {{ scanStats.metadata_platforms }} identified</span
         >
       </v-chip>
       <v-chip
@@ -390,7 +395,7 @@ async function stopScan() {
         class="ml-1 my-1"
       >
         <v-icon left> mdi-disc </v-icon>
-        <span>&nbsp; Roms: {{ scanStats.scanned_roms }} scanned</span>
+        <span class="ml-2">Roms: {{ scanStats.scanned_roms }} scanned</span>
         <span v-if="!xs">, with {{ scanStats.added_roms }} new</span>
         <span v-if="!xs"
           >&nbsp;and {{ scanStats.metadata_roms }} identified</span
