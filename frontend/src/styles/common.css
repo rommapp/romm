@@ -69,14 +69,3 @@ body {
 #main-app-bar ~ #gallery-app-bar {
   top: 45px !important;
 }
-/*
-Calculation to fix 100dvh:
-main-app-bar -> 45px
-gallery-app-bar -> 48px
-*/
-.fill-height-desktop {
-  height: calc(100dvh - 48px) !important;
-}
-.fill-height-mobile {
-  height: calc(100dvh - 45px - 48px) !important;
-}
