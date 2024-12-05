@@ -23,14 +23,6 @@ const navigationStore = storeNavigation();
 const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
 const collectionInfoFields = [
   {
-    key: "name",
-    label: "Name",
-  },
-  {
-    key: "description",
-    label: "Description",
-  },
-  {
     key: "rom_count",
     label: "Roms",
   },
@@ -65,21 +57,29 @@ const collectionInfoFields = [
           class="text-center mt-4"
           v-if="auth.scopes.includes('collections.write')"
         >
-          <v-btn
-            v-if="currentCollection.user__username === auth.user?.username"
-            rounded="4"
-            @click="
-              emitter?.emit('showEditCollectionDialog', {
-                ...currentCollection,
-              })
-            "
-            class="bg-terciary"
-          >
-            <template #prepend>
-              <v-icon>mdi-pencil-box</v-icon>
-            </template>
-            Edit collection
-          </v-btn>
+          <p class="text-h5 font-weight-bold pl-0">
+            <span>{{ currentCollection.name }}</span>
+          </p>
+          <p class="text-subtitle-2">
+            <span>{{ currentCollection.description }}</span>
+          </p>
+          <div class="mt-6">
+            <v-btn
+              v-if="currentCollection.user__username === auth.user?.username"
+              rounded="4"
+              @click="
+                emitter?.emit('showEditCollectionDialog', {
+                  ...currentCollection,
+                })
+              "
+              class="bg-terciary"
+            >
+              <template #prepend>
+                <v-icon>mdi-pencil-box</v-icon>
+              </template>
+              Edit collection
+            </v-btn>
+          </div>
         </div>
       </v-col>
       <v-col cols="12">
