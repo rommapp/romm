@@ -92,7 +92,7 @@ watch(
       no-gutters
       :class="{ 'ml-6': mdAndUp, 'justify-center': smAndDown }"
     >
-      <v-col>
+      <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
           <game-card :key="currentRom.updated_at" :rom="currentRom" />
           <action-bar class="mt-2" :rom="currentRom" />
@@ -100,7 +100,7 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col cols="12" sm="8" class="px-5">
+      <v-col cols="12" sm="8" :class="{ 'px-5': mdAndUp }">
         <div
           class="px-3 pb-3"
           :class="{ 'position-absolute title-desktop': mdAndUp }"
