@@ -18,6 +18,8 @@ const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
     aspectRatio?: string | number;
+    width?: string | number;
+    height?: string | number;
     transformScale?: boolean;
     titleOnHover?: boolean;
     showFlags?: boolean;
@@ -33,6 +35,8 @@ const props = withDefaults(
   }>(),
   {
     aspectRatio: undefined,
+    width: undefined,
+    height: undefined,
     transformScale: false,
     titleOnHover: false,
     showFlags: false,
@@ -78,6 +82,10 @@ const computedAspectRatio = computed(() => {
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
+      :minWidth="width"
+      :maxWidth="width"
+      :minHeight="height"
+      :maxHeight="height"
       v-bind="{
         ...hoverProps,
         ...(withLink && rom && romsStore.isSimpleRom(rom)
@@ -112,19 +120,16 @@ const computedAspectRatio = computed(() => {
             cover
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="
-              src
-                ? src
-                : romsStore.isSimpleRom(rom)
-                  ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                    : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                      ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                      : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-                  : !rom.igdb_url_cover && !rom.moby_url_cover
+              src ||
+              (romsStore.isSimpleRom(rom)
+                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                     ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                    : rom.igdb_url_cover
-                      ? rom.igdb_url_cover
-                      : rom.moby_url_cover
+                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
+                : !rom.igdb_url_cover && !rom.moby_url_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  : rom.igdb_url_cover || rom.moby_url_cover)
             "
             :lazy-src="
               romsStore.isSimpleRom(rom)
@@ -135,9 +140,7 @@ const computedAspectRatio = computed(() => {
                     : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover && !rom.moby_url_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : rom.igdb_url_cover
-                    ? rom.igdb_url_cover
-                    : rom.moby_url_cover
+                  : rom.igdb_url_cover || rom.moby_url_cover
             "
             :aspect-ratio="computedAspectRatio"
           >
