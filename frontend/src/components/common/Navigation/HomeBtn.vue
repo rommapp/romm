@@ -7,19 +7,20 @@ const homeUrl = ref(`${location.protocol}//${location.host}`);
 const navigationStore = storeNavigation();
 </script>
 <template>
-  <a
-    @click.prevent
-    style="text-decoration: none; color: inherit"
-    :href="homeUrl"
-  >
-    <v-hover v-slot="{ isHovering, props: hoverProps }">
-      <r-isotipo
-        @click="navigationStore.goHome"
-        v-bind="hoverProps"
-        class="pointer"
-        :class="{ 'border-romm-accent-1': isHovering }"
-        :size="35"
-      />
-    </v-hover>
-  </a>
+  <r-isotipo
+    :to="homeUrl"
+    @click="navigationStore.goHome"
+    class="cursor-pointer"
+    :size="35"
+  />
 </template>
+
+<style scoped>
+.v-avatar {
+  transition: filter 0.15s ease-in-out;
+}
+.v-avatar:hover,
+.v-avatar.active {
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-romm-accent-1)));
+}
+</style>

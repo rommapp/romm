@@ -11,7 +11,14 @@ const combined = computed(() => [
 </script>
 <template>
   <v-row no-gutters>
-    <v-col cols="4" sm="3" md="6" class="px-1" v-for="expansion in combined">
+    <v-col
+      cols="4"
+      sm="3"
+      md="3"
+      lg="6"
+      class="pa-1"
+      v-for="expansion in combined"
+    >
       <related-card :game="expansion" />
     </v-col>
   </v-row>
