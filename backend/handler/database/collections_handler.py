@@ -36,6 +36,14 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_collections_by_rom_id(
+        self, rom_id: int, session: Session = None
+    ) -> list[Collection]:
+        return session.scalars(
+            select(Collection).filter(Collection.roms.contains([rom_id]))
+        ).all()
+
+    @begin_session
     def update_collection(
         self, id: int, data: dict, session: Session = None
     ) -> Collection:
