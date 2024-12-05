@@ -91,11 +91,11 @@ watch(
 
     <v-row
       class="px-5"
+      no-gutters
       :class="{
         'ml-6': mdAndUp,
         'justify-center': smAndDown,
       }"
-      no-gutters
     >
       <v-col
         class="cover"
@@ -140,10 +140,10 @@ watch(
           <title-info :rom="currentRom" />
         </div>
         <v-row
+          no-gutters
           :class="{
             'justify-center': smAndDown,
           }"
-          no-gutters
         >
           <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0"> Details </v-tab>

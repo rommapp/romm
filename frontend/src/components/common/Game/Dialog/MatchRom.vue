@@ -328,7 +328,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row v-show="!showSelectSource" no-gutters>
+      <v-row class="align-content-start" v-show="!showSelectSource" no-gutters>
         <v-col
           class="pa-1"
           cols="4"
