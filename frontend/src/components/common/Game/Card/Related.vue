@@ -34,9 +34,8 @@ const handleClick = () => {
     <v-img
       v-bind="props"
       :src="
-        `${game.cover_url}`
-          ? `https:${game.cover_url.replace('t_thumb', 't_cover_big')}`
-          : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+        game.cover_url ||
+        `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
       "
       :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
       cover
