@@ -40,7 +40,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self, rom_id: int, session: Session = None
     ) -> list[Collection]:
         return session.scalars(
-            select(Collection).filter(Collection.roms.contains([rom_id]))
+            select(Collection).filter(Collection.roms.contains(rom_id))
         ).all()
 
     @begin_session
