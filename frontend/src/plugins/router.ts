@@ -4,18 +4,6 @@ import storeHeartbeat from "@/stores/heartbeat";
 
 const routes = [
   {
-    path: "/login",
-    name: "loginView",
-    component: () => import("@/layouts/Auth.vue"),
-    children: [
-      {
-        path: "",
-        name: "login",
-        component: () => import("@/views/Auth/Login.vue"),
-      },
-    ],
-  },
-  {
     path: "/setup",
     name: "setupView",
     component: () => import("@/layouts/Auth.vue"),
@@ -24,6 +12,18 @@ const routes = [
         path: "",
         name: "setup",
         component: () => import("@/views/Auth/Setup.vue"),
+      },
+    ],
+  },
+  {
+    path: "/login",
+    name: "loginView",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: "login",
+        component: () => import("@/views/Auth/Login.vue"),
       },
     ],
   },
@@ -68,22 +68,33 @@ const routes = [
         component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "settings",
-        name: "settings",
+        path: "/ui",
         component: () => import("@/layouts/Settings.vue"),
         children: [
           {
-            path: "ui",
+            path: "",
             name: "ui",
-            component: () => import("@/views/UI.vue"),
+            component: () => import("@/views/Settings/UserInterface.vue"),
           },
+        ],
+      },
+      {
+        path: "/management",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
           {
-            path: "management",
+            path: "",
             name: "management",
             component: () => import("@/views/Settings/Management.vue"),
           },
+        ],
+      },
+      {
+        path: "/administration",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
           {
-            path: "administration",
+            path: "",
             name: "administration",
             component: () => import("@/views/Settings/Administration.vue"),
           },
