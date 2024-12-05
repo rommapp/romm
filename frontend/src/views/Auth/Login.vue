@@ -21,9 +21,7 @@ async function login() {
   await identityApi
     .login(username.value, password.value)
     .then(async () => {
-      // Refetch CSRF token
       await refetchCSRFToken();
-
       const params = new URLSearchParams(window.location.search);
       router.push(params.get("next") ?? "/");
     })
@@ -33,13 +31,11 @@ async function login() {
         response.data ||
         message ||
         response.statusText;
-
       emitter?.emit("snackbarShow", {
         msg: `Unable to login: ${errorMessage}`,
         icon: "mdi-close-circle",
         color: "red",
       });
-
       console.error(
         `[${response.status} ${response.statusText}] ${errorMessage}`,
       );
@@ -58,31 +54,31 @@ async function login() {
         <v-form @submit.prevent="login">
           <v-text-field
             v-model="username"
-            autocomplete="on"
-            required
-            prepend-inner-icon="mdi-account"
-            type="text"
             label="Username"
+            type="text"
+            required
+            autocomplete="on"
+            prepend-inner-icon="mdi-account"
             variant="underlined"
           />
           <v-text-field
             v-model="password"
-            autocomplete="on"
-            required
-            prepend-inner-icon="mdi-lock"
-            :type="visiblePassword ? 'text' : 'password'"
             label="Password"
-            variant="underlined"
+            :type="visiblePassword ? 'text' : 'password'"
+            required
+            autocomplete="on"
+            prepend-inner-icon="mdi-lock"
             :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
             @click:append-inner="visiblePassword = !visiblePassword"
+            variant="underlined"
           />
           <v-btn
             type="submit"
-            :disabled="logging || !username || !password"
-            :variant="!username || !password ? 'text' : 'flat'"
             class="bg-terciary"
             block
             :loading="logging"
+            :disabled="logging || !username || !password"
+            :variant="!username || !password ? 'text' : 'flat'"
           >
             <span>Login</span>
             <template #append>

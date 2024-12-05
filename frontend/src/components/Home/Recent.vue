@@ -27,7 +27,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
 <template>
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
-      <v-row class="flex-nowrap overflow-x-auto align-center" no-gutters>
+      <v-row class="flex-nowrap overflow-x-auto" no-gutters>
         <v-col
           v-for="rom in recentRoms"
           :key="rom.id"

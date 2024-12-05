@@ -74,23 +74,19 @@ async function finishWizard() {
     <v-stepper :mobile="xs" class="bg-transparent" v-model="step" flat>
       <template v-slot:default="{ prev, next }">
         <v-stepper-header>
-          <v-stepper-item :value="1"
-            ><template #title
-              ><span class="text-white text-shadow"
-                >Create an admin user</span
-              ></template
-            ></v-stepper-item
-          >
+          <v-stepper-item :value="1">
+            <template #title>
+              <span class="text-white text-shadow">Create an admin user</span>
+            </template>
+          </v-stepper-item>
 
           <v-divider></v-divider>
 
-          <v-stepper-item :value="2"
-            ><template #title
-              ><span class="text-white text-shadow"
-                >Check metadata sources</span
-              ></template
-            ></v-stepper-item
-          >
+          <v-stepper-item :value="2">
+            <template #title>
+              <span class="text-white text-shadow">Check metadata sources</span>
+            </template>
+          </v-stepper-item>
         </v-stepper-header>
 
         <v-stepper-window>
@@ -107,23 +103,25 @@ async function finishWizard() {
                     <v-form @submit.prevent>
                       <v-text-field
                         v-model="defaultAdminUser.username"
-                        required
-                        prepend-inner-icon="mdi-account"
-                        type="text"
                         label="Username"
+                        type="text"
+                        required
+                        autocomplete="on"
+                        prepend-inner-icon="mdi-account"
                         variant="underlined"
                       />
                       <v-text-field
                         v-model="defaultAdminUser.password"
-                        required
-                        prepend-inner-icon="mdi-lock"
-                        :type="visiblePassword ? 'text' : 'password'"
                         label="Password"
-                        variant="underlined"
+                        :type="visiblePassword ? 'text' : 'password'"
+                        required
+                        autocomplete="on"
+                        prepend-inner-icon="mdi-lock"
                         :append-inner-icon="
                           visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                         "
                         @click:append-inner="visiblePassword = !visiblePassword"
+                        variant="underlined"
                       />
                     </v-form>
                   </v-col>
@@ -174,15 +172,17 @@ async function finishWizard() {
               :ripple="false"
               :disabled="isFirstStep"
               @click="prev"
-              >{{ isFirstStep ? "" : "previous" }}</v-btn
             >
+              {{ isFirstStep ? "" : "previous" }}
+            </v-btn>
           </template>
           <template #next>
             <v-btn
               class="text-white text-shadow"
               @click="!isLastStep ? next() : finishWizard()"
-              >{{ !isLastStep ? "Next" : "Finish" }}</v-btn
             >
+              {{ !isLastStep ? "Next" : "Finish" }}
+            </v-btn>
           </template>
         </v-stepper-actions>
       </template>
