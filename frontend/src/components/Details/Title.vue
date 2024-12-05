@@ -23,14 +23,14 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
   <div>
     <v-row
       class="text-white text-shadow"
-      :class="{ 'text-center mt-2': smAndDown }"
+      :class="{ 'text-center my-4': smAndDown }"
       no-gutters
     >
       <v-col>
-        <v-list-item class="text-h5 font-weight-bold pl-0">
+        <p class="text-h5 font-weight-bold pl-0">
           <span>{{ rom.name }}</span>
           <fav-btn class="ml-1" :rom="rom" />
-        </v-list-item>
+        </p>
       </v-col>
     </v-row>
 

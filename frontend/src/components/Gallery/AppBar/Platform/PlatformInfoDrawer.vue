@@ -47,7 +47,6 @@ const aspectRatioOptions = computed(() => [
 ]);
 
 const platformInfoFields = [
-  { key: "name", label: "Name" },
   { key: "slug", label: "Slug" },
   { key: "fs_slug", label: "Filesystem folder name" },
   { key: "category", label: "Category" },
@@ -137,38 +136,43 @@ async function setAspectRatio() {
           />
         </div>
         <div
-          class="text-center mt-4"
+          class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <v-btn
-            class="bg-terciary"
-            @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
-          >
-            <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
-            Upload roms
-          </v-btn>
-          <v-btn
-            :disabled="scanning"
-            rounded="4"
-            :loading="scanning"
-            @click="scan"
-            class="ml-2 bg-terciary"
-          >
-            <template #prepend>
-              <v-icon :color="scanning ? '' : 'romm-accent-1'"
-                >mdi-magnify-scan</v-icon
-              >
-            </template>
-            Scan platform
-            <template #loader>
-              <v-progress-circular
-                color="romm-accent-1"
-                :width="2"
-                :size="20"
-                indeterminate
-              />
-            </template>
-          </v-btn>
+          <p class="text-h5 font-weight-bold pl-0">
+            <span>{{ currentPlatform.name }}</span>
+          </p>
+          <div class="mt-6">
+            <v-btn
+              class="bg-terciary"
+              @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
+            >
+              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              Upload roms
+            </v-btn>
+            <v-btn
+              :disabled="scanning"
+              rounded="4"
+              :loading="scanning"
+              @click="scan"
+              class="ml-2 bg-terciary"
+            >
+              <template #prepend>
+                <v-icon :color="scanning ? '' : 'romm-accent-1'"
+                  >mdi-magnify-scan</v-icon
+                >
+              </template>
+              Scan platform
+              <template #loader>
+                <v-progress-circular
+                  color="romm-accent-1"
+                  :width="2"
+                  :size="20"
+                  indeterminate
+                />
+              </template>
+            </v-btn>
+          </div>
         </div>
         <div class="mt-4 text-center">
           <a
