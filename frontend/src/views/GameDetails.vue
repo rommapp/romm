@@ -87,24 +87,17 @@ watch(
   <template v-if="currentRom && !gettingRoms">
     <background-header />
 
-    <v-row
-      class="px-5"
-      no-gutters
-      :class="{ 'ml-6': mdAndUp, 'justify-center': smAndDown }"
-    >
+    <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
       <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
           <game-card :key="currentRom.updated_at" :rom="currentRom" />
           <action-bar class="mt-2" :rom="currentRom" />
-          <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
+          <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
       </v-col>
 
-      <v-col cols="12" sm="8" :class="{ 'px-5': mdAndUp }">
-        <div
-          class="px-3 pb-3"
-          :class="{ 'position-absolute title-desktop': mdAndUp }"
-        >
+      <v-col cols="12" md="8" :class="{ 'px-5': mdAndUp }">
+        <div :class="{ 'position-absolute title-desktop': mdAndUp }">
           <title-info :rom="currentRom" />
         </div>
         <v-row no-gutters>
@@ -140,11 +133,11 @@ watch(
             </v-tab>
           </v-tabs>
         </v-row>
-        <v-row no-gutters class="mb-4">
-          <v-col cols="12">
+        <v-row no-gutters>
+          <v-col cols="12" class="px-2">
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
-                <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
+                <v-row no-gutters>
                   <v-col>
                     <file-info :rom="currentRom" />
                     <game-info :rom="currentRom" />
@@ -191,7 +184,7 @@ watch(
       </v-col>
 
       <v-col v-if="lgAndUp">
-        <additional-content :rom="currentRom" />
+        <additional-content class="mt-2" :rom="currentRom" />
       </v-col>
     </v-row>
   </template>
