@@ -7,7 +7,6 @@ import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
-import storePlatforms from "@/stores/platforms";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
@@ -37,7 +36,6 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
-const platfotmsStore = storePlatforms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
 async function fetchDetails() {
@@ -92,59 +90,24 @@ watch(
     <v-row
       class="px-5"
       no-gutters
-      :class="{
-        'ml-6': mdAndUp,
-        'justify-center': smAndDown,
-      }"
+      :class="{ 'ml-6': mdAndUp, 'justify-center': smAndDown }"
     >
-      <v-col
-        class="cover"
-        :class="{
-          'cover-desktop': mdAndUp,
-        }"
-        :style="
-          smAndDown
-            ? platfotmsStore.getAspectRatio(currentRom.platform_id) == 1 / 1
-              ? 'margin-top: -220px;'
-              : 'margin-top: -280px;'
-            : ''
-        "
-      >
-        <game-card :key="currentRom.updated_at" :rom="currentRom" />
-        <action-bar class="mt-2" :rom="currentRom" />
-        <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
+      <v-col>
+        <v-container :width="270" id="artwork-container" class="pa-0">
+          <game-card :key="currentRom.updated_at" :rom="currentRom" />
+          <action-bar class="mt-2" :rom="currentRom" />
+          <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
+        </v-container>
       </v-col>
 
-      <v-col
-        cols="12"
-        md="8"
-        class="px-5"
-        :class="{
-          'info-lg': mdAndUp,
-        }"
-        :style="
-          smAndDown
-            ? platfotmsStore.getAspectRatio(currentRom.platform_id) == 1 / 1
-              ? 'margin-top: -40px;'
-              : 'margin-top: 100px;'
-            : ''
-        "
-      >
+      <v-col cols="12" sm="8" class="px-5">
         <div
           class="px-3 pb-3"
-          :class="{
-            'position-absolute title-desktop': mdAndUp,
-            'justify-center': smAndDown,
-          }"
+          :class="{ 'position-absolute title-desktop': mdAndUp }"
         >
           <title-info :rom="currentRom" />
         </div>
-        <v-row
-          no-gutters
-          :class="{
-            'justify-center': smAndDown,
-          }"
-        >
+        <v-row no-gutters>
           <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
             <v-tab value="details" rounded="0"> Details </v-tab>
             <v-tab value="saves" rounded="0"> Saves </v-tab>
@@ -227,11 +190,9 @@ watch(
         </v-row>
       </v-col>
 
-      <template v-if="lgAndUp">
-        <v-col>
-          <additional-content :rom="currentRom" />
-        </v-col>
-      </template>
+      <v-col v-if="lgAndUp">
+        <additional-content :rom="currentRom" />
+      </v-col>
     </v-row>
   </template>
 
@@ -239,20 +200,10 @@ watch(
 </template>
 
 <style scoped>
-.cover {
-  min-width: 270px;
-  min-height: 360px;
-  max-width: 270px;
-  max-height: 360px;
-}
-.cover-desktop {
-  margin-top: -230px;
-}
 .title-desktop {
   margin-top: -190px;
-  margin-left: -20px;
 }
-.info-mobile {
-  margin-top: 100px;
+#artwork-container {
+  margin-top: -230px;
 }
 </style>
