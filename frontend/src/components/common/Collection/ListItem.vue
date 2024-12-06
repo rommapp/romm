@@ -14,7 +14,7 @@ defineProps<{ collection: Collection }>();
     class="py-1 pl-1"
   >
     <template #prepend>
-      <r-avatar :size="80" :collection="collection" />
+      <r-avatar :size="75" :collection="collection" />
     </template>
     <v-row no-gutters
       ><v-col
