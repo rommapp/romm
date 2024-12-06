@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import CreateUserDialog from "@/components/Administration/Users/Dialog/CreateUser.vue";
-import DeleteUserDialog from "@/components/Administration/Users/Dialog/DeleteUser.vue";
+import CreateUserDialog from "@/components/Settings/Administration/Users/Dialog/CreateUser.vue";
+import DeleteUserDialog from "@/components/Settings/Administration/Users/Dialog/DeleteUser.vue";
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";

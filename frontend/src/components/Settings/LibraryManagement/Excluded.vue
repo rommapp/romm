@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import RSection from "@/components/common/RSection.vue";
-import CreateExclusionDialog from "@/components/Management/Dialog/CreateExclusion.vue";
-import ExcludedCard from "@/components/Management/ExcludedCard.vue";
+import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Dialog/CreateExclusion.vue";
+import ExcludedCard from "@/components/Settings/LibraryManagement/ExcludedCard.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { ref } from "vue";

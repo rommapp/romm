@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import EditUserDialog from "@/components/Administration/Users/Dialog/EditUser.vue";
+import EditUserDialog from "@/components/Settings/Administration/Users/Dialog/EditUser.vue";
 import AddRomsToCollectionDialog from "@/components/common/Collection/Dialog/AddRoms.vue";
 import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialog/RemoveRoms.vue";
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";

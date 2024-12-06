@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import ThemeOption from "@/components/Settings/ThemeOption.vue";
-import InterfaceOption from "@/components/Settings/InterfaceOption.vue";
+import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
+import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import { autoThemeKey, themes } from "@/styles/themes";
 import { isKeyof } from "@/types";
