@@ -5,29 +5,23 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
+import { isNull } from "lodash";
 
 // Props
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
 const router = useRouter();
-
-// Functions
-function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
-  if (emitData.event.metaKey || emitData.event.ctrlKey) {
-    const link = router.resolve({
-      name: "rom",
-      params: { rom: emitData.rom.id },
-    });
-    window.open(link.href, "_blank");
-  } else {
-    router.push({ name: "rom", params: { rom: emitData.rom.id } });
-  }
-}
+const wrapRecentRoms = isNull(localStorage.getItem("settings.wrapRecentRoms"))
+  ? true
+  : localStorage.getItem("settings.wrapRecentRoms") === "true";
 </script>
 <template>
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
-      <v-row class="flex-nowrap overflow-x-auto" no-gutters>
+      <v-row
+        :class="{ 'flex-nowrap overflow-x-auto': wrapPlatforms }"
+        no-gutters
+      >
         <v-col
           v-for="rom in recentRoms"
           :key="rom.id"
@@ -41,7 +35,6 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
           <game-card
             :key="rom.updated_at"
             :rom="rom"
-            @click="onGameClick"
             title-on-hover
             pointer-on-hover
             with-link

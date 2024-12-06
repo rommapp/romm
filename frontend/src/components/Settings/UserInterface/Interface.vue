@@ -6,21 +6,23 @@ import { isNull } from "lodash";
 
 // Initializing refs from localStorage
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
-const groupRomsRef = ref(
-  isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
-);
+const groupRomsRef = ref(isNull(storedGroupRoms) ? true : storedGroupRoms === "true");
 const storedSiblings = localStorage.getItem("settings.showSiblings");
-const siblingsRef = ref(
-  isNull(storedSiblings) ? true : storedSiblings === "true",
-);
+const siblingsRef = ref(isNull(storedSiblings) ? true : storedSiblings === "true");
 const storedRegions = localStorage.getItem("settings.showRegions");
 const regionsRef = ref(isNull(storedRegions) ? true : storedRegions === "true");
 const storedLanguages = localStorage.getItem("settings.showLanguages");
-const languagesRef = ref(
-  isNull(storedLanguages) ? true : storedLanguages === "true",
-);
+const languagesRef = ref(isNull(storedLanguages) ? true : storedLanguages === "true");
 const storedStatus = localStorage.getItem("settings.showStatus");
 const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
+
+const storedWrapRecentRoms = localStorage.getItem("settings.wrapRecentRoms");
+const wrapRecentRomsRef = ref(isNull(storedWrapRecentRoms) ? true : storedWrapRecentRoms === "true");
+
+const storedWrapPlatforms = localStorage.getItem("settings.wrapPlatforms");
+const wrapPlatformsRef = ref(isNull(storedWrapPlatforms) ? true : storedWrapPlatforms === "true");
+const storedWrapCollections = localStorage.getItem("settings.wrapCollections");
+const wrapCollectionsRef = ref(isNull(storedWrapCollections) ? true : storedWrapCollections === "true");
 const options = computed(() => [
   {
     title: "Group roms",
@@ -65,6 +67,33 @@ const options = computed(() => [
     model: statusRef,
     modelTrigger: toggleStatus,
   },
+  {
+    title: "Wrap recent added roms",
+    description:
+      "Wrap recent added rom cards as a grid in the home page",
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: wrapRecentRomsRef,
+    modelTrigger: toggleWrapRecentRoms,
+  },
+  {
+    title: "Wrap platforms",
+    description:
+      "Wrap platform cards as a grid in the home page",
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: wrapPlatformsRef,
+    modelTrigger: toggleWrapPlatforms,
+  },
+  {
+    title: "Wrap collections",
+    description:
+      "Wrap collection cards as a grid in the home page",
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: wrapCollectionsRef,
+    modelTrigger: toggleWrapCollections,
+  },
 ]);
 
 // Functions to update localStorage
@@ -91,6 +120,17 @@ const toggleLanguages = (value: boolean) => {
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
   localStorage.setItem("settings.showStatus", value.toString());
+};
+const toggleWrapRecentRoms = (value: boolean) => {
+  wrapRecentRomsRef.value = value
+  localStorage.setItem("settings.wrapRecentRoms", value.toString());
+const toggleWrapPlatforms = (value: boolean) => {
+  wrapPlatformsRef.value = value;
+  localStorage.setItem("settings.wrapPlatforms", value.toString());
+};
+const toggleWrapCollections = (value: boolean) => {
+  wrapCollectionsRef = value;
+  localStorage.setItem("settings.wrapCollections", value.toString());
 };
 </script>
 <template>
