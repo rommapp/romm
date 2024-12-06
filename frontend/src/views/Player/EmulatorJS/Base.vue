@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
@@ -133,7 +133,7 @@ onMounted(async () => {
           <v-divider class="my-4" />
           <v-list-item class="px-2">
             <template #prepend>
-              <r-avatar :rom="rom" />
+              <r-avatar-rom :rom="rom" />
             </template>
             <v-row no-gutters
               ><v-col>{{ rom.name }}</v-col></v-row

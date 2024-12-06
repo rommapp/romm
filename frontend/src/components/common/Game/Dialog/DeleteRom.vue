@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -124,7 +124,7 @@ function closeDialog() {
         <template #item.name="{ item }">
           <v-list-item class="px-0">
             <template #prepend>
-              <r-avatar :rom="item" />
+              <r-avatar-rom :rom="item" />
             </template>
             <v-row no-gutters
               ><v-col>{{ item.name }}</v-col></v-row

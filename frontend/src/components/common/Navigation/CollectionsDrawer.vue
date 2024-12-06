@@ -51,6 +51,7 @@ function clear() {
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
+        with-link
       />
     </v-list>
     <template #append>

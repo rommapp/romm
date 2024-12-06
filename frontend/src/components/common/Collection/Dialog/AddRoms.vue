@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
@@ -110,21 +111,11 @@ function closeDialog() {
         clearable
       >
         <template #item="{ props, item }">
-          <v-list-item
-            class="py-4"
+          <collection-list-item
+            :collection="item.raw"
             v-bind="props"
-            :title="item.raw.name ?? ''"
-            :subtitle="item.raw.description"
-          >
-            <template #prepend>
-              <r-avatar-collection :collection="item.raw" />
-            </template>
-            <template #append>
-              <v-chip class="ml-2" size="x-small" label>
-                {{ item.raw.rom_count }}
-              </v-chip>
-            </template>
-          </v-list-item>
+            :with-title="false"
+          />
         </template>
       </v-autocomplete>
     </template>

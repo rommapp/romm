@@ -5,13 +5,7 @@ import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialo
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
-import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
-import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
-import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
-import MainDrawer from "@/components/common/Navigation/MainDrawer.vue";
-import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
-import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import NewVersionDialog from "@/components/common/NewVersionDialog.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
@@ -31,10 +25,8 @@ import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount } from "vue";
-import { useDisplay } from "vuetify";
 
 // Props
-const { smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const configStore = storeConfig();
 const navigationStore = storeNavigation();
@@ -97,17 +89,7 @@ onBeforeMount(async () => {
 <template>
   <notification />
 
-  <template v-if="!smAndDown">
-    <main-drawer />
-  </template>
-  <template v-else>
-    <main-app-bar />
-  </template>
-  <search-rom-dialog />
-  <platforms-drawer />
-  <collections-drawer />
-  <upload-rom-dialog />
-  <settings-drawer />
+  <main-app-bar />
 
   <view-loader />
   <router-view />
