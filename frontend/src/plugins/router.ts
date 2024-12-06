@@ -68,24 +68,24 @@ const routes = [
         component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/ui",
+        path: "/user-interface",
         component: () => import("@/layouts/Settings.vue"),
         children: [
           {
             path: "",
-            name: "ui",
+            name: "userInterface",
             component: () => import("@/views/Settings/UserInterface.vue"),
           },
         ],
       },
       {
-        path: "/management",
+        path: "/library-management",
         component: () => import("@/layouts/Settings.vue"),
         children: [
           {
             path: "",
-            name: "management",
-            component: () => import("@/views/Settings/Management.vue"),
+            name: "libraryManagement",
+            component: () => import("@/views/Settings/LibraryManagement.vue"),
           },
         ],
       },
