@@ -234,7 +234,7 @@ async function setAspectRatio() {
       <template #content>
         <div class="text-center">
           <v-chip label variant="text" prepend-icon="mdi-aspect-ratio"
-            >Set cover style</v-chip
+            >Cover style</v-chip
           >
           <v-divider class="border-opacity-25 mx-2" />
           <v-item-group
