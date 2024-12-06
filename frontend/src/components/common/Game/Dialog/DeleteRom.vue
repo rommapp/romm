@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -122,53 +122,17 @@ function closeDialog() {
         show-select
       >
         <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <template #prepend>
-              <r-avatar-rom :rom="item" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
-            <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters
-              ><v-col class="text-romm-accent-1"
-                >{{ item.file_name
-                }}<v-chip
-                  v-if="romsToDeleteFromFs.includes(item.id) && smAndUp"
-                  label
-                  size="x-small"
-                  class="text-romm-red ml-1"
-                >
-                  Removing from filesystem
-                </v-chip></v-col
-              ></v-row
-            >
-            <v-row
-              v-if="romsToDeleteFromFs.includes(item.id) && !smAndUp"
-              no-gutters
-            >
-              <v-col>
-                <v-chip label size="x-small" class="text-romm-red">
-                  Removing from filesystem
-                </v-chip>
-              </v-col>
-            </v-row>
-            <v-row no-gutters>
-              <v-col>
-                <v-chip v-if="!smAndUp" size="x-small" label
-                  >{{ formatBytes(item.file_size_bytes) }}
-                </v-chip>
-              </v-col>
-            </v-row>
-            <template #append>
-              <v-row no-gutters v-if="smAndUp">
+          <rom-list-item :rom="item" with-filename>
+            <template #append-body>
+              <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>
-                  <v-chip size="x-small" label>{{
-                    formatBytes(item.file_size_bytes)
-                  }}</v-chip>
+                  <v-chip label size="x-small" class="text-romm-red">
+                    Removing from filesystem
+                  </v-chip>
                 </v-col>
               </v-row>
             </template>
-          </v-list-item>
+          </rom-list-item>
         </template>
         <template #bottom>
           <v-divider />

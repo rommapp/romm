@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
@@ -131,19 +131,7 @@ onMounted(async () => {
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
           <v-divider class="my-4" />
-          <v-list-item class="px-2">
-            <template #prepend>
-              <r-avatar-rom :rom="rom" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ rom.name }}</v-col></v-row
-            >
-            <v-row no-gutters
-              ><v-col class="text-romm-accent-1">{{
-                rom.file_name
-              }}</v-col></v-row
-            >
-          </v-list-item>
+          <rom-list-item :rom="rom" with-filename />
           <v-divider class="my-4" />
           <v-select
             v-if="supportedCores.length > 1"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
@@ -96,24 +96,12 @@ onMounted(async () => {
             src="/assets/ruffle/powered_by_ruffle.png"
           />
           <v-divider class="my-4" />
-          <v-list-item class="px-2">
-            <template #prepend>
-              <r-avatar-rom :rom="rom" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ rom.name }}</v-col></v-row
-            >
-            <v-row no-gutters
-              ><v-col class="text-romm-accent-1">{{
-                rom.file_name
-              }}</v-col></v-row
-            >
-          </v-list-item>
+          <rom-list-item :rom="rom" with-filename />
+          <v-divider class="my-4" />
         </v-col>
       </v-row>
-      <v-row class="px-3 py-3 text-center" no-gutters>
+      <v-row class="px-3 text-center" no-gutters>
         <v-col>
-          <v-divider class="my-4" />
           <v-row class="align-center" no-gutters>
             <v-col>
               <v-btn
