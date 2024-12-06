@@ -5,6 +5,31 @@ import { computed, ref } from "vue";
 import { isNull } from "lodash";
 
 // Initializing refs from localStorage
+const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
+const showRecentRomsRef = ref(
+  isNull(storedShowRecentRoms) ? true : storedShowRecentRoms === "true",
+);
+const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
+const gridRecentRomsRef = ref(
+  isNull(storedGridRecentRoms) ? true : storedGridRecentRoms === "true",
+);
+const storedShowPlatforms = localStorage.getItem("settings.showPlatforms");
+const showPlatformsRef = ref(
+  isNull(storedShowPlatforms) ? true : storedShowPlatforms === "true",
+);
+const storedGridPlatforms = localStorage.getItem("settings.gridPlatforms");
+const gridPlatformsRef = ref(
+  isNull(storedGridPlatforms) ? true : storedGridPlatforms === "true",
+);
+const storedShowCollections = localStorage.getItem("settings.showCollections");
+const showCollectionsRef = ref(
+  isNull(storedShowCollections) ? true : storedShowCollections === "true",
+);
+const storedGridCollections = localStorage.getItem("settings.gridCollections");
+const gridCollectionsRef = ref(
+  isNull(storedGridCollections) ? true : storedGridCollections === "true",
+);
+
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
 const groupRomsRef = ref(
   isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
@@ -22,44 +47,57 @@ const languagesRef = ref(
 const storedStatus = localStorage.getItem("settings.showStatus");
 const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
 
-const storedWrapRecentRoms = localStorage.getItem("settings.wrapRecentRoms");
-const wrapRecentRomsRef = ref(
-  isNull(storedWrapRecentRoms) ? true : storedWrapRecentRoms === "true",
-);
-
-const storedWrapPlatforms = localStorage.getItem("settings.wrapPlatforms");
-const wrapPlatformsRef = ref(
-  isNull(storedWrapPlatforms) ? true : storedWrapPlatforms === "true",
-);
-const storedWrapCollections = localStorage.getItem("settings.wrapCollections");
-const wrapCollectionsRef = ref(
-  isNull(storedWrapCollections) ? true : storedWrapCollections === "true",
-);
-
 const homeOptions = computed(() => [
   {
-    title: "Wrap recent added roms",
-    description: "Wrap recent added rom cards as a grid in the home page",
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: wrapRecentRomsRef,
-    modelTrigger: toggleWrapRecentRoms,
+    title: "Show recently added roms",
+    description: "Show recently added roms section at the home page",
+    iconEnabled: "mdi-checkbox-marked-outline",
+    iconDisabled: "mdi-checkbox-blank-outline",
+    model: showRecentRomsRef,
+    modelTrigger: toggleShowRecentRoms,
   },
   {
-    title: "Wrap platforms",
-    description: "Wrap platform cards as a grid in the home page",
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: wrapPlatformsRef,
-    modelTrigger: toggleWrapPlatforms,
+    title: "Recently added roms as grid",
+    description: "View recently added rom cards as a grid at the home page",
+    iconEnabled: "mdi-view-comfy",
+    iconDisabled: "mdi-view-column",
+    disabled: !showRecentRomsRef.value,
+    model: gridRecentRomsRef,
+    modelTrigger: toggleGridRecentRoms,
   },
   {
-    title: "Wrap collections",
-    description: "Wrap collection cards as a grid in the home page",
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: wrapCollectionsRef,
-    modelTrigger: toggleWrapCollections,
+    title: "Show platforms",
+    description: "Show platform section at the home page",
+    iconEnabled: "mdi-checkbox-marked-outline",
+    iconDisabled: "mdi-checkbox-blank-outline",
+    model: showPlatformsRef,
+    modelTrigger: toggleShowPlatforms,
+  },
+  {
+    title: "Platforms as grid",
+    description: "View platform cards as a grid at the home page",
+    iconEnabled: "mdi-view-comfy",
+    iconDisabled: "mdi-view-column",
+    disabled: !showPlatformsRef.value,
+    model: gridPlatformsRef,
+    modelTrigger: toggleGridPlatforms,
+  },
+  {
+    title: "Show collections",
+    description: "Show collections section at the home page",
+    iconEnabled: "mdi-checkbox-marked-outline",
+    iconDisabled: "mdi-checkbox-blank-outline",
+    model: showCollectionsRef,
+    modelTrigger: toggleShowCollections,
+  },
+  {
+    title: "Collections a grid",
+    description: "View collection cards as a grid at the home page",
+    iconEnabled: "mdi-view-comfy",
+    iconDisabled: "mdi-view-column",
+    disabled: !showCollectionsRef.value,
+    model: gridCollectionsRef,
+    modelTrigger: toggleGridCollections,
   },
 ]);
 
@@ -110,6 +148,31 @@ const galleryOptions = computed(() => [
 ]);
 
 // Functions to update localStorage
+const toggleShowRecentRoms = (value: boolean) => {
+  showRecentRomsRef.value = value;
+  localStorage.setItem("settings.showRecentRoms", value.toString());
+};
+const toggleGridRecentRoms = (value: boolean) => {
+  gridRecentRomsRef.value = value;
+  localStorage.setItem("settings.gridRecentRoms", value.toString());
+};
+const toggleShowPlatforms = (value: boolean) => {
+  showPlatformsRef.value = value;
+  localStorage.setItem("settings.showPlatforms", value.toString());
+};
+const toggleGridPlatforms = (value: boolean) => {
+  gridPlatformsRef.value = value;
+  localStorage.setItem("settings.gridPlatforms", value.toString());
+};
+const toggleShowCollections = (value: boolean) => {
+  showCollectionsRef.value = value;
+  localStorage.setItem("settings.showCollections", value.toString());
+};
+const toggleGridCollections = (value: boolean) => {
+  gridCollectionsRef.value = value;
+  localStorage.setItem("settings.gridCollections", value.toString());
+};
+
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
   localStorage.setItem("settings.groupRoms", value.toString());
@@ -133,19 +196,6 @@ const toggleLanguages = (value: boolean) => {
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
   localStorage.setItem("settings.showStatus", value.toString());
-};
-const toggleWrapRecentRoms = (value: boolean) => {
-  wrapRecentRomsRef.value = value;
-  localStorage.setItem("settings.wrapRecentRoms", value.toString());
-};
-const toggleWrapPlatforms = (value: boolean) => {
-  wrapPlatformsRef.value = value;
-  localStorage.setItem("settings.wrapPlatforms", value.toString());
-};
-
-const toggleWrapCollections = (value: boolean) => {
-  wrapCollectionsRef.value = value;
-  localStorage.setItem("settings.wrapCollections", value.toString());
 };
 </script>
 <template>
