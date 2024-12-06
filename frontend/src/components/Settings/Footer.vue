@@ -4,7 +4,11 @@ import storeHeartbeat from "@/stores/heartbeat";
 const heartbeatStore = storeHeartbeat();
 </script>
 <template>
-  <v-bottom-navigation :elevation="0" height="36" class="text-caption">
+  <v-bottom-navigation
+    :elevation="0"
+    height="36"
+    class="bg-terciary text-caption"
+  >
     <v-row class="align-center justify-center" no-gutters>
       <span class="text-romm-accent-1">RomM</span>
       <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>

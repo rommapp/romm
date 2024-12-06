@@ -232,51 +232,53 @@ async function setAspectRatio() {
       elevation="0"
     >
       <template #content>
-        <div class="text-center">
-          <v-chip label variant="text" prepend-icon="mdi-aspect-ratio"
-            >Cover style</v-chip
+        <v-chip
+          label
+          variant="text"
+          class="ml-2"
+          prepend-icon="mdi-aspect-ratio"
+          >Cover style</v-chip
+        >
+        <v-divider class="border-opacity-25 mx-2" />
+        <v-item-group
+          v-model="selectedAspectRatio"
+          mandatory
+          @update:model-value="setAspectRatio"
+        >
+          <v-row
+            no-gutters
+            class="text-center justify-center align-center pa-2"
           >
-          <v-divider class="border-opacity-25 mx-2" />
-          <v-item-group
-            v-model="selectedAspectRatio"
-            mandatory
-            @update:model-value="setAspectRatio"
-          >
-            <v-row
-              no-gutters
-              class="text-center justify-center align-center pa-2"
-            >
-              <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
-                <v-item v-slot="{ isSelected, toggle }">
-                  <v-card
-                    :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
-                    variant="outlined"
-                    @click="toggle"
+            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+              <v-item v-slot="{ isSelected, toggle }">
+                <v-card
+                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                  variant="outlined"
+                  @click="toggle"
+                >
+                  <v-card-text
+                    class="pa-0 text-center align-center justify-center"
                   >
-                    <v-card-text
-                      class="pa-0 text-center align-center justify-center"
+                    <v-img
+                      :aspect-ratio="aspectRatio.size"
+                      cover
+                      src="/assets/login_bg.png"
+                      :class="{ greyscale: !isSelected }"
+                      class="d-flex align-center justify-center"
                     >
-                      <v-img
-                        :aspect-ratio="aspectRatio.size"
-                        cover
-                        src="/assets/login_bg.png"
-                        :class="{ greyscale: !isSelected }"
-                        class="d-flex align-center justify-center"
-                      >
-                        <p class="text-h5 text-romm-white">
-                          {{ aspectRatio.name }}
-                        </p>
-                      </v-img>
-                      <p class="text-center text-caption">
-                        {{ aspectRatio.source }}
+                      <p class="text-h5 text-romm-white">
+                        {{ aspectRatio.name }}
                       </p>
-                    </v-card-text>
-                  </v-card>
-                </v-item>
-              </v-col>
-            </v-row>
-          </v-item-group>
-        </div>
+                    </v-img>
+                    <p class="text-center text-caption">
+                      {{ aspectRatio.source }}
+                    </p>
+                  </v-card-text>
+                </v-card>
+              </v-item>
+            </v-col>
+          </v-row>
+        </v-item-group>
       </template>
     </r-section>
     <r-section
