@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
@@ -98,7 +98,7 @@ onMounted(async () => {
           <v-divider class="my-4" />
           <v-list-item class="px-2">
             <template #prepend>
-              <r-avatar :rom="rom" />
+              <r-avatar-rom :rom="rom" />
             </template>
             <v-row no-gutters
               ><v-col>{{ rom.name }}</v-col></v-row

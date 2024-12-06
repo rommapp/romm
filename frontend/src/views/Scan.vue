@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -336,7 +336,7 @@ async function stopScan() {
               :to="{ name: 'rom', params: { rom: rom.id } }"
             >
               <template #prepend>
-                <r-avatar :rom="rom" />
+                <r-avatar-rom :rom="rom" />
               </template>
               <v-row no-gutters>
                 <span
