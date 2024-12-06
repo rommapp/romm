@@ -11,9 +11,10 @@ defineProps<{ collection: Collection }>();
     :key="collection.id"
     :to="{ name: 'collection', params: { collection: collection.id } }"
     :value="collection.name"
+    class="py-1 pl-1"
   >
     <template #prepend>
-      <r-avatar :size="50" :collection="collection" />
+      <r-avatar :size="80" :collection="collection" />
     </template>
     <v-row no-gutters
       ><v-col

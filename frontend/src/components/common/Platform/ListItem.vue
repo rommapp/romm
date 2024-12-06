@@ -13,6 +13,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
     :key="platform.slug"
     :to="{ name: 'platform', params: { platform: platform.id } }"
     :value="platform.slug"
+    class="py-0"
   >
     <template #prepend>
       <platform-icon
