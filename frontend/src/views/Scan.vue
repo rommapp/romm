@@ -329,6 +329,7 @@ async function stopScan() {
             </v-list-item>
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-terciary">
+            <!-- TODO: change for RomListItem -->
             <v-list-item
               v-for="rom in platform.roms"
               :key="rom.id"
