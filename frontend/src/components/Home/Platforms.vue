@@ -2,15 +2,22 @@
 import PlatformCard from "@/components/common/Platform/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
+import { isNull } from "lodash";
 import { views } from "@/utils";
 
 // Props
 const platforms = storePlatforms();
+const wrapPlatforms = isNull(localStorage.getItem("settings.wrapPlatforms"))
+  ? true
+  : localStorage.getItem("settings.wrapPlatforms") === "true";
 </script>
 <template>
   <r-section icon="mdi-controller" title="Platforms">
     <template #content>
-      <v-row no-gutters>
+      <v-row
+        :class="{ 'flex-nowrap overflow-x-auto': wrapPlatforms }"
+        no-gutters
+      >
         <v-col
           v-for="platform in platforms.filledPlatforms"
           :key="platform.slug"
