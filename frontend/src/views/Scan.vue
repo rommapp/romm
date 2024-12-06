@@ -99,6 +99,7 @@ async function stopScan() {
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
     <v-col cols="12" md="5" lg="6" class="px-1">
+      <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
         :items="platforms.allPlatforms"
@@ -259,7 +260,7 @@ async function stopScan() {
       rounded="4"
       height="40"
       class="ml-2"
-      :to="{ name: 'management' }"
+      :to="{ name: 'libraryManagement' }"
     >
       Manage
     </v-btn>
