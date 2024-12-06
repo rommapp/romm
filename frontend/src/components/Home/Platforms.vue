@@ -7,15 +7,15 @@ import { views } from "@/utils";
 
 // Props
 const platforms = storePlatforms();
-const wrapPlatforms = isNull(localStorage.getItem("settings.wrapPlatforms"))
+const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
   ? true
-  : localStorage.getItem("settings.wrapPlatforms") === "true";
+  : localStorage.getItem("settings.gridPlatforms") === "true";
 </script>
 <template>
   <r-section icon="mdi-controller" title="Platforms">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': wrapPlatforms }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms }"
         no-gutters
       >
         <v-col

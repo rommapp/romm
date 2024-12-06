@@ -7,15 +7,15 @@ import { isNull } from "lodash";
 
 // Props
 const collections = storeCollections();
-const wrapCollections = isNull(localStorage.getItem("settings.wrapCollections"))
+const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   ? true
-  : localStorage.getItem("settings.wrapCollections") === "true";
+  : localStorage.getItem("settings.gridCollections") === "true";
 </script>
 <template>
   <r-section icon="mdi-bookmark-box-multiple" title="Collections">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': wrapCollections }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
         no-gutters
       >
         <v-col

@@ -11,15 +11,15 @@ import { isNull } from "lodash";
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
 const router = useRouter();
-const wrapRecentRoms = isNull(localStorage.getItem("settings.wrapRecentRoms"))
+const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
   ? true
-  : localStorage.getItem("settings.wrapRecentRoms") === "true";
+  : localStorage.getItem("settings.gridRecentRoms") === "true";
 </script>
 <template>
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': wrapRecentRoms }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"
         no-gutters
       >
         <v-col

@@ -9,6 +9,7 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { onMounted } from "vue";
+import { isNull } from "lodash";
 
 // Props
 const romsStore = storeRoms();
@@ -17,6 +18,15 @@ const platforms = storePlatforms();
 const { filledPlatforms } = storeToRefs(platforms);
 const collections = storeCollections();
 const { allCollections } = storeToRefs(collections);
+const showRecentRoms = isNull(localStorage.getItem("settings.showRecentRoms"))
+  ? true
+  : localStorage.getItem("settings.showRecentRoms") === "true";
+const showPlatforms = isNull(localStorage.getItem("settings.showPlatforms"))
+  ? true
+  : localStorage.getItem("settings.showPlatforms") === "true";
+const showCollections = isNull(localStorage.getItem("settings.showCollections"))
+  ? true
+  : localStorage.getItem("settings.showCollections") === "true";
 
 // Functions
 onMounted(async () => {
@@ -33,7 +43,7 @@ onMounted(async () => {
 
 <template>
   <stats />
-  <recently-added v-if="recentRoms.length > 0" />
-  <platforms v-if="filledPlatforms.length > 0" />
-  <collections v-if="allCollections.length > 0" />
+  <recently-added v-if="recentRoms.length > 0 && showRecentRoms" />
+  <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
+  <collections v-if="allCollections.length > 0 && showCollections" />
 </template>
