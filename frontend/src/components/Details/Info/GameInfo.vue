@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
@@ -30,6 +31,35 @@ function onFilterClick(filter: FilterType, value: string) {
   <v-row no-gutters>
     <v-col>
       <v-divider class="mx-2 my-4" />
+      <v-row
+        v-if="rom.user_collections && rom.user_collections.length > 0"
+        no-gutters
+        class="align-center my-3"
+      >
+        <v-col cols="3" xl="2">
+          <span>RomM Collections</span>
+        </v-col>
+        <v-col>
+          <v-row no-gutters>
+            <v-col cols="12" v-for="collection in rom.user_collections">
+              <v-chip
+                :to="{
+                  name: 'collection',
+                  params: { collection: collection.id },
+                }"
+                size="large"
+                class="mr-1 mt-1"
+                label
+              >
+                <template #prepend>
+                  <r-avatar :size="25" :collection="collection" />
+                </template>
+                <span class="ml-4">{{ collection.name }}</span>
+              </v-chip>
+            </v-col>
+          </v-row>
+        </v-col>
+      </v-row>
       <template v-for="filter in filters" :key="filter">
         <v-row
           v-if="rom[filter].length > 0"

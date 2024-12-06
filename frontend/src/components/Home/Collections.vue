@@ -24,10 +24,10 @@ const collections = storeCollections();
           <collection-card
             show-rom-count
             show-title
-            transformScale
+            transform-scale
             :key="collection.updated_at"
             :collection="collection"
-            withLink
+            with-link
           />
         </v-col>
       </v-row>

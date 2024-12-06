@@ -42,14 +42,14 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
             :key="rom.updated_at"
             :rom="rom"
             @click="onGameClick"
-            titleOnHover
-            pointerOnHover
-            withLink
-            showFlags
-            showFav
-            transformScale
-            showActionBar
-            showPlatformIcon
+            title-on-hover
+            pointer-on-hover
+            with-link
+            show-flags
+            show-fav
+            transform-scale
+            show-action-bar
+            show-platform-icon
           />
         </v-col>
       </v-row>
