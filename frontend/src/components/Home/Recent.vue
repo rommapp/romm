@@ -19,7 +19,7 @@ const wrapRecentRoms = isNull(localStorage.getItem("settings.wrapRecentRoms"))
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': wrapPlatforms }"
+        :class="{ 'flex-nowrap overflow-x-auto': wrapRecentRoms }"
         no-gutters
       >
         <v-col

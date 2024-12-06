@@ -6,24 +6,64 @@ import { isNull } from "lodash";
 
 // Initializing refs from localStorage
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
-const groupRomsRef = ref(isNull(storedGroupRoms) ? true : storedGroupRoms === "true");
+const groupRomsRef = ref(
+  isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
+);
 const storedSiblings = localStorage.getItem("settings.showSiblings");
-const siblingsRef = ref(isNull(storedSiblings) ? true : storedSiblings === "true");
+const siblingsRef = ref(
+  isNull(storedSiblings) ? true : storedSiblings === "true",
+);
 const storedRegions = localStorage.getItem("settings.showRegions");
 const regionsRef = ref(isNull(storedRegions) ? true : storedRegions === "true");
 const storedLanguages = localStorage.getItem("settings.showLanguages");
-const languagesRef = ref(isNull(storedLanguages) ? true : storedLanguages === "true");
+const languagesRef = ref(
+  isNull(storedLanguages) ? true : storedLanguages === "true",
+);
 const storedStatus = localStorage.getItem("settings.showStatus");
 const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
 
 const storedWrapRecentRoms = localStorage.getItem("settings.wrapRecentRoms");
-const wrapRecentRomsRef = ref(isNull(storedWrapRecentRoms) ? true : storedWrapRecentRoms === "true");
+const wrapRecentRomsRef = ref(
+  isNull(storedWrapRecentRoms) ? true : storedWrapRecentRoms === "true",
+);
 
 const storedWrapPlatforms = localStorage.getItem("settings.wrapPlatforms");
-const wrapPlatformsRef = ref(isNull(storedWrapPlatforms) ? true : storedWrapPlatforms === "true");
+const wrapPlatformsRef = ref(
+  isNull(storedWrapPlatforms) ? true : storedWrapPlatforms === "true",
+);
 const storedWrapCollections = localStorage.getItem("settings.wrapCollections");
-const wrapCollectionsRef = ref(isNull(storedWrapCollections) ? true : storedWrapCollections === "true");
-const options = computed(() => [
+const wrapCollectionsRef = ref(
+  isNull(storedWrapCollections) ? true : storedWrapCollections === "true",
+);
+
+const homeOptions = computed(() => [
+  {
+    title: "Wrap recent added roms",
+    description: "Wrap recent added rom cards as a grid in the home page",
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: wrapRecentRomsRef,
+    modelTrigger: toggleWrapRecentRoms,
+  },
+  {
+    title: "Wrap platforms",
+    description: "Wrap platform cards as a grid in the home page",
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: wrapPlatformsRef,
+    modelTrigger: toggleWrapPlatforms,
+  },
+  {
+    title: "Wrap collections",
+    description: "Wrap collection cards as a grid in the home page",
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: wrapCollectionsRef,
+    modelTrigger: toggleWrapCollections,
+  },
+]);
+
+const galleryOptions = computed(() => [
   {
     title: "Group roms",
     description: "Group versions of the same rom together in the gallery",
@@ -67,33 +107,6 @@ const options = computed(() => [
     model: statusRef,
     modelTrigger: toggleStatus,
   },
-  {
-    title: "Wrap recent added roms",
-    description:
-      "Wrap recent added rom cards as a grid in the home page",
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: wrapRecentRomsRef,
-    modelTrigger: toggleWrapRecentRoms,
-  },
-  {
-    title: "Wrap platforms",
-    description:
-      "Wrap platform cards as a grid in the home page",
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: wrapPlatformsRef,
-    modelTrigger: toggleWrapPlatforms,
-  },
-  {
-    title: "Wrap collections",
-    description:
-      "Wrap collection cards as a grid in the home page",
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: wrapCollectionsRef,
-    modelTrigger: toggleWrapCollections,
-  },
 ]);
 
 // Functions to update localStorage
@@ -122,22 +135,61 @@ const toggleStatus = (value: boolean) => {
   localStorage.setItem("settings.showStatus", value.toString());
 };
 const toggleWrapRecentRoms = (value: boolean) => {
-  wrapRecentRomsRef.value = value
+  wrapRecentRomsRef.value = value;
   localStorage.setItem("settings.wrapRecentRoms", value.toString());
+};
 const toggleWrapPlatforms = (value: boolean) => {
   wrapPlatformsRef.value = value;
   localStorage.setItem("settings.wrapPlatforms", value.toString());
 };
+
 const toggleWrapCollections = (value: boolean) => {
-  wrapCollectionsRef = value;
+  wrapCollectionsRef.value = value;
   localStorage.setItem("settings.wrapCollections", value.toString());
 };
 </script>
 <template>
   <r-section icon="mdi-palette-swatch-outline" title="Interface">
     <template #content>
-      <v-row no-gutters>
-        <v-col cols="12" md="6" v-for="option in options" :key="option.title">
+      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2"
+        >Home</v-chip
+      >
+      <v-divider class="border-opacity-25 mx-2" />
+      <v-row class="py-1" no-gutters>
+        <v-col
+          cols="12"
+          md="6"
+          v-for="option in homeOptions"
+          :key="option.title"
+        >
+          <interface-option
+            class="mx-2"
+            :disabled="option.disabled"
+            :title="option.title"
+            :description="option.description"
+            :icon="
+              option.model.value ? option.iconEnabled : option.iconDisabled
+            "
+            v-model="option.model.value"
+            @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+      </v-row>
+      <v-chip
+        label
+        variant="text"
+        prepend-icon="mdi-view-grid"
+        class="ml-2 mt-4"
+        >Gallery</v-chip
+      >
+      <v-divider class="border-opacity-25 mx-2" />
+      <v-row class="py-1" no-gutters>
+        <v-col
+          cols="12"
+          md="6"
+          v-for="option in galleryOptions"
+          :key="option.title"
+        >
           <interface-option
             class="mx-2"
             :disabled="option.disabled"
