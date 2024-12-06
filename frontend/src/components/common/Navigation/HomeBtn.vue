@@ -11,7 +11,7 @@ const navigationStore = storeNavigation();
     :to="homeUrl"
     @click="navigationStore.goHome"
     class="cursor-pointer"
-    :size="35"
+    :size="40"
   />
 </template>
 

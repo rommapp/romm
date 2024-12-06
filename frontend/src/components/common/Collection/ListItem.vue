@@ -13,7 +13,7 @@ defineProps<{ collection: Collection }>();
     :value="collection.name"
   >
     <template #prepend>
-      <r-avatar :collection="collection" />
+      <r-avatar :size="50" :collection="collection" />
     </template>
     <v-row no-gutters
       ><v-col

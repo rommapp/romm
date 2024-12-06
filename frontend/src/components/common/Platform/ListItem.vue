@@ -19,6 +19,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
         :key="platform.slug"
         :slug="platform.slug"
         :name="platform.name"
+        :size="50"
       >
         <v-tooltip
           location="bottom"

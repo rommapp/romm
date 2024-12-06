@@ -48,13 +48,13 @@ function onFilterClick(filter: FilterType, value: string) {
                   params: { collection: collection.id },
                 }"
                 size="large"
-                class="mr-1 mt-1"
+                class="mr-1 mt-1 px-0"
                 label
               >
                 <template #prepend>
-                  <r-avatar :size="25" :collection="collection" />
+                  <r-avatar :size="38" :collection="collection" />
                 </template>
-                <span class="ml-4">{{ collection.name }}</span>
+                <span class="px-4">{{ collection.name }}</span>
               </v-chip>
             </v-col>
           </v-row>
