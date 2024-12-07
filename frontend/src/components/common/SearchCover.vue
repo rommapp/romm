@@ -17,14 +17,13 @@ const searchTerm = ref("");
 const coverType = ref("all");
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
-const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 const panels = ref([0]);
 const emitter = inject<Emitter<Events>>("emitter");
 const aspectRatio = ref(
   parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
 );
-emitter?.on("showSearchCoverDialog", ({ term, platformAspectRatio }) => {
+emitter?.on("showSearchCoverDialog", ({ term, platformAspectRatio = null }) => {
   searchTerm.value = term;
   show.value = true;
   if (platformAspectRatio) aspectRatio.value = platformAspectRatio;
@@ -174,7 +173,7 @@ onBeforeUnmount(() => {
               <v-list-item class="pa-0">{{ game.name }}</v-list-item>
             </v-row>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="pa-0">
+          <v-expansion-panel-text class="py-1">
             <v-row no-gutters>
               <v-col
                 class="pa-1"
@@ -224,3 +223,8 @@ onBeforeUnmount(() => {
     </template>
   </r-dialog>
 </template>
+<style lang="css">
+.v-expansion-panel-text__wrapper {
+  padding: 0px !important;
+}
+</style>
