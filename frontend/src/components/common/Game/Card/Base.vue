@@ -28,7 +28,6 @@ const props = withDefaults(
     showActionBar?: boolean;
     showPlatformIcon?: boolean;
     showFav?: boolean;
-    showNotIdentified?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
     withLink?: boolean;
@@ -46,7 +45,6 @@ const props = withDefaults(
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
-    showNotIdentified: true,
     withBorder: false,
     withBorderRommAccent: false,
     withLink: false,
