@@ -120,9 +120,12 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
-        return [s.download_path for s in self.screenshots] + [
-            f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
-        ]
+        screenshots = [s.download_path for s in self.screenshots]
+        if self.path_screenshots:
+            screenshots += [
+                f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
+            ]
+        return screenshots
 
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
@@ -132,47 +135,61 @@ class Rom(BaseModel):
     # Metadata fields
     @property
     def youtube_video_id(self) -> str:
-        return self.igdb_metadata.get("youtube_video_id", "")
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("youtube_video_id", "")
+        return ""
 
     @property
     def alternative_names(self) -> list[str]:
         return (
-            self.igdb_metadata.get("alternative_names", None)
-            or self.moby_metadata.get("alternate_titles", None)
+            (self.igdb_metadata or {}).get("alternative_names", None)
+            or (self.moby_metadata or {}).get("alternate_titles", None)
             or []
         )
 
     @property
     def first_release_date(self) -> int:
-        return self.igdb_metadata.get("first_release_date", 0)
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("first_release_date", 0)
+        return 0
 
     @property
     def genres(self) -> list[str]:
         return (
-            self.igdb_metadata.get("genres", None)
-            or self.moby_metadata.get("genres", None)
+            (self.igdb_metadata or {}).get("genres", None)
+            or (self.moby_metadata or {}).get("genres", None)
             or []
         )
 
     @property
     def franchises(self) -> list[str]:
-        return self.igdb_metadata.get("franchises", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("franchises", [])
+        return []
 
     @property
     def collections(self) -> list[str]:
-        return self.igdb_metadata.get("collections", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("collections", [])
+        return []
 
     @property
     def companies(self) -> list[str]:
-        return self.igdb_metadata.get("companies", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("companies", [])
+        return []
 
     @property
     def game_modes(self) -> list[str]:
-        return self.igdb_metadata.get("game_modes", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("game_modes", [])
+        return []
 
     @property
     def age_ratings(self) -> list[str]:
-        return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
+        if self.igdb_metadata:
+            return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
+        return []
 
     @property
     def fs_resources_path(self) -> str:
