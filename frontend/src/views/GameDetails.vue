@@ -90,7 +90,11 @@ watch(
     <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
       <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
-          <game-card :key="currentRom.updated_at" :rom="currentRom" />
+          <game-card
+            :show-not-identified="false"
+            :key="currentRom.updated_at"
+            :rom="currentRom"
+          />
           <action-bar class="mt-2" :rom="currentRom" />
           <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>

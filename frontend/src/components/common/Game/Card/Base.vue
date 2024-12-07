@@ -181,13 +181,6 @@ const computedAspectRatio = computed(() => {
                 :name="rom.platform_name"
                 class="label-platform"
               />
-              <v-icon
-                v-if="!rom.igdb_id && !rom.moby_id"
-                title="Game not identified"
-                color="yellow"
-                class="ml-1"
-                >mdi-alert</v-icon
-              >
             </div>
             <div class="position-absolute append-inner-right">
               <v-btn

@@ -165,13 +165,6 @@ onMounted(() => {
             }}</v-col></v-row
           >
           <template #append>
-            <v-icon
-              v-if="!item.igdb_id && !item.moby_id"
-              title="Game not identified"
-              color="yellow"
-              class="ml-2"
-              >mdi-alert</v-icon
-            >
             <v-chip
               v-if="
                 item.sibling_roms &&
