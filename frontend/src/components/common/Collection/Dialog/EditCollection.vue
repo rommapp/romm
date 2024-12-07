@@ -180,10 +180,10 @@ function closeDialog() {
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit(
-                          'showSearchCoverDialog',
-                          collection.name as string,
-                        )
+                        emitter?.emit('showSearchCoverDialog', {
+                          term: collection.name as string,
+                          platformAspectRatio: null,
+                        })
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>
