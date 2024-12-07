@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -329,29 +330,23 @@ async function stopScan() {
             </v-list-item>
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-terciary">
-            <!-- TODO: change for RomListItem -->
-            <v-list-item
+            <rom-list-item
               v-for="rom in platform.roms"
-              :key="rom.id"
-              class="text-body-2 romm-grey px-10 py-2"
-              :to="{ name: 'rom', params: { rom: rom.id } }"
+              class="pa-4"
+              :rom="rom"
+              with-link
+              with-filename
             >
-              <template #prepend>
-                <r-avatar-rom :rom="rom" />
-              </template>
-              <v-row no-gutters>
-                <span
-                  :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }"
-                  >{{ rom.name }}</span
+              <template #append-body>
+                <v-chip
+                  v-if="!rom.igdb_id && !rom.moby_id"
+                  color="red"
+                  size="x-small"
+                  label
+                  >Not identified<v-icon class="ml-1">mdi-close</v-icon></v-chip
                 >
-                <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
-              </v-row>
-              <v-row no-gutters>
-                <v-col class="text-romm-accent-1">
-                  {{ rom.file_name }}
-                </v-col>
-              </v-row>
-            </v-list-item>
+              </template>
+            </rom-list-item>
             <v-list-item
               v-if="platform.roms.length == 0"
               class="text-center mt-2"
@@ -406,3 +401,8 @@ async function stopScan() {
     </v-chip>
   </v-bottom-navigation>
 </template>
+<style lang="css">
+.v-expansion-panel-text__wrapper {
+  padding: 0px;
+}
+</style>

@@ -156,8 +156,8 @@ onMounted(() => {
           <template #prepend>
             <r-avatar-rom :rom="item" />
           </template>
-          <v-row no-gutters
-            ><v-col>{{ item.name }}</v-col></v-row
+          <v-row no-gutters>
+            <v-col>{{ item.name }}</v-col></v-row
           >
           <v-row no-gutters
             ><v-col class="text-romm-accent-1">{{
@@ -165,6 +165,13 @@ onMounted(() => {
             }}</v-col></v-row
           >
           <template #append>
+            <v-icon
+              v-if="!item.igdb_id && !item.moby_id"
+              title="Game not identified"
+              color="yellow"
+              class="ml-2"
+              >mdi-alert</v-icon
+            >
             <v-chip
               v-if="
                 item.sibling_roms &&
