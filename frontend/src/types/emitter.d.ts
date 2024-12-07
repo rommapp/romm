@@ -20,7 +20,7 @@ export type Events = {
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: { term: string; platformAspectRatio: number | null };
+  showSearchCoverDialog: { term: string; aspectRatio: number | null };
   updateUrlCover: string;
   showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;

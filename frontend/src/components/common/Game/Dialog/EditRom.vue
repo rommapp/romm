@@ -228,7 +228,7 @@ function closeDialog() {
                       @click="
                         emitter?.emit('showSearchCoverDialog', {
                           term: rom.name as string,
-                          platformAspectRatio: computedAspectRatio,
+                          aspectRatio: computedAspectRatio,
                         })
                       "
                     >

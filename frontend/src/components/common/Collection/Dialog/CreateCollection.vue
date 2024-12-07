@@ -160,7 +160,7 @@ function closeDialog() {
                       @click="
                         emitter?.emit('showSearchCoverDialog', {
                           term: collection.name as string,
-                          platformAspectRatio: null,
+                          aspectRatio: null,
                         })
                       "
                     >

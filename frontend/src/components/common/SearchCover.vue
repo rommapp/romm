@@ -20,13 +20,13 @@ const filteredCovers = ref<SearchCoverSchema[]>();
 const galleryViewStore = storeGalleryView();
 const panels = ref([0]);
 const emitter = inject<Emitter<Events>>("emitter");
-const aspectRatio = ref(
+const coverAspectRatio = ref(
   parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
 );
-emitter?.on("showSearchCoverDialog", ({ term, platformAspectRatio = null }) => {
+emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
   searchTerm.value = term;
   show.value = true;
-  if (platformAspectRatio) aspectRatio.value = platformAspectRatio;
+  if (aspectRatio) coverAspectRatio.value = aspectRatio;
   if (searchTerm.value) searchCovers();
 });
 
@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
                     @click="selectCover(resource.url)"
-                    :aspect-ratio="aspectRatio"
+                    :aspect-ratio="coverAspectRatio"
                     :src="resource.thumb"
                     cover
                   >
