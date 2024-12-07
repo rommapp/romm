@@ -2,7 +2,9 @@
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -20,6 +22,8 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
+const platfotmsStore = storePlatforms();
+const galleryViewStore = storeGalleryView();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -30,6 +34,12 @@ emitter?.on("updateUrlCover", (url_cover) => {
   if (!rom.value) return;
   rom.value.url_cover = url_cover;
   setArtwork(url_cover);
+});
+const computedAspectRatio = computed(() => {
+  const ratio = rom.value?.platform_id
+    ? platfotmsStore.getAspectRatio(rom.value?.platform_id)
+    : galleryViewStore.defaultAspectRatioCover;
+  return parseFloat(ratio.toString());
 });
 
 // Functions
@@ -216,10 +226,10 @@ function closeDialog() {
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit(
-                          'showSearchCoverDialog',
-                          rom.name as string,
-                        )
+                        emitter?.emit('showSearchCoverDialog', {
+                          term: rom.name as string,
+                          platformAspectRatio: computedAspectRatio,
+                        })
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>

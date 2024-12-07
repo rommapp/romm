@@ -2,11 +2,12 @@
 import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import sgdbApi from "@/services/api/sgdb";
+import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
-import storeGalleryView from "@/stores/galleryView";
 
 // Props
 const { lgAndUp } = useDisplay();
@@ -16,12 +17,17 @@ const searchTerm = ref("");
 const coverType = ref("all");
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
+const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 const panels = ref([0]);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showSearchCoverDialog", (term) => {
+const aspectRatio = ref(
+  parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
+);
+emitter?.on("showSearchCoverDialog", ({ term, platformAspectRatio }) => {
   searchTerm.value = term;
   show.value = true;
+  if (platformAspectRatio) aspectRatio.value = platformAspectRatio;
   if (searchTerm.value) searchCovers();
 });
 
@@ -184,7 +190,7 @@ onBeforeUnmount(() => {
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
                     @click="selectCover(resource.url)"
-                    :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+                    :aspect-ratio="aspectRatio"
                     :src="resource.thumb"
                     cover
                   >
