@@ -25,7 +25,6 @@ withDefaults(
 </script>
 <template>
   <v-list-item
-    class="px-0"
     v-bind="{
       ...(withLink && rom
         ? {
@@ -35,6 +34,7 @@ withDefaults(
     }"
   >
     <template v-if="withAvatar" #prepend>
+      <slot name="prepend"></slot>
       <r-avatar-rom :rom="rom" />
     </template>
     <v-row v-if="withName" no-gutters
@@ -45,11 +45,14 @@ withDefaults(
     >
     <slot name="append-body"></slot>
     <template #append>
-      <v-row v-if="withSize" no-gutters>
-        <v-col>
+      <v-row no-gutters>
+        <v-col v-if="withSize" cols="auto">
           <v-chip size="x-small" label>{{
             formatBytes(rom.file_size_bytes)
           }}</v-chip>
+        </v-col>
+        <v-col>
+          <slot name="append"></slot>
         </v-col>
       </v-row>
     </template>

@@ -28,6 +28,7 @@ const props = withDefaults(
     showActionBar?: boolean;
     showPlatformIcon?: boolean;
     showFav?: boolean;
+    showNotIdentified?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
     withLink?: boolean;
@@ -45,6 +46,7 @@ const props = withDefaults(
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
+    showNotIdentified: true,
     withBorder: false,
     withBorderRommAccent: false,
     withLink: false,
@@ -156,10 +158,6 @@ const computedAspectRatio = computed(() => {
                         !rom.moby_url_cover)
                     "
                     class="translucent-dark text-caption text-white"
-                    :class="{
-                      'text-truncate':
-                        galleryViewStore.currentView == 0 && !isHovering,
-                    }"
                   >
                     <v-list-item>{{ rom.name }}</v-list-item>
                   </div>
@@ -183,6 +181,13 @@ const computedAspectRatio = computed(() => {
                 :name="rom.platform_name"
                 class="label-platform"
               />
+              <v-icon
+                v-if="!rom.igdb_id && !rom.moby_id"
+                title="Game not identified"
+                color="yellow"
+                class="ml-1"
+                >mdi-alert</v-icon
+              >
             </div>
             <div class="position-absolute append-inner-right">
               <v-btn
@@ -210,7 +215,7 @@ const computedAspectRatio = computed(() => {
               class="position-absolute append-inner-left"
               v-if="!showPlatformIcon"
             >
-              <slot name="append-inner-left"> </slot>
+              <slot name="append-inner-left"></slot>
             </div>
             <div class="position-absolute append-inner-right" v-if="!showFav">
               <slot name="append-inner-right"> </slot>
