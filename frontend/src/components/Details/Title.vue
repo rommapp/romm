@@ -29,7 +29,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
       <v-col>
         <p class="text-h5 font-weight-bold pl-0">
           <span>{{ rom.name }}</span>
-          <fav-btn class="ml-1" :rom="rom" />
+          <fav-btn class="ml-2" :rom="rom" />
         </p>
       </v-col>
     </v-row>
