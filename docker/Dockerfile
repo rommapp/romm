@@ -152,5 +152,5 @@ VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/re
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
 CMD ["/init"]
