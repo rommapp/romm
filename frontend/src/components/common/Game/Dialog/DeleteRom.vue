@@ -98,14 +98,14 @@ function closeDialog() {
       <v-row no-gutters class="justify-center">
         <span>Removing</span>
         <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
-        <span>games</span>
+        <span>games from RomM</span>
       </v-row>
     </template>
     <template #prepend>
       <v-list-item class="text-caption text-center">
         <span
           >Select the games you want to remove from your filesystem, otherwise
-          they will only be deleted from database.</span
+          they will only be deleted from RomM database.</span
         >
       </v-list-item>
     </template>
