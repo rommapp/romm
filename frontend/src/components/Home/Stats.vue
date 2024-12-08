@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import api from "@/services/api/index";
 import { onBeforeMount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const stats = ref({
   PLATFORMS: 0,
   ROMS: 0,
@@ -11,6 +14,7 @@ const stats = ref({
   FILESIZE: 0,
 });
 
+// Functions
 onBeforeMount(() => {
   api.get("/stats").then(({ data }) => {
     stats.value = data;
@@ -29,7 +33,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.PLATFORMS }} Platforms
+            {{ stats.PLATFORMS }} {{ t("platforms") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -39,7 +43,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.ROMS }} Games
+            {{ stats.ROMS }} {{ t("games") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -49,7 +53,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.SAVES }} Saves
+            {{ stats.SAVES }} {{ t("saves") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -59,7 +63,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.STATES }} States
+            {{ stats.STATES }} {{ t("states") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -69,7 +73,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.SCREENSHOTS }} Screenshots
+            {{ stats.SCREENSHOTS }} {{ t("screenshots") }}
           </v-chip>
         </v-col>
       </v-row>
