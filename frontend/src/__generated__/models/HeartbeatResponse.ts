@@ -6,6 +6,7 @@
 import type { EmulationDict } from './EmulationDict';
 import type { FrontendDict } from './FrontendDict';
 import type { MetadataSourcesDict } from './MetadataSourcesDict';
+import type { OIDCDict } from './OIDCDict';
 import type { SchedulerDict } from './SchedulerDict';
 import type { WatcherDict } from './WatcherDict';
 
@@ -19,5 +20,6 @@ export type HeartbeatResponse = {
     FS_PLATFORMS: Array<any>;
     EMULATION: EmulationDict;
     FRONTEND: FrontendDict;
+    OIDC: OIDCDict;
 };
 

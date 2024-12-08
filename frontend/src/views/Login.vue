@@ -14,10 +14,10 @@ const router = useRouter();
 const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
-const logging = ref(false);
+const loggingIn = ref(false);
 
 async function login() {
-  logging.value = true;
+  loggingIn.value = true;
 
   await identityApi
     .login(username.value, password.value)
@@ -46,8 +46,13 @@ async function login() {
       );
     })
     .finally(() => {
-      logging.value = false;
+      loggingIn.value = false;
     });
+}
+
+async function loginOIDC() {
+  loggingIn.value = true;
+  window.open("/api/login/openid", "_self");
 }
 </script>
 
@@ -87,14 +92,39 @@ async function login() {
                 />
                 <v-btn
                   type="submit"
-                  :disabled="logging || !username || !password"
+                  :disabled="loggingIn || !username || !password"
                   :variant="!username || !password ? 'text' : 'flat'"
                   class="bg-terciary"
                   block
-                  :loading="logging"
+                  :loading="loggingIn"
                   @click="login()"
                 >
                   <span>Login</span>
+                  <template #append>
+                    <v-icon class="text-romm-accent-1"
+                      >mdi-chevron-right-circle-outline</v-icon
+                    >
+                  </template>
+                  <template #loader>
+                    <v-progress-circular
+                      color="romm-accent-1"
+                      :width="2"
+                      :size="20"
+                      indeterminate
+                    />
+                  </template>
+                </v-btn>
+                <v-btn
+                  block
+                  type="submit"
+                  v-if="heartbeatStore.value.OIDC.ENABLED"
+                  :disabled="loggingIn"
+                  :loading="loggingIn"
+                  :variant="'text'"
+                  class="bg-terciary"
+                  @click="loginOIDC()"
+                >
+                  <span>Login with OIDC</span>
                   <template #append>
                     <v-icon class="text-romm-accent-1"
                       >mdi-chevron-right-circle-outline</v-icon
