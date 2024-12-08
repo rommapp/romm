@@ -13,7 +13,7 @@ const { user } = storeToRefs(auth);
   <v-avatar
     @click="navigationStore.switchActiveSettingsDrawer"
     class="pointer"
-    size="35"
+    :size="40"
     :class="{ active: navigationStore.activeSettingsDrawer }"
   >
     <v-img

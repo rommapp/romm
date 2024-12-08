@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RSection from "@/components/common/RSection.vue";
 import platformApi from "@/services/api/platform";
@@ -46,7 +47,6 @@ const aspectRatioOptions = computed(() => [
 ]);
 
 const platformInfoFields = [
-  { key: "name", label: "Name" },
   { key: "slug", label: "Slug" },
   { key: "fs_slug", label: "Filesystem folder name" },
   { key: "category", label: "Category" },
@@ -125,9 +125,9 @@ async function setAspectRatio() {
     :width="xs ? viewportWidth : '500'"
     v-if="currentPlatform"
   >
-    <v-row no-gutters class="justify-center align-center">
+    <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">
-        <div class="text-center mt-2">
+        <div class="text-center justify-center align-center">
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
@@ -136,38 +136,43 @@ async function setAspectRatio() {
           />
         </div>
         <div
-          class="text-center mt-4"
+          class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <v-btn
-            class="bg-terciary"
-            @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
-          >
-            <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
-            Upload roms
-          </v-btn>
-          <v-btn
-            :disabled="scanning"
-            rounded="4"
-            :loading="scanning"
-            @click="scan"
-            class="ml-2 bg-terciary"
-          >
-            <template #prepend>
-              <v-icon :color="scanning ? '' : 'romm-accent-1'"
-                >mdi-magnify-scan</v-icon
-              >
-            </template>
-            Scan platform
-            <template #loader>
-              <v-progress-circular
-                color="romm-accent-1"
-                :width="2"
-                :size="20"
-                indeterminate
-              />
-            </template>
-          </v-btn>
+          <p class="text-h5 font-weight-bold pl-0">
+            <span>{{ currentPlatform.name }}</span>
+          </p>
+          <div class="mt-6">
+            <v-btn
+              class="bg-terciary"
+              @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
+            >
+              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              Upload roms
+            </v-btn>
+            <v-btn
+              :disabled="scanning"
+              rounded="4"
+              :loading="scanning"
+              @click="scan"
+              class="ml-2 bg-terciary"
+            >
+              <template #prepend>
+                <v-icon :color="scanning ? '' : 'romm-accent-1'"
+                  >mdi-magnify-scan</v-icon
+                >
+              </template>
+              Scan platform
+              <template #loader>
+                <v-progress-circular
+                  color="romm-accent-1"
+                  :width="2"
+                  :size="20"
+                  indeterminate
+                />
+              </template>
+            </v-btn>
+          </div>
         </div>
         <div class="mt-4 text-center">
           <a
@@ -194,7 +199,7 @@ async function setAspectRatio() {
             <span>ID: {{ currentPlatform.moby_id }}</span>
           </v-chip>
         </div>
-        <v-card class="mt-4 mx-4 bg-terciary fill-width" elevation="0">
+        <v-card class="mt-4 bg-terciary fill-width" elevation="0">
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in platformInfoFields"
@@ -220,78 +225,85 @@ async function setAspectRatio() {
         </v-card>
       </v-col>
     </v-row>
-    <v-row class="mt-4" no-gutters>
-      <v-col cols="12">
-        <r-section
-          v-if="auth.scopes.includes('platforms.write')"
-          icon="mdi-aspect-ratio"
-          title="UI Settings"
-          elevation="0"
+    <r-section
+      v-if="auth.scopes.includes('platforms.write')"
+      icon="mdi-cog"
+      title="Settings"
+      elevation="0"
+    >
+      <template #content>
+        <v-chip
+          label
+          variant="text"
+          class="ml-2"
+          prepend-icon="mdi-aspect-ratio"
+          >Cover style</v-chip
         >
-          <template #content>
-            <v-item-group
-              v-model="selectedAspectRatio"
-              mandatory
-              @update:model-value="setAspectRatio"
-            >
-              <v-row no-gutters class="text-center justify-center align-center">
-                <v-col class="ma-2" v-for="aspectRatio in aspectRatioOptions">
-                  <v-item v-slot="{ isSelected, toggle }">
-                    <v-card
-                      :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
-                      variant="outlined"
-                      @click="toggle"
+        <v-divider class="border-opacity-25 mx-2" />
+        <v-item-group
+          v-model="selectedAspectRatio"
+          mandatory
+          @update:model-value="setAspectRatio"
+        >
+          <v-row
+            no-gutters
+            class="text-center justify-center align-center pa-2"
+          >
+            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+              <v-item v-slot="{ isSelected, toggle }">
+                <v-card
+                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                  variant="outlined"
+                  @click="toggle"
+                >
+                  <v-card-text
+                    class="pa-0 text-center align-center justify-center"
+                  >
+                    <v-img
+                      :aspect-ratio="aspectRatio.size"
+                      cover
+                      src="/assets/login_bg.png"
+                      :class="{ greyscale: !isSelected }"
+                      class="d-flex align-center justify-center"
                     >
-                      <v-card-text
-                        class="pa-0 text-center align-center justify-center"
-                      >
-                        <v-img
-                          :aspect-ratio="aspectRatio.size"
-                          cover
-                          src="/assets/login_bg.png"
-                          :class="{ greyscale: !isSelected }"
-                          class="d-flex align-center justify-center"
-                        >
-                          <p class="text-h5 text-romm-white">
-                            {{ aspectRatio.name }}
-                          </p>
-                        </v-img>
-                        <p class="text-center mx-2 text-caption">
-                          {{ aspectRatio.source }}
-                        </p>
-                      </v-card-text>
-                    </v-card>
-                  </v-item>
-                </v-col>
-              </v-row>
-            </v-item-group>
-          </template>
-        </r-section>
-        <r-section
-          v-if="auth.scopes.includes('platforms.write')"
-          icon="mdi-alert"
-          icon-color="red"
-          title="Danger zone"
-          elevation="0"
-        >
-          <template #content>
-            <div class="text-center my-2">
-              <v-btn
-                class="text-romm-red bg-terciary"
-                variant="flat"
-                @click="
-                  emitter?.emit('showDeletePlatformDialog', currentPlatform)
-                "
-              >
-                <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
-                Delete platform
-              </v-btn>
-            </div>
-          </template>
-        </r-section>
-      </v-col>
-    </v-row>
+                      <p class="text-h5 text-romm-white">
+                        {{ aspectRatio.name }}
+                      </p>
+                    </v-img>
+                    <p class="text-center text-caption">
+                      {{ aspectRatio.source }}
+                    </p>
+                  </v-card-text>
+                </v-card>
+              </v-item>
+            </v-col>
+          </v-row>
+        </v-item-group>
+      </template>
+    </r-section>
+    <r-section
+      v-if="auth.scopes.includes('platforms.write')"
+      icon="mdi-alert"
+      icon-color="red"
+      title="Danger zone"
+      elevation="0"
+    >
+      <template #content>
+        <div class="text-center">
+          <v-btn
+            class="text-romm-red bg-terciary ma-2"
+            variant="flat"
+            @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
+          >
+            <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
+            Delete platform
+          </v-btn>
+        </div>
+      </template>
+    </r-section>
   </v-navigation-drawer>
+
+  <delete-platform-dialog />
 </template>
 <style scoped>
 .platform-icon {

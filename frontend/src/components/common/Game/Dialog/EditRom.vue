@@ -2,7 +2,9 @@
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -20,6 +22,8 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
+const platfotmsStore = storePlatforms();
+const galleryViewStore = storeGalleryView();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -30,6 +34,12 @@ emitter?.on("updateUrlCover", (url_cover) => {
   if (!rom.value) return;
   rom.value.url_cover = url_cover;
   setArtwork(url_cover);
+});
+const computedAspectRatio = computed(() => {
+  const ratio = rom.value?.platform_id
+    ? platfotmsStore.getAspectRatio(rom.value?.platform_id)
+    : galleryViewStore.defaultAspectRatioCover;
+  return parseFloat(ratio.toString());
 });
 
 // Functions
@@ -198,34 +208,14 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
-          <v-row
-            v-if="mdAndUp"
-            class="justify-space-between mt-4 mb-2 mx-2"
-            no-gutters
-          >
-            <v-btn-group divided density="compact">
-              <v-btn
-                :disabled="noMetadataMatch"
-                :class="` ${
-                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
-                }`"
-                variant="flat"
-                @click="unmatchRom"
-              >
-                Unmatch Rom
-              </v-btn>
-            </v-btn-group>
-            <v-btn-group divided density="compact">
-              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-                Save
-              </v-btn>
-            </v-btn-group>
-          </v-row>
         </v-col>
         <v-col cols="12" md="4" xl="3">
-          <v-row class="justify-center" no-gutters>
-            <v-col style="max-width: 240px" :class="{ 'my-4': smAndDown }">
+          <v-row
+            class="justify-center"
+            :class="{ 'mt-4': smAndDown }"
+            no-gutters
+          >
+            <v-col style="max-width: 240px">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
@@ -236,10 +226,10 @@ function closeDialog() {
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit(
-                          'showSearchCoverDialog',
-                          rom.name as string,
-                        )
+                        emitter?.emit('showSearchCoverDialog', {
+                          term: rom.name as string,
+                          aspectRatio: computedAspectRatio,
+                        })
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>
@@ -273,27 +263,23 @@ function closeDialog() {
               </game-card>
             </v-col>
           </v-row>
-          <v-row v-if="smAndDown" class="justify-space-between pa-2" no-gutters>
-            <v-btn-group divided density="compact" class="my-1">
-              <v-btn
-                :disabled="noMetadataMatch"
-                :class="` ${
-                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
-                }`"
-                variant="flat"
-                @click="unmatchRom"
-              >
-                Unmatch Rom
-              </v-btn>
-            </v-btn-group>
-            <v-btn-group divided density="compact" class="my-1">
-              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-                Save
-              </v-btn>
-            </v-btn-group>
-          </v-row>
         </v-col>
+      </v-row>
+      <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
+        <v-btn
+          :disabled="noMetadataMatch"
+          :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+          variant="flat"
+          @click="unmatchRom"
+        >
+          Unmatch Rom
+        </v-btn>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+            Save
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>

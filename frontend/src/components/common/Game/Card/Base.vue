@@ -18,6 +18,8 @@ const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
     aspectRatio?: string | number;
+    width?: string | number;
+    height?: string | number;
     transformScale?: boolean;
     titleOnHover?: boolean;
     showFlags?: boolean;
@@ -28,11 +30,13 @@ const props = withDefaults(
     showFav?: boolean;
     withBorder?: boolean;
     withBorderRommAccent?: boolean;
-    withLink: boolean;
+    withLink?: boolean;
     src?: string;
   }>(),
   {
     aspectRatio: undefined,
+    width: undefined,
+    height: undefined,
     transformScale: false,
     titleOnHover: false,
     showFlags: false,
@@ -63,7 +67,6 @@ const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
 const downloadStore = storeDownload();
-const card = ref();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
@@ -79,6 +82,10 @@ const computedAspectRatio = computed(() => {
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
+      :minWidth="width"
+      :maxWidth="width"
+      :minHeight="height"
+      :maxHeight="height"
       v-bind="{
         ...hoverProps,
         ...(withLink && rom && romsStore.isSimpleRom(rom)
@@ -110,23 +117,19 @@ const computedAspectRatio = computed(() => {
             @touchend="handleTouchEnd"
             v-bind="hoverProps"
             :class="{ pointer: pointerOnHover }"
-            ref="card"
             cover
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="
-              src
-                ? src
-                : romsStore.isSimpleRom(rom)
-                  ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                    : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                      ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                      : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-                  : !rom.igdb_url_cover && !rom.moby_url_cover
+              src ||
+              (romsStore.isSimpleRom(rom)
+                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
                     ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                    : rom.igdb_url_cover
-                      ? rom.igdb_url_cover
-                      : rom.moby_url_cover
+                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
+                : !rom.igdb_url_cover && !rom.moby_url_cover
+                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  : rom.igdb_url_cover || rom.moby_url_cover)
             "
             :lazy-src="
               romsStore.isSimpleRom(rom)
@@ -137,9 +140,7 @@ const computedAspectRatio = computed(() => {
                     : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover && !rom.moby_url_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : rom.igdb_url_cover
-                    ? rom.igdb_url_cover
-                    : rom.moby_url_cover
+                  : rom.igdb_url_cover || rom.moby_url_cover
             "
             :aspect-ratio="computedAspectRatio"
           >
@@ -155,10 +156,6 @@ const computedAspectRatio = computed(() => {
                         !rom.moby_url_cover)
                     "
                     class="translucent-dark text-caption text-white"
-                    :class="{
-                      'text-truncate':
-                        galleryViewStore.currentView == 0 && !isHovering,
-                    }"
                   >
                     <v-list-item>{{ rom.name }}</v-list-item>
                   </div>
@@ -209,7 +206,7 @@ const computedAspectRatio = computed(() => {
               class="position-absolute append-inner-left"
               v-if="!showPlatformIcon"
             >
-              <slot name="append-inner-left"> </slot>
+              <slot name="append-inner-left"></slot>
             </div>
             <div class="position-absolute append-inner-right" v-if="!showFav">
               <slot name="append-inner-right"> </slot>
