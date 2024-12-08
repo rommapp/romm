@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { isNull } from "lodash";
-import { onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
-
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import RAvatar from "@/components/common/Game/RAvatar.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import Player from "@/views/EmulatorJS/Player.vue";
+import { isNull } from "lodash";
+import { storeToRefs } from "pinia";
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 
 // Props
 const route = useRoute();
+const galleryViewStore = storeGalleryView();
+const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
@@ -27,6 +30,7 @@ const script = document.createElement("script");
 script.src = "/assets/emulatorjs/loader.js";
 script.async = true;
 
+// Functions
 function onPlay() {
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
@@ -100,6 +104,7 @@ onMounted(async () => {
       md="8"
       xl="10"
       id="game-wrapper"
+      :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
       class="bg-primary"
       rounded
     >
@@ -376,9 +381,3 @@ onMounted(async () => {
     </v-col>
   </v-row>
 </template>
-
-<style>
-#game-wrapper {
-  aspect-ratio: 16 / 9;
-}
-</style>

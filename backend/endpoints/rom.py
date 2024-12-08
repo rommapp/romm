@@ -20,7 +20,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
 from handler.auth.base_handler import Scope
-from handler.database import db_platform_handler, db_rom_handler
+from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
@@ -497,6 +497,14 @@ async def delete_roms(
         log.info(f"Deleting {rom.file_name} from database")
         db_rom_handler.delete_rom(id)
 
+        # Update collections to remove the deleted rom
+        collections = db_collection_handler.get_collections_by_rom_id(id)
+        for collection in collections:
+            collection.roms = [rom_id for rom_id in collection.roms if rom_id != id]
+            db_collection_handler.update_collection(
+                collection.id, {"roms": collection.roms}
+            )
+
         try:
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
         except FileNotFoundError:
@@ -531,36 +539,19 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    cleaned_data = {}
+    fields_to_update = [
+        "note_raw_markdown",
+        "note_is_public",
+        "is_main_sibling",
+        "backlogged",
+        "now_playing",
+        "hidden",
+        "rating",
+        "difficulty",
+        "completion",
+        "status",
+    ]
 
-    if "note_raw_markdown" in data:
-        cleaned_data.update({"note_raw_markdown": data.get("note_raw_markdown")})
-
-    if "note_is_public" in data:
-        cleaned_data.update({"note_is_public": data.get("note_is_public")})
-
-    if "is_main_sibling" in data:
-        cleaned_data.update({"is_main_sibling": data.get("is_main_sibling")})
-
-    if "backlogged" in data:
-        cleaned_data.update({"backlogged": data.get("backlogged")})
-
-    if "now_playing" in data:
-        cleaned_data.update({"now_playing": data.get("now_playing")})
-
-    if "hidden" in data:
-        cleaned_data.update({"hidden": data.get("hidden")})
-
-    if "rating" in data:
-        cleaned_data.update({"rating": data.get("rating")})
-
-    if "difficulty" in data:
-        cleaned_data.update({"difficulty": data.get("difficulty")})
-
-    if "completion" in data:
-        cleaned_data.update({"completion": data.get("completion")})
-
-    if "status" in data:
-        cleaned_data.update({"status": data.get("status")})
+    cleaned_data = {field: data[field] for field in fields_to_update if field in data}
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

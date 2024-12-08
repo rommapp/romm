@@ -78,11 +78,11 @@ function resetFilters() {
 
 <template>
   <v-navigation-drawer
-    @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     floating
     width="300"
-    v-model="activeFilterDrawer"
     mobile
+    @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
+    v-model="activeFilterDrawer"
   >
     <v-list>
       <v-list-item v-if="xs">

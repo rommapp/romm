@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
+import { type FilterType } from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
+import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 
+// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = ["genres", "franchises", "collections", "companies"] as const;
+const galleryViewStore = storeGalleryView();
+const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 
+// Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "platform",
@@ -115,7 +121,7 @@ function onFilterClick(filter: FilterType, value: string) {
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerpolicy="strict-origin-when-cross-origin"
-                  style="aspect-ratio: 16 / 9"
+                  :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                   allowfullscreen
                 ></iframe>
               </v-carousel-item>
@@ -172,7 +178,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerpolicy="strict-origin-when-cross-origin"
-                    style="aspect-ratio: 16 / 9"
+                    :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                     allowfullscreen
                   ></iframe>
                 </v-carousel-item>

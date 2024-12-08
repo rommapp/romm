@@ -115,5 +115,8 @@ DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 # FRONTEND
 UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
 
+# LOGGING
+LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
+
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

@@ -52,9 +52,11 @@ function deleteSelectedFirmware() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(
-    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value,
-  );
+  if (currentPlatform.value?.firmware) {
+    pageCount.value = Math.ceil(
+      Number(currentPlatform.value.firmware.length) / itemsPerPage.value,
+    );
+  }
 }
 
 watch(itemsPerPage, async () => {
@@ -67,7 +69,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-navigation-drawer v-model="activeFirmwareDrawer" mobile location="bottom">
+  <v-navigation-drawer
+    v-model="activeFirmwareDrawer"
+    mobile
+    floating
+    location="bottom"
+  >
     <v-data-table
       :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"
