@@ -71,7 +71,7 @@ function closeDialog() {
           >{{ platform.name }} - [<span class="text-romm-accent-1">{{
             platform.fs_slug
           }}</span
-          >].</span
+          >] from RomM.</span
         >
         <span class="ml-1">Do you confirm?</span>
       </v-row>

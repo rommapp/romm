@@ -119,13 +119,15 @@ function closeDialog() {
         <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
         <span>{{ assetType.slice(5) }} of</span>
         <span class="text-romm-accent-1 mx-1">{{ romRef?.name }}</span>
+        <span>from RomM</span>
       </v-row>
     </template>
     <template #prepend>
       <v-list-item class="text-caption text-center">
         <span
           >Select the {{ assetType.slice(5) }} you want to remove from your
-          filesystem, otherwise they will only be deleted from database.</span
+          filesystem, otherwise they will only be deleted from RomM
+          database.</span
         >
       </v-list-item>
     </template>

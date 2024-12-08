@@ -26,6 +26,7 @@ const coverAspectRatio = ref(
 emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
   searchTerm.value = term;
   show.value = true;
+  // TODO: set default aspect ratio to 2/3
   if (aspectRatio) coverAspectRatio.value = aspectRatio;
   if (searchTerm.value) searchCovers();
 });
