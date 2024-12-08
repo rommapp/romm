@@ -14,7 +14,6 @@ const combined = computed(() => [
     <v-col
       cols="4"
       sm="3"
-      md="3"
       lg="6"
       class="pa-1"
       v-for="expansion in combined"
