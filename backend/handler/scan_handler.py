@@ -1,4 +1,5 @@
 import asyncio
+import zlib
 from enum import Enum
 from typing import Any
 
@@ -10,6 +11,8 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from logger.formatter import BLUE, RED
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
@@ -61,7 +64,7 @@ async def scan_platform(
         Platform object
     """
 
-    log.info(f"· {fs_slug}")
+    log.info(f"· {hl(fs_slug)}")
 
     if metadata_sources is None:
         metadata_sources = ["igdb", "moby"]
@@ -106,10 +109,14 @@ async def scan_platform(
 
     if platform_attrs["igdb_id"] or platform_attrs["moby_id"]:
         log.info(
-            emoji.emojize(f"  Identified as {platform_attrs['name']} :video_game:")
+            emoji.emojize(
+                f"  Identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
+            )
         )
     else:
-        log.warning(emoji.emojize(f" {platform_attrs['slug']} not found :cross_mark:"))
+        log.warning(
+            emoji.emojize(f" {platform_attrs['slug']} not identified :cross_mark:")
+        )
 
     return Platform(**platform_attrs)
 
@@ -171,7 +178,7 @@ async def scan_rom(
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
-    log.info(f"\t · {fs_rom['file_name']}")
+    log.info(f"\t · {hl(fs_rom['file_name'])}")
 
     if fs_rom.get("multi", False):
         for file in fs_rom["files"]:
@@ -238,10 +245,17 @@ async def scan_rom(
         if platform.slug in NON_HASHABLE_PLATFORMS:
             rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
         else:
-            rom_hashes = fs_rom_handler.get_rom_hashes(
-                rom_attrs["file_name"], roms_path
-            )
-            rom_attrs.update(**rom_hashes)
+            try:
+                rom_hashes = fs_rom_handler.get_rom_hashes(
+                    rom_attrs["file_name"], roms_path
+                )
+                rom_attrs.update(**rom_hashes)
+            except zlib.error as e:
+                # Return empty hashes if calculating them fails for corrupted files
+                log.error(
+                    f"Hashes of {rom_attrs['file_name']} couldn't be calculated: {hl(str(e), color=RED)}"
+                )
+                rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
 
     # If no metadata scan is required
     if scan_type == ScanType.HASHES:
@@ -293,7 +307,7 @@ async def scan_rom(
     # If not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
         log.warning(
-            emoji.emojize(f"\t   {rom_attrs['file_name']} not found :cross_mark:")
+            emoji.emojize(f"\t   {rom_attrs['file_name']} not identified :cross_mark:")
         )
         return Rom(**rom_attrs)
 

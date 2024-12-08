@@ -105,7 +105,7 @@ async function stopScan() {
         v-model="platformsToScan"
         label="Platforms"
         item-title="name"
-        :items="platforms.all"
+        :items="platforms.allPlatforms"
         variant="outlined"
         density="comfortable"
         multiple
@@ -220,26 +220,18 @@ async function stopScan() {
     no-gutters
   >
     <v-btn
-      :disabled="scanning || metadataSources.length == 0"
+      :disabled="scanning"
       rounded="4"
       height="40"
       :loading="scanning"
       @click="scan()"
     >
       <template #prepend>
-        <v-icon
-          :color="
-            scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'
-          "
+        <v-icon :color="scanning ? '' : 'romm-accent-1'"
           >mdi-magnify-scan</v-icon
         >
       </template>
-      <span
-        :class="{
-          'text-romm-accent-1': !(scanning || metadataSources.length == 0),
-        }"
-        >Scan</span
-      >
+      Scan
       <template #loader>
         <v-progress-circular
           color="romm-accent-1"
@@ -259,7 +251,7 @@ async function stopScan() {
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
       </template>
-      <span :class="{ 'text-romm-red': scanning }">Abort</span>
+      Abort
     </v-btn>
     <v-btn
       prepend-icon="mdi-table-cog"
@@ -278,7 +270,10 @@ async function stopScan() {
   >
     <v-list-item class="text-caption text-yellow py-0">
       <v-icon>mdi-alert</v-icon
-      ><span class="ml-2">Please select at least one metadata source.</span>
+      ><span class="ml-2"
+        >Please select at least one metadata source if you want to enrich your
+        library with artwork and metadata.</span
+      >
     </v-list-item>
   </v-row>
 

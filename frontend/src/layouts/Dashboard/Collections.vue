@@ -27,6 +27,7 @@ const collections = storeCollections();
             transformScale
             :key="collection.updated_at"
             :collection="collection"
+            withLink
           />
         </v-col>
       </v-row>

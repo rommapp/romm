@@ -1,4 +1,5 @@
 import functools
+from collections.abc import Iterable
 
 from decorators.database import begin_session
 from models.collection import Collection
@@ -141,6 +142,27 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_roms_by_filename(
+        self,
+        platform_id: int,
+        file_names: Iterable[str],
+        query: Query = None,
+        session: Session = None,
+    ) -> dict[str, Rom]:
+        """Retrieve a dictionary of roms by their file names."""
+        query = query or select(Rom)
+        roms = (
+            session.scalars(
+                query.filter(Rom.file_name.in_(file_names)).filter_by(
+                    platform_id=platform_id
+                )
+            )
+            .unique()
+            .all()
+        )
+        return {rom.file_name: rom for rom in roms}
+
+    @begin_session
     @with_details
     def get_rom_by_filename_no_tags(
         self, file_name_no_tags: str, query: Query = None, session: Session = None
@@ -191,13 +213,25 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_roms(
-        self, platform_id: int, roms: list[str], session: Session = None
-    ) -> int:
-        return session.execute(
+        self, platform_id: int, fs_roms: list[str], session: Session = None
+    ) -> list[Rom]:
+        purged_roms = (
+            session.scalars(
+                select(Rom)
+                .order_by(Rom.file_name.asc())
+                .where(
+                    and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms))
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))  # type: ignore[attr-defined]
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_roms
 
     @begin_session
     def add_rom_user(

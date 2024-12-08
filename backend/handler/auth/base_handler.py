@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey, RSAKey
+from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
@@ -102,24 +103,16 @@ class AuthHandler:
 
         # Key exists therefore user is probably authenticated
         user = db_user_handler.get_user_by_username(username)
-        if user is None:
+        if user is None or not user.enabled:
             conn.session.clear()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not found",
+            log.error(
+                "User '%s' %s",
+                username,
+                "not found" if user is None else "not enabled",
             )
-
-        if not user.enabled:
-            conn.session.clear()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Inactive user {user.username}",
-            )
+            return None
 
         return user
-
 
 class OAuthHandler:
     def __init__(self) -> None:

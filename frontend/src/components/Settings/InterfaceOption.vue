@@ -38,3 +38,14 @@ const emit = defineEmits(["update:modelValue"]);
     ></v-list-item>
   </v-card>
 </template>
+
+<style scoped>
+.text-romm-accent-1 {
+  transition: color 0.3s ease-in-out;
+}
+
+.v-list-item-title,
+.v-icon {
+  transition: color 0.3s ease-in-out;
+}
+</style>

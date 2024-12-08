@@ -33,9 +33,6 @@ def get_config() -> ConfigResponse:
             EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
             PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
             PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
-            ROMS_FOLDER_NAME=cfg.ROMS_FOLDER_NAME,
-            FIRMWARE_FOLDER_NAME=cfg.FIRMWARE_FOLDER_NAME,
-            HIGH_PRIO_STRUCTURE_PATH=cfg.HIGH_PRIO_STRUCTURE_PATH,
         )
     except ConfigNotReadableException as exc:
         log.critical(exc.message)

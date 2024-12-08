@@ -27,11 +27,11 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
 <template>
   <r-section icon="mdi-shimmer" title="Recently added">
     <template #content>
-      <v-row class="flex-nowrap overflow-x-auto" no-gutters>
+      <v-row class="flex-nowrap overflow-x-auto align-center" no-gutters>
         <v-col
           v-for="rom in recentRoms"
           :key="rom.id"
-          class="px-1 pt-1 pb-2"
+          class="px-1 pt-1 pb-2 align-self-end"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
@@ -40,13 +40,16 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         >
           <game-card
             :key="rom.updated_at"
-            @click="onGameClick"
             :rom="rom"
+            @click="onGameClick"
             title-on-hover
+            pointerOnHover
+            withLink
             show-flags
             show-fav
             transform-scale
             show-action-bar
+            show-platform-icon
           />
         </v-col>
       </v-row>
