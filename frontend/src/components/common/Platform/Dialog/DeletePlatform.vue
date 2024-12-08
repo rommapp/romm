@@ -43,7 +43,7 @@ async function deletePlatform() {
       return;
     });
 
-  await router.push({ name: "dashboard" });
+  await router.push({ name: "home" });
 
   platformsStore.remove(platform.value);
   emitter?.emit("refreshDrawer", null);

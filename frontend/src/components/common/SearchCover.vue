@@ -2,11 +2,12 @@
 import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import sgdbApi from "@/services/api/sgdb";
+import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
-import storeGalleryView from "@/stores/galleryView";
 
 // Props
 const { lgAndUp } = useDisplay();
@@ -19,9 +20,14 @@ const filteredCovers = ref<SearchCoverSchema[]>();
 const galleryViewStore = storeGalleryView();
 const panels = ref([0]);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showSearchCoverDialog", (term) => {
+const coverAspectRatio = ref(
+  parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
+);
+emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
   searchTerm.value = term;
   show.value = true;
+  // TODO: set default aspect ratio to 2/3
+  if (aspectRatio) coverAspectRatio.value = aspectRatio;
   if (searchTerm.value) searchCovers();
 });
 
@@ -168,7 +174,7 @@ onBeforeUnmount(() => {
               <v-list-item class="pa-0">{{ game.name }}</v-list-item>
             </v-row>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="pa-0">
+          <v-expansion-panel-text class="py-1">
             <v-row no-gutters>
               <v-col
                 class="pa-1"
@@ -184,7 +190,7 @@ onBeforeUnmount(() => {
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
                     @click="selectCover(resource.url)"
-                    :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+                    :aspect-ratio="coverAspectRatio"
                     :src="resource.thumb"
                     cover
                   >
@@ -218,3 +224,8 @@ onBeforeUnmount(() => {
     </template>
   </r-dialog>
 </template>
+<style lang="css">
+.v-expansion-panel-text__wrapper {
+  padding: 0px !important;
+}
+</style>

@@ -6,6 +6,7 @@ export default defineStore("navigation", {
     activeCollectionsDrawer: false,
     activeSettingsDrawer: false,
     activePlatformInfoDrawer: false,
+    activeCollectionInfoDrawer: false,
   }),
 
   actions: {
@@ -25,9 +26,13 @@ export default defineStore("navigation", {
       this.resetDrawersExcept("activePlatformInfoDrawer");
       this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
+    swtichActiveCollectionInfoDrawer() {
+      this.resetDrawersExcept("activeCollectionInfoDrawer");
+      this.activeCollectionInfoDrawer = !this.activeCollectionInfoDrawer;
+    },
     goHome() {
       this.resetDrawers();
-      this.$router.push({ name: "dashboard" });
+      this.$router.push({ name: "home" });
     },
     goScan() {
       this.resetDrawers();
@@ -38,6 +43,7 @@ export default defineStore("navigation", {
       this.activeCollectionsDrawer = false;
       this.activeSettingsDrawer = false;
       this.activePlatformInfoDrawer = false;
+      this.activeCollectionInfoDrawer = false;
     },
     resetDrawersExcept(drawer: string) {
       this.activePlatformsDrawer =
@@ -51,6 +57,10 @@ export default defineStore("navigation", {
       this.activePlatformInfoDrawer =
         drawer === "activePlatformInfoDrawer"
           ? this.activePlatformInfoDrawer
+          : false;
+      this.activeCollectionInfoDrawer =
+        drawer === "activeCollectionInfoDrawer"
+          ? this.activeCollectionInfoDrawer
           : false;
     },
   },
