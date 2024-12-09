@@ -254,15 +254,15 @@ async def get_rom_content(
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_download = sorted(files or [r["filename"] for r in rom.files])
 
+    log.info(f"User {current_username} is downloading {rom.file_name}")
+
     if not rom.multi:
-        log.info(f"User {current_username} is downloading {rom.file_name}")
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
             filename=rom.file_name,
         )
 
     if len(files_to_download) == 1:
-        log.info(f"User {current_username} is downloading {rom.file_name}")
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}/{files_to_download[0]}"),
         )
@@ -287,7 +287,6 @@ async def get_rom_content(
         filename=f"{file_name}.m3u",
     )
 
-    log.info(f"User {current_username} is downloading {rom.file_name}")
     return ZipResponse(
         content_lines=content_lines + [m3u_line],
         filename=f"{quote(file_name)}.zip",
