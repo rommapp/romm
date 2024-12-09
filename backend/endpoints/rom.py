@@ -245,7 +245,7 @@ async def get_rom_content(
         ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
-    current_user = request.user
+    current_username = request.user.username if request.user else "unknown"
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
@@ -255,14 +255,14 @@ async def get_rom_content(
     files_to_download = sorted(files or [r["filename"] for r in rom.files])
 
     if not rom.multi:
-        log.info(f"User {current_user.username} is downloading {rom.file_name}")
+        log.info(f"User {current_username} is downloading {rom.file_name}")
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
             filename=rom.file_name,
         )
 
     if len(files_to_download) == 1:
-        log.info(f"User {current_user.username} is downloading {rom.file_name}")
+        log.info(f"User {current_username} is downloading {rom.file_name}")
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}/{files_to_download[0]}"),
         )
@@ -287,7 +287,7 @@ async def get_rom_content(
         filename=f"{file_name}.m3u",
     )
 
-    log.info(f"User {current_user.username} is downloading {rom.file_name}")
+    log.info(f"User {current_username} is downloading {rom.file_name}")
     return ZipResponse(
         content_lines=content_lines + [m3u_line],
         filename=f"{quote(file_name)}.zip",
