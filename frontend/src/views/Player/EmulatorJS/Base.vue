@@ -11,8 +11,6 @@ import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-
-// Props
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
@@ -158,7 +156,7 @@ onMounted(async () => {
             rounded="0"
             variant="outlined"
             clearable
-            label="BIOS"
+            :label="t('common.firmware')"
             :items="
               firmwareOptions.map((f) => ({
                 title: f.file_name,
@@ -174,7 +172,7 @@ onMounted(async () => {
             variant="outlined"
             clearable
             rounded="0"
-            label="Save"
+            :label="t('common.save')"
             :items="
               rom.user_saves?.map((s) => ({
                 title: s.file_name,
@@ -226,7 +224,7 @@ onMounted(async () => {
             rounded="0"
             variant="outlined"
             clearable
-            label="State"
+            :label="t('common.state')"
             :items="
               rom.user_states?.map((s) => ({
                 title: s.file_name,
@@ -303,7 +301,7 @@ onMounted(async () => {
                     ? "mdi-checkbox-outline"
                     : "mdi-checkbox-blank-outline"
                 }}</v-icon
-                >Full screen</v-btn
+                >{{ t("play.full-screen") }}</v-btn
               >
             </v-col>
             <v-col
@@ -320,7 +318,7 @@ onMounted(async () => {
                 size="large"
                 prepend-icon="mdi-play"
                 @click="onPlay()"
-                >Play
+                >{{ t("play.play") }}
               </v-btn>
             </v-col>
           </v-row>
@@ -332,7 +330,7 @@ onMounted(async () => {
             size="large"
             prepend-icon="mdi-refresh"
             @click="$router.go(0)"
-            >Reset session
+            >{{ t("play.reset-session") }}
           </v-btn>
           <v-btn
             class="mt-4"
@@ -347,7 +345,7 @@ onMounted(async () => {
                 params: { rom: rom?.id },
               })
             "
-            >Back to game details
+            >{{ t("play.back-to-game-details") }}
           </v-btn>
           <v-btn
             class="mt-4"
@@ -362,7 +360,7 @@ onMounted(async () => {
                 params: { platform: rom?.platform_id },
               })
             "
-            >Back to gallery
+            >{{ t("play.back-to-gallery") }}
           </v-btn>
         </v-col>
       </v-row>

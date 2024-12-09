@@ -11,13 +11,14 @@
   "danger-zone": "Danger zone",
   "delete-platform": "Delete platform",
   "removing-platform-1": "Removing platform",
-  "removing-platform-2": "from RomM. Do you confirm?",
+  "removing-platform-2": "] from RomM. Do you confirm?",
   "show-firmwares": "Show firmwares/BIOS",
   "filter-gallery": "Filter gallery",
   "show-unmatched": "Show unmatched",
   "show-favourites": "Show favourites",
   "show-duplicates": "Show duplicates",
   "genre": "Genre",
+  "genres": "Genres",
   "franchise": "Franchise",
   "collection": "Collection",
   "company": "Company",
@@ -26,6 +27,5 @@
   "reset-filters": "Reset filters",
   "active-multi-select": "Active multi-select",
   "change-view": "Change view",
-  "filter": "Filter",
   "no-firmware-found": "No firmware found"
 }

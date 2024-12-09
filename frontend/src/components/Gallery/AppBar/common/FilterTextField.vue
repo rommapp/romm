@@ -26,7 +26,7 @@ function clear() {
   <v-text-field
     v-model="filterSearch"
     prepend-inner-icon="mdi-filter-outline"
-    :label="t('platform.filter')"
+    :label="t('common.filter')"
     rounded="0"
     hide-details
     clearable
