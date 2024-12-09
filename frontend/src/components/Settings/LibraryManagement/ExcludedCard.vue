@@ -4,8 +4,10 @@ import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const props = defineProps<{
   set: string[];
@@ -71,7 +73,7 @@ function removeExclusion(exclusionValue: string) {
             })
           "
         >
-          Add
+          {{ t("common.add") }}
         </v-btn>
       </v-expand-transition>
     </v-card-text>

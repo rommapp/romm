@@ -10,8 +10,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const authStore = storeAuth();
 const configStore = storeConfig();
@@ -20,7 +22,7 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section icon="mdi-controller" title="Platforms Bindings">
+  <r-section icon="mdi-controller" :title="t('settings.platforms-bindings')">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
