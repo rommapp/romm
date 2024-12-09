@@ -1,0 +1,18 @@
+{
+  "platform": "platform",
+  "platforms": "platforms",
+  "games": "games",
+  "collections": "collections",
+  "saves": "saves",
+  "states": "states",
+  "screenshots": "screenshots",
+  "search": "search",
+  "add": "add",
+  "cancel": "cancel",
+  "upload": "upload",
+  "profile": "profile",
+  "user-interface": "user interface",
+  "library-management": "library management",
+  "administration": "administration",
+  "logout": "logout"
+}

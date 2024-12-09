@@ -14,7 +14,7 @@ const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
   : localStorage.getItem("settings.gridPlatforms") === "true";
 </script>
 <template>
-  <r-section icon="mdi-controller" :title="t('platforms')">
+  <r-section icon="mdi-controller" :title="t('common.platforms')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms }"
