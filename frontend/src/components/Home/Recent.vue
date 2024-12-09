@@ -18,7 +18,7 @@ const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
   : localStorage.getItem("settings.gridRecentRoms") === "true";
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="t('recently-added')">
+  <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"

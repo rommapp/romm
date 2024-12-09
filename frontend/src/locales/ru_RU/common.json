@@ -1,0 +1,18 @@
+{
+  "platform": "платформа",
+  "platforms": "платформы",
+  "games": "игры",
+  "collections": "коллекции",
+  "saves": "сохранения",
+  "states": "состояния",
+  "screenshots": "скриншоты",
+  "search": "поиск",
+  "add": "добавить",
+  "cancel": "отменить",
+  "upload": "загрузить",
+  "profile": "профиль",
+  "user-interface": "пользовательский интерфейс",
+  "library-management": "управление библиотекой",
+  "administration": "администрирование",
+  "logout": "выйти"
+}

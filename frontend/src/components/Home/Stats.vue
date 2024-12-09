@@ -33,7 +33,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.PLATFORMS }} {{ t("platforms") }}
+            {{ stats.PLATFORMS }} {{ t("common.platforms") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -43,7 +43,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.ROMS }} {{ t("games") }}
+            {{ stats.ROMS }} {{ t("common.games") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -53,7 +53,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.SAVES }} {{ t("saves") }}
+            {{ stats.SAVES }} {{ t("common.saves") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -63,7 +63,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.STATES }} {{ t("states") }}
+            {{ stats.STATES }} {{ t("common.states") }}
           </v-chip>
         </v-col>
         <v-col>
@@ -73,7 +73,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ stats.SCREENSHOTS }} {{ t("screenshots") }}
+            {{ stats.SCREENSHOTS }} {{ t("common.screenshots") }}
           </v-chip>
         </v-col>
       </v-row>

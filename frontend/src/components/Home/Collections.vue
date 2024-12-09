@@ -14,7 +14,7 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   : localStorage.getItem("settings.gridCollections") === "true";
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" :title="t('collections')">
+  <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
