@@ -1,4 +1,16 @@
 {
   "search-collection": "Rechercher collection",
-  "add-collection": "Ajouter collection"
+  "add-collection": "Ajouter collection",
+  "edit-collection": "Modifier la collection",
+  "name": "Nom",
+  "description": "Description",
+  "owner": "Propriétaire",
+  "public": "Public",
+  "public-desc": "Public (visible pour tous)",
+  "private": "Privé",
+  "private-desc": "Privé (visible seulement pour moi)",
+  "danger-zone": "Zone de danger",
+  "delete-collection": "Supprimer la collection",
+  "removing-collection-1": "Suppression de la collection",
+  "removing-collection-2": "de RomM. Confirmez-vous?"
 }
