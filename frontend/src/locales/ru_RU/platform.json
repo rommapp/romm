@@ -18,6 +18,7 @@
   "show-favourites": "Показать избранное",
   "show-duplicates": "Показать дубликаты",
   "genre": "Жанр",
+  "genres": "Genres",
   "franchise": "Франшиза",
   "collection": "Коллекция",
   "company": "Компания",
@@ -26,6 +27,5 @@
   "reset-filters": "Сбросить фильтры",
   "active-multi-select": "Активный множественный выбор",
   "change-view": "Изменить вид",
-  "filter": "Фильтр",
   "no-firmware-found": "Прошивка не найдена"
 }

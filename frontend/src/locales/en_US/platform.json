@@ -18,6 +18,7 @@
   "show-favourites": "Show favourites",
   "show-duplicates": "Show duplicates",
   "genre": "Genre",
+  "genres": "Genres",
   "franchise": "Franchise",
   "collection": "Collection",
   "company": "Company",
@@ -26,6 +27,5 @@
   "reset-filters": "Reset filters",
   "active-multi-select": "Active multi-select",
   "change-view": "Change view",
-  "filter": "Filter",
   "no-firmware-found": "No firmware found"
 }
