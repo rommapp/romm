@@ -1,7 +1,7 @@
 {
   "search-collection": "Buscar colección",
   "add-collection": "Añadir colección",
-  "edit-collection": "Editar collección",
+  "edit-collection": "Editar colección",
   "name": "Nombre",
   "description": "Descripción",
   "owner": "Propietario",
@@ -10,7 +10,7 @@
   "private": "Privada",
   "private-desc": "Privada (visible solo para mi)",
   "danger-zone": "Zona de peligro",
-  "delete-collection": "Eliminar collección",
+  "delete-collection": "Eliminar colección",
   "removing-collection-1": "Eliminando colección",
   "removing-collection-2": "de RomM. ¿Confirmar?"
 }
