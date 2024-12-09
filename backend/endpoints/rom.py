@@ -245,6 +245,7 @@ async def get_rom_content(
         ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
+    current_username = request.user.username if request.user else "unknown"
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
@@ -252,6 +253,8 @@ async def get_rom_content(
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
     files_to_download = sorted(files or [r["filename"] for r in rom.files])
+
+    log.info(f"User {current_username} is downloading {rom.file_name}")
 
     if not rom.multi:
         return FileRedirectResponse(
