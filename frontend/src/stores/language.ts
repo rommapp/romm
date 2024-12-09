@@ -10,6 +10,7 @@ export default defineStore("language", {
       { value: "es_ES", name: "Español (España)" },
       { value: "fr_FR", name: "Français" },
       { value: "ru_RU", name: "Русский" },
+      { value: "pt_BR", name: "Português (Brasil)" },
     ],
   }),
 
