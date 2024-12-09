@@ -1,10 +1,10 @@
 {
-  "scan": "scan",
-  "abort": "abort",
-  "manage-library": "manage library",
-  "metadata-sources": "metadata sources",
+  "scan": "Scan",
+  "abort": "Abort",
+  "manage-library": "Manage library",
+  "metadata-sources": "Metadata sources",
   "api-key-missing": "API key missing or invalid",
-  "scan-options": "scan options",
+  "scan-options": "Scan options",
   "select-one-source": "Please select at least one metadata source if you want to enrich your library with artwork and metadata",
   "new-platforms": "New platforms",
   "new-platforms-desc": "Scan new platforms only (fastest)",
@@ -17,8 +17,8 @@
   "complete-rescan": "Complete rescan",
   "complete-rescan-desc": "Total rescan of all platforms and files (slowest)",
   "no-new-roms": "No new/changed roms found",
-  "platforms-scanned": "Plataforms: {n_platforms} scanned",
-  "platforms-scanned-with-details": "Plataforms: {n_platforms} scanned, with {n_added_platforms} new and {n_identified_platforms} identified",
+  "platforms-scanned": "Platforms: {n_platforms} scanned",
+  "platforms-scanned-with-details": "Platforms: {n_platforms} scanned, with {n_added_platforms} new and {n_identified_platforms} identified",
   "roms-scanned": "Roms: {n_roms} scanned",
   "roms-scanned-with-details": "Roms: {n_platforms} scanned, with {n_added_platforms} new and {n_identified_platforms} identified"
 }
