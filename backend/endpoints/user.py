@@ -35,7 +35,7 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         role (str): RomM Role object represented as string
 
     Returns:
-        UserSchema: Created user info
+        UserSchema: Newly created user
     """
 
     # If there are admin users already, enforce the USERS_WRITE scope.
@@ -63,7 +63,7 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         role=Role[role.upper()],
     )
 
-    return db_user_handler.add_user(user)
+    return UserSchema.model_validate(db_user_handler.add_user(user))
 
 
 @protected_route(router.get, "/users", [Scope.USERS_READ])
@@ -77,7 +77,7 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return db_user_handler.get_users()
+    return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
 
 @protected_route(router.get, "/users/me", [Scope.ME_READ])
@@ -109,7 +109,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return user
+    return UserSchema.model_validate(user)
 
 
 @protected_route(router.put, "/users/{id}", [Scope.USERS_WRITE])
@@ -190,7 +190,7 @@ async def update_user(
         if request.user.id == id and creds_updated:
             request.session.clear()
 
-    return db_user_handler.get_user(id)
+    return UserSchema.model_validate(db_user_handler.get_user(id))
 
 
 @protected_route(router.delete, "/users/{id}", [Scope.USERS_WRITE])

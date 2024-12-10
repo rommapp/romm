@@ -40,6 +40,7 @@ __pycache__
 
 # database
 mariadb
+*.sqlite
 
 # used to mock the library/config/mounts/etc while testing
 frontend/assets/romm

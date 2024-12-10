@@ -1,13 +1,14 @@
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Any, Final
 
-from config import ROMM_AUTH_SECRET_KEY
+import httpx
+from config import OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
-from joserfc.jwk import OctKey
+from joserfc.jwk import OctKey, RSAKey
 from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
@@ -100,27 +101,18 @@ class AuthHandler:
         if not username:
             return None
 
-        try:
-            # Key exists therefore user is probably authenticated
-            user = db_user_handler.get_user_by_username(username)
-            if user is None or not user.enabled:
-                conn.session.clear()
-                log.error(
-                    "User '%s' %s",
-                    username,
-                    "not found" if user is None else "not enabled",
-                )
-                return None
-
-            return user
-        except Exception:
+        # Key exists therefore user is probably authenticated
+        user = db_user_handler.get_user_by_username(username)
+        if user is None or not user.enabled:
             conn.session.clear()
             log.error(
                 "User '%s' %s",
                 username,
-                "not found" if user is None else "is not enabled",
+                "not found" if user is None else "not enabled",
             )
             return None
+
+        return user
 
 
 class OAuthHandler:
@@ -155,6 +147,50 @@ class OAuthHandler:
             raise OAuthCredentialsException
 
         user = db_user_handler.get_user_by_username(username)
+        if user is None:
+            raise OAuthCredentialsException
+
+        if not user.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
+            )
+
+        return user, payload.claims
+
+
+class OpenIDHandler:
+    def __init__(self) -> None:
+        jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
+        with httpx.Client() as httpx_client:
+            try:
+                response = httpx_client.get(jwks_url, timeout=120)
+                key = response.json()["keys"][0]
+                self.rsa_key = RSAKey.import_key(key)
+            except httpx.HTTPStatusError as exc:
+                raise HTTPException(
+                    status_code=exc.response.status_code,
+                    detail=exc.response.text,
+                ) from exc
+
+    async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.database import db_user_handler
+
+        id_token = token.get("id_token")
+
+        try:
+            payload = jwt.decode(id_token, self.rsa_key, algorithms=["RS256"])
+        except (BadSignatureError, ValueError) as exc:
+            raise OAuthCredentialsException from exc
+
+        iss = payload.claims.get("iss")
+        if OIDC_SERVER_APPLICATION_URL not in str(iss):
+            raise OAuthCredentialsException
+
+        email = payload.claims.get("email")
+        if email is None:
+            raise OAuthCredentialsException
+
+        user = db_user_handler.get_user_by_email(email)
         if user is None:
             raise OAuthCredentialsException
 
