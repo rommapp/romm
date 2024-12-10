@@ -52,6 +52,7 @@ start_bin_gunicorn() {
 		--bind=0.0.0.0:5000 \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
+		--forwarded-allow-ips="*" \
 		--workers "${GUNICORN_WORKERS:=2}" \
 		main:app &
 }
@@ -69,16 +70,16 @@ start_bin_nginx() {
 	fi
 }
 
-start_bin_redis-server() {
-	info_log "starting redis-server"
-	# Check if /usr/local/etc/redis/redis.conf exists and use it if so
-	if [[ -f /usr/local/etc/redis/redis.conf ]]; then
-		redis-server /usr/local/etc/redis/redis.conf &
+start_bin_valkey-server() {
+	info_log "starting valkey-server"
+	# Check if /usr/local/etc/valkey/valkey.conf exists and use it if so
+	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
+		valkey-server /usr/local/etc/valkey/valkey.conf &
 	else
-		redis-server --dir /redis-data &
+		valkey-server --dir /redis-data &
 	fi
-	REDIS_PID=$!
-	echo "${REDIS_PID}" >/tmp/redis-server.pid
+	VALKEY_PID=$!
+	echo "${VALKEY_PID}" >/tmp/valkey-server.pid
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
@@ -127,10 +128,10 @@ while true; do
 	# check for died processes every 5 seconds
 	sleep 5
 
-	# Start redis server if we dont have a corresponding PID file
-	# and REDIS_HOST is not set (which would mean we're using an external redis)
+	# Start Valkey server if we dont have a corresponding PID file
+	# and REDIS_HOST is not set (which would mean we're using an external Redis/Valkey)
 	if [[ -z ${REDIS_HOST:=""} ]]; then
-		watchdog_process_pid bin redis-server
+		watchdog_process_pid bin valkey-server
 	fi
 
 	# Run needed database migrations on startup,

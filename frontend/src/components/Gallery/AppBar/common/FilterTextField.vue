@@ -11,7 +11,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { filterSearch } = storeToRefs(galleryFilterStore);
 
-// Functions
 const filterRoms = debounce(() => {
   emitter?.emit("filter", null);
 }, 500);

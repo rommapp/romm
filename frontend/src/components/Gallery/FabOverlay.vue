@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
+import storeCollections, { type Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
@@ -24,6 +26,8 @@ emitter?.on("openFabMenu", (open) => {
 });
 const auth = storeAuth();
 const scanningStore = storeScanning();
+const collectionsStore = storeCollections();
+const { favCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
 
@@ -37,8 +41,9 @@ function scrollToTop() {
 }
 async function onScan() {
   scanningStore.set(true);
+  const romCount = romsStore.selectedRoms.length;
   emitter?.emit("snackbarShow", {
-    msg: `Scanning ${route.params.platform}...`,
+    msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,
     icon: "mdi-loading mdi-spin",
     color: "romm-accent-1",
   });
@@ -46,8 +51,8 @@ async function onScan() {
   if (!socket.connected) socket.connect();
   socket.emit("scan", {
     platforms: [route.params.platform],
-    roms: romsStore.selectedRoms,
-    type: "partial",
+    roms_ids: romsStore.selectedRoms.map((r) => r.id),
+    type: "quick", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
@@ -61,21 +66,78 @@ function resetSelection() {
   emitter?.emit("openFabMenu", false);
 }
 
+async function addToFavourites() {
+  if (!favCollection.value) return;
+  favCollection.value.roms = favCollection.value.roms.concat(
+    selectedRoms.value.map((r) => r.id),
+  );
+  await collectionApi
+    .updateCollection({ collection: favCollection.value as Collection })
+    .then(({ data }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Roms added to favourites successfully!",
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
+}
+
+async function removeFromFavourites() {
+  if (!favCollection.value) return;
+  favCollection.value.roms = favCollection.value.roms.filter(
+    (value) => !selectedRoms.value.map((r) => r.id).includes(value),
+  );
+  if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
+    romsStore.remove(selectedRoms.value);
+  }
+  await collectionApi
+    .updateCollection({ collection: favCollection.value as Collection })
+    .then(() => {
+      emitter?.emit("snackbarShow", {
+        msg: "Roms removed from favourites successfully!",
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    })
+    .finally(() => {
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    });
+}
+
 function onDownload() {
-  romsStore.selectedRoms.forEach((rom) => {
-    romApi.downloadRom({ rom });
+  romsStore.selectedRoms.forEach((rom, index) => {
+    setTimeout(() => {
+      romApi.downloadRom({ rom });
+    }, index * 100); // Prevents the download from being blocked by the browser
   });
 }
 </script>
 
 <template>
-  <v-overlay
-    :model-value="true"
-    persistent
-    scroll-strategy="reposition"
-    :scrim="false"
-    class="align-end justify-end pa-3"
-  >
+  <div class="text-right pa-2 sticky-bottom">
     <v-scroll-y-reverse-transition>
       <v-btn
         icon
@@ -148,7 +210,7 @@ function onDownload() {
             ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
             : emitter?.emit(
                 'showRemoveFromCollectionDialog',
-                romsStore.selectedRoms
+                romsStore.selectedRoms,
               )
         "
       />
@@ -156,12 +218,28 @@ function onDownload() {
         key="5"
         color="terciary"
         elevation="8"
+        icon="mdi-star-outline"
+        size="default"
+        @click="removeFromFavourites"
+      />
+      <v-btn
+        key="6"
+        color="terciary"
+        elevation="8"
+        icon="mdi-star"
+        size="default"
+        @click="addToFavourites"
+      />
+      <v-btn
+        key="7"
+        color="terciary"
+        elevation="8"
         icon="mdi-select-all"
         size="default"
         @click.stop="selectAllRoms"
       />
       <v-btn
-        key="6"
+        key="8"
         color="terciary"
         elevation="8"
         icon="mdi-select"
@@ -169,5 +247,18 @@ function onDownload() {
         @click.stop="resetSelection"
       />
     </v-speed-dial>
-  </v-overlay>
+  </div>
 </template>
+<style scoped>
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  pointer-events: none;
+}
+.sticky-bottom * {
+  pointer-events: auto; /* Re-enables pointer events for all child elements */
+}
+</style>

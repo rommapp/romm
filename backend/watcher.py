@@ -50,7 +50,7 @@ class EventHandler(FileSystemEventHandler):
 
         # Skip if a scan is already scheduled
         for job in tasks_scheduler.get_jobs():
-            if job.func_name == "endpoints.scan.scan_platforms":
+            if job.func_name == "endpoints.sockets.scan.scan_platforms":
                 if job.args[0] == []:
                     log.info("Full rescan already scheduled")
                     return

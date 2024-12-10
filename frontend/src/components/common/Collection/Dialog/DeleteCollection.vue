@@ -47,7 +47,7 @@ async function deleteCollection() {
       return;
     });
 
-  await router.push({ name: "dashboard" });
+  await router.push({ name: "home" });
 
   collectionsStore.remove(collection.value);
   emitter?.emit("refreshDrawer", null);
@@ -71,7 +71,7 @@ function closeDialog() {
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span>Removing collection</span>
         <r-avatar class="ml-1" :collection="collection" />
-        <span class="ml-1 text-romm-accent-1">{{ collection.name }}</span>
+        <span class="ml-1 text-romm-accent-1">{{ collection.name }}.</span>
         <span class="ml-1">from RomM. Do you confirm?</span>
       </v-row>
     </template>

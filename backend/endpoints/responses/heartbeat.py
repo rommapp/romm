@@ -1,4 +1,4 @@
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 
 class WatcherDict(TypedDict):
@@ -22,6 +22,15 @@ class MetadataSourcesDict(TypedDict):
     STEAMGRIDDB_ENABLED: bool
 
 
+class EmulationDict(TypedDict):
+    DISABLE_EMULATOR_JS: bool
+    DISABLE_RUFFLE_RS: bool
+
+
+class FrontendDict(TypedDict):
+    UPLOAD_TIMEOUT: int
+
+
 class HeartbeatResponse(TypedDict):
     VERSION: str
     SHOW_SETUP_WIZARD: bool
@@ -30,3 +39,5 @@ class HeartbeatResponse(TypedDict):
     ANY_SOURCE_ENABLED: bool
     METADATA_SOURCES: MetadataSourcesDict
     FS_PLATFORMS: list
+    EMULATION: EmulationDict
+    FRONTEND: FrontendDict

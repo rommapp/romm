@@ -4,6 +4,7 @@
 /* eslint-disable */
 
 export type IGDBMetadataPlatform = {
-  igdb_id: number;
-  name: string;
+    igdb_id: number;
+    name: string;
 };
+

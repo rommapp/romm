@@ -8,6 +8,9 @@ body {
     1px 1px 3px #000000,
     0 0 3px #000000 !important;
 }
+.v-progress-linear {
+  z-index: 9999 !important;
+}
 .translucent {
   backdrop-filter: blur(3px) !important;
   text-shadow:
@@ -60,14 +63,9 @@ body {
   border: 1px solid rgba(var(--v-theme-romm-accent-1)) !important;
   transform: scale(1.05);
 }
-/*
-Calculation to fix 100dvh:
-main-app-bar -> 45px
-gallery-app-bar -> 48px
-*/
-.fill-height-desktop {
-  height: calc(100dvh - 48px) !important;
+#main-app-bar {
+  top: 0 !important;
 }
-.fill-height-mobile {
-  height: calc(100dvh - 45px - 48px) !important;
+#main-app-bar ~ #gallery-app-bar {
+  top: 45px !important;
 }

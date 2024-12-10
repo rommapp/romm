@@ -4,8 +4,7 @@
 
 exclude:
   # Exclude platforms to be scanned
-  platforms:
-    # - 'romm'
+  platforms: [] # ['my_excluded_platform_1', 'my_excluded_platform_2']
 
   # Exclude roms or parts of roms to be scanned
   roms:
@@ -13,44 +12,37 @@ exclude:
     # Will not apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
     single_file:
       # Exclude all files with certain extensions to be scanned
-      extensions:
-        # - 'xml'
-      # Exclude matched file names to be scanned
-      names:
-        # - 'info.txt'
-        # - '._*' # Supports unix filename pattern matching
-        # - '*.nfo' # Can also exclude files by extension
+      extensions: [] # ['xml', 'txt']
+
+      # Exclude matched file names to be scanned.
+      # Supports unix filename pattern matching
+      # Can also exclude files by extension
+      names: [] # ['info.txt', '._*', '*.nfo']
 
     # Multi files games section
     # Will apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
     multi_file:
       # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
-      names:
-        # - 'my_multi_file_game'
-        # - 'DLC'
+      names: [] # ['my_multi_file_game', 'DLC']
+
       # Exclude files within sub-folders.
       parts:
         # Exclude matched file names to be scanned from multi file roms
         # Keep in mind that RomM doesn't scan folders inside multi files games,
         # so there is no need to exclude folders from inside of multi files games.
-        names:
-          # - 'data.xml'
-          # - '._*' # Supports unix filename pattern matching
+        names: [] # ['data.xml', '._*'] # Supports unix filename pattern matching
+
         # Exclude all files with certain extensions to be scanned from multi file roms
-        extensions:
-          # - 'txt'
+        extensions: [] # ['xml', 'txt']
 
 system:
   # Asociate different platform names to your current file system platform names
   # [your custom platform folder name]: [RomM platform name]
-  platforms:
-    # gc: 'ngc' # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
-    # psx: 'ps' # In this example if you have a 'psx' folder, RomM will treat it like the 'ps' folder
+  # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder and if you have a 'psx' folder, RomM will treat it like the 'ps' folder
+  platforms: {} # { gc: 'ngc', psx: 'ps' }
 
   # Asociate one platform to it's main version
-  versions:
-    # naomi: 'arcade'
+  versions: {} # { naomi: 'arcade' }
 
 # The folder name where your roms are located
-filesystem:
-  # roms_folder: 'roms' # For example if your folder structure is /home/user/library/roms_folder
+filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder

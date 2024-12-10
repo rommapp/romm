@@ -36,14 +36,13 @@ emitter?.on("showSearchRomDialog", () => {
   show.value = true;
 });
 
-// Functions
 async function filterRoms() {
   if (!selectedPlatform.value) {
     filteredRoms.value = searchedRoms.value as SimpleRom[];
   } else {
     filteredRoms.value = searchedRoms.value.filter(
       (rom: { platform_name: string }) =>
-        rom.platform_name == selectedPlatform.value?.platform_name
+        rom.platform_name == selectedPlatform.value?.platform_name,
     ) as SimpleRom[];
   }
 }
@@ -73,7 +72,7 @@ async function searchRoms() {
             platform_name: rom.platform_name,
             platform_slug: rom.platform_slug,
           },
-        ])
+        ]),
       ).values(),
     ];
     filterRoms();
@@ -148,6 +147,7 @@ onBeforeUnmount(() => {
                     :size="35"
                     :key="(item as SelectItem).raw.platform_slug"
                     :slug="(item as SelectItem).raw.platform_slug"
+                    :name="(item as SelectItem).raw.platform_name"
                   />
                 </template>
               </v-list-item>
@@ -162,6 +162,7 @@ onBeforeUnmount(() => {
                     :size="35"
                     :key="(item as SelectItem).raw.platform_slug"
                     :slug="(item as SelectItem).raw.platform_slug"
+                    :name="(item as SelectItem).raw.platform_name"
                   />
                 </template>
               </v-list-item>
@@ -183,9 +184,9 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row no-gutters>
+      <v-row no-gutters class="align-content-start align-center">
         <v-col
-          class="pa-1"
+          class="pa-1 align-self-end"
           cols="4"
           sm="3"
           md="2"
@@ -193,13 +194,17 @@ onBeforeUnmount(() => {
           v-for="rom in filteredRoms"
         >
           <game-card
+            :key="rom.updated_at"
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
             title-on-hover
-            show-flags
-            transform-scale
-            show-fav
-            show-platform-icon
+            pointerOnHover
+            withLink
+            showFlags
+            showFav
+            transformScale
+            showActionBar
+            showPlatformIcon
           />
         </v-col>
       </v-row>

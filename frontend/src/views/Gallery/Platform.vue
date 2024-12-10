@@ -5,9 +5,8 @@ import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
-import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -15,7 +14,7 @@ import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
@@ -25,13 +24,15 @@ const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
+  currentCollection,
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
@@ -69,7 +70,7 @@ async function fetchRoms() {
         timeout: 4000,
       });
       console.error(
-        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
+        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
       );
       noPlatformError.value = true;
     })
@@ -83,32 +84,39 @@ async function fetchRoms() {
 }
 
 function setFilters() {
-  galleryFilterStore.setFilterGenre([
+  galleryFilterStore.setFilterGenres([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterFranchise([
+  galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterCompany([
+  galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
-        .sort()
+        .sort(),
     ),
   ]);
-  galleryFilterStore.setFilterCollection([
+  galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort()
+        .sort(),
+    ),
+  ]);
+  galleryFilterStore.setFilterAgeRatings([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
+        .sort(),
     ),
   ]);
 }
@@ -121,7 +129,6 @@ async function onFilterChange() {
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
-    emitData.event.ctrlKey ||
     emitData.event.shiftKey ||
     romsStore.selecting ||
     romsStore.selectedRoms.length > 0
@@ -135,7 +142,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
     if (emitData.event.shiftKey) {
       const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b
+        (a, b) => a - b,
       );
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
@@ -147,11 +154,17 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         }
       }
       romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
       );
     } else {
       romsStore.updateLastSelected(index);
     }
+  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
+    const link = router.resolve({
+      name: "rom",
+      params: { rom: emitData.rom.id },
+    });
+    window.open(link.href, "_blank");
   } else {
     router.push({ name: "rom", params: { rom: emitData.rom.id } });
   }
@@ -196,56 +209,92 @@ function resetGallery() {
   itemsShown.value = itemsPerBatch.value;
 }
 
+const filterToSetFilter: Record<FilterType, Function> = {
+  genres: galleryFilterStore.setSelectedFilterGenre,
+  franchises: galleryFilterStore.setSelectedFilterFranchise,
+  collections: galleryFilterStore.setSelectedFilterCollection,
+  companies: galleryFilterStore.setSelectedFilterCompany,
+  age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
+  status: galleryFilterStore.setSelectedFilterStatus,
+};
+
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
-  const routePlatform = platforms.get(routePlatformId);
+  currentCollection.value = null;
 
-  if (!routePlatform) {
-    await platformApi
-      .getPlatform(routePlatformId)
-      .then((data) => {
-        platforms.add(data.data);
-        romsStore.setCurrentPlatform(data.data);
-      })
-      .catch((error) => {
-        console.log(error);
-        noPlatformError.value = true;
-      });
-  } else {
-    romsStore.setCurrentPlatform(routePlatform);
-  }
+  watch(
+    () => allPlatforms.value,
+    (platforms) => {
+      if (
+        platforms.length > 0 &&
+        platforms.some((platform) => platform.id === routePlatformId)
+      ) {
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
 
-  if (!noPlatformError.value) {
-    resetGallery();
-    await fetchRoms();
-    setFilters();
-    window.addEventListener("wheel", onScroll);
-    window.addEventListener("scroll", onScroll);
-  }
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          (currentPlatform.value?.id !== routePlatformId ||
+            allRoms.value.length === 0) &&
+          platform
+        ) {
+          romsStore.setCurrentPlatform(platform);
+          resetGallery();
+          fetchRoms();
+          setFilters();
+        }
+
+        // Check for query params to set filters
+        if (route.query.filter && route.query.value) {
+          const filter = route.query.filter as FilterType;
+          const value = route.query.value as string;
+          filterToSetFilter[filter](value);
+          onFilterChange(); // Update the UI
+          router.replace({ query: {} }); // Clear query params
+        }
+
+        window.addEventListener("wheel", onScroll);
+        window.addEventListener("scroll", onScroll);
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
 });
 
 onBeforeRouteUpdate(async (to, from) => {
-  // Triggers when change param of the same route
-  // Reset store if switching to another platform
+  // Avoid unnecessary actions if navigating within the same path
   if (to.path === from.path) return;
 
   resetGallery();
 
   const routePlatformId = Number(to.params.platform);
-  const routePlatform = platforms.get(routePlatformId);
-  if (!routePlatform) {
-    const { data } = await platformApi.getPlatform(routePlatformId);
-    platforms.add(data);
-  } else {
-    romsStore.setCurrentPlatform(routePlatform);
-  }
 
-  await fetchRoms();
-  setFilters();
+  watch(
+    () => allPlatforms.value,
+    (platforms) => {
+      if (platforms.length > 0) {
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
+
+        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (
+          (currentPlatform.value?.id !== routePlatformId ||
+            allRoms.value.length === 0) &&
+          platform
+        ) {
+          romsStore.setCurrentPlatform(platform);
+          fetchRoms();
+          setFilters();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
 });
 
 onBeforeUnmount(() => {
-  romsStore.setCurrentPlatform(null);
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
 });
@@ -255,18 +304,13 @@ onBeforeUnmount(() => {
   <template v-if="!noPlatformError">
     <gallery-app-bar />
     <template v-if="filteredRoms.length > 0">
-      <v-row
-        no-gutters
-        class="overflow-hidden"
-        :class="{ 'pa-1': currentView != 2 }"
-      >
+      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
         <!-- Gallery cards view -->
         <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
           v-for="rom in filteredRoms.slice(0, itemsShown)"
-          v-show="currentView != 2"
           :key="rom.id"
-          class="pa-1"
+          class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
           :sm="views[currentView]['size-sm']"
           :md="views[currentView]['size-md']"
@@ -274,9 +318,12 @@ onBeforeUnmount(() => {
           :xl="views[currentView]['size-xl']"
         >
           <game-card
+            v-if="currentPlatform"
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            pointer-on-hover
+            with-link
             show-flags
             show-action-bar
             show-fav
@@ -290,16 +337,11 @@ onBeforeUnmount(() => {
             @touchend="onGameTouchEnd"
           />
         </v-col>
+      </v-row>
 
-        <!-- Gallery list view -->
-        <v-col v-show="currentView == 2">
-          <game-data-table
-            :class="{
-              'fill-height-desktop': !smAndDown,
-              'fill-height-mobile': smAndDown,
-            }"
-          />
-        </v-col>
+      <!-- Gallery list view -->
+      <v-row v-show="currentView == 2" class="h-100" no-gutters>
+        <game-data-table class="h-100" />
       </v-row>
       <fab-overlay />
     </template>

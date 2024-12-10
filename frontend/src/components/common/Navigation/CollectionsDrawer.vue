@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import storeCollections from "@/stores/collections";
+import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -16,7 +17,6 @@ const { filteredCollections, searchText } = storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 async function addCollection() {
   emitter?.emit("showCreateCollectionDialog", null);
 }
@@ -29,7 +29,7 @@ function clear() {
   <v-navigation-drawer
     :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="400"
+    width="500"
     v-model="activeCollectionsDrawer"
     class="bg-terciary"
   >
@@ -51,6 +51,7 @@ function clear() {
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
+        with-link
       />
     </v-list>
     <template #append>
@@ -66,4 +67,6 @@ function clear() {
       >
     </template>
   </v-navigation-drawer>
+
+  <create-collection-dialog />
 </template>

@@ -1,0 +1,584 @@
+interactions:
+  - request:
+      body:
+        search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url;
+        where platforms=[4] & (category=0 | category=10); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer test_token
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "796"
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string:
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+          1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+          \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+          the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+          Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+          \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c0445b39b8dabd6-YYZ
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "434"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:36 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=ZTkzLY1Wz3Lq3KdkQQpVj0yhgTOXkbAP9lPgbSV.fTY-1725854436-1.0.1.1-.UtTECTjipcRDIa3.6ZWDiOQNj0q9mHlDSCB2265Xcox2wuSZ6hHVY_mke1BBtuYQIMilhWlObkmR7PM1tX6RQ;
+            path=/; expires=Mon, 09-Sep-24 04:30:36 GMT; domain=.igdb.com; HttpOnly; Secure;
+            SameSite=None
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 1005873908b937da8d6e408eda0fb9e0.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bjwHzrPHcEtQg=
+        x-amz-cf-id:
+          - Sf46nvswLwbFt_dJ5Ve5KvqLFp-odcsTS64D_cjG6rDGktuFotMRNw==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-errortype:
+          - AccessDeniedException
+        x-amzn-requestid:
+          - fe684a1e-715f-47ce-9b11-a000f167acbd
+        x-cache:
+          - Error from cloudfront
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        content-length:
+          - "0"
+        host:
+          - id.twitch.tv
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+    response:
+      body:
+        string:
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":4930334,"token_type":"bearer"}
+
+          '
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "93"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:37 GMT
+        Server:
+          - nginx
+        X-Ctxlog-Logid:
+          - 1-66de72e5-20e8932a7697667d209b366f
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url;
+        where platforms=[4] & (category=0 | category=10); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "796"
+        cookie:
+          - __cf_bm=ZTkzLY1Wz3Lq3KdkQQpVj0yhgTOXkbAP9lPgbSV.fTY-1725854436-1.0.1.1-.UtTECTjipcRDIa3.6ZWDiOQNj0q9mHlDSCB2265Xcox2wuSZ6hHVY_mke1BBtuYQIMilhWlObkmR7PM1tX6RQ
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string: !!binary |
+          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
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c0445b8f82eabd6-YYZ
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Length:
+          - "1529"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:37 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 1005873908b937da8d6e408eda0fb9e0.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bj4FrsPHcELQw=
+        x-amz-cf-id:
+          - nGKmz8x3MAZLbXpwAPNXo2hwQ7UwmchXiWql7aMqWaRVqrjVM60Lmw==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "1529"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:37 GMT
+        x-amzn-requestid:
+          - 0c112999-f30d-4510-95a9-d61502c7b12b
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "1"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: fields video_id; where game=3340; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "44"
+        cookie:
+          - __cf_bm=ZTkzLY1Wz3Lq3KdkQQpVj0yhgTOXkbAP9lPgbSV.fTY-1725854436-1.0.1.1-.UtTECTjipcRDIa3.6ZWDiOQNj0q9mHlDSCB2265Xcox2wuSZ6hHVY_mke1BBtuYQIMilhWlObkmR7PM1tX6RQ
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/game_videos
+    response:
+      body:
+        string: !!binary |
+          IYADACBmzOlj1F902yUFkmNFSE45EAgww1Qyz6wdMaDDxpggjRmd0a1LwJcAgNczjhFF6hraT3wN
+          m0dc8LfePrXxmvsyE/A3pskXFTtL6eCWDE6fp399gjRcyF+39VJ2aqcrAlNRKfadenSd3OqynzIB
+          f+obAw==
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c0445bb6a46abd6-YYZ
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:38 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 1005873908b937da8d6e408eda0fb9e0.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bj9F_nvHcEe3Q=
+        x-amz-cf-id:
+          - z0uGc71xLQMm1sTPsdIwmh7Uso2jjYjrTjIL7yqbvs9WQ5RYHTciIQ==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "225"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:37 GMT
+        x-amzn-requestid:
+          - e7ec2d18-e037-4d50-8919-4f9d38c9abf6
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "4"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url;
+        where platforms=[4] & (category=0 | category=10); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer test_token
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "796"
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string:
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+          1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+          \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+          the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+          Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+          \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c0446168f587117-YYZ
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "434"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:52 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=Uc538fsRMgVlaNKx20H7.wBHC_4yQvf5msLYDdiWHWw-1725854452-1.0.1.1-7HfoY3TYKBR5atKo7l9f8nL_QkBZtJl1R6cFz5Ui8Gn.XVLC7ok6KRWdNH4Gp_CQAqu5nw9PklMWrdGGcjvFWg;
+            path=/; expires=Mon, 09-Sep-24 04:30:52 GMT; domain=.igdb.com; HttpOnly; Secure;
+            SameSite=None
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 f92b450b48c98e711c027c1986c59944.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bmNH1xvHcEIUg=
+        x-amz-cf-id:
+          - 5FhkJO2W64H2MJHbkQ1er_vxxHQ-9jWO50WmaiIjjklL3_w0Tc4fMA==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-errortype:
+          - AccessDeniedException
+        x-amzn-requestid:
+          - 17e5ffd1-9f99-43d2-abcb-d94bffc7911f
+        x-cache:
+          - Error from cloudfront
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        content-length:
+          - "0"
+        host:
+          - id.twitch.tv
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+    response:
+      body:
+        string:
+          '{"access_token":"vyzx88dpfr0ve3kypohhawd40j0r5z","expires_in":5391063,"token_type":"bearer"}
+
+          '
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "93"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:52 GMT
+        Server:
+          - nginx
+        X-Ctxlog-Logid:
+          - 1-66de72f4-66afdd221ca68b434444e2c7
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        search "Paper Mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url;
+        where platforms=[4] & (category=0 | category=10); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer vyzx88dpfr0ve3kypohhawd40j0r5z
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "796"
+        cookie:
+          - __cf_bm=Uc538fsRMgVlaNKx20H7.wBHC_4yQvf5msLYDdiWHWw-1725854452-1.0.1.1-7HfoY3TYKBR5atKo7l9f8nL_QkBZtJl1R6cFz5Ui8Gn.XVLC7ok6KRWdNH4Gp_CQAqu5nw9PklMWrdGGcjvFWg
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string: !!binary |
+          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
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c04461b49d77117-YYZ
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Length:
+          - "1529"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:53 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 f92b450b48c98e711c027c1986c59944.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bmWEgfPHcEc-Q=
+        x-amz-cf-id:
+          - ayWP5EBTRdWEN9F1pKi1KLnEFGM2irHDLDchaXiBhhZShZX-fHbmkQ==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "1529"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:53 GMT
+        x-amzn-requestid:
+          - 0ee33393-4abc-4943-a2c1-50908af51e6d
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "1"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: fields video_id; where game=3340; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer vyzx88dpfr0ve3kypohhawd40j0r5z
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "44"
+        cookie:
+          - __cf_bm=Uc538fsRMgVlaNKx20H7.wBHC_4yQvf5msLYDdiWHWw-1725854452-1.0.1.1-7HfoY3TYKBR5atKo7l9f8nL_QkBZtJl1R6cFz5Ui8Gn.XVLC7ok6KRWdNH4Gp_CQAqu5nw9PklMWrdGGcjvFWg
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/game_videos
+    response:
+      body:
+        string: !!binary |
+          IYADACBmzOlj1F902yUFkmNFSE45EAgww1Qyz6wdMaDDxpggjRmd0a1LwJcAgNczjhFF6hraT3wN
+          m0dc8LfePrXxmvsyE/A3pskXFTtL6eCWDE6fp399gjRcyF+39VJ2aqcrAlNRKfadenSd3OqynzIB
+          f+obAw==
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c04461dfb577117-YYZ
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:53 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 f92b450b48c98e711c027c1986c59944.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bmaG4PPHcERHQ=
+        x-amz-cf-id:
+          - 8Hq3T2WEPlUJISXm2DY86rlSr9tTqhbNJCxndioQu8jCDrJZQlJbEw==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "225"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:53 GMT
+        x-amzn-requestid:
+          - 3c20676f-438f-4938-a2a9-6c45bd83542d
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "4"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+version: 1

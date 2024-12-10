@@ -6,7 +6,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from handler.metadata.base_hander import conditionally_set_cache
-from handler.redis_handler import cache
+from handler.redis_handler import sync_cache
 from models.base import BaseModel
 from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -55,16 +55,15 @@ class Firmware(BaseModel):
 
     @cached_property
     def is_verified(self) -> bool:
-        cache_entry = cache.hget(
+        cache_entry = sync_cache.hget(
             KNOWN_BIOS_KEY, f"{self.platform_slug}:{self.file_name}"
         )
         if cache_entry:
             cache_json = json.loads(cache_entry)
-            return (
-                self.file_size_bytes == int(cache_json.get("size", 0))
-                and self.md5_hash == cache_json.get("md5")
-                and self.sha1_hash == cache_json.get("sha1")
-                and self.crc_hash == cache_json.get("crc")
+            return self.file_size_bytes == int(cache_json.get("size", 0)) and (
+                self.md5_hash == cache_json.get("md5")
+                or self.sha1_hash == cache_json.get("sha1")
+                or self.crc_hash == cache_json.get("crc")
             )
 
         return False

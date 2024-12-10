@@ -12,7 +12,6 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
-// Functions
 function clear() {
   searchText.value = "";
 }
@@ -22,7 +21,7 @@ function clear() {
     :location="smAndDown ? 'top' : 'left'"
     mobile
     @update:model-value="clear"
-    width="400"
+    width="500"
     v-model="activePlatformsDrawer"
     class="bg-terciary"
   >

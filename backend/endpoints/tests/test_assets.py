@@ -1,12 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_delete_saves(access_token, save):
+def test_delete_saves(client, access_token, save):
     response = client.post(
-        "/saves/delete",
+        "/api/saves/delete",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"saves": [save.id], "delete_from_fs": []},
     )
@@ -16,9 +21,9 @@ def test_delete_saves(access_token, save):
     assert body["msg"] == "Successfully deleted 1 saves"
 
 
-def test_delete_states(access_token, state):
+def test_delete_states(client, access_token, state):
     response = client.post(
-        "/states/delete",
+        "/api/states/delete",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"states": [state.id], "delete_from_fs": []},
     )

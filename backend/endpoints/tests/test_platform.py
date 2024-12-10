@@ -1,15 +1,20 @@
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_get_platforms(access_token, platform):
-    response = client.get("/platforms")
+def test_get_platforms(client, access_token, platform):
+    response = client.get("/api/platforms")
     assert response.status_code == 403
 
     response = client.get(
-        "/platforms", headers={"Authorization": f"Bearer {access_token}"}
+        "/api/platforms", headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 200
 

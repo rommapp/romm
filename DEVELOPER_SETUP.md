@@ -1,8 +1,10 @@
-# Environment setup
+# Setup for development environment
 
-## Mocking RomM structure
+## Environment setup
 
-### - Create the mock structure with at least one rom and empty config for manual testing
+### Mocking RomM structure
+
+#### - Create the mock structure with at least one rom and empty config for manual testing
 
 ```sh
 mkdir -p romm_mock/library/roms/switch
@@ -10,29 +12,29 @@ touch romm_mock/library/roms/switch/metroid.xci
 mkdir -p romm_mock/resources
 mkdir -p romm_mock/assets
 mkdir -p romm_mock/config
-touch romm_mock/config.yml
+touch romm_mock/config/config.yml
 ```
 
-## Setting up the backend
+### Setting up the backend
 
-### - Copy env.template to .env and fill the variables
+#### - Copy env.template to .env and fill the variables
 
 ```sh
 cp env.template .env
 ```
 
-### - Install system dependencies
+#### - Install system dependencies
 
 ```sh
 # https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux):
 sudo apt install libmariadb3 libmariadb-dev pipx
 ```
 
-### - Install python dependencies
+#### - Install python dependencies
 
 You'll need poetry installed
 
-https://python-poetry.org/docs/#installing-with-the-official-installer
+<https://python-poetry.org/docs/#installing-with-the-official-installer>
 
 ```sh
 pipx install poetry
@@ -46,13 +48,20 @@ Then create the virtual environment
 poetry install --sync
 ```
 
-### - Spin up mariadb in docker
+If you are on Arch Linux or another Arch-based distro, you need to run the command as follows:
 
 ```sh
-docker-compose up -d
+# https://bbs.archlinux.org/viewtopic.php?id=296542
+CFLAGS="-Wno-error=incompatible-pointer-types" poetry install --sync
 ```
 
-### - Run the backend
+#### - Spin up mariadb in docker
+
+```sh
+docker compose up -d
+```
+
+#### - Run the backend
 
 *\_\_*Migrations will be run automatically when running the backend.\_\_\*
 
@@ -61,16 +70,16 @@ cd backend
 poetry run python3 main.py
 ```
 
-### - Start a worker
+#### - Start a worker
 
 ```sh
 cd backend
 poetry run python3 worker.py
 ```
 
-## Setting up the frontend
+### Setting up the frontend
 
-### - Install node.js dependencies
+#### - Install node.js dependencies
 
 ```sh
 cd frontend
@@ -78,7 +87,7 @@ cd frontend
 npm install
 ```
 
-### - Create symlink to library and resources
+#### - Create symlink to library and resources
 
 ```sh
 mkdir assets/romm
@@ -86,17 +95,17 @@ ln -s ../backend/romm_mock/resources assets/romm/resources
 ln -s ../backend/romm_mock/assets assets/romm/assets
 ```
 
-### - Run the frontend
+#### - Run the frontend
 
 ```sh
 npm run dev
 ```
 
-## Setting up the linter
+### Setting up the linter
 
 We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.
 
-### - Install the Trunk CLI
+#### - Install the Trunk CLI
 
 ```sh
 curl https://get.trunk.io -fsSL | bash
@@ -111,17 +120,17 @@ trunk check
 
 **Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**
 
-# Test setup
+## Test setup
 
 ### - Create the test user and database with root user
 
 ```sh
-docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/setup.sql
+docker exec -i romm-mariadb-dev mariadb -uroot -p<root password> < backend/romm_test/setup.sql
 ```
 
 ### - Run tests
 
-*\_\_*Migrations will be run automatically when running the tests.\_\_\*
+*\_*Migrations will be run automatically when running the tests.\_\_\_
 
 ```sh
 cd backend
