@@ -11,6 +11,10 @@ import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
+
+// Props
+const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
