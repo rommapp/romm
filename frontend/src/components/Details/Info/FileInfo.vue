@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
-import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import type { Collection } from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
@@ -12,14 +10,14 @@ import { ref, watch } from "vue";
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
-const auth = storeAuth();
 const romUser = ref(props.rom.rom_user);
+const romInfo = ref([
+  { label: "SHA-1", value: props.rom.sha1_hash },
+  { label: "MD5", value: props.rom.md5_hash },
+  { label: "CRC", value: props.rom.crc_hash },
+]);
 
 // Functions
-function collectionsWithoutFavourites(collections: Collection[]) {
-  return collections.filter((c) => c.name.toLowerCase() != "favourites");
-}
-
 async function toggleMainSibling() {
   romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({
@@ -111,33 +109,26 @@ watch(
           <span>Info</span>
         </v-col>
         <v-col class="my-1">
-          <v-chip size="small" label>
-            Size: {{ formatBytes(rom.file_size_bytes) }}
-          </v-chip>
-          <v-chip
-            v-if="!rom.multi && rom.sha1_hash"
-            size="small"
-            label
-            class="ml-1"
-          >
-            SHA-1: {{ rom.sha1_hash }}
-          </v-chip>
-          <v-chip
-            v-if="!rom.multi && rom.md5_hash"
-            size="small"
-            label
-            class="ml-1"
-          >
-            MD5: {{ rom.md5_hash }}
-          </v-chip>
-          <v-chip
-            v-if="!rom.multi && rom.crc_hash"
-            size="small"
-            label
-            class="ml-1"
-          >
-            CRC: {{ rom.crc_hash }}
-          </v-chip>
+          <v-row no-gutters>
+            <v-col cols="12">
+              <v-chip size="small" class="mr-2 px-0" label>
+                <v-chip label>Size</v-chip
+                ><span class="px-2">{{
+                  formatBytes(rom.file_size_bytes)
+                }}</span>
+              </v-chip>
+            </v-col>
+            <v-col
+              v-for="info in romInfo"
+              v-if="!rom.multi && rom.sha1_hash"
+              cols="12"
+            >
+              <v-chip size="small" class="mt-1 mr-2 px-0" label>
+                <v-chip label>{{ info.label }}</v-chip
+                ><span class="px-2">{{ info.value }}</span>
+              </v-chip>
+            </v-col>
+          </v-row>
         </v-col>
       </v-row>
       <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
@@ -155,34 +146,6 @@ watch(
             variant="tonal"
           >
             {{ tag }}
-          </v-chip>
-        </v-col>
-      </v-row>
-      <v-row
-        v-if="
-          rom.user_collections &&
-          collectionsWithoutFavourites(rom.user_collections).length > 0
-        "
-        no-gutters
-        class="align-center my-3"
-      >
-        <v-col cols="3" xl="2">
-          <span>Collections</span>
-        </v-col>
-        <v-col>
-          <v-chip
-            v-for="collection in collectionsWithoutFavourites(
-              rom.user_collections,
-            )"
-            :to="{ name: 'collection', params: { collection: collection.id } }"
-            size="large"
-            class="mr-1 mt-1"
-            label
-          >
-            <template #prepend>
-              <r-avatar :size="25" :collection="collection" />
-            </template>
-            <span class="ml-2">{{ collection.name }}</span>
           </v-chip>
         </v-col>
       </v-row>

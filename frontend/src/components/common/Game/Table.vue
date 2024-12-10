@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -154,10 +154,10 @@ onMounted(() => {
       <td class="name-row">
         <v-list-item class="px-0">
           <template #prepend>
-            <r-avatar :rom="item" />
+            <r-avatar-rom :rom="item" />
           </template>
-          <v-row no-gutters
-            ><v-col>{{ item.name }}</v-col></v-row
+          <v-row no-gutters>
+            <v-col>{{ item.name }}</v-col></v-row
           >
           <v-row no-gutters
             ><v-col class="text-romm-accent-1">{{

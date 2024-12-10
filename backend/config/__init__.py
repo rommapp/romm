@@ -117,6 +117,8 @@ UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
 
 # LOGGING
 LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
+FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
+NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

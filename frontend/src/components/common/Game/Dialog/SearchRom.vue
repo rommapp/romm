@@ -200,11 +200,11 @@ onBeforeUnmount(() => {
             title-on-hover
             pointerOnHover
             withLink
-            show-flags
-            show-fav
-            transform-scale
-            show-action-bar
-            show-platform-icon
+            showFlags
+            showFav
+            transformScale
+            showActionBar
+            showPlatformIcon
           />
         </v-col>
       </v-row>

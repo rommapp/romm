@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import router from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
@@ -66,7 +66,7 @@ async function removeRomsFromCollection() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
       if (selectedCollection.value?.roms.length == 0) {
-        router.push({ name: "dashboard" });
+        router.push({ name: "home" });
       }
       closeDialog();
     });
@@ -118,14 +118,7 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <template #prepend>
-              <r-avatar-rom :rom="item" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
-          </v-list-item>
+          <rom-list-item :rom="item" with-filename />
         </template>
         <template #bottom>
           <v-divider />

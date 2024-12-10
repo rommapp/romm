@@ -76,7 +76,7 @@ watch(
             color="romm-accent-1"
             hide-details
           >
-            <template v-slot:label
+            <template #label
               ><span>Backlogged</span
               ><span class="ml-2">{{
                 getEmojiForStatus("backlogged")
@@ -88,7 +88,7 @@ watch(
             color="romm-accent-1"
             hide-details
           >
-            <template v-slot:label
+            <template #label
               ><span>Now playing</span
               ><span class="ml-2">{{
                 getEmojiForStatus("now_playing")
@@ -100,7 +100,7 @@ watch(
             color="romm-accent-1"
             hide-details
           >
-            <template v-slot:label
+            <template #label
               ><span>Hidden</span
               ><span class="ml-2">{{
                 getEmojiForStatus("hidden")
@@ -190,13 +190,13 @@ watch(
               density="compact"
               class="mt-1"
             >
-              <template v-slot:selection="{ item }">
+              <template #selection="{ item }">
                 <span>{{ getEmojiForStatus(item.raw as RomUserStatus) }}</span
                 ><span class="ml-2">{{
                   getTextForStatus(item.raw as RomUserStatus)
                 }}</span>
               </template>
-              <template v-slot:item="{ item }">
+              <template #item="{ item }">
                 <v-list-item
                   link
                   rounded="0"

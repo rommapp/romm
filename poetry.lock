@@ -2948,6 +2948,17 @@ files = [
 types-setuptools = "*"
 
 [[package]]
+name = "types-colorama"
+version = "0.4.15.20240311"
+description = "Typing stubs for colorama"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-colorama-0.4.15.20240311.tar.gz", hash = "sha256:a28e7f98d17d2b14fb9565d32388e419f4108f557a7d939a66319969b2b99c7a"},
+    {file = "types_colorama-0.4.15.20240311-py3-none-any.whl", hash = "sha256:6391de60ddc0db3f147e31ecb230006a6823e81e380862ffca1e4695c13a0b8e"},
+]
+
+[[package]]
 name = "types-passlib"
 version = "1.7.7.20240819"
 description = "Typing stubs for passlib"
@@ -3457,4 +3468,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "6d93de4a7ea4454d3752c3cc7ada1cda76e1f3927d14552602619547b5ec9e36"
+content-hash = "bdd25954db1482642634d4460b0320fdcbaf77b00c7f7606a4c06b7c86f38463"
