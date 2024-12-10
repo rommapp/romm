@@ -12,7 +12,7 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const theme = useTheme();
-const { mdAndUp } = useDisplay();
+const { smAndDown, mdAndUp, lgAndUp } = useDisplay();
 const show = ref(false);
 const storeCollection = collectionStore();
 const collection = ref<UpdatedCollection>({} as UpdatedCollection);
@@ -106,12 +106,12 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
-    :width="mdAndUp ? '55vw' : '95vw'"
+    :width="lgAndUp ? '65vw' : '95vw'"
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" lg="7" xl="9">
-          <v-row class="pa-2" no-gutters>
+        <v-col cols="12" md="8" xl="9">
+          <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
                 v-model="collection.name"
@@ -124,7 +124,7 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
-          <v-row class="pa-2" no-gutters>
+          <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
                 v-model="collection.description"
@@ -137,25 +137,33 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
-          <v-row class="pa-2" no-gutters>
+          <v-row class="px-2" no-gutters>
             <v-col>
               <v-switch
                 v-model="collection.is_public"
+                color="romm-accent-1"
+                class="px-2"
+                false-icon="mdi-lock"
+                true-icon="mdi-lock-open"
+                inset
+                hide-details
+                message="Public (visible to everyone)"
                 :label="
                   collection.is_public
                     ? 'Public (visible to everyone)'
                     : 'Private (only visible to me)'
                 "
-                color="romm-accent-1"
-                class="px-2"
-                hide-details
               />
             </v-col>
           </v-row>
         </v-col>
-        <v-col>
-          <v-row class="pa-2 justify-center" no-gutters>
-            <v-col class="cover">
+        <v-col cols="12" md="4" xl="3">
+          <v-row
+            class="justify-center"
+            :class="{ 'mt-4': smAndDown }"
+            no-gutters
+          >
+            <v-col style="max-width: 240px">
               <collection-card
                 :key="collection.updated_at"
                 :show-title="false"
@@ -172,10 +180,10 @@ function closeDialog() {
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit(
-                          'showSearchCoverDialog',
-                          collection.name as string,
-                        )
+                        emitter?.emit('showSearchCoverDialog', {
+                          term: collection.name as string,
+                          aspectRatio: null,
+                        })
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>
@@ -211,9 +219,7 @@ function closeDialog() {
           </v-row>
         </v-col>
       </v-row>
-    </template>
-    <template #append>
-      <v-row class="justify-center mt-4 mb-2" no-gutters>
+      <v-row class="justify-center pa-2 mt-1" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="editCollection">
@@ -224,11 +230,3 @@ function closeDialog() {
     </template>
   </r-dialog>
 </template>
-<style scoped>
-.cover {
-  min-width: 240px;
-  min-height: 330px;
-  max-width: 240px;
-  max-height: 330px;
-}
-</style>

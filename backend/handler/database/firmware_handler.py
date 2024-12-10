@@ -62,15 +62,30 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def purge_firmware(
-        self, platform_id: int, firmware: list[str], session: Session = None
+        self, platform_id: int, fs_firmwares: list[str], session: Session = None
     ) -> None:
-        return session.execute(
+        purged_firmware = (
+            session.scalars(
+                select(Firmware)
+                .order_by(Firmware.file_name.asc())
+                .where(
+                    and_(
+                        Firmware.platform_id == platform_id,
+                        Firmware.file_name.not_in(fs_firmwares),
+                    )
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Firmware)
             .where(
                 and_(
                     Firmware.platform_id == platform_id,
-                    Firmware.file_name.not_in(firmware),
+                    Firmware.file_name.not_in(fs_firmwares),
                 )
             )
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_firmware

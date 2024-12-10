@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -14,6 +15,7 @@ import { useDisplay, useTheme } from "vuetify";
 type MatchedSource = {
   url_cover: string | undefined;
   name: "IGDB" | "Mobygames";
+  logo_path: string;
 };
 
 // Props
@@ -21,6 +23,7 @@ const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
+const galleryViewStore = storeGalleryView();
 const searching = ref(false);
 const route = useRoute();
 const searchTerm = ref("");
@@ -126,10 +129,12 @@ function showSources(matchedRom: SearchRomSchema) {
   sources.value.push({
     url_cover: matchedRom.igdb_url_cover,
     name: "IGDB",
+    logo_path: "/assets/scrappers/igdb.png",
   });
   sources.value.push({
     url_cover: matchedRom.moby_url_cover,
     name: "Mobygames",
+    logo_path: "/assets/scrappers/moby.png",
   });
 }
 
@@ -239,10 +244,13 @@ onBeforeUnmount(() => {
           <v-avatar
             @click="toggleSourceFilter('IGDB')"
             v-bind="props"
-            class="ml-3 source-filter"
+            class="ml-3 cursor-pointer opacity-40"
             :class="{
-              filtered: isIGDBFiltered,
-              disabled: !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'opacity-100':
+                isIGDBFiltered &&
+                heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -265,10 +273,13 @@ onBeforeUnmount(() => {
           <v-avatar
             @click="toggleSourceFilter('Mobygames')"
             v-bind="props"
-            class="ml-3 source-filter"
+            class="ml-3 cursor-pointer opacity-40"
             :class="{
-              filtered: isMobyFiltered,
-              disabled: !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+              'opacity-100':
+                isMobyFiltered &&
+                heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -317,7 +328,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row v-show="!showSelectSource" no-gutters>
+      <v-row class="align-content-start" v-show="!showSelectSource" no-gutters>
         <v-col
           class="pa-1"
           cols="4"
@@ -327,11 +338,12 @@ onBeforeUnmount(() => {
           v-for="matchedRom in filteredMatchedRoms"
         >
           <game-card
+            v-if="rom"
             @click="showSources(matchedRom)"
             :rom="matchedRom"
-            title-on-footer
-            transform-scale
-            title-on-hover
+            transformScale
+            titleOnHover
+            pointerOnHover
           />
         </v-col>
       </v-row>
@@ -365,16 +377,10 @@ onBeforeUnmount(() => {
           </v-col>
           <v-col cols="12">
             <v-row class="justify-center mt-4" no-gutters>
-              <v-col
-                :class="{
-                  'source-cover-desktop': !xs,
-                  'source-cover-mobile': xs,
-                }"
-                class="pa-1"
-                v-for="source in sources"
-              >
+              <v-col class="pa-1" cols="auto" v-for="source in sources">
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
+                    :width="xs ? 150 : 220"
                     v-bind="props"
                     class="transform-scale mx-2"
                     :class="{
@@ -391,7 +397,7 @@ onBeforeUnmount(() => {
                           ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                           : source.url_cover
                       "
-                      :aspect-ratio="2 / 3"
+                      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
                       cover
                       lazy
                     >
@@ -408,9 +414,7 @@ onBeforeUnmount(() => {
                       </template>
                       <v-row no-gutters class="text-white pa-1">
                         <v-avatar class="mr-1" size="30" rounded="1">
-                          <v-img
-                            :src="`/assets/scrappers/${source.name}.png`"
-                          />
+                          <v-img :src="source.logo_path" />
                         </v-avatar>
                       </v-row>
                     </v-img>
@@ -490,28 +494,3 @@ onBeforeUnmount(() => {
     </template>
   </r-dialog>
 </template>
-
-<style scoped>
-.source-filter {
-  cursor: pointer;
-  opacity: 0.4;
-}
-.source-filter.filtered {
-  opacity: 1;
-}
-.source-filter.disabled {
-  cursor: not-allowed !important;
-  opacity: 0.4 !important;
-}
-.select-source-dialog {
-  z-index: 9999 !important;
-}
-.source-cover-desktop {
-  min-width: 220px;
-  max-width: 220px;
-}
-.source-cover-mobile {
-  min-width: 150px;
-  max-width: 150px;
-}
-</style>

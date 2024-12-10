@@ -32,6 +32,7 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
+    navigationStore.switchActiveSettingsDrawer();
   });
 
   await router.push({ name: "login" });
@@ -42,7 +43,7 @@ async function logout() {
   <v-navigation-drawer
     :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="400"
+    width="500"
     v-model="activeSettingsDrawer"
     class="bg-terciary"
   >
@@ -71,13 +72,13 @@ async function logout() {
         append-icon="mdi-account"
         >Profile</v-list-item
       >
-      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
-        >UI Settings</v-list-item
+      <v-list-item :to="{ name: 'userInterface' }" append-icon="mdi-palette"
+        >User Interface</v-list-item
       >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
         append-icon="mdi-table-cog"
-        :to="{ name: 'management' }"
+        :to="{ name: 'libraryManagement' }"
         >Library Management
       </v-list-item>
       <v-list-item

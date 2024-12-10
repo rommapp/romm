@@ -1,9 +1,9 @@
 # Please see the full example under examples/docker-compose.example.yml
 
 services:
-  mariadb:
+  romm-mariadb-dev:
     image: mariadb:11.3.2
-    container_name: romm-db-dev
+    container_name: romm-mariadb-dev
     restart: unless-stopped
     environment:
       - MARIADB_ROOT_PASSWORD=$DB_ROOT_PASSWD
@@ -13,7 +13,7 @@ services:
     ports:
       - $DB_PORT:3306
 
-  valkey:
+  romm-valkey-dev:
     image: valkey/valkey:8
     container_name: romm-valkey-dev
     restart: unless-stopped
