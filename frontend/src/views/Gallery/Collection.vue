@@ -287,16 +287,11 @@ onBeforeUnmount(() => {
   <template v-if="!noCollectionError">
     <gallery-app-bar-collection />
     <template v-if="filteredRoms.length > 0">
-      <v-row
-        no-gutters
-        class="overflow-hidden align-center"
-        :class="{ 'pa-1': currentView != 2 }"
-      >
+      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
         <!-- Gallery cards view -->
         <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
           v-for="rom in filteredRoms.slice(0, itemsShown)"
-          v-show="currentView != 2"
           :key="rom.id"
           class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
@@ -309,13 +304,13 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
-            pointerOnHover
-            withLink
+            pointer-on-hover
+            with-link
             show-flags
             show-action-bar
+            show-fav
             transform-scale
             with-border
-            show-fav
             show-platform-icon
             :with-border-romm-accent="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
@@ -325,16 +320,11 @@ onBeforeUnmount(() => {
             @touchend="onGameTouchEnd"
           />
         </v-col>
+      </v-row>
 
-        <!-- Gallery list view -->
-        <v-col v-show="currentView == 2">
-          <game-data-table
-            :class="{
-              'fill-height-desktop': !smAndDown,
-              'fill-height-mobile': smAndDown,
-            }"
-          />
-        </v-col>
+      <!-- Gallery list view -->
+      <v-row v-show="currentView == 2" class="h-100" no-gutters>
+        <game-data-table class="fill-height" />
       </v-row>
       <fab-overlay />
     </template>

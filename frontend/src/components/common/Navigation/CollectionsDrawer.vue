@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import storeCollections from "@/stores/collections";
+import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -50,6 +51,7 @@ function clear() {
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
+        with-link
       />
     </v-list>
     <template #append>
@@ -65,4 +67,6 @@ function clear() {
       >
     </template>
   </v-navigation-drawer>
+
+  <create-collection-dialog />
 </template>

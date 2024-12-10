@@ -244,10 +244,13 @@ onBeforeUnmount(() => {
           <v-avatar
             @click="toggleSourceFilter('IGDB')"
             v-bind="props"
-            class="ml-3 source-filter"
+            class="ml-3 cursor-pointer opacity-40"
             :class="{
-              filtered: isIGDBFiltered,
-              disabled: !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'opacity-100':
+                isIGDBFiltered &&
+                heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -270,10 +273,13 @@ onBeforeUnmount(() => {
           <v-avatar
             @click="toggleSourceFilter('Mobygames')"
             v-bind="props"
-            class="ml-3 source-filter"
+            class="ml-3 cursor-pointer opacity-40"
             :class="{
-              filtered: isMobyFiltered,
-              disabled: !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+              'opacity-100':
+                isMobyFiltered &&
+                heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -322,7 +328,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row v-show="!showSelectSource" no-gutters>
+      <v-row class="align-content-start" v-show="!showSelectSource" no-gutters>
         <v-col
           class="pa-1"
           cols="4"
@@ -335,9 +341,8 @@ onBeforeUnmount(() => {
             v-if="rom"
             @click="showSources(matchedRom)"
             :rom="matchedRom"
-            title-on-footer
-            transform-scale
-            title-on-hover
+            transformScale
+            titleOnHover
             pointerOnHover
           />
         </v-col>
@@ -372,16 +377,10 @@ onBeforeUnmount(() => {
           </v-col>
           <v-col cols="12">
             <v-row class="justify-center mt-4" no-gutters>
-              <v-col
-                :class="{
-                  'source-cover-desktop': !xs,
-                  'source-cover-mobile': xs,
-                }"
-                class="pa-1"
-                v-for="source in sources"
-              >
+              <v-col class="pa-1" cols="auto" v-for="source in sources">
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
+                    :width="xs ? 150 : 220"
                     v-bind="props"
                     class="transform-scale mx-2"
                     :class="{
@@ -495,28 +494,3 @@ onBeforeUnmount(() => {
     </template>
   </r-dialog>
 </template>
-
-<style scoped>
-.source-filter {
-  cursor: pointer;
-  opacity: 0.4;
-}
-.source-filter.filtered {
-  opacity: 1;
-}
-.source-filter.disabled {
-  cursor: not-allowed !important;
-  opacity: 0.4 !important;
-}
-.select-source-dialog {
-  z-index: 9999 !important;
-}
-.source-cover-desktop {
-  min-width: 220px;
-  max-width: 220px;
-}
-.source-cover-mobile {
-  min-width: 150px;
-  max-width: 150px;
-}
-</style>

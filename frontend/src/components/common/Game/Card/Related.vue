@@ -9,49 +9,41 @@ const props = defineProps<{
 }>();
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
-const handleClick = () => {
-  if (props.game.slug) {
-    window.open(
-      `https://www.igdb.com/games/${props.game.slug}`,
-      "_blank",
-      "noopener noreferrer",
-    );
-  }
-};
 </script>
 
 <template>
-  <v-card class="ma-1" v-on:click="handleClick">
-    <v-tooltip
-      activator="parent"
-      location="top"
-      class="tooltip"
-      transition="fade-transition"
-      open-delay="1000"
-      >{{ game.name }}</v-tooltip
-    >
-    <!-- TODO: fix aspect ratio -->
-    <v-img
-      v-bind="props"
-      :src="
-        `${game.cover_url}`
-          ? `https:${game.cover_url.replace('t_thumb', 't_cover_big')}`
-          : `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-      "
-      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
-      cover
-      lazy
-      ><v-chip
-        class="px-2 position-absolute chip-type text-white translucent-dark"
-        density="compact"
-        label
+  <a :href="`https://www.igdb.com/games/${game.slug}`" target="_blank">
+    <v-card>
+      <v-tooltip
+        activator="parent"
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        open-delay="1000"
+        >{{ game.name }}</v-tooltip
       >
-        <span>
-          {{ game.type }}
-        </span>
-      </v-chip></v-img
-    >
-  </v-card>
+      <v-img
+        v-bind="props"
+        :src="
+          game.cover_url ||
+          `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+        "
+        :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+        cover
+        lazy
+        ><v-chip
+          class="px-2 position-absolute chip-type text-white translucent-dark"
+          density="compact"
+          rounded="0"
+          label
+        >
+          <span>
+            {{ game.type }}
+          </span>
+        </v-chip></v-img
+      >
+    </v-card>
+  </a>
 </template>
 <style scoped>
 .chip-type {
