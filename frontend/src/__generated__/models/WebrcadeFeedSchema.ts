@@ -3,11 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { WebrcadeFeedCategorySchema } from './WebrcadeFeedCategorySchema';
+
 export type WebrcadeFeedSchema = {
-  title: string;
-  longTitle: string;
-  description: string;
-  thumbnail: string;
-  background: string;
-  categories: Array<Record<string, any>>;
+    title: string;
+    longTitle?: string;
+    description?: string;
+    thumbnail?: string;
+    background?: string;
+    categories: Array<WebrcadeFeedCategorySchema>;
 };
+

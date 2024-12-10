@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import {
   formatBytes,
-  isEmulationSupported,
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
 import { isNull } from "lodash";
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch } from "vue";
+import { inject, onMounted, ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
@@ -29,6 +31,7 @@ const router = useRouter();
 const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
+const heartbeatStore = storeHeartbeat();
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
 const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
@@ -74,6 +77,10 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
+const selectedRomIDs = computed(() =>
+  romsStore.selectedRoms.map((rom) => rom.id),
+);
+
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: "rom", params: { rom: row.item.id } });
@@ -81,12 +88,28 @@ function rowClick(_: Event, row: { item: SimpleRom }) {
 
 function updateDataTablePages() {
   pageCount.value = Math.ceil(
-    romsStore.filteredRoms.length / itemsPerPage.value
+    romsStore.filteredRoms.length / itemsPerPage.value,
   );
 }
 
 function updateUrlHash() {
   window.location.hash = String(page.value);
+}
+
+function checkIfEJSEmulationSupported(platformSlug: string) {
+  return isEJSEmulationSupported(platformSlug, heartbeatStore.value);
+}
+
+function checkIfRuffleEmulationSupported(platformSlug: string) {
+  return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
+}
+
+function updateSelectedRom(rom: SimpleRom) {
+  if (selectedRomIDs.value.includes(rom.id)) {
+    romsStore.removeFromSelection(rom);
+  } else {
+    romsStore.addToSelection(rom);
+  }
 }
 
 watch(itemsPerPage, async () => {
@@ -112,7 +135,7 @@ onMounted(() => {
     :item-value="(item) => item.id"
     :items="romsStore.filteredRoms"
     :headers="HEADERS"
-    v-model="romsStore._selectedIDs"
+    v-model="selectedRomIDs"
     v-model:page="page"
     show-select
     fixed-header
@@ -120,14 +143,21 @@ onMounted(() => {
     hide-default-footer
     hover
   >
+    <template #item.data-table-select="{ item }">
+      <v-checkbox-btn
+        :value="item.id"
+        @click.stop
+        @click="updateSelectedRom(item)"
+      />
+    </template>
     <template #item.name="{ item }">
       <td class="name-row">
         <v-list-item class="px-0">
           <template #prepend>
-            <r-avatar :rom="item" />
+            <r-avatar-rom :rom="item" />
           </template>
-          <v-row no-gutters
-            ><v-col>{{ item.name }}</v-col></v-row
+          <v-row no-gutters>
+            <v-col>{{ item.name }}</v-col></v-row
           >
           <v-row no-gutters
             ><v-col class="text-romm-accent-1">{{
@@ -136,11 +166,15 @@ onMounted(() => {
           >
           <template #append>
             <v-chip
-              v-if="item.siblings && item.siblings.length > 0 && showSiblings"
+              v-if="
+                item.sibling_roms &&
+                item.sibling_roms.length > 0 &&
+                showSiblings
+              "
               class="translucent-dark ml-2"
               size="x-small"
             >
-              <span class="text-caption">+{{ item.siblings.length }}</span>
+              <span class="text-caption">+{{ item.sibling_roms.length }}</span>
             </v-chip>
           </template>
         </v-list-item>
@@ -175,11 +209,23 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
-          v-if="isEmulationSupported(item.platform_slug)"
+          v-if="checkIfEJSEmulationSupported(item.platform_slug)"
           size="small"
           @click.stop="
             $router.push({
-              name: 'play',
+              name: 'emulatorjs',
+              params: { rom: item?.id },
+            })
+          "
+        >
+          <v-icon>mdi-play</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          size="small"
+          @click.stop="
+            $router.push({
+              name: 'ruffle',
               params: { rom: item?.id },
             })
           "

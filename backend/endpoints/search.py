@@ -1,7 +1,8 @@
 import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
+from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
@@ -9,11 +10,12 @@ from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
+from utils.router import APIRouter
 
 router = APIRouter()
 
 
-@protected_route(router.get, "/search/roms", ["roms.read"])
+@protected_route(router.get, "/search/roms", [Scope.ROMS_READ])
 async def search_rom(
     request: Request,
     rom_id: str,
@@ -58,10 +60,10 @@ async def search_rom(
     log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
     if search_by.lower() == "id":
         try:
-            igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_id(
+            igdb_matched_roms = await meta_igdb_handler.get_matched_roms_by_id(
                 int(search_term)
             )
-            moby_matched_roms = meta_moby_handler.get_matched_roms_by_id(
+            moby_matched_roms = await meta_moby_handler.get_matched_roms_by_id(
                 int(search_term)
             )
         except ValueError as exc:
@@ -71,10 +73,10 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
     elif search_by.lower() == "name":
-        igdb_matched_roms = meta_igdb_handler.get_matched_roms_by_name(
-            search_term, _get_main_platform_igdb_id(rom.platform)
+        igdb_matched_roms = await meta_igdb_handler.get_matched_roms_by_name(
+            search_term, (await _get_main_platform_igdb_id(rom.platform))
         )
-        moby_matched_roms = meta_moby_handler.get_matched_roms_by_name(
+        moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
 
@@ -97,6 +99,7 @@ async def search_rom(
                 "summary": "",
                 "igdb_url_cover": "",
                 "moby_url_cover": "",
+                "platform_id": rom.platform_id,
             },
             **item,
         }
@@ -110,10 +113,10 @@ async def search_rom(
     return matched_roms
 
 
-@protected_route(router.get, "/search/cover", ["roms.read"])
+@protected_route(router.get, "/search/cover", [Scope.ROMS_READ])
 async def search_cover(
     request: Request,
-    search_term: str | None = None,
+    search_term: str = "",
 ) -> list[SearchCoverSchema]:
 
     if not STEAMGRIDDB_API_ENABLED:
@@ -123,4 +126,6 @@ async def search_cover(
             detail="No SteamGridDB enabled",
         )
 
-    return meta_sgdb_handler.get_details(search_term)
+    covers = await meta_sgdb_handler.get_details(search_term=search_term)
+
+    return [SearchCoverSchema.model_validate(cover) for cover in covers]

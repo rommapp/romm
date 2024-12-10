@@ -4,33 +4,30 @@ import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
-import Notes from "@/components/Details/Notes.vue";
+import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
-import Cover from "@/components/common/Game/Card/Base.vue";
-import platformApi from "@/services/api/platform";
+import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import type { Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
-import { onBeforeRouteLeave, useRoute } from "vue-router";
+import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
 const route = useRoute();
-const platform = ref<Platform>();
 const tab = ref<
   | "details"
   | "saves"
   | "states"
-  | "notes"
+  | "personal"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -39,10 +36,10 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
-const { currentRom } = storeToRefs(romsStore);
+const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
-// Functions
 async function fetchDetails() {
+  gettingRoms.value = true;
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then(({ data }) => {
@@ -54,104 +51,76 @@ async function fetchDetails() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      gettingRoms.value = false;
     });
-
-  if (!noRomError.value) {
-    await platformApi
-      .getPlatform(currentRom.value?.platform_id)
-      .then((response) => {
-        platform.value = response.data;
-      })
-      .catch((error) => {
-        console.log(error);
-      })
-      .finally(() => {
-        emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      });
-  }
 }
 
 onBeforeMount(async () => {
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-  if (currentRom.value?.id == parseInt(route.params.rom as string)) {
-    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-  } else {
+  const romId = parseInt(route.params.rom as string);
+
+  // Only fetch details if the currentRom ID differs
+  if (currentRom.value?.id !== romId) {
+    emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
     await fetchDetails();
+  } else {
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   }
+
   const downloadStore = storeDownload();
   downloadStore.clear();
-});
-
-onBeforeRouteLeave(() => {
-  currentRom.value = null;
 });
 
 watch(
   () => route.fullPath,
   async () => {
-    await fetchDetails();
-  }
+    const romId = parseInt(route.params.rom as string);
+
+    // Only fetch details if the currentRom ID differs
+    if (currentRom.value?.id !== romId) {
+      await fetchDetails();
+    }
+  },
 );
 </script>
 
 <template>
-  <!-- TODO: review layout on certain roms - ej: mortal kombat 2 for gb  -->
-  <template v-if="currentRom && platform">
+  <template v-if="currentRom && !gettingRoms">
     <background-header />
 
-    <v-row
-      class="px-5"
-      :class="{
-        'ml-6': mdAndUp,
-        'justify-center': smAndDown,
-      }"
-      no-gutters
-    >
-      <v-col
-        class="cover"
-        :class="{
-          'cover-desktop': mdAndUp,
-          'cover-mobile': smAndDown,
-        }"
-      >
-        <cover
-          :key="currentRom.updated_at"
-          :pointerOnHover="false"
-          :rom="currentRom"
-        />
-        <action-bar class="mt-2" :rom="currentRom" />
-        <related-games v-if="mdAndUp" class="mt-3" :rom="currentRom" />
+    <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
+      <v-col cols="auto">
+        <v-container :width="270" id="artwork-container" class="pa-0">
+          <game-card
+            :show-not-identified="false"
+            :key="currentRom.updated_at"
+            :rom="currentRom"
+          />
+          <action-bar class="mt-2" :rom="currentRom" />
+          <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
+        </v-container>
       </v-col>
 
-      <v-col
-        cols="12"
-        md="8"
-        class="px-5"
-        :class="{
-          'info-lg': mdAndUp,
-          'info-mobile': smAndDown,
-        }"
-      >
+      <v-col>
         <div
-          class="px-3 pb-3"
-          :class="{
-            'position-absolute title-desktop': mdAndUp,
-            'justify-center': smAndDown,
-          }"
+          class="ml-4"
+          :class="{ 'position-absolute title-desktop': mdAndUp }"
         >
-          <title-info :rom="currentRom" :platform="platform" />
+          <title-info :rom="currentRom" />
         </div>
         <v-row
-          :class="{
-            'justify-center': smAndDown,
-          }"
+          :class="{ 'px-4': mdAndUp, 'justify-center': smAndDown }"
           no-gutters
         >
-          <v-tabs v-model="tab" slider-color="romm-accent-1" rounded="0">
+          <v-tabs
+            v-model="tab"
+            slider-color="romm-accent-1"
+            :class="{ 'mt-4': smAndDown }"
+            rounded="0"
+          >
             <v-tab value="details" rounded="0"> Details </v-tab>
             <v-tab value="saves" rounded="0"> Saves </v-tab>
             <v-tab value="states" rounded="0"> States </v-tab>
-            <v-tab value="notes" rounded="0"> Notes </v-tab>
+            <v-tab value="personal" rounded="0"> Personal </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -178,14 +147,12 @@ watch(
               Related Games
             </v-tab>
           </v-tabs>
-        </v-row>
-        <v-row no-gutters class="mb-4">
-          <v-col cols="12">
+          <v-col cols="12" class="px-2">
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
-                <v-row no-gutters :class="{ 'mx-2': mdAndUp }">
+                <v-row no-gutters>
                   <v-col>
-                    <file-info :rom="currentRom" :platform="platform" />
+                    <file-info :rom="currentRom" />
                     <game-info :rom="currentRom" />
                   </v-col>
                 </v-row>
@@ -196,8 +163,8 @@ watch(
               <v-window-item value="states">
                 <states :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="notes">
-                <notes :rom="currentRom" />
+              <v-window-item value="personal">
+                <personal :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
@@ -229,11 +196,11 @@ watch(
         </v-row>
       </v-col>
 
-      <template v-if="lgAndUp">
-        <v-col>
-          <additional-content :rom="currentRom" />
-        </v-col>
-      </template>
+      <v-col cols="auto" v-if="lgAndUp">
+        <v-container :width="270" class="pa-0">
+          <additional-content class="mt-2" :rom="currentRom" />
+        </v-container>
+      </v-col>
     </v-row>
   </template>
 
@@ -241,23 +208,10 @@ watch(
 </template>
 
 <style scoped>
-.cover {
-  min-width: 270px;
-  min-height: 360px;
-  max-width: 270px;
-  max-height: 360px;
-}
-.cover-desktop {
-  margin-top: -230px;
-}
 .title-desktop {
   margin-top: -190px;
-  margin-left: -20px;
 }
-.cover-mobile {
-  margin-top: -280px;
-}
-.info-mobile {
-  margin-top: 100px;
+#artwork-container {
+  margin-top: -230px;
 }
 </style>

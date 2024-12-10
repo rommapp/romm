@@ -1,4 +1,5 @@
 import functools
+from collections.abc import Iterable
 
 from decorators.database import begin_session
 from models.collection import Collection
@@ -23,6 +24,7 @@ def with_details(func):
             selectinload(Rom.states),
             selectinload(Rom.screenshots),
             selectinload(Rom.rom_users),
+            selectinload(Rom.sibling_roms),
         )
         return func(*args, **kwargs)
 
@@ -38,7 +40,9 @@ def with_simple(func):
                 f"{func} is missing required kwarg 'session' with type 'Session'"
             )
 
-        kwargs["query"] = select(Rom).options(selectinload(Rom.rom_users))
+        kwargs["query"] = select(Rom).options(
+            selectinload(Rom.rom_users), selectinload(Rom.sibling_roms)
+        )
         return func(*args, **kwargs)
 
     return wrapper
@@ -112,6 +116,7 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         limit: int | None = None,
+        offset: int | None = None,
         query: Query = None,
         session: Session = None,
     ) -> list[Rom]:
@@ -119,7 +124,8 @@ class DBRomsHandler(DBBaseHandler):
             query, platform_id, collection_id, search_term, session
         )
         ordered_query = self._order(filtered_query, order_by, order_dir)
-        limited_query = ordered_query.limit(limit)
+        offset_query = ordered_query.offset(offset)
+        limited_query = offset_query.limit(limit)
         return session.scalars(limited_query).unique().all()
 
     @begin_session
@@ -134,6 +140,27 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             query.filter_by(platform_id=platform_id, file_name=file_name).limit(1)
         )
+
+    @begin_session
+    def get_roms_by_filename(
+        self,
+        platform_id: int,
+        file_names: Iterable[str],
+        query: Query = None,
+        session: Session = None,
+    ) -> dict[str, Rom]:
+        """Retrieve a dictionary of roms by their file names."""
+        query = query or select(Rom)
+        roms = (
+            session.scalars(
+                query.filter(Rom.file_name.in_(file_names)).filter_by(
+                    platform_id=platform_id
+                )
+            )
+            .unique()
+            .all()
+        )
+        return {rom.file_name: rom for rom in roms}
 
     @begin_session
     @with_details
@@ -154,43 +181,13 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    @with_simple
-    def get_sibling_roms(
-        self, rom: Rom, query: Query = None, session: Session = None
-    ) -> list[Rom]:
-        return session.scalars(
-            query.where(
-                and_(
-                    Rom.platform_id == rom.platform_id,
-                    Rom.id != rom.id,
-                    or_(
-                        and_(
-                            Rom.igdb_id == rom.igdb_id,
-                            Rom.igdb_id.isnot(None),
-                            Rom.igdb_id != "",
-                        ),
-                        and_(
-                            Rom.moby_id == rom.moby_id,
-                            Rom.moby_id.isnot(None),
-                            Rom.moby_id != "",
-                        ),
-                    ),
-                )
-            )
-        ).all()
-
-    @begin_session
     def get_rom_collections(
-        self, rom: Rom, user_id: int, session: Session = None
+        self, rom: Rom, session: Session = None
     ) -> list[Collection]:
-
         return (
             session.scalars(
                 select(Collection)
-                .filter(
-                    func.json_contains(Collection.roms, f"{rom.id}"),
-                    Collection.user_id == user_id,
-                )
+                .filter(func.json_contains(Collection.roms, f"{rom.id}"))
                 .order_by(Collection.name.asc())
             )
             .unique()
@@ -216,13 +213,25 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_roms(
-        self, platform_id: int, roms: list[str], session: Session = None
-    ) -> int:
-        return session.execute(
+        self, platform_id: int, fs_roms: list[str], session: Session = None
+    ) -> list[Rom]:
+        purged_roms = (
+            session.scalars(
+                select(Rom)
+                .order_by(Rom.file_name.asc())
+                .where(
+                    and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms))
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))  # type: ignore[attr-defined]
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_roms
 
     @begin_session
     def add_rom_user(
@@ -253,14 +262,14 @@ class DBRomsHandler(DBBaseHandler):
 
         rom_user = self.get_rom_user_by_id(id)
 
-        if data["is_main_sibling"]:
+        if data.get("is_main_sibling", False):
+            rom = self.get_rom(rom_user.rom_id)
+
             session.execute(
                 update(RomUser)
                 .where(
                     and_(
-                        RomUser.rom_id.in_(
-                            [rom.id for rom in rom_user.rom.get_sibling_roms()]
-                        ),
+                        RomUser.rom_id.in_(r.id for r in rom.sibling_roms),
                         RomUser.user_id == rom_user.user_id,
                     )
                 )

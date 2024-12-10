@@ -8,6 +8,7 @@ from exceptions.fs_exceptions import (
     FolderStructureNotMatchException,
     PlatformAlreadyExistsException,
 )
+from utils.filesystem import iter_directories
 
 from .base_handler import FSHandler
 
@@ -44,12 +45,14 @@ class FSPlatformsHandler(FSHandler):
         """
         cnfg = cm.get_config()
 
+        platforms_dir = (
+            cnfg.HIGH_PRIO_STRUCTURE_PATH
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else LIBRARY_BASE_PATH
+        )
+
         try:
-            platforms: list[str] = (
-                list(os.walk(cnfg.HIGH_PRIO_STRUCTURE_PATH))[0][1]
-                if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-                else list(os.walk(LIBRARY_BASE_PATH))[0][1]
-            )
+            platforms = [d for _, d in iter_directories(platforms_dir)]
             return self._exclude_platforms(cnfg, platforms)
         except IndexError as exc:
             raise FolderStructureNotMatchException from exc

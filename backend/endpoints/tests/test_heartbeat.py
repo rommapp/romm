@@ -1,12 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 from utils import get_version
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
-def test_heartbeat():
-    response = client.get("/heartbeat")
+def test_heartbeat(client):
+    response = client.get("/api/heartbeat")
     assert response.status_code == 200
 
     heartbeat = response.json()
@@ -22,3 +27,4 @@ def test_heartbeat():
         heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("TITLE")
         == "Scheduled Switch TitleDB update"
     )
+    assert heartbeat.get("FRONTEND").get("UPLOAD_TIMEOUT") == 20

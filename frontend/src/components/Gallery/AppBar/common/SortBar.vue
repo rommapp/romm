@@ -16,10 +16,7 @@ function sort() {}
 
 <template>
   <div v-if="showSortBar">
-    <v-row
-      no-gutters
-      class="pt-1 px-1"
-    >
+    <v-row no-gutters class="pt-1 px-1">
       <!-- <v-col cols="6" sm="6" md="6" lg="6" xl="6">
           <v-select
             hide-details

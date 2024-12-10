@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+import enum
+from datetime import datetime, timedelta, timezone
 from typing import Final
 
 from config import ROMM_AUTH_SECRET_KEY
@@ -7,36 +8,58 @@ from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
+from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
 ALGORITHM: Final = "HS256"
-DEFAULT_OAUTH_TOKEN_EXPIRY: Final = 15
+DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
+
+
+class Scope(enum.StrEnum):
+    ME_READ = "me.read"
+    ME_WRITE = "me.write"
+    ROMS_READ = "roms.read"
+    ROMS_WRITE = "roms.write"
+    ROMS_USER_READ = "roms.user.read"
+    ROMS_USER_WRITE = "roms.user.write"
+    PLATFORMS_READ = "platforms.read"
+    PLATFORMS_WRITE = "platforms.write"
+    ASSETS_READ = "assets.read"
+    ASSETS_WRITE = "assets.write"
+    FIRMWARE_READ = "firmware.read"
+    FIRMWARE_WRITE = "firmware.write"
+    COLLECTIONS_READ = "collections.read"
+    COLLECTIONS_WRITE = "collections.write"
+    USERS_READ = "users.read"
+    USERS_WRITE = "users.write"
+    TASKS_RUN = "tasks.run"
+
 
 DEFAULT_SCOPES_MAP: Final = {
-    "me.read": "View your profile",
-    "me.write": "Modify your profile",
-    "roms.read": "View ROMs",
-    "platforms.read": "View platforms",
-    "assets.read": "View assets",
-    "assets.write": "Modify assets",
-    "firmware.read": "View firmware",
-    "roms.user.read": "View user-rom properties",
-    "roms.user.write": "Modify user-rom properties",
-    "collections.read": "View collections",
-    "collections.write": "Modify collections",
+    Scope.ME_READ: "View your profile",
+    Scope.ME_WRITE: "Modify your profile",
+    Scope.ROMS_READ: "View ROMs",
+    Scope.PLATFORMS_READ: "View platforms",
+    Scope.ASSETS_READ: "View assets",
+    Scope.ASSETS_WRITE: "Modify assets",
+    Scope.FIRMWARE_READ: "View firmware",
+    Scope.ROMS_USER_READ: "View user-rom properties",
+    Scope.ROMS_USER_WRITE: "Modify user-rom properties",
+    Scope.COLLECTIONS_READ: "View collections",
+    Scope.COLLECTIONS_WRITE: "Modify collections",
 }
 
 WRITE_SCOPES_MAP: Final = {
-    "roms.write": "Modify ROMs",
-    "platforms.write": "Modify platforms",
-    "firmware.write": "Modify firmware",
+    Scope.ROMS_WRITE: "Modify ROMs",
+    Scope.PLATFORMS_WRITE: "Modify platforms",
+    Scope.FIRMWARE_WRITE: "Modify firmware",
 }
 
 FULL_SCOPES_MAP: Final = {
-    "users.read": "View users",
-    "users.write": "Modify users",
-    "tasks.run": "Run tasks",
+    Scope.USERS_READ: "View users",
+    Scope.USERS_WRITE: "Modify users",
+    Scope.TASKS_RUN: "Run tasks",
 }
 
 DEFAULT_SCOPES: Final = list(DEFAULT_SCOPES_MAP.keys())
@@ -77,39 +100,38 @@ class AuthHandler:
         if not username:
             return None
 
-        # Key exists therefore user is probably authenticated
-        user = db_user_handler.get_user_by_username(username)
-        if user is None:
+        try:
+            # Key exists therefore user is probably authenticated
+            user = db_user_handler.get_user_by_username(username)
+            if user is None or not user.enabled:
+                conn.session.clear()
+                log.error(
+                    "User '%s' %s",
+                    username,
+                    "not found" if user is None else "not enabled",
+                )
+                return None
+
+            return user
+        except Exception:
             conn.session.clear()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not found",
+            log.error(
+                "User '%s' %s",
+                username,
+                "not found" if user is None else "is not enabled",
             )
-
-        if not user.enabled:
-            conn.session.clear()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Inactive user {user.username}",
-            )
-
-        return user
+            return None
 
 
 class OAuthHandler:
     def __init__(self) -> None:
         pass
 
-    def create_oauth_token(self, data: dict, expires_delta: timedelta | None = None):
+    def create_oauth_token(
+        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+    ) -> str:
         to_encode = data.copy()
-
-        if expires_delta:
-            expire = datetime.utcnow() + expires_delta
-        else:
-            expire = datetime.utcnow() + timedelta(minutes=DEFAULT_OAUTH_TOKEN_EXPIRY)
-
+        expire = datetime.now(timezone.utc) + expires_delta
         to_encode.update({"exp": expire})
 
         return jwt.encode(

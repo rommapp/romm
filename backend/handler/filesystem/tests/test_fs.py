@@ -1,14 +1,12 @@
 import os
 from pathlib import Path
 
-import pytest
 from handler.filesystem import fs_platform_handler, fs_resource_handler, fs_rom_handler
 from models.platform import Platform
 
 
-@pytest.mark.vcr
-def test_get_rom_cover():
-    path_cover_s, path_cover_l = fs_resource_handler.get_cover(
+async def test_get_rom_cover():
+    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         overwrite=False, entity=None, url_cover=""
     )
 
@@ -31,7 +29,7 @@ def test_get_roms_fs_structure():
 
 def test_get_roms():
     platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
-    roms = fs_rom_handler.get_roms(platform=platform)
+    roms = fs_rom_handler.get_roms(platform_fs_slug=platform.fs_slug)
 
     assert len(roms) == 2
     assert roms[0]["file_name"] == "Paper Mario (USA).z64"
@@ -39,28 +37,6 @@ def test_get_roms():
 
     assert roms[1]["file_name"] == "Super Mario 64 (J) (Rev A)"
     assert roms[1]["multi"]
-
-
-def test_rom_size():
-    rom_size = fs_rom_handler.get_rom_file_size(
-        roms_path=fs_rom_handler.get_roms_fs_structure(fs_slug="n64"),
-        file_name="Paper Mario (USA).z64",
-        multi=False,
-    )
-
-    assert rom_size == 1024
-
-    rom_size = fs_rom_handler.get_rom_file_size(
-        roms_path=fs_rom_handler.get_roms_fs_structure(fs_slug="n64"),
-        file_name="Super Mario 64 (J) (Rev A)",
-        multi=True,
-        multi_files=[
-            "Super Mario 64 (J) (Rev A) [Part 1].z64",
-            "Super Mario 64 (J) (Rev A) [Part 2].z64",
-        ],
-    )
-
-    assert rom_size == 2048
 
 
 def test_exclude_files():

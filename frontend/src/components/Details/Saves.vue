@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import type { SaveSchema } from "@/__generated__";
+import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
 import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
+import { formatBytes, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs, smAndUp, mdAndUp } = useDisplay();
+const { xs, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -19,6 +20,24 @@ const HEADERS = [
     align: "start",
     sortable: true,
     key: "file_name",
+  },
+  {
+    title: "Core",
+    align: "start",
+    sortable: true,
+    key: "emulator",
+  },
+  {
+    title: "Updated",
+    align: "start",
+    sortable: true,
+    key: "updated_at",
+  },
+  {
+    title: "Size",
+    align: "start",
+    sortable: true,
+    key: "file_size_bytes",
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
@@ -42,7 +61,7 @@ async function downloasSaves() {
 function updateDataTablePages() {
   if (props.rom.user_saves) {
     pageCount.value = Math.ceil(
-      props.rom.user_saves.length / itemsPerPage.value
+      props.rom.user_saves.length / itemsPerPage.value,
     );
   }
 }
@@ -108,42 +127,21 @@ onMounted(() => {
     </template>
     <template #item.file_name="{ item }">
       <td class="name-row">
-        <v-list-item class="px-0">
-          <v-row no-gutters>
-            <v-col>
-              {{ item.file_name }}
-            </v-col>
-          </v-row>
-          <v-row v-if="!smAndUp" no-gutters>
-            <v-col>
-              <v-chip size="x-small" label
-                >{{ formatBytes(item.file_size_bytes) }}
-              </v-chip>
-              <v-chip
-                v-if="item.emulator"
-                size="x-small"
-                class="ml-1 text-orange"
-                label
-                >{{ item.emulator }}
-              </v-chip>
-            </v-col>
-          </v-row>
-          <template #append>
-            <template v-if="smAndUp">
-              <v-chip
-                v-if="item.emulator"
-                size="x-small"
-                class="text-orange"
-                label
-                >{{ item.emulator }}
-              </v-chip>
-              <v-chip class="ml-1" size="x-small" label
-                >{{ formatBytes(item.file_size_bytes) }}
-              </v-chip>
-            </template>
-          </template>
-        </v-list-item>
+        <span>{{ item.file_name }}</span>
       </td>
+    </template>
+    <template #item.emulator="{ item }">
+      <v-chip size="x-small" color="orange" label>{{ item.emulator }} </v-chip>
+    </template>
+    <template #item.updated_at="{ item }">
+      <v-chip size="x-small" label>
+        {{ formatTimestamp(item.updated_at) }}
+      </v-chip>
+    </template>
+    <template #item.file_size_bytes="{ item }">
+      <v-chip size="x-small" label
+        >{{ formatBytes(item.file_size_bytes) }}
+      </v-chip>
     </template>
     <template #no-data
       ><span>No saves found for {{ rom.name }}</span></template
@@ -199,6 +197,7 @@ onMounted(() => {
     </template>
   </v-data-table>
   <upload-saves-dialog />
+  <delete-asset-dialog />
 </template>
 <style scoped>
 .name-row {

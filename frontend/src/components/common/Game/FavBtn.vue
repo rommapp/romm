@@ -12,8 +12,8 @@ import { inject } from "vue";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
-const collectionsStore = storeCollections();
 const romsStore = storeRoms();
+const collectionsStore = storeCollections();
 const { favCollection } = storeToRefs(collectionsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
@@ -49,7 +49,7 @@ async function switchFromFavourites() {
   } else {
     if (favCollection.value) {
       favCollection.value.roms = favCollection.value.roms.filter(
-        (id) => id !== props.rom.id
+        (id) => id !== props.rom.id,
       );
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
         romsStore.remove([props.rom]);
