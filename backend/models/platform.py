@@ -38,7 +38,7 @@ class Platform(BaseModel):
     )
 
     aspect_ratio: Mapped[str] = mapped_column(
-        String, server_default=DEFAULT_COVER_ASPECT_RATIO
+        String(length=10), server_default=DEFAULT_COVER_ASPECT_RATIO
     )
 
     # This runs a subquery to get the count of roms for the platform
