@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
@@ -110,21 +111,21 @@ function closeDialog() {
         clearable
       >
         <template #item="{ props, item }">
-          <v-list-item
-            class="py-4"
+          <collection-list-item
+            :collection="item.raw"
             v-bind="props"
-            :title="item.raw.name ?? ''"
-            :subtitle="item.raw.description"
-          >
-            <template #prepend>
-              <r-avatar-collection :collection="item.raw" />
-            </template>
-            <template #append>
-              <v-chip class="ml-2" size="x-small" label>
-                {{ item.raw.rom_count }}
-              </v-chip>
-            </template>
-          </v-list-item>
+            :with-title="false"
+          />
+        </template>
+        <template #chip="{ item }">
+          <v-chip class="pl-0" label>
+            <r-avatar-collection
+              :collection="item.raw"
+              :size="35"
+              class="mr-2"
+            />
+            {{ item.raw.name }}
+          </v-chip>
         </template>
       </v-autocomplete>
     </template>
@@ -140,14 +141,7 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <template #prepend>
-              <r-avatar-rom :rom="item" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
-          </v-list-item>
+          <rom-list-item :rom="item" with-filename />
         </template>
         <template #bottom>
           <v-divider />

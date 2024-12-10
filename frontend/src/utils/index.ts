@@ -3,6 +3,9 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { RomUserStatus } from "@/__generated__";
 
+/**
+ * Views configuration object.
+ */
 export const views: Record<
   number,
   {
@@ -44,8 +47,17 @@ export const views: Record<
   },
 };
 
+/**
+ * Default path for user avatars.
+ */
 export const defaultAvatarPath = "/assets/default/user.png";
 
+/**
+ * Normalize a string by converting it to lowercase and removing diacritics.
+ *
+ * @param s The string to normalize.
+ * @returns The normalized string.
+ */
 export function normalizeString(s: string) {
   return s
     .toLowerCase()
@@ -53,6 +65,12 @@ export function normalizeString(s: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+/**
+ * Convert a cron expression to a human-readable string.
+ *
+ * @param expression The cron expression to convert.
+ * @returns The human-readable string.
+ */
 export function convertCronExperssion(expression: string) {
   let convertedExpression = cronstrue.toString(expression, { verbose: true });
   convertedExpression =
@@ -61,6 +79,13 @@ export function convertCronExperssion(expression: string) {
   return convertedExpression;
 }
 
+/**
+ * Generate a download link for ROM content.
+ *
+ * @param rom The ROM object.
+ * @param files Optional array of file names to include in the download.
+ * @returns The download link.
+ */
 export function getDownloadLink({
   rom,
   files = [],
@@ -82,8 +107,7 @@ export function getDownloadLink({
  *
  * @param bytes Number of bytes.
  * @param decimals Number of decimal places to display.
- *
- * @return Formatted string.
+ * @returns Formatted string.
  */
 export function formatBytes(bytes: number, decimals = 2) {
   if (bytes === 0) return "0 Bytes";
@@ -95,11 +119,10 @@ export function formatBytes(bytes: number, decimals = 2) {
 }
 
 /**
+ * Format a timestamp to a human-readable string.
  *
- * Format timestamp to human-readable text
- *
- * @param string timestamp
- * @returns string Formatted timestamp
+ * @param timestamp The timestamp to format.
+ * @returns The formatted timestamp.
  */
 export function formatTimestamp(timestamp: string | null) {
   if (!timestamp) return "-";
@@ -108,6 +131,12 @@ export function formatTimestamp(timestamp: string | null) {
   return date.toLocaleString("en-GB");
 }
 
+/**
+ * Convert a region code to an emoji.
+ *
+ * @param region The region code.
+ * @returns The corresponding emoji.
+ */
 export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
     case "as":
@@ -203,6 +232,12 @@ export function regionToEmoji(region: string) {
   }
 }
 
+/**
+ * Convert a language code to an emoji.
+ *
+ * @param language The language code.
+ * @returns The corresponding emoji.
+ */
 export function languageToEmoji(language: string) {
   switch (language.toLowerCase()) {
     case "ar":
@@ -264,6 +299,9 @@ export function languageToEmoji(language: string) {
   }
 }
 
+/**
+ * Map of supported EJS cores for each platform.
+ */
 const _EJS_CORES_MAP = {
   "3do": ["opera"],
   amiga: ["puae"],
@@ -343,10 +381,23 @@ const _EJS_CORES_MAP = {
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
 
+/**
+ * Get the supported EJS cores for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @returns An array of supported cores.
+ */
 export function getSupportedEJSCores(platformSlug: string) {
   return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
 }
 
+/**
+ * Check if EJS emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @returns True if supported, false otherwise.
+ */
 export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
@@ -357,6 +408,13 @@ export function isEJSEmulationSupported(
   );
 }
 
+/**
+ * Check if Ruffle emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @returns True if supported, false otherwise.
+ */
 export function isRuffleEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
@@ -369,6 +427,25 @@ export function isRuffleEmulationSupported(
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
+/**
+ * Array of difficulty emojis.
+ */
+export const difficultyEmojis = [
+  "😴",
+  "🥱",
+  "😐",
+  "😄",
+  "🤔",
+  "🤯",
+  "😓",
+  "😡",
+  "🤬",
+  "😵",
+];
+
+/**
+ * Map of ROM statuses to their corresponding emoji and text.
+ */
 export const romStatusMap: Record<
   PlayingStatus,
   { emoji: string; text: string }
@@ -383,18 +460,47 @@ export const romStatusMap: Record<
   hidden: { emoji: "👻", text: "Hidden" },
 };
 
+/**
+ * Inverse map of ROM statuses from text to status key.
+ */
 const inverseRomStatusMap = Object.fromEntries(
   Object.entries(romStatusMap).map(([key, value]) => [value.text, key]),
 ) as Record<string, PlayingStatus>;
 
+/**
+ * Get the emoji for a given ROM status.
+ *
+ * @param status The ROM status.
+ * @returns The corresponding emoji.
+ */
 export function getEmojiForStatus(status: PlayingStatus) {
-  return romStatusMap[status].emoji;
+  if (status) {
+    return romStatusMap[status].emoji;
+  } else {
+    return null;
+  }
 }
 
+/**
+ * Get the text for a given ROM status.
+ *
+ * @param status The ROM status.
+ * @returns The corresponding text.
+ */
 export function getTextForStatus(status: PlayingStatus) {
-  return romStatusMap[status].text;
+  if (status) {
+    return romStatusMap[status].text;
+  } else {
+    return null;
+  }
 }
 
+/**
+ * Get the status key for a given text.
+ *
+ * @param text The text to convert.
+ * @returns The corresponding status key.
+ */
 export function getStatusKeyForText(text: string) {
   return inverseRomStatusMap[text];
 }

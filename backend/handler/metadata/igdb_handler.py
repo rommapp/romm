@@ -5,6 +5,7 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
+from adapters.services.igdb_types import GameCategory
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
 from handler.redis_handler import sync_cache
@@ -23,9 +24,6 @@ from .base_hander import (
 # Used to display the IGDB API status in the frontend
 IGDB_API_ENABLED: Final = bool(IGDB_CLIENT_ID) and bool(IGDB_CLIENT_SECRET)
 
-MAIN_GAME_CATEGORY: Final = 0
-EXPANDED_GAME_CATEGORY: Final = 10
-N_SCREENSHOTS: Final = 5
 PS1_IGDB_ID: Final = 7
 PS2_IGDB_ID: Final = 8
 PSP_IGDB_ID: Final = 38
@@ -37,17 +35,24 @@ class IGDBPlatform(TypedDict):
     slug: str
     igdb_id: int | None
     name: NotRequired[str]
+    category: NotRequired[str]
+    generation: NotRequired[str]
+    family_name: NotRequired[str]
+    family_slug: NotRequired[str]
+    url: NotRequired[str]
+    url_logo: NotRequired[str]
+    logo_path: NotRequired[str]
+
+
+class IGDBMetadataPlatform(TypedDict):
+    igdb_id: int
+    name: str
 
 
 class IGDBAgeRating(TypedDict):
     rating: str
     category: str
     rating_cover_url: str
-
-
-class IGDBMetadataPlatform(TypedDict):
-    igdb_id: int
-    name: str
 
 
 class IGDBRelatedGame(TypedDict):
@@ -90,12 +95,10 @@ class IGDBRom(TypedDict):
     igdb_metadata: NotRequired[IGDBMetadata]
 
 
-def extract_metadata_from_igdb_rom(
-    rom: dict, video_id: str | None = None
-) -> IGDBMetadata:
+def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
     return IGDBMetadata(
         {
-            "youtube_video_id": video_id,
+            "youtube_video_id": str(pydash.get(rom, "videos[0].video_id", None)),
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),
@@ -122,7 +125,9 @@ def extract_metadata_from_igdb_rom(
                     id=e["id"],
                     slug=e["slug"],
                     name=e["name"],
-                    cover_url=pydash.get(e, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(e, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="expansion",
                 )
                 for e in rom.get("expansions", [])
@@ -132,7 +137,9 @@ def extract_metadata_from_igdb_rom(
                     id=d["id"],
                     slug=d["slug"],
                     name=d["name"],
-                    cover_url=pydash.get(d, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(d, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="dlc",
                 )
                 for d in rom.get("dlcs", [])
@@ -142,7 +149,9 @@ def extract_metadata_from_igdb_rom(
                     id=r["id"],
                     slug=r["slug"],
                     name=r["name"],
-                    cover_url=pydash.get(r, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="remaster",
                 )
                 for r in rom.get("remasters", [])
@@ -152,7 +161,9 @@ def extract_metadata_from_igdb_rom(
                     id=r["id"],
                     slug=r["slug"],
                     name=r["name"],
-                    cover_url=pydash.get(r, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="remake",
                 )
                 for r in rom.get("remakes", [])
@@ -162,7 +173,9 @@ def extract_metadata_from_igdb_rom(
                     id=g["id"],
                     slug=g["slug"],
                     name=g["name"],
-                    cover_url=pydash.get(g, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(g, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="expanded",
                 )
                 for g in rom.get("expanded_games", [])
@@ -172,7 +185,9 @@ def extract_metadata_from_igdb_rom(
                     id=p["id"],
                     slug=p["slug"],
                     name=p["name"],
-                    cover_url=pydash.get(p, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(p, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="port",
                 )
                 for p in rom.get("ports", [])
@@ -182,7 +197,9 @@ def extract_metadata_from_igdb_rom(
                     id=s["id"],
                     slug=s["slug"],
                     name=s["name"],
-                    cover_url=pydash.get(s, "cover.url", ""),
+                    cover_url=MetadataHandler._normalize_cover_url(
+                        pydash.get(s, "cover.url", "").replace("t_thumb", "t_1080p")
+                    ),
                     type="similar",
                 )
                 for s in rom.get("similar_games", [])
@@ -201,7 +218,6 @@ class IGDBBaseHandler(MetadataHandler):
         self.games_fields = GAMES_FIELDS
         self.search_endpoint = f"{self.BASE_URL}/search"
         self.search_fields = SEARCH_FIELDS
-        self.video_endpoint = f"{self.BASE_URL}/game_videos"
         self.pagination_limit = 200
         self.twitch_auth = TwitchAuth()
         self.headers = {
@@ -222,6 +238,14 @@ class IGDBBaseHandler(MetadataHandler):
     async def _request(self, url: str, data: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
         try:
+            masked_headers = self._mask_sensitive_values(self.headers)
+            log.debug(
+                "API request: URL=%s, Headers=%s, Content=%s, Timeout=%s",
+                url,
+                masked_headers,
+                f"{data} limit {self.pagination_limit};",
+                timeout,
+            )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
@@ -252,6 +276,13 @@ class IGDBBaseHandler(MetadataHandler):
             pass
 
         try:
+            log.debug(
+                "Making a second attempt API request: URL=%s, Headers=%s, Content=%s, Timeout=%s",
+                url,
+                masked_headers,
+                f"{data} limit {self.pagination_limit};",
+                timeout,
+            )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
@@ -273,22 +304,39 @@ class IGDBBaseHandler(MetadataHandler):
             return None
 
         search_term = uc(search_term)
-        category_filter: str = (
-            f"& (category={MAIN_GAME_CATEGORY} | category={EXPANDED_GAME_CATEGORY})"
-            if with_category
-            else ""
-        )
+        if with_category:
+            categories = (
+                GameCategory.EXPANDED_GAME,
+                GameCategory.MAIN_GAME,
+                GameCategory.PORT,
+                GameCategory.REMAKE,
+                GameCategory.REMASTER,
+            )
+            category_filter = f"& category=({','.join(map(str, categories))})"
+        else:
+            category_filter = ""
 
         def is_exact_match(rom: dict, search_term: str) -> bool:
-            return (
-                rom["name"].lower() == search_term.lower()
-                or rom["slug"].lower() == search_term.lower()
-                or (
-                    self._normalize_exact_match(rom["name"])
-                    == self._normalize_exact_match(search_term)
+            search_term_lower = search_term.lower()
+            if rom["slug"].lower() == search_term_lower:
+                return True
+
+            search_term_normalized = self._normalize_exact_match(search_term)
+            # Check both the ROM name and alternative names for an exact match.
+            rom_names = [rom["name"]] + [
+                alternative_name["name"]
+                for alternative_name in rom.get("alternative_names", [])
+            ]
+
+            return any(
+                (
+                    rom_name.lower() == search_term_lower
+                    or self._normalize_exact_match(rom_name) == search_term_normalized
                 )
+                for rom_name in rom_names
             )
 
+        log.debug("Searching in games endpoint with category %s", category_filter)
         roms = await self._request(
             self.games_endpoint,
             data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
@@ -298,11 +346,16 @@ class IGDBBaseHandler(MetadataHandler):
             if is_exact_match(rom, search_term):
                 return rom
 
+        log.debug("Searching expanded in search endpoint")
         roms_expanded = await self._request(
             self.search_endpoint,
             data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
         )
         if roms_expanded:
+            log.debug(
+                "Searching expanded in games endpoint for expanded game %s",
+                roms_expanded[0]["game"],
+            )
             extra_roms = await self._request(
                 self.games_endpoint,
                 f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
@@ -325,13 +378,24 @@ class IGDBBaseHandler(MetadataHandler):
             self.platform_endpoint,
             data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
         )
-
         platform = pydash.get(platforms, "[0]", None)
         if platform:
             return IGDBPlatform(
-                igdb_id=platform["id"],
+                igdb_id=platform.get("id", None),
                 slug=slug,
-                name=platform["name"],
+                name=platform.get("name", slug),
+                category=IGDB_PLATFORM_CATEGORIES.get(
+                    platform.get("category", 0), "Unknown"
+                ),
+                generation=platform.get("generation", None),
+                family_name=pydash.get(platform, "platform_family.name", None),
+                family_slug=pydash.get(platform, "platform_family.slug", None),
+                url=platform.get("url", None),
+                url_logo=self._normalize_cover_url(
+                    pydash.get(platform, "platform_logo.url", "").replace(
+                        "t_thumb", "t_1080p"
+                    )
+                ),
             )
 
         # Check if platform is a version if not found
@@ -419,13 +483,19 @@ class IGDBBaseHandler(MetadataHandler):
 
         search_term = self.normalize_search_term(search_term)
 
+        log.debug("Searching for %s on IGDB with category", search_term)
         rom = await self._search_rom(search_term, platform_igdb_id, with_category=True)
         if not rom:
+            log.debug("Searching for %s on IGDB without category", search_term)
             rom = await self._search_rom(search_term, platform_igdb_id)
 
         # Split the search term since igdb struggles with colons
         if not rom and ":" in search_term:
             for term in search_term.split(":")[::-1]:
+                log.debug(
+                    "Searching for %s on IGDB without category after splitting semicolon",
+                    term,
+                )
                 rom = await self._search_rom(term, platform_igdb_id)
                 if rom:
                     break
@@ -433,19 +503,16 @@ class IGDBBaseHandler(MetadataHandler):
         # Some MAME games have two titles split by a slash
         if not rom and "/" in search_term:
             for term in search_term.split("/"):
+                log.debug(
+                    "Searching for %s on IGDB without category after splitting slash",
+                    term,
+                )
                 rom = await self._search_rom(term.strip(), platform_igdb_id)
                 if rom:
                     break
 
         if not rom:
             return fallback_rom
-
-        # Get the video ID for the game
-        video_ids = await self._request(
-            self.video_endpoint,
-            f'fields video_id; where game={rom["id"]};',
-        )
-        video_id = pydash.get(video_ids, "[0].video_id", None)
 
         return IGDBRom(
             igdb_id=rom["id"],
@@ -456,12 +523,10 @@ class IGDBBaseHandler(MetadataHandler):
                 rom.get("cover", {}).get("url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
-                self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_screenshot_huge"
-                )
+                self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom.get("screenshots", [])
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(rom, video_id),
+            igdb_metadata=extract_metadata_from_igdb_rom(rom),
         )
 
     @check_twitch_token
@@ -478,13 +543,6 @@ class IGDBBaseHandler(MetadataHandler):
         if not rom:
             return IGDBRom(igdb_id=None)
 
-        # Get the video ID for the game
-        video_ids = await self._request(
-            self.video_endpoint,
-            f'fields video_id; where game={rom["id"]};',
-        )
-        video_id = pydash.get(video_ids, "[0].video_id", None)
-
         return IGDBRom(
             igdb_id=rom["id"],
             slug=rom["slug"],
@@ -494,12 +552,10 @@ class IGDBBaseHandler(MetadataHandler):
                 rom.get("cover", {}).get("url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
-                self._normalize_cover_url(s.get("url", "")).replace(
-                    "t_thumb", "t_screenshot_huge"
-                )
+                self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom.get("screenshots", [])
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(rom, video_id),
+            igdb_metadata=extract_metadata_from_igdb_rom(rom),
         )
 
     @check_twitch_token
@@ -578,11 +634,13 @@ class IGDBBaseHandler(MetadataHandler):
                         "summary": rom.get("summary", ""),
                         "url_cover": self._normalize_cover_url(
                             pydash.get(rom, "cover.url", "").replace(
-                                "t_thumb", "t_cover_big"
+                                "t_thumb", "t_1080p"
                             )
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", ""))  # type: ignore[arg-type]
+                            self._normalize_cover_url(s.get("url", "")).replace(
+                                "t_thumb", "t_720p"
+                            )
                             for s in rom.get("screenshots", [])
                         ],
                         "igdb_metadata": extract_metadata_from_igdb_rom(rom),
@@ -594,7 +652,17 @@ class IGDBBaseHandler(MetadataHandler):
         ]
 
 
-class TwitchAuth:
+class TwitchAuth(MetadataHandler):
+    def __init__(self):
+        self.BASE_URL = "https://id.twitch.tv/oauth2/token"
+        self.params = {
+            "client_id": IGDB_CLIENT_ID,
+            "client_secret": IGDB_CLIENT_SECRET,
+            "grant_type": "client_credentials",
+        }
+        self.masked_params = self._mask_sensitive_values(self.params)
+        self.timeout = 10
+
     async def _update_twitch_token(self) -> str:
         token = None
         expires_in = 0
@@ -604,14 +672,16 @@ class TwitchAuth:
 
         httpx_client = ctx_httpx_client.get()
         try:
+            log.debug(
+                "API request: URL=%s, Params=%s, Timeout=%s",
+                self.BASE_URL,
+                self.masked_params,
+                self.timeout,
+            )
             res = await httpx_client.post(
-                url="https://id.twitch.tv/oauth2/token",
-                params={
-                    "client_id": IGDB_CLIENT_ID,
-                    "client_secret": IGDB_CLIENT_SECRET,
-                    "grant_type": "client_credentials",
-                },
-                timeout=10,
+                url=self.BASE_URL,
+                params=self.params,
+                timeout=self.timeout,
             )
 
             if res.status_code == 400:
@@ -655,7 +725,16 @@ class TwitchAuth:
         return token
 
 
-PLATFORMS_FIELDS = ["id", "name"]
+PLATFORMS_FIELDS = [
+    "id",
+    "name",
+    "category",
+    "generation",
+    "url",
+    "platform_family.name",
+    "platform_family.slug",
+    "platform_logo.url",
+]
 
 GAMES_FIELDS = [
     "id",
@@ -706,6 +785,7 @@ GAMES_FIELDS = [
     "similar_games.name",
     "similar_games.cover.url",
     "age_ratings.rating",
+    "videos.video_id",
 ]
 
 SEARCH_FIELDS = ["game.id", "name"]
@@ -935,6 +1015,16 @@ IGDB_PLATFORM_LIST = [
     {"slug": "airconsole", "name": "AirConsole"},
 ]
 
+IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
+    0: "Unknown",
+    1: "Console",
+    2: "Arcade",
+    3: "Platform",
+    4: "Operative System",
+    5: "Portable Console",
+    6: "Computer",
+}
+
 IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     1: {
         "rating": "Three",
@@ -1054,17 +1144,17 @@ IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     24: {
         "rating": "GRAC_Twelve",
         "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_twelve.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_12.png",
     },
     25: {
         "rating": "GRAC_Fifteen",
         "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_fifteen.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_15.png",
     },
     26: {
         "rating": "GRAC_Eighteen",
         "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_eighteen.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_18.png",
     },
     27: {
         "rating": "GRAC_TESTING",
@@ -1074,17 +1164,17 @@ IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     28: {
         "rating": "CLASS_IND_L",
         "category": "CLASS_IND",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_l.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_l.png",
     },
     29: {
         "rating": "CLASS_IND_Ten",
         "category": "CLASS_IND",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_ten.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_10.png",
     },
     30: {
         "rating": "CLASS_IND_Twelve",
         "category": "CLASS_IND",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/classind/classind_twelve.png",
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_12.png",
     },
     31: {
         "rating": "ACB_G",

@@ -31,7 +31,7 @@ async function updatePlatform({
 }: {
   platform: Platform;
 }): Promise<{ data: MessageResponse }> {
-  return api.delete(`/platforms/${platform.id}`);
+  return api.put(`/platforms/${platform.id}`, platform);
 }
 
 async function deletePlatform({

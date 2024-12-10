@@ -112,17 +112,26 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
 
 
 @protected_route(router.put, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
-async def update_platform(request: Request) -> MessageResponse:
+async def update_platform(request: Request, id: int) -> MessageResponse:
     """Update platform endpoint
 
     Args:
         request (Request): Fastapi Request object
+        id (int): Platform id
 
     Returns:
         MessageResponse: Standard message response
     """
+    data = await request.json()
+    platform_db = db_platform_handler.get_platform(id)
 
-    return {"msg": "Enpoint not available yet"}
+    if not platform_db:
+        raise PlatformNotFoundInDatabaseException(id)
+
+    platform_db.aspect_ratio = data.get("aspect_ratio", platform_db.aspect_ratio)
+    db_platform_handler.add_platform(platform_db)
+
+    return {"msg": "Platform updated successfully"}
 
 
 @protected_route(router.delete, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
