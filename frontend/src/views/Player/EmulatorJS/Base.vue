@@ -72,9 +72,10 @@ onMounted(async () => {
       null;
   } else if (rom.value.user_states) {
     // Otherwise auto select most recent state by last updated date
-    stateRef.value = rom.value.user_states?.sort((a, b) =>
-      b.updated_at.localeCompare(a.updated_at),
-    )[0];
+    stateRef.value =
+      rom.value.user_states?.sort((a, b) =>
+        b.updated_at.localeCompare(a.updated_at),
+      )[0] ?? null;
   }
 
   const storedBiosID = localStorage.getItem(
