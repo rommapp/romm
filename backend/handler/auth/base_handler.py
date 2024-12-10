@@ -114,6 +114,7 @@ class AuthHandler:
 
         return user
 
+
 class OAuthHandler:
     def __init__(self) -> None:
         pass
@@ -185,11 +186,11 @@ class OpenIDHandler:
         if OIDC_SERVER_APPLICATION_URL not in str(iss):
             raise OAuthCredentialsException
 
-        username = payload.claims.get("preferred_username")
-        if username is None:
+        email = payload.claims.get("email")
+        if email is None:
             raise OAuthCredentialsException
 
-        user = db_user_handler.get_user_by_username(username)
+        user = db_user_handler.get_user_by_email(email)
         if user is None:
             raise OAuthCredentialsException
 
