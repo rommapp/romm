@@ -11,8 +11,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref, watch, onMounted } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();
 const auth = storeAuth();
 const romsStore = storeRoms();
@@ -172,9 +174,7 @@ onMounted(() => {
         </v-list-item>
       </template>
       <template #no-data
-        ><span
-          >No firmware found for {{ currentPlatform?.name }}</span
-        ></template
+        ><span>{{ t("platform.no-firmware-found") }}</span></template
       >
       <template #item.actions="{ item }">
         <v-btn-group divided density="compact">

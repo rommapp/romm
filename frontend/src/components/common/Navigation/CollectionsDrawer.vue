@@ -8,8 +8,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
@@ -42,7 +44,7 @@ function clear() {
         @click:clear="clear"
         @update:model-value=""
         single-line
-        label="Search collection"
+        :label="t('collection.search-collection')"
         variant="solo-filled"
         rounded="0"
       ></v-text-field>
@@ -63,7 +65,7 @@ function clear() {
         size="large"
         rounded="0"
         block
-        >Add Collection</v-btn
+        >{{ t("collection.add-collection") }}</v-btn
       >
     </template>
   </v-navigation-drawer>

@@ -11,8 +11,10 @@ import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const theme = useTheme();
 const { lgAndUp, mdAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
@@ -163,7 +165,7 @@ function closeDialog() {
               <v-text-field
                 v-model="rom.name"
                 class="py-2"
-                label="Name"
+                :label="t('rom.name')"
                 variant="outlined"
                 required
                 hide-details
@@ -177,7 +179,7 @@ function closeDialog() {
                 v-model="rom.file_name"
                 class="py-2"
                 :rules="[(value: string) => !!value]"
-                label="Filename"
+                :label="rom.multi ? t('rom.foldername') : t('rom.filename')"
                 variant="outlined"
                 required
                 @keyup.enter="updateRom()"
@@ -200,7 +202,7 @@ function closeDialog() {
               <v-textarea
                 v-model="rom.summary"
                 class="py-2"
-                label="Summary"
+                :label="t('rom.summary')"
                 variant="outlined"
                 required
                 hide-details
@@ -272,12 +274,14 @@ function closeDialog() {
           variant="flat"
           @click="unmatchRom"
         >
-          Unmatch Rom
+          {{ t("rom.unmatch-rom") }}
         </v-btn>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-            Save
+            {{ t("common.apply") }}
           </v-btn>
         </v-btn-group>
       </v-row>

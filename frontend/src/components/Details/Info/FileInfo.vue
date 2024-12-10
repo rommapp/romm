@@ -6,8 +6,10 @@ import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const romUser = ref(props.rom.rom_user);
@@ -39,8 +41,8 @@ watch(
         class="align-center my-3"
         no-gutters
       >
-        <v-col cols="3" xl="2">
-          <span>Version</span>
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>{{ t("rom.version") }}</span>
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
@@ -49,7 +51,7 @@ watch(
               location="top"
               class="tooltip"
               transition="fade-transition"
-              text="Set as default version"
+              :text="t('rom.set-as-default')"
               open-delay="300"
             >
               <template #activator="{ props }">
@@ -58,7 +60,6 @@ watch(
                   variant="flat"
                   rounded="0"
                   size="small"
-                  class="ml-2"
                   @click="toggleMainSibling"
                   ><v-icon
                     :class="romUser.is_main_sibling ? '' : 'mr-1'"
@@ -68,7 +69,7 @@ watch(
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
                     }}</v-icon
-                  >{{ romUser.is_main_sibling ? "" : "Default" }}</v-btn
+                  >{{ romUser.is_main_sibling ? "" : t("rom.default") }}</v-btn
                 >
               </template></v-tooltip
             >
@@ -76,16 +77,16 @@ watch(
         </v-col>
       </v-row>
       <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
-        <v-col cols="3" xl="2">
-          <span>File</span>
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>{{ t("rom.file") }}</span>
         </v-col>
         <v-col>
           <span class="text-body-1">{{ rom.file_name }}</span>
         </v-col>
       </v-row>
       <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
-        <v-col cols="3" xl="2">
-          <span>Files</span>
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>{{ t("rom.files") }}</span>
         </v-col>
         <v-col>
           <v-select
@@ -105,14 +106,14 @@ watch(
         </v-col>
       </v-row>
       <v-row no-gutters class="align-center my-3">
-        <v-col cols="3" xl="2">
-          <span>Info</span>
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>{{ t("rom.info") }}</span>
         </v-col>
         <v-col class="my-1">
           <v-row no-gutters>
             <v-col cols="12">
               <v-chip size="small" class="mr-2 px-0" label>
-                <v-chip label>Size</v-chip
+                <v-chip label>{{ t("rom.size") }}</v-chip
                 ><span class="px-2">{{
                   formatBytes(rom.file_size_bytes)
                 }}</span>
@@ -132,8 +133,8 @@ watch(
         </v-col>
       </v-row>
       <v-row v-if="rom.tags.length > 0" class="align-center my-3" no-gutters>
-        <v-col cols="3" xl="2">
-          <span>Tags</span>
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>{{ t("rom.tags") }}</span>
         </v-col>
         <v-col>
           <v-chip

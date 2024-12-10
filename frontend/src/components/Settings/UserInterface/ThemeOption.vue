@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 withDefaults(defineProps<{ text: string; icon: string }>(), {
   text: "",
@@ -20,7 +23,7 @@ withDefaults(defineProps<{ text: string; icon: string }>(), {
         <v-icon>
           {{ icon }}
         </v-icon>
-        <span class="ml-2" v-if="!xs">{{ text }}</span>
+        <span class="ml-2" v-if="!xs">{{ t(`settings.theme-${text}`) }}</span>
       </div>
     </v-card>
   </v-item>

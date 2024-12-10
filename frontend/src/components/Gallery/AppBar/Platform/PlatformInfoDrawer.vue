@@ -14,8 +14,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const { xs } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
@@ -42,16 +44,16 @@ const aspectRatioOptions = computed(() => [
   {
     name: "1 / 1",
     size: 1 / 1,
-    source: "Old squared cases",
+    source: t("platform.old-squared-cases"),
   },
 ]);
 
 const platformInfoFields = [
   { key: "slug", label: "Slug" },
-  { key: "fs_slug", label: "Filesystem folder name" },
-  { key: "category", label: "Category" },
-  { key: "generation", label: "Generation" },
-  { key: "family_name", label: "Family" },
+  { key: "fs_slug", label: t("platform.filesystem-folder-name") },
+  { key: "category", label: t("platform.category") },
+  { key: "generation", label: t("platform.generation") },
+  { key: "family_name", label: t("platform.family") },
 ];
 
 watch(
@@ -148,7 +150,7 @@ async function setAspectRatio() {
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
-              Upload roms
+              {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn
               :disabled="scanning"
@@ -162,7 +164,7 @@ async function setAspectRatio() {
                   >mdi-magnify-scan</v-icon
                 >
               </template>
-              Scan platform
+              {{ t("scan.scan") }}
               <template #loader>
                 <v-progress-circular
                   color="romm-accent-1"
@@ -228,7 +230,7 @@ async function setAspectRatio() {
     <r-section
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-cog"
-      title="Settings"
+      :title="t('platform.settings')"
       elevation="0"
     >
       <template #content>
@@ -237,7 +239,7 @@ async function setAspectRatio() {
           variant="text"
           class="ml-2"
           prepend-icon="mdi-aspect-ratio"
-          >Cover style</v-chip
+          >{{ t("platform.cover-style") }}</v-chip
         >
         <v-divider class="border-opacity-25 mx-2" />
         <v-item-group
@@ -285,7 +287,7 @@ async function setAspectRatio() {
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-alert"
       icon-color="red"
-      title="Danger zone"
+      :title="t('platform.danger-zone')"
       elevation="0"
     >
       <template #content>
@@ -296,7 +298,7 @@ async function setAspectRatio() {
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
           >
             <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
-            Delete platform
+            {{ t("platform.delete-platform") }}
           </v-btn>
         </div>
       </template>

@@ -11,8 +11,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const viewportWidth = ref(window.innerWidth);
@@ -28,11 +30,7 @@ const collectionInfoFields = [
   },
   {
     key: "user__username",
-    label: "Owner",
-  },
-  {
-    key: "is_public",
-    label: "Public",
+    label: t("collection.owner"),
   },
 ];
 </script>
@@ -63,7 +61,17 @@ const collectionInfoFields = [
           <p class="text-subtitle-2">
             <span>{{ currentCollection.description }}</span>
           </p>
-          <div class="mt-6">
+          <v-chip class="mt-4" size="small" color="romm-accent-1"
+            ><v-icon class="mr-1">{{
+              currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
+            }}</v-icon
+            >{{
+              currentCollection.is_public
+                ? t("collection.public")
+                : t("collection.private")
+            }}</v-chip
+          >
+          <div class="mt-4">
             <v-btn
               v-if="currentCollection.user__username === auth.user?.username"
               rounded="4"
@@ -77,7 +85,7 @@ const collectionInfoFields = [
               <template #prepend>
                 <v-icon>mdi-pencil-box</v-icon>
               </template>
-              Edit collection
+              {{ t("collection.edit-collection") }}
             </v-btn>
           </div>
         </div>
@@ -118,7 +126,7 @@ const collectionInfoFields = [
       "
       icon="mdi-alert"
       icon-color="red"
-      title="Danger zone"
+      :title="t('collection.danger-zone')"
       elevation="0"
     >
       <template #content>
@@ -131,7 +139,7 @@ const collectionInfoFields = [
             "
           >
             <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
-            Delete collection
+            {{ t("collection.delete-collection") }}
           </v-btn>
         </div>
       </template>

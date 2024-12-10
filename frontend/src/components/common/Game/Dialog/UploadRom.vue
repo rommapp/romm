@@ -13,8 +13,10 @@ import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs, mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
@@ -184,7 +186,7 @@ watch(itemsPerPage, async () => {
         <v-col cols="10" sm="8" lg="9">
           <v-autocomplete
             v-model="selectedPlatform"
-            label="Platform"
+            :label="t('common.platform')"
             item-title="name"
             :items="supportedPlatforms"
             return-object
@@ -232,7 +234,7 @@ watch(itemsPerPage, async () => {
             @click="triggerFileInput"
           >
             <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
-            ><span v-if="!xs">Add</span>
+            ><span v-if="!xs">{{ t("common.add") }}</span>
           </v-btn>
           <v-file-input
             id="file-input"
@@ -315,7 +317,9 @@ watch(itemsPerPage, async () => {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">{{
+            t("common.cancel")
+          }}</v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
             :disabled="filesToUpload.length == 0 || selectedPlatform == null"
@@ -326,7 +330,7 @@ watch(itemsPerPage, async () => {
             "
             @click="uploadRoms"
           >
-            Upload
+            {{ t("common.upload") }}
           </v-btn>
         </v-btn-group>
       </v-row>

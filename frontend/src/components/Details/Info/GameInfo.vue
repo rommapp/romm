@@ -7,14 +7,21 @@ import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
-const filters = ["genres", "franchises", "collections", "companies"] as const;
+const filters = [
+  { value: "genres", name: t("rom.genres") },
+  { value: "franchises", name: t("rom.franchises") },
+  { value: "collections", name: t("rom.collections") },
+  { value: "companies", name: t("rom.companies") },
+] as const;
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 
@@ -36,7 +43,7 @@ function onFilterClick(filter: FilterType, value: string) {
         no-gutters
         class="align-center my-3"
       >
-        <v-col cols="3" xl="2">
+        <v-col cols="3" xl="2" class="mr-2">
           <span>RomM Collections</span>
         </v-col>
         <v-col>
@@ -62,18 +69,18 @@ function onFilterClick(filter: FilterType, value: string) {
       </v-row>
       <template v-for="filter in filters" :key="filter">
         <v-row
-          v-if="rom[filter].length > 0"
+          v-if="rom[filter.value].length > 0"
           class="align-center my-3"
           no-gutters
         >
-          <v-col cols="3" xl="2" class="text-capitalize">
-            <span>{{ filter }}</span>
+          <v-col cols="3" xl="2" class="text-capitalize mr-2">
+            <span>{{ filter.name }}</span>
           </v-col>
           <v-col>
             <v-chip
-              v-for="value in rom[filter]"
+              v-for="value in rom[filter.value]"
               :key="value"
-              @click="onFilterClick(filter, value)"
+              @click="onFilterClick(filter.value, value)"
               size="small"
               variant="outlined"
               class="my-1 mr-2"
@@ -95,7 +102,7 @@ function onFilterClick(filter: FilterType, value: string) {
           <v-col cols="3" xl="2" class="text-capitalize">
             <span>Age Rating</span>
           </v-col>
-          <div class="d-flex">
+          <div class="d-flex" :class="{ 'my-2': xs }">
             <v-img
               v-for="value in rom.igdb_metadata.age_ratings"
               :key="value.rating"

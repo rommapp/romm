@@ -10,8 +10,10 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const configStore = storeConfig();
@@ -101,7 +103,7 @@ function closeDialog() {
           <v-select
             :items="heartbeat.value.FS_PLATFORMS"
             v-model="fsSlugToCreate"
-            label="Platform version"
+            :label="t('settings.platform-version')"
             variant="outlined"
             required
             hide-details
@@ -115,7 +117,7 @@ function closeDialog() {
           <v-autocomplete
             v-model="selectedPlatform"
             class="text-romm-accent-1"
-            label="Main platform"
+            :label="t('settings.main-platform')"
             color="romm-accent-1"
             :items="supportedPlatforms"
             base-color="romm-accent-1"
@@ -160,7 +162,9 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
             :disabled="fsSlugToCreate == '' || selectedPlatform?.slug == ''"
@@ -171,7 +175,7 @@ function closeDialog() {
             "
             @click="addVersionPlatform"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

@@ -5,44 +5,46 @@ import ExcludedCard from "@/components/Settings/LibraryManagement/ExcludedCard.v
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const configStore = storeConfig();
 const authStore = storeAuth();
 const exclusions = [
   {
     set: configStore.config.EXCLUDED_PLATFORMS,
-    title: "Platform",
+    title: t("common.platform"),
     icon: "mdi-controller-off",
     type: "EXCLUDED_PLATFORMS",
   },
   {
     set: configStore.config.EXCLUDED_SINGLE_FILES,
-    title: "Single rom files",
+    title: t("settings.excluded-single-rom-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_SINGLE_FILES",
   },
   {
     set: configStore.config.EXCLUDED_SINGLE_EXT,
-    title: "Single Roms Extensions",
+    title: t("settings.excluded-single-rom-extensions"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_SINGLE_EXT",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_FILES,
-    title: "Multi Roms Files",
+    title: t("settings.excluded-multi-rom-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_FILES",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_PARTS_FILES,
-    title: "Multi Roms Parts Files",
+    title: t("settings.excluded-multi-rom-parts-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_PARTS_FILES",
   },
   {
     set: configStore.config.EXCLUDED_MULTI_PARTS_EXT,
-    title: "Multi Roms Parts Extensions",
+    title: t("settings.excluded-multi-rom-parts-extensions"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_PARTS_EXT",
   },
@@ -50,7 +52,7 @@ const exclusions = [
 const editable = ref(false);
 </script>
 <template>
-  <r-section icon="mdi-cancel" title="Excluded">
+  <r-section icon="mdi-cancel" :title="t('settings.excluded')">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"

@@ -9,8 +9,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay, useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const theme = useTheme();
 const { smAndDown, mdAndUp, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -116,7 +118,7 @@ function closeDialog() {
               <v-text-field
                 v-model="collection.name"
                 class="py-2"
-                label="Name"
+                :label="t('collection.name')"
                 variant="outlined"
                 required
                 hide-details
@@ -129,7 +131,7 @@ function closeDialog() {
               <v-text-field
                 v-model="collection.description"
                 class="py-2"
-                label="Description"
+                :label="t('collection.description')"
                 variant="outlined"
                 required
                 hide-details
@@ -147,11 +149,10 @@ function closeDialog() {
                 true-icon="mdi-lock-open"
                 inset
                 hide-details
-                message="Public (visible to everyone)"
                 :label="
                   collection.is_public
-                    ? 'Public (visible to everyone)'
-                    : 'Private (only visible to me)'
+                    ? t('collection.public-desc')
+                    : t('collection.private-desc')
                 "
               />
             </v-col>
@@ -221,9 +222,11 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center pa-2 mt-1" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn class="text-romm-green bg-terciary" @click="editCollection">
-            Update
+            {{ t("common.update") }}
           </v-btn>
         </v-btn-group>
       </v-row>
