@@ -11,6 +11,10 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["./src/plugins/pinia.d.ts", "./src/types/main.d.ts"]
+    "types": [
+      "./src/plugins/pinia.d.ts",
+      "./src/types/main.d.ts",
+      "vite/client"
+    ]
   }
 }
