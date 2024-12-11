@@ -11,15 +11,9 @@ import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import ViewLoader from "@/components/common/ViewLoader.vue";
-import router from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
-import api from "@/services/api/index";
 import platformApi from "@/services/api/platform";
-import userApi from "@/services/api/user";
-import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
-import storeConfig from "@/stores/config";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
@@ -27,10 +21,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeMount } from "vue";
 
 // Props
-const heartbeat = storeHeartbeat();
-const configStore = storeConfig();
 const navigationStore = storeNavigation();
-const auth = storeAuth();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -41,26 +32,6 @@ emitter?.on("refreshDrawer", async () => {
 
 // Functions
 onBeforeMount(async () => {
-  await api.get("/heartbeat").then(async ({ data: data }) => {
-    heartbeat.set(data);
-    if (heartbeat.value.SHOW_SETUP_WIZARD) {
-      router.push({ name: "setup" });
-    } else {
-      await userApi
-        .fetchCurrentUser()
-        .then(({ data: user }) => {
-          auth.setUser(user);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
-
-      await api.get("/config").then(({ data: data }) => {
-        configStore.set(data);
-      });
-    }
-  });
-
   await platformApi
     .getPlatforms()
     .then(({ data: platforms }) => {
