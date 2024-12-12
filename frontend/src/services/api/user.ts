@@ -48,6 +48,7 @@ async function updateUser({
       params: {
         username: attrs.username,
         password: attrs.password,
+        email: attrs.email,
         enabled: attrs.enabled,
         role: attrs.role,
       },

@@ -186,18 +186,22 @@ class OpenIDHandler:
         try:
             payload = jwt.decode(id_token, self.rsa_key, algorithms=["RS256"])
         except (BadSignatureError, ValueError) as exc:
+            print("Error decoding token")
             raise OAuthCredentialsException from exc
 
         iss = payload.claims.get("iss")
         if OIDC_SERVER_APPLICATION_URL not in str(iss):
+            print("Invalid issuer")
             raise OAuthCredentialsException
 
         email = payload.claims.get("email")
         if email is None:
+            print("No email")
             raise OAuthCredentialsException
 
         user = db_user_handler.get_user_by_email(email)
         if user is None:
+            print("User not found")
             raise OAuthCredentialsException
 
         if not user.enabled:
